@@ -36,12 +36,13 @@ const nav = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, lang, setLang, dir } = useI18n();
-  const { user, signOut } = useAuth();
+  const { user, signOut, hasRole } = useAuth();
   const nav_ = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (to: string) => path.startsWith(to);
+  const isCeo = hasRole("ceo");
 
   const sidebar = (
     <nav className="flex h-full flex-col gap-1 p-3">
@@ -49,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">PHC</div>
         <div className="mt-1 text-sm font-semibold text-foreground">{t("area_sales_agent")}</div>
       </div>
-      {nav.map((n) => {
+      {nav.filter((n) => !("ceoOnly" in n && n.ceoOnly) || isCeo).map((n) => {
         const Icon = n.icon;
         const active = isActive(n.to);
         return (
