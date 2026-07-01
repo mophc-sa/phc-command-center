@@ -373,8 +373,10 @@ function OpportunityDetail() {
           <EmptyState message={t("empty_evidence")} />
         )}
       </Panel>
+      )}
 
       {/* 5. FOLLOW-UPS */}
+      {show("follow_up") && (
       <Panel title={t("section_follow_ups")}>
         {followUpsQ.data && followUpsQ.data.length > 0 ? (
           <ul className="divide-y divide-border/60">
