@@ -188,7 +188,11 @@ function OpportunityDetail() {
         <span className="truncate text-foreground">{o.project_name}</span>
       </div>
 
+      {/* Activity Timeline filters */}
+      <TimelineFilterBar value={filter} onChange={setFilter} t={t} />
+
       {/* 1. ALERT — headline + recommendation */}
+      {show("alert") && (
       <Panel
         title={t("section_alert")}
         tone={recTone === "attention" || recTone === "danger" ? "attention" : "default"}
