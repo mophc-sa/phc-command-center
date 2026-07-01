@@ -83,6 +83,7 @@ function CommandCenter() {
         title: o?.project_name ?? "—",
         subtitle: o?.client ?? undefined,
         reason: lang === "ar" ? "بانتظار الاعتماد" : "Qualification awaiting approval",
+        due: undefined as string | undefined,
         tier: (o?.tier ?? "A") as "A" | "B" | "C",
         value: o ? formatCurrency(o.estimated_value_max, lang, o.currency) : undefined,
         oppId: o?.id,
