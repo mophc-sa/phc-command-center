@@ -333,13 +333,9 @@ function OpportunityDetail() {
             {evidenceQ.data.map((e: any) => (
               <li
                 key={e.id}
-                className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] gap-3 py-3 transition-colors hover:bg-muted/40 -mx-2 px-2 rounded"
+                className="-mx-2 grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] gap-3 rounded px-2 py-3 transition-colors hover:bg-muted/40"
                 onClick={() => setEvidenceOpen(e)}
               >
-        {evidenceQ.data && evidenceQ.data.length > 0 ? (
-          <ul className="divide-y divide-border/60">
-            {evidenceQ.data.map((e: any) => (
-              <li key={e.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 py-3">
                 <FileText className="mt-0.5 h-4 w-4 text-muted-foreground" />
                 <div className="min-w-0">
                   <div className="truncate text-sm text-foreground">{e.source_title || e.source_type}</div>
