@@ -81,7 +81,7 @@ function FollowUpsPage() {
                     {f.due_date}
                   </div>
                   <button
-                    onClick={() => setCompleteId(f.id)}
+                    onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })}
                     className="rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs text-amber-light hover:bg-amber/20"
                   >
                     {t("action_complete")}
@@ -94,15 +94,19 @@ function FollowUpsPage() {
       )}
 
       <ActionDialog
-        open={!!completeId}
-        onOpenChange={(v) => !v && setCompleteId(null)}
+        open={!!completeFor}
+        onOpenChange={(v) => !v && setCompleteFor(null)}
         title={t("dialog_complete_title")}
         description={t("dialog_complete_desc")}
         submitLabel={t("action_complete")}
-        fields={[{ key: "notes", type: "textarea", label: t("field_notes") }]}
+        fields={[{ key: "outcome", type: "textarea", label: t("field_outcome"), required: true }]}
         onSubmit={async (v) => {
           try {
-            await completeFollowUp({ followUpId: completeId!, notes: v.notes });
+            await completeFollowUp({
+              followUpId: completeFor!.id,
+              opportunityId: completeFor!.oppId,
+              outcome: v.outcome,
+            });
             toast.success(t("toast_complete_ok"));
             qc.invalidateQueries({ queryKey: ["all-followups"] });
             qc.invalidateQueries({ queryKey: ["cc-metrics"] });
