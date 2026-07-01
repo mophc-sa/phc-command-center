@@ -161,7 +161,7 @@ function ApprovalsPage() {
                   ) : null}
                 </div>
                 <div className="flex gap-2 text-xs">
-                  {pending ? (
+                  {pending && canDecide ? (
                     <>
                       <button
                         className="rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-amber-light hover:bg-amber/20"
