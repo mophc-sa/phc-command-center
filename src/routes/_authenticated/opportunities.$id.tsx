@@ -425,8 +425,10 @@ function OpportunityDetail() {
           <EmptyState message={t("empty_follow_ups")} />
         )}
       </Panel>
+      )}
 
-      {/* 6. APPROVALS & DECISIONS */}
+      {/* 6. APPROVALS & DECISIONS + logged outcomes */}
+      {(show("decision") || show("outcome")) && (
       <Panel title={t("section_approvals")}>
         {approvalsQ.data && approvalsQ.data.length > 0 ? (
           <ul className="divide-y divide-border/60">
