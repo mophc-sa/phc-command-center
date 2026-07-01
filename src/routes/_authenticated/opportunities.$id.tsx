@@ -64,9 +64,39 @@ function recToTone(r: string | null | undefined): "attention" | "positive" | "da
   }
 }
 
+type ActionKind = "review" | "approve" | "schedule" | "assign" | "escalate" | null;
+
 function OpportunityDetail() {
   const { id } = Route.useParams();
   const { t, lang, dir } = useI18n();
+  const qc = useQueryClient();
+  const [action, setAction] = useState<ActionKind>(null);
+  const [completeId, setCompleteId] = useState<string | null>(null);
+  const [decideFor, setDecideFor] = useState<{ id: string; kind: "approved" | "returned" } | null>(
+    null,
+  );
+
+  const teamQ = useQuery({ queryKey: ["team"], queryFn: listTeamMembers });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["opp", id] });
+    qc.invalidateQueries({ queryKey: ["opp-fu", id] });
+    qc.invalidateQueries({ queryKey: ["opp-app", id] });
+    qc.invalidateQueries({ queryKey: ["cc-metrics"] });
+    qc.invalidateQueries({ queryKey: ["all-followups"] });
+    qc.invalidateQueries({ queryKey: ["approvals"] });
+  };
+
+  const runSafe = async (fn: () => Promise<unknown>, okKey: Parameters<typeof t>[0]) => {
+    try {
+      await fn();
+      toast.success(t(okKey));
+      invalidate();
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    }
+  };
+
 
   const oppQ = useQuery({
     queryKey: ["opp", id],
