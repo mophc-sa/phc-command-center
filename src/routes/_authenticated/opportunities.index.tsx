@@ -6,7 +6,7 @@ import { OpportunityCard, type OpportunityRow } from "@/components/phc/Opportuni
 import { SectionHeader } from "@/components/phc/SectionHeader";
 import { EmptyState } from "@/components/phc/EmptyState";
 
-export const Route = createFileRoute("/_authenticated/opportunities")({
+export const Route = createFileRoute("/_authenticated/opportunities/")({
   head: () => ({
     meta: [
       { title: "Opportunities — PHC" },
