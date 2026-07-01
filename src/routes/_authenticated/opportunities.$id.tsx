@@ -1,11 +1,24 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatCurrency, formatNumber, type Lang } from "@/lib/i18n";
 import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
+import {
+  requestReview,
+  scheduleFollowUp,
+  assignOwner,
+  escalateOpportunity,
+  completeFollowUp,
+  listTeamMembers,
+  decideApproval,
+  updateOpportunityStage,
+} from "@/lib/opportunity-actions";
 import { ArrowLeft, ArrowRight, ExternalLink, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
