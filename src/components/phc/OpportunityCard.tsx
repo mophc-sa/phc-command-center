@@ -24,7 +24,11 @@ export function OpportunityCard({ o, lang }: { o: OpportunityRow; lang: Lang }) 
     o.quotation_value ??
     (o.estimated_value_max ?? o.estimated_value_min);
   return (
-    <div className="rounded-lg border border-border bg-surface p-4 transition-colors hover:border-structural">
+    <Link
+      to="/opportunities/$id"
+      params={{ id: o.id }}
+      className="block rounded-lg border border-border bg-surface p-4 transition-colors hover:border-structural focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber/40"
+    >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -50,7 +54,7 @@ export function OpportunityCard({ o, lang }: { o: OpportunityRow; lang: Lang }) 
           <span className="text-amber-light">Next:</span> {o.next_action}
         </div>
       ) : null}
-    </div>
+    </Link>
   );
 }
 
