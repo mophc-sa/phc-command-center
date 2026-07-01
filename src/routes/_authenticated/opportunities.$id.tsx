@@ -484,8 +484,10 @@ function OpportunityDetail() {
           <EmptyState message={t("empty_approvals")} />
         )}
       </Panel>
+      )}
 
       {/* 7. REASONING */}
+      {show("decision") && (
       <Panel title={t("section_reasoning")}>
         <div className="grid gap-4">
           <DataField label={t("label_recommendation")} value={humanize(o.agent_recommendation)} />
