@@ -233,11 +233,11 @@ function OpportunityDetail() {
           </div>
 
           <div className="flex flex-wrap gap-2 pt-2">
-            <ActionButton primary>{t("action_review")}</ActionButton>
-            <ActionButton>{t("action_approve")}</ActionButton>
-            <ActionButton>{t("action_schedule")}</ActionButton>
-            <ActionButton>{t("action_assign")}</ActionButton>
-            <ActionButton>{t("action_escalate")}</ActionButton>
+            <ActionButton primary onClick={() => setAction("review")}>{t("action_review")}</ActionButton>
+            <ActionButton onClick={() => setAction("approve")}>{t("action_approve")}</ActionButton>
+            <ActionButton onClick={() => setAction("schedule")}>{t("action_schedule")}</ActionButton>
+            <ActionButton onClick={() => setAction("assign")}>{t("action_assign")}</ActionButton>
+            <ActionButton onClick={() => setAction("escalate")}>{t("action_escalate")}</ActionButton>
           </div>
         </div>
       </Panel>
