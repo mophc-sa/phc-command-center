@@ -614,6 +614,7 @@ function OpportunityDetail() {
               submitLabel={t("action_schedule")}
               fields={[
                 { key: "due", type: "date", label: t("field_due_date"), required: true, defaultValue: tomorrow },
+                { key: "owner", type: "select", label: t("field_owner"), options: teamOpts, defaultValue: currentOwner },
                 { key: "channel", type: "select", label: t("field_channel"), options: channelOpts, defaultValue: "call" },
                 { key: "cadence", type: "select", label: t("field_cadence"), options: cadenceOpts, defaultValue: o.tier ?? "B" },
                 notesField,
@@ -627,6 +628,7 @@ function OpportunityDetail() {
                       channel: v.channel || undefined,
                       cadenceTier: (v.cadence as "A" | "B" | "C") || "B",
                       notes: v.notes,
+                      ownerId: v.owner === "__none__" ? null : v.owner,
                     }),
                   "toast_schedule_ok",
                 )
@@ -675,11 +677,39 @@ function OpportunityDetail() {
               title={t("dialog_complete_title")}
               description={t("dialog_complete_desc")}
               submitLabel={t("action_complete")}
-              fields={[notesField]}
+              fields={[{ key: "outcome", type: "textarea", label: t("field_outcome"), required: true }]}
               onSubmit={(v) =>
                 runSafe(
-                  () => completeFollowUp({ followUpId: completeId!, notes: v.notes }),
+                  () =>
+                    completeFollowUp({
+                      followUpId: completeId!,
+                      opportunityId: id,
+                      outcome: v.outcome,
+                    }),
                   "toast_complete_ok",
+                )
+              }
+            />
+            <ActionDialog
+              open={!!rescheduleId}
+              onOpenChange={(v) => !v && setRescheduleId(null)}
+              title={t("dialog_reschedule_title")}
+              description={t("dialog_reschedule_desc")}
+              submitLabel={t("action_reschedule")}
+              fields={[
+                { key: "due", type: "date", label: t("field_due_date"), required: true, defaultValue: tomorrow },
+                notesField,
+              ]}
+              onSubmit={(v) =>
+                runSafe(
+                  () =>
+                    rescheduleFollowUp({
+                      followUpId: rescheduleId!,
+                      opportunityId: id,
+                      dueDate: v.due,
+                      notes: v.notes,
+                    }),
+                  "toast_reschedule_ok",
                 )
               }
             />
