@@ -212,6 +212,44 @@ export const strings = {
   toast_escalate_ok: { en: "Escalated to management", ar: "تم التصعيد للإدارة" },
   toast_complete_ok: { en: "Follow-up completed", ar: "تمت المتابعة" },
   toast_error: { en: "Action failed", ar: "تعذّر تنفيذ الإجراء" },
+
+  // Team & Permissions
+  team_intro: {
+    en: "Grant and revoke roles for your team. Managers (CEO, Sales Manager) can change roles.",
+    ar: "منح وسحب الأدوار لأعضاء الفريق. يمكن للمديرين (الرئيس التنفيذي، مدير المبيعات) تعديل الأدوار.",
+  },
+  team_forbidden: {
+    en: "You do not have permission to manage team roles.",
+    ar: "لا تملك صلاحية إدارة أدوار الفريق.",
+  },
+  team_col_member: { en: "Member", ar: "العضو" },
+  team_col_roles: { en: "Roles", ar: "الأدوار" },
+  team_col_manage: { en: "Manage", ar: "إدارة" },
+  role_ceo: { en: "CEO", ar: "الرئيس التنفيذي" },
+  role_sales_manager: { en: "Sales Manager", ar: "مدير المبيعات" },
+  role_bd_manager: { en: "BD Manager", ar: "مدير التطوير" },
+  role_viewer: { en: "Viewer", ar: "قارئ" },
+  toast_role_granted: { en: "Role granted", ar: "تم منح الدور" },
+  toast_role_revoked: { en: "Role revoked", ar: "تم سحب الدور" },
+
+  // Activity timeline filters
+  timeline_all: { en: "All", ar: "الكل" },
+  timeline_alert: { en: "Alert", ar: "التنبيه" },
+  timeline_evidence: { en: "Evidence", ar: "الأدلة" },
+  timeline_decision: { en: "Decision", ar: "القرار" },
+  timeline_assignment: { en: "Assignment", ar: "التعيين" },
+  timeline_follow_up: { en: "Follow-up", ar: "المتابعة" },
+  timeline_outcome: { en: "Logged Outcome", ar: "النتيجة المسجلة" },
+
+  // Evidence viewer
+  evidence_viewer_title: { en: "Evidence detail", ar: "تفاصيل الدليل" },
+  evidence_open_source: { en: "Open source", ar: "فتح المصدر" },
+  evidence_no_url: { en: "No linked source URL.", ar: "لا يوجد رابط مصدر." },
+
+  // Approvals extras
+  action_escalate_short: { en: "Escalate", ar: "تصعيد" },
+  approvals_error: { en: "Could not load approvals.", ar: "تعذّر تحميل الاعتمادات." },
+  retry: { en: "Retry", ar: "إعادة المحاولة" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;
