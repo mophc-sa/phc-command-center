@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { StatusPill } from "./StatusPill";
 import { formatCurrency, type Lang } from "@/lib/i18n";
 
