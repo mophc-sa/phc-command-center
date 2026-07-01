@@ -15,12 +15,13 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
-import { Route as AuthenticatedOpportunitiesRouteImport } from './routes/_authenticated/opportunities'
 import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authenticated/follow-ups'
 import { Route as AuthenticatedDiscoveryRouteImport } from './routes/_authenticated/discovery'
 import { Route as AuthenticatedCommandCenterRouteImport } from './routes/_authenticated/command-center'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated/approvals'
 import { Route as AuthenticatedAgentActivityRouteImport } from './routes/_authenticated/agent-activity'
+import { Route as AuthenticatedOpportunitiesIndexRouteImport } from './routes/_authenticated/opportunities.index'
+import { Route as AuthenticatedOpportunitiesIdRouteImport } from './routes/_authenticated/opportunities.$id'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -51,12 +52,6 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedOpportunitiesRoute =
-  AuthenticatedOpportunitiesRouteImport.update({
-    id: '/opportunities',
-    path: '/opportunities',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedFollowUpsRoute = AuthenticatedFollowUpsRouteImport.update({
   id: '/follow-ups',
   path: '/follow-ups',
@@ -84,6 +79,18 @@ const AuthenticatedAgentActivityRoute =
     path: '/agent-activity',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedOpportunitiesIndexRoute =
+  AuthenticatedOpportunitiesIndexRouteImport.update({
+    id: '/opportunities/',
+    path: '/opportunities/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedOpportunitiesIdRoute =
+  AuthenticatedOpportunitiesIdRouteImport.update({
+    id: '/opportunities/$id',
+    path: '/opportunities/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -93,10 +100,11 @@ export interface FileRoutesByFullPath {
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
-  '/opportunities': typeof AuthenticatedOpportunitiesRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -106,10 +114,11 @@ export interface FileRoutesByTo {
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
-  '/opportunities': typeof AuthenticatedOpportunitiesRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/opportunities': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -121,10 +130,11 @@ export interface FileRoutesById {
   '/_authenticated/command-center': typeof AuthenticatedCommandCenterRoute
   '/_authenticated/discovery': typeof AuthenticatedDiscoveryRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
-  '/_authenticated/opportunities': typeof AuthenticatedOpportunitiesRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/_authenticated/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/_authenticated/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -136,10 +146,11 @@ export interface FileRouteTypes {
     | '/command-center'
     | '/discovery'
     | '/follow-ups'
-    | '/opportunities'
     | '/reports'
     | '/settings'
     | '/team'
+    | '/opportunities/$id'
+    | '/opportunities/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -149,10 +160,11 @@ export interface FileRouteTypes {
     | '/command-center'
     | '/discovery'
     | '/follow-ups'
-    | '/opportunities'
     | '/reports'
     | '/settings'
     | '/team'
+    | '/opportunities/$id'
+    | '/opportunities'
   id:
     | '__root__'
     | '/'
@@ -163,10 +175,11 @@ export interface FileRouteTypes {
     | '/_authenticated/command-center'
     | '/_authenticated/discovery'
     | '/_authenticated/follow-ups'
-    | '/_authenticated/opportunities'
     | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/team'
+    | '/_authenticated/opportunities/$id'
+    | '/_authenticated/opportunities/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -219,13 +232,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/opportunities': {
-      id: '/_authenticated/opportunities'
-      path: '/opportunities'
-      fullPath: '/opportunities'
-      preLoaderRoute: typeof AuthenticatedOpportunitiesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/follow-ups': {
       id: '/_authenticated/follow-ups'
       path: '/follow-ups'
@@ -261,6 +267,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentActivityRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/opportunities/': {
+      id: '/_authenticated/opportunities/'
+      path: '/opportunities'
+      fullPath: '/opportunities/'
+      preLoaderRoute: typeof AuthenticatedOpportunitiesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/opportunities/$id': {
+      id: '/_authenticated/opportunities/$id'
+      path: '/opportunities/$id'
+      fullPath: '/opportunities/$id'
+      preLoaderRoute: typeof AuthenticatedOpportunitiesIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -270,10 +290,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCommandCenterRoute: typeof AuthenticatedCommandCenterRoute
   AuthenticatedDiscoveryRoute: typeof AuthenticatedDiscoveryRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
-  AuthenticatedOpportunitiesRoute: typeof AuthenticatedOpportunitiesRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
+  AuthenticatedOpportunitiesIdRoute: typeof AuthenticatedOpportunitiesIdRoute
+  AuthenticatedOpportunitiesIndexRoute: typeof AuthenticatedOpportunitiesIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -282,10 +303,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCommandCenterRoute: AuthenticatedCommandCenterRoute,
   AuthenticatedDiscoveryRoute: AuthenticatedDiscoveryRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
-  AuthenticatedOpportunitiesRoute: AuthenticatedOpportunitiesRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
+  AuthenticatedOpportunitiesIdRoute: AuthenticatedOpportunitiesIdRoute,
+  AuthenticatedOpportunitiesIndexRoute: AuthenticatedOpportunitiesIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
