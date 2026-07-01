@@ -88,9 +88,11 @@ export async function scheduleFollowUp(input: {
   channel?: string;
   cadenceTier?: "A" | "B" | "C";
   notes?: string;
-  assignSelf?: boolean;
+  ownerId?: Uuid | null; // null = unassigned, undefined = self-assign
 }) {
-  const owner_id = input.assignSelf === false ? null : await currentUserId();
+  let owner_id: Uuid | null;
+  if (input.ownerId === undefined) owner_id = await currentUserId();
+  else owner_id = input.ownerId;
   const { data, error } = await supabase
     .from("follow_ups")
     .insert({
@@ -109,19 +111,61 @@ export async function scheduleFollowUp(input: {
   return data;
 }
 
-export async function completeFollowUp(input: { followUpId: Uuid; notes?: string }) {
+export async function rescheduleFollowUp(input: {
+  followUpId: Uuid;
+  opportunityId: Uuid;
+  dueDate: string;
+  notes?: string;
+}) {
+  const { data: before } = await supabase
+    .from("follow_ups")
+    .select("*")
+    .eq("id", input.followUpId)
+    .maybeSingle();
   const { data, error } = await supabase
     .from("follow_ups")
     .update({
-      status: "completed",
-      last_contact_at: new Date().toISOString(),
+      due_date: input.dueDate,
+      status: "scheduled",
       notes: input.notes ?? undefined,
     })
     .eq("id", input.followUpId)
     .select()
     .single();
   if (error) throw error;
-  await audit("follow_up.completed", "follow_up", input.followUpId, null, data);
+  await audit(
+    "follow_up.rescheduled",
+    "opportunity",
+    input.opportunityId,
+    before ? { due_date: before.due_date, notes: before.notes } : null,
+    { due_date: data.due_date, notes: data.notes },
+  );
+  return data;
+}
+
+export async function completeFollowUp(input: {
+  followUpId: Uuid;
+  opportunityId: Uuid;
+  outcome: string;
+}) {
+  const { data, error } = await supabase
+    .from("follow_ups")
+    .update({
+      status: "completed",
+      last_contact_at: new Date().toISOString(),
+      notes: input.outcome,
+    })
+    .eq("id", input.followUpId)
+    .select()
+    .single();
+  if (error) throw error;
+  await audit(
+    "follow_up.outcome_logged",
+    "opportunity",
+    input.opportunityId,
+    null,
+    { outcome: input.outcome, completed_at: data.last_contact_at },
+  );
   return data;
 }
 
