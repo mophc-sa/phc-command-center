@@ -74,6 +74,7 @@ function OpportunityDetail() {
   const qc = useQueryClient();
   const [action, setAction] = useState<ActionKind>(null);
   const [completeId, setCompleteId] = useState<string | null>(null);
+  const [rescheduleId, setRescheduleId] = useState<string | null>(null);
   const [decideFor, setDecideFor] = useState<{ id: string; kind: "approved" | "returned" } | null>(
     null,
   );
