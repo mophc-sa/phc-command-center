@@ -74,7 +74,14 @@ function ApprovalsPage() {
     <div className="mx-auto max-w-7xl">
       <SectionHeader title={t("nav_approvals")} count={data.length} />
 
+      {!canDecide ? (
+        <div className="mb-4 rounded-md border border-border bg-surface px-4 py-3 text-xs text-muted-foreground">
+          {t("approvals_forbidden")}
+        </div>
+      ) : null}
+
       <div className="mb-4 flex gap-2 text-xs">
+
         {(["pending", "recent"] as const).map((f) => (
           <button
             key={f}
