@@ -9,6 +9,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { decideApproval } from "@/lib/opportunity-actions";
+import { useAuth } from "@/hooks/useSupabaseAuth";
 
 export const Route = createFileRoute("/_authenticated/approvals")({
   head: () => ({ meta: [{ title: "Approvals — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -24,6 +25,8 @@ type Decision = "approved" | "returned" | "escalated";
 
 function ApprovalsPage() {
   const { t, lang } = useI18n();
+  const { hasAnyRole } = useAuth();
+  const canDecide = hasAnyRole(["ceo", "sales_manager"]);
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"pending" | "recent">("pending");
   const [decideFor, setDecideFor] = useState<{
@@ -71,7 +74,14 @@ function ApprovalsPage() {
     <div className="mx-auto max-w-7xl">
       <SectionHeader title={t("nav_approvals")} count={data.length} />
 
+      {!canDecide ? (
+        <div className="mb-4 rounded-md border border-border bg-surface px-4 py-3 text-xs text-muted-foreground">
+          {t("approvals_forbidden")}
+        </div>
+      ) : null}
+
       <div className="mb-4 flex gap-2 text-xs">
+
         {(["pending", "recent"] as const).map((f) => (
           <button
             key={f}
@@ -151,7 +161,7 @@ function ApprovalsPage() {
                   ) : null}
                 </div>
                 <div className="flex gap-2 text-xs">
-                  {pending ? (
+                  {pending && canDecide ? (
                     <>
                       <button
                         className="rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-amber-light hover:bg-amber/20"
