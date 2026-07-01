@@ -25,6 +25,8 @@ type Decision = "approved" | "returned" | "escalated";
 
 function ApprovalsPage() {
   const { t, lang } = useI18n();
+  const { hasAnyRole } = useAuth();
+  const canDecide = hasAnyRole(["ceo", "sales_manager"]);
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"pending" | "recent">("pending");
   const [decideFor, setDecideFor] = useState<{
