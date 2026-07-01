@@ -149,6 +149,69 @@ export const strings = {
   label_no_data: { en: "—", ar: "—" },
   yes: { en: "Yes", ar: "نعم" },
   no: { en: "No", ar: "لا" },
+  cancel: { en: "Cancel", ar: "إلغاء" },
+  confirm: { en: "Confirm", ar: "تأكيد" },
+  saved: { en: "Saved", ar: "تم الحفظ" },
+
+  // Phase 1C — action dialogs
+  dialog_review_title: { en: "Request review", ar: "طلب مراجعة" },
+  dialog_review_desc: {
+    en: "Send this opportunity to management for review before quoting.",
+    ar: "إرسال هذه الفرصة إلى الإدارة للمراجعة قبل التسعير.",
+  },
+  dialog_approve_title: { en: "Approve to quote", ar: "اعتماد إصدار العرض" },
+  dialog_approve_desc: {
+    en: "Confirm this opportunity is cleared to proceed to quotation.",
+    ar: "تأكيد أن هذه الفرصة معتمدة للانتقال إلى مرحلة التسعير.",
+  },
+  dialog_return_title: { en: "Return for revision", ar: "إعادة للتعديل" },
+  dialog_return_desc: {
+    en: "Send the approval request back to the sales owner with notes.",
+    ar: "إعادة طلب الاعتماد إلى صاحب الفرصة مع الملاحظات.",
+  },
+  dialog_schedule_title: { en: "Schedule follow-up", ar: "جدولة متابعة" },
+  dialog_schedule_desc: {
+    en: "Plan the next contact with this opportunity.",
+    ar: "التخطيط للاتصال التالي بهذه الفرصة.",
+  },
+  dialog_assign_title: { en: "Assign owner", ar: "تعيين المسؤول" },
+  dialog_assign_desc: {
+    en: "Assign a sales owner responsible for this opportunity.",
+    ar: "تعيين مسؤول مبيعات لهذه الفرصة.",
+  },
+  dialog_escalate_title: { en: "Escalate", ar: "تصعيد" },
+  dialog_escalate_desc: {
+    en: "Flag this opportunity for management attention with a reason.",
+    ar: "إحالة هذه الفرصة إلى الإدارة مع تحديد السبب.",
+  },
+  dialog_complete_title: { en: "Mark follow-up complete", ar: "إتمام المتابعة" },
+  dialog_complete_desc: {
+    en: "Record that the follow-up was completed with a brief note.",
+    ar: "تسجيل إتمام المتابعة مع ملاحظة موجزة.",
+  },
+
+  field_notes: { en: "Notes", ar: "الملاحظات" },
+  field_reason: { en: "Reason", ar: "السبب" },
+  field_due_date: { en: "Due date", ar: "تاريخ الاستحقاق" },
+  field_channel: { en: "Channel", ar: "القناة" },
+  field_cadence: { en: "Cadence tier", ar: "وتيرة المتابعة" },
+  field_owner: { en: "Owner", ar: "المسؤول" },
+  field_unassigned: { en: "Unassigned", ar: "بدون مسؤول" },
+
+  channel_call: { en: "Call", ar: "مكالمة" },
+  channel_email: { en: "Email", ar: "بريد إلكتروني" },
+  channel_meeting: { en: "Meeting", ar: "اجتماع" },
+  channel_whatsapp: { en: "WhatsApp", ar: "واتساب" },
+  channel_site_visit: { en: "Site visit", ar: "زيارة موقع" },
+
+  toast_review_ok: { en: "Sent for review", ar: "تم الإرسال للمراجعة" },
+  toast_approve_ok: { en: "Approved", ar: "تم الاعتماد" },
+  toast_return_ok: { en: "Returned for revision", ar: "أعيد للتعديل" },
+  toast_schedule_ok: { en: "Follow-up scheduled", ar: "تمت جدولة المتابعة" },
+  toast_assign_ok: { en: "Owner assigned", ar: "تم تعيين المسؤول" },
+  toast_escalate_ok: { en: "Escalated to management", ar: "تم التصعيد للإدارة" },
+  toast_complete_ok: { en: "Follow-up completed", ar: "تمت المتابعة" },
+  toast_error: { en: "Action failed", ar: "تعذّر تنفيذ الإجراء" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;
