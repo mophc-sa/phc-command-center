@@ -249,8 +249,10 @@ function OpportunityDetail() {
           </div>
         </div>
       </Panel>
+      )}
 
-      {/* 2. QUALIFICATION */}
+      {/* 2. QUALIFICATION — under Alert */}
+      {show("alert") && (
       <Panel title={t("section_qualification")}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <DataField label={t("label_project_stage")} value={humanize(o.project_stage)} />
