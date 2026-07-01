@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const isActive = (to: string) => (to === "/" ? path === "/" : path.startsWith(to));
+  const isActive = (to: string) => path.startsWith(to);
 
   const sidebar = (
     <nav className="flex h-full flex-col gap-1 p-3">
