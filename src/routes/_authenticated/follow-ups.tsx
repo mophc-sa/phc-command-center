@@ -23,7 +23,7 @@ function humanize(s: string | null | undefined) {
 function FollowUpsPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
-  const [completeId, setCompleteId] = useState<string | null>(null);
+  const [completeFor, setCompleteFor] = useState<{ id: string; oppId: string } | null>(null);
 
   const { data = [] } = useQuery({
     queryKey: ["all-followups"],
