@@ -15,6 +15,7 @@ import {
   Globe,
   LogOut,
   Bell,
+  ShieldAlert,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -29,17 +30,19 @@ const nav = [
   { to: "/reports", key: "nav_reports", icon: LineChart },
   { to: "/agent-activity", key: "nav_agent_activity", icon: Activity },
   { to: "/team", key: "nav_team", icon: Users2 },
+  { to: "/admin-settings", key: "nav_admin_settings", icon: ShieldAlert, ceoOnly: true },
   { to: "/settings", key: "nav_settings", icon: Settings },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, lang, setLang, dir } = useI18n();
-  const { user, signOut } = useAuth();
+  const { user, signOut, hasRole } = useAuth();
   const nav_ = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (to: string) => path.startsWith(to);
+  const isCeo = hasRole("ceo");
 
   const sidebar = (
     <nav className="flex h-full flex-col gap-1 p-3">
@@ -47,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">PHC</div>
         <div className="mt-1 text-sm font-semibold text-foreground">{t("area_sales_agent")}</div>
       </div>
-      {nav.map((n) => {
+      {nav.filter((n) => !("ceoOnly" in n && n.ceoOnly) || isCeo).map((n) => {
         const Icon = n.icon;
         const active = isActive(n.to);
         return (

@@ -16,6 +16,7 @@ export const strings = {
   nav_agent_activity: { en: "Agent Activity", ar: "نشاط الوكيل" },
   nav_team: { en: "Team & Permissions", ar: "الفريق والصلاحيات" },
   nav_settings: { en: "Settings", ar: "الإعدادات" },
+  nav_admin_settings: { en: "Admin Settings", ar: "إعدادات المسؤول" },
 
   // Header
   area_sales_agent: { en: "Sales Agent", ar: "وكيل المبيعات" },
@@ -263,6 +264,33 @@ export const strings = {
   action_escalate_short: { en: "Escalate", ar: "تصعيد" },
   approvals_error: { en: "Could not load approvals.", ar: "تعذّر تحميل الاعتمادات." },
   retry: { en: "Retry", ar: "إعادة المحاولة" },
+
+  // Admin Settings
+  admin_settings_title: { en: "Admin Settings", ar: "إعدادات المسؤول" },
+  admin_settings_intro: {
+    en: "Overview of every role, its active capabilities, and the members holding it. Only the primary administrator (CEO) can change assignments here.",
+    ar: "نظرة شاملة على كل دور والصلاحيات المفعّلة له والأعضاء الذين يحملونه. لا يمكن تعديل التعيينات إلا من قِبل المسؤول الرئيسي (الرئيس التنفيذي).",
+  },
+  admin_settings_forbidden: {
+    en: "Only the primary administrator (CEO) can modify roles from this screen.",
+    ar: "لا يستطيع تعديل الأدوار من هذه الصفحة إلا المسؤول الرئيسي (الرئيس التنفيذي).",
+  },
+  admin_section_matrix: { en: "Capabilities by Role", ar: "الصلاحيات حسب الدور" },
+  admin_section_holders: { en: "Members by Role", ar: "الأعضاء حسب الدور" },
+  admin_section_assign: { en: "Assign Roles", ar: "تعيين الأدوار" },
+  admin_col_capability: { en: "Capability", ar: "الصلاحية" },
+  admin_no_holders: { en: "No members assigned.", ar: "لا يوجد أعضاء معيّنون." },
+
+  // Capabilities
+  cap_manage_roles: { en: "Manage roles & permissions", ar: "إدارة الأدوار والصلاحيات" },
+  cap_approve_decisions: { en: "Approve / return decisions", ar: "اعتماد وإرجاع القرارات" },
+  cap_escalate: { en: "Escalate to management", ar: "التصعيد للإدارة" },
+  cap_manage_opps: { en: "Create & edit opportunities", ar: "إنشاء وتعديل الفرص" },
+  cap_assign_owner: { en: "Assign opportunity owner", ar: "تعيين مسؤول الفرصة" },
+  cap_schedule_followups: { en: "Schedule & complete follow-ups", ar: "جدولة وإتمام المتابعات" },
+  cap_view_reports: { en: "View reports & analytics", ar: "عرض التقارير والتحليلات" },
+  cap_view_opps: { en: "View opportunities & timeline", ar: "عرض الفرص والجدول الزمني" },
+  cap_view_audit: { en: "View full audit trail", ar: "عرض سجل التدقيق الكامل" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;
