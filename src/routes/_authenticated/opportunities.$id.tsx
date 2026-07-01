@@ -275,8 +275,10 @@ function OpportunityDetail() {
           <DataField label={t("label_sector")} value={o.sector} />
         </div>
       </Panel>
+      )}
 
-      {/* 3. STAKEHOLDERS */}
+      {/* 3. STAKEHOLDERS — assignment context */}
+      {show("assignment") && (
       <Panel title={t("section_stakeholders")}>
         {stakeholdersQ.data && stakeholdersQ.data.length > 0 ? (
           <ul className="divide-y divide-border/60">
