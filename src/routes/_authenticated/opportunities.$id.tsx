@@ -485,6 +485,202 @@ function OpportunityDetail() {
           ) : null}
         </div>
       </Panel>
+
+      {/* --- Action dialogs --- */}
+      {(() => {
+        const channelOpts = [
+          { value: "call", label: t("channel_call") },
+          { value: "email", label: t("channel_email") },
+          { value: "meeting", label: t("channel_meeting") },
+          { value: "whatsapp", label: t("channel_whatsapp") },
+          { value: "site_visit", label: t("channel_site_visit") },
+        ];
+        const cadenceOpts = [
+          { value: "A", label: `${t("label_tier")} A` },
+          { value: "B", label: `${t("label_tier")} B` },
+          { value: "C", label: `${t("label_tier")} C` },
+        ];
+        const teamOpts = [
+          { value: "__none__", label: t("field_unassigned") },
+          ...(teamQ.data ?? []).map((m) => ({
+            value: m.id,
+            label: m.full_name || m.email || m.id.slice(0, 8),
+          })),
+        ];
+        const notesField: DialogField = {
+          key: "notes",
+          type: "textarea",
+          label: t("field_notes"),
+        };
+        const tomorrow = new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 10);
+        const currentOwner = o.owner_id ?? "__none__";
+
+        return (
+          <>
+            <ActionDialog
+              open={action === "review"}
+              onOpenChange={(v) => !v && setAction(null)}
+              title={t("dialog_review_title")}
+              description={t("dialog_review_desc")}
+              submitLabel={t("action_review")}
+              fields={[{ ...notesField, required: true }]}
+              onSubmit={(v) =>
+                runSafe(
+                  () =>
+                    requestReview({
+                      opportunityId: id,
+                      approvalType: "management_review",
+                      recommendation: "management_review",
+                      notes: v.notes,
+                    }),
+                  "toast_review_ok",
+                )
+              }
+            />
+            <ActionDialog
+              open={action === "approve"}
+              onOpenChange={(v) => !v && setAction(null)}
+              title={t("dialog_approve_title")}
+              description={t("dialog_approve_desc")}
+              submitLabel={t("action_approve")}
+              fields={[notesField]}
+              onSubmit={(v) =>
+                runSafe(
+                  async () => {
+                    await requestReview({
+                      opportunityId: id,
+                      approvalType: "quotation",
+                      recommendation: "proceed",
+                      notes: v.notes,
+                    });
+                    await updateOpportunityStage({
+                      opportunityId: id,
+                      stage: "quotation",
+                      notes: v.notes,
+                    });
+                  },
+                  "toast_approve_ok",
+                )
+              }
+            />
+            <ActionDialog
+              open={action === "schedule"}
+              onOpenChange={(v) => !v && setAction(null)}
+              title={t("dialog_schedule_title")}
+              description={t("dialog_schedule_desc")}
+              submitLabel={t("action_schedule")}
+              fields={[
+                { key: "due", type: "date", label: t("field_due_date"), required: true, defaultValue: tomorrow },
+                { key: "channel", type: "select", label: t("field_channel"), options: channelOpts, defaultValue: "call" },
+                { key: "cadence", type: "select", label: t("field_cadence"), options: cadenceOpts, defaultValue: o.tier ?? "B" },
+                notesField,
+              ]}
+              onSubmit={(v) =>
+                runSafe(
+                  () =>
+                    scheduleFollowUp({
+                      opportunityId: id,
+                      dueDate: v.due,
+                      channel: v.channel || undefined,
+                      cadenceTier: (v.cadence as "A" | "B" | "C") || "B",
+                      notes: v.notes,
+                    }),
+                  "toast_schedule_ok",
+                )
+              }
+            />
+            <ActionDialog
+              open={action === "assign"}
+              onOpenChange={(v) => !v && setAction(null)}
+              title={t("dialog_assign_title")}
+              description={t("dialog_assign_desc")}
+              submitLabel={t("action_assign")}
+              fields={[
+                { key: "owner", type: "select", label: t("field_owner"), options: teamOpts, defaultValue: currentOwner, required: true },
+                notesField,
+              ]}
+              onSubmit={(v) =>
+                runSafe(
+                  () =>
+                    assignOwner({
+                      opportunityId: id,
+                      ownerId: v.owner === "__none__" ? null : v.owner,
+                      notes: v.notes,
+                    }),
+                  "toast_assign_ok",
+                )
+              }
+            />
+            <ActionDialog
+              open={action === "escalate"}
+              onOpenChange={(v) => !v && setAction(null)}
+              title={t("dialog_escalate_title")}
+              description={t("dialog_escalate_desc")}
+              submitLabel={t("action_escalate")}
+              destructive
+              fields={[{ key: "reason", type: "textarea", label: t("field_reason"), required: true }]}
+              onSubmit={(v) =>
+                runSafe(
+                  () => escalateOpportunity({ opportunityId: id, reason: v.reason }),
+                  "toast_escalate_ok",
+                )
+              }
+            />
+            <ActionDialog
+              open={!!completeId}
+              onOpenChange={(v) => !v && setCompleteId(null)}
+              title={t("dialog_complete_title")}
+              description={t("dialog_complete_desc")}
+              submitLabel={t("action_complete")}
+              fields={[notesField]}
+              onSubmit={(v) =>
+                runSafe(
+                  () => completeFollowUp({ followUpId: completeId!, notes: v.notes }),
+                  "toast_complete_ok",
+                )
+              }
+            />
+            <ActionDialog
+              open={!!decideFor}
+              onOpenChange={(v) => !v && setDecideFor(null)}
+              title={
+                decideFor?.kind === "approved"
+                  ? t("dialog_approve_title")
+                  : t("dialog_return_title")
+              }
+              description={
+                decideFor?.kind === "approved"
+                  ? t("dialog_approve_desc")
+                  : t("dialog_return_desc")
+              }
+              submitLabel={
+                decideFor?.kind === "approved" ? t("action_approve") : t("action_return")
+              }
+              destructive={decideFor?.kind === "returned"}
+              fields={[
+                {
+                  key: "notes",
+                  type: "textarea",
+                  label: t("field_notes"),
+                  required: decideFor?.kind === "returned",
+                },
+              ]}
+              onSubmit={(v) =>
+                runSafe(
+                  () =>
+                    decideApproval({
+                      approvalId: decideFor!.id,
+                      opportunityId: id,
+                      decision: decideFor!.kind,
+                      notes: v.notes,
+                    }),
+                  decideFor?.kind === "approved" ? "toast_approve_ok" : "toast_return_ok",
+                )
+              }
+            />
+          </>
+        );
+      })()}
     </div>
   );
 }
