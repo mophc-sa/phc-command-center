@@ -509,6 +509,15 @@ function OpportunityDetail() {
           ) : null}
         </div>
       </Panel>
+      )}
+
+      {/* Evidence viewer */}
+      <EvidenceViewer
+        evidence={evidenceOpen}
+        onClose={() => setEvidenceOpen(null)}
+        t={t}
+        lang={lang}
+      />
 
       {/* --- Action dialogs --- */}
       {(() => {
