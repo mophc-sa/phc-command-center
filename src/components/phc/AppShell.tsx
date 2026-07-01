@@ -15,6 +15,7 @@ import {
   Globe,
   LogOut,
   Bell,
+  ShieldAlert,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ const nav = [
   { to: "/reports", key: "nav_reports", icon: LineChart },
   { to: "/agent-activity", key: "nav_agent_activity", icon: Activity },
   { to: "/team", key: "nav_team", icon: Users2 },
+  { to: "/admin-settings", key: "nav_admin_settings", icon: ShieldAlert, ceoOnly: true },
   { to: "/settings", key: "nav_settings", icon: Settings },
 ] as const;
 
