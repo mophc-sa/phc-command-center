@@ -742,3 +742,122 @@ function ActionButton({
     </button>
   );
 }
+
+function TimelineFilterBar({
+  value,
+  onChange,
+  t,
+}: {
+  value: TimelineFilter;
+  onChange: (v: TimelineFilter) => void;
+  t: (k: any) => string;
+}) {
+  const items: { key: TimelineFilter; label: string }[] = [
+    { key: "all", label: t("timeline_all") },
+    { key: "alert", label: t("timeline_alert") },
+    { key: "evidence", label: t("timeline_evidence") },
+    { key: "decision", label: t("timeline_decision") },
+    { key: "assignment", label: t("timeline_assignment") },
+    { key: "follow_up", label: t("timeline_follow_up") },
+    { key: "outcome", label: t("timeline_outcome") },
+  ];
+  return (
+    <div className="flex flex-wrap gap-1.5 rounded-lg border border-border bg-surface p-1.5">
+      {items.map((it) => {
+        const active = value === it.key;
+        return (
+          <button
+            key={it.key}
+            type="button"
+            onClick={() => onChange(it.key)}
+            className={
+              "rounded-md px-3 py-1 text-xs transition-colors " +
+              (active
+                ? "bg-amber/15 text-amber-light"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground")
+            }
+          >
+            {it.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function EvidenceViewer({
+  evidence,
+  onClose,
+  t,
+  lang,
+}: {
+  evidence: any | null;
+  onClose: () => void;
+  t: (k: any) => string;
+  lang: Lang;
+}) {
+  if (!evidence) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="w-full max-w-lg rounded-xl border border-border bg-surface shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="border-b border-border/70 px-5 py-4">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            {t("evidence_viewer_title")}
+          </div>
+          <div className="mt-1 text-sm font-medium text-foreground">
+            {evidence.source_title || humanize(evidence.source_type)}
+          </div>
+        </div>
+        <div className="grid gap-3 px-5 py-4 text-sm">
+          <DataField label={t("label_source")} value={humanize(evidence.source_type)} />
+          <DataField label={t("label_date")} value={fmtDate(evidence.source_date, lang)} />
+          {evidence.confidence_level ? (
+            <DataField
+              label={t("label_confidence")}
+              value={humanize(evidence.confidence_level)}
+            />
+          ) : null}
+          {evidence.extracted_summary ? (
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                {lang === "ar" ? "الملخص" : "Summary"}
+              </div>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                {evidence.extracted_summary}
+              </p>
+            </div>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-between gap-2 border-t border-border/70 px-5 py-3">
+          {evidence.source_url ? (
+            <a
+              href={evidence.source_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs text-amber-light hover:bg-amber/20"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              {t("evidence_open_source")}
+            </a>
+          ) : (
+            <span className="text-xs text-muted-foreground">{t("evidence_no_url")}</span>
+          )}
+          <button
+            onClick={onClose}
+            className="rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-foreground hover:bg-muted"
+          >
+            {t("cancel")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
