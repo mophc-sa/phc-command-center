@@ -12,6 +12,7 @@ import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import {
   requestReview,
   scheduleFollowUp,
+  rescheduleFollowUp,
   assignOwner,
   escalateOpportunity,
   completeFollowUp,
