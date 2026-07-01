@@ -197,6 +197,19 @@ export const strings = {
   field_cadence: { en: "Cadence tier", ar: "وتيرة المتابعة" },
   field_owner: { en: "Owner", ar: "المسؤول" },
   field_unassigned: { en: "Unassigned", ar: "بدون مسؤول" },
+  field_outcome: { en: "Outcome", ar: "النتيجة" },
+
+  action_reschedule: { en: "Reschedule", ar: "إعادة جدولة" },
+  dialog_reschedule_title: { en: "Reschedule follow-up", ar: "إعادة جدولة المتابعة" },
+  dialog_reschedule_desc: {
+    en: "Move this follow-up to a new due date.",
+    ar: "نقل هذه المتابعة إلى تاريخ استحقاق جديد.",
+  },
+  toast_reschedule_ok: { en: "Follow-up rescheduled", ar: "تمت إعادة جدولة المتابعة" },
+  approvals_forbidden: {
+    en: "Manager access required to act on approvals.",
+    ar: "يتطلب الوصول صلاحية المدير لاتخاذ قرارات الاعتماد.",
+  },
 
   channel_call: { en: "Call", ar: "مكالمة" },
   channel_email: { en: "Email", ar: "بريد إلكتروني" },
