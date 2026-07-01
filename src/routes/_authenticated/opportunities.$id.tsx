@@ -492,12 +492,16 @@ function OpportunityDetail() {
 function ActionButton({
   children,
   primary,
+  onClick,
 }: {
   children: React.ReactNode;
   primary?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <button
+      type="button"
+      onClick={onClick}
       className={
         "inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium transition-colors " +
         (primary
