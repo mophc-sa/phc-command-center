@@ -9,6 +9,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { decideApproval } from "@/lib/opportunity-actions";
+import { useAuth } from "@/hooks/useSupabaseAuth";
 
 export const Route = createFileRoute("/_authenticated/approvals")({
   head: () => ({ meta: [{ title: "Approvals — PHC" }, { name: "robots", content: "noindex" }] }),
