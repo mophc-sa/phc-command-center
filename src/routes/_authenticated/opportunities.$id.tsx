@@ -429,15 +429,31 @@ function OpportunityDetail() {
                   ) : null}
                   <StatusPill
                     tone={
-                      a.decision === "approved"
+                      a.decision === "approved" || a.status === "approved"
                         ? "positive"
-                        : a.decision === "rejected"
+                        : a.status === "returned"
                           ? "danger"
                           : "attention"
                     }
                   >
                     {humanize(a.decision ?? a.status)}
                   </StatusPill>
+                  {a.status === "pending" ? (
+                    <div className="mt-1 flex gap-2 text-[11px]">
+                      <button
+                        onClick={() => setDecideFor({ id: a.id, kind: "approved" })}
+                        className="text-amber-light hover:underline"
+                      >
+                        {t("action_approve")}
+                      </button>
+                      <button
+                        onClick={() => setDecideFor({ id: a.id, kind: "returned" })}
+                        className="text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        {t("action_return")}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </li>
             ))}
