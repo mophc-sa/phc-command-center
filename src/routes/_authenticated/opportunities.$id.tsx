@@ -65,6 +65,7 @@ function recToTone(r: string | null | undefined): "attention" | "positive" | "da
 }
 
 type ActionKind = "review" | "approve" | "schedule" | "assign" | "escalate" | null;
+type TimelineFilter = "all" | "alert" | "evidence" | "decision" | "assignment" | "follow_up" | "outcome";
 
 function OpportunityDetail() {
   const { id } = Route.useParams();
@@ -75,6 +76,9 @@ function OpportunityDetail() {
   const [decideFor, setDecideFor] = useState<{ id: string; kind: "approved" | "returned" } | null>(
     null,
   );
+  const [evidenceOpen, setEvidenceOpen] = useState<any | null>(null);
+  const [filter, setFilter] = useState<TimelineFilter>("all");
+  const show = (k: TimelineFilter) => filter === "all" || filter === k;
 
   const teamQ = useQuery({ queryKey: ["team"], queryFn: listTeamMembers });
 
