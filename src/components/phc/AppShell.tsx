@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { StatusPill } from "./StatusPill";
 
 const nav = [
-  { to: "/", key: "nav_command_center", icon: LayoutDashboard },
+  { to: "/command-center", key: "nav_command_center", icon: LayoutDashboard },
   { to: "/opportunities", key: "nav_opportunities", icon: FolderKanban },
   { to: "/follow-ups", key: "nav_follow_ups", icon: CalendarClock },
   { to: "/discovery", key: "nav_discovery", icon: Inbox },
