@@ -388,6 +388,14 @@ function OpportunityDetail() {
                     <div className="mt-1 text-[11px] text-muted-foreground">
                       {t("label_due")}: {fmtDate(f.due_date, lang)}
                     </div>
+                    {f.status !== "completed" ? (
+                      <button
+                        onClick={() => setCompleteId(f.id)}
+                        className="mt-1.5 text-[11px] text-amber-light hover:underline"
+                      >
+                        {t("action_complete")}
+                      </button>
+                    ) : null}
                   </div>
                 </li>
               );
