@@ -320,12 +320,22 @@ function OpportunityDetail() {
           <EmptyState message="—" />
         )}
       </Panel>
+      )}
 
       {/* 4. EVIDENCE */}
+      {show("evidence") && (
       <Panel
         title={t("section_evidence")}
         subtitle={`${formatNumber(evidenceQ.data?.length ?? 0, lang)} · ${humanize(o.source_confidence)}`}
       >
+        {evidenceQ.data && evidenceQ.data.length > 0 ? (
+          <ul className="divide-y divide-border/60">
+            {evidenceQ.data.map((e: any) => (
+              <li
+                key={e.id}
+                className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] gap-3 py-3 transition-colors hover:bg-muted/40 -mx-2 px-2 rounded"
+                onClick={() => setEvidenceOpen(e)}
+              >
         {evidenceQ.data && evidenceQ.data.length > 0 ? (
           <ul className="divide-y divide-border/60">
             {evidenceQ.data.map((e: any) => (
