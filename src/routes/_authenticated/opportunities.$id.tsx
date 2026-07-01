@@ -411,12 +411,20 @@ function OpportunityDetail() {
                       {t("label_due")}: {fmtDate(f.due_date, lang)}
                     </div>
                     {f.status !== "completed" ? (
-                      <button
-                        onClick={() => setCompleteId(f.id)}
-                        className="mt-1.5 text-[11px] text-amber-light hover:underline"
-                      >
-                        {t("action_complete")}
-                      </button>
+                      <div className="mt-1.5 flex justify-end gap-3 text-[11px] rtl:justify-start">
+                        <button
+                          onClick={() => setCompleteId(f.id)}
+                          className="text-amber-light hover:underline"
+                        >
+                          {t("action_complete")}
+                        </button>
+                        <button
+                          onClick={() => setRescheduleId(f.id)}
+                          className="text-muted-foreground hover:text-foreground hover:underline"
+                        >
+                          {t("action_reschedule")}
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 </li>
