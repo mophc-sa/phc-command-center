@@ -7,6 +7,9 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : "",
+  }),
   head: () => ({
     meta: [
       { title: "Sign in — PHC Command Center" },
@@ -21,6 +24,7 @@ function AuthPage() {
   const { t, lang, setLang, dir } = useI18n();
   const { user, loading } = useAuth();
   const nav = useNavigate();
+  const { next } = Route.useSearch();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,8 +32,15 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) nav({ to: "/command-center", replace: true });
-  }, [loading, user, nav]);
+    if (!loading && user) {
+      if (next) {
+        window.location.replace(next);
+      } else {
+        nav({ to: "/command-center", replace: true });
+      }
+    }
+  }, [loading, user, nav, next]);
+
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +56,7 @@ function AuthPage() {
           password,
           options: {
             data: { full_name: fullName },
-            emailRedirectTo: `${window.location.origin}/command-center`,
+            emailRedirectTo: next ? `${window.location.origin}${next}` : `${window.location.origin}/command-center`,
           },
         });
         if (error) throw error;
