@@ -92,6 +92,8 @@ function AdminSettingsPage() {
       <SectionHeader title={t("admin_settings_title")} />
       <p className="text-sm text-muted-foreground">{t("admin_settings_intro")}</p>
 
+      <GitSyncStatus />
+
       {!isCeo ? (
         <div className="rounded-md border border-amber/30 bg-amber/10 px-4 py-3 text-xs text-amber-light">
           {t("admin_settings_forbidden")}
