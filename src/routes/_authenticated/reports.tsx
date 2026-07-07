@@ -1,10 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { TrendingUp, Wallet, AlertCircle, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { SectionHeader } from "@/components/phc/SectionHeader";
+import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiCard } from "@/components/phc/KpiCard";
+import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
-import { MetricTile } from "@/components/phc/MetricTile";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/reports")({
@@ -36,49 +48,17 @@ const QUOTE_ORDER = [
   "expired",
 ] as const;
 
-function Bar({ pct }: { pct: number }) {
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-      <div className="h-full rounded-full bg-amber" style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
+const CHART = {
+  primary: "oklch(0.97 0.004 253)",
+  amber: "oklch(0.70 0.115 65)",
+  emerald: "oklch(0.70 0.14 155)",
+  red: "oklch(0.62 0.20 25)",
+  muted: "oklch(0.50 0.010 253)",
+  grid: "oklch(0.40 0.015 253 / 0.35)",
+};
 
-function BreakdownTable({
-  title,
-  rows,
-  lang,
-  countLabel,
-  valueLabel,
-}: {
-  title: string;
-  rows: { key: string; label: string; count: number; value: number }[];
-  lang: "en" | "ar";
-  countLabel: string;
-  valueLabel: string;
-}) {
-  const max = Math.max(1, ...rows.map((r) => r.value));
-  return (
-    <div className="rounded-lg border border-border bg-surface p-5">
-      <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-foreground">
-        {title}
-      </h3>
-      <div className="space-y-3">
-        {rows.map((r) => (
-          <div key={r.key}>
-            <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
-              <span className="text-muted-foreground">{r.label}</span>
-              <span className="num text-foreground" data-tabular="true">
-                {countLabel}: {formatNumber(r.count, lang)} · {valueLabel}:{" "}
-                {formatCurrency(r.value, lang)}
-              </span>
-            </div>
-            <Bar pct={Math.round((r.value / max) * 100)} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+function humanize(s: string) {
+  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function ReportsPage() {
@@ -106,7 +86,7 @@ function ReportsPage() {
         const list = opps.filter((o: any) => o.stage === s);
         return {
           key: s,
-          label: s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+          label: humanize(s),
           count: list.length,
           value: list.reduce(
             (sum: number, o: any) => sum + (o.quotation_value ?? o.estimated_value_max ?? 0),
@@ -139,6 +119,7 @@ function ReportsPage() {
   const openQuotesValue = quotes
     .filter((q: any) => !["won", "lost", "expired"].includes(q.status))
     .reduce((s: number, q: any) => s + (q.value ?? 0), 0);
+  const lostValue = lostQuotes.reduce((s: number, q: any) => s + (q.value ?? 0), 0);
   const lostReasons = lostQuotes
     .map((q: any) => q.win_loss_reason)
     .filter(Boolean) as string[];
@@ -146,74 +127,115 @@ function ReportsPage() {
   const isLoading = l1 || l2;
   const hasData = stageRows.length > 0 || quoteRows.length > 0;
 
+  const tooltipStyle = {
+    background: "oklch(0.15 0.010 253)",
+    border: "1px solid oklch(0.35 0.015 253 / 0.5)",
+    borderRadius: 8,
+    fontSize: 11,
+    color: "oklch(0.97 0.004 253)",
+  } as const;
+
   return (
     <div className="mx-auto max-w-7xl">
-      <SectionHeader title={t("nav_reports")} />
+      <PageHeader
+        eyebrow={t("nav_performance" as never) || "Performance"}
+        title={t("nav_reports")}
+        description={lang === "ar" ? "نظرة تنفيذية على خط الأنابيب والعروض والفوز/الخسارة." : "Executive view of pipeline, quotations, and win/loss."}
+      />
+
       {isLoading ? (
         <EmptyState message={t("loading")} />
       ) : !hasData ? (
         <EmptyState message={t("empty_report")} />
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricTile
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard
               label={t("report_win_rate")}
               value={winRate === null ? "—" : `${formatNumber(winRate, lang)}%`}
-              hint={
-                closed > 0
-                  ? `${formatNumber(wonQuotes.length, lang)} / ${formatNumber(closed, lang)}`
-                  : undefined
-              }
+              hint={closed > 0 ? `${formatNumber(wonQuotes.length, lang)} / ${formatNumber(closed, lang)}` : undefined}
+              icon={<TrendingUp className="h-3.5 w-3.5" />}
+              trend={winRate !== null ? (winRate >= 50 ? "up" : winRate >= 25 ? "flat" : "down") : undefined}
             />
-            <MetricTile label={t("report_won_value")} value={formatCurrency(wonValue, lang)} />
-            <MetricTile
+            <KpiCard label={t("report_won_value")} value={formatCurrency(wonValue, lang)} icon={<Wallet className="h-3.5 w-3.5" />} />
+            <KpiCard
               label={t("report_open_quotes_value")}
               value={formatCurrency(openQuotesValue, lang)}
-              tone="attention"
+              icon={<AlertCircle className="h-3.5 w-3.5" />}
             />
-            <MetricTile
-              label={t("report_lost_value")}
-              value={formatCurrency(
-                lostQuotes.reduce((s: number, q: any) => s + (q.value ?? 0), 0),
-                lang,
-              )}
-            />
+            <KpiCard label={t("report_lost_value")} value={formatCurrency(lostValue, lang)} icon={<XCircle className="h-3.5 w-3.5" />} />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
             {stageRows.length > 0 ? (
-              <BreakdownTable
+              <ChartFrame
                 title={t("report_pipeline_by_stage")}
-                rows={stageRows}
-                lang={lang}
-                countLabel={t("report_count")}
-                valueLabel={t("report_value")}
-              />
+                subtitle={lang === "ar" ? "قيمة الفرص لكل مرحلة" : "Opportunity value by stage"}
+              >
+                <div className="h-[260px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={stageRows} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
+                      <CartesianGrid stroke={CHART.grid} strokeDasharray="2 4" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} width={48} />
+                      <Tooltip
+                        contentStyle={tooltipStyle}
+                        cursor={{ fill: "oklch(0.40 0.015 253 / 0.18)" }}
+                        formatter={(v: any, _n, p: any) => [formatCurrency(Number(v), lang), p?.payload?.label]}
+                      />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        {stageRows.map((r) => (
+                          <Cell
+                            key={r.key}
+                            fill={r.key === "won" ? CHART.emerald : r.key === "lost" || r.key === "archived" ? CHART.red : CHART.amber}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </ChartFrame>
             ) : null}
+
             {quoteRows.length > 0 ? (
-              <BreakdownTable
+              <ChartFrame
                 title={t("report_quotation_funnel")}
-                rows={quoteRows}
-                lang={lang}
-                countLabel={t("report_count")}
-                valueLabel={t("report_value")}
-              />
+                subtitle={lang === "ar" ? "عدد وقيمة العروض" : "Quotation count and value by status"}
+              >
+                <div className="h-[260px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={quoteRows} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
+                      <CartesianGrid stroke={CHART.grid} strokeDasharray="2 4" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} width={36} />
+                      <Tooltip
+                        contentStyle={tooltipStyle}
+                        cursor={{ fill: "oklch(0.40 0.015 253 / 0.18)" }}
+                        formatter={(v: any, _n, p: any) => [`${formatNumber(Number(v), lang)} · ${formatCurrency(p?.payload?.value ?? 0, lang)}`, p?.payload?.label]}
+                      />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                        {quoteRows.map((r) => (
+                          <Cell key={r.key} fill={r.key === "won" ? CHART.emerald : r.key === "lost" || r.key === "expired" ? CHART.red : CHART.primary} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </ChartFrame>
             ) : null}
           </div>
 
           {lostReasons.length > 0 ? (
-            <div className="rounded-lg border border-border bg-surface p-5">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-foreground">
-                {t("report_lost_reasons")}
-              </h3>
+            <ChartFrame title={t("report_lost_reasons")} subtitle={lang === "ar" ? "أسباب فقدان العروض" : "Why quotations were lost"}>
               <ul className="space-y-2">
                 {lostReasons.map((r, i) => (
-                  <li key={i} className="text-xs text-muted-foreground">
-                    · {r}
+                  <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-red-300/70" />
+                    <span className="text-foreground/90">{r}</span>
                   </li>
                 ))}
               </ul>
-            </div>
+            </ChartFrame>
           ) : null}
         </div>
       )}

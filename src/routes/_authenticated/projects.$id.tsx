@@ -2,8 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -53,38 +54,84 @@ function ProjectDetail() {
   if (isLoading) return <EmptyState message={t("loading")} />;
   if (!project) return <EmptyState message={t("crm_no_projects")} />;
   const p: any = project;
+  const oppCount = p.opportunities?.length ?? 0;
+  const oppValue = (p.opportunities ?? []).reduce(
+    (s: number, o: any) => s + (o.estimated_value_max ?? 0),
+    0,
+  );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="mx-auto max-w-6xl space-y-6">
       <Link to="/projects" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="h-3.5 w-3.5" /> {t("nav_projects")}
+        <ArrowLeft className="h-3.5 w-3.5" /> {t("nav_projects")}
       </Link>
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">{p.name}</h1>
-          <div className="mt-1 flex items-center gap-2">
-            <StatusPill tone="muted">{humanize(p.project_stage)}</StatusPill>
+      <PageHeader
+        eyebrow={humanize(p.project_stage)}
+        title={p.name}
+        description={
+          <span className="inline-flex flex-wrap items-center gap-2">
             <StatusPill tone={p.verification_status === "verified" ? "positive" : "attention"}>
               {p.verification_status === "verified" ? t("crm_verified") : t("crm_pending_verification")}
             </StatusPill>
+            {p.location ? <span className="text-xs text-muted-foreground">{p.location}</span> : null}
+          </span>
+        }
+        actions={
+          <div className="flex gap-2">
+            <button onClick={() => setEditOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+              {t("crm_edit")}
+            </button>
+            {isManager && p.verification_status !== "verified" ? (
+              <button
+                onClick={async () => {
+                  try { await updateProject(p.id, { verification_status: "verified" }); toast.success(t("crm_saved")); qc.invalidateQueries({ queryKey: ["project", id] }); }
+                  catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+                }}
+                className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/20"
+              >
+                {t("crm_verified")}
+              </button>
+            ) : null}
+          </div>
+        }
+      />
+
+      {/* Key facts strip */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_completion")}</div>
+          <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">
+            {p.completion_pct != null ? `${p.completion_pct}%` : "—"}
+          </div>
+          {p.completion_pct != null ? (
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-amber/70" style={{ width: `${Math.max(0, Math.min(100, p.completion_pct))}%` }} />
+            </div>
+          ) : null}
+        </div>
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_total_value")}</div>
+          <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">
+            {formatCurrency(p.total_value, lang, p.currency)}
           </div>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => setEditOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
-            {t("crm_edit")}
-          </button>
-          {isManager && p.verification_status !== "verified" ? (
-            <button
-              onClick={async () => {
-                try { await updateProject(p.id, { verification_status: "verified" }); toast.success(t("crm_saved")); qc.invalidateQueries({ queryKey: ["project", id] }); }
-                catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
-              }}
-              className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/20"
-            >
-              {t("crm_verified")}
-            </button>
-          ) : null}
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_linked_opportunities")}</div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="num text-lg font-semibold text-foreground" data-tabular="true">{oppCount}</span>
+            {oppValue > 0 ? (
+              <span className="num text-[11px] text-muted-foreground" data-tabular="true">
+                {formatCurrency(oppValue, lang)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_expected_boq")}</div>
+          <div className="mt-2 num text-sm font-medium text-foreground" data-tabular="true">
+            {p.expected_boq_date ?? "—"}
+          </div>
         </div>
       </div>
 
@@ -92,23 +139,20 @@ function ProjectDetail() {
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <DataField label={t("crm_location")} value={p.location} />
           <DataField label={t("crm_sector")} value={p.sector} />
-          <DataField label={t("crm_completion")} value={p.completion_pct != null ? `${p.completion_pct}%` : null} mono />
-          <DataField label={t("crm_total_value")} value={formatCurrency(p.total_value, lang, p.currency)} mono />
           <DataField label={t("crm_main_contractor")} value={p.main_contractor ? <Link to="/accounts/$id" params={{ id: p.main_contractor.id }} className="hover:underline">{p.main_contractor.name}</Link> : null} />
           <DataField label={t("company_type_owner")} value={p.owner_company?.name} />
           <DataField label={t("company_type_consultant")} value={p.consultant?.name} />
           <DataField label={t("crm_signage_package")} value={humanize(p.signage_package_status)} />
-          <DataField label={t("crm_expected_boq")} value={p.expected_boq_date} />
         </div>
       </Panel>
 
-      <Panel title={t("crm_linked_opportunities")} subtitle={String(p.opportunities?.length ?? 0)}>
+      <Panel title={t("crm_linked_opportunities")} subtitle={String(oppCount)}>
         {(p.opportunities ?? []).length === 0 ? (
           <div className="text-xs text-muted-foreground">—</div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="divide-y divide-border/60">
             {p.opportunities.map((o: any) => (
-              <li key={o.id} className="flex items-center justify-between gap-2">
+              <li key={o.id} className="flex items-center justify-between gap-2 py-2.5">
                 <Link to="/opportunities/$id" params={{ id: o.id }} className="truncate text-sm text-foreground hover:underline">{o.project_name}</Link>
                 <div className="flex items-center gap-2">
                   <StatusPill tone="muted">{humanize(o.stage)}</StatusPill>
