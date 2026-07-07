@@ -6,6 +6,7 @@ import { SectionHeader } from "@/components/phc/SectionHeader";
 import { Panel } from "@/components/phc/Panel";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { GitSyncStatus } from "@/components/phc/GitSyncStatus";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import {
