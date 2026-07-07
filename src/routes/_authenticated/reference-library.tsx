@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Search, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { SectionHeader } from "@/components/phc/SectionHeader";
+import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { DataField } from "@/components/phc/DataField";
@@ -23,6 +25,8 @@ function ReferenceLibraryPage() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [sector, setSector] = useState("all");
+  const [shareableOnly, setShareableOnly] = useState(false);
   const canEdit = hasAnyRole(["bd_manager", "sales_manager", "ceo"]);
 
   const { data: refs = [], isLoading } = useQuery({
@@ -30,42 +34,82 @@ function ReferenceLibraryPage() {
     queryFn: async () => (await supabase.from("reference_projects").select("*").order("year", { ascending: false })).data ?? [],
   });
 
+  const sectors = useMemo(() => {
+    const s = new Set<string>();
+    refs.forEach((r: any) => r.sector && s.add(String(r.sector)));
+    return Array.from(s).sort();
+  }, [refs]);
+
   const term = q.trim().toLowerCase();
-  const filtered = term
-    ? refs.filter((r: any) =>
-        [r.name, r.sector, r.city, r.client_or_contractor, r.sign_types].some((f) => f && String(f).toLowerCase().includes(term)),
-      )
-    : refs;
+  const filtered = refs.filter((r: any) => {
+    if (sector !== "all" && r.sector !== sector) return false;
+    if (shareableOnly && !r.shareable_with_client) return false;
+    if (!term) return true;
+    return [r.name, r.sector, r.city, r.client_or_contractor, r.sign_types, r.project_type]
+      .some((f) => f && String(f).toLowerCase().includes(term));
+  });
+
+  const currentYear = new Date().getFullYear();
+  const thisYear = refs.filter((r: any) => Number(r.year) === currentYear).length;
+  const shareable = refs.filter((r: any) => r.shareable_with_client).length;
 
   return (
     <div className="mx-auto max-w-7xl">
-      <SectionHeader
+      <PageHeader
+        eyebrow="Intelligence & Resources"
         title={t("nav_reference_library")}
-        count={filtered.length}
-        action={
+        description="Curated evidence for proposal preparation and client conversations."
+        actions={
           canEdit ? (
-            <button onClick={() => setCreateOpen(true)} className="rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs text-amber-light hover:bg-amber/20">
-              {t("ref_new")}
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-2 text-xs font-medium text-amber-light hover:bg-amber/20"
+            >
+              <Plus className="h-3.5 w-3.5" /> {t("ref_new")}
             </button>
           ) : null
         }
       />
 
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={t("ref_search")}
-        className="mb-4 w-full max-w-md rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-amber/40"
-      />
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Projects" value={refs.length} />
+        <KpiCard label="Shareable" value={shareable} hint={refs.length ? `${Math.round((shareable / refs.length) * 100)}% of library` : undefined} />
+        <KpiCard label="Sectors" value={sectors.length || "—"} />
+        <KpiCard label={`${currentYear}`} value={thisYear} hint="delivered this year" />
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t("ref_search")}
+            className="w-full rounded-md border border-border bg-surface ps-9 pe-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-amber/40"
+          />
+        </div>
+        <select
+          value={sector}
+          onChange={(e) => setSector(e.target.value)}
+          className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-amber/40"
+        >
+          <option value="all">All sectors</option>
+          {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <label className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={shareableOnly} onChange={(e) => setShareableOnly(e.target.checked)} className="accent-amber-light" />
+          Shareable only
+        </label>
+      </div>
 
       {isLoading ? (
         <EmptyState message={t("loading")} />
       ) : filtered.length === 0 ? (
-        <EmptyState message={t("ref_no_projects")} />
+        <EmptyState message={t("ref_no_projects")} hint={term || sector !== "all" || shareableOnly ? "Try clearing filters" : undefined} />
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((r: any) => (
-            <div key={r.id} className="flex flex-col rounded-lg border border-border bg-surface px-4 py-3">
+            <div key={r.id} className="flex flex-col rounded-xl border border-border/70 bg-surface/60 px-4 py-3 transition-colors hover:border-border-strong/70 hover:bg-surface">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-foreground">{r.name}</div>
@@ -77,10 +121,15 @@ function ReferenceLibraryPage() {
                   {r.shareable_with_client ? t("ref_shareable") : t("ref_needs_approval")}
                 </StatusPill>
               </div>
+              {r.sector ? (
+                <div className="mt-2">
+                  <StatusPill tone="neutral">{r.sector}</StatusPill>
+                </div>
+              ) : null}
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <DataField label={t("ref_scope")} value={r.phc_scope} />
                 <DataField label={t("ref_sign_types")} value={r.sign_types} />
-                <DataField label={t("crm_sector")} value={r.sector} />
+                <DataField label={t("crm_main_contractor")} value={r.client_or_contractor} />
                 <DataField label={t("crm_total_value")} value={formatCurrency(r.project_value, lang, r.currency)} mono />
               </div>
             </div>
