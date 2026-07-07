@@ -14,11 +14,14 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
+import { Route as AuthenticatedTargetsRouteImport } from './routes/_authenticated/targets'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedQuotationsRouteImport } from './routes/_authenticated/quotations'
 import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authenticated/follow-ups'
 import { Route as AuthenticatedDiscoveryRouteImport } from './routes/_authenticated/discovery'
 import { Route as AuthenticatedCommandCenterRouteImport } from './routes/_authenticated/command-center'
+import { Route as AuthenticatedBoqRouteImport } from './routes/_authenticated/boq'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated/approvals'
 import { Route as AuthenticatedAgentActivityRouteImport } from './routes/_authenticated/agent-activity'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin-settings'
@@ -53,6 +56,11 @@ const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
   path: '/team',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedTargetsRoute = AuthenticatedTargetsRouteImport.update({
+  id: '/targets',
+  path: '/targets',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -61,6 +69,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedQuotationsRoute = AuthenticatedQuotationsRouteImport.update({
+  id: '/quotations',
+  path: '/quotations',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedFollowUpsRoute = AuthenticatedFollowUpsRouteImport.update({
@@ -79,6 +92,11 @@ const AuthenticatedCommandCenterRoute =
     path: '/command-center',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBoqRoute = AuthenticatedBoqRouteImport.update({
+  id: '/boq',
+  path: '/boq',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedApprovalsRoute = AuthenticatedApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
@@ -141,11 +159,14 @@ export interface FileRoutesByFullPath {
   '/admin-settings': typeof AuthenticatedAdminSettingsRoute
   '/agent-activity': typeof AuthenticatedAgentActivityRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
+  '/boq': typeof AuthenticatedBoqRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
+  '/quotations': typeof AuthenticatedQuotationsRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/targets': typeof AuthenticatedTargetsRoute
   '/team': typeof AuthenticatedTeamRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -161,11 +182,14 @@ export interface FileRoutesByTo {
   '/admin-settings': typeof AuthenticatedAdminSettingsRoute
   '/agent-activity': typeof AuthenticatedAgentActivityRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
+  '/boq': typeof AuthenticatedBoqRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
+  '/quotations': typeof AuthenticatedQuotationsRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/targets': typeof AuthenticatedTargetsRoute
   '/team': typeof AuthenticatedTeamRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -183,11 +207,14 @@ export interface FileRoutesById {
   '/_authenticated/admin-settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/agent-activity': typeof AuthenticatedAgentActivityRoute
   '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
+  '/_authenticated/boq': typeof AuthenticatedBoqRoute
   '/_authenticated/command-center': typeof AuthenticatedCommandCenterRoute
   '/_authenticated/discovery': typeof AuthenticatedDiscoveryRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
+  '/_authenticated/quotations': typeof AuthenticatedQuotationsRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/targets': typeof AuthenticatedTargetsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -205,11 +232,14 @@ export interface FileRouteTypes {
     | '/admin-settings'
     | '/agent-activity'
     | '/approvals'
+    | '/boq'
     | '/command-center'
     | '/discovery'
     | '/follow-ups'
+    | '/quotations'
     | '/reports'
     | '/settings'
+    | '/targets'
     | '/team'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -225,11 +255,14 @@ export interface FileRouteTypes {
     | '/admin-settings'
     | '/agent-activity'
     | '/approvals'
+    | '/boq'
     | '/command-center'
     | '/discovery'
     | '/follow-ups'
+    | '/quotations'
     | '/reports'
     | '/settings'
+    | '/targets'
     | '/team'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -246,11 +279,14 @@ export interface FileRouteTypes {
     | '/_authenticated/admin-settings'
     | '/_authenticated/agent-activity'
     | '/_authenticated/approvals'
+    | '/_authenticated/boq'
     | '/_authenticated/command-center'
     | '/_authenticated/discovery'
     | '/_authenticated/follow-ups'
+    | '/_authenticated/quotations'
     | '/_authenticated/reports'
     | '/_authenticated/settings'
+    | '/_authenticated/targets'
     | '/_authenticated/team'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -306,6 +342,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTeamRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/targets': {
+      id: '/_authenticated/targets'
+      path: '/targets'
+      fullPath: '/targets'
+      preLoaderRoute: typeof AuthenticatedTargetsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
@@ -318,6 +361,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/quotations': {
+      id: '/_authenticated/quotations'
+      path: '/quotations'
+      fullPath: '/quotations'
+      preLoaderRoute: typeof AuthenticatedQuotationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/follow-ups': {
@@ -339,6 +389,13 @@ declare module '@tanstack/react-router' {
       path: '/command-center'
       fullPath: '/command-center'
       preLoaderRoute: typeof AuthenticatedCommandCenterRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/boq': {
+      id: '/_authenticated/boq'
+      path: '/boq'
+      fullPath: '/boq'
+      preLoaderRoute: typeof AuthenticatedBoqRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/approvals': {
@@ -411,11 +468,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAgentActivityRoute: typeof AuthenticatedAgentActivityRoute
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
+  AuthenticatedBoqRoute: typeof AuthenticatedBoqRoute
   AuthenticatedCommandCenterRoute: typeof AuthenticatedCommandCenterRoute
   AuthenticatedDiscoveryRoute: typeof AuthenticatedDiscoveryRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
+  AuthenticatedQuotationsRoute: typeof AuthenticatedQuotationsRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedTargetsRoute: typeof AuthenticatedTargetsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedOpportunitiesIdRoute: typeof AuthenticatedOpportunitiesIdRoute
   AuthenticatedOpportunitiesIndexRoute: typeof AuthenticatedOpportunitiesIndexRoute
@@ -425,11 +485,14 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
   AuthenticatedAgentActivityRoute: AuthenticatedAgentActivityRoute,
   AuthenticatedApprovalsRoute: AuthenticatedApprovalsRoute,
+  AuthenticatedBoqRoute: AuthenticatedBoqRoute,
   AuthenticatedCommandCenterRoute: AuthenticatedCommandCenterRoute,
   AuthenticatedDiscoveryRoute: AuthenticatedDiscoveryRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
+  AuthenticatedQuotationsRoute: AuthenticatedQuotationsRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedTargetsRoute: AuthenticatedTargetsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedOpportunitiesIdRoute: AuthenticatedOpportunitiesIdRoute,
   AuthenticatedOpportunitiesIndexRoute: AuthenticatedOpportunitiesIndexRoute,
@@ -452,13 +515,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -16,6 +16,9 @@ import {
   LogOut,
   Bell,
   ShieldAlert,
+  FileText,
+  ClipboardList,
+  Target,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -25,6 +28,9 @@ const nav = [
   { to: "/command-center", key: "nav_command_center", icon: LayoutDashboard },
   { to: "/opportunities", key: "nav_opportunities", icon: FolderKanban },
   { to: "/follow-ups", key: "nav_follow_ups", icon: CalendarClock },
+  { to: "/quotations", key: "nav_quotations", icon: FileText },
+  { to: "/boq", key: "nav_boq", icon: ClipboardList },
+  { to: "/targets", key: "nav_targets", icon: Target },
   { to: "/discovery", key: "nav_discovery", icon: Inbox },
   { to: "/approvals", key: "nav_approvals", icon: ShieldCheck },
   { to: "/reports", key: "nav_reports", icon: LineChart },
