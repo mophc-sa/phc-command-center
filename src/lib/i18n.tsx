@@ -33,6 +33,14 @@ export const strings = {
   nav_action_center: { en: "Action Required", ar: "الإجراءات المطلوبة" },
   nav_tender_conversion: { en: "Tender Conversion", ar: "تحويل المناقصات" },
 
+  // Sidebar / nav groups
+  navgroup_overview: { en: "Overview", ar: "نظرة عامة" },
+  navgroup_crm: { en: "CRM", ar: "إدارة العلاقات" },
+  navgroup_pipeline: { en: "Pipeline", ar: "خط المبيعات" },
+  navgroup_execution: { en: "Execution", ar: "التنفيذ" },
+  navgroup_intelligence: { en: "Intelligence & Resources", ar: "المعلومات والموارد" },
+  navgroup_admin: { en: "Admin", ar: "الإدارة" },
+
   // Sales stages (RFQ/JIH flow)
   sstage_rfq_received: { en: "RFQ Received", ar: "استلام طلب عرض سعر" },
   sstage_jih: { en: "Job In Hand", ar: "فرصة قائمة" },
