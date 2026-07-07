@@ -73,44 +73,52 @@ function AuthPage() {
   return (
     <div dir={dir} className="grid min-h-screen bg-background text-foreground md:grid-cols-[1.1fr_1fr]">
       <div className="relative hidden overflow-hidden border-border md:block md:border-e">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_20%_10%,rgba(181,105,43,0.10),transparent_60%),linear-gradient(180deg,#0E0F10_0%,#111111_100%)]" />
-        <div className="relative flex h-full flex-col justify-between p-10">
+        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_20%_10%,rgba(181,105,43,0.14),transparent_60%),linear-gradient(180deg,#0E0F10_0%,#0A0A0B_100%)]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/30 to-transparent" />
+        <div className="relative flex h-full flex-col justify-between p-12">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
-              PHC · Wayfinding Signs
+            <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
+              PHC · Command Center
             </div>
-            <div className="mt-3 text-2xl font-semibold">Silent Architecture, Operational Clarity.</div>
+            <div className="mt-4 max-w-md text-[28px] font-semibold leading-[1.15] tracking-[-0.02em] text-foreground">
+              Silent architecture,
+              <br />
+              operational clarity.
+            </div>
           </div>
-          <div className="max-w-md text-sm text-muted-foreground">
+          <div className="max-w-md text-sm leading-relaxed text-muted-foreground">
             {lang === "ar"
               ? "مركز القيادة الداخلي لإدارة فرص المبيعات، المتابعات، الاعتمادات، والأدلة، بلغة عربية وإنجليزية."
               : "The internal command center for pipeline decisions, follow-ups, approvals, and evidence — in Arabic and English."}
+          </div>
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
+            Wayfinding · Signs · Fabrication
           </div>
         </div>
       </div>
 
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-8 flex items-start justify-between">
             <div>
-              <div className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">PHC</div>
-              <h1 className="mt-1 text-xl font-semibold">{t("sign_in_title")}</h1>
-              <p className="mt-1 text-xs text-muted-foreground">{t("sign_in_sub")}</p>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">PHC</div>
+              <h1 className="mt-2 text-[24px] font-semibold tracking-[-0.02em] text-foreground">{t("sign_in_title")}</h1>
+              <p className="mt-1.5 text-sm text-muted-foreground">{t("sign_in_sub")}</p>
             </div>
             <button
               onClick={() => setLang(lang === "en" ? "ar" : "en")}
-              className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
+              className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
             >
               {lang === "en" ? "AR" : "EN"}
             </button>
           </div>
 
-          <form onSubmit={submit} className="space-y-3">
+          <form onSubmit={submit} className="space-y-3.5">
             {mode === "signup" ? (
               <label className="block">
-                <span className="text-xs text-muted-foreground">{t("full_name")}</span>
+                <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("full_name")}</span>
                 <input
-                  className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-amber/60"
+                  className="mt-1.5 w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-amber/60 focus:ring-1 focus:ring-amber/40"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
@@ -118,22 +126,22 @@ function AuthPage() {
               </label>
             ) : null}
             <label className="block">
-              <span className="text-xs text-muted-foreground">{t("email")}</span>
+              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("email")}</span>
               <input
                 type="email"
                 autoComplete="email"
-                className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-amber/60"
+                className="mt-1.5 w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-amber/60 focus:ring-1 focus:ring-amber/40"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </label>
             <label className="block">
-              <span className="text-xs text-muted-foreground">{t("password")}</span>
+              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("password")}</span>
               <input
                 type="password"
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-amber/60"
+                className="mt-1.5 w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-amber/60 focus:ring-1 focus:ring-amber/40"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 minLength={6}
@@ -142,7 +150,7 @@ function AuthPage() {
             </label>
             <button
               disabled={busy}
-              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:opacity-90 disabled:opacity-60"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-60"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {mode === "signin" ? t("sign_in") : t("create_account")}
@@ -150,7 +158,7 @@ function AuthPage() {
           </form>
 
           <button
-            className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+            className="mt-5 w-full text-center text-xs text-muted-foreground hover:text-foreground"
             onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
           >
             {mode === "signin" ? t("no_account") : t("have_account")}
@@ -160,3 +168,4 @@ function AuthPage() {
     </div>
   );
 }
+
