@@ -43,10 +43,36 @@ function CommandCenter() {
     },
   });
 
+  const { data: funnel } = useQuery({
+    queryKey: ["command-center-funnel"],
+    queryFn: async () => {
+      const [rfqs, tenders, sopps] = await Promise.all([
+        supabase.from("rfqs").select("estimated_value").eq("status", "open"),
+        supabase.from("tenders").select("tender_stage, estimated_project_value").in("tender_stage", ["tender_under_process", "award_negotiation", "awarded_to_contractor"]),
+        supabase.from("opportunities").select("sales_stage, estimated_value_max, contract_value").in("sales_stage", ["under_negotiation", "verbally_awarded", "contract_received"]),
+      ]);
+      return { rfqs: rfqs.data ?? [], tenders: tenders.data ?? [], sopps: sopps.data ?? [] };
+    },
+  });
+
   const opps = data?.opportunities ?? [];
   const followUps = data?.followUps ?? [];
   const approvals = data?.approvals ?? [];
   const agentRuns = data?.agentRuns ?? [];
+
+  // Sales funnel counts + values (RFQ -> Tender -> JIH -> Award -> Contract).
+  const sumBy = (arr: any[], key: string) => arr.reduce((s, x) => s + (x[key] ?? 0), 0);
+  const tStage = (s: string) => (funnel?.tenders ?? []).filter((x: any) => x.tender_stage === s);
+  const oStage = (s: string) => (funnel?.sopps ?? []).filter((x: any) => x.sales_stage === s);
+  const funnelTiles = [
+    { key: "funnel_new_rfq", to: "/rfq-jih", count: (funnel?.rfqs ?? []).length, value: sumBy(funnel?.rfqs ?? [], "estimated_value") },
+    { key: "funnel_still_tendering", to: "/tenders", count: tStage("tender_under_process").length, value: sumBy(tStage("tender_under_process"), "estimated_project_value") },
+    { key: "funnel_tender_negotiation", to: "/tenders", count: tStage("award_negotiation").length, value: sumBy(tStage("award_negotiation"), "estimated_project_value") },
+    { key: "funnel_jih_awarded", to: "/tenders", count: tStage("awarded_to_contractor").length, value: sumBy(tStage("awarded_to_contractor"), "estimated_project_value"), attention: true },
+    { key: "funnel_jih_final", to: "/rfq-jih", count: oStage("under_negotiation").length, value: sumBy(oStage("under_negotiation"), "estimated_value_max") },
+    { key: "sstage_verbally_awarded", to: "/award-queue", count: oStage("verbally_awarded").length, value: sumBy(oStage("verbally_awarded"), "estimated_value_max"), attention: true },
+    { key: "sstage_contract_received", to: "/award-queue", count: oStage("contract_received").length, value: sumBy(oStage("contract_received"), "contract_value") },
+  ] as const;
 
   const openPipelineValue = opps
     .filter((o) => !["won", "lost", "archived"].includes(o.stage))
@@ -132,6 +158,27 @@ function CommandCenter() {
             onAction={() => nav({ to: "/opportunities" })}
             actionLabel={lang === "ar" ? "استعراض" : "Explore"}
           />
+        </div>
+      </section>
+
+      {/* Sales Funnel */}
+      <section aria-labelledby="funnel">
+        <SectionHeader
+          title={t("funnel_title")}
+          hint={lang === "ar" ? "من طلب عرض السعر مروراً بالمناقصة حتى العقد." : "From RFQ through tender to contract."}
+        />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          {funnelTiles.map((tile) => (
+            <MetricTile
+              key={tile.key}
+              label={t(tile.key as never)}
+              value={formatNumber(tile.count, lang)}
+              hint={tile.value > 0 ? formatCurrency(tile.value, lang) : undefined}
+              tone={"attention" in tile && tile.attention && tile.count > 0 ? "attention" : "neutral"}
+              onAction={() => nav({ to: tile.to })}
+              actionLabel={lang === "ar" ? "عرض" : "View"}
+            />
+          ))}
         </div>
       </section>
 

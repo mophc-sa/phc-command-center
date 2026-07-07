@@ -1,1 +1,6 @@
 project_id = "lrfdtoexyeghrzynapyn"
+
+# PHC Sales OS backend layer. The gateway verifies the caller's JWT; the
+# function then resolves roles and authorizes each sensitive action in code.
+[functions.sales-os-api]
+verify_jwt = true

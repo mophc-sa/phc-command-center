@@ -18,7 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
+import { uploadAttachment } from "@/lib/storage-actions";
 
 export type DialogField =
   | {
@@ -36,6 +38,14 @@ export type DialogField =
       required?: boolean;
       defaultValue?: string;
       options: { value: string; label: string }[];
+    }
+  | {
+      key: string;
+      type: "file";
+      label: string;
+      required?: boolean;
+      // Folder within the attachments bucket, e.g. "boq" or "quotations".
+      folder: string;
     };
 
 export function ActionDialog({
@@ -60,11 +70,12 @@ export function ActionDialog({
   const { t, dir } = useI18n();
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (open) {
       const seed: Record<string, string> = {};
-      for (const f of fields) seed[f.key] = f.defaultValue ?? "";
+      for (const f of fields) seed[f.key] = "defaultValue" in f ? (f.defaultValue ?? "") : "";
       setValues(seed);
     }
   }, [open, fields]);
@@ -104,6 +115,28 @@ export function ActionDialog({
                   onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
                   rows={4}
                 />
+              ) : f.type === "file" ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    id={f.key}
+                    type="file"
+                    disabled={uploading}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setUploading(true);
+                      try {
+                        const { url } = await uploadAttachment(f.folder, file);
+                        setValues((v) => ({ ...v, [f.key]: url ?? "" }));
+                      } catch (err) {
+                        toast.error(t("toast_error") + (err instanceof Error ? `: ${err.message}` : ""));
+                      } finally {
+                        setUploading(false);
+                      }
+                    }}
+                  />
+                  {values[f.key] ? <span className="text-xs text-emerald-300">✓</span> : null}
+                </div>
               ) : f.type === "select" ? (
                 <Select
                   value={values[f.key] ?? ""}
@@ -139,9 +172,9 @@ export function ActionDialog({
           <Button
             variant={destructive ? "destructive" : "default"}
             onClick={handleSubmit}
-            disabled={busy}
+            disabled={busy || uploading}
           >
-            {busy ? t("loading") : submitLabel}
+            {busy || uploading ? t("loading") : submitLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

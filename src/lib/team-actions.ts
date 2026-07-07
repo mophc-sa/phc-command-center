@@ -1,8 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "ceo" | "sales_manager" | "bd_manager" | "viewer";
+export type AppRole = "ceo" | "sales_manager" | "bd_manager" | "salesperson" | "viewer";
 
-export const ALL_ROLES: AppRole[] = ["ceo", "sales_manager", "bd_manager", "viewer"];
+export const ALL_ROLES: AppRole[] = ["ceo", "sales_manager", "bd_manager", "salesperson", "viewer"];
 
 export type TeamMember = {
   id: string;

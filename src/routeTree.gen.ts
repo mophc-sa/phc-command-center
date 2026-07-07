@@ -13,19 +13,36 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedVendorsRouteImport } from './routes/_authenticated/vendors'
+import { Route as AuthenticatedTendersRouteImport } from './routes/_authenticated/tenders'
+import { Route as AuthenticatedTenderConversionRouteImport } from './routes/_authenticated/tender-conversion'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
+import { Route as AuthenticatedTargetsRouteImport } from './routes/_authenticated/targets'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedRfqJihRouteImport } from './routes/_authenticated/rfq-jih'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedReferenceLibraryRouteImport } from './routes/_authenticated/reference-library'
+import { Route as AuthenticatedQuotationsRouteImport } from './routes/_authenticated/quotations'
+import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
+import { Route as AuthenticatedMyWorkspaceRouteImport } from './routes/_authenticated/my-workspace'
+import { Route as AuthenticatedKnowledgeRouteImport } from './routes/_authenticated/knowledge'
 import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authenticated/follow-ups'
 import { Route as AuthenticatedDiscoveryRouteImport } from './routes/_authenticated/discovery'
+import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticated/contacts'
 import { Route as AuthenticatedCommandCenterRouteImport } from './routes/_authenticated/command-center'
+import { Route as AuthenticatedBoqRouteImport } from './routes/_authenticated/boq'
+import { Route as AuthenticatedAwardQueueRouteImport } from './routes/_authenticated/award-queue'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated/approvals'
 import { Route as AuthenticatedAgentActivityRouteImport } from './routes/_authenticated/agent-activity'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin-settings'
+import { Route as AuthenticatedActionCenterRouteImport } from './routes/_authenticated/action-center'
+import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedOpportunitiesIndexRouteImport } from './routes/_authenticated/opportunities.index'
+import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects.$id'
 import { Route as AuthenticatedOpportunitiesIdRouteImport } from './routes/_authenticated/opportunities.$id'
+import { Route as AuthenticatedAccountsIdRouteImport } from './routes/_authenticated/accounts.$id'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 
@@ -48,9 +65,30 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedVendorsRoute = AuthenticatedVendorsRouteImport.update({
+  id: '/vendors',
+  path: '/vendors',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTendersRoute = AuthenticatedTendersRouteImport.update({
+  id: '/tenders',
+  path: '/tenders',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTenderConversionRoute =
+  AuthenticatedTenderConversionRouteImport.update({
+    id: '/tender-conversion',
+    path: '/tender-conversion',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTargetsRoute = AuthenticatedTargetsRouteImport.update({
+  id: '/targets',
+  path: '/targets',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -58,9 +96,41 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRfqJihRoute = AuthenticatedRfqJihRouteImport.update({
+  id: '/rfq-jih',
+  path: '/rfq-jih',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReferenceLibraryRoute =
+  AuthenticatedReferenceLibraryRouteImport.update({
+    id: '/reference-library',
+    path: '/reference-library',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedQuotationsRoute = AuthenticatedQuotationsRouteImport.update({
+  id: '/quotations',
+  path: '/quotations',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMyWorkspaceRoute =
+  AuthenticatedMyWorkspaceRouteImport.update({
+    id: '/my-workspace',
+    path: '/my-workspace',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedKnowledgeRoute = AuthenticatedKnowledgeRouteImport.update({
+  id: '/knowledge',
+  path: '/knowledge',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedFollowUpsRoute = AuthenticatedFollowUpsRouteImport.update({
@@ -73,12 +143,27 @@ const AuthenticatedDiscoveryRoute = AuthenticatedDiscoveryRouteImport.update({
   path: '/discovery',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedContactsRoute = AuthenticatedContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCommandCenterRoute =
   AuthenticatedCommandCenterRouteImport.update({
     id: '/command-center',
     path: '/command-center',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBoqRoute = AuthenticatedBoqRouteImport.update({
+  id: '/boq',
+  path: '/boq',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAwardQueueRoute = AuthenticatedAwardQueueRouteImport.update({
+  id: '/award-queue',
+  path: '/award-queue',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedApprovalsRoute = AuthenticatedApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
@@ -96,6 +181,17 @@ const AuthenticatedAdminSettingsRoute =
     path: '/admin-settings',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedActionCenterRoute =
+  AuthenticatedActionCenterRouteImport.update({
+    id: '/action-center',
+    path: '/action-center',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAccountsRoute = AuthenticatedAccountsRouteImport.update({
+  id: '/accounts',
+  path: '/accounts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const Char91DotwellKnownChar93OauthProtectedResourceRoute =
   Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
     id: '/.well-known/oauth-protected-resource',
@@ -114,12 +210,22 @@ const AuthenticatedOpportunitiesIndexRoute =
     path: '/opportunities/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedProjectsIdRoute = AuthenticatedProjectsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AuthenticatedProjectsRoute,
+} as any)
 const AuthenticatedOpportunitiesIdRoute =
   AuthenticatedOpportunitiesIdRouteImport.update({
     id: '/opportunities/$id',
     path: '/opportunities/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAccountsIdRoute = AuthenticatedAccountsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AuthenticatedAccountsRoute,
+} as any)
 const Char91DotmcpChar93InvokeToolToolRoute =
   Char91DotmcpChar93InvokeToolToolRouteImport.update({
     id: '/.mcp/invoke-tool/$tool',
@@ -138,18 +244,35 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/accounts': typeof AuthenticatedAccountsRouteWithChildren
+  '/action-center': typeof AuthenticatedActionCenterRoute
   '/admin-settings': typeof AuthenticatedAdminSettingsRoute
   '/agent-activity': typeof AuthenticatedAgentActivityRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
+  '/award-queue': typeof AuthenticatedAwardQueueRoute
+  '/boq': typeof AuthenticatedBoqRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
+  '/contacts': typeof AuthenticatedContactsRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
+  '/knowledge': typeof AuthenticatedKnowledgeRoute
+  '/my-workspace': typeof AuthenticatedMyWorkspaceRoute
+  '/projects': typeof AuthenticatedProjectsRouteWithChildren
+  '/quotations': typeof AuthenticatedQuotationsRoute
+  '/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/targets': typeof AuthenticatedTargetsRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/tender-conversion': typeof AuthenticatedTenderConversionRoute
+  '/tenders': typeof AuthenticatedTendersRoute
+  '/vendors': typeof AuthenticatedVendorsRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -158,18 +281,35 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/accounts': typeof AuthenticatedAccountsRouteWithChildren
+  '/action-center': typeof AuthenticatedActionCenterRoute
   '/admin-settings': typeof AuthenticatedAdminSettingsRoute
   '/agent-activity': typeof AuthenticatedAgentActivityRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
+  '/award-queue': typeof AuthenticatedAwardQueueRoute
+  '/boq': typeof AuthenticatedBoqRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
+  '/contacts': typeof AuthenticatedContactsRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
+  '/knowledge': typeof AuthenticatedKnowledgeRoute
+  '/my-workspace': typeof AuthenticatedMyWorkspaceRoute
+  '/projects': typeof AuthenticatedProjectsRouteWithChildren
+  '/quotations': typeof AuthenticatedQuotationsRoute
+  '/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/reports': typeof AuthenticatedReportsRoute
+  '/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/targets': typeof AuthenticatedTargetsRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/tender-conversion': typeof AuthenticatedTenderConversionRoute
+  '/tenders': typeof AuthenticatedTendersRoute
+  '/vendors': typeof AuthenticatedVendorsRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/opportunities': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRoutesById {
@@ -180,18 +320,35 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/_authenticated/accounts': typeof AuthenticatedAccountsRouteWithChildren
+  '/_authenticated/action-center': typeof AuthenticatedActionCenterRoute
   '/_authenticated/admin-settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/agent-activity': typeof AuthenticatedAgentActivityRoute
   '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
+  '/_authenticated/award-queue': typeof AuthenticatedAwardQueueRoute
+  '/_authenticated/boq': typeof AuthenticatedBoqRoute
   '/_authenticated/command-center': typeof AuthenticatedCommandCenterRoute
+  '/_authenticated/contacts': typeof AuthenticatedContactsRoute
   '/_authenticated/discovery': typeof AuthenticatedDiscoveryRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
+  '/_authenticated/knowledge': typeof AuthenticatedKnowledgeRoute
+  '/_authenticated/my-workspace': typeof AuthenticatedMyWorkspaceRoute
+  '/_authenticated/projects': typeof AuthenticatedProjectsRouteWithChildren
+  '/_authenticated/quotations': typeof AuthenticatedQuotationsRoute
+  '/_authenticated/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/targets': typeof AuthenticatedTargetsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/_authenticated/tender-conversion': typeof AuthenticatedTenderConversionRoute
+  '/_authenticated/tenders': typeof AuthenticatedTendersRoute
+  '/_authenticated/vendors': typeof AuthenticatedVendorsRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/_authenticated/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/_authenticated/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/_authenticated/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRouteTypes {
@@ -202,18 +359,35 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/accounts'
+    | '/action-center'
     | '/admin-settings'
     | '/agent-activity'
     | '/approvals'
+    | '/award-queue'
+    | '/boq'
     | '/command-center'
+    | '/contacts'
     | '/discovery'
     | '/follow-ups'
+    | '/knowledge'
+    | '/my-workspace'
+    | '/projects'
+    | '/quotations'
+    | '/reference-library'
     | '/reports'
+    | '/rfq-jih'
     | '/settings'
+    | '/targets'
     | '/team'
+    | '/tender-conversion'
+    | '/tenders'
+    | '/vendors'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/accounts/$id'
     | '/opportunities/$id'
+    | '/projects/$id'
     | '/opportunities/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -222,18 +396,35 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/accounts'
+    | '/action-center'
     | '/admin-settings'
     | '/agent-activity'
     | '/approvals'
+    | '/award-queue'
+    | '/boq'
     | '/command-center'
+    | '/contacts'
     | '/discovery'
     | '/follow-ups'
+    | '/knowledge'
+    | '/my-workspace'
+    | '/projects'
+    | '/quotations'
+    | '/reference-library'
     | '/reports'
+    | '/rfq-jih'
     | '/settings'
+    | '/targets'
     | '/team'
+    | '/tender-conversion'
+    | '/tenders'
+    | '/vendors'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/accounts/$id'
     | '/opportunities/$id'
+    | '/projects/$id'
     | '/opportunities'
   id:
     | '__root__'
@@ -243,18 +434,35 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/_authenticated/accounts'
+    | '/_authenticated/action-center'
     | '/_authenticated/admin-settings'
     | '/_authenticated/agent-activity'
     | '/_authenticated/approvals'
+    | '/_authenticated/award-queue'
+    | '/_authenticated/boq'
     | '/_authenticated/command-center'
+    | '/_authenticated/contacts'
     | '/_authenticated/discovery'
     | '/_authenticated/follow-ups'
+    | '/_authenticated/knowledge'
+    | '/_authenticated/my-workspace'
+    | '/_authenticated/projects'
+    | '/_authenticated/quotations'
+    | '/_authenticated/reference-library'
     | '/_authenticated/reports'
+    | '/_authenticated/rfq-jih'
     | '/_authenticated/settings'
+    | '/_authenticated/targets'
     | '/_authenticated/team'
+    | '/_authenticated/tender-conversion'
+    | '/_authenticated/tenders'
+    | '/_authenticated/vendors'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/_authenticated/accounts/$id'
     | '/_authenticated/opportunities/$id'
+    | '/_authenticated/projects/$id'
     | '/_authenticated/opportunities/'
   fileRoutesById: FileRoutesById
 }
@@ -299,11 +507,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/vendors': {
+      id: '/_authenticated/vendors'
+      path: '/vendors'
+      fullPath: '/vendors'
+      preLoaderRoute: typeof AuthenticatedVendorsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/tenders': {
+      id: '/_authenticated/tenders'
+      path: '/tenders'
+      fullPath: '/tenders'
+      preLoaderRoute: typeof AuthenticatedTendersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/tender-conversion': {
+      id: '/_authenticated/tender-conversion'
+      path: '/tender-conversion'
+      fullPath: '/tender-conversion'
+      preLoaderRoute: typeof AuthenticatedTenderConversionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/team': {
       id: '/_authenticated/team'
       path: '/team'
       fullPath: '/team'
       preLoaderRoute: typeof AuthenticatedTeamRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/targets': {
+      id: '/_authenticated/targets'
+      path: '/targets'
+      fullPath: '/targets'
+      preLoaderRoute: typeof AuthenticatedTargetsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -313,11 +549,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/rfq-jih': {
+      id: '/_authenticated/rfq-jih'
+      path: '/rfq-jih'
+      fullPath: '/rfq-jih'
+      preLoaderRoute: typeof AuthenticatedRfqJihRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/reports': {
       id: '/_authenticated/reports'
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reference-library': {
+      id: '/_authenticated/reference-library'
+      path: '/reference-library'
+      fullPath: '/reference-library'
+      preLoaderRoute: typeof AuthenticatedReferenceLibraryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/quotations': {
+      id: '/_authenticated/quotations'
+      path: '/quotations'
+      fullPath: '/quotations'
+      preLoaderRoute: typeof AuthenticatedQuotationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/projects': {
+      id: '/_authenticated/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof AuthenticatedProjectsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/my-workspace': {
+      id: '/_authenticated/my-workspace'
+      path: '/my-workspace'
+      fullPath: '/my-workspace'
+      preLoaderRoute: typeof AuthenticatedMyWorkspaceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/knowledge': {
+      id: '/_authenticated/knowledge'
+      path: '/knowledge'
+      fullPath: '/knowledge'
+      preLoaderRoute: typeof AuthenticatedKnowledgeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/follow-ups': {
@@ -334,11 +612,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDiscoveryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/contacts': {
+      id: '/_authenticated/contacts'
+      path: '/contacts'
+      fullPath: '/contacts'
+      preLoaderRoute: typeof AuthenticatedContactsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/command-center': {
       id: '/_authenticated/command-center'
       path: '/command-center'
       fullPath: '/command-center'
       preLoaderRoute: typeof AuthenticatedCommandCenterRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/boq': {
+      id: '/_authenticated/boq'
+      path: '/boq'
+      fullPath: '/boq'
+      preLoaderRoute: typeof AuthenticatedBoqRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/award-queue': {
+      id: '/_authenticated/award-queue'
+      path: '/award-queue'
+      fullPath: '/award-queue'
+      preLoaderRoute: typeof AuthenticatedAwardQueueRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/approvals': {
@@ -362,6 +661,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/action-center': {
+      id: '/_authenticated/action-center'
+      path: '/action-center'
+      fullPath: '/action-center'
+      preLoaderRoute: typeof AuthenticatedActionCenterRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/accounts': {
+      id: '/_authenticated/accounts'
+      path: '/accounts'
+      fullPath: '/accounts'
+      preLoaderRoute: typeof AuthenticatedAccountsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/.well-known/oauth-protected-resource': {
       id: '/.well-known/oauth-protected-resource'
       path: '/.well-known/oauth-protected-resource'
@@ -383,12 +696,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOpportunitiesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/projects/$id': {
+      id: '/_authenticated/projects/$id'
+      path: '/$id'
+      fullPath: '/projects/$id'
+      preLoaderRoute: typeof AuthenticatedProjectsIdRouteImport
+      parentRoute: typeof AuthenticatedProjectsRoute
+    }
     '/_authenticated/opportunities/$id': {
       id: '/_authenticated/opportunities/$id'
       path: '/opportunities/$id'
       fullPath: '/opportunities/$id'
       preLoaderRoute: typeof AuthenticatedOpportunitiesIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/accounts/$id': {
+      id: '/_authenticated/accounts/$id'
+      path: '/$id'
+      fullPath: '/accounts/$id'
+      preLoaderRoute: typeof AuthenticatedAccountsIdRouteImport
+      parentRoute: typeof AuthenticatedAccountsRoute
     }
     '/.mcp/invoke-tool/$tool': {
       id: '/.mcp/invoke-tool/$tool'
@@ -407,30 +734,86 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAccountsRouteChildren {
+  AuthenticatedAccountsIdRoute: typeof AuthenticatedAccountsIdRoute
+}
+
+const AuthenticatedAccountsRouteChildren: AuthenticatedAccountsRouteChildren = {
+  AuthenticatedAccountsIdRoute: AuthenticatedAccountsIdRoute,
+}
+
+const AuthenticatedAccountsRouteWithChildren =
+  AuthenticatedAccountsRoute._addFileChildren(
+    AuthenticatedAccountsRouteChildren,
+  )
+
+interface AuthenticatedProjectsRouteChildren {
+  AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
+}
+
+const AuthenticatedProjectsRouteChildren: AuthenticatedProjectsRouteChildren = {
+  AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
+}
+
+const AuthenticatedProjectsRouteWithChildren =
+  AuthenticatedProjectsRoute._addFileChildren(
+    AuthenticatedProjectsRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRouteWithChildren
+  AuthenticatedActionCenterRoute: typeof AuthenticatedActionCenterRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAgentActivityRoute: typeof AuthenticatedAgentActivityRoute
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
+  AuthenticatedAwardQueueRoute: typeof AuthenticatedAwardQueueRoute
+  AuthenticatedBoqRoute: typeof AuthenticatedBoqRoute
   AuthenticatedCommandCenterRoute: typeof AuthenticatedCommandCenterRoute
+  AuthenticatedContactsRoute: typeof AuthenticatedContactsRoute
   AuthenticatedDiscoveryRoute: typeof AuthenticatedDiscoveryRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
+  AuthenticatedKnowledgeRoute: typeof AuthenticatedKnowledgeRoute
+  AuthenticatedMyWorkspaceRoute: typeof AuthenticatedMyWorkspaceRoute
+  AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRouteWithChildren
+  AuthenticatedQuotationsRoute: typeof AuthenticatedQuotationsRoute
+  AuthenticatedReferenceLibraryRoute: typeof AuthenticatedReferenceLibraryRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedRfqJihRoute: typeof AuthenticatedRfqJihRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedTargetsRoute: typeof AuthenticatedTargetsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
+  AuthenticatedTenderConversionRoute: typeof AuthenticatedTenderConversionRoute
+  AuthenticatedTendersRoute: typeof AuthenticatedTendersRoute
+  AuthenticatedVendorsRoute: typeof AuthenticatedVendorsRoute
   AuthenticatedOpportunitiesIdRoute: typeof AuthenticatedOpportunitiesIdRoute
   AuthenticatedOpportunitiesIndexRoute: typeof AuthenticatedOpportunitiesIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAccountsRoute: AuthenticatedAccountsRouteWithChildren,
+  AuthenticatedActionCenterRoute: AuthenticatedActionCenterRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
   AuthenticatedAgentActivityRoute: AuthenticatedAgentActivityRoute,
   AuthenticatedApprovalsRoute: AuthenticatedApprovalsRoute,
+  AuthenticatedAwardQueueRoute: AuthenticatedAwardQueueRoute,
+  AuthenticatedBoqRoute: AuthenticatedBoqRoute,
   AuthenticatedCommandCenterRoute: AuthenticatedCommandCenterRoute,
+  AuthenticatedContactsRoute: AuthenticatedContactsRoute,
   AuthenticatedDiscoveryRoute: AuthenticatedDiscoveryRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
+  AuthenticatedKnowledgeRoute: AuthenticatedKnowledgeRoute,
+  AuthenticatedMyWorkspaceRoute: AuthenticatedMyWorkspaceRoute,
+  AuthenticatedProjectsRoute: AuthenticatedProjectsRouteWithChildren,
+  AuthenticatedQuotationsRoute: AuthenticatedQuotationsRoute,
+  AuthenticatedReferenceLibraryRoute: AuthenticatedReferenceLibraryRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedRfqJihRoute: AuthenticatedRfqJihRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedTargetsRoute: AuthenticatedTargetsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
+  AuthenticatedTenderConversionRoute: AuthenticatedTenderConversionRoute,
+  AuthenticatedTendersRoute: AuthenticatedTendersRoute,
+  AuthenticatedVendorsRoute: AuthenticatedVendorsRoute,
   AuthenticatedOpportunitiesIdRoute: AuthenticatedOpportunitiesIdRoute,
   AuthenticatedOpportunitiesIndexRoute: AuthenticatedOpportunitiesIndexRoute,
 }

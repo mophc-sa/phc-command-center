@@ -2,6 +2,7 @@ import { auth, defineMcp } from "@lovable.dev/mcp-js";
 import listOpportunities from "./tools/list-opportunities";
 import listApprovals from "./tools/list-approvals";
 import recentAgentRuns from "./tools/recent-agent-runs";
+import listRecommendations from "./tools/list-recommendations";
 
 const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
 
@@ -15,5 +16,5 @@ export default defineMcp({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
   }),
-  tools: [listOpportunities, listApprovals, recentAgentRuns],
+  tools: [listOpportunities, listApprovals, recentAgentRuns, listRecommendations],
 });
