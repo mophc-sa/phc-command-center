@@ -1,57 +1,91 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  Sparkles,
+  Wallet,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
-import { MetricTile } from "@/components/phc/MetricTile";
-import { SectionHeader } from "@/components/phc/SectionHeader";
+import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiCard } from "@/components/phc/KpiCard";
+import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { PriorityItem } from "@/components/phc/PriorityItem";
-import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
 import { StatusPill } from "@/components/phc/StatusPill";
-import { Activity, CheckCircle2, Sparkles } from "lucide-react";
+import type { OpportunityRow } from "@/components/phc/OpportunityCard";
 
 export const Route = createFileRoute("/_authenticated/command-center")({
   head: () => ({
     meta: [
       { title: "Command Center — PHC Sales Agent" },
-      { name: "description", content: "Priority actions, pipeline decisions, and Sales Agent activity." },
+      { name: "description", content: "Executive operating view: pipeline, follow-ups, RFQ activity, and priority work." },
       { name: "robots", content: "noindex" },
     ],
   }),
   component: CommandCenter,
 });
 
+const CLOSED = ["won", "lost", "archived"];
+const CHART_COLORS = {
+  primary: "oklch(0.97 0.004 253)",
+  primaryDim: "oklch(0.75 0.008 253)",
+  amber: "oklch(0.70 0.115 65)",
+  amberDim: "oklch(0.55 0.09 65)",
+  muted: "oklch(0.50 0.010 253)",
+  grid: "oklch(0.40 0.015 253 / 0.35)",
+} as const;
+
+function humanize(s: string) {
+  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function CommandCenter() {
   const { t, lang } = useI18n();
   const nav = useNavigate();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["command-center"],
+    queryKey: ["cc-core"],
     queryFn: async () => {
-      const [opps, followUps, approvals, agentRuns] = await Promise.all([
+      const since = new Date();
+      since.setDate(since.getDate() - 29);
+      const sinceIso = since.toISOString();
+
+      const [opps, followUps, approvals, agentRuns, activities, rfqs] = await Promise.all([
         supabase.from("opportunities").select("*").order("last_activity_at", { ascending: false, nullsFirst: false }),
-        supabase.from("follow_ups").select("*").in("status", ["due", "overdue", "scheduled"]).order("due_date", { ascending: true }),
+        supabase.from("follow_ups").select("*").neq("status", "completed").order("due_date", { ascending: true }),
         supabase.from("approvals").select("*").eq("status", "pending"),
         supabase.from("agent_runs").select("*").order("started_at", { ascending: false }).limit(6),
+        supabase.from("activities").select("id, occurred_at").gte("occurred_at", sinceIso),
+        supabase.from("rfqs").select("id, status, estimated_value"),
       ]);
       return {
         opportunities: (opps.data ?? []) as unknown as OpportunityRow[],
         followUps: followUps.data ?? [],
         approvals: approvals.data ?? [],
         agentRuns: agentRuns.data ?? [],
+        activities: activities.data ?? [],
+        rfqs: rfqs.data ?? [],
       };
-    },
-  });
-
-  const { data: funnel } = useQuery({
-    queryKey: ["command-center-funnel"],
-    queryFn: async () => {
-      const [rfqs, tenders, sopps] = await Promise.all([
-        supabase.from("rfqs").select("estimated_value").eq("status", "open"),
-        supabase.from("tenders").select("tender_stage, estimated_project_value").in("tender_stage", ["tender_under_process", "award_negotiation", "awarded_to_contractor"]),
-        supabase.from("opportunities").select("sales_stage, estimated_value_max, contract_value").in("sales_stage", ["under_negotiation", "verbally_awarded", "contract_received"]),
-      ]);
-      return { rfqs: rfqs.data ?? [], tenders: tenders.data ?? [], sopps: sopps.data ?? [] };
     },
   });
 
@@ -59,56 +93,121 @@ function CommandCenter() {
   const followUps = data?.followUps ?? [];
   const approvals = data?.approvals ?? [];
   const agentRuns = data?.agentRuns ?? [];
+  const activities = data?.activities ?? [];
+  const rfqs = data?.rfqs ?? [];
 
-  // Sales funnel counts + values (RFQ -> Tender -> JIH -> Award -> Contract).
-  const sumBy = (arr: any[], key: string) => arr.reduce((s, x) => s + (x[key] ?? 0), 0);
-  const tStage = (s: string) => (funnel?.tenders ?? []).filter((x: any) => x.tender_stage === s);
-  const oStage = (s: string) => (funnel?.sopps ?? []).filter((x: any) => x.sales_stage === s);
-  const funnelTiles = [
-    { key: "funnel_new_rfq", to: "/rfq-jih", count: (funnel?.rfqs ?? []).length, value: sumBy(funnel?.rfqs ?? [], "estimated_value") },
-    { key: "funnel_still_tendering", to: "/tenders", count: tStage("tender_under_process").length, value: sumBy(tStage("tender_under_process"), "estimated_project_value") },
-    { key: "funnel_tender_negotiation", to: "/tenders", count: tStage("award_negotiation").length, value: sumBy(tStage("award_negotiation"), "estimated_project_value") },
-    { key: "funnel_jih_awarded", to: "/tenders", count: tStage("awarded_to_contractor").length, value: sumBy(tStage("awarded_to_contractor"), "estimated_project_value"), attention: true },
-    { key: "funnel_jih_final", to: "/rfq-jih", count: oStage("under_negotiation").length, value: sumBy(oStage("under_negotiation"), "estimated_value_max") },
-    { key: "sstage_verbally_awarded", to: "/award-queue", count: oStage("verbally_awarded").length, value: sumBy(oStage("verbally_awarded"), "estimated_value_max"), attention: true },
-    { key: "sstage_contract_received", to: "/award-queue", count: oStage("contract_received").length, value: sumBy(oStage("contract_received"), "contract_value") },
-  ] as const;
-
-  const openPipelineValue = opps
-    .filter((o) => !["won", "lost", "archived"].includes(o.stage))
-    .reduce((s, o) => s + (o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0), 0);
+  const openOpps = opps.filter((o) => !CLOSED.includes(o.stage));
+  const openPipelineValue = openOpps.reduce(
+    (s, o) => s + (o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0),
+    0,
+  );
 
   const today = new Date().toISOString().slice(0, 10);
-  const overdue = followUps.filter((f) => (f.status === "overdue") || (f.due_date && f.due_date < today));
-  const overdueValue = overdue.reduce((s, f) => {
+  const overdue = followUps.filter((f: any) => f.status === "overdue" || (f.due_date && f.due_date < today));
+  const overdueValue = overdue.reduce((s: number, f: any) => {
     const o = opps.find((x) => x.id === f.opportunity_id);
     return s + (o?.quotation_value ?? o?.estimated_value_max ?? o?.estimated_value_min ?? 0);
   }, 0);
 
   const newlyQualified = opps.filter((o) => o.stage === "qualification").length;
 
-  // Needs Attention: pick top 5 by priority: overdue follow-ups, pending approvals, tier A without recent activity
+  // Pipeline by stage
+  const pipelineByStage = useMemo(() => {
+    const order = ["discovery", "qualification", "preparation", "quotation", "follow_up"];
+    const map = new Map<string, { count: number; value: number }>();
+    order.forEach((s) => map.set(s, { count: 0, value: 0 }));
+    for (const o of openOpps) {
+      const cur = map.get(o.stage) ?? { count: 0, value: 0 };
+      cur.count += 1;
+      cur.value += o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0;
+      map.set(o.stage, cur);
+    }
+    return Array.from(map.entries()).map(([stage, v]) => ({
+      stage: humanize(stage),
+      count: v.count,
+      value: v.value,
+    }));
+  }, [openOpps]);
+
+  // Activity trend (last 30 days)
+  const activityTrend = useMemo(() => {
+    const days: { date: string; label: string; count: number }[] = [];
+    const map = new Map<string, number>();
+    for (const a of activities) {
+      const d = (a.occurred_at ?? "").slice(0, 10);
+      if (!d) continue;
+      map.set(d, (map.get(d) ?? 0) + 1);
+    }
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const iso = d.toISOString().slice(0, 10);
+      days.push({
+        date: iso,
+        label: d.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" }),
+        count: map.get(iso) ?? 0,
+      });
+    }
+    return days;
+  }, [activities, lang]);
+
+  // Follow-ups status distribution
+  const followUpsStatus = useMemo(() => {
+    let overdueC = 0, dueToday = 0, upcoming = 0, scheduled = 0;
+    for (const f of followUps as any[]) {
+      const dd = f.due_date as string | null;
+      if (f.status === "overdue" || (dd && dd < today)) overdueC++;
+      else if (dd === today) dueToday++;
+      else if (f.status === "due") upcoming++;
+      else scheduled++;
+    }
+    return [
+      { key: "overdue", label: lang === "ar" ? "متأخر" : "Overdue", value: overdueC, color: CHART_COLORS.amber },
+      { key: "today", label: lang === "ar" ? "اليوم" : "Today", value: dueToday, color: CHART_COLORS.primary },
+      { key: "due", label: lang === "ar" ? "مستحق" : "Due", value: upcoming, color: CHART_COLORS.primaryDim },
+      { key: "scheduled", label: lang === "ar" ? "مجدول" : "Scheduled", value: scheduled, color: CHART_COLORS.muted },
+    ];
+  }, [followUps, today, lang]);
+
+  // RFQ status distribution
+  const rfqStatus = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of rfqs as any[]) {
+      const k = (r.status as string) ?? "unknown";
+      map.set(k, (map.get(k) ?? 0) + 1);
+    }
+    const palette = [CHART_COLORS.primary, CHART_COLORS.amber, CHART_COLORS.primaryDim, CHART_COLORS.muted];
+    return Array.from(map.entries()).map(([k, v], i) => ({
+      key: k,
+      label: humanize(k),
+      value: v,
+      color: palette[i % palette.length],
+    }));
+  }, [rfqs]);
+  const rfqTotal = rfqs.length;
+
   const attention = [
-    ...overdue.slice(0, 3).map((f) => {
+    ...overdue.slice(0, 3).map((f: any) => {
       const o = opps.find((x) => x.id === f.opportunity_id);
       return {
         key: `fu-${f.id}`,
         title: o?.project_name ?? "—",
         subtitle: o?.main_contractor ?? undefined,
-        reason: lang === "ar" ? "متابعة متأخرة" : `Follow-up overdue`,
+        reason: lang === "ar" ? "متابعة متأخرة" : "Follow-up overdue",
         due: f.due_date,
         tier: (o?.tier ?? "B") as "A" | "B" | "C",
         value: o ? formatCurrency(o.quotation_value ?? o.estimated_value_max, lang, o.currency) : undefined,
         oppId: o?.id,
       };
     }),
-    ...approvals.slice(0, 2).map((a) => {
+    ...approvals.slice(0, 2).map((a: any) => {
       const o = opps.find((x) => x.id === a.related_opportunity_id);
       return {
         key: `ap-${a.id}`,
         title: o?.project_name ?? "—",
         subtitle: o?.client ?? undefined,
-        reason: lang === "ar" ? "بانتظار الاعتماد" : "Qualification awaiting approval",
+        reason: lang === "ar" ? "بانتظار الاعتماد" : "Awaiting approval",
         due: undefined as string | undefined,
         tier: (o?.tier ?? "A") as "A" | "B" | "C",
         value: o ? formatCurrency(o.estimated_value_max, lang, o.currency) : undefined,
@@ -117,83 +216,212 @@ function CommandCenter() {
     }),
   ].slice(0, 5);
 
-  const highPriority = opps.filter((o) => o.tier === "A" && !["won", "lost", "archived"].includes(o.stage)).slice(0, 6);
-  const upcoming = followUps.filter((f) => !overdue.includes(f)).slice(0, 6);
-  const discovery = opps.filter((o) => o.stage === "discovery").slice(0, 6);
-
   return (
-    <div className="mx-auto max-w-7xl space-y-10">
-      {/* Metrics */}
-      <section aria-labelledby="metrics">
-        <h1 id="metrics" className="sr-only">
-          {t("nav_command_center")}
-        </h1>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricTile
-            label={t("metric_pipeline_value")}
-            value={formatCurrency(openPipelineValue, lang)}
-            hint={`${formatNumber(opps.filter((o) => !["won","lost","archived"].includes(o.stage)).length, lang)} open`}
-            onAction={() => nav({ to: "/opportunities" })}
-            actionLabel={lang === "ar" ? "استعراض الفرص" : "View pipeline"}
-          />
-          <MetricTile
-            label={t("metric_follow_up_value")}
-            value={formatCurrency(overdueValue, lang)}
-            hint={`${formatNumber(overdue.length, lang)} overdue`}
-            tone={overdue.length > 0 ? "attention" : "neutral"}
-            onAction={() => nav({ to: "/follow-ups" })}
-            actionLabel={lang === "ar" ? "عرض المتابعات" : "View follow-ups"}
-          />
-          <MetricTile
-            label={t("metric_awaiting_approval")}
-            value={formatNumber(approvals.length, lang)}
-            tone={approvals.length > 0 ? "attention" : "neutral"}
-            onAction={() => nav({ to: "/approvals" })}
-            actionLabel={lang === "ar" ? "عرض الاعتمادات" : "Review approvals"}
-          />
-          <MetricTile
-            label={t("metric_newly_qualified")}
-            value={formatNumber(newlyQualified, lang)}
-            hint={lang === "ar" ? "هذا الأسبوع" : "This week"}
-            onAction={() => nav({ to: "/opportunities" })}
-            actionLabel={lang === "ar" ? "استعراض" : "Explore"}
-          />
-        </div>
-      </section>
+    <div className="mx-auto max-w-7xl">
+      <PageHeader
+        eyebrow={lang === "ar" ? "نظرة تنفيذية" : "Executive Overview"}
+        title={t("nav_command_center")}
+        description={
+          lang === "ar"
+            ? "خط الأنابيب، المتابعات، وأولويات القرار في مكان واحد."
+            : "Pipeline, follow-ups, and decision-ready priorities in a single view."
+        }
+      />
 
-      {/* Sales Funnel */}
-      <section aria-labelledby="funnel">
-        <SectionHeader
-          title={t("funnel_title")}
-          hint={lang === "ar" ? "من طلب عرض السعر مروراً بالمناقصة حتى العقد." : "From RFQ through tender to contract."}
+      {/* KPI row */}
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label={t("metric_pipeline_value")}
+          value={formatCurrency(openPipelineValue, lang)}
+          hint={`${formatNumber(openOpps.length, lang)} ${lang === "ar" ? "فرصة مفتوحة" : "open opportunities"}`}
+          icon={<Wallet className="h-4 w-4" strokeWidth={1.75} />}
         />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-          {funnelTiles.map((tile) => (
-            <MetricTile
-              key={tile.key}
-              label={t(tile.key as never)}
-              value={formatNumber(tile.count, lang)}
-              hint={tile.value > 0 ? formatCurrency(tile.value, lang) : undefined}
-              tone={"attention" in tile && tile.attention && tile.count > 0 ? "attention" : "neutral"}
-              onAction={() => nav({ to: tile.to })}
-              actionLabel={lang === "ar" ? "عرض" : "View"}
-            />
-          ))}
-        </div>
+        <KpiCard
+          label={t("metric_follow_up_value")}
+          value={formatCurrency(overdueValue, lang)}
+          hint={`${formatNumber(overdue.length, lang)} ${lang === "ar" ? "متأخرة" : "overdue"}`}
+          trend={overdue.length > 0 ? "down" : "flat"}
+          icon={<Clock className="h-4 w-4" strokeWidth={1.75} />}
+        />
+        <KpiCard
+          label={t("metric_awaiting_approval")}
+          value={formatNumber(approvals.length, lang)}
+          hint={approvals.length > 0 ? (lang === "ar" ? "بحاجة قرار" : "Awaiting decision") : (lang === "ar" ? "لا يوجد" : "All clear")}
+          icon={<AlertTriangle className="h-4 w-4" strokeWidth={1.75} />}
+        />
+        <KpiCard
+          label={t("metric_newly_qualified")}
+          value={formatNumber(newlyQualified, lang)}
+          hint={lang === "ar" ? "قيد التأهيل" : "In qualification"}
+          icon={<Sparkles className="h-4 w-4" strokeWidth={1.75} />}
+        />
       </section>
 
-      {/* Needs Attention */}
-      <section aria-labelledby="attention">
-        <SectionHeader
+      {/* Charts row 1 */}
+      <section className="mt-6 grid gap-3 lg:grid-cols-2">
+        <ChartFrame
+          title={lang === "ar" ? "قيمة خط الأنابيب حسب المرحلة" : "Pipeline value by stage"}
+          subtitle={lang === "ar" ? "الفرص المفتوحة فقط" : "Open opportunities only"}
+        >
+          {openOpps.length === 0 ? (
+            <EmptyChart label={lang === "ar" ? "لا توجد فرص مفتوحة" : "No open opportunities yet"} />
+          ) : (
+            <div className="h-[240px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={pipelineByStage} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                  <CartesianGrid stroke={CHART_COLORS.grid} strokeDasharray="2 4" vertical={false} />
+                  <XAxis dataKey="stage" tick={{ fill: CHART_COLORS.primaryDim, fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <YAxis
+                    tick={{ fill: CHART_COLORS.primaryDim, fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v: number) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${Math.round(v / 1_000)}k` : String(v))}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: "oklch(0.20 0.020 253)", border: "1px solid oklch(0.36 0.015 253 / 0.55)", borderRadius: 8, fontSize: 12, color: CHART_COLORS.primary }}
+                    formatter={(v: number, name) => name === "value" ? formatCurrency(v, lang) : formatNumber(v, lang)}
+                    cursor={{ fill: "oklch(0.24 0.020 253 / 0.35)" }}
+                  />
+                  <Bar dataKey="value" fill={CHART_COLORS.primary} radius={[4, 4, 0, 0]} maxBarSize={44} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </ChartFrame>
+
+        <ChartFrame
+          title={lang === "ar" ? "نشاط الفريق (30 يوم)" : "Team activity (30 days)"}
+          subtitle={lang === "ar" ? "الأنشطة المسجلة يومياً" : "Logged activities per day"}
+        >
+          {activities.length === 0 ? (
+            <EmptyChart label={lang === "ar" ? "لا يوجد نشاط بعد" : "No activity logged yet"} />
+          ) : (
+            <div className="h-[240px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={activityTrend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                  <CartesianGrid stroke={CHART_COLORS.grid} strokeDasharray="2 4" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: CHART_COLORS.primaryDim, fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
+                  <YAxis tick={{ fill: CHART_COLORS.primaryDim, fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: "oklch(0.20 0.020 253)", border: "1px solid oklch(0.36 0.015 253 / 0.55)", borderRadius: 8, fontSize: 12, color: CHART_COLORS.primary }}
+                    cursor={{ stroke: CHART_COLORS.grid }}
+                  />
+                  <Line type="monotone" dataKey="count" stroke={CHART_COLORS.primary} strokeWidth={1.75} dot={false} activeDot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </ChartFrame>
+      </section>
+
+      {/* Charts row 2 */}
+      <section className="mt-3 grid gap-3 lg:grid-cols-2">
+        <ChartFrame
+          title={lang === "ar" ? "حالة المتابعات" : "Follow-ups by status"}
+          subtitle={lang === "ar" ? "توزيع المتابعات النشطة" : "Distribution of active follow-ups"}
+        >
+          {followUps.length === 0 ? (
+            <EmptyChart label={lang === "ar" ? "لا توجد متابعات نشطة" : "No active follow-ups"} />
+          ) : (
+            <div className="grid grid-cols-[minmax(0,1fr)_180px] items-center gap-6">
+              <div className="space-y-2.5">
+                {followUpsStatus.map((s) => {
+                  const total = followUpsStatus.reduce((a, b) => a + b.value, 0) || 1;
+                  const pct = Math.round((s.value / total) * 100);
+                  return (
+                    <div key={s.key}>
+                      <div className="mb-1 flex items-center justify-between text-[12px]">
+                        <span className="flex items-center gap-2 text-muted-foreground">
+                          <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                          {s.label}
+                        </span>
+                        <span className="num text-foreground" data-tabular="true">{formatNumber(s.value, lang)}</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: s.color }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="h-[160px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={followUpsStatus} dataKey="value" nameKey="label" innerRadius={44} outerRadius={64} paddingAngle={2} stroke="none">
+                      {followUpsStatus.map((s) => (
+                        <Cell key={s.key} fill={s.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </ChartFrame>
+
+        <ChartFrame
+          title={lang === "ar" ? "توزيع طلبات عروض الأسعار" : "RFQ status distribution"}
+          subtitle={lang === "ar" ? `${rfqTotal} طلب` : `${rfqTotal} RFQs total`}
+        >
+          {rfqTotal === 0 ? (
+            <EmptyChart label={lang === "ar" ? "لا توجد طلبات بعد" : "No RFQs yet"} />
+          ) : (
+            <div className="grid grid-cols-[minmax(0,1fr)_180px] items-center gap-6">
+              <div className="space-y-2.5">
+                {rfqStatus.map((s) => {
+                  const pct = Math.round((s.value / rfqTotal) * 100);
+                  return (
+                    <div key={s.key}>
+                      <div className="mb-1 flex items-center justify-between text-[12px]">
+                        <span className="flex items-center gap-2 text-muted-foreground">
+                          <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                          {s.label}
+                        </span>
+                        <span className="num text-foreground" data-tabular="true">{formatNumber(s.value, lang)} · {pct}%</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: s.color }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="h-[160px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={rfqStatus} dataKey="value" nameKey="label" innerRadius={44} outerRadius={64} paddingAngle={2} stroke="none">
+                      {rfqStatus.map((s) => (
+                        <Cell key={s.key} fill={s.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </ChartFrame>
+      </section>
+
+      {/* Needs Attention + Agent Activity */}
+      <section className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <ChartFrame
           title={t("needs_attention")}
-          count={attention.length}
-          hint={lang === "ar" ? "أهم البنود التي تحتاج قراراً الآن." : "The top items that need a decision now."}
-        />
-        <div className="rounded-lg border border-border bg-surface p-1 md:px-3 md:py-2">
+          subtitle={lang === "ar" ? "أولوية للقرار الآن" : "Prioritized for decision now"}
+          action={
+            <button
+              onClick={() => nav({ to: "/action-center" })}
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/70 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {lang === "ar" ? "الكل" : "View all"} <ArrowRight className="h-3 w-3" />
+            </button>
+          }
+          padded={false}
+          bodyClassName="p-2"
+        >
           {isLoading ? (
             <EmptyState message={t("loading")} />
           ) : attention.length === 0 ? (
-            <EmptyState message={t("empty_needs_attention")} />
+            <div className="px-3 py-6"><EmptyState message={t("empty_needs_attention")} /></div>
           ) : (
             attention.map((a) => (
               <PriorityItem
@@ -209,94 +437,54 @@ function CommandCenter() {
               />
             ))
           )}
-        </div>
-      </section>
+        </ChartFrame>
 
-      {/* Two-column grid */}
-      <section className="grid gap-8 lg:grid-cols-2">
-        <div>
-          <SectionHeader title={t("high_priority_opportunities")} count={highPriority.length} />
-          {highPriority.length === 0 ? (
-            <EmptyState message={t("empty_opportunities")} />
-          ) : (
-            <div className="grid gap-3">
-              {highPriority.map((o) => <OpportunityCard key={o.id} o={o} lang={lang} />)}
-            </div>
-          )}
-        </div>
-        <div>
-          <SectionHeader title={t("follow_ups_due")} count={followUps.length} />
-          {followUps.length === 0 ? (
-            <EmptyState message={t("empty_follow_ups")} />
-          ) : (
-            <div className="rounded-lg border border-border bg-surface p-1 md:px-3 md:py-2">
-              {upcoming.map((f) => {
-                const o = opps.find((x) => x.id === f.opportunity_id);
-                return (
-                  <PriorityItem
-                    key={f.id}
-                    title={o?.project_name ?? "—"}
-                    subtitle={o?.main_contractor ?? undefined}
-                    reason={f.status === "overdue" ? (lang === "ar" ? "متأخرة" : "Overdue") : (lang === "ar" ? "مجدولة" : "Scheduled")}
-                    tier={(o?.tier ?? "B") as "A" | "B" | "C"}
-                    due={f.due_date}
-                    actionLabel={t("action_schedule")}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Discovery + Agent Activity */}
-      <section className="grid gap-8 lg:grid-cols-2">
-        <div>
-          <SectionHeader title={t("new_opportunities")} count={discovery.length} />
-          {discovery.length === 0 ? (
-            <EmptyState message={t("empty_discovery")} />
-          ) : (
-            <div className="grid gap-3">
-              {discovery.map((o) => <OpportunityCard key={o.id} o={o} lang={lang} />)}
-            </div>
-          )}
-        </div>
-        <div>
-          <SectionHeader
-            title={t("agent_activity")}
-            count={agentRuns.length}
-            action={<StatusPill tone="positive"><Sparkles className="h-3 w-3" /> {t("agent_status_running")}</StatusPill>}
-          />
+        <ChartFrame
+          title={t("agent_activity")}
+          action={<StatusPill tone="positive"><Sparkles className="h-3 w-3" /> {t("agent_status_running")}</StatusPill>}
+          padded={false}
+        >
           {agentRuns.length === 0 ? (
-            <EmptyState message={t("empty_agent_runs")} />
+            <div className="px-5 py-6"><EmptyState message={t("empty_agent_runs")} /></div>
           ) : (
-            <ol className="rounded-lg border border-border bg-surface">
-              {agentRuns.map((r) => (
-                <li key={r.id} className="flex items-start gap-3 border-t border-border/70 px-4 py-3 first:border-t-0">
+            <ol>
+              {agentRuns.map((r: any) => (
+                <li key={r.id} className="flex items-start gap-3 border-t border-border/60 px-5 py-3 first:border-t-0">
                   <div className="mt-0.5">
                     {r.status === "error" ? (
-                      <Activity className="h-4 w-4 text-amber" />
+                      <Activity className="h-3.5 w-3.5 text-amber" />
                     ) : (
-                      <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="truncate text-sm text-foreground">{r.loop_name ?? r.agent_name}</div>
-                      <span className="text-xs text-muted-foreground num" data-tabular="true">
-                        {new Date(r.started_at).toLocaleString(lang === "ar" ? "ar-SA" : "en-US")}
+                      <div className="truncate text-[12px] text-foreground">{r.loop_name ?? r.agent_name}</div>
+                      <span className="num shrink-0 text-[10px] text-muted-foreground" data-tabular="true">
+                        {new Date(r.started_at).toLocaleTimeString(lang === "ar" ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
                     {r.summary ? (
-                      <div className="mt-1 truncate text-xs text-muted-foreground">{r.summary}</div>
+                      <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{r.summary}</div>
                     ) : null}
                   </div>
                 </li>
               ))}
             </ol>
           )}
-        </div>
+        </ChartFrame>
       </section>
+    </div>
+  );
+}
+
+function EmptyChart({ label }: { label: string }) {
+  return (
+    <div className="flex h-[240px] flex-col items-center justify-center gap-2 text-center">
+      <div className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-surface-2/50 text-muted-foreground">
+        <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+      </div>
+      <div className="text-[12px] text-muted-foreground">{label}</div>
     </div>
   );
 }
