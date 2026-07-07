@@ -678,6 +678,13 @@ export const strings = {
     ar: "لا توجد فرص مطابقة للفلاتر الحالية.",
   },
 
+  // Git sync status
+  git_sync_title: { en: "GitHub Sync", ar: "مزامنة GitHub" },
+  git_status_connected: { en: "Connected", ar: "متصل" },
+  git_status_unknown: { en: "Unknown", ar: "غير معروف" },
+  git_branch_label: { en: "Branch", ar: "الفرع" },
+  git_commit_label: { en: "Commit", ar: "الالتزام" },
+
   // Capabilities
   cap_manage_roles: { en: "Manage roles & permissions", ar: "إدارة الأدوار والصلاحيات" },
   cap_approve_decisions: { en: "Approve / return decisions", ar: "اعتماد وإرجاع القرارات" },

@@ -6,6 +6,37 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
+import type { Plugin } from "vite";
+
+/**
+ * Injects lightweight, non-sensitive git metadata at build/dev time so the
+ * app can surface the current branch and latest commit in the UI.
+ * The remote URL is intentionally NOT exposed to the client bundle.
+ */
+function gitInfoPlugin(): Plugin {
+  let branch = "unknown";
+  let commitHash = "unknown";
+  let commitMessage = "";
+  try {
+    const { execSync } = require("child_process");
+    branch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
+    commitHash = execSync("git rev-parse --short HEAD", { encoding: "utf-8" }).trim();
+    commitMessage = execSync("git log -1 --pretty=%s", { encoding: "utf-8" }).trim();
+  } catch {
+    // Not a git repo or git unavailable — keep fallbacks.
+  }
+
+  return {
+    name: "phc-git-info",
+    config: () => ({
+      define: {
+        "import.meta.env.VITE_GIT_BRANCH": JSON.stringify(branch),
+        "import.meta.env.VITE_GIT_COMMIT_HASH": JSON.stringify(commitHash),
+        "import.meta.env.VITE_GIT_COMMIT_MESSAGE": JSON.stringify(commitMessage),
+      },
+    }),
+  };
+}
 
 export default defineConfig({
   tanstackStart: {
@@ -14,6 +45,6 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
-    plugins: [mcpPlugin()],
+    plugins: [mcpPlugin(), gitInfoPlugin()],
   },
 });
