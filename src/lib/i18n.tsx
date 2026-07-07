@@ -725,7 +725,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     lang,
     setLang: setLangState,
     dir: lang === "ar" ? "rtl" : "ltr",
-    t: (k) => strings[k][lang],
+    t: (k) => {
+      const entry = (strings as Record<string, Record<string, string>>)[k as string];
+      if (!entry) return k as string;
+      return entry[lang] ?? entry.en ?? (k as string);
+    },
   };
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
