@@ -15,16 +15,16 @@ export function StatusPill({
   icon?: ReactNode;
 }) {
   const tones: Record<Tone, string> = {
-    neutral: "border-border bg-surface text-foreground",
-    attention: "border-amber/40 bg-amber/10 text-amber-light",
-    positive: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-    muted: "border-border bg-transparent text-muted-foreground",
-    danger: "border-red-500/40 bg-red-500/10 text-red-300",
+    neutral: "border-border bg-surface-2/60 text-foreground/90",
+    attention: "border-amber/35 bg-amber/[0.08] text-amber-light",
+    positive: "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-200",
+    muted: "border-border/60 bg-transparent text-muted-foreground",
+    danger: "border-red-400/30 bg-red-400/[0.07] text-red-200",
   };
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
         tones[tone],
         className,
       )}
