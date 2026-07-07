@@ -2,8 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -60,43 +61,80 @@ function AccountDetail() {
   if (!company) return <EmptyState message={t("crm_no_accounts")} />;
   const c: any = company;
   const typeLabel = (ct: string) => t(`company_type_${ct}` as never);
+  const oppCount = c.opportunities?.length ?? 0;
+  const projCount = c.projects?.length ?? 0;
+  const contactCount = c.contacts?.length ?? 0;
+  const pipelineValue = (c.opportunities ?? []).reduce(
+    (s: number, o: any) => s + (o.estimated_value_max ?? 0),
+    0,
+  );
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="mx-auto max-w-6xl space-y-6">
       <Link to="/accounts" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-        <ChevronLeft className="h-3.5 w-3.5" /> {t("crm_back_to_accounts")}
+        <ArrowLeft className="h-3.5 w-3.5" /> {t("crm_back_to_accounts")}
       </Link>
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">{c.name}</h1>
-          <div className="mt-1 flex items-center gap-2">
-            <StatusPill tone="muted">{typeLabel(c.company_type)}</StatusPill>
+      <PageHeader
+        eyebrow={typeLabel(c.company_type)}
+        title={c.name}
+        description={
+          <span className="inline-flex flex-wrap items-center gap-2">
             <StatusPill tone={c.account_status === "active" ? "positive" : c.account_status === "pending_review" ? "attention" : "muted"}>
               {t(`account_status_${c.account_status}` as never)}
             </StatusPill>
+            {c.regions ? <span className="text-xs text-muted-foreground">{c.regions}</span> : null}
+          </span>
+        }
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setEditOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+              {t("crm_edit")}
+            </button>
+            {isManager && c.account_status === "pending_review" ? (
+              <button
+                onClick={async () => {
+                  try { await updateCompany(c.id, { account_status: "active" }); toast.success(t("crm_saved")); qc.invalidateQueries({ queryKey: ["company", id] }); }
+                  catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+                }}
+                className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/20"
+              >
+                {t("crm_mark_active")}
+              </button>
+            ) : null}
+            {isManager ? (
+              <button onClick={() => setOwnerOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+                {t("crm_reassign_owner")}
+              </button>
+            ) : null}
           </div>
+        }
+      />
+
+      {/* Key facts strip */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_account_owner")}</div>
+          <div className="mt-2 truncate text-sm font-medium text-foreground">{ownerName(c.account_owner_id)}</div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setEditOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
-            {t("crm_edit")}
-          </button>
-          {isManager && c.account_status === "pending_review" ? (
-            <button
-              onClick={async () => {
-                try { await updateCompany(c.id, { account_status: "active" }); toast.success(t("crm_saved")); qc.invalidateQueries({ queryKey: ["company", id] }); }
-                catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
-              }}
-              className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/20"
-            >
-              {t("crm_mark_active")}
-            </button>
-          ) : null}
-          {isManager ? (
-            <button onClick={() => setOwnerOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
-              {t("crm_reassign_owner")}
-            </button>
-          ) : null}
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_linked_contacts")}</div>
+          <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">{contactCount}</div>
+        </div>
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_linked_projects")}</div>
+          <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">{projCount}</div>
+        </div>
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_linked_opportunities")}</div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="num text-lg font-semibold text-foreground" data-tabular="true">{oppCount}</span>
+            {pipelineValue > 0 ? (
+              <span className="num text-[11px] text-muted-foreground" data-tabular="true">
+                {formatCurrency(pipelineValue, lang)}
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -115,7 +153,7 @@ function AccountDetail() {
       </Panel>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <Panel title={t("crm_linked_contacts")} subtitle={String(c.contacts?.length ?? 0)}>
+        <Panel title={t("crm_linked_contacts")} subtitle={String(contactCount)}>
           {(c.contacts ?? []).length === 0 ? (
             <div className="text-xs text-muted-foreground">—</div>
           ) : (
@@ -130,7 +168,7 @@ function AccountDetail() {
           )}
         </Panel>
 
-        <Panel title={t("crm_linked_projects")} subtitle={String(c.projects?.length ?? 0)}>
+        <Panel title={t("crm_linked_projects")} subtitle={String(projCount)}>
           {(c.projects ?? []).length === 0 ? (
             <div className="text-xs text-muted-foreground">—</div>
           ) : (
@@ -146,7 +184,7 @@ function AccountDetail() {
           )}
         </Panel>
 
-        <Panel title={t("crm_linked_opportunities")} subtitle={String(c.opportunities?.length ?? 0)}>
+        <Panel title={t("crm_linked_opportunities")} subtitle={String(oppCount)}>
           {(c.opportunities ?? []).length === 0 ? (
             <div className="text-xs text-muted-foreground">—</div>
           ) : (
