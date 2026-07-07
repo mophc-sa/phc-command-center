@@ -1,12 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Search, LayoutGrid, Rows3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
-import { SectionHeader } from "@/components/phc/SectionHeader";
+import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { StatusPill } from "@/components/phc/StatusPill";
+import { Link } from "@tanstack/react-router";
 import {
   Select,
   SelectContent,
@@ -19,29 +22,26 @@ export const Route = createFileRoute("/_authenticated/opportunities/")({
   head: () => ({
     meta: [
       { title: "Opportunities — PHC" },
-      { name: "description", content: "All active opportunities across the pipeline." },
+      { name: "description", content: "Every active opportunity, its stage, owner, next action and commercial value." },
       { name: "robots", content: "noindex" },
     ],
   }),
   component: OppList,
 });
 
-const STAGES = [
-  "discovery",
-  "qualification",
-  "preparation",
-  "quotation",
-  "follow_up",
-  "won",
-  "lost",
-  "archived",
-] as const;
+const STAGES = ["discovery", "qualification", "preparation", "quotation", "follow_up", "won", "lost", "archived"] as const;
+const CLOSED = ["won", "lost", "archived"];
+
+function humanize(s: string) {
+  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 function OppList() {
   const { t, lang } = useI18n();
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState<string>("all");
   const [tier, setTier] = useState<string>("all");
+  const [view, setView] = useState<"cards" | "table">("cards");
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["opps"],
@@ -63,46 +63,75 @@ function OppList() {
     });
   }, [data, search, stage, tier]);
 
+  const open = data.filter((o) => !CLOSED.includes(o.stage));
+  const openValue = open.reduce((s, o) => s + (o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0), 0);
+  const tierA = open.filter((o) => o.tier === "A").length;
+  const winRate = (() => {
+    const closed = data.filter((o) => CLOSED.includes(o.stage) && o.stage !== "archived");
+    if (closed.length === 0) return 0;
+    return Math.round((closed.filter((o) => o.stage === "won").length / closed.length) * 100);
+  })();
+
   return (
     <div className="mx-auto max-w-7xl">
-      <SectionHeader title={t("nav_opportunities")} count={filtered.length} />
+      <PageHeader
+        eyebrow={lang === "ar" ? "خط الأنابيب" : "Pipeline"}
+        title={t("nav_opportunities")}
+        description={lang === "ar" ? "كل الفرص، حالتها، ومالكها والقيمة التجارية." : "Every opportunity, its stage, owner, and commercial value."}
+      />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
-          <Search className="absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label={lang === "ar" ? "قيمة مفتوحة" : "Open value"} value={formatCurrency(openValue, lang)} hint={`${formatNumber(open.length, lang)} ${lang === "ar" ? "فرصة" : "opportunities"}`} />
+        <KpiCard label={lang === "ar" ? "الطبقة أ" : "Tier A"} value={formatNumber(tierA, lang)} hint={lang === "ar" ? "أولوية عالية" : "High priority"} />
+        <KpiCard label={lang === "ar" ? "معدل الفوز" : "Win rate"} value={`${winRate}%`} hint={lang === "ar" ? "المغلقة حتى الآن" : "Of closed to date"} />
+        <KpiCard label={lang === "ar" ? "قيد التصفية" : "Showing"} value={formatNumber(filtered.length, lang)} hint={lang === "ar" ? "بعد الفلترة" : "After filters"} />
+      </section>
+
+      {/* Filter bar */}
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-surface/60 p-2">
+        <div className="relative min-w-[240px] flex-1 sm:max-w-sm">
+          <Search className="absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("filter_search")}
-            className="w-full rounded-md border border-border bg-surface py-2 pe-3 ps-8 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-amber/50"
+            className="h-9 w-full rounded-md bg-transparent pe-3 ps-8 text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
         </div>
         <Select value={stage} onValueChange={setStage}>
-          <SelectTrigger className="w-[180px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectTrigger className="h-9 w-[180px] text-[12px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("filter_all_stages")}</SelectItem>
             {STAGES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-              </SelectItem>
+              <SelectItem key={s} value={s}>{humanize(s)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={tier} onValueChange={setTier}>
-          <SelectTrigger className="w-[140px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
+          <SelectTrigger className="h-9 w-[140px] text-[12px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("filter_all_tiers")}</SelectItem>
             {(["A", "B", "C"] as const).map((x) => (
-              <SelectItem key={x} value={x}>
-                {t("label_tier")} {x}
-              </SelectItem>
+              <SelectItem key={x} value={x}>{t("label_tier")} {x}</SelectItem>
             ))}
           </SelectContent>
         </Select>
+        <div className="ms-auto flex items-center gap-1 rounded-md border border-border/70 bg-background/40 p-0.5">
+          <button
+            onClick={() => setView("cards")}
+            className={`grid h-7 w-7 place-items-center rounded transition-colors ${view === "cards" ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            aria-label="Card view"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setView("table")}
+            className={`grid h-7 w-7 place-items-center rounded transition-colors ${view === "table" ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            aria-label="Table view"
+          >
+            <Rows3 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -111,9 +140,41 @@ function OppList() {
         <EmptyState message={t("empty_opportunities")} />
       ) : filtered.length === 0 ? (
         <EmptyState message={t("filter_no_results")} />
-      ) : (
+      ) : view === "cards" ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((o) => <OpportunityCard key={o.id} o={o} lang={lang} />)}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
+          <div className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <div>{lang === "ar" ? "المشروع" : "Project"}</div>
+            <div>{lang === "ar" ? "الطبقة" : "Tier"}</div>
+            <div>{lang === "ar" ? "المرحلة" : "Stage"}</div>
+            <div className="text-right">{lang === "ar" ? "القيمة" : "Value"}</div>
+            <div>{lang === "ar" ? "التالي" : "Next action"}</div>
+          </div>
+          <ul>
+            {filtered.map((o) => (
+              <li key={o.id} className="transition-colors hover:bg-surface-2/40">
+                <Link
+                  to="/opportunities/$id"
+                  params={{ id: o.id }}
+                  className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-t border-border/60 px-4 py-3 first:border-t-0"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-[13px] font-medium text-foreground">{o.project_name}</div>
+                    <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{o.client ?? "—"}{o.main_contractor ? ` · ${o.main_contractor}` : ""}</div>
+                  </div>
+                  <StatusPill tone={o.tier === "A" ? "attention" : "neutral"}>{o.tier}</StatusPill>
+                  <StatusPill tone="muted">{humanize(o.stage)}</StatusPill>
+                  <div className="num text-right text-[12px] font-medium text-foreground" data-tabular="true">
+                    {formatCurrency(o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min, lang, o.currency)}
+                  </div>
+                  <div className="truncate text-[11px] text-muted-foreground">{o.next_action ?? "—"}</div>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>
