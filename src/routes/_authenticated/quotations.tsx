@@ -2,8 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, FileText, AlertTriangle, CheckCircle2, Wallet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { SectionHeader } from "@/components/phc/SectionHeader";
+import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
@@ -36,9 +38,10 @@ const STATUSES: QuotationStatus[] = [
 
 const CLOSED: QuotationStatus[] = ["won", "lost", "expired"];
 
-function statusTone(s: QuotationStatus): "positive" | "attention" | "neutral" {
+function statusTone(s: QuotationStatus): "positive" | "attention" | "neutral" | "danger" {
   if (s === "won") return "positive";
-  if (s === "lost" || s === "expired") return "attention";
+  if (s === "lost") return "danger";
+  if (s === "expired") return "attention";
   return "neutral";
 }
 
@@ -72,6 +75,10 @@ function QuotationsPage() {
       ).data ?? [],
   });
 
+  const now = new Date();
+  const soon = new Date();
+  soon.setDate(soon.getDate() + 7);
+
   const filtered = useMemo(() => {
     if (filter === "all") return quotes;
     return quotes.filter((q: any) =>
@@ -81,25 +88,41 @@ function QuotationsPage() {
     );
   }, [quotes, filter]);
 
-  const soon = new Date();
-  soon.setDate(soon.getDate() + 7);
+  const kpis = useMemo(() => {
+    const open = quotes.filter((q: any) => !CLOSED.includes(q.status));
+    const openValue = open.reduce((s: number, q: any) => s + (q.value ?? 0), 0);
+    const expiring = open.filter(
+      (q: any) => q.valid_until && new Date(q.valid_until) >= now && new Date(q.valid_until) < soon,
+    ).length;
+    const won = quotes.filter((q: any) => q.status === "won");
+    const wonValue = won.reduce((s: number, q: any) => s + (q.value ?? 0), 0);
+    return { openCount: open.length, openValue, expiring, wonValue, wonCount: won.length };
+  }, [quotes]);
 
   const statusLabel = (s: QuotationStatus) => t(`quote_status_${s}` as never);
 
   return (
     <div className="mx-auto max-w-7xl">
-      <SectionHeader
+      <PageHeader
+        eyebrow={t("nav_commercial" as never) || "Commercial"}
         title={t("nav_quotations")}
-        count={filtered.length}
-        action={
+        actions={
           <button
             onClick={() => setCreateOpen(true)}
-            className="rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs text-amber-light hover:bg-amber/20"
+            className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20"
           >
+            <Plus className="h-3.5 w-3.5" />
             {t("action_new_quotation")}
           </button>
         }
       />
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label={lang === "ar" ? "مفتوحة" : "Open quotations"} value={kpis.openCount} icon={<FileText className="h-3.5 w-3.5" />} />
+        <KpiCard label={lang === "ar" ? "قيمة المفتوحة" : "Open value"} value={formatCurrency(kpis.openValue, lang)} icon={<Wallet className="h-3.5 w-3.5" />} />
+        <KpiCard label={t("expiring_soon")} value={kpis.expiring} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
+        <KpiCard label={lang === "ar" ? "قيمة الفائزة" : "Won value"} value={formatCurrency(kpis.wonValue, lang)} hint={`${kpis.wonCount}`} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
+      </div>
 
       <div className="mb-4 flex gap-2">
         {(["open", "closed", "all"] as const).map((f) => (
@@ -108,7 +131,7 @@ function QuotationsPage() {
             onClick={() => setFilter(f)}
             className={
               filter === f
-                ? "rounded-md bg-sidebar-accent px-3 py-1.5 text-xs text-foreground"
+                ? "rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs text-amber-light"
                 : "rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
             }
           >
@@ -126,7 +149,7 @@ function QuotationsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState message={t("empty_quotations")} />
       ) : (
-        <div className="rounded-lg border border-border bg-surface">
+        <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
           {filtered.map((q: any) => {
             const expired =
               q.valid_until && !CLOSED.includes(q.status) && new Date(q.valid_until) < new Date();
@@ -138,7 +161,7 @@ function QuotationsPage() {
             return (
               <div
                 key={q.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-t border-border/70 px-4 py-3 first:border-t-0"
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-t border-border/50 px-5 py-4 first:border-t-0 hover:bg-surface"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -147,7 +170,7 @@ function QuotationsPage() {
                     </span>
                     <StatusPill tone={statusTone(q.status)}>{statusLabel(q.status)}</StatusPill>
                     {expired ? (
-                      <StatusPill tone="attention">{t("expired")}</StatusPill>
+                      <StatusPill tone="danger">{t("expired")}</StatusPill>
                     ) : expiringSoon ? (
                       <StatusPill tone="attention">{t("expiring_soon")}</StatusPill>
                     ) : null}
@@ -176,7 +199,7 @@ function QuotationsPage() {
                       {formatCurrency(q.value, lang, q.currency)}
                     </div>
                     {q.valid_until ? (
-                      <div className="num text-xs text-muted-foreground" data-tabular="true">
+                      <div className="num text-[11px] text-muted-foreground" data-tabular="true">
                         {t("label_valid_until")}: {q.valid_until}
                       </div>
                     ) : null}

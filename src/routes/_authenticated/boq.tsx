@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, ClipboardList, CheckCircle2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { SectionHeader } from "@/components/phc/SectionHeader";
+import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
@@ -25,9 +26,10 @@ const BOQ_STATUSES: BoqStatus[] = [
   "missing",
 ];
 
-function boqTone(s: BoqStatus): "positive" | "attention" | "neutral" {
+function boqTone(s: BoqStatus): "positive" | "attention" | "neutral" | "danger" {
   if (s === "verified") return "positive";
-  if (s === "missing") return "attention";
+  if (s === "missing") return "danger";
+  if (s === "estimated_scope") return "attention";
   return "neutral";
 }
 
@@ -37,6 +39,7 @@ function BoqPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [addItemFor, setAddItemFor] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<BoqStatus | "all">("all");
 
   const { data: boqs = [], isLoading } = useQuery({
     queryKey: ["boqs"],
@@ -63,44 +66,86 @@ function BoqPage() {
 
   const statusLabel = (s: BoqStatus) => t(`boq_status_${s}` as never);
 
+  const filtered = useMemo(
+    () => (statusFilter === "all" ? boqs : boqs.filter((b: any) => b.status === statusFilter)),
+    [boqs, statusFilter],
+  );
+
+  const kpis = useMemo(() => {
+    const verified = boqs.filter((b: any) => b.status === "verified").length;
+    const estimated = boqs.filter((b: any) => b.status === "estimated_scope").length;
+    const missing = boqs.filter((b: any) => b.status === "missing").length;
+    const totalValue = boqs.reduce((s: number, b: any) => s + (b.estimated_value ?? 0), 0);
+    return { total: boqs.length, verified, estimated, missing, totalValue };
+  }, [boqs]);
+
   return (
     <div className="mx-auto max-w-7xl">
-      <SectionHeader
+      <PageHeader
+        eyebrow={t("nav_commercial" as never) || "Commercial"}
         title={t("nav_boq")}
-        count={boqs.length}
-        hint={t("dialog_new_boq_desc")}
-        action={
+        description={t("dialog_new_boq_desc")}
+        actions={
           <button
             onClick={() => setCreateOpen(true)}
-            className="rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs text-amber-light hover:bg-amber/20"
+            className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20"
           >
+            <Plus className="h-3.5 w-3.5" />
             {t("action_new_boq")}
           </button>
         }
       />
 
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label={t("nav_boq")} value={kpis.total} icon={<ClipboardList className="h-3.5 w-3.5" />} />
+        <KpiCard label={statusLabel("verified")} value={kpis.verified} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
+        <KpiCard label={statusLabel("estimated_scope")} value={kpis.estimated} icon={<AlertCircle className="h-3.5 w-3.5" />} />
+        <KpiCard label={t("crm_total_value")} value={formatCurrency(kpis.totalValue, lang)} />
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        <button
+          onClick={() => setStatusFilter("all")}
+          className={`rounded-full border px-3 py-1 text-xs ${statusFilter === "all" ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+        >
+          {t("crm_filter_all_types")}
+        </button>
+        {BOQ_STATUSES.map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={`rounded-full border px-3 py-1 text-xs ${statusFilter === s ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            {statusLabel(s)}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
         <EmptyState message={t("loading")} />
-      ) : boqs.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState message={t("empty_boqs")} />
       ) : (
         <div className="space-y-3">
-          {boqs.map((b: any) => {
+          {filtered.map((b: any) => {
             const items = (b.boq_items ?? []).sort(
               (x: any, y: any) => (x.sort_order ?? 0) - (y.sort_order ?? 0),
             );
             const open = expanded === b.id;
             return (
-              <div key={b.id} className="rounded-lg border border-border bg-surface">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3">
+              <div key={b.id} className="rounded-xl border border-border/70 bg-surface/60">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="truncate text-sm font-medium text-foreground">
                         {b.title}
                       </span>
                       <StatusPill tone={boqTone(b.status)}>{statusLabel(b.status)}</StatusPill>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                         {t("label_confidence")}: {b.source_confidence}
+                      </span>
+                      <span className="num text-[11px] text-muted-foreground" data-tabular="true">
+                        {items.length} {t("label_items" as never) || "items"}
                       </span>
                     </div>
                     {b.opportunities?.project_name ? (
@@ -140,33 +185,33 @@ function BoqPage() {
                 </div>
 
                 {open ? (
-                  <div className="border-t border-border/70 px-4 py-3">
+                  <div className="border-t border-border/60 px-5 py-4">
                     {items.length === 0 ? (
                       <div className="text-xs text-muted-foreground">—</div>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                           <thead>
-                            <tr className="text-start uppercase tracking-[0.1em] text-muted-foreground">
-                              <th className="py-1.5 text-start">{t("field_sign_type")}</th>
-                              <th className="py-1.5 text-start">{t("field_size")}</th>
-                              <th className="py-1.5 text-start">{t("field_material")}</th>
-                              <th className="py-1.5 text-start">{t("field_location")}</th>
-                              <th className="py-1.5 text-end">{t("field_quantity")}</th>
-                              <th className="py-1.5 text-end">{t("field_unit_rate")}</th>
+                            <tr className="text-start uppercase tracking-[0.12em] text-muted-foreground">
+                              <th className="py-2 text-start font-medium">{t("field_sign_type")}</th>
+                              <th className="py-2 text-start font-medium">{t("field_size")}</th>
+                              <th className="py-2 text-start font-medium">{t("field_material")}</th>
+                              <th className="py-2 text-start font-medium">{t("field_location")}</th>
+                              <th className="py-2 text-end font-medium">{t("field_quantity")}</th>
+                              <th className="py-2 text-end font-medium">{t("field_unit_rate")}</th>
                             </tr>
                           </thead>
                           <tbody>
                             {items.map((it: any) => (
-                              <tr key={it.id} className="border-t border-border/50 text-foreground">
-                                <td className="py-1.5">{it.sign_type}</td>
-                                <td className="py-1.5">{it.size ?? "—"}</td>
-                                <td className="py-1.5">{it.material ?? "—"}</td>
-                                <td className="py-1.5">{it.location ?? "—"}</td>
-                                <td className="num py-1.5 text-end" data-tabular="true">
+                              <tr key={it.id} className="border-t border-border/40 text-foreground">
+                                <td className="py-2">{it.sign_type}</td>
+                                <td className="py-2">{it.size ?? "—"}</td>
+                                <td className="py-2">{it.material ?? "—"}</td>
+                                <td className="py-2">{it.location ?? "—"}</td>
+                                <td className="num py-2 text-end" data-tabular="true">
                                   {formatNumber(it.quantity, lang)}
                                 </td>
-                                <td className="num py-1.5 text-end" data-tabular="true">
+                                <td className="num py-2 text-end" data-tabular="true">
                                   {formatCurrency(it.unit_rate, lang)}
                                 </td>
                               </tr>
