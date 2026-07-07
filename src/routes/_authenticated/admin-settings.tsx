@@ -89,8 +89,12 @@ function AdminSettingsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <SectionHeader title={t("admin_settings_title")} />
-      <p className="text-sm text-muted-foreground">{t("admin_settings_intro")}</p>
+      <PageHeader
+        eyebrow="Administration"
+        title={t("admin_settings_title")}
+        description={t("admin_settings_intro")}
+      />
+
 
       <GitSyncStatus />
 
