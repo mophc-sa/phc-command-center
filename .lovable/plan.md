@@ -1,58 +1,55 @@
-# PHC Agent Command Center — Build Plan (Phase 1: Sales Agent)
+# PHC Sales Agent — Premium Redesign
 
-This is a large, multi-week internal operating system. I'll build it in ordered phases so each phase is verifiable before the next. I recommend we ship Phase 1A first (foundation + design system + auth + schema + shell), then iterate.
+A full visual redesign of the authenticated app in three phases. No feature removal, no route or Supabase changes, no business-logic edits beyond wiring the new components.
 
-## Phase 1A — Foundation (this first delivery)
+## Design language
 
-**Backend (Lovable Cloud / Supabase)**
-- Enable Lovable Cloud.
-- Auth: email/password + Google. Roles stored in a separate `user_roles` table (enum: `ceo`, `sales_manager`, `bd_manager`, `viewer`) with `has_role()` security-definer function.
-- Schema (migrations):
-  - `profiles`, `user_roles`
-  - `opportunities` (with PHC qualification fields: signage_package_status, signage_package_confidence, package_budget_confirmed, main_contractor_confirmed, contractor_decision_maker, project_stage, prequalification_status, strategic_value, source_confidence, evidence_count, exclusion_reason, management_review_reason, tier, value ranges, owner, stage, timestamps)
-  - `stakeholders`, `follow_ups`, `tasks`, `approvals`, `artifacts`, `evidence_sources`, `agent_runs`, `snapshot_versions`, `source_registry`, `audit_log`
-- RLS on every table, scoped by role via `has_role()`. Viewer = read-only. BD = edit assigned. Sales Manager = assign/approve. CEO = strategic + approvals.
-- Audit trigger writing to `audit_log` on approvals / assignments / status changes.
-- Public-schema `GRANT`s alongside every table.
+- Dark-first executive shell built on **Black Pearl `#101924`** with the darker tonal scale (`#0B1119`, `#1B2531`, `#3A424E`) for surfaces, nav and depth.
+- **Ghost White `#F5F7FC`** and the light tonal scale (`#E4E8F0`, `#C7CBD2`, `#9CA1A8`) for content, dividers and light states.
+- **Cool Gray `#73787C`** for secondary text and neutral borders.
+- One restrained accent, reused only for primary actions, active nav, and selected states — no gradients, no glow, no heavy shadow.
+- Apple-inspired: strong hierarchy, generous whitespace, subtle depth (1px hairline borders + a single soft ambient shadow), calm micro-interactions (150–200ms ease).
 
-**Design system (PHC Silent Architecture, dark default)**
-- Tokens in `src/styles.css` using oklch equivalents of: bg `#0E0F10`, surface `#1A1B1D`, primary-dark `#111111`, text `#FAFAFA`, muted `#8A8D91`, structural `#34363A`, warm-neutral `#E7E2D9`, amber `#B5692B`, amber-light `#D9A063`.
-- Amber is a semantic "attention" token only — never default button/hero color.
-- Typography: Almarai (primary) + Inter (Latin fallback) + IBM Plex Sans Arabic, loaded via `<link>` in `__root.tsx`. Tabular numerals utility.
-- Reusable primitives: `MetricTile`, `PriorityItem`, `OpportunityCard`, `StatusPill`, `EvidenceRef`, `TimelineItem`, `ActionButton` (fixed vocabulary), `EmptyState`, `SectionHeader`, `AgentTile` (reusable for future department agents).
-- Motion: <200ms, respects `prefers-reduced-motion`.
+## Phase 1 — Design system + app shell (this turn)
 
-**Bilingual + RTL**
-- i18n context (EN/AR) with `dir` on `<html>`, full layout mirroring (sidebar swap, icon mirroring, table column order). Curated Arabic strings — no machine translation.
+**Tokens (`src/styles.css`)**
+- Rewrite the semantic token layer around the brand palette: `background`, `surface`, `surface-elevated`, `border`, `border-strong`, `foreground`, `muted-foreground`, `accent`, `accent-foreground`, plus status tokens (positive/attention/danger/muted).
+- Tighten radius scale (`--radius: 10px`), spacing rhythm, and a single elevation token (`--shadow-elevated`).
+- Refined typography scale: display / h1 / h2 / section-label (uppercase tracked) / body / caption / numeric-tabular.
 
-**Shell + Navigation**
-- Sidebar (mirrors in RTL): Command Center, Opportunities, Follow-ups, Discovery Inbox, Approvals, Reports, Agent Activity, Team & Permissions, Settings.
-- Header: PHC mark, area label (Sales Agent), agent status pill, last-refreshed, language toggle, profile + notifications.
-- Auth-gated under `_authenticated/`; `/auth` public.
+**Shared primitives**
+- `SectionHeader`, `StatusPill`, `EmptyState`, `ActionDialog`, buttons, inputs, selects, tabs, cards, tables, toasts — restyled to match tokens. Keep every existing prop/export intact.
+- New primitives added under `src/components/phc/`: `KpiCard`, `Panel`, `PageHeader`, `FilterBar`, `DataTable` wrapper, `Sparkline`, `TrendBadge`.
 
-**Deliverable of 1A:** logged-in user lands on a real Command Center shell with tokens, nav, i18n/RTL, empty states, and a working (but empty) data model.
+**App shell (`src/routes/_authenticated/route.tsx` + `AppSidebar` + top bar)**
+- Sidebar: quieter icons, grouped modules (Pipeline / Execution / Intelligence / Admin), refined active state (accent bar + subtle surface), collapsible via existing SidebarProvider.
+- Top bar: hairline border, aligned status pill, language + notifications + profile with consistent spacing, subtle presence.
+- Content container: centered max-width with consistent page padding and `PageHeader` pattern (title, subtitle, actions right).
 
-## Phase 1B — Sales Decision Experience
-- Command Center screen: 4 decision metrics, "Needs Attention" (max 5), High-Priority Opportunities, Follow-ups Due, New Opportunities, Agent Activity.
-- Opportunities list + filters.
-- Opportunity Detail (7 sections: Decision Status, Project Snapshot, Stakeholder Map, Commercial Context, Follow-up Plan, Evidence, Activity Timeline) with fixed action vocabulary.
-- Follow-ups view, Approvals queue, Agent Activity view, Team & Permissions.
+## Phase 2 — Command Center + high-traffic modules (next turn)
 
-## Phase 1C — Sales Agent Workflows (activated one at a time)
-Quotation Reporting → Pipeline Follow-up → Qualification → Preparation → Opportunity Discovery. Each implemented as a server function that writes to `agent_runs` + `artifacts` + `approvals`; nothing sends outreach automatically.
+- Rebuild Command Center as an executive dashboard: KPI row, pipeline-by-stage bar, opportunities trend line, follow-ups/approvals panels, priority list.
+- Introduce Recharts-based visuals (already available) styled with the token palette — thin strokes, muted grid, no default rainbow colors.
+- Redesign the RFQ & JIH Board, Opportunities, My Workspace, Action Required and Follow-ups to the new page pattern.
 
-## Phase 1D — Validation
-Manual QA matrix: AR/EN × desktop/tablet/mobile × role access × empty/error/loading/success × approval + assignment + audit + a11y.
+## Phase 3 — Propagate across remaining modules (following turn)
 
-## Out of scope (per spec)
-No Operations/Procurement/QA/HSE/Swarm agents, no LinkedIn/portal scraping, no WhatsApp, no auto-outreach, no auto-pricing/quotation.
+- Accounts, Contacts, Projects, Tender Monitor, Tender Conversion, Award & Contract Queue, Quotations, BOQ Center, Targets & Performance, Project Radar, Approvals, Vendors, Reference Library, Knowledge Search, Reports, Agent Activity, Team & Permissions, Admin Settings, Settings.
+- Standardize filters, tables, empty/loading states, and add module-specific charts (quotation status, BOQ verification, target vs actual, monthly trend, report grid).
+- Final pass: visual QA across every route, responsiveness check at 1280 / 1050 / 768, typecheck + build.
 
-## Technical notes
-- Stack: TanStack Start + Supabase (Lovable Cloud). Server functions for all sensitive reads/writes; service role stays server-only.
-- Seed data: minimal, realistic PHC-style examples via a migration so the UI is never empty during demo — no lorem ipsum, no fake metrics on production paths.
+## Guardrails
 
-## Ask before I start
-1. **Confirm Phase 1A first?** I'll ship foundation + shell + schema + auth in this delivery, then continue to 1B in follow-ups. (Alternative: I try to cram everything into one giant delivery, which will be lower quality.)
-2. **Auth providers:** email/password + Google — OK? (Google requires you to enable it in Cloud → Auth after I wire it.)
-3. **Seed data:** OK to include ~10 realistic sample opportunities + stakeholders + follow-ups so the Command Center demonstrates the decision flow immediately?
-4. **Default language on first load:** English or Arabic?
+- No changes to route files' loaders, `createServerFn` calls, Supabase queries, or RLS-facing code.
+- No removed exports; existing components keep their props so importers don't break.
+- No `any`, no fake typings, no hardcoded color utilities (`text-white`, `bg-[#…]`) — everything through tokens.
+- After each phase: `bunx tsgo --noEmit` and `bun run build`.
+
+## Technical section
+
+- Tokens go in `@theme inline` block mapping brand vars → shadcn semantic vars, so all shadcn components inherit automatically.
+- Charts: use existing `recharts` dep; wrap in a `<ChartFrame>` primitive that fixes stroke, grid, tooltip, legend styling.
+- Sidebar grouping is a data-only change in `AppSidebar`; routes and paths unchanged.
+- Typography: keep current font loading strategy; only adjust scale + weights via tokens.
+
+Approve to start Phase 1.
