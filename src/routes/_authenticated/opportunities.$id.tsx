@@ -186,15 +186,61 @@ function OpportunityDetail() {
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <Link to="/opportunities" className="inline-flex items-center gap-1.5 hover:text-foreground">
+      {/* Breadcrumb + Page header */}
+      <div>
+        <Link to="/opportunities" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
           <BackIcon className="h-3.5 w-3.5" />
           {t("nav_opportunities")}
         </Link>
-        <span>/</span>
-        <span className="truncate text-foreground">{o.project_name}</span>
+        <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              {t("nav_opportunities")}
+            </div>
+            <h1 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground md:text-[30px]">
+              {o.project ? (
+                <Link to="/projects/$id" params={{ id: o.project.id }} className="hover:underline">
+                  {o.project_name}
+                </Link>
+              ) : (
+                o.project_name
+              )}
+            </h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {o.company ? (
+                <Link to="/accounts/$id" params={{ id: o.company.id }} className="hover:underline">
+                  {o.company.name}
+                </Link>
+              ) : (
+                o.client ?? "—"
+              )}
+              {o.contractor_company ? (
+                <>
+                  {" · "}
+                  <Link to="/accounts/$id" params={{ id: o.contractor_company.id }} className="hover:underline">
+                    {o.contractor_company.name}
+                  </Link>
+                </>
+              ) : o.main_contractor ? (
+                ` · ${o.main_contractor}`
+              ) : (
+                ""
+              )}
+              {o.location ? ` · ${o.location}` : ""}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill tone={o.tier === "A" ? "attention" : "neutral"}>
+              {t("label_tier")} {o.tier}
+            </StatusPill>
+            <StatusPill tone="muted">{humanize(o.stage)}</StatusPill>
+            {o.agent_recommendation ? (
+              <StatusPill tone={recTone}>{humanize(o.agent_recommendation)}</StatusPill>
+            ) : null}
+          </div>
+        </div>
       </div>
+
 
       {/* Activity Timeline filters */}
       <TimelineFilterBar value={filter} onChange={setFilter} t={t} />
