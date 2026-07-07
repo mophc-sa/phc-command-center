@@ -179,8 +179,8 @@ function RfqJihBoard() {
         submitLabel={t("crm_add")}
         fields={[
           { key: "rfqNumber", type: "text", label: "RFQ #" },
-          { key: "companyId", type: "select", label: t("crm_company"), options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
-          { key: "projectId", type: "select", label: t("nav_projects"), options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
+          { key: "companyId", type: "select", label: t("crm_company"), options: [{ value: "__none__", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
+          { key: "projectId", type: "select", label: t("nav_projects"), options: [{ value: "__none__", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
           { key: "estimatedValue", type: "text", label: t("crm_total_value") },
           { key: "responseDueDate", type: "date", label: t("wf_expected_contract") },
           { key: "documentUrl", type: "file", label: t("wf_evidence"), folder: "rfq" },
