@@ -2,12 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { SectionHeader } from "@/components/phc/SectionHeader";
+import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
-import { useI18n, formatCurrency } from "@/lib/i18n";
+import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { createRfq, convertRfqToJih } from "@/lib/rfq-actions";
 import {
   advanceSalesStage, nextSalesStages, SALES_STAGES, type SalesStage,
