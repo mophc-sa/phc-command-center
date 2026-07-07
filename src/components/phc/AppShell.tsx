@@ -19,6 +19,12 @@ import {
   FileText,
   ClipboardList,
   Target,
+  Building2,
+  Contact2,
+  Landmark,
+  Briefcase,
+  Truck,
+  Library,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -26,6 +32,10 @@ import { StatusPill } from "./StatusPill";
 
 const nav = [
   { to: "/command-center", key: "nav_command_center", icon: LayoutDashboard },
+  { to: "/my-workspace", key: "nav_workspace", icon: Briefcase },
+  { to: "/accounts", key: "nav_accounts", icon: Building2 },
+  { to: "/contacts", key: "nav_contacts", icon: Contact2 },
+  { to: "/projects", key: "nav_projects", icon: Landmark },
   { to: "/opportunities", key: "nav_opportunities", icon: FolderKanban },
   { to: "/follow-ups", key: "nav_follow_ups", icon: CalendarClock },
   { to: "/quotations", key: "nav_quotations", icon: FileText },
@@ -33,6 +43,8 @@ const nav = [
   { to: "/targets", key: "nav_targets", icon: Target },
   { to: "/discovery", key: "nav_discovery", icon: Inbox },
   { to: "/approvals", key: "nav_approvals", icon: ShieldCheck },
+  { to: "/vendors", key: "nav_vendors", icon: Truck },
+  { to: "/reference-library", key: "nav_reference_library", icon: Library },
   { to: "/reports", key: "nav_reports", icon: LineChart },
   { to: "/agent-activity", key: "nav_agent_activity", icon: Activity },
   { to: "/team", key: "nav_team", icon: Users2 },
@@ -155,7 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <button
                   onClick={async () => {
                     await signOut();
-                    nav_({ to: "/auth" });
+                    nav_({ to: "/auth", search: { next: "" } });
                   }}
                   aria-label={t("sign_out")}
                   className="text-muted-foreground hover:text-foreground"

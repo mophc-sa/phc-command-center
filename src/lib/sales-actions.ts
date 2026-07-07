@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { callBackend } from "@/lib/backend";
 
 type Uuid = string;
 export type QuotationStatus = Database["public"]["Enums"]["quotation_status"];
@@ -71,6 +72,17 @@ export async function updateQuotationStatus(input: {
 }) {
   if ((input.status === "won" || input.status === "lost") && !input.reason) {
     throw new Error("A win/loss reason is required to close a quotation.");
+  }
+  // Closing Won/Lost is a sensitive commercial decision — route it through the
+  // backend layer, which enforces authorization, the reason rule, and the
+  // opportunity stage sync server-side.
+  if (input.status === "won" || input.status === "lost") {
+    const res = await callBackend<{ quotation: unknown }>("close_quotation", {
+      quotationId: input.quotationId,
+      status: input.status,
+      reason: input.reason,
+    });
+    return res.quotation;
   }
   const { data: before } = await supabase
     .from("quotations")
@@ -167,6 +179,7 @@ export async function createBoq(input: {
   missingItems?: string;
   estimatedValue?: number | null;
   notes?: string;
+  fileUrl?: string | null;
 }) {
   const created_by = await currentUserId();
   const { data, error } = await supabase
@@ -181,6 +194,7 @@ export async function createBoq(input: {
       missing_items: input.missingItems ?? null,
       estimated_value: input.estimatedValue ?? null,
       notes: input.notes ?? null,
+      file_url: input.fileUrl ?? null,
       created_by,
     })
     .select()

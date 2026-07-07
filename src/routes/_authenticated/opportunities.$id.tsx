@@ -107,7 +107,13 @@ function OpportunityDetail() {
   const oppQ = useQuery({
     queryKey: ["opp", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("opportunities").select("*").eq("id", id).maybeSingle();
+      const { data, error } = await supabase
+        .from("opportunities")
+        .select(
+          "*, company:companies!opportunities_company_id_fkey(id, name), contractor_company:companies!opportunities_main_contractor_id_fkey(id, name), project:projects!opportunities_project_id_fkey(id, name)",
+        )
+        .eq("id", id)
+        .maybeSingle();
       if (error) throw error;
       if (!data) throw notFound();
       return data as any;
@@ -212,10 +218,35 @@ function OpportunityDetail() {
       >
         <div className="grid gap-6">
           <div>
-            <h1 className="text-xl font-semibold text-foreground">{o.project_name}</h1>
+            <h1 className="text-xl font-semibold text-foreground">
+              {o.project ? (
+                <Link to="/projects/$id" params={{ id: o.project.id }} className="hover:underline">
+                  {o.project_name}
+                </Link>
+              ) : (
+                o.project_name
+              )}
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {o.client ?? "—"}
-              {o.main_contractor ? ` · ${o.main_contractor}` : ""}
+              {o.company ? (
+                <Link to="/accounts/$id" params={{ id: o.company.id }} className="hover:underline">
+                  {o.company.name}
+                </Link>
+              ) : (
+                o.client ?? "—"
+              )}
+              {o.contractor_company ? (
+                <>
+                  {" · "}
+                  <Link to="/accounts/$id" params={{ id: o.contractor_company.id }} className="hover:underline">
+                    {o.contractor_company.name}
+                  </Link>
+                </>
+              ) : o.main_contractor ? (
+                ` · ${o.main_contractor}`
+              ) : (
+                ""
+              )}
               {o.location ? ` · ${o.location}` : ""}
             </p>
           </div>
@@ -258,6 +289,7 @@ function OpportunityDetail() {
       <Panel title={t("section_qualification")}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <DataField label={t("label_project_stage")} value={humanize(o.project_stage)} />
+          <DataField label={t("pipeline_step_label")} value={humanize(o.pipeline_step)} />
           <DataField label={t("label_package_status")} value={humanize(o.signage_package_status)} />
           <DataField
             label={t("label_package_confidence")}

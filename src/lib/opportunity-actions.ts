@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { callBackend } from "@/lib/backend";
 
 type Uuid = string;
 
@@ -52,32 +53,20 @@ export async function requestReview(input: {
   return data;
 }
 
+// Routed through the backend layer — approval decisions are a sensitive
+// commercial action enforced server-side (manager-only + audit).
 export async function decideApproval(input: {
   approvalId: Uuid;
   opportunityId: Uuid;
   decision: "approved" | "returned" | "escalated";
   notes?: string;
 }) {
-  const map = {
-    approved: { status: "approved", decision: "proceed" as const },
-    returned: { status: "returned", decision: "management_review" as const },
-    escalated: { status: "escalated", decision: "management_review" as const },
-  } as const;
-  const patch = map[input.decision];
-  const { data, error } = await supabase
-    .from("approvals")
-    .update({
-      status: patch.status,
-      decision: patch.decision,
-      decision_notes: input.notes ?? null,
-      decided_at: new Date().toISOString(),
-    })
-    .eq("id", input.approvalId)
-    .select()
-    .single();
-  if (error) throw error;
-  await audit(`approval.${input.decision}`, "approval", input.approvalId, null, data);
-  return data;
+  const res = await callBackend<{ approval: unknown }>("decide_approval", {
+    approvalId: input.approvalId,
+    decision: input.decision,
+    notes: input.notes ?? null,
+  });
+  return res.approval;
 }
 
 /* ---------------- Follow-ups ---------------- */

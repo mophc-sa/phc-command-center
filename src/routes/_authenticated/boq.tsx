@@ -221,6 +221,7 @@ function BoqPage() {
           { key: "estimatedValue", type: "text", label: t("field_estimated_value") },
           { key: "assumptions", type: "textarea", label: t("field_assumptions") },
           { key: "missingItems", type: "textarea", label: t("field_missing_items") },
+          { key: "fileUrl", type: "file", label: t("field_boq_source"), folder: "boq" },
         ]}
         onSubmit={async (v) => {
           try {
@@ -233,6 +234,7 @@ function BoqPage() {
               assumptions: v.assumptions || undefined,
               missingItems: v.missingItems || undefined,
               estimatedValue: v.estimatedValue ? Number(v.estimatedValue) : null,
+              fileUrl: v.fileUrl || null,
             });
             toast.success(t("toast_boq_created"));
             qc.invalidateQueries({ queryKey: ["boqs"] });
