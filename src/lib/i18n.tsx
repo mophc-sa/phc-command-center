@@ -300,6 +300,14 @@ export const strings = {
   metric_awaiting_approval: { en: "Decisions Awaiting Approval", ar: "قرارات بانتظار الاعتماد" },
   metric_newly_qualified: { en: "Newly Qualified", ar: "فرص مؤهلة حديثاً" },
 
+  // Sales funnel (dashboard)
+  funnel_title: { en: "Sales Funnel", ar: "قِمع المبيعات" },
+  funnel_new_rfq: { en: "New RFQ", ar: "طلبات عروض جديدة" },
+  funnel_still_tendering: { en: "Still Tendering", ar: "مناقصات قيد الإجراء" },
+  funnel_tender_negotiation: { en: "Tender Negotiation", ar: "تفاوض الترسية" },
+  funnel_jih_awarded: { en: "JIH Awarded — Negotiation", ar: "ترسية على المقاول" },
+  funnel_jih_final: { en: "JIH Final Negotiation", ar: "التفاوض النهائي" },
+
   // Actions (fixed vocabulary)
   action_review: { en: "Review", ar: "مراجعة" },
   action_approve: { en: "Approve", ar: "اعتماد" },
