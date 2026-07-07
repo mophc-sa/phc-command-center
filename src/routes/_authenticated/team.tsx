@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { SectionHeader } from "@/components/phc/SectionHeader";
+import { Search } from "lucide-react";
+import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n } from "@/lib/i18n";
@@ -23,8 +26,7 @@ export const Route = createFileRoute("/_authenticated/team")({
 });
 
 function roleLabel(t: (k: any) => string, r: AppRole): string {
-  const key = `role_${r}` as const;
-  return t(key as any);
+  return t(`role_${r}` as any);
 }
 
 function roleTone(r: AppRole): "attention" | "positive" | "neutral" | "muted" {
@@ -38,11 +40,27 @@ function TeamPage() {
   const { user, hasAnyRole } = useAuth();
   const canManage = hasAnyRole(["ceo", "sales_manager"]);
   const qc = useQueryClient();
+  const [q, setQ] = useState("");
 
   const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["team-full"],
     queryFn: listTeam,
   });
+
+  const term = q.trim().toLowerCase();
+  const filtered = term
+    ? data.filter((m) => [m.full_name, m.email].some((f) => f && String(f).toLowerCase().includes(term)))
+    : data;
+
+  const managers = useMemo(
+    () => data.filter((m) => m.roles.some((r) => r === "ceo" || r === "sales_manager")).length,
+    [data],
+  );
+  const bdCount = useMemo(() => data.filter((m) => m.roles.includes("bd_manager")).length, [data]);
+  const viewers = useMemo(
+    () => data.filter((m) => m.roles.length === 0 || (m.roles.length === 1 && m.roles[0] === "viewer")).length,
+    [data],
+  );
 
   async function toggle(member: TeamMember, role: AppRole, has: boolean) {
     try {
@@ -61,9 +79,19 @@ function TeamPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <SectionHeader title={t("nav_team")} count={data.length} />
-      <p className="mb-4 text-sm text-muted-foreground">{t("team_intro")}</p>
+    <div className="mx-auto max-w-6xl">
+      <PageHeader
+        eyebrow="Administration"
+        title={t("nav_team")}
+        description={t("team_intro")}
+      />
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Members" value={data.length} />
+        <KpiCard label="Managers" value={managers} hint="CEO or Sales Manager" />
+        <KpiCard label="BD Managers" value={bdCount} />
+        <KpiCard label="Viewers" value={viewers} />
+      </div>
 
       {!canManage ? (
         <div className="mb-4 rounded-md border border-border bg-surface px-4 py-3 text-xs text-muted-foreground">
@@ -71,28 +99,35 @@ function TeamPage() {
         </div>
       ) : null}
 
+      <div className="mb-4 relative max-w-md">
+        <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search members…"
+          className="w-full rounded-md border border-border bg-surface ps-9 pe-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-amber/40"
+        />
+      </div>
+
       {isLoading ? (
         <div className="text-sm text-muted-foreground">{t("loading")}</div>
       ) : isError ? (
         <div className="rounded-lg border border-border bg-surface p-6 text-sm">
           <div className="text-foreground">{t("error_generic")}</div>
-          <button
-            onClick={() => refetch()}
-            className="mt-3 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-muted"
-          >
+          <button onClick={() => refetch()} className="mt-3 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-muted">
             {t("retry")}
           </button>
         </div>
-      ) : data.length === 0 ? (
-        <EmptyState message={t("empty_team")} />
+      ) : filtered.length === 0 ? (
+        <EmptyState message={t("empty_team")} hint={term ? "Try a different search" : undefined} />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
           <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] gap-4 border-b border-border/70 px-4 py-2.5 text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
             <div>{t("team_col_member")}</div>
             <div>{t("team_col_roles")}</div>
             <div className="text-right rtl:text-left">{t("team_col_manage")}</div>
           </div>
-          {data.map((m) => {
+          {filtered.map((m) => {
             const isSelf = m.id === user?.id;
             return (
               <div
@@ -115,9 +150,7 @@ function TeamPage() {
                     <StatusPill tone="muted">{roleLabel(t, "viewer")}</StatusPill>
                   ) : (
                     m.roles.map((r) => (
-                      <StatusPill key={r} tone={roleTone(r)}>
-                        {roleLabel(t, r)}
-                      </StatusPill>
+                      <StatusPill key={r} tone={roleTone(r)}>{roleLabel(t, r)}</StatusPill>
                     ))
                   )}
                 </div>
