@@ -118,7 +118,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     navgroup_crm: "CRM",
     navgroup_pipeline: "Pipeline",
     navgroup_execution: "Execution",
-    navgroup_intelligence: "Intelligence",
+    navgroup_intelligence: "Intelligence & Resources",
     navgroup_admin: "Admin",
   };
 
