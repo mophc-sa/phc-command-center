@@ -27,6 +27,82 @@ export const strings = {
   nav_vendors: { en: "Vendors", ar: "الموردون" },
   nav_reference_library: { en: "Reference Library", ar: "مكتبة المراجع" },
   nav_knowledge: { en: "Knowledge Search", ar: "البحث المعرفي" },
+  nav_rfq_jih: { en: "RFQ & JIH Board", ar: "لوحة RFQ والفرص القائمة" },
+  nav_tenders: { en: "Tender Monitor", ar: "مراقب المناقصات" },
+  nav_award_queue: { en: "Award & Contract Queue", ar: "طابور الترسية والعقود" },
+  nav_action_center: { en: "Action Required", ar: "الإجراءات المطلوبة" },
+  nav_tender_conversion: { en: "Tender Conversion", ar: "تحويل المناقصات" },
+
+  // Sales stages (RFQ/JIH flow)
+  sstage_rfq_received: { en: "RFQ Received", ar: "استلام طلب عرض سعر" },
+  sstage_jih: { en: "Job In Hand", ar: "فرصة قائمة" },
+  sstage_under_negotiation: { en: "Under Negotiation", ar: "قيد التفاوض" },
+  sstage_verbally_awarded: { en: "Verbally Awarded", ar: "ترسية شفهية" },
+  sstage_contract_received: { en: "Contract Received", ar: "استلام العقد" },
+  sstage_won: { en: "Won", ar: "تم الفوز" },
+  sstage_lost: { en: "Lost", ar: "خسرت الفرصة" },
+  sstage_on_hold: { en: "On Hold", ar: "معلقة" },
+
+  // Win confidence
+  wconf_low: { en: "Low", ar: "ضعيفة" },
+  wconf_possible: { en: "Possible", ar: "محتملة" },
+  wconf_strong: { en: "Strong", ar: "قوية" },
+  wconf_sure_win: { en: "Sure Win", ar: "شبه مؤكدة" },
+  win_confidence_label: { en: "Win Confidence", ar: "احتمالية الفوز" },
+
+  // Tender stages
+  tstage_tender_identified: { en: "Tender Identified", ar: "رصد مناقصة" },
+  tstage_tender_under_process: { en: "Under Process", ar: "قيد الإجراء" },
+  tstage_award_negotiation: { en: "Award Negotiation", ar: "تفاوض الترسية" },
+  tstage_awarded_to_contractor: { en: "Awarded to Contractor", ar: "تمت الترسية على المقاول" },
+  tstage_converted_to_jih: { en: "Converted to JIH", ar: "تحويل إلى فرصة قائمة" },
+  tstage_tender_lost_or_archived: { en: "Lost / Archived", ar: "خاسرة / مؤرشفة" },
+
+  // Workflow generic
+  wf_new_rfq: { en: "New RFQ", ar: "طلب عرض سعر جديد" },
+  wf_new_tender: { en: "New Tender", ar: "مناقصة جديدة" },
+  wf_convert_to_jih: { en: "Convert to JIH", ar: "تحويل لفرصة قائمة" },
+  wf_advance_stage: { en: "Advance Stage", ar: "تقديم المرحلة" },
+  wf_move_to: { en: "Move to", ar: "الانتقال إلى" },
+  wf_request_conversion: { en: "Request Conversion", ar: "طلب التحويل" },
+  wf_approve_conversion: { en: "Approve Conversion", ar: "اعتماد التحويل" },
+  wf_set_confidence: { en: "Set Win Confidence", ar: "تحديد احتمالية الفوز" },
+  wf_pending_approval: { en: "Sent for approval", ar: "أُرسل للاعتماد" },
+  wf_evidence: { en: "Evidence", ar: "الأدلة" },
+  wf_notes: { en: "Notes", ar: "ملاحظات" },
+  wf_run_automations: { en: "Run Automations", ar: "تشغيل الأتمتة" },
+  wf_classification: { en: "Classification", ar: "التصنيف" },
+  wf_contractor: { en: "Winning Contractor", ar: "المقاول الفائز" },
+  wf_expected_award: { en: "Expected Award", ar: "الترسية المتوقعة" },
+  wf_expected_contract: { en: "Expected Contract", ar: "العقد المتوقع" },
+  wf_contract_value: { en: "Contract Value", ar: "قيمة العقد" },
+  wf_contract_ref: { en: "Contract Reference", ar: "مرجع العقد" },
+  wf_loss_reason: { en: "Loss Reason", ar: "سبب الخسارة" },
+  wf_hold_reason: { en: "Hold Reason", ar: "سبب التعليق" },
+  wf_hold_review: { en: "Hold Review Date", ar: "تاريخ مراجعة التعليق" },
+  wf_award_contact: { en: "Confirming Person", ar: "الشخص المؤكِّد" },
+  wf_award_title: { en: "Their Title", ar: "منصبه" },
+  wf_award_method: { en: "Communication Method", ar: "طريقة التواصل" },
+  wf_no_records: { en: "Nothing here yet.", ar: "لا شيء هنا بعد." },
+  wf_source: { en: "Source", ar: "المصدر" },
+
+  // Award & Contract Queue widgets
+  aq_verbal_no_contract: { en: "Verbally Awarded — No Contract", ar: "ترسية شفهية بلا عقد" },
+  aq_expected_passed: { en: "Expected Contract Date Passed", ar: "تجاوز تاريخ العقد المتوقع" },
+  aq_contracts_received: { en: "Contracts Received — Awaiting Handover", ar: "عقود مستلمة بانتظار التسليم" },
+  aq_high_value: { en: "High-Value Awards", ar: "ترسيات عالية القيمة" },
+
+  // Action Required Center
+  ac_open_actions: { en: "Open Actions", ar: "الإجراءات المفتوحة" },
+  ac_resolve: { en: "Resolve", ar: "إغلاق" },
+  ac_add_action: { en: "Add Action", ar: "إضافة إجراء" },
+  ac_kind: { en: "Kind", ar: "النوع" },
+  ac_reason: { en: "Reason", ar: "السبب" },
+
+  // Tender Conversion Review
+  tc_pending_reviews: { en: "Pending Conversion Reviews", ar: "مراجعات التحويل المعلّقة" },
+  tc_no_reviews: { en: "No tender conversions awaiting review.", ar: "لا توجد تحويلات مناقصات بانتظار المراجعة." },
+  tc_approve: { en: "Approve & Create JIH", ar: "اعتماد وإنشاء فرصة" },
 
   // CRM — shared
   crm_add: { en: "Add", ar: "إضافة" },

@@ -87,6 +87,23 @@ function WorkspacePage() {
       ).data ?? [],
   });
 
+  const { data: wf } = useQuery({
+    queryKey: ["ws-workflow", uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const [rfqs, tenders, verbal] = await Promise.all([
+        supabase.from("rfqs").select("id").eq("sales_owner_id", uid).eq("status", "open"),
+        supabase.from("tenders").select("id").eq("tender_owner_id", uid).not("tender_stage", "in", "(converted_to_jih,tender_lost_or_archived)"),
+        supabase.from("opportunities").select("id").eq("owner_id", uid).eq("sales_stage", "verbally_awarded"),
+      ]);
+      return {
+        rfqs: (rfqs.data ?? []).length,
+        tenders: (tenders.data ?? []).length,
+        verbal: (verbal.data ?? []).length,
+      };
+    },
+  });
+
   if (isLoading || !data) return <EmptyState message={t("loading")} />;
 
   const pipelineValue = data.opps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
@@ -116,6 +133,15 @@ function WorkspacePage() {
             <MetricTile label={t("ws_target_activities")} value={formatNumber(tg.activity_target, lang)} />
           </div>
         )}
+      </Panel>
+
+      {/* My sales workflow */}
+      <Panel title={t("nav_rfq_jih")}>
+        <div className="grid grid-cols-3 gap-4">
+          <Link to="/rfq-jih"><MetricTile label={t("wf_new_rfq")} value={formatNumber(wf?.rfqs ?? 0, lang)} /></Link>
+          <Link to="/tenders"><MetricTile label={t("nav_tenders")} value={formatNumber(wf?.tenders ?? 0, lang)} /></Link>
+          <Link to="/award-queue"><MetricTile label={t("sstage_verbally_awarded")} value={formatNumber(wf?.verbal ?? 0, lang)} tone={wf?.verbal ? "attention" : "neutral"} /></Link>
+        </div>
       </Panel>
 
       {recs.length > 0 ? (

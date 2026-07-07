@@ -26,6 +26,11 @@ import {
   Truck,
   Library,
   Sparkles,
+  ClipboardCheck,
+  Gavel,
+  GitMerge,
+  Award,
+  BellRing,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -38,6 +43,11 @@ const nav = [
   { to: "/contacts", key: "nav_contacts", icon: Contact2 },
   { to: "/projects", key: "nav_projects", icon: Landmark },
   { to: "/opportunities", key: "nav_opportunities", icon: FolderKanban },
+  { to: "/rfq-jih", key: "nav_rfq_jih", icon: ClipboardCheck },
+  { to: "/tenders", key: "nav_tenders", icon: Gavel },
+  { to: "/tender-conversion", key: "nav_tender_conversion", icon: GitMerge },
+  { to: "/award-queue", key: "nav_award_queue", icon: Award },
+  { to: "/action-center", key: "nav_action_center", icon: BellRing },
   { to: "/follow-ups", key: "nav_follow_ups", icon: CalendarClock },
   { to: "/quotations", key: "nav_quotations", icon: FileText },
   { to: "/boq", key: "nav_boq", icon: ClipboardList },
