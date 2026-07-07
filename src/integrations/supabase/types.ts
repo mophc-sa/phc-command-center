@@ -14,6 +14,73 @@ export type Database = {
   }
   public: {
     Tables: {
+      activities: {
+        Row: {
+          activity_type: Database["public"]["Enums"]["activity_type"]
+          company_id: string | null
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          draft_content: string | null
+          id: string
+          occurred_at: string
+          owner_id: string | null
+          related_opportunity_id: string | null
+          status: Database["public"]["Enums"]["activity_status"]
+          summary: string | null
+        }
+        Insert: {
+          activity_type: Database["public"]["Enums"]["activity_type"]
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          draft_content?: string | null
+          id?: string
+          occurred_at?: string
+          owner_id?: string | null
+          related_opportunity_id?: string | null
+          status?: Database["public"]["Enums"]["activity_status"]
+          summary?: string | null
+        }
+        Update: {
+          activity_type?: Database["public"]["Enums"]["activity_type"]
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          draft_content?: string | null
+          id?: string
+          occurred_at?: string
+          owner_id?: string | null
+          related_opportunity_id?: string | null
+          status?: Database["public"]["Enums"]["activity_status"]
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_runs: {
         Row: {
           agent_name: string
@@ -70,10 +137,12 @@ export type Database = {
             | null
           decision_notes: string | null
           id: string
+          linked_record_id: string | null
+          linked_record_type: string | null
           recommendation:
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
-          related_opportunity_id: string
+          related_opportunity_id: string | null
           requested_by: string | null
           status: Database["public"]["Enums"]["approval_status"]
           updated_at: string
@@ -88,10 +157,12 @@ export type Database = {
             | null
           decision_notes?: string | null
           id?: string
+          linked_record_id?: string | null
+          linked_record_type?: string | null
           recommendation?:
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
-          related_opportunity_id: string
+          related_opportunity_id?: string | null
           requested_by?: string | null
           status?: Database["public"]["Enums"]["approval_status"]
           updated_at?: string
@@ -106,10 +177,12 @@ export type Database = {
             | null
           decision_notes?: string | null
           id?: string
+          linked_record_id?: string | null
+          linked_record_type?: string | null
           recommendation?:
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
-          related_opportunity_id?: string
+          related_opportunity_id?: string | null
           requested_by?: string | null
           status?: Database["public"]["Enums"]["approval_status"]
           updated_at?: string
@@ -207,6 +280,48 @@ export type Database = {
           entity_type?: string
           id?: string
           timestamp?: string
+        }
+        Relationships: []
+      }
+      award_evidence: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          date_received: string | null
+          document_url: string | null
+          evidence_type: string | null
+          id: string
+          linked_record_id: string
+          linked_record_type: string
+          note: string | null
+          source: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          date_received?: string | null
+          document_url?: string | null
+          evidence_type?: string | null
+          id?: string
+          linked_record_id: string
+          linked_record_type: string
+          note?: string | null
+          source?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          date_received?: string | null
+          document_url?: string | null
+          evidence_type?: string | null
+          id?: string
+          linked_record_id?: string
+          linked_record_type?: string
+          note?: string | null
+          source?: string | null
+          uploaded_by?: string | null
         }
         Relationships: []
       }
@@ -340,6 +455,134 @@ export type Database = {
           },
         ]
       }
+      companies: {
+        Row: {
+          account_owner_id: string | null
+          account_status: Database["public"]["Enums"]["account_status"]
+          company_type: Database["public"]["Enums"]["company_type"]
+          created_at: string
+          created_by: string | null
+          id: string
+          internal_notes: string | null
+          last_contact_at: string | null
+          name: string
+          next_action: string | null
+          next_action_due: string | null
+          regions: string | null
+          relationship_level: string | null
+          source: string | null
+          updated_at: string
+          upsell_notes: string | null
+        }
+        Insert: {
+          account_owner_id?: string | null
+          account_status?: Database["public"]["Enums"]["account_status"]
+          company_type?: Database["public"]["Enums"]["company_type"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          internal_notes?: string | null
+          last_contact_at?: string | null
+          name: string
+          next_action?: string | null
+          next_action_due?: string | null
+          regions?: string | null
+          relationship_level?: string | null
+          source?: string | null
+          updated_at?: string
+          upsell_notes?: string | null
+        }
+        Update: {
+          account_owner_id?: string | null
+          account_status?: Database["public"]["Enums"]["account_status"]
+          company_type?: Database["public"]["Enums"]["company_type"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          internal_notes?: string | null
+          last_contact_at?: string | null
+          name?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          regions?: string | null
+          relationship_level?: string | null
+          source?: string | null
+          updated_at?: string
+          upsell_notes?: string | null
+        }
+        Relationships: []
+      }
+      contacts: {
+        Row: {
+          authority: Database["public"]["Enums"]["contact_authority"]
+          company_id: string | null
+          confidence_score: number | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          last_verified_at: string | null
+          linkedin: string | null
+          location: Database["public"]["Enums"]["contact_location"]
+          name: string
+          notes: string | null
+          owner_id: string | null
+          phone: string | null
+          source: string | null
+          title: string | null
+          updated_at: string
+          verification_status: Database["public"]["Enums"]["verification_status"]
+        }
+        Insert: {
+          authority?: Database["public"]["Enums"]["contact_authority"]
+          company_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          last_verified_at?: string | null
+          linkedin?: string | null
+          location?: Database["public"]["Enums"]["contact_location"]
+          name: string
+          notes?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          source?: string | null
+          title?: string | null
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+        }
+        Update: {
+          authority?: Database["public"]["Enums"]["contact_authority"]
+          company_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          last_verified_at?: string | null
+          linkedin?: string | null
+          location?: Database["public"]["Enums"]["contact_location"]
+          name?: string
+          notes?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          source?: string | null
+          title?: string | null
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       evidence_sources: {
         Row: {
           confidence_level: Database["public"]["Enums"]["confidence_level"]
@@ -437,13 +680,195 @@ export type Database = {
           },
         ]
       }
+      knowledge_chunks: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          source_id: string | null
+          source_type: string
+          title: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          source_id?: string | null
+          source_type: string
+          title?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          source_id?: string | null
+          source_type?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          converted_opportunity_id: string | null
+          created_at: string
+          created_by: string | null
+          duplicate_of: string | null
+          estimated_value: number | null
+          id: string
+          lead_score: number | null
+          lead_stage: Database["public"]["Enums"]["lead_stage"]
+          location: string | null
+          main_contractor_guess: string | null
+          owner_id: string | null
+          project_name: string
+          project_stage_estimate:
+            | Database["public"]["Enums"]["project_stage"]
+            | null
+          rejection_reason: string | null
+          research_notes: string | null
+          signage_potential:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source: string
+          source_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          converted_opportunity_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          duplicate_of?: string | null
+          estimated_value?: number | null
+          id?: string
+          lead_score?: number | null
+          lead_stage?: Database["public"]["Enums"]["lead_stage"]
+          location?: string | null
+          main_contractor_guess?: string | null
+          owner_id?: string | null
+          project_name: string
+          project_stage_estimate?:
+            | Database["public"]["Enums"]["project_stage"]
+            | null
+          rejection_reason?: string | null
+          research_notes?: string | null
+          signage_potential?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source?: string
+          source_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          converted_opportunity_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          duplicate_of?: string | null
+          estimated_value?: number | null
+          id?: string
+          lead_score?: number | null
+          lead_stage?: Database["public"]["Enums"]["lead_stage"]
+          location?: string | null
+          main_contractor_guess?: string | null
+          owner_id?: string | null
+          project_name?: string
+          project_stage_estimate?:
+            | Database["public"]["Enums"]["project_stage"]
+            | null
+          rejection_reason?: string | null
+          research_notes?: string | null
+          signage_potential?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source?: string
+          source_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_converted_opportunity_id_fkey"
+            columns: ["converted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_duplicate_of_fkey"
+            columns: ["duplicate_of"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operations_handovers: {
+        Row: {
+          approved_value: number | null
+          commercial_owner_id: string | null
+          contract_document_url: string | null
+          created_at: string
+          created_by: string | null
+          handover_checklist_status: string
+          handover_date: string | null
+          id: string
+          operations_owner_id: string | null
+          opportunity_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved_value?: number | null
+          commercial_owner_id?: string | null
+          contract_document_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          handover_checklist_status?: string
+          handover_date?: string | null
+          id?: string
+          operations_owner_id?: string | null
+          opportunity_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved_value?: number | null
+          commercial_owner_id?: string | null
+          contract_document_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          handover_checklist_status?: string
+          handover_date?: string | null
+          id?: string
+          operations_owner_id?: string | null
+          opportunity_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operations_handovers_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opportunities: {
         Row: {
+          action_priority: Database["public"]["Enums"]["priority_tier"] | null
+          action_required: boolean
           agent_reasoning: string | null
           agent_recommendation:
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           client: string | null
+          company_id: string | null
+          contract_received_date: string | null
+          contract_reference_number: string | null
+          contract_value: number | null
           contractor_decision_maker: string | null
           created_at: string
           created_by: string | null
@@ -454,20 +879,31 @@ export type Database = {
           exclusion_reason:
             | Database["public"]["Enums"]["exclusion_reason"]
             | null
+          expected_contract_date: string | null
+          flow_type: Database["public"]["Enums"]["flow_type"]
+          handover_status: Database["public"]["Enums"]["handover_status"] | null
+          hold_reason: string | null
+          hold_review_date: string | null
           id: string
           last_activity_at: string | null
           location: string | null
+          loss_notes: string | null
+          loss_reason: string | null
           main_contractor: string | null
           main_contractor_confirmed: boolean
+          main_contractor_id: string | null
           management_review_reason: string | null
           next_action: string | null
           next_action_due: string | null
           owner_id: string | null
           package_budget_confirmed: boolean
+          pipeline_step: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status: string | null
+          project_id: string | null
           project_name: string
           project_stage: Database["public"]["Enums"]["project_stage"]
           quotation_value: number | null
+          sales_stage: Database["public"]["Enums"]["sales_stage"] | null
           sector: string | null
           signage_package_confidence: Database["public"]["Enums"]["confidence_level"]
           signage_package_status: Database["public"]["Enums"]["signage_package_status"]
@@ -476,13 +912,25 @@ export type Database = {
           strategic_value: string | null
           tier: Database["public"]["Enums"]["priority_tier"]
           updated_at: string
+          verbal_award_contact_name: string | null
+          verbal_award_contact_title: string | null
+          verbal_award_date: string | null
+          verbal_award_evidence: string | null
+          verbal_award_method: string | null
+          win_confidence: Database["public"]["Enums"]["win_confidence"] | null
         }
         Insert: {
+          action_priority?: Database["public"]["Enums"]["priority_tier"] | null
+          action_required?: boolean
           agent_reasoning?: string | null
           agent_recommendation?:
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           client?: string | null
+          company_id?: string | null
+          contract_received_date?: string | null
+          contract_reference_number?: string | null
+          contract_value?: number | null
           contractor_decision_maker?: string | null
           created_at?: string
           created_by?: string | null
@@ -493,20 +941,33 @@ export type Database = {
           exclusion_reason?:
             | Database["public"]["Enums"]["exclusion_reason"]
             | null
+          expected_contract_date?: string | null
+          flow_type?: Database["public"]["Enums"]["flow_type"]
+          handover_status?:
+            | Database["public"]["Enums"]["handover_status"]
+            | null
+          hold_reason?: string | null
+          hold_review_date?: string | null
           id?: string
           last_activity_at?: string | null
           location?: string | null
+          loss_notes?: string | null
+          loss_reason?: string | null
           main_contractor?: string | null
           main_contractor_confirmed?: boolean
+          main_contractor_id?: string | null
           management_review_reason?: string | null
           next_action?: string | null
           next_action_due?: string | null
           owner_id?: string | null
           package_budget_confirmed?: boolean
+          pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status?: string | null
+          project_id?: string | null
           project_name: string
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
+          sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
           sector?: string | null
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
@@ -515,13 +976,25 @@ export type Database = {
           strategic_value?: string | null
           tier?: Database["public"]["Enums"]["priority_tier"]
           updated_at?: string
+          verbal_award_contact_name?: string | null
+          verbal_award_contact_title?: string | null
+          verbal_award_date?: string | null
+          verbal_award_evidence?: string | null
+          verbal_award_method?: string | null
+          win_confidence?: Database["public"]["Enums"]["win_confidence"] | null
         }
         Update: {
+          action_priority?: Database["public"]["Enums"]["priority_tier"] | null
+          action_required?: boolean
           agent_reasoning?: string | null
           agent_recommendation?:
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           client?: string | null
+          company_id?: string | null
+          contract_received_date?: string | null
+          contract_reference_number?: string | null
+          contract_value?: number | null
           contractor_decision_maker?: string | null
           created_at?: string
           created_by?: string | null
@@ -532,20 +1005,33 @@ export type Database = {
           exclusion_reason?:
             | Database["public"]["Enums"]["exclusion_reason"]
             | null
+          expected_contract_date?: string | null
+          flow_type?: Database["public"]["Enums"]["flow_type"]
+          handover_status?:
+            | Database["public"]["Enums"]["handover_status"]
+            | null
+          hold_reason?: string | null
+          hold_review_date?: string | null
           id?: string
           last_activity_at?: string | null
           location?: string | null
+          loss_notes?: string | null
+          loss_reason?: string | null
           main_contractor?: string | null
           main_contractor_confirmed?: boolean
+          main_contractor_id?: string | null
           management_review_reason?: string | null
           next_action?: string | null
           next_action_due?: string | null
           owner_id?: string | null
           package_budget_confirmed?: boolean
+          pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status?: string | null
+          project_id?: string | null
           project_name?: string
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
+          sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
           sector?: string | null
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
@@ -553,6 +1039,85 @@ export type Database = {
           stage?: Database["public"]["Enums"]["opportunity_stage"]
           strategic_value?: string | null
           tier?: Database["public"]["Enums"]["priority_tier"]
+          updated_at?: string
+          verbal_award_contact_name?: string | null
+          verbal_award_contact_title?: string | null
+          verbal_award_date?: string | null
+          verbal_award_evidence?: string | null
+          verbal_award_method?: string | null
+          win_confidence?: Database["public"]["Enums"]["win_confidence"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_main_contractor_id_fkey"
+            columns: ["main_contractor_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_flags: {
+        Row: {
+          action_owner_id: string | null
+          action_type: Database["public"]["Enums"]["action_type"] | null
+          created_at: string
+          created_by: string | null
+          due_date: string | null
+          flag_kind: Database["public"]["Enums"]["flag_kind"]
+          id: string
+          linked_record_id: string
+          linked_record_type: string
+          priority: Database["public"]["Enums"]["priority_tier"] | null
+          reason: string | null
+          risk_flag: Database["public"]["Enums"]["risk_flag"] | null
+          status: Database["public"]["Enums"]["flag_status"]
+          updated_at: string
+        }
+        Insert: {
+          action_owner_id?: string | null
+          action_type?: Database["public"]["Enums"]["action_type"] | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          flag_kind: Database["public"]["Enums"]["flag_kind"]
+          id?: string
+          linked_record_id: string
+          linked_record_type: string
+          priority?: Database["public"]["Enums"]["priority_tier"] | null
+          reason?: string | null
+          risk_flag?: Database["public"]["Enums"]["risk_flag"] | null
+          status?: Database["public"]["Enums"]["flag_status"]
+          updated_at?: string
+        }
+        Update: {
+          action_owner_id?: string | null
+          action_type?: Database["public"]["Enums"]["action_type"] | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          flag_kind?: Database["public"]["Enums"]["flag_kind"]
+          id?: string
+          linked_record_id?: string
+          linked_record_type?: string
+          priority?: Database["public"]["Enums"]["priority_tier"] | null
+          reason?: string | null
+          risk_flag?: Database["public"]["Enums"]["risk_flag"] | null
+          status?: Database["public"]["Enums"]["flag_status"]
           updated_at?: string
         }
         Relationships: []
@@ -586,6 +1151,100 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      projects: {
+        Row: {
+          completion_pct: number | null
+          consultant_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          expected_boq_date: string | null
+          expected_signage_date: string | null
+          id: string
+          location: string | null
+          main_contractor_id: string | null
+          name: string
+          notes: string | null
+          owner_company_id: string | null
+          project_stage: Database["public"]["Enums"]["project_stage"]
+          sector: string | null
+          signage_package_status: Database["public"]["Enums"]["signage_package_status"]
+          source: string | null
+          source_confidence: Database["public"]["Enums"]["confidence_level"]
+          total_value: number | null
+          updated_at: string
+          verification_status: Database["public"]["Enums"]["verification_status"]
+        }
+        Insert: {
+          completion_pct?: number | null
+          consultant_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          expected_boq_date?: string | null
+          expected_signage_date?: string | null
+          id?: string
+          location?: string | null
+          main_contractor_id?: string | null
+          name: string
+          notes?: string | null
+          owner_company_id?: string | null
+          project_stage?: Database["public"]["Enums"]["project_stage"]
+          sector?: string | null
+          signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
+          source?: string | null
+          source_confidence?: Database["public"]["Enums"]["confidence_level"]
+          total_value?: number | null
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+        }
+        Update: {
+          completion_pct?: number | null
+          consultant_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          expected_boq_date?: string | null
+          expected_signage_date?: string | null
+          id?: string
+          location?: string | null
+          main_contractor_id?: string | null
+          name?: string
+          notes?: string | null
+          owner_company_id?: string | null
+          project_stage?: Database["public"]["Enums"]["project_stage"]
+          sector?: string | null
+          signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
+          source?: string | null
+          source_confidence?: Database["public"]["Enums"]["confidence_level"]
+          total_value?: number | null
+          updated_at?: string
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_main_contractor_id_fkey"
+            columns: ["main_contractor_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_owner_company_id_fkey"
+            columns: ["owner_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quotations: {
         Row: {
@@ -661,6 +1320,246 @@ export type Database = {
             columns: ["related_opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recommendations: {
+        Row: {
+          agent_module: string
+          confidence_score: number | null
+          created_at: string
+          created_by: string | null
+          data_sources: string | null
+          evidence: string | null
+          id: string
+          reason: string | null
+          recommendation: string
+          related_company_id: string | null
+          related_lead_id: string | null
+          related_opportunity_id: string | null
+          required_approval_type: string | null
+          risk_notes: string | null
+          status: Database["public"]["Enums"]["recommendation_status"]
+          suggested_owner_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_module: string
+          confidence_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          data_sources?: string | null
+          evidence?: string | null
+          id?: string
+          reason?: string | null
+          recommendation: string
+          related_company_id?: string | null
+          related_lead_id?: string | null
+          related_opportunity_id?: string | null
+          required_approval_type?: string | null
+          risk_notes?: string | null
+          status?: Database["public"]["Enums"]["recommendation_status"]
+          suggested_owner_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_module?: string
+          confidence_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          data_sources?: string | null
+          evidence?: string | null
+          id?: string
+          reason?: string | null
+          recommendation?: string
+          related_company_id?: string | null
+          related_lead_id?: string | null
+          related_opportunity_id?: string | null
+          required_approval_type?: string | null
+          risk_notes?: string | null
+          status?: Database["public"]["Enums"]["recommendation_status"]
+          suggested_owner_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendations_related_company_id_fkey"
+            columns: ["related_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendations_related_lead_id_fkey"
+            columns: ["related_lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendations_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reference_projects: {
+        Row: {
+          challenges: string | null
+          city: string | null
+          client_or_contractor: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          images: string | null
+          materials: string | null
+          name: string
+          phc_scope: string | null
+          project_type: string | null
+          project_value: number | null
+          requires_approval_to_share: boolean
+          sector: string | null
+          shareable_with_client: boolean
+          sign_types: string | null
+          solutions: string | null
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          challenges?: string | null
+          city?: string | null
+          client_or_contractor?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          images?: string | null
+          materials?: string | null
+          name: string
+          phc_scope?: string | null
+          project_type?: string | null
+          project_value?: number | null
+          requires_approval_to_share?: boolean
+          sector?: string | null
+          shareable_with_client?: boolean
+          sign_types?: string | null
+          solutions?: string | null
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          challenges?: string | null
+          city?: string | null
+          client_or_contractor?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          images?: string | null
+          materials?: string | null
+          name?: string
+          phc_scope?: string | null
+          project_type?: string | null
+          project_value?: number | null
+          requires_approval_to_share?: boolean
+          sector?: string | null
+          shareable_with_client?: boolean
+          sign_types?: string | null
+          solutions?: string | null
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
+      rfqs: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          document_url: string | null
+          estimated_value: number | null
+          id: string
+          notes: string | null
+          opportunity_id: string | null
+          project_id: string | null
+          received_date: string
+          response_due_date: string | null
+          rfq_number: string | null
+          sales_owner_id: string | null
+          source_type: string | null
+          status: Database["public"]["Enums"]["rfq_status"]
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_url?: string | null
+          estimated_value?: number | null
+          id?: string
+          notes?: string | null
+          opportunity_id?: string | null
+          project_id?: string | null
+          received_date?: string
+          response_due_date?: string | null
+          rfq_number?: string | null
+          sales_owner_id?: string | null
+          source_type?: string | null
+          status?: Database["public"]["Enums"]["rfq_status"]
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_url?: string | null
+          estimated_value?: number | null
+          id?: string
+          notes?: string | null
+          opportunity_id?: string | null
+          project_id?: string | null
+          received_date?: string
+          response_due_date?: string | null
+          rfq_number?: string | null
+          sales_owner_id?: string | null
+          source_type?: string | null
+          status?: Database["public"]["Enums"]["rfq_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rfqs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rfqs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rfqs_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rfqs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -773,6 +1672,53 @@ export type Database = {
         }
         Relationships: []
       }
+      stage_transition_history: {
+        Row: {
+          actor_id: string | null
+          approval_id: string | null
+          created_at: string
+          evidence: string | null
+          from_stage: string | null
+          id: string
+          notes: string | null
+          record_id: string
+          record_type: string
+          to_stage: string
+        }
+        Insert: {
+          actor_id?: string | null
+          approval_id?: string | null
+          created_at?: string
+          evidence?: string | null
+          from_stage?: string | null
+          id?: string
+          notes?: string | null
+          record_id: string
+          record_type: string
+          to_stage: string
+        }
+        Update: {
+          actor_id?: string | null
+          approval_id?: string | null
+          created_at?: string
+          evidence?: string | null
+          from_stage?: string | null
+          id?: string
+          notes?: string | null
+          record_id?: string
+          record_type?: string
+          to_stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stage_transition_history_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "approvals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stakeholders: {
         Row: {
           contact_confidence: Database["public"]["Enums"]["confidence_level"]
@@ -882,6 +1828,161 @@ export type Database = {
           },
         ]
       }
+      tender_contractors: {
+        Row: {
+          contractor_company_id: string | null
+          contractor_status: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          last_verified_at: string | null
+          notes: string | null
+          source: string | null
+          tender_id: string
+          win_likelihood: Database["public"]["Enums"]["confidence_level"] | null
+        }
+        Insert: {
+          contractor_company_id?: string | null
+          contractor_status?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_verified_at?: string | null
+          notes?: string | null
+          source?: string | null
+          tender_id: string
+          win_likelihood?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+        }
+        Update: {
+          contractor_company_id?: string | null
+          contractor_status?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_verified_at?: string | null
+          notes?: string | null
+          source?: string | null
+          tender_id?: string
+          win_likelihood?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tender_contractors_contractor_company_id_fkey"
+            columns: ["contractor_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tender_contractors_tender_id_fkey"
+            columns: ["tender_id"]
+            isOneToOne: false
+            referencedRelation: "tenders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenders: {
+        Row: {
+          archive_reason: string | null
+          award_evidence: string | null
+          converted_opportunity_id: string | null
+          created_at: string
+          created_by: string | null
+          estimated_project_value: number | null
+          expected_award_date: string | null
+          id: string
+          main_contractor_id: string | null
+          next_follow_up_date: string | null
+          project_id: string | null
+          signage_potential:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source: string | null
+          tender_name: string
+          tender_owner_id: string | null
+          tender_priority_classification:
+            | Database["public"]["Enums"]["priority_tier"]
+            | null
+          tender_stage: Database["public"]["Enums"]["tender_stage"]
+          updated_at: string
+        }
+        Insert: {
+          archive_reason?: string | null
+          award_evidence?: string | null
+          converted_opportunity_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          estimated_project_value?: number | null
+          expected_award_date?: string | null
+          id?: string
+          main_contractor_id?: string | null
+          next_follow_up_date?: string | null
+          project_id?: string | null
+          signage_potential?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source?: string | null
+          tender_name: string
+          tender_owner_id?: string | null
+          tender_priority_classification?:
+            | Database["public"]["Enums"]["priority_tier"]
+            | null
+          tender_stage?: Database["public"]["Enums"]["tender_stage"]
+          updated_at?: string
+        }
+        Update: {
+          archive_reason?: string | null
+          award_evidence?: string | null
+          converted_opportunity_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          estimated_project_value?: number | null
+          expected_award_date?: string | null
+          id?: string
+          main_contractor_id?: string | null
+          next_follow_up_date?: string | null
+          project_id?: string | null
+          signage_potential?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source?: string | null
+          tender_name?: string
+          tender_owner_id?: string | null
+          tender_priority_classification?:
+            | Database["public"]["Enums"]["priority_tier"]
+            | null
+          tender_stage?: Database["public"]["Enums"]["tender_stage"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenders_converted_opportunity_id_fkey"
+            columns: ["converted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenders_main_contractor_id_fkey"
+            columns: ["main_contractor_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -903,9 +2004,125 @@ export type Database = {
         }
         Relationships: []
       }
+      vendors: {
+        Row: {
+          city: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          internal_notes: string | null
+          internal_rating: number | null
+          lead_time: string | null
+          materials: string | null
+          name: string
+          portal_url: string | null
+          previous_projects: string | null
+          qualification_files: string | null
+          quality_level: string | null
+          reference_prices: string | null
+          scope: string | null
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          internal_notes?: string | null
+          internal_rating?: number | null
+          lead_time?: string | null
+          materials?: string | null
+          name: string
+          portal_url?: string | null
+          previous_projects?: string | null
+          qualification_files?: string | null
+          quality_level?: string | null
+          reference_prices?: string | null
+          scope?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          internal_notes?: string | null
+          internal_rating?: number | null
+          lead_time?: string | null
+          materials?: string | null
+          name?: string
+          portal_url?: string | null
+          previous_projects?: string | null
+          qualification_files?: string | null
+          quality_level?: string | null
+          reference_prices?: string | null
+          scope?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      vendors_public: {
+        Row: {
+          city: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string | null
+          id: string | null
+          lead_time: string | null
+          materials: string | null
+          name: string | null
+          portal_url: string | null
+          previous_projects: string | null
+          quality_level: string | null
+          scope: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          id?: string | null
+          lead_time?: string | null
+          materials?: string | null
+          name?: string | null
+          portal_url?: string | null
+          previous_projects?: string | null
+          quality_level?: string | null
+          scope?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          city?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          id?: string | null
+          lead_time?: string | null
+          materials?: string | null
+          name?: string | null
+          portal_url?: string | null
+          previous_projects?: string | null
+          quality_level?: string | null
+          scope?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_any_role: {
@@ -922,8 +2139,46 @@ export type Database = {
         }
         Returns: boolean
       }
+      match_knowledge: {
+        Args: {
+          filter_source_type?: string
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          similarity: number
+          source_id: string
+          source_type: string
+          title: string
+        }[]
+      }
     }
     Enums: {
+      account_status: "pending_review" | "active" | "dormant" | "do_not_target"
+      action_type:
+        | "request_boq"
+        | "request_scope_clarification"
+        | "follow_up_required"
+        | "site_visit_required"
+        | "price_approval_required"
+        | "discount_approval_required"
+        | "technical_review_required"
+        | "vendor_quotation_required"
+        | "contract_review_required"
+        | "contact_verification_required"
+        | "tender_decision_required"
+        | "project_stage_verification_required"
+        | "finance_or_risk_review_required"
+      activity_status: "logged" | "draft" | "sent"
+      activity_type:
+        | "call"
+        | "visit"
+        | "meeting"
+        | "email_draft"
+        | "whatsapp_draft"
+        | "note"
       agent_run_status:
         | "running"
         | "completed"
@@ -950,7 +2205,23 @@ export type Database = {
         | "partially_verified"
         | "estimated_scope"
         | "missing"
+      company_type:
+        | "main_contractor"
+        | "developer"
+        | "owner"
+        | "consultant"
+        | "existing_client"
+        | "previous_client"
+        | "target_account"
+        | "vendor"
+        | "do_not_target"
       confidence_level: "high" | "medium" | "low"
+      contact_authority:
+        | "decision_maker"
+        | "influencer"
+        | "technical_contact"
+        | "unknown_authority"
+      contact_location: "site_office" | "head_office" | "unknown"
       exclusion_reason:
         | "no_signage_package"
         | "low_commercial_value"
@@ -959,12 +2230,28 @@ export type Database = {
         | "duplicate_opportunity"
         | "insufficient_evidence"
         | "other"
+      flag_kind: "action_required" | "risk"
+      flag_status: "open" | "resolved"
+      flow_type: "direct_rfq" | "tender_converted" | "manual"
       follow_up_status:
         | "scheduled"
         | "due"
         | "overdue"
         | "completed"
         | "cancelled"
+      handover_status: "pending" | "ready" | "handed_over"
+      lead_stage:
+        | "detected"
+        | "duplicate_check"
+        | "research"
+        | "contractor_identification"
+        | "project_stage_check"
+        | "signage_assessment"
+        | "value_estimate"
+        | "scored"
+        | "human_review"
+        | "converted"
+        | "rejected"
       opportunity_stage:
         | "discovery"
         | "qualification"
@@ -974,6 +2261,25 @@ export type Database = {
         | "won"
         | "lost"
         | "archived"
+      pipeline_step:
+        | "new_project_detected"
+        | "researching"
+        | "needs_verification"
+        | "qualified_lead"
+        | "assigned"
+        | "outreach_awaiting_approval"
+        | "first_contact"
+        | "discovery_site_validation"
+        | "boq_requested"
+        | "boq_received"
+        | "boq_verified"
+        | "proposal_preparation"
+        | "proposal_submitted"
+        | "negotiation"
+        | "contract_review"
+        | "won"
+        | "lost"
+        | "hold"
       priority_tier: "A" | "B" | "C"
       project_stage:
         | "early_planning"
@@ -995,6 +2301,28 @@ export type Database = {
         | "won"
         | "lost"
         | "expired"
+      recommendation_status: "pending" | "accepted" | "dismissed" | "actioned"
+      rfq_status: "open" | "converted" | "lost" | "on_hold"
+      risk_flag:
+        | "boq_missing"
+        | "source_unverified"
+        | "contact_not_confirmed"
+        | "project_stage_unverified"
+        | "package_may_be_closed"
+        | "payment_risk"
+        | "margin_risk"
+        | "follow_up_overdue"
+        | "contract_pending"
+        | "approval_pending"
+      sales_stage:
+        | "rfq_received"
+        | "jih"
+        | "under_negotiation"
+        | "verbally_awarded"
+        | "contract_received"
+        | "won"
+        | "lost"
+        | "on_hold"
       signage_package_status:
         | "confirmed"
         | "likely"
@@ -1002,6 +2330,15 @@ export type Database = {
         | "not_applicable"
         | "no_package_identified"
       target_period: "monthly" | "quarterly"
+      tender_stage:
+        | "tender_identified"
+        | "tender_under_process"
+        | "award_negotiation"
+        | "awarded_to_contractor"
+        | "converted_to_jih"
+        | "tender_lost_or_archived"
+      verification_status: "pending_verification" | "verified" | "rejected"
+      win_confidence: "low" | "possible" | "strong" | "sure_win"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1129,6 +2466,31 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      account_status: ["pending_review", "active", "dormant", "do_not_target"],
+      action_type: [
+        "request_boq",
+        "request_scope_clarification",
+        "follow_up_required",
+        "site_visit_required",
+        "price_approval_required",
+        "discount_approval_required",
+        "technical_review_required",
+        "vendor_quotation_required",
+        "contract_review_required",
+        "contact_verification_required",
+        "tender_decision_required",
+        "project_stage_verification_required",
+        "finance_or_risk_review_required",
+      ],
+      activity_status: ["logged", "draft", "sent"],
+      activity_type: [
+        "call",
+        "visit",
+        "meeting",
+        "email_draft",
+        "whatsapp_draft",
+        "note",
+      ],
       agent_run_status: [
         "running",
         "completed",
@@ -1153,7 +2515,25 @@ export const Constants = {
         "estimated_scope",
         "missing",
       ],
+      company_type: [
+        "main_contractor",
+        "developer",
+        "owner",
+        "consultant",
+        "existing_client",
+        "previous_client",
+        "target_account",
+        "vendor",
+        "do_not_target",
+      ],
       confidence_level: ["high", "medium", "low"],
+      contact_authority: [
+        "decision_maker",
+        "influencer",
+        "technical_contact",
+        "unknown_authority",
+      ],
+      contact_location: ["site_office", "head_office", "unknown"],
       exclusion_reason: [
         "no_signage_package",
         "low_commercial_value",
@@ -1163,12 +2543,29 @@ export const Constants = {
         "insufficient_evidence",
         "other",
       ],
+      flag_kind: ["action_required", "risk"],
+      flag_status: ["open", "resolved"],
+      flow_type: ["direct_rfq", "tender_converted", "manual"],
       follow_up_status: [
         "scheduled",
         "due",
         "overdue",
         "completed",
         "cancelled",
+      ],
+      handover_status: ["pending", "ready", "handed_over"],
+      lead_stage: [
+        "detected",
+        "duplicate_check",
+        "research",
+        "contractor_identification",
+        "project_stage_check",
+        "signage_assessment",
+        "value_estimate",
+        "scored",
+        "human_review",
+        "converted",
+        "rejected",
       ],
       opportunity_stage: [
         "discovery",
@@ -1179,6 +2576,26 @@ export const Constants = {
         "won",
         "lost",
         "archived",
+      ],
+      pipeline_step: [
+        "new_project_detected",
+        "researching",
+        "needs_verification",
+        "qualified_lead",
+        "assigned",
+        "outreach_awaiting_approval",
+        "first_contact",
+        "discovery_site_validation",
+        "boq_requested",
+        "boq_received",
+        "boq_verified",
+        "proposal_preparation",
+        "proposal_submitted",
+        "negotiation",
+        "contract_review",
+        "won",
+        "lost",
+        "hold",
       ],
       priority_tier: ["A", "B", "C"],
       project_stage: [
@@ -1203,6 +2620,30 @@ export const Constants = {
         "lost",
         "expired",
       ],
+      recommendation_status: ["pending", "accepted", "dismissed", "actioned"],
+      rfq_status: ["open", "converted", "lost", "on_hold"],
+      risk_flag: [
+        "boq_missing",
+        "source_unverified",
+        "contact_not_confirmed",
+        "project_stage_unverified",
+        "package_may_be_closed",
+        "payment_risk",
+        "margin_risk",
+        "follow_up_overdue",
+        "contract_pending",
+        "approval_pending",
+      ],
+      sales_stage: [
+        "rfq_received",
+        "jih",
+        "under_negotiation",
+        "verbally_awarded",
+        "contract_received",
+        "won",
+        "lost",
+        "on_hold",
+      ],
       signage_package_status: [
         "confirmed",
         "likely",
@@ -1211,6 +2652,16 @@ export const Constants = {
         "no_package_identified",
       ],
       target_period: ["monthly", "quarterly"],
+      tender_stage: [
+        "tender_identified",
+        "tender_under_process",
+        "award_negotiation",
+        "awarded_to_contractor",
+        "converted_to_jih",
+        "tender_lost_or_archived",
+      ],
+      verification_status: ["pending_verification", "verified", "rejected"],
+      win_confidence: ["low", "possible", "strong", "sure_win"],
     },
   },
 } as const
