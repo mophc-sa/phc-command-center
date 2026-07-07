@@ -189,8 +189,8 @@ function RfqJihBoard() {
           try {
             await createRfq({
               rfqNumber: v.rfqNumber || undefined,
-              companyId: v.companyId || null,
-              projectId: v.projectId || null,
+              companyId: v.companyId && v.companyId !== "__none__" ? v.companyId : null,
+              projectId: v.projectId && v.projectId !== "__none__" ? v.projectId : null,
               estimatedValue: v.estimatedValue ? Number(v.estimatedValue) : null,
               responseDueDate: v.responseDueDate || null,
               documentUrl: v.documentUrl || null,
