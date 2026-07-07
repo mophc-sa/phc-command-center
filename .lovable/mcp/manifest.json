@@ -89,6 +89,34 @@
           }
         },
         "outputSchema": null
+      },
+      {
+        "name": "list_recommendations",
+        "title": "List AI recommendations",
+        "description": "List AI recommendations visible to the signed-in user (RLS applies). Optionally filter by status (pending, accepted, dismissed, actioned).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "default": 20,
+              "description": "Max rows to return.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "status": {
+              "description": "Optional status filter.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
       }
     ]
   }
