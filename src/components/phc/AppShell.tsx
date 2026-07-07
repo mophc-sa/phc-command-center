@@ -149,7 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <button
                   onClick={async () => {
                     await signOut();
-                    nav_({ to: "/auth" });
+                    nav_({ to: "/auth", search: { next: "" } });
                   }}
                   aria-label={t("sign_out")}
                   className="text-muted-foreground hover:text-foreground"

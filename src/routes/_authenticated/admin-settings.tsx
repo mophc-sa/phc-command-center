@@ -6,6 +6,7 @@ import { SectionHeader } from "@/components/phc/SectionHeader";
 import { Panel } from "@/components/phc/Panel";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { GitSyncStatus } from "@/components/phc/GitSyncStatus";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import {
@@ -90,6 +91,8 @@ function AdminSettingsPage() {
     <div className="mx-auto max-w-6xl space-y-6">
       <SectionHeader title={t("admin_settings_title")} />
       <p className="text-sm text-muted-foreground">{t("admin_settings_intro")}</p>
+
+      <GitSyncStatus />
 
       {!isCeo ? (
         <div className="rounded-md border border-amber/30 bg-amber/10 px-4 py-3 text-xs text-amber-light">
