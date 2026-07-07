@@ -139,15 +139,15 @@ export function ActionDialog({
                 </div>
               ) : f.type === "select" ? (
                 <Select
-                  value={values[f.key] ?? ""}
-                  onValueChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}
+                  value={values[f.key] ? values[f.key] : "__none__"}
+                  onValueChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v === "__none__" ? "" : v }))}
                 >
                   <SelectTrigger id={f.key}>
                     <SelectValue placeholder="—" />
                   </SelectTrigger>
                   <SelectContent>
                     {f.options.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
+                      <SelectItem key={o.value === "" ? "__none__" : o.value} value={o.value === "" ? "__none__" : o.value}>
                         {o.label}
                       </SelectItem>
                     ))}
