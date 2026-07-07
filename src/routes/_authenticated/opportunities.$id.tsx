@@ -245,72 +245,20 @@ function OpportunityDetail() {
       {/* Activity Timeline filters */}
       <TimelineFilterBar value={filter} onChange={setFilter} t={t} />
 
-      {/* 1. ALERT — headline + recommendation */}
+      {/* 1. KEY FACTS + ACTIONS */}
       {show("alert") && (
       <Panel
         title={t("section_alert")}
         tone={recTone === "attention" || recTone === "danger" ? "attention" : "default"}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusPill tone={o.tier === "A" ? "attention" : "neutral"}>
-              {t("label_tier")} {o.tier}
-            </StatusPill>
-            <StatusPill tone="muted">{humanize(o.stage)}</StatusPill>
-            {o.agent_recommendation ? (
-              <StatusPill tone={recTone}>{humanize(o.agent_recommendation)}</StatusPill>
-            ) : null}
-          </div>
-        }
       >
         <div className="grid gap-6">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">
-              {o.project ? (
-                <Link to="/projects/$id" params={{ id: o.project.id }} className="hover:underline">
-                  {o.project_name}
-                </Link>
-              ) : (
-                o.project_name
-              )}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {o.company ? (
-                <Link to="/accounts/$id" params={{ id: o.company.id }} className="hover:underline">
-                  {o.company.name}
-                </Link>
-              ) : (
-                o.client ?? "—"
-              )}
-              {o.contractor_company ? (
-                <>
-                  {" · "}
-                  <Link to="/accounts/$id" params={{ id: o.contractor_company.id }} className="hover:underline">
-                    {o.contractor_company.name}
-                  </Link>
-                </>
-              ) : o.main_contractor ? (
-                ` · ${o.main_contractor}`
-              ) : (
-                ""
-              )}
-              {o.location ? ` · ${o.location}` : ""}
-            </p>
-          </div>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <DataField
-              label={t("label_quotation")}
-              value={formatCurrency(val, lang, o.currency)}
-              mono
-            />
+            <DataField label={t("label_quotation")} value={formatCurrency(val, lang, o.currency)} mono />
             <DataField
               label={t("label_value_range")}
               value={
                 o.estimated_value_min || o.estimated_value_max
-                  ? `${formatCurrency(o.estimated_value_min, lang, o.currency)} – ${formatCurrency(
-                      o.estimated_value_max,
-                      lang,
-                      o.currency,
-                    )}`
+                  ? `${formatCurrency(o.estimated_value_min, lang, o.currency)} – ${formatCurrency(o.estimated_value_max, lang, o.currency)}`
                   : "—"
               }
               mono
@@ -319,7 +267,7 @@ function OpportunityDetail() {
             <DataField label={t("label_due")} value={fmtDate(o.next_action_due, lang)} />
           </div>
 
-          <div className="flex flex-wrap gap-2 pt-2">
+          <div className="flex flex-wrap gap-2">
             <ActionButton primary onClick={() => setAction("review")}>{t("action_review")}</ActionButton>
             <ActionButton onClick={() => setAction("approve")}>{t("action_approve")}</ActionButton>
             <ActionButton onClick={() => setAction("schedule")}>{t("action_schedule")}</ActionButton>
@@ -329,6 +277,7 @@ function OpportunityDetail() {
         </div>
       </Panel>
       )}
+
 
       {/* 2. QUALIFICATION — under Alert */}
       {show("alert") && (
