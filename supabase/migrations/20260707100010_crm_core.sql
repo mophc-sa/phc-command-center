@@ -258,14 +258,14 @@ CREATE INDEX idx_opportunities_contractor ON public.opportunities(main_contracto
 
 -- Main contractors
 INSERT INTO public.companies (name, company_type, account_status, source)
-SELECT DISTINCT btrim(o.main_contractor), 'main_contractor', 'active', 'backfill'
+SELECT DISTINCT btrim(o.main_contractor), 'main_contractor'::public.company_type, 'active'::public.account_status, 'backfill'
 FROM public.opportunities o
 WHERE o.main_contractor IS NOT NULL AND btrim(o.main_contractor) <> ''
   AND NOT EXISTS (SELECT 1 FROM public.companies c WHERE lower(c.name) = lower(btrim(o.main_contractor)));
 
 -- Clients (skip any name already inserted as a contractor)
 INSERT INTO public.companies (name, company_type, account_status, source)
-SELECT DISTINCT btrim(o.client), 'existing_client', 'active', 'backfill'
+SELECT DISTINCT btrim(o.client), 'existing_client'::public.company_type, 'active'::public.account_status, 'backfill'
 FROM public.opportunities o
 WHERE o.client IS NOT NULL AND btrim(o.client) <> ''
   AND NOT EXISTS (SELECT 1 FROM public.companies c WHERE lower(c.name) = lower(btrim(o.client)));
@@ -275,7 +275,7 @@ INSERT INTO public.projects (name, location, sector, project_stage, signage_pack
 SELECT DISTINCT ON (lower(btrim(o.project_name)))
   btrim(o.project_name), o.location, o.sector, o.project_stage, o.signage_package_status,
   (SELECT c.id FROM public.companies c WHERE lower(c.name) = lower(btrim(o.main_contractor)) LIMIT 1),
-  'backfill', o.source_confidence, 'verified'
+  'backfill', o.source_confidence, 'verified'::public.verification_status
 FROM public.opportunities o
 WHERE o.project_name IS NOT NULL AND btrim(o.project_name) <> ''
 ORDER BY lower(btrim(o.project_name)), o.created_at;
