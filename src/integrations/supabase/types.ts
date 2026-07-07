@@ -210,6 +210,136 @@ export type Database = {
         }
         Relationships: []
       }
+      boq_items: {
+        Row: {
+          boq_id: string
+          confidence: Database["public"]["Enums"]["confidence_level"]
+          cost_estimate: number | null
+          created_at: string
+          finish: string | null
+          id: string
+          illumination: string | null
+          item_source: string | null
+          location: string | null
+          material: string | null
+          mounting: string | null
+          quantity: number | null
+          selling_price: number | null
+          sign_type: string
+          size: string | null
+          sort_order: number | null
+          unit_rate: number | null
+        }
+        Insert: {
+          boq_id: string
+          confidence?: Database["public"]["Enums"]["confidence_level"]
+          cost_estimate?: number | null
+          created_at?: string
+          finish?: string | null
+          id?: string
+          illumination?: string | null
+          item_source?: string | null
+          location?: string | null
+          material?: string | null
+          mounting?: string | null
+          quantity?: number | null
+          selling_price?: number | null
+          sign_type: string
+          size?: string | null
+          sort_order?: number | null
+          unit_rate?: number | null
+        }
+        Update: {
+          boq_id?: string
+          confidence?: Database["public"]["Enums"]["confidence_level"]
+          cost_estimate?: number | null
+          created_at?: string
+          finish?: string | null
+          id?: string
+          illumination?: string | null
+          item_source?: string | null
+          location?: string | null
+          material?: string | null
+          mounting?: string | null
+          quantity?: number | null
+          selling_price?: number | null
+          sign_type?: string
+          size?: string | null
+          sort_order?: number | null
+          unit_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boqs: {
+        Row: {
+          assumptions: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          estimated_value: number | null
+          file_url: string | null
+          id: string
+          missing_items: string | null
+          notes: string | null
+          related_opportunity_id: string
+          source: string | null
+          source_confidence: Database["public"]["Enums"]["confidence_level"]
+          status: Database["public"]["Enums"]["boq_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assumptions?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          estimated_value?: number | null
+          file_url?: string | null
+          id?: string
+          missing_items?: string | null
+          notes?: string | null
+          related_opportunity_id: string
+          source?: string | null
+          source_confidence?: Database["public"]["Enums"]["confidence_level"]
+          status?: Database["public"]["Enums"]["boq_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assumptions?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          estimated_value?: number | null
+          file_url?: string | null
+          id?: string
+          missing_items?: string | null
+          notes?: string | null
+          related_opportunity_id?: string
+          source?: string | null
+          source_confidence?: Database["public"]["Enums"]["confidence_level"]
+          status?: Database["public"]["Enums"]["boq_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       evidence_sources: {
         Row: {
           confidence_level: Database["public"]["Enums"]["confidence_level"]
@@ -457,6 +587,132 @@ export type Database = {
         }
         Relationships: []
       }
+      quotations: {
+        Row: {
+          boq_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          issued_date: string | null
+          last_follow_up_at: string | null
+          notes: string | null
+          owner_id: string | null
+          pdf_url: string | null
+          quote_number: string
+          related_opportunity_id: string
+          status: Database["public"]["Enums"]["quotation_status"]
+          updated_at: string
+          valid_until: string | null
+          value: number | null
+          version: number
+          win_loss_reason: string | null
+        }
+        Insert: {
+          boq_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          issued_date?: string | null
+          last_follow_up_at?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          pdf_url?: string | null
+          quote_number: string
+          related_opportunity_id: string
+          status?: Database["public"]["Enums"]["quotation_status"]
+          updated_at?: string
+          valid_until?: string | null
+          value?: number | null
+          version?: number
+          win_loss_reason?: string | null
+        }
+        Update: {
+          boq_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          issued_date?: string | null
+          last_follow_up_at?: string | null
+          notes?: string | null
+          owner_id?: string | null
+          pdf_url?: string | null
+          quote_number?: string
+          related_opportunity_id?: string
+          status?: Database["public"]["Enums"]["quotation_status"]
+          updated_at?: string
+          valid_until?: string | null
+          value?: number | null
+          version?: number
+          win_loss_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotations_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_targets: {
+        Row: {
+          activity_target: number
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          period_start: string
+          period_type: Database["public"]["Enums"]["target_period"]
+          pipeline_target: number
+          quotation_target: number
+          reactivation_target: number
+          sales_target: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activity_target?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          period_start: string
+          period_type?: Database["public"]["Enums"]["target_period"]
+          pipeline_target?: number
+          quotation_target?: number
+          reactivation_target?: number
+          sales_target?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activity_target?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          period_start?: string
+          period_type?: Database["public"]["Enums"]["target_period"]
+          pipeline_target?: number
+          quotation_target?: number
+          reactivation_target?: number
+          sales_target?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       snapshot_versions: {
         Row: {
           agent_name: string
@@ -674,7 +930,12 @@ export type Database = {
         | "needs_review"
         | "paused"
         | "error"
-      app_role: "ceo" | "sales_manager" | "bd_manager" | "viewer"
+      app_role:
+        | "ceo"
+        | "sales_manager"
+        | "bd_manager"
+        | "viewer"
+        | "salesperson"
       approval_recommendation: "proceed" | "management_review" | "do_not_quote"
       approval_status: "pending" | "approved" | "returned" | "escalated"
       artifact_status: "draft" | "awaiting_review" | "approved" | "rejected"
@@ -684,6 +945,11 @@ export type Database = {
         | "outreach_draft"
         | "qualification_brief"
         | "discovery_research_brief"
+      boq_status:
+        | "verified"
+        | "partially_verified"
+        | "estimated_scope"
+        | "missing"
       confidence_level: "high" | "medium" | "low"
       exclusion_reason:
         | "no_signage_package"
@@ -718,12 +984,24 @@ export type Database = {
         | "near_handover"
         | "completed"
         | "unknown"
+      quotation_status:
+        | "draft"
+        | "under_internal_review"
+        | "approved_for_submission"
+        | "submitted"
+        | "follow_up"
+        | "negotiation"
+        | "revised"
+        | "won"
+        | "lost"
+        | "expired"
       signage_package_status:
         | "confirmed"
         | "likely"
         | "unknown"
         | "not_applicable"
         | "no_package_identified"
+      target_period: "monthly" | "quarterly"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -858,7 +1136,7 @@ export const Constants = {
         "paused",
         "error",
       ],
-      app_role: ["ceo", "sales_manager", "bd_manager", "viewer"],
+      app_role: ["ceo", "sales_manager", "bd_manager", "viewer", "salesperson"],
       approval_recommendation: ["proceed", "management_review", "do_not_quote"],
       approval_status: ["pending", "approved", "returned", "escalated"],
       artifact_status: ["draft", "awaiting_review", "approved", "rejected"],
@@ -868,6 +1146,12 @@ export const Constants = {
         "outreach_draft",
         "qualification_brief",
         "discovery_research_brief",
+      ],
+      boq_status: [
+        "verified",
+        "partially_verified",
+        "estimated_scope",
+        "missing",
       ],
       confidence_level: ["high", "medium", "low"],
       exclusion_reason: [
@@ -907,6 +1191,18 @@ export const Constants = {
         "completed",
         "unknown",
       ],
+      quotation_status: [
+        "draft",
+        "under_internal_review",
+        "approved_for_submission",
+        "submitted",
+        "follow_up",
+        "negotiation",
+        "revised",
+        "won",
+        "lost",
+        "expired",
+      ],
       signage_package_status: [
         "confirmed",
         "likely",
@@ -914,6 +1210,7 @@ export const Constants = {
         "not_applicable",
         "no_package_identified",
       ],
+      target_period: ["monthly", "quarterly"],
     },
   },
 } as const
