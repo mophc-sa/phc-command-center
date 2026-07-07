@@ -5,9 +5,10 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * PHC Silent Architecture — dark-first design system.
- * Amber is a semantic attention token, not a decorative color.
- * All values use oklch. Do not hardcode hex/rgb classes in components.
+ * PHC Sales Agent — Executive dark-first design system.
+ * Brand palette: Ghost White #F5F7FC, Cool Gray #73787C, Black Pearl #101924.
+ * Derived tonal scale: #E4E8F0 · #C7CBD2 · #9CA1A8 · #3A424E · #1B2531 · #0B1119.
+ * Apple-inspired: hairline borders, calm surfaces, restrained accent, no gradients.
  */
 
 @theme inline {
@@ -20,6 +21,7 @@
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-elevated: var(--surface-elevated);
   --color-structural: var(--structural);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
@@ -45,6 +47,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
 
@@ -57,58 +60,66 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: "Almarai", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", "Almarai", ui-sans-serif, system-ui, sans-serif;
   --font-arabic: "IBM Plex Sans Arabic", "Almarai", ui-sans-serif, sans-serif;
+
+  --shadow-elevated: 0 1px 0 0 color-mix(in oklch, var(--foreground) 6%, transparent),
+                     0 8px 24px -12px oklch(0 0 0 / 0.55);
 }
 
 :root {
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 
-  /* PHC dark palette (from spec) */
-  --background: oklch(0.16 0.003 250);          /* #0E0F10 */
-  --foreground: oklch(0.98 0 0);                /* #FAFAFA */
-  --surface: oklch(0.21 0.003 250);             /* #1A1B1D */
-  --surface-2: oklch(0.185 0.002 250);          /* between bg and surface */
-  --structural: oklch(0.30 0.003 250);          /* #34363A hairlines */
-  --muted: oklch(0.24 0.003 250);
-  --muted-foreground: oklch(0.66 0.006 250);    /* #8A8D91 */
-  --warm: oklch(0.90 0.014 80);                 /* #E7E2D9 warm neutral */
+  /* Brand palette — Black Pearl #101924 foundation */
+  --background: oklch(0.15 0.018 253);            /* ≈ #0B1119 */
+  --surface: oklch(0.20 0.020 253);               /* ≈ #101924 Black Pearl */
+  --surface-2: oklch(0.24 0.020 253);             /* ≈ #1B2531 */
+  --surface-elevated: oklch(0.28 0.018 253);      /* between surface-2 and structural */
+  --structural: oklch(0.36 0.015 253);            /* ≈ #3A424E */
+  --muted: oklch(0.24 0.020 253);
+  --muted-foreground: oklch(0.68 0.008 253);      /* ≈ #9CA1A8 */
+  --warm: oklch(0.90 0.008 253);
+
+  --foreground: oklch(0.97 0.004 253);            /* ≈ #F5F7FC Ghost White */
 
   --card: var(--surface);
   --card-foreground: var(--foreground);
   --popover: var(--surface);
   --popover-foreground: var(--foreground);
 
-  --primary: oklch(0.98 0 0);
-  --primary-foreground: oklch(0.16 0.003 250);
-  --secondary: var(--surface);
+  /* Primary = Ghost White on Black Pearl — Apple-like restrained primary */
+  --primary: oklch(0.97 0.004 253);
+  --primary-foreground: oklch(0.20 0.020 253);
+  --secondary: var(--surface-2);
   --secondary-foreground: var(--foreground);
-  --accent: var(--surface);
+  --accent: var(--surface-2);
   --accent-foreground: var(--foreground);
 
-  /* Amber — attention only */
-  --amber: oklch(0.60 0.116 55);                /* #B5692B */
-  --amber-light: oklch(0.75 0.115 65);          /* #D9A063 */
-  --amber-foreground: oklch(0.14 0.02 55);
+  /* Amber = attention/status only. Muted, warm, never decorative. */
+  --amber: oklch(0.70 0.115 65);                  /* refined signal amber */
+  --amber-light: oklch(0.80 0.095 75);
+  --amber-foreground: oklch(0.18 0.030 55);
 
-  --destructive: oklch(0.60 0.20 25);
+  --destructive: oklch(0.58 0.190 25);
   --destructive-foreground: oklch(0.98 0 0);
 
-  --border: oklch(0.28 0.003 250 / 0.7);
-  --input: oklch(0.28 0.003 250);
-  --ring: oklch(0.60 0.116 55 / 0.5);
+  /* Hairline borders — 1px, low contrast */
+  --border: oklch(0.36 0.015 253 / 0.55);
+  --border-strong: oklch(0.36 0.015 253 / 0.85);
+  --input: oklch(0.36 0.015 253 / 0.55);
+  --ring: oklch(0.68 0.008 253 / 0.35);
 
-  --sidebar: oklch(0.145 0.003 250);
-  --sidebar-foreground: oklch(0.90 0 0);
-  --sidebar-primary: var(--amber);
-  --sidebar-primary-foreground: var(--amber-foreground);
-  --sidebar-accent: oklch(0.22 0.003 250);
+  /* Sidebar shell — deepest surface, quiet */
+  --sidebar: oklch(0.13 0.018 253);               /* deeper than background */
+  --sidebar-foreground: oklch(0.88 0.005 253);
+  --sidebar-primary: var(--foreground);
+  --sidebar-primary-foreground: var(--surface);
+  --sidebar-accent: oklch(0.22 0.020 253);
   --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: oklch(0.24 0.003 250);
+  --sidebar-border: oklch(0.28 0.018 253 / 0.7);
   --sidebar-ring: var(--ring);
 }
 
-/* Retain .dark identity for shadcn primitives that reference it */
 .dark {
   color-scheme: dark;
 }
@@ -126,16 +137,33 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv11";
+    letter-spacing: -0.005em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   html[dir="rtl"] body {
     font-family: var(--font-arabic);
   }
+  h1, h2, h3, h4 {
+    letter-spacing: -0.02em;
+  }
   /* Tabular numerals for finance / dates */
   .num, table, [data-tabular="true"] {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
+  }
+  /* Refined scrollbars */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--color-structural) 45%, transparent);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--color-structural) 75%, transparent);
+    background-clip: content-box;
   }
   /* Respect reduced motion */
   @media (prefers-reduced-motion: reduce) {
@@ -152,6 +180,21 @@
   border-radius: var(--radius-lg);
 }
 
+@utility surface-elevated {
+  background-color: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated);
+}
+
 @utility hairline {
   border-color: color-mix(in oklch, var(--color-structural) 60%, transparent);
+}
+
+@utility section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
 }
