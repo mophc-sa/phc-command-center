@@ -25,6 +25,7 @@ import {
   Briefcase,
   Truck,
   Library,
+  Sparkles,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ const nav = [
   { to: "/approvals", key: "nav_approvals", icon: ShieldCheck },
   { to: "/vendors", key: "nav_vendors", icon: Truck },
   { to: "/reference-library", key: "nav_reference_library", icon: Library },
+  { to: "/knowledge", key: "nav_knowledge", icon: Sparkles },
   { to: "/reports", key: "nav_reports", icon: LineChart },
   { to: "/agent-activity", key: "nav_agent_activity", icon: Activity },
   { to: "/team", key: "nav_team", icon: Users2 },

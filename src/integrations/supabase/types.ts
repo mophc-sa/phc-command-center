@@ -657,6 +657,39 @@ export type Database = {
           },
         ]
       }
+      knowledge_chunks: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          source_id: string | null
+          source_type: string
+          title: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          source_id?: string | null
+          source_type: string
+          title?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          source_id?: string | null
+          source_type?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           converted_opportunity_id: string | null
@@ -1629,6 +1662,21 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      match_knowledge: {
+        Args: {
+          filter_source_type?: string
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          similarity: number
+          source_id: string
+          source_type: string
+          title: string
+        }[]
       }
     }
     Enums: {

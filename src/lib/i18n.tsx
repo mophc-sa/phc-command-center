@@ -26,6 +26,7 @@ export const strings = {
   nav_projects: { en: "Projects", ar: "المشاريع" },
   nav_vendors: { en: "Vendors", ar: "الموردون" },
   nav_reference_library: { en: "Reference Library", ar: "مكتبة المراجع" },
+  nav_knowledge: { en: "Knowledge Search", ar: "البحث المعرفي" },
 
   // CRM — shared
   crm_add: { en: "Add", ar: "إضافة" },
@@ -189,6 +190,17 @@ export const strings = {
   approval_type_contract: { en: "Contract Approval", ar: "اعتماد عقد" },
   approval_type_won_lost: { en: "Won / Lost Approval", ar: "اعتماد ربح/خسارة" },
   approval_type_account_ownership: { en: "Account Ownership Change", ar: "تغيير ملكية حساب" },
+
+  // Knowledge Search (RAG)
+  knowledge_title: { en: "Knowledge Search", ar: "البحث المعرفي" },
+  knowledge_hint: { en: "Semantic search across PHC reference projects and past work.", ar: "بحث دلالي في مشاريع PHC المرجعية والأعمال السابقة." },
+  knowledge_placeholder: { en: "e.g. exterior wayfinding for a hospital in Riyadh…", ar: "مثال: لوحات إرشادية خارجية لمستشفى في الرياض…" },
+  knowledge_search_btn: { en: "Search", ar: "بحث" },
+  knowledge_reindex: { en: "Reindex Library", ar: "إعادة فهرسة المكتبة" },
+  knowledge_no_results: { en: "No matches. Try a different query, or reindex the library.", ar: "لا نتائج. جرّب صياغة أخرى أو أعد فهرسة المكتبة." },
+  knowledge_similarity: { en: "match", ar: "تطابق" },
+  knowledge_reindexed: { en: "Reindexed", ar: "تمت الفهرسة" },
+  knowledge_empty_hint: { en: "Enter a query to search past projects and knowledge.", ar: "اكتب استعلامًا للبحث في المشاريع والمعرفة السابقة." },
 
   // Header
   area_sales_agent: { en: "Sales Agent", ar: "وكيل المبيعات" },

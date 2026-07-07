@@ -29,6 +29,42 @@ type Handler = (
 const MANAGERS: AppRole[] = ["sales_manager", "ceo"];
 const QUALIFIERS: AppRole[] = ["bd_manager", "sales_manager", "ceo"];
 
+// Supabase's built-in embeddings model (gte-small, 384 dims). Runs natively in
+// the Edge runtime — no external embeddings API / key.
+declare const Supabase: {
+  ai: {
+    Session: new (model: string) => {
+      run: (
+        input: string,
+        opts: { mean_pool: boolean; normalize: boolean },
+      ) => Promise<number[]>;
+    };
+  };
+};
+const embedSession = new Supabase.ai.Session("gte-small");
+async function embed(text: string): Promise<number[]> {
+  return await embedSession.run(text, { mean_pool: true, normalize: true });
+}
+
+function chunkText(text: string, size = 800): string[] {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return [];
+  if (clean.length <= size) return [clean];
+  const chunks: string[] = [];
+  for (let i = 0; i < clean.length; i += size) chunks.push(clean.slice(i, i + size));
+  return chunks;
+}
+
+// Flatten a reference project into a single searchable string.
+function referenceContent(r: Record<string, unknown>): string {
+  return [
+    r.name, r.project_type, r.city, r.sector, r.year,
+    r.phc_scope, r.sign_types, r.materials, r.challenges, r.solutions,
+  ]
+    .filter((v) => v !== null && v !== undefined && v !== "")
+    .join(" | ");
+}
+
 const handlers: Record<string, Handler> = {
   // Manager approves / returns / escalates a pending approval.
   async decide_approval(payload, caller) {
@@ -208,6 +244,76 @@ const handlers: Record<string, Handler> = {
       approval: rec.required_approval_type ?? null,
     });
     return json({ ok: true, approval });
+  },
+
+  // Semantic search over the PHC knowledge base (any authenticated user).
+  async search_knowledge(payload) {
+    const query = String(payload.query ?? "").trim();
+    if (!query) return err("query is required");
+    const matchCount = Number(payload.matchCount ?? 5);
+    const filterSourceType = (payload.filterSourceType as string) || null;
+    const queryEmbedding = await embed(query);
+    const svc = serviceClient();
+    const { data, error } = await svc.rpc("match_knowledge", {
+      query_embedding: queryEmbedding,
+      match_count: matchCount,
+      filter_source_type: filterSourceType,
+    });
+    if (error) return err(error.message, 400);
+    return json({ ok: true, matches: data ?? [] });
+  },
+
+  // Index an arbitrary piece of knowledge (managers only).
+  async index_knowledge(payload, caller) {
+    if (!hasAny(caller.roles, QUALIFIERS)) return err("Managers only", 403);
+    const sourceType = String(payload.sourceType ?? "note");
+    const content = String(payload.content ?? "").trim();
+    if (!content) return err("content is required");
+    const sourceId = (payload.sourceId as string) || null;
+    const title = (payload.title as string) || null;
+    const svc = serviceClient();
+    const rows = chunkText(content).map(async (c) => ({
+      source_type: sourceType,
+      source_id: sourceId,
+      title,
+      content: c,
+      embedding: await embed(c),
+    }));
+    const resolved = await Promise.all(rows);
+    const { error } = await svc.from("knowledge_chunks").insert(resolved);
+    if (error) return err(error.message, 400);
+    await audit(svc, caller.userId, "knowledge.indexed", "knowledge_chunk", sourceId ?? sourceType, {
+      chunks: resolved.length,
+    });
+    return json({ ok: true, indexed: resolved.length });
+  },
+
+  // (Re)build the index for the Project Reference Library (managers only).
+  async reindex_reference_library(_payload, caller) {
+    if (!hasAny(caller.roles, QUALIFIERS)) return err("Managers only", 403);
+    const svc = serviceClient();
+    const { data: refs, error: rErr } = await svc.from("reference_projects").select("*");
+    if (rErr) return err(rErr.message, 400);
+    // Replace any existing reference-project chunks.
+    await svc.from("knowledge_chunks").delete().eq("source_type", "reference_project");
+    let indexed = 0;
+    for (const r of refs ?? []) {
+      const content = referenceContent(r as Record<string, unknown>);
+      if (!content) continue;
+      const embedding = await embed(content);
+      const { error } = await svc.from("knowledge_chunks").insert({
+        source_type: "reference_project",
+        source_id: (r as { id: string }).id,
+        title: (r as { name: string }).name,
+        content,
+        embedding,
+      });
+      if (!error) indexed++;
+    }
+    await audit(svc, caller.userId, "knowledge.reindexed", "knowledge_chunk", "reference_library", {
+      indexed,
+    });
+    return json({ ok: true, indexed });
   },
 };
 
