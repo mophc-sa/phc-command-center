@@ -59,7 +59,7 @@ function VendorsPage() {
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
-        eyebrow="Intelligence & Resources"
+        eyebrow={t("navgroup_intelligence")}
         title={t("nav_vendors")}
         description={
           isManager

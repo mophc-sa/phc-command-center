@@ -44,7 +44,7 @@ function KnowledgePage() {
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader
-        eyebrow="Intelligence & Resources"
+        eyebrow={t("navgroup_intelligence")}
         title={t("knowledge_title")}
         description={t("knowledge_hint")}
         actions={
