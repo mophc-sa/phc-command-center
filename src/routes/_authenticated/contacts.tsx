@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Search, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { SectionHeader } from "@/components/phc/SectionHeader";
+import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
@@ -30,6 +32,8 @@ function ContactsPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [authFilter, setAuthFilter] = useState<ContactAuthority | "all">("all");
 
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ["contacts"],
@@ -50,49 +54,109 @@ function ContactsPage() {
   const authorityLabel = (a: ContactAuthority) => t(`authority_${a}` as never);
   const locationLabel = (l: ContactLocation) => t(`location_${l}` as never);
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return contacts
+      .filter((c: any) => authFilter === "all" || c.authority === authFilter)
+      .filter(
+        (c: any) =>
+          !q ||
+          (c.name && c.name.toLowerCase().includes(q)) ||
+          (c.title && c.title.toLowerCase().includes(q)) ||
+          (c.companies?.name && c.companies.name.toLowerCase().includes(q)),
+      );
+  }, [contacts, query, authFilter]);
+
+  const kpis = useMemo(() => {
+    const dm = contacts.filter((c: any) => c.authority === "decision_maker").length;
+    const withEmail = contacts.filter((c: any) => !!c.email).length;
+    const withPhone = contacts.filter((c: any) => !!c.phone).length;
+    return { total: contacts.length, dm, withEmail, withPhone };
+  }, [contacts]);
+
   return (
     <div className="mx-auto max-w-7xl">
-      <SectionHeader
+      <PageHeader
+        eyebrow={t("nav_crm" as never) || "CRM"}
         title={t("nav_contacts")}
-        count={contacts.length}
-        action={
-          <button onClick={() => setCreateOpen(true)} className="rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs text-amber-light hover:bg-amber/20">
+        actions={
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20"
+          >
+            <Plus className="h-3.5 w-3.5" />
             {t("crm_new_contact")}
           </button>
         }
       />
 
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label={t("nav_contacts")} value={kpis.total} icon={<Users className="h-3.5 w-3.5" />} />
+        <KpiCard label={t("authority_decision_maker" as never) || "Decision makers"} value={kpis.dm} />
+        <KpiCard label={t("crm_email" as never) || "Email"} value={kpis.withEmail} />
+        <KpiCard label={t("crm_phone" as never) || "Phone"} value={kpis.withPhone} />
+      </div>
+
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="relative w-full md:max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("crm_search_contacts" as never) || "Search"}
+            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setAuthFilter("all")}
+            className={`rounded-full border px-3 py-1 text-xs ${authFilter === "all" ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            {t("crm_filter_all_types")}
+          </button>
+          {AUTHORITIES.map((a) => (
+            <button
+              key={a}
+              onClick={() => setAuthFilter(a)}
+              className={`rounded-full border px-3 py-1 text-xs ${authFilter === a ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              {authorityLabel(a)}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {isLoading ? (
         <EmptyState message={t("loading")} />
-      ) : contacts.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState message={t("crm_no_contacts")} />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+        <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-start text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
-                <th className="px-4 py-2.5 text-start">{t("crm_new_contact")}</th>
-                <th className="px-4 py-2.5 text-start">{t("crm_company")}</th>
-                <th className="px-4 py-2.5 text-start">{t("crm_title")}</th>
-                <th className="px-4 py-2.5 text-start">{t("crm_authority")}</th>
-                <th className="px-4 py-2.5 text-start">{t("crm_location")}</th>
-                <th className="px-4 py-2.5 text-end">{t("crm_confidence")}</th>
+              <tr className="border-b border-border/60 text-start text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                <th className="px-5 py-3 text-start font-medium">{t("crm_new_contact")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("crm_company")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("crm_title")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("crm_authority")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("crm_location")}</th>
+                <th className="px-5 py-3 text-end font-medium">{t("crm_confidence")}</th>
               </tr>
             </thead>
             <tbody>
-              {contacts.map((c: any) => (
-                <tr key={c.id} className="border-b border-border/50 text-foreground">
-                  <td className="px-4 py-2.5">
-                    {c.name}
-                    {c.phone ? <span className="block text-xs text-muted-foreground">{c.phone}</span> : null}
+              {filtered.map((c: any) => (
+                <tr key={c.id} className="border-b border-border/40 text-foreground last:border-0 hover:bg-surface">
+                  <td className="px-5 py-3">
+                    <div className="font-medium">{c.name}</div>
+                    {c.email ? <div className="text-[11px] text-muted-foreground">{c.email}</div> : null}
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{c.companies?.name ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{c.title ?? "—"}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-5 py-3 text-muted-foreground">{c.companies?.name ?? "—"}</td>
+                  <td className="px-5 py-3 text-muted-foreground">{c.title ?? "—"}</td>
+                  <td className="px-5 py-3">
                     <StatusPill tone={authorityTone(c.authority)}>{authorityLabel(c.authority)}</StatusPill>
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{locationLabel(c.location)}</td>
-                  <td className="num px-4 py-2.5 text-end text-muted-foreground" data-tabular="true">
+                  <td className="px-5 py-3 text-muted-foreground">{locationLabel(c.location)}</td>
+                  <td className="num px-5 py-3 text-end text-muted-foreground" data-tabular="true">
                     {c.confidence_score != null ? `${c.confidence_score}%` : "—"}
                   </td>
                 </tr>
