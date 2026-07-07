@@ -1,10 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Search, Plus, Lock, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { SectionHeader } from "@/components/phc/SectionHeader";
+import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { StatusPill } from "@/components/phc/StatusPill";
 import { DataField } from "@/components/phc/DataField";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
@@ -21,8 +24,9 @@ function VendorsPage() {
   const { hasAnyRole } = useAuth();
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
-  // Managers read the full record; the sales team reads the public-safe view
-  // (no prices, no internal ratings).
+  const [q, setQ] = useState("");
+  const [scope, setScope] = useState<string>("all");
+
   const isManager = hasAnyRole(["bd_manager", "sales_manager", "ceo"]);
   const source = isManager ? "vendors" : "vendors_public";
 
@@ -31,43 +35,129 @@ function VendorsPage() {
     queryFn: async () => (await supabase.from(source as "vendors").select("*").order("name")).data ?? [],
   });
 
+  const scopes = useMemo(() => {
+    const s = new Set<string>();
+    vendors.forEach((v: any) => v.scope && s.add(String(v.scope)));
+    return Array.from(s).sort();
+  }, [vendors]);
+
+  const term = q.trim().toLowerCase();
+  const filtered = vendors.filter((v: any) => {
+    if (scope !== "all" && v.scope !== scope) return false;
+    if (!term) return true;
+    return [v.name, v.scope, v.materials, v.city, v.contact_name]
+      .some((f) => f && String(f).toLowerCase().includes(term));
+  });
+
+  const withRating = isManager
+    ? vendors.filter((v: any) => v.internal_rating != null)
+    : [];
+  const avgRating = withRating.length
+    ? (withRating.reduce((a: number, v: any) => a + Number(v.internal_rating || 0), 0) / withRating.length).toFixed(1)
+    : "—";
+
   return (
     <div className="mx-auto max-w-7xl">
-      <SectionHeader
+      <PageHeader
+        eyebrow={t("navgroup_intelligence") || "Intelligence & Resources"}
         title={t("nav_vendors")}
-        count={vendors.length}
-        hint={isManager ? undefined : t("vendor_sensitive_hidden")}
-        action={
+        description={
+          isManager
+            ? undefined
+            : t("vendor_sensitive_hidden")
+        }
+        actions={
           isManager ? (
-            <button onClick={() => setCreateOpen(true)} className="rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs text-amber-light hover:bg-amber/20">
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-2 text-xs font-medium text-amber-light hover:bg-amber/20"
+            >
+              <Plus className="h-3.5 w-3.5" />
               {t("vendor_new")}
             </button>
           ) : null
         }
       />
 
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label={t("nav_vendors")} value={vendors.length} hint={`${scopes.length} ${scopes.length === 1 ? "category" : "categories"}`} />
+        <KpiCard label={t("vendor_scope")} value={scopes.length || "—"} />
+        {isManager ? (
+          <>
+            <KpiCard label={t("vendor_rating")} value={avgRating} hint={withRating.length ? `${withRating.length} rated` : "—"} />
+            <KpiCard label={t("vendor_ref_prices")} value={vendors.filter((v: any) => v.reference_prices).length} hint="with reference pricing" />
+          </>
+        ) : (
+          <>
+            <KpiCard label="Filtered" value={filtered.length} />
+            <KpiCard label="Restricted" value={<Lock className="h-5 w-5 text-muted-foreground" />} hint="Manager-only fields" />
+          </>
+        )}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[220px] max-w-md">
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search vendors, materials, contacts…"
+            className="w-full rounded-md border border-border bg-surface ps-9 pe-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-amber/40"
+          />
+        </div>
+        <select
+          value={scope}
+          onChange={(e) => setScope(e.target.value)}
+          className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-amber/40"
+        >
+          <option value="all">All categories</option>
+          {scopes.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+
       {isLoading ? (
         <EmptyState message={t("loading")} />
-      ) : vendors.length === 0 ? (
-        <EmptyState message={t("vendor_no_vendors")} />
+      ) : filtered.length === 0 ? (
+        <EmptyState message={t("vendor_no_vendors")} hint={term || scope !== "all" ? "Try clearing filters" : undefined} />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {vendors.map((v: any) => (
-            <div key={v.id} className="rounded-lg border border-border bg-surface px-4 py-3">
-              <div className="text-sm font-medium text-foreground">{v.name}</div>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <DataField label={t("vendor_scope")} value={v.scope} />
+          {filtered.map((v: any) => (
+            <div key={v.id} className="rounded-xl border border-border/70 bg-surface/60 transition-colors hover:border-border-strong/70 hover:bg-surface">
+              <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-border/60">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-foreground">{v.name}</div>
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {[v.scope, v.city].filter(Boolean).join(" · ") || "—"}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  {v.lead_time ? <StatusPill tone="neutral">{v.lead_time}</StatusPill> : null}
+                  {v.portal_url ? (
+                    <a href={v.portal_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
+                      <ExternalLink className="h-3 w-3" /> Portal
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 px-4 py-3">
                 <DataField label={t("vendor_materials")} value={v.materials} />
-                <DataField label={t("vendor_lead_time")} value={v.lead_time} />
                 <DataField label={t("vendor_quality")} value={v.quality_level} />
-                <DataField label={t("vendor_contact")} value={v.contact_name || v.contact_phone} />
-                {isManager ? (
-                  <>
+                <DataField label={t("vendor_contact")} value={v.contact_name} />
+                <DataField label={t("crm_phone")} value={v.contact_phone} mono />
+              </div>
+              {isManager && (v.reference_prices || v.internal_rating != null) ? (
+                <div className="border-t border-amber/20 bg-amber/5 px-4 py-3">
+                  <div className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-light">
+                    <Lock className="h-3 w-3" /> Manager only
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <DataField label={t("vendor_ref_prices")} value={v.reference_prices} />
                     <DataField label={t("vendor_rating")} value={v.internal_rating != null ? `${v.internal_rating}/5` : null} />
-                  </>
-                ) : null}
-              </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
