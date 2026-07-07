@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Minus } from "lucide-react";
 import { toast } from "sonner";
-import { SectionHeader } from "@/components/phc/SectionHeader";
+import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -89,8 +89,12 @@ function AdminSettingsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <SectionHeader title={t("admin_settings_title")} />
-      <p className="text-sm text-muted-foreground">{t("admin_settings_intro")}</p>
+      <PageHeader
+        eyebrow="Administration"
+        title={t("admin_settings_title")}
+        description={t("admin_settings_intro")}
+      />
+
 
       <GitSyncStatus />
 
