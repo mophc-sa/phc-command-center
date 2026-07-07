@@ -56,7 +56,7 @@ function ReferenceLibraryPage() {
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
-        eyebrow="Intelligence & Resources"
+        eyebrow={t("navgroup_intelligence")}
         title={t("nav_reference_library")}
         description="Curated evidence for proposal preparation and client conversations."
         actions={
