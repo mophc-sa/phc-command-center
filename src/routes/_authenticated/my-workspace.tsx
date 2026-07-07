@@ -1,18 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarClock, ListChecks, BellRing, ShieldCheck, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { SectionHeader } from "@/components/phc/SectionHeader";
-import { Panel } from "@/components/phc/Panel";
-import { MetricTile } from "@/components/phc/MetricTile";
+import { PageHeader } from "@/components/phc/PageHeader";
+import { ChartFrame } from "@/components/phc/ChartFrame";
+import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
+import { RecommendationCard } from "@/components/phc/RecommendationCard";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { logActivity, type ActivityType } from "@/lib/activity-actions";
-import { RecommendationCard } from "@/components/phc/RecommendationCard";
 import { acceptRecommendation, dismissRecommendation } from "@/lib/recommendation-actions";
 
 export const Route = createFileRoute("/_authenticated/my-workspace")({
@@ -20,9 +22,7 @@ export const Route = createFileRoute("/_authenticated/my-workspace")({
   component: WorkspacePage,
 });
 
-const ACTIVITY_TYPES: ActivityType[] = [
-  "call", "visit", "meeting", "note", "email_draft", "whatsapp_draft",
-];
+const ACTIVITY_TYPES: ActivityType[] = ["call", "visit", "meeting", "note", "email_draft", "whatsapp_draft"];
 
 function humanize(s: string | null | undefined) {
   if (!s) return "—";
@@ -40,20 +40,22 @@ function WorkspacePage() {
   const qc = useQueryClient();
   const uid = user?.id ?? "";
   const [logOpen, setLogOpen] = useState(false);
+  const [tab, setTab] = useState("today");
+
+  const today = new Date().toISOString().slice(0, 10);
 
   const { data, isLoading } = useQuery({
     queryKey: ["workspace", uid],
     enabled: !!uid,
     queryFn: async () => {
-      const today = new Date().toISOString().slice(0, 10);
-      const [target, accounts, opps, followups, tasks, activities, myOppIds] = await Promise.all([
+      const [target, accounts, opps, followups, tasks, activities, approvals] = await Promise.all([
         supabase.from("sales_targets").select("*").eq("user_id", uid).eq("period_start", monthStart()).maybeSingle(),
         supabase.from("companies").select("id, name, company_type, account_status").eq("account_owner_id", uid).order("updated_at", { ascending: false }),
-        supabase.from("opportunities").select("id, project_name, stage, pipeline_step, estimated_value_max, currency").eq("owner_id", uid).not("stage", "in", "(won,lost,archived)").order("updated_at", { ascending: false }),
-        supabase.from("follow_ups").select("id, opportunity_id, due_date, status").eq("owner_id", uid).in("status", ["due", "overdue"]).order("due_date", { ascending: true }),
-        supabase.from("tasks").select("id, title, due_date, status").eq("owner_id", uid).lte("due_date", today).neq("status", "done").order("due_date", { ascending: true }),
-        supabase.from("activities").select("id, activity_type, summary, occurred_at, related_opportunity_id").eq("owner_id", uid).order("occurred_at", { ascending: false }).limit(8),
-        supabase.from("opportunities").select("id").eq("owner_id", uid),
+        supabase.from("opportunities").select("id, project_name, stage, pipeline_step, estimated_value_max, currency, owner_id").eq("owner_id", uid).not("stage", "in", "(won,lost,archived)").order("updated_at", { ascending: false }),
+        supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, notes").eq("owner_id", uid).neq("status", "completed").order("due_date", { ascending: true }),
+        supabase.from("tasks").select("id, title, due_date, status").eq("owner_id", uid).neq("status", "done").order("due_date", { ascending: true }),
+        supabase.from("activities").select("id, activity_type, summary, occurred_at, related_opportunity_id").eq("owner_id", uid).order("occurred_at", { ascending: false }).limit(12),
+        supabase.from("approvals").select("*").eq("status", "pending"),
       ]);
       return {
         target: target.data,
@@ -62,7 +64,7 @@ function WorkspacePage() {
         followups: followups.data ?? [],
         tasks: tasks.data ?? [],
         activities: activities.data ?? [],
-        oppCount: (myOppIds.data ?? []).length,
+        approvals: approvals.data ?? [],
       };
     },
   });
@@ -77,31 +79,16 @@ function WorkspacePage() {
     queryKey: ["ws-recs", uid],
     enabled: !!uid,
     queryFn: async () =>
-      (
-        await supabase
-          .from("recommendations")
-          .select("*")
-          .eq("suggested_owner_id", uid)
-          .eq("status", "pending")
-          .order("created_at", { ascending: false })
-      ).data ?? [],
+      (await supabase.from("recommendations").select("*").eq("suggested_owner_id", uid).eq("status", "pending").order("created_at", { ascending: false })).data ?? [],
   });
 
-  const { data: wf } = useQuery({
-    queryKey: ["ws-workflow", uid],
-    enabled: !!uid,
-    queryFn: async () => {
-      const [rfqs, tenders, verbal] = await Promise.all([
-        supabase.from("rfqs").select("id").eq("sales_owner_id", uid).eq("status", "open"),
-        supabase.from("tenders").select("id").eq("tender_owner_id", uid).not("tender_stage", "in", "(converted_to_jih,tender_lost_or_archived)"),
-        supabase.from("opportunities").select("id").eq("owner_id", uid).eq("sales_stage", "verbally_awarded"),
-      ]);
-      return {
-        rfqs: (rfqs.data ?? []).length,
-        tenders: (tenders.data ?? []).length,
-        verbal: (verbal.data ?? []).length,
-      };
-    },
+  const myOppIds = useMemo(() => (data?.opps ?? []).map((o: any) => o.id), [data]);
+
+  const { data: flags = [] } = useQuery({
+    queryKey: ["ws-flags", uid, myOppIds.length],
+    enabled: !!uid && myOppIds.length > 0,
+    queryFn: async () =>
+      (await supabase.from("opportunity_flags").select("*").eq("status", "open").in("opportunity_id", myOppIds).order("created_at", { ascending: false })).data ?? [],
   });
 
   if (isLoading || !data) return <EmptyState message={t("loading")} />;
@@ -109,158 +96,209 @@ function WorkspacePage() {
   const pipelineValue = data.opps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
   const tg = data.target;
 
+  const overdueFU = data.followups.filter((f: any) => f.status === "overdue" || (f.due_date && f.due_date < today));
+  const todayFU = data.followups.filter((f: any) => f.due_date === today);
+  const upcomingFU = data.followups.filter((f: any) => f.due_date && f.due_date > today);
+
+  const overdueTasks = data.tasks.filter((tk: any) => tk.due_date && tk.due_date < today);
+  const todayTasks = data.tasks.filter((tk: any) => tk.due_date === today);
+  const upcomingTasks = data.tasks.filter((tk: any) => !tk.due_date || tk.due_date > today);
+
+  const myApprovals = data.approvals.filter((a: any) => a.assigned_approver === uid || a.requested_by === uid);
+
+  const oppName = (id: string | null) => (id ? data.opps.find((o: any) => o.id === id)?.project_name ?? "—" : "—");
+
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <SectionHeader
+    <div className="mx-auto max-w-7xl">
+      <PageHeader
+        eyebrow={lang === "ar" ? "مساحة العمل" : "Daily Workspace"}
         title={t("ws_title")}
-        hint={user?.email ?? ""}
-        action={
-          <button onClick={() => setLogOpen(true)} className="rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs text-amber-light hover:bg-amber/20">
-            {t("ws_log_activity")}
+        description={user?.email ?? undefined}
+        actions={
+          <button
+            onClick={() => setLogOpen(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3.5 text-[12px] font-medium text-amber-light transition-colors hover:bg-amber/20"
+          >
+            <Sparkles className="h-3.5 w-3.5" /> {t("ws_log_activity")}
           </button>
         }
       />
 
-      {/* Targets */}
-      <Panel title={t("ws_my_targets")}>
-        {!tg ? (
-          <div className="text-xs text-muted-foreground">{t("ws_no_target")}</div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <MetricTile label={t("ws_target_sales")} value={formatCurrency(tg.sales_target, lang, "SAR")} />
-            <MetricTile label={t("ws_target_pipeline")} value={formatCurrency(pipelineValue, lang, "SAR")} hint={`${t("ws_of")} ${formatCurrency(tg.pipeline_target, lang, "SAR")}`} tone={pipelineValue < tg.pipeline_target ? "attention" : "neutral"} />
-            <MetricTile label={t("ws_target_quotations")} value={formatNumber(tg.quotation_target, lang)} />
-            <MetricTile label={t("ws_target_activities")} value={formatNumber(tg.activity_target, lang)} />
-          </div>
-        )}
-      </Panel>
-
-      {/* My sales workflow */}
-      <Panel title={t("nav_rfq_jih")}>
-        <div className="grid grid-cols-3 gap-4">
-          <Link to="/rfq-jih"><MetricTile label={t("wf_new_rfq")} value={formatNumber(wf?.rfqs ?? 0, lang)} /></Link>
-          <Link to="/tenders"><MetricTile label={t("nav_tenders")} value={formatNumber(wf?.tenders ?? 0, lang)} /></Link>
-          <Link to="/award-queue"><MetricTile label={t("sstage_verbally_awarded")} value={formatNumber(wf?.verbal ?? 0, lang)} tone={wf?.verbal ? "attention" : "neutral"} /></Link>
-        </div>
-      </Panel>
+      {/* KPI row */}
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label={t("ws_target_pipeline")} value={formatCurrency(pipelineValue, lang, "SAR")} hint={tg ? `${lang === "ar" ? "من" : "of"} ${formatCurrency(tg.pipeline_target, lang, "SAR")}` : (lang === "ar" ? "بدون هدف محدد" : "No target set")} />
+        <KpiCard label={lang === "ar" ? "متأخرات اليوم" : "Overdue today"} value={formatNumber(overdueFU.length + overdueTasks.length, lang)} hint={lang === "ar" ? "متابعات ومهام" : "Follow-ups & tasks"} trend={overdueFU.length + overdueTasks.length > 0 ? "down" : "flat"} />
+        <KpiCard label={lang === "ar" ? "بانتظار قرارك" : "Awaiting your decision"} value={formatNumber(myApprovals.length, lang)} hint={t("metric_awaiting_approval")} />
+        <KpiCard label={lang === "ar" ? "حسابات نشطة" : "Active accounts"} value={formatNumber(data.accounts.length, lang)} hint={lang === "ar" ? "تحت إدارتك" : "Under your ownership"} />
+      </section>
 
       {recs.length > 0 ? (
-        <Panel title={t("rec_title")} subtitle={t("rec_disclaimer")} tone="attention">
-          <div className="grid gap-3 md:grid-cols-2">
-            {recs.map((r: any) => (
-              <RecommendationCard
-                key={r.id}
-                rec={r}
-                onAccept={async () => {
-                  try {
-                    await acceptRecommendation(r);
-                    toast.success(t("rec_accept"));
-                    qc.invalidateQueries({ queryKey: ["ws-recs", uid] });
-                    qc.invalidateQueries({ queryKey: ["approvals"] });
-                  } catch (e) {
-                    toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-                  }
-                }}
-                onDismiss={async () => {
-                  try {
-                    await dismissRecommendation(r.id);
-                    qc.invalidateQueries({ queryKey: ["ws-recs", uid] });
-                  } catch (e) {
-                    toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-                  }
-                }}
-              />
-            ))}
-          </div>
-        </Panel>
+        <section className="mt-6">
+          <ChartFrame title={t("rec_title")} subtitle={t("rec_disclaimer")}>
+            <div className="grid gap-3 md:grid-cols-2">
+              {recs.map((r: any) => (
+                <RecommendationCard
+                  key={r.id}
+                  rec={r}
+                  onAccept={async () => {
+                    try {
+                      await acceptRecommendation(r);
+                      toast.success(t("rec_accept"));
+                      qc.invalidateQueries({ queryKey: ["ws-recs", uid] });
+                      qc.invalidateQueries({ queryKey: ["approvals"] });
+                    } catch (e) {
+                      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+                    }
+                  }}
+                  onDismiss={async () => {
+                    try {
+                      await dismissRecommendation(r.id);
+                      qc.invalidateQueries({ queryKey: ["ws-recs", uid] });
+                    } catch (e) {
+                      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </ChartFrame>
+        </section>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title={t("ws_open_opportunities")} subtitle={String(data.opps.length)}>
-          {data.opps.length === 0 ? (
-            <div className="text-xs text-muted-foreground">{t("ws_none")}</div>
-          ) : (
-            <ul className="space-y-2">
-              {data.opps.map((o: any) => (
-                <li key={o.id} className="flex items-center justify-between gap-2">
-                  <Link to="/opportunities/$id" params={{ id: o.id }} className="truncate text-sm text-foreground hover:underline">{o.project_name}</Link>
-                  <div className="flex items-center gap-2">
-                    <StatusPill tone="muted">{humanize(o.pipeline_step ?? o.stage)}</StatusPill>
-                    <span className="num text-xs text-muted-foreground" data-tabular="true">{formatCurrency(o.estimated_value_max, lang, o.currency)}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
+      <section className="mt-6">
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="mb-4 h-auto rounded-lg border border-border/70 bg-surface/60 p-1">
+            <TabItem value="today" icon={<CalendarClock className="h-3.5 w-3.5" />} label={lang === "ar" ? "اليوم" : "Today"} count={overdueFU.length + todayFU.length + overdueTasks.length + todayTasks.length} />
+            <TabItem value="tasks" icon={<ListChecks className="h-3.5 w-3.5" />} label={lang === "ar" ? "مهامي" : "My Tasks"} count={data.tasks.length} />
+            <TabItem value="followups" icon={<CalendarClock className="h-3.5 w-3.5" />} label={t("nav_follow_ups")} count={data.followups.length} />
+            <TabItem value="action" icon={<BellRing className="h-3.5 w-3.5" />} label={t("nav_action_center")} count={flags.length} />
+            <TabItem value="approvals" icon={<ShieldCheck className="h-3.5 w-3.5" />} label={t("nav_approvals")} count={myApprovals.length} />
+          </TabsList>
 
-        <Panel title={t("ws_my_accounts")} subtitle={String(data.accounts.length)}>
-          {data.accounts.length === 0 ? (
-            <div className="text-xs text-muted-foreground">{t("ws_none")}</div>
-          ) : (
-            <ul className="space-y-2">
-              {data.accounts.map((c: any) => (
-                <li key={c.id} className="flex items-center justify-between gap-2">
-                  <Link to="/accounts/$id" params={{ id: c.id }} className="truncate text-sm text-foreground hover:underline">{c.name}</Link>
-                  <StatusPill tone={c.account_status === "active" ? "positive" : c.account_status === "pending_review" ? "attention" : "muted"}>
-                    {t(`company_type_${c.company_type}` as never)}
-                  </StatusPill>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
+          <TabsContent value="today" className="mt-0 grid gap-3 lg:grid-cols-2">
+            <ChartFrame title={lang === "ar" ? "متابعات اليوم" : "Follow-ups today"} subtitle={`${formatNumber(overdueFU.length, lang)} ${lang === "ar" ? "متأخرة" : "overdue"} · ${formatNumber(todayFU.length, lang)} ${lang === "ar" ? "اليوم" : "today"}`} padded={false}>
+              <List
+                empty={t("ws_none")}
+                items={[...overdueFU, ...todayFU].slice(0, 8).map((f: any) => ({
+                  key: f.id,
+                  primary: oppName(f.opportunity_id),
+                  secondary: `${humanize(f.channel)} · ${t("label_tier")} ${f.cadence_tier ?? "—"}`,
+                  tone: f.status === "overdue" || (f.due_date && f.due_date < today) ? "attention" : "neutral",
+                  label: f.status === "overdue" || (f.due_date && f.due_date < today) ? (lang === "ar" ? "متأخر" : "Overdue") : (lang === "ar" ? "اليوم" : "Today"),
+                  right: f.due_date,
+                  href: f.opportunity_id ? { to: "/opportunities/$id" as const, params: { id: f.opportunity_id } } : undefined,
+                }))}
+              />
+            </ChartFrame>
+            <ChartFrame title={lang === "ar" ? "مهام اليوم" : "Tasks today"} subtitle={`${formatNumber(overdueTasks.length, lang)} ${lang === "ar" ? "متأخرة" : "overdue"} · ${formatNumber(todayTasks.length, lang)} ${lang === "ar" ? "اليوم" : "today"}`} padded={false}>
+              <List
+                empty={t("ws_none")}
+                items={[...overdueTasks, ...todayTasks].slice(0, 8).map((tk: any) => ({
+                  key: tk.id,
+                  primary: tk.title,
+                  secondary: humanize(tk.status),
+                  tone: tk.due_date && tk.due_date < today ? "attention" : "neutral",
+                  label: tk.due_date && tk.due_date < today ? (lang === "ar" ? "متأخر" : "Overdue") : (lang === "ar" ? "اليوم" : "Today"),
+                  right: tk.due_date ?? "—",
+                }))}
+              />
+            </ChartFrame>
+            <ChartFrame title={t("ws_open_opportunities")} subtitle={`${formatNumber(data.opps.length, lang)} ${lang === "ar" ? "فرصة" : "open"}`} padded={false}>
+              <List
+                empty={t("ws_none")}
+                items={data.opps.slice(0, 8).map((o: any) => ({
+                  key: o.id,
+                  primary: o.project_name,
+                  secondary: humanize(o.pipeline_step ?? o.stage),
+                  tone: "muted",
+                  label: humanize(o.pipeline_step ?? o.stage),
+                  right: formatCurrency(o.estimated_value_max, lang, o.currency),
+                  href: { to: "/opportunities/$id" as const, params: { id: o.id } },
+                }))}
+              />
+            </ChartFrame>
+            <ChartFrame title={t("ws_recent_activity")} subtitle={String(data.activities.length)} padded={false}>
+              <List
+                empty={t("ws_none")}
+                items={data.activities.slice(0, 8).map((a: any) => ({
+                  key: a.id,
+                  primary: a.summary ?? "—",
+                  secondary: t(`activity_type_${a.activity_type}` as never),
+                  tone: "muted",
+                  label: t(`activity_type_${a.activity_type}` as never),
+                  right: new Date(a.occurred_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" }),
+                }))}
+              />
+            </ChartFrame>
+          </TabsContent>
 
-        <Panel title={t("ws_overdue_followups")} subtitle={String(data.followups.length)} tone={data.followups.length > 0 ? "attention" : "default"}>
-          {data.followups.length === 0 ? (
-            <div className="text-xs text-muted-foreground">{t("ws_none")}</div>
-          ) : (
-            <ul className="space-y-2">
-              {data.followups.map((f: any) => (
-                <li key={f.id} className="flex items-center justify-between gap-2 text-sm">
-                  <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="text-foreground hover:underline">{f.due_date}</Link>
-                  <StatusPill tone={f.status === "overdue" ? "danger" : "attention"}>{humanize(f.status)}</StatusPill>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
+          <TabsContent value="tasks" className="mt-0">
+            <ChartFrame title={lang === "ar" ? "كل المهام" : "All my tasks"} subtitle={formatNumber(data.tasks.length, lang)} padded={false}>
+              <List
+                empty={t("ws_none")}
+                items={[...overdueTasks, ...todayTasks, ...upcomingTasks].map((tk: any) => ({
+                  key: tk.id,
+                  primary: tk.title,
+                  secondary: humanize(tk.status),
+                  tone: tk.due_date && tk.due_date < today ? "attention" : "neutral",
+                  label: tk.due_date && tk.due_date < today ? (lang === "ar" ? "متأخر" : "Overdue") : humanize(tk.status),
+                  right: tk.due_date ?? "—",
+                }))}
+              />
+            </ChartFrame>
+          </TabsContent>
 
-        <Panel title={t("ws_tasks_today")} subtitle={String(data.tasks.length)}>
-          {data.tasks.length === 0 ? (
-            <div className="text-xs text-muted-foreground">{t("ws_none")}</div>
-          ) : (
-            <ul className="space-y-2">
-              {data.tasks.map((tk: any) => (
-                <li key={tk.id} className="flex items-center justify-between gap-2 text-sm text-foreground">
-                  <span className="truncate">{tk.title}</span>
-                  <span className="text-xs text-muted-foreground">{tk.due_date}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-      </div>
+          <TabsContent value="followups" className="mt-0">
+            <ChartFrame title={t("nav_follow_ups")} subtitle={formatNumber(data.followups.length, lang)} padded={false}>
+              <List
+                empty={t("empty_follow_ups")}
+                items={[...overdueFU, ...todayFU, ...upcomingFU].map((f: any) => ({
+                  key: f.id,
+                  primary: oppName(f.opportunity_id),
+                  secondary: `${humanize(f.channel)} · ${t("label_tier")} ${f.cadence_tier ?? "—"}${f.notes ? ` · ${f.notes}` : ""}`,
+                  tone: f.status === "overdue" || (f.due_date && f.due_date < today) ? "attention" : "neutral",
+                  label: f.status === "overdue" || (f.due_date && f.due_date < today) ? (lang === "ar" ? "متأخر" : "Overdue") : humanize(f.status),
+                  right: f.due_date ?? "—",
+                  href: f.opportunity_id ? { to: "/opportunities/$id" as const, params: { id: f.opportunity_id } } : undefined,
+                }))}
+              />
+            </ChartFrame>
+          </TabsContent>
 
-      <Panel title={t("ws_recent_activity")} subtitle={String(data.activities.length)}>
-        {data.activities.length === 0 ? (
-          <div className="text-xs text-muted-foreground">{t("ws_none")}</div>
-        ) : (
-          <ul className="space-y-2">
-            {data.activities.map((a: any) => (
-              <li key={a.id} className="flex items-center justify-between gap-2 text-sm">
-                <span className="flex items-center gap-2 min-w-0">
-                  <StatusPill tone="muted">{t(`activity_type_${a.activity_type}` as never)}</StatusPill>
-                  <span className="truncate text-foreground">{a.summary ?? "—"}</span>
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {new Date(a.occurred_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
+          <TabsContent value="action" className="mt-0">
+            <ChartFrame title={t("nav_action_center")} subtitle={`${formatNumber(flags.length, lang)} ${lang === "ar" ? "بند" : "flagged"}`} padded={false}>
+              <List
+                empty={t("wf_no_records")}
+                items={flags.map((f: any) => ({
+                  key: f.id,
+                  primary: f.reason ?? humanize(f.action_type ?? f.flag_kind),
+                  secondary: `${humanize(f.linked_record_type)} · ${f.priority ?? ""}`,
+                  tone: f.flag_kind === "risk" ? "danger" : "attention",
+                  label: humanize(f.action_type ?? f.risk_flag ?? f.flag_kind),
+                  right: f.due_date ?? "—",
+                }))}
+              />
+            </ChartFrame>
+          </TabsContent>
+
+          <TabsContent value="approvals" className="mt-0">
+            <ChartFrame title={t("nav_approvals")} subtitle={`${formatNumber(myApprovals.length, lang)} ${lang === "ar" ? "قرار" : "pending"}`} padded={false}>
+              <List
+                empty={t("empty_approvals")}
+                items={myApprovals.map((a: any) => ({
+                  key: a.id,
+                  primary: oppName(a.related_opportunity_id),
+                  secondary: humanize(a.approval_type),
+                  tone: "attention",
+                  label: humanize(a.status),
+                  right: new Date(a.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" }),
+                  href: a.related_opportunity_id ? { to: "/opportunities/$id" as const, params: { id: a.related_opportunity_id } } : undefined,
+                }))}
+              />
+            </ChartFrame>
+          </TabsContent>
+        </Tabs>
+      </section>
 
       <ActionDialog
         open={logOpen}
@@ -289,5 +327,61 @@ function WorkspacePage() {
         }}
       />
     </div>
+  );
+}
+
+function TabItem({ value, icon, label, count }: { value: string; icon: React.ReactNode; label: string; count: number }) {
+  return (
+    <TabsTrigger
+      value={value}
+      className="h-8 gap-2 rounded-md px-3 text-[12px] font-medium data-[state=active]:bg-surface-2 data-[state=active]:text-foreground data-[state=active]:shadow-none"
+    >
+      {icon}
+      <span>{label}</span>
+      <span className="num rounded-full bg-surface-2 px-1.5 py-0 text-[10px] text-muted-foreground data-[state=active]:bg-foreground/10" data-tabular="true">
+        {count}
+      </span>
+    </TabsTrigger>
+  );
+}
+
+type ListItem = {
+  key: string;
+  primary: string;
+  secondary?: string;
+  tone?: "attention" | "neutral" | "muted" | "danger" | "positive";
+  label?: string;
+  right?: string;
+  href?: { to: "/opportunities/$id"; params: { id: string } };
+};
+
+function List({ items, empty }: { items: ListItem[]; empty: string }) {
+  if (items.length === 0) {
+    return (
+      <div className="px-5 py-8"><EmptyState message={empty} /></div>
+    );
+  }
+  return (
+    <ul>
+      {items.map((it) => {
+        const inner = (
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-t border-border/60 px-5 py-3 first:border-t-0">
+            <div className="min-w-0">
+              <div className="truncate text-[13px] font-medium text-foreground">{it.primary}</div>
+              {it.secondary ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{it.secondary}</div> : null}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {it.label ? <StatusPill tone={(it.tone as any) ?? "muted"}>{it.label}</StatusPill> : null}
+              {it.right ? <span className="num text-[11px] text-muted-foreground" data-tabular="true">{it.right}</span> : null}
+            </div>
+          </div>
+        );
+        return (
+          <li key={it.key} className="transition-colors hover:bg-surface-2/40">
+            {it.href ? <Link to={it.href.to} params={it.href.params} className="block">{inner}</Link> : inner}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
