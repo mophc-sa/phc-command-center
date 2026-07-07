@@ -179,8 +179,8 @@ function RfqJihBoard() {
         submitLabel={t("crm_add")}
         fields={[
           { key: "rfqNumber", type: "text", label: "RFQ #" },
-          { key: "companyId", type: "select", label: t("crm_company"), options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
-          { key: "projectId", type: "select", label: t("nav_projects"), options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
+          { key: "companyId", type: "select", label: t("crm_company"), options: [{ value: "__none__", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
+          { key: "projectId", type: "select", label: t("nav_projects"), options: [{ value: "__none__", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
           { key: "estimatedValue", type: "text", label: t("crm_total_value") },
           { key: "responseDueDate", type: "date", label: t("wf_expected_contract") },
           { key: "documentUrl", type: "file", label: t("wf_evidence"), folder: "rfq" },
@@ -189,8 +189,8 @@ function RfqJihBoard() {
           try {
             await createRfq({
               rfqNumber: v.rfqNumber || undefined,
-              companyId: v.companyId || null,
-              projectId: v.projectId || null,
+              companyId: v.companyId && v.companyId !== "__none__" ? v.companyId : null,
+              projectId: v.projectId && v.projectId !== "__none__" ? v.projectId : null,
               estimatedValue: v.estimatedValue ? Number(v.estimatedValue) : null,
               responseDueDate: v.responseDueDate || null,
               documentUrl: v.documentUrl || null,
