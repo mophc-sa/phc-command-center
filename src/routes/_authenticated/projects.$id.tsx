@@ -95,6 +95,16 @@ function ProjectDetail() {
                 {t("crm_verified")}
               </button>
             ) : null}
+            <EmailComposeButton
+              template="contractor_introduction"
+              context={{
+                recipientName: null,
+                recipientEmail: null,
+                companyName: p.main_contractor?.name ?? null,
+                projectName: p.name,
+              }}
+              linked={{ type: "project", id: p.id, label: p.name, companyId: p.main_contractor?.id ?? null }}
+            />
           </div>
         }
       />
