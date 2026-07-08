@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: TypeScript check
+        run: bunx tsgo --noEmit
+      - name: Production build
+        run: bun run build
+
+  playwright-smoke:
+    runs-on: ubuntu-latest
+    needs: typecheck-build
+    permissions:
+      contents: read
+    env:
+      TEST_APP_URL: ${{ secrets.TEST_APP_URL }}
+      TEST_SYSTEM_ADMIN_EMAIL: ${{ secrets.TEST_SYSTEM_ADMIN_EMAIL }}
+      TEST_SYSTEM_ADMIN_PASSWORD: ${{ secrets.TEST_SYSTEM_ADMIN_PASSWORD }}
+      TEST_MANAGING_DIRECTOR_EMAIL: ${{ secrets.TEST_MANAGING_DIRECTOR_EMAIL }}
+      TEST_MANAGING_DIRECTOR_PASSWORD: ${{ secrets.TEST_MANAGING_DIRECTOR_PASSWORD }}
+      TEST_GENERAL_MANAGER_EMAIL: ${{ secrets.TEST_GENERAL_MANAGER_EMAIL }}
+      TEST_GENERAL_MANAGER_PASSWORD: ${{ secrets.TEST_GENERAL_MANAGER_PASSWORD }}
+      TEST_SALES_MANAGER_EMAIL: ${{ secrets.TEST_SALES_MANAGER_EMAIL }}
+      TEST_SALES_MANAGER_PASSWORD: ${{ secrets.TEST_SALES_MANAGER_PASSWORD }}
+      TEST_BD_MANAGER_EMAIL: ${{ secrets.TEST_BD_MANAGER_EMAIL }}
+      TEST_BD_MANAGER_PASSWORD: ${{ secrets.TEST_BD_MANAGER_PASSWORD }}
+      TEST_SALESPERSON_EMAIL: ${{ secrets.TEST_SALESPERSON_EMAIL }}
+      TEST_SALESPERSON_PASSWORD: ${{ secrets.TEST_SALESPERSON_PASSWORD }}
+      TEST_VIEWER_EMAIL: ${{ secrets.TEST_VIEWER_EMAIL }}
+      TEST_VIEWER_PASSWORD: ${{ secrets.TEST_VIEWER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+      - name: Build app
+        run: bun run build
+      - name: Start app
+        run: |
+          bun run preview --port 8080 &
+          echo "APP_PID=$!" >> $GITHUB_ENV
+          for i in {1..30}; do
+            curl -sf http://localhost:8080 > /dev/null && break
+            sleep 1
+          done
+      - name: Playwright smoke (skips roles without credentials)
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ env.TEST_APP_URL || 'http://localhost:8080' }}
+        run: bunx playwright test
+      - name: Stop app
+        if: always()
+        run: kill $APP_PID || true

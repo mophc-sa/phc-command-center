@@ -251,34 +251,52 @@ export type Database = {
         Row: {
           action: string
           actor_id: string | null
+          actor_role_snapshot: string[] | null
           actor_type: string
           after_value: Json | null
           before_value: Json | null
+          created_at: string
           entity_id: string | null
           entity_type: string
           id: string
+          language: string | null
+          reason: string | null
+          request_id: string | null
+          route: string | null
           timestamp: string
         }
         Insert: {
           action: string
           actor_id?: string | null
+          actor_role_snapshot?: string[] | null
           actor_type?: string
           after_value?: Json | null
           before_value?: Json | null
+          created_at?: string
           entity_id?: string | null
           entity_type: string
           id?: string
+          language?: string | null
+          reason?: string | null
+          request_id?: string | null
+          route?: string | null
           timestamp?: string
         }
         Update: {
           action?: string
           actor_id?: string | null
+          actor_role_snapshot?: string[] | null
           actor_type?: string
           after_value?: Json | null
           before_value?: Json | null
+          created_at?: string
           entity_id?: string | null
           entity_type?: string
           id?: string
+          language?: string | null
+          reason?: string | null
+          request_id?: string | null
+          route?: string | null
           timestamp?: string
         }
         Relationships: []
@@ -2191,6 +2209,9 @@ export type Database = {
         | "bd_manager"
         | "viewer"
         | "salesperson"
+        | "system_admin"
+        | "managing_director"
+        | "general_manager"
       approval_recommendation: "proceed" | "management_review" | "do_not_quote"
       approval_status: "pending" | "approved" | "returned" | "escalated"
       artifact_status: "draft" | "awaiting_review" | "approved" | "rejected"
@@ -2498,7 +2519,16 @@ export const Constants = {
         "paused",
         "error",
       ],
-      app_role: ["ceo", "sales_manager", "bd_manager", "viewer", "salesperson"],
+      app_role: [
+        "ceo",
+        "sales_manager",
+        "bd_manager",
+        "viewer",
+        "salesperson",
+        "system_admin",
+        "managing_director",
+        "general_manager",
+      ],
       approval_recommendation: ["proceed", "management_review", "do_not_quote"],
       approval_status: ["pending", "approved", "returned", "escalated"],
       artifact_status: ["draft", "awaiting_review", "approved", "rejected"],
