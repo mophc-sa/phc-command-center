@@ -131,14 +131,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="px-5 pt-6 pb-5">
         <Link to="/command-center" className="flex items-center gap-3">
           <img
-            src={phcIcon.url}
-            alt="PHC"
-            className="h-8 w-8 shrink-0 object-contain"
-          />
-          <img
             src={phcLogo.url}
             alt="PHC Wayfinding Signs"
-            className="h-6 min-w-0 flex-1 object-contain object-left"
+            className="h-8 min-w-0 flex-1 object-contain object-left"
           />
         </Link>
       </div>
