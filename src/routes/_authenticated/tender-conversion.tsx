@@ -11,6 +11,7 @@ import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { approveTenderConversion } from "@/lib/tender-actions";
 import { decideApproval } from "@/lib/opportunity-actions";
+import { canApproveCommercialAction } from "@/lib/roles";
 import { CheckCircle2, XCircle, GitMerge, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/tender-conversion")({
@@ -25,9 +26,9 @@ function humanize(s: string | null | undefined) {
 
 function TenderConversionReview() {
   const { t, lang } = useI18n();
-  const { hasAnyRole } = useAuth();
+  const { roles } = useAuth();
   const qc = useQueryClient();
-  const isManager = hasAnyRole(["sales_manager", "ceo"]);
+  const isManager = canApproveCommercialAction(roles);
 
   const { data, isLoading } = useQuery({
     queryKey: ["tender-conversions"],

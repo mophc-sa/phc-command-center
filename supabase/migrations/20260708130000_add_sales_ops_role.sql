@@ -1,0 +1,13 @@
+-- =========================================================
+-- Add the `sales_ops` app role (BD / Sales Ops group).
+--
+-- Kept in its OWN migration because Postgres forbids using a newly-added enum
+-- value in the same transaction that adds it. The commercial-authority
+-- migration (next file) references 'sales_ops' in policies.
+--
+-- Canonical role set after this migration (9 roles), matching src/lib/roles.ts
+-- and supabase/functions/_shared/roles.ts:
+--   system_admin, managing_director, general_manager, ceo (legacy),
+--   sales_manager, bd_manager, sales_ops, salesperson, viewer
+-- =========================================================
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'sales_ops';

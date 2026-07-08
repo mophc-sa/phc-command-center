@@ -13,6 +13,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { createVendor } from "@/lib/vendor-actions";
+import { canManageSalesPipeline } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/vendors")({
   head: () => ({ meta: [{ title: "Vendors — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -21,13 +22,13 @@ export const Route = createFileRoute("/_authenticated/vendors")({
 
 function VendorsPage() {
   const { t } = useI18n();
-  const { hasAnyRole } = useAuth();
+  const { roles } = useAuth();
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [q, setQ] = useState("");
   const [scope, setScope] = useState<string>("all");
 
-  const isManager = hasAnyRole(["bd_manager", "sales_manager", "ceo"]);
+  const isManager = canManageSalesPipeline(roles);
   const source = isManager ? "vendors" : "vendors_public";
 
   const { data: vendors = [], isLoading } = useQuery({

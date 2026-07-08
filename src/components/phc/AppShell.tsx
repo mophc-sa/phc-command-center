@@ -1,6 +1,7 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canViewSalesAdmin } from "@/lib/roles";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -102,14 +103,17 @@ const groups: NavGroup[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, lang, setLang, dir } = useI18n();
-  const { user, signOut, hasRole } = useAuth();
+  const { user, signOut, roles } = useAuth();
   const nav_ = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (to: string) =>
     to === "/" ? path === "/" : path === to || path.startsWith(to + "/");
-  const isCeo = hasRole("ceo");
+  const isCeo = roles.includes("ceo");
+  // Admin-group items (data import, admin settings) are visible to platform
+  // admins and commercial managers — not only the legacy CEO role.
+  const canAdmin = canViewSalesAdmin(roles);
   const tSafe = (k: string, fallback: string) => {
     const v = t(k as never);
     return v === k ? fallback : v;
@@ -146,7 +150,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {groups.map((g) => {
-          const items = g.items.filter((n) => !n.ceoOnly || isCeo);
+          const items = g.items.filter((n) => !n.ceoOnly || canAdmin);
           if (items.length === 0) return null;
           return (
             <div key={g.key} className="mb-5 last:mb-0">

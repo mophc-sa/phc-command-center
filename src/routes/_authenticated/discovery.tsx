@@ -19,6 +19,7 @@ import {
   LEAD_STAGES,
   type LeadStage,
 } from "@/lib/lead-actions";
+import { canManageSalesPipeline } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/discovery")({
   head: () => ({ meta: [{ title: "Lead Intake — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -56,13 +57,13 @@ function bucketOf(stage: LeadStage): Bucket {
 
 function LeadIntakePage() {
   const { t, lang } = useI18n();
-  const { hasAnyRole } = useAuth();
+  const { roles } = useAuth();
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [rejectFor, setRejectFor] = useState<string | null>(null);
   const [bucket, setBucket] = useState<Bucket>("all");
   const [query, setQuery] = useState("");
-  const canQualify = hasAnyRole(["bd_manager", "sales_manager", "ceo"]);
+  const canQualify = canManageSalesPipeline(roles);
 
   const { data: leads = [], isLoading } = useQuery({
     queryKey: ["leads"],

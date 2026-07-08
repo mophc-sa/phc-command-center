@@ -9,6 +9,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { searchKnowledge, reindexReferenceLibrary, type KnowledgeMatch } from "@/lib/rag-actions";
+import { canManageSalesPipeline } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/knowledge")({
   head: () => ({ meta: [{ title: "Knowledge Search — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -23,11 +24,11 @@ function confidenceLabel(sim: number): { tone: "positive" | "neutral" | "muted";
 
 function KnowledgePage() {
   const { t } = useI18n();
-  const { hasAnyRole } = useAuth();
+  const { roles } = useAuth();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<KnowledgeMatch[] | null>(null);
   const [lastQuery, setLastQuery] = useState("");
-  const canReindex = hasAnyRole(["bd_manager", "sales_manager", "ceo"]);
+  const canReindex = canManageSalesPipeline(roles);
 
   const search = useMutation({
     mutationFn: () => searchKnowledge(query),

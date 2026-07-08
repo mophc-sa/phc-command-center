@@ -16,18 +16,21 @@ import { json, err } from "../_shared/respond.ts";
 import {
   resolveCaller,
   serviceClient,
-  hasAny,
   audit,
   type AppRole,
 } from "../_shared/supabase.ts";
+import {
+  canApproveCommercialAction,
+  canAssignOwner,
+  canChangeCommercialStage,
+  canManageSalesPipeline,
+  canRunSensitiveSalesAction,
+} from "../_shared/roles.ts";
 
 type Handler = (
   payload: Record<string, unknown>,
   caller: { userId: string; roles: AppRole[] },
 ) => Promise<Response>;
-
-const MANAGERS: AppRole[] = ["sales_manager", "ceo"];
-const QUALIFIERS: AppRole[] = ["bd_manager", "sales_manager", "ceo"];
 
 // Supabase's built-in embeddings model (gte-small, 384 dims). Runs natively in
 // the Edge runtime — no external embeddings API / key.
@@ -127,7 +130,7 @@ function missing(fields: Record<string, unknown>, keys: string[]): string[] {
 const handlers: Record<string, Handler> = {
   // Manager approves / returns / escalates a pending approval.
   async decide_approval(payload, caller) {
-    if (!hasAny(caller.roles, MANAGERS)) return err("Managers only", 403);
+    if (!canApproveCommercialAction(caller.roles)) return err("Commercial approval authority required", 403);
     const approvalId = String(payload.approvalId ?? "");
     const decision = String(payload.decision ?? "");
     if (!approvalId) return err("approvalId is required");
@@ -174,8 +177,8 @@ const handlers: Record<string, Handler> = {
     if (qErr || !quote) return err("Quotation not found", 404);
 
     const isOwner = quote.owner_id === caller.userId;
-    if (!isOwner && !hasAny(caller.roles, MANAGERS)) {
-      return err("Only the owner or a manager can close this quotation", 403);
+    if (!isOwner && !canApproveCommercialAction(caller.roles)) {
+      return err("Only the owner or a commercial manager can close this quotation", 403);
     }
 
     const { data, error } = await svc
@@ -209,7 +212,7 @@ const handlers: Record<string, Handler> = {
 
   // Human-gated lead conversion (only from scored / human_review).
   async convert_lead(payload, caller) {
-    if (!hasAny(caller.roles, QUALIFIERS)) return err("Qualifiers only", 403);
+    if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
     const leadId = String(payload.leadId ?? "");
     if (!leadId) return err("leadId is required");
     const svc = serviceClient();
@@ -247,7 +250,7 @@ const handlers: Record<string, Handler> = {
 
   // Reassign an account owner — managers only.
   async change_account_owner(payload, caller) {
-    if (!hasAny(caller.roles, MANAGERS)) return err("Managers only", 403);
+    if (!canAssignOwner(caller.roles)) return err("Owner assignment authority required", 403);
     const companyId = String(payload.companyId ?? "");
     if (!companyId) return err("companyId is required");
     const newOwnerId = (payload.newOwnerId as string) || null;
@@ -279,8 +282,8 @@ const handlers: Record<string, Handler> = {
     if (rErr || !rec) return err("Recommendation not found", 404);
 
     const isOwner = rec.suggested_owner_id === caller.userId;
-    if (!isOwner && !hasAny(caller.roles, QUALIFIERS)) {
-      return err("Only the suggested owner or a manager can accept this", 403);
+    if (!isOwner && !canManageSalesPipeline(caller.roles)) {
+      return err("Only the suggested owner or a sales manager can accept this", 403);
     }
     await svc.from("recommendations").update({ status: "accepted" }).eq("id", recommendationId);
 
@@ -324,7 +327,7 @@ const handlers: Record<string, Handler> = {
 
   // Index an arbitrary piece of knowledge (managers only).
   async index_knowledge(payload, caller) {
-    if (!hasAny(caller.roles, QUALIFIERS)) return err("Managers only", 403);
+    if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
     const sourceType = String(payload.sourceType ?? "note");
     const content = String(payload.content ?? "").trim();
     if (!content) return err("content is required");
@@ -349,7 +352,7 @@ const handlers: Record<string, Handler> = {
 
   // (Re)build the index for the Project Reference Library (managers only).
   async reindex_reference_library(_payload, caller) {
-    if (!hasAny(caller.roles, QUALIFIERS)) return err("Managers only", 403);
+    if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
     const svc = serviceClient();
     const { data: refs, error: rErr } = await svc.from("reference_projects").select("*");
     if (rErr) return err(rErr.message, 400);
@@ -459,7 +462,7 @@ const handlers: Record<string, Handler> = {
     }
 
     // Manager gate: a salesperson only REQUESTS a gated stage.
-    const isManager = hasAny(caller.roles, MANAGERS);
+    const isManager = canChangeCommercialStage(caller.roles);
     if (SALES_GATED.has(toStage) && !isManager) {
       const { data: appr } = await svc
         .from("approvals")
@@ -545,7 +548,7 @@ const handlers: Record<string, Handler> = {
     const value = String(payload.value ?? "");
     if (!opportunityId || !value) return err("opportunityId and value are required");
     const svc = serviceClient();
-    if (value === "sure_win" && !hasAny(caller.roles, MANAGERS)) {
+    if (value === "sure_win" && !canApproveCommercialAction(caller.roles)) {
       if (!payload.evidence) return err("Sure Win requires documented evidence", 409);
       const { data: appr } = await svc
         .from("approvals")
@@ -572,7 +575,7 @@ const handlers: Record<string, Handler> = {
 
   // Advance a tender along its monitoring flow.
   async advance_tender_stage(payload, caller) {
-    if (!hasAny(caller.roles, QUALIFIERS)) return err("Sales team (BD/manager) only", 403);
+    if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
     const tenderId = String(payload.tenderId ?? "");
     const toStage = String(payload.toStage ?? "");
     if (!tenderId || !toStage) return err("tenderId and toStage are required");
@@ -605,7 +608,7 @@ const handlers: Record<string, Handler> = {
   // Request conversion of an AWARDED tender into a JIH opportunity. Creates a
   // DRAFT review + approval — never a live opportunity automatically.
   async request_tender_conversion(payload, caller) {
-    if (!hasAny(caller.roles, QUALIFIERS)) return err("Sales team (BD/manager) only", 403);
+    if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
     const tenderId = String(payload.tenderId ?? "");
     if (!tenderId) return err("tenderId is required");
     const svc = serviceClient();
@@ -634,7 +637,7 @@ const handlers: Record<string, Handler> = {
 
   // Manager approves a tender conversion — creates the JIH opportunity.
   async approve_tender_conversion(payload, caller) {
-    if (!hasAny(caller.roles, MANAGERS)) return err("Managers only", 403);
+    if (!canApproveCommercialAction(caller.roles)) return err("Commercial approval authority required", 403);
     const tenderId = String(payload.tenderId ?? "");
     const approvalId = (payload.approvalId as string) || null;
     if (!tenderId) return err("tenderId is required");
@@ -672,7 +675,7 @@ const handlers: Record<string, Handler> = {
   // Evaluate the time-based automation rules and raise flags / action items.
   // Intended to be called on a schedule (pg_cron / n8n) or manually by a manager.
   async run_automations(_payload, caller) {
-    if (!hasAny(caller.roles, MANAGERS)) return err("Managers only", 403);
+    if (!canRunSensitiveSalesAction(caller.roles)) return err("Sensitive-action authority required", 403);
     const svc = serviceClient();
     const now = Date.now();
     const daysAgo = (d: number) => new Date(now - d * 864e5).toISOString();

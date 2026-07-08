@@ -41,3 +41,4 @@ package-lock.json
 
 # Supabase temp
 supabase/.temp/
+test-results/

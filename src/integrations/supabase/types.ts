@@ -2212,6 +2212,7 @@ export type Database = {
         | "system_admin"
         | "managing_director"
         | "general_manager"
+        | "sales_ops"
       approval_recommendation: "proceed" | "management_review" | "do_not_quote"
       approval_status: "pending" | "approved" | "returned" | "escalated"
       artifact_status: "draft" | "awaiting_review" | "approved" | "rejected"
@@ -2528,6 +2529,7 @@ export const Constants = {
         "system_admin",
         "managing_director",
         "general_manager",
+        "sales_ops",
       ],
       approval_recommendation: ["proceed", "management_review", "do_not_quote"],
       approval_status: ["pending", "approved", "returned", "escalated"],

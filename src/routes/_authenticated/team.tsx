@@ -17,6 +17,12 @@ import {
   type AppRole,
   type TeamMember,
 } from "@/lib/team-actions";
+import {
+  canManageTeam,
+  isExecutive,
+  isSalesManager,
+  isBdOrSalesOps,
+} from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/team")({
   head: () => ({
@@ -30,15 +36,16 @@ function roleLabel(t: (k: any) => string, r: AppRole): string {
 }
 
 function roleTone(r: AppRole): "attention" | "positive" | "neutral" | "muted" {
-  if (r === "ceo" || r === "sales_manager") return "attention";
-  if (r === "bd_manager") return "positive";
+  if (isExecutive(r) || isSalesManager(r)) return "attention";
+  if (isBdOrSalesOps(r)) return "positive";
+  if (r === "system_admin") return "neutral";
   return "muted";
 }
 
 function TeamPage() {
   const { t, lang } = useI18n();
-  const { user, hasAnyRole } = useAuth();
-  const canManage = hasAnyRole(["ceo", "sales_manager"]);
+  const { user, roles } = useAuth();
+  const canManage = canManageTeam(roles);
   const qc = useQueryClient();
   const [q, setQ] = useState("");
 
@@ -157,7 +164,7 @@ function TeamPage() {
                 <div className="flex flex-wrap justify-end gap-1.5 rtl:justify-start">
                   {ALL_ROLES.map((role) => {
                     const has = m.roles.includes(role);
-                    const isManagerRole = role === "ceo" || role === "sales_manager";
+                    const isManagerRole = isExecutive(role) || isSalesManager(role);
                     const guardSelf = isSelf && has && isManagerRole;
                     const disabled = !canManage || guardSelf;
                     return (

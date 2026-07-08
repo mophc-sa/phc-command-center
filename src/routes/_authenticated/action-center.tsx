@@ -11,6 +11,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, formatNumber } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { resolveFlag, runAutomations } from "@/lib/workflow-actions";
+import { canManageSalesPipeline } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/action-center")({
   head: () => ({ meta: [{ title: "Action Required — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -30,10 +31,10 @@ function priorityRank(p: string | null | undefined): number {
 
 function ActionCenter() {
   const { t, lang } = useI18n();
-  const { hasAnyRole } = useAuth();
+  const { roles } = useAuth();
   const qc = useQueryClient();
   const [kindFilter, setKindFilter] = useState<"all" | "action_required" | "risk">("all");
-  const isManager = hasAnyRole(["bd_manager", "sales_manager", "ceo"]);
+  const isManager = canManageSalesPipeline(roles);
 
   const { data: flags = [], isLoading } = useQuery({
     queryKey: ["flags-open"],

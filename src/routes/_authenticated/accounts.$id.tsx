@@ -13,6 +13,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { updateCompany, changeAccountOwner, type CompanyType } from "@/lib/crm-actions";
+import { canAssignOwner } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/accounts/$id")({
   head: () => ({ meta: [{ title: "Account — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -27,11 +28,11 @@ const COMPANY_TYPES: CompanyType[] = [
 function AccountDetail() {
   const { id } = Route.useParams();
   const { t, lang } = useI18n();
-  const { hasAnyRole } = useAuth();
+  const { roles } = useAuth();
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [ownerOpen, setOwnerOpen] = useState(false);
-  const isManager = hasAnyRole(["ceo", "sales_manager"]);
+  const isManager = canAssignOwner(roles);
 
   const { data: company, isLoading } = useQuery({
     queryKey: ["company", id],
