@@ -26,13 +26,17 @@ import {
   approveBatch, dryRunCommit, downloadReport,
   saveMappings, getMappings, getImportErrors, getDuplicateCandidates,
   resolveDuplicate, getImportFiles,
-  getImportRows, updateImportRow, excludeImportRow, restoreImportRow,
+  getImportRows, updateImportRow, excludeImportRow, restoreImportRow, softDeleteImportRow,
   archiveImportBatch, softDeleteImportBatch, purgeImportBatch,
   updateBatch, getFileDownloadUrl,
+  getBatchActivity, getReadinessChecklist, saveReadinessChecklist, deriveAutoChecklist,
+  READINESS_ITEMS, stagedGroupsForRow,
   IMPORT_CAPABLE_ROLES, APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
   COMPANY_TARGET_COLUMNS, TARGET_ENTITIES,
   type ImportBatch, type ImportMapping, type ImportRow, type ImportTargetEntity,
+  type ReadinessChecklist, type StagedGroup,
 } from "@/lib/import-actions";
+import { Layers, Files, Activity as ActivityIcon, ListChecks, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/data-import")({
   head: () => ({ meta: [{ title: "Data Import — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -352,10 +356,14 @@ function DataImportCenter() {
           <TabsTrigger value="upload" disabled={!activeBatchId}><Upload className="mr-1.5 h-3.5 w-3.5" />Upload</TabsTrigger>
           <TabsTrigger value="mapping" disabled={!activeBatchId}><FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />Mapping</TabsTrigger>
           <TabsTrigger value="rows" disabled={!activeBatchId}><Pencil className="mr-1.5 h-3.5 w-3.5" />Rows</TabsTrigger>
+          <TabsTrigger value="staged" disabled={!activeBatchId}><Layers className="mr-1.5 h-3.5 w-3.5" />Staged</TabsTrigger>
           <TabsTrigger value="validation" disabled={!activeBatchId}><AlertTriangle className="mr-1.5 h-3.5 w-3.5" />Validation</TabsTrigger>
           <TabsTrigger value="duplicates" disabled={!activeBatchId}><Copy className="mr-1.5 h-3.5 w-3.5" />Duplicates</TabsTrigger>
+          <TabsTrigger value="file" disabled={!activeBatchId}><Files className="mr-1.5 h-3.5 w-3.5" />Original File</TabsTrigger>
+          <TabsTrigger value="checklist" disabled={!activeBatchId}><ListChecks className="mr-1.5 h-3.5 w-3.5" />Checklist</TabsTrigger>
           <TabsTrigger value="approval" disabled={!activeBatchId}><ShieldCheck className="mr-1.5 h-3.5 w-3.5" />Approval</TabsTrigger>
           <TabsTrigger value="result" disabled={!activeBatchId}><CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />Result</TabsTrigger>
+          <TabsTrigger value="activity" disabled={!activeBatchId}><ActivityIcon className="mr-1.5 h-3.5 w-3.5" />Activity</TabsTrigger>
           <TabsTrigger value="analysis" disabled={!activeBatchId}><BarChart3 className="mr-1.5 h-3.5 w-3.5" />Analysis</TabsTrigger>
         </TabsList>
 
@@ -474,14 +482,30 @@ function DataImportCenter() {
           />
         </TabsContent>
 
+        <TabsContent value="staged">
+          {activeBatchId ? <StagedTab batchId={activeBatchId} /> : null}
+        </TabsContent>
+
+        <TabsContent value="file">
+          {activeBatchId ? <OriginalFileTab batchId={activeBatchId} /> : null}
+        </TabsContent>
+
+        <TabsContent value="checklist">
+          {activeBatch ? <ChecklistTab batch={activeBatch} /> : null}
+        </TabsContent>
+
         <TabsContent value="result">
           <ResultTab
             batch={activeBatch}
-            onDownloadSummary={() => activeBatchId && downloadReport(activeBatchId, "import_summary")}
-            onDownloadErrors={() => activeBatchId && downloadReport(activeBatchId, "validation_errors")}
-            onDownloadDupes={() => activeBatchId && downloadReport(activeBatchId, "duplicate_candidates")}
+            onDownloadSummary={(fmt) => activeBatchId && downloadReport(activeBatchId, "import_summary", fmt)}
+            onDownloadErrors={(fmt) => activeBatchId && downloadReport(activeBatchId, "validation_errors", fmt)}
+            onDownloadDupes={(fmt) => activeBatchId && downloadReport(activeBatchId, "duplicate_candidates", fmt)}
             t={t}
           />
+        </TabsContent>
+
+        <TabsContent value="activity">
+          {activeBatchId ? <ActivityTab batchId={activeBatchId} /> : null}
         </TabsContent>
 
         <TabsContent value="analysis">
@@ -489,6 +513,145 @@ function DataImportCenter() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// =============================================================================
+// Phase 1.1 readiness — new tabs (staging + display only; NO live CRM writes)
+// =============================================================================
+
+const STAGED_GROUP_LABELS: Record<StagedGroup, string> = {
+  companies: "Companies staged",
+  contacts: "Contacts staged",
+  opportunities: "Opportunities / Leads staged",
+  projects: "Projects staged",
+  rfq_tender: "RFQ / Tender staged",
+  unmapped: "Unmapped fields",
+};
+
+function StagedTab({ batchId }: { batchId: string }) {
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["import-rows-staged", batchId],
+    queryFn: () => getImportRows(batchId, { limit: 1000 }),
+  });
+  const active = rows.filter((r) => !r.is_excluded && r.row_status !== "deleted" && r.row_status !== "excluded");
+  const groups: Record<StagedGroup, ImportRow[]> = {
+    companies: [], contacts: [], opportunities: [], projects: [], rfq_tender: [], unmapped: [],
+  };
+  for (const r of active) {
+    for (const g of stagedGroupsForRow(r.mapped_data ?? r.raw_data)) groups[g].push(r);
+  }
+  if (isLoading) return <div className="text-sm text-muted-foreground">Loading staged data…</div>;
+  return (
+    <div className="space-y-4">
+      <div className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[11px] text-amber-light">
+        Staging preview only — grouped by intended target area. No live CRM records are created in Phase 1.1.
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {(Object.keys(groups) as StagedGroup[]).map((g) => (
+          <div key={g} className="rounded-lg border border-border/70 bg-surface/60 p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">{STAGED_GROUP_LABELS[g]}</span>
+              <StatusPill tone={groups[g].length ? "neutral" : "muted"}>{groups[g].length} rows</StatusPill>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {groups[g].length ? `${groups[g].length} staged row(s) would map to ${g}.` : "—"}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OriginalFileTab({ batchId }: { batchId: string }) {
+  const { data: files = [], isLoading } = useQuery({
+    queryKey: ["import-files", batchId],
+    queryFn: () => getImportFiles(batchId),
+  });
+  if (isLoading) return <div className="text-sm text-muted-foreground">Loading…</div>;
+  if (!files.length) return <div className="text-sm text-muted-foreground">No file uploaded for this batch.</div>;
+  return (
+    <div className="space-y-3">
+      {files.map((f: any) => (
+        <div key={f.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-surface/60 p-4">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium text-foreground">{f.file_name}</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              {f.file_type?.toUpperCase()} · {Math.round((f.file_size_bytes ?? 0) / 1024)} KB · {f.row_count ?? "—"} rows
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              try { const url = await getFileDownloadUrl(f.storage_path); window.open(url, "_blank"); }
+              catch (e) { toast.error(e instanceof Error ? e.message : "Download failed"); }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Download className="h-3.5 w-3.5" /> Download original file
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ChecklistTab({ batch }: { batch: ImportBatch }) {
+  const qc = useQueryClient();
+  const auto = deriveAutoChecklist(batch);
+  const { data: saved = {} } = useQuery({
+    queryKey: ["import-checklist", batch.id],
+    queryFn: () => getReadinessChecklist(batch.id),
+  });
+  const state: ReadinessChecklist = { ...saved, ...auto };
+  const toggle = async (key: string, val: boolean) => {
+    const next = { ...saved, [key]: val };
+    await saveReadinessChecklist(batch.id, next);
+    qc.invalidateQueries({ queryKey: ["import-checklist", batch.id] });
+  };
+  return (
+    <div className="space-y-4">
+      <div className="rounded-md border border-border/70 bg-surface/60 px-4 py-3 text-sm text-foreground">
+        Real-data operation checklist — complete before any future commit. Auto items reflect batch state; manual items are your confirmation.
+      </div>
+      <ul className="space-y-2">
+        {READINESS_ITEMS.map((item) => {
+          const checked = !!state[item.key];
+          return (
+            <li key={item.key} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-4 py-2.5">
+              <span className="flex items-center gap-2 text-sm text-foreground">
+                {checked ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <div className="h-4 w-4 rounded-full border border-border" />}
+                {item.label}
+              </span>
+              {item.manual ? (
+                <input type="checkbox" checked={checked} onChange={(e) => toggle(item.key, e.target.checked)} className="h-4 w-4" />
+              ) : (
+                <StatusPill tone={checked ? "positive" : "muted"}>{checked ? "auto ✓" : "pending"}</StatusPill>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function ActivityTab({ batchId }: { batchId: string }) {
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["import-activity", batchId],
+    queryFn: () => getBatchActivity(batchId),
+  });
+  if (isLoading) return <div className="text-sm text-muted-foreground">Loading activity…</div>;
+  if (!rows.length) return <div className="text-sm text-muted-foreground">No activity recorded yet.</div>;
+  return (
+    <ul className="space-y-1.5 text-xs">
+      {rows.map((r: any) => (
+        <li key={r.id} className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-background/40 px-3 py-2">
+          <span className="font-medium text-foreground">{r.action}</span>
+          <span className="text-muted-foreground">{new Date(r.created_at ?? r.timestamp).toLocaleString()}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -1443,14 +1606,28 @@ function ApprovalTab({ batch, canApprove, isSystemAdmin, onApprove, onDryRun, bu
 // Result
 // =============================================================================
 
+type ReportFmt = "csv" | "json";
+
 function ResultTab({ batch, onDownloadSummary, onDownloadErrors, onDownloadDupes, t }: {
   batch: ImportBatch | null | undefined;
-  onDownloadSummary: () => void;
-  onDownloadErrors: () => void;
-  onDownloadDupes: () => void;
+  onDownloadSummary: (fmt: ReportFmt) => void;
+  onDownloadErrors: (fmt: ReportFmt) => void;
+  onDownloadDupes: (fmt: ReportFmt) => void;
   t: (k: any) => string;
 }) {
   if (!batch) return <EmptyState message={t("import_tab_approval")} />;
+
+  const ReportRow = ({ label, onDl }: { label: string; onDl: (f: ReportFmt) => void }) => (
+    <div className="flex items-center gap-2">
+      <span className="min-w-[160px] text-sm text-foreground">{label}</span>
+      <button onClick={() => onDl("csv")} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-muted">
+        <Download className="h-3.5 w-3.5" /> CSV
+      </button>
+      <button onClick={() => onDl("json")} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-muted">
+        <Download className="h-3.5 w-3.5" /> JSON
+      </button>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -1467,15 +1644,30 @@ function ResultTab({ batch, onDownloadSummary, onDownloadErrors, onDownloadDupes
         {batch.dry_run && <p className="mt-2 text-xs text-amber">{t("import_dry_run_note")}</p>}
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <button onClick={onDownloadSummary} className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">
-          <Download className="h-3.5 w-3.5" />{t("import_download_summary")}
-        </button>
-        <button onClick={onDownloadErrors} className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">
-          <Download className="h-3.5 w-3.5" />{t("import_download_errors")}
-        </button>
-        <button onClick={onDownloadDupes} className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">
-          <Download className="h-3.5 w-3.5" />{t("import_download_dupes")}
+      <div className="space-y-2 rounded-lg border border-border bg-surface p-4">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground">Dry-run reports</div>
+        <ReportRow label="Import summary" onDl={onDownloadSummary} />
+        <ReportRow label="Validation errors" onDl={onDownloadErrors} />
+        <ReportRow label="Duplicate candidates" onDl={onDownloadDupes} />
+      </div>
+
+      {/* Section I — controlled CRM commit scaffold. Deliberately disabled. */}
+      <div className="rounded-lg border border-amber/40 bg-amber/5 p-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-amber-light">
+          <Lock className="h-4 w-4" /> Commit to CRM
+        </div>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Controlled CRM commit is not enabled yet. This batch stays in staging — no records are written to
+          companies, contacts, opportunities, tenders, RFQs, or projects. A future controlled commit will
+          require mapping, validation, resolved duplicates, a dry-run report, and explicit approval.
+        </p>
+        <button
+          type="button"
+          disabled
+          title="Controlled CRM commit is not enabled yet"
+          className="mt-3 inline-flex cursor-not-allowed items-center gap-1.5 rounded-md border border-border bg-muted/40 px-4 py-2 text-sm font-medium text-muted-foreground opacity-60"
+        >
+          <Lock className="h-3.5 w-3.5" /> Commit to CRM
         </button>
       </div>
     </div>

@@ -86,8 +86,26 @@ export type ImportRow = {
   row_status: "active" | "edited" | "excluded" | "deleted";
   edited_at: string | null;
   edited_by: string | null;
+  edit_reason: string | null;
+  excluded_at: string | null;
+  excluded_by: string | null;
   deleted_at: string | null;
   deleted_by: string | null;
+};
+
+export type DuplicateCandidate = {
+  id: string;
+  batch_id: string;
+  row_id: string;
+  existing_record_id: string;
+  existing_table: string;
+  match_scope: "within_file" | "existing_crm" | "previous_batch" | null;
+  match_type: string;
+  reason_code: string | null;
+  matched_fields: string[] | null;
+  confidence: number;
+  suggested_action: string | null;
+  resolution: string | null;
 };
 
 // -- Batch CRUD ----------------------------------------------------------------
@@ -311,25 +329,30 @@ export async function dryRunCommit(batchId: string) {
   return callPipeline("dry_run_commit", { batch_id: batchId });
 }
 
+export type ReportType = "validation_errors" | "duplicate_candidates" | "import_summary";
+export type ReportFormat = "csv" | "json";
+
 export async function downloadReport(
   batchId: string,
-  reportType: "validation_errors" | "duplicate_candidates" | "import_summary",
+  reportType: ReportType,
+  format: ReportFormat = "csv",
 ) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Not authenticated");
 
   const res = await supabase.functions.invoke("import-pipeline", {
-    body: { action: "generate_report", batch_id: batchId, report_type: reportType },
+    body: { action: "generate_report", batch_id: batchId, report_type: reportType, format },
   });
 
   if (res.error) throw new Error(String(res.error));
 
-  // Create download
-  const blob = new Blob([res.data as string], { type: "text/csv" });
+  const mime = format === "json" ? "application/json" : "text/csv";
+  const payload = typeof res.data === "string" ? res.data : JSON.stringify(res.data, null, 2);
+  const blob = new Blob([payload], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${reportType}_${batchId.slice(0, 8)}.csv`;
+  a.download = `${reportType}_${batchId.slice(0, 8)}.${format}`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -464,7 +487,7 @@ export async function getImportRows(
  */
 export async function updateImportRow(
   rowId: string,
-  patch: { raw_data: Record<string, unknown> },
+  patch: { raw_data: Record<string, unknown>; edit_reason?: string },
 ): Promise<ImportRow> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
@@ -472,6 +495,7 @@ export async function updateImportRow(
     raw_data: patch.raw_data,
     edited_at: new Date().toISOString(),
     edited_by: user.id,
+    edit_reason: patch.edit_reason ?? null,
     row_status: "edited",
     status: "pending", // must re-validate after edit
   }).eq("id", rowId).select().single();
@@ -479,14 +503,16 @@ export async function updateImportRow(
   return data as ImportRow;
 }
 
+// Exclude a row from validation/dry-run. Uses the dedicated excluded_* columns
+// (distinct from soft-delete). The row is preserved for restore/audit.
 export async function excludeImportRow(rowId: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
   const { error } = await db.from("import_rows").update({
     is_excluded: true,
     row_status: "excluded",
-    deleted_at: new Date().toISOString(),
-    deleted_by: user.id,
+    excluded_at: new Date().toISOString(),
+    excluded_by: user.id,
   }).eq("id", rowId);
   if (error) throw new Error(error.message);
 }
@@ -495,8 +521,21 @@ export async function restoreImportRow(rowId: string): Promise<void> {
   const { error } = await db.from("import_rows").update({
     is_excluded: false,
     row_status: "active",
-    deleted_at: null,
-    deleted_by: null,
+    excluded_at: null,
+    excluded_by: null,
+    status: "pending", // re-validate after restore
+  }).eq("id", rowId);
+  if (error) throw new Error(error.message);
+}
+
+// Soft-delete a staged row (kept for audit; distinct from exclude).
+export async function softDeleteImportRow(rowId: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { error } = await db.from("import_rows").update({
+    row_status: "deleted",
+    deleted_at: new Date().toISOString(),
+    deleted_by: user.id,
   }).eq("id", rowId);
   if (error) throw new Error(error.message);
 }
@@ -509,6 +548,92 @@ export async function getFileDownloadUrl(storagePath: string): Promise<string> {
     .createSignedUrl(storagePath, 60);
   if (error) throw new Error(error.message);
   return data.signedUrl;
+}
+
+// -- Real-data readiness checklist (Section J) --------------------------------
+// Stored on import_batches.readiness_checklist (jsonb). Staging metadata only.
+export const READINESS_ITEMS = [
+  { key: "file_source_confirmed", label: "File source confirmed", manual: true },
+  { key: "owner_confirmed", label: "Data owner confirmed", manual: true },
+  { key: "backup_completed", label: "Current CRM data backed up / exported", manual: true },
+  { key: "no_unnecessary_sensitive_data", label: "File contains no unnecessary sensitive data", manual: true },
+  { key: "mapping_reviewed", label: "Mapping reviewed", manual: false },
+  { key: "validation_reviewed", label: "Validation reviewed", manual: false },
+  { key: "duplicates_reviewed", label: "Duplicate resolution reviewed", manual: false },
+  { key: "dry_run_generated", label: "Dry-run report generated", manual: false },
+  { key: "approval_obtained", label: "Approval obtained (required before commit)", manual: false },
+] as const;
+
+export type ReadinessKey = (typeof READINESS_ITEMS)[number]["key"];
+export type ReadinessChecklist = Partial<Record<ReadinessKey, boolean>>;
+
+export async function saveReadinessChecklist(
+  batchId: string,
+  checklist: ReadinessChecklist,
+): Promise<void> {
+  const { error } = await db.from("import_batches").update({ readiness_checklist: checklist }).eq("id", batchId);
+  if (error) throw new Error(error.message);
+}
+
+export async function getReadinessChecklist(batchId: string): Promise<ReadinessChecklist> {
+  const { data, error } = await db.from("import_batches").select("readiness_checklist").eq("id", batchId).single();
+  if (error) return {};
+  return (data?.readiness_checklist ?? {}) as ReadinessChecklist;
+}
+
+// Derive the automatic (state-based) checklist items from batch state.
+export function deriveAutoChecklist(batch: ImportBatch): ReadinessChecklist {
+  return {
+    mapping_reviewed: ["validating", "duplicate_review", "pending_approval", "approved", "dry_run"].includes(batch.status),
+    validation_reviewed: batch.valid_rows > 0 || batch.error_rows > 0,
+    duplicates_reviewed: ["pending_approval", "approved", "dry_run"].includes(batch.status),
+    dry_run_generated: batch.status === "dry_run",
+    approval_obtained: !!batch.approved_at,
+  };
+}
+
+// -- Batch activity log (Section B, tab 13) -----------------------------------
+export async function getBatchActivity(batchId: string) {
+  const { data, error } = await db
+    .from("audit_log")
+    .select("id, action, actor_id, after_value, timestamp, created_at")
+    .eq("entity_type", "import_batches")
+    .eq("entity_id", batchId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) return [];
+  return data ?? [];
+}
+
+// Group staged rows by intended target area for the per-entity staged tabs.
+export type StagedGroup = "companies" | "contacts" | "opportunities" | "projects" | "rfq_tender" | "unmapped";
+
+const STAGED_FIELD_MAP: Record<StagedGroup, string[]> = {
+  companies: ["name", "company_name", "cr_number", "website", "website_domain", "company_type"],
+  contacts: ["contact_name", "email", "phone", "contact_phone", "job_title"],
+  opportunities: ["stage", "owner", "next_action", "lead_source", "estimated_value"],
+  projects: ["project_name", "location", "consultant", "main_contractor"],
+  rfq_tender: ["tender_ref", "rfq_number", "tender_number", "boq_value", "submission_date"],
+  unmapped: [],
+};
+
+// Whether a staged row participates in validation / dry-run. Excluded and
+// soft-deleted rows are ignored; restoring a row makes it processable again.
+// The import-pipeline edge function applies the same rule server-side.
+export function isRowProcessable(row: Pick<ImportRow, "is_excluded" | "row_status">): boolean {
+  return !row.is_excluded && row.row_status !== "excluded" && row.row_status !== "deleted";
+}
+
+// Which staged groups a mapped row contributes to (display/staging only).
+export function stagedGroupsForRow(mapped: Record<string, unknown> | null): StagedGroup[] {
+  if (!mapped) return [];
+  const keys = Object.keys(mapped).filter((k) => mapped[k] != null && mapped[k] !== "");
+  const groups: StagedGroup[] = [];
+  for (const g of Object.keys(STAGED_FIELD_MAP) as StagedGroup[]) {
+    if (g === "unmapped") continue;
+    if (STAGED_FIELD_MAP[g].some((f) => keys.includes(f))) groups.push(g);
+  }
+  return groups.length ? groups : ["unmapped"];
 }
 
 // Target columns for company mapping
