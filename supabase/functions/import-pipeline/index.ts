@@ -580,13 +580,6 @@ handlers["purge_batch"] = async (payload, caller) => {
   return json({ purged: true, storage_files_removed: storageObjs?.length ?? 0 });
 };
 
-function quote(s: string | null | undefined): string {
-  if (!s) return "";
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return '"' + s.replace(/"/g, '""') + '"';
-  }
-  return s;
-}
 
 // -- Main router ---------------------------------------------------------------
 
