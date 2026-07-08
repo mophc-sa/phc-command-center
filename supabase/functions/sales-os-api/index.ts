@@ -27,6 +27,45 @@ import {
   canRunSensitiveSalesAction,
 } from "../_shared/roles.ts";
 import { planApprovalExecution, type ApprovalRow } from "../_shared/approvals.ts";
+import {
+  evaluateConversion,
+  reviewFromRecord,
+  type ConversionReview,
+} from "../_shared/conversion.ts";
+
+// Persist a conversion review snapshot onto the source record (tender | rfq).
+// Confidence lives in different columns: tenders reuse `signage_potential`,
+// RFQs use their own `signage_package_confidence` column.
+async function persistConversionReview(
+  svc: ReturnType<typeof serviceClient>,
+  table: "tenders" | "rfqs",
+  recordId: string,
+  review: ConversionReview,
+) {
+  const patch: Record<string, unknown> = {
+    project_stage_suitable: review.project_stage_suitable,
+    package_not_closed: review.package_not_closed,
+    estimated_signage_value: review.estimated_signage_value,
+    contact_plan_ready: review.contact_plan_ready,
+    main_contractor_confirmed: review.main_contractor_confirmed,
+    signage_package_status: review.signage_package_status ?? "unknown",
+    conversion_reason: review.conversion_reason,
+  };
+  if (review.signage_package_confidence) {
+    if (table === "rfqs") patch.signage_package_confidence = review.signage_package_confidence;
+    else patch.signage_potential = review.signage_package_confidence;
+  }
+  await svc.from(table).update(patch).eq("id", recordId);
+}
+
+// Normalise a tender row so the shared conversion review reads confidence from
+// the tender's `signage_potential` column.
+function tenderReviewRecord(tender: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...tender,
+    signage_package_confidence: tender.signage_package_confidence ?? tender.signage_potential,
+  };
+}
 
 type Handler = (
   payload: Record<string, unknown>,
@@ -314,6 +353,19 @@ async function dispatchApprovalAction(
       const { data: tender } = await svc.from("tenders").select("*").eq("id", tenderId).single();
       if (!tender) throw new Error("Target tender not found");
       if (tender.tender_stage === "converted_to_jih") throw new Error("Tender already converted");
+      // Re-validate PHC rules server-side at execution time — no bypass.
+      const review = reviewFromRecord(tenderReviewRecord(tender as Record<string, unknown>), {}, !!tender.main_contractor_id);
+      const decision = evaluateConversion(review);
+      if (decision.blocked.length) throw new Error(`Conversion blocked: ${decision.blocked.join(", ")}`);
+      if (decision.requiresException) {
+        const exId = (tender.below_300k_exception_approval_id as string | null) ?? null;
+        let exApproved = false;
+        if (exId) {
+          const { data: ex } = await svc.from("approvals").select("status").eq("id", exId).single();
+          exApproved = ex?.status === "approved";
+        }
+        if (!exApproved) throw new Error("Sub-300k conversion requires an approved executive exception");
+      }
       const opp = await executeTenderConversion(svc, tender as Record<string, unknown>, actorId, approvalId);
       return { result: { opportunity_id: opp.id } };
     }
@@ -672,6 +724,7 @@ const handlers: Record<string, Handler> = {
 
   // Convert an RFQ into a live JIH opportunity (RFQ_RECEIVED -> JIH).
   async convert_rfq_to_jih(payload, caller) {
+    if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
     const rfqId = String(payload.rfqId ?? "");
     if (!rfqId) return err("rfqId is required");
     const svc = serviceClient();
@@ -684,6 +737,41 @@ const handlers: Record<string, Handler> = {
     if (miss.length) return err(`Missing before JIH: ${miss.join(", ")}`, 409);
     if (!signage && !fields.value_pending) return err("Estimated value or 'pending verification' is required", 409);
     if (!fields.next_action || !fields.follow_up_date) return err("Next action and follow-up date are required", 409);
+
+    // PHC conversion rules (shared engine with tenders).
+    const review = reviewFromRecord(rfq as Record<string, unknown>, (payload.review as Record<string, unknown>) ?? {}, !!rfq.company_id);
+    await persistConversionReview(svc, "rfqs", rfqId, review);
+    const decision = evaluateConversion(review);
+    if (decision.blocked.length) {
+      await audit(svc, caller.userId, "rfq.conversion_blocked", "rfq", rfqId, { reasons: decision.blocked });
+      return err(`Conversion blocked: ${decision.blocked.join(", ")}`, 409, { reasons: decision.blocked });
+    }
+    if (decision.requiresException) {
+      const exId = (rfq.below_300k_exception_approval_id as string | null) ?? null;
+      let exApproved = false;
+      if (exId) {
+        const { data: ex } = await svc.from("approvals").select("status").eq("id", exId).single();
+        exApproved = ex?.status === "approved";
+      }
+      if (!exApproved) {
+        const { data: exAppr } = await svc
+          .from("approvals")
+          .insert({
+            approval_type: "below_300k_exception",
+            requested_by: caller.userId,
+            status: "pending",
+            recommendation: "management_review",
+            decision_notes: review.conversion_reason,
+            linked_record_type: "rfq",
+            linked_record_id: rfqId,
+          })
+          .select()
+          .single();
+        await svc.from("rfqs").update({ below_300k_exception_approval_id: exAppr?.id }).eq("id", rfqId);
+        await audit(svc, caller.userId, "rfq.exception_requested", "rfq", rfqId, { approval: exAppr?.id });
+        return json({ ok: true, pending_exception: true, approval: exAppr });
+      }
+    }
 
     const { data: opp, error } = await svc
       .from("opportunities")
@@ -845,7 +933,51 @@ const handlers: Record<string, Handler> = {
     if (tender.tender_stage !== "awarded_to_contractor") {
       return err("Tender must be 'awarded_to_contractor' before conversion review", 409);
     }
-    if (!tender.main_contractor_id) return err("Winning contractor must be confirmed", 409);
+
+    // Build + persist the PHC conversion review (UI answers over stored columns).
+    const override = (payload.review as Record<string, unknown>) ?? {};
+    const review = reviewFromRecord(tenderReviewRecord(tender as Record<string, unknown>), override, !!tender.main_contractor_id);
+    await persistConversionReview(svc, "tenders", tenderId, review);
+    const decision = evaluateConversion(review);
+
+    // Hard blocks: never convert. Clear reason codes + audit.
+    if (decision.blocked.length) {
+      await audit(svc, caller.userId, "tender.conversion_blocked", "tender", tenderId, { reasons: decision.blocked });
+      return err(`Conversion blocked: ${decision.blocked.join(", ")}`, 409, { reasons: decision.blocked });
+    }
+
+    // Sub-300k signage value: requires an executive exception approval first.
+    if (decision.requiresException) {
+      const exId = (tender.below_300k_exception_approval_id as string | null) ?? null;
+      let exApproved = false;
+      if (exId) {
+        const { data: ex } = await svc.from("approvals").select("status").eq("id", exId).single();
+        exApproved = ex?.status === "approved";
+      }
+      if (!exApproved) {
+        const { data: exAppr } = await svc
+          .from("approvals")
+          .insert({
+            approval_type: "below_300k_exception",
+            requested_by: caller.userId,
+            status: "pending",
+            recommendation: "management_review",
+            decision_notes: review.conversion_reason,
+            linked_record_type: "tender",
+            linked_record_id: tenderId,
+          })
+          .select()
+          .single();
+        await svc.from("tenders").update({ below_300k_exception_approval_id: exAppr?.id }).eq("id", tenderId);
+        await audit(svc, caller.userId, "tender.exception_requested", "tender", tenderId, {
+          approval: exAppr?.id,
+          estimated_signage_value: review.estimated_signage_value,
+        });
+        return json({ ok: true, pending_exception: true, approval: exAppr });
+      }
+    }
+
+    // Passed all gates (or has an approved exception): create the JIH approval.
     const { data: appr } = await svc
       .from("approvals")
       .insert({
@@ -853,7 +985,7 @@ const handlers: Record<string, Handler> = {
         requested_by: caller.userId,
         status: "pending",
         recommendation: "management_review",
-        decision_notes: (payload.notes as string) ?? null,
+        decision_notes: review.conversion_reason ?? (payload.notes as string) ?? null,
         linked_record_type: "tender",
         linked_record_id: tenderId,
         requested_action: "execute_tender_conversion",

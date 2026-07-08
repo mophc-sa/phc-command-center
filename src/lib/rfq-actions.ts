@@ -45,7 +45,11 @@ export async function createRfq(input: {
   return data;
 }
 
-// RFQ_RECEIVED -> JIH is enforced by the backend (requirement checks + audit).
-export async function convertRfqToJih(rfqId: Uuid, fields: Record<string, unknown>) {
-  return await callBackend<{ opportunity: unknown }>("convert_rfq_to_jih", { rfqId, fields });
+// RFQ_RECEIVED -> JIH is enforced by the backend (PHC conversion rules + audit).
+export async function convertRfqToJih(
+  rfqId: Uuid,
+  fields: Record<string, unknown>,
+  review?: Record<string, unknown>,
+) {
+  return await callBackend<{ opportunity: unknown }>("convert_rfq_to_jih", { rfqId, fields, review });
 }
