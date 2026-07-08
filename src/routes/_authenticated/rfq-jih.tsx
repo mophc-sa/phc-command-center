@@ -14,6 +14,7 @@ import { createRfq, convertRfqToJih } from "@/lib/rfq-actions";
 import {
   advanceSalesStage, nextSalesStages, SALES_STAGES, type SalesStage,
 } from "@/lib/workflow-actions";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/rfq-jih")({
   head: () => ({ meta: [{ title: "RFQ & JIH Board — PHC" }, { name: "robots", content: "noindex" }] }),
