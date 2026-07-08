@@ -26,6 +26,7 @@ import {
   canManageSalesPipeline,
   canRunSensitiveSalesAction,
 } from "../_shared/roles.ts";
+import { planApprovalExecution, type ApprovalRow } from "../_shared/approvals.ts";
 
 type Handler = (
   payload: Record<string, unknown>,
@@ -127,27 +128,318 @@ function missing(fields: Record<string, unknown>, keys: string[]): string[] {
   });
 }
 
+// =============================================================================
+// Sales-stage transition — shared between the direct manager path and the
+// Approval Execution Engine so both enforce the SAME requirements and side
+// effects.
+// =============================================================================
+function validateSalesStage(
+  from: string,
+  toStage: string,
+  fields: Record<string, unknown>,
+  notes: string | null,
+  evidence: string | null,
+): string | null {
+  if (!(SALES_TRANSITIONS[from] ?? []).includes(toStage)) {
+    return `Transition ${from} -> ${toStage} is not allowed`;
+  }
+  if (toStage === "under_negotiation" && !notes && !evidence) {
+    return "Negotiation evidence (a note or evidence) is required";
+  }
+  if (toStage === "verbally_awarded") {
+    const m = missing(fields, ["verbal_award_contact_name", "verbal_award_contact_title", "expected_contract_date"]);
+    if (m.length) return `Missing for verbal award: ${m.join(", ")}`;
+    if (!evidence && !fields.verbal_award_evidence) return "Verbal award evidence is required";
+  }
+  if (toStage === "contract_received") {
+    const m = missing(fields, ["contract_value"]);
+    if (m.length) return `Missing for contract: ${m.join(", ")}`;
+    if (!fields.contract_document_url && !evidence) return "A signed contract/PO document is required";
+  }
+  if (toStage === "lost" && !fields.loss_reason) return "Loss reason is mandatory";
+  if (toStage === "on_hold") {
+    const m = missing(fields, ["hold_reason", "hold_review_date"]);
+    if (m.length) return `Missing for hold: ${m.join(", ")}`;
+  }
+  return null;
+}
+
+async function applySalesStage(
+  svc: ReturnType<typeof serviceClient>,
+  opp: { id: string; owner_id: string | null },
+  from: string,
+  toStage: string,
+  fields: Record<string, unknown>,
+  notes: string | null,
+  evidence: string | null,
+  actorId: string,
+  approvalId: string | null = null,
+): Promise<{ from: string; to: string }> {
+  const patch: Record<string, unknown> = { sales_stage: toStage, action_required: false };
+  if (toStage === "verbally_awarded") {
+    patch.verbal_award_contact_name = fields.verbal_award_contact_name;
+    patch.verbal_award_contact_title = fields.verbal_award_contact_title;
+    patch.verbal_award_method = fields.verbal_award_method ?? null;
+    patch.verbal_award_date = fields.verbal_award_date ?? new Date().toISOString().slice(0, 10);
+    patch.verbal_award_evidence = fields.verbal_award_evidence ?? evidence;
+    patch.expected_contract_date = fields.expected_contract_date;
+  }
+  if (toStage === "contract_received") {
+    patch.contract_value = fields.contract_value;
+    patch.contract_reference_number = fields.contract_reference_number ?? null;
+    patch.contract_received_date = fields.contract_received_date ?? new Date().toISOString().slice(0, 10);
+  }
+  if (toStage === "won") {
+    patch.stage = "won";
+    patch.handover_status = "pending";
+  }
+  if (toStage === "lost") {
+    patch.stage = "lost";
+    patch.loss_reason = fields.loss_reason;
+    patch.loss_notes = fields.loss_notes ?? null;
+  }
+  if (toStage === "on_hold") {
+    patch.hold_reason = fields.hold_reason;
+    patch.hold_review_date = fields.hold_review_date;
+  }
+  const { error } = await svc.from("opportunities").update(patch).eq("id", opp.id);
+  if (error) throw new Error(error.message);
+
+  if (toStage === "won") {
+    await svc.from("operations_handovers").insert({
+      opportunity_id: opp.id,
+      commercial_owner_id: opp.owner_id,
+      handover_checklist_status: "pending",
+      created_by: actorId,
+    });
+  }
+  if (evidence || fields.verbal_award_evidence || fields.contract_document_url) {
+    await svc.from("award_evidence").insert({
+      linked_record_type: "opportunity",
+      linked_record_id: opp.id,
+      evidence_type: toStage,
+      uploaded_by: actorId,
+      document_url: (fields.contract_document_url as string) ?? null,
+      note: evidence ?? (fields.verbal_award_evidence as string) ?? null,
+      date_received: new Date().toISOString().slice(0, 10),
+    });
+  }
+  await logTransition(svc, "opportunity", opp.id, from, toStage, actorId, notes, evidence, approvalId);
+  await audit(svc, actorId, "sales_stage.changed", "opportunity", opp.id, { from, to: toStage });
+  return { from, to: toStage };
+}
+
+// Create the JIH opportunity from an awarded tender. Does NOT touch approval
+// state — the caller (engine or legacy handler) owns that.
+async function executeTenderConversion(
+  svc: ReturnType<typeof serviceClient>,
+  tender: Record<string, unknown>,
+  actorId: string,
+  approvalId: string | null = null,
+): Promise<{ id: string }> {
+  const { data: opp, error } = await svc
+    .from("opportunities")
+    .insert({
+      project_name: tender.tender_name,
+      project_id: tender.project_id,
+      main_contractor_id: tender.main_contractor_id,
+      company_id: tender.main_contractor_id,
+      estimated_value_max: tender.estimated_project_value,
+      flow_type: "tender_converted",
+      sales_stage: "jih",
+      stage: "qualification",
+      pipeline_step: "qualified_lead",
+      owner_id: tender.tender_owner_id ?? actorId,
+      created_by: actorId,
+    })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  await svc
+    .from("tenders")
+    .update({ tender_stage: "converted_to_jih", converted_opportunity_id: opp.id })
+    .eq("id", tender.id as string);
+  await logTransition(svc, "tender", tender.id as string, "awarded_to_contractor", "converted_to_jih", actorId, null, null, approvalId);
+  await logTransition(svc, "opportunity", opp.id, null, "jih", actorId);
+  await audit(svc, actorId, "tender.converted", "tender", tender.id as string, { opportunity_id: opp.id });
+  return opp as { id: string };
+}
+
+// =============================================================================
+// Approval Execution Engine.
+//
+// Given an APPROVED approval, apply the original requested action exactly once,
+// writing stage_transition_history + audit_log and stamping the execution
+// fields. Business-rule failures are captured, not swallowed. Unknown / legacy
+// approvals that carry no executable action are marked 'skipped' (the approval
+// is still approved — this preserves pre-engine behaviour), never mutating data.
+// =============================================================================
+async function dispatchApprovalAction(
+  svc: ReturnType<typeof serviceClient>,
+  action: string,
+  payload: Record<string, unknown>,
+  actorId: string,
+  approvalId: string,
+): Promise<{ result: Record<string, unknown> }> {
+  switch (action) {
+    case "advance_sales_stage": {
+      const opportunityId = String(payload.opportunityId ?? "");
+      const toStage = String(payload.toStage ?? "");
+      const fields = (payload.fields as Record<string, unknown>) ?? {};
+      const notes = (payload.notes as string) ?? null;
+      const evidence = (payload.evidence as string) ?? null;
+      const { data: opp } = await svc
+        .from("opportunities")
+        .select("id, sales_stage, owner_id")
+        .eq("id", opportunityId)
+        .single();
+      if (!opp) throw new Error("Target opportunity not found");
+      const from = opp.sales_stage ?? "jih";
+      const vErr = validateSalesStage(from, toStage, fields, notes, evidence);
+      if (vErr) throw new Error(vErr);
+      const res = await applySalesStage(svc, opp, from, toStage, fields, notes, evidence, actorId, approvalId);
+      return { result: res };
+    }
+    case "set_win_confidence": {
+      const opportunityId = String(payload.opportunityId ?? "");
+      const value = String(payload.value ?? "");
+      if (!opportunityId || !value) throw new Error("opportunityId and value are required");
+      const { error } = await svc.from("opportunities").update({ win_confidence: value }).eq("id", opportunityId);
+      if (error) throw new Error(error.message);
+      await audit(svc, actorId, "win_confidence.set", "opportunity", opportunityId, { value });
+      return { result: { win_confidence: value } };
+    }
+    case "execute_tender_conversion": {
+      const tenderId = String(payload.tenderId ?? "");
+      const { data: tender } = await svc.from("tenders").select("*").eq("id", tenderId).single();
+      if (!tender) throw new Error("Target tender not found");
+      if (tender.tender_stage === "converted_to_jih") throw new Error("Tender already converted");
+      const opp = await executeTenderConversion(svc, tender as Record<string, unknown>, actorId, approvalId);
+      return { result: { opportunity_id: opp.id } };
+    }
+    case "assign_owner": {
+      const opportunityId = String(payload.opportunityId ?? "");
+      const newOwnerId = (payload.newOwnerId as string) || null;
+      if (!opportunityId) throw new Error("opportunityId is required");
+      const { error } = await svc.from("opportunities").update({ owner_id: newOwnerId }).eq("id", opportunityId);
+      if (error) throw new Error(error.message);
+      await audit(svc, actorId, "opportunity.assigned", "opportunity", opportunityId, { owner_id: newOwnerId });
+      return { result: { owner_id: newOwnerId } };
+    }
+    case "update_opportunity_stage": {
+      const opportunityId = String(payload.opportunityId ?? "");
+      const stage = String(payload.stage ?? "");
+      if (!opportunityId || !stage) throw new Error("opportunityId and stage are required");
+      const { data: before } = await svc.from("opportunities").select("stage").eq("id", opportunityId).single();
+      const { error } = await svc.from("opportunities").update({ stage }).eq("id", opportunityId);
+      if (error) throw new Error(error.message);
+      await logTransition(svc, "opportunity", opportunityId, before?.stage ?? null, stage, actorId, null, null, approvalId);
+      await audit(svc, actorId, "opportunity.stage_changed", "opportunity", opportunityId, { stage });
+      return { result: { stage } };
+    }
+    default:
+      throw new Error(`No executor for action '${action}'`);
+  }
+}
+
+async function runApprovalExecution(
+  svc: ReturnType<typeof serviceClient>,
+  approval: ApprovalRow,
+  actorId: string,
+): Promise<{ execution_status: string; reason?: string; error?: string; result?: Record<string, unknown> }> {
+  const plan = planApprovalExecution(approval);
+  const stamp = async (status: string, patch: Record<string, unknown> = {}) => {
+    await svc
+      .from("approvals")
+      .update({ execution_status: status, executed_at: new Date().toISOString(), executed_by: actorId, ...patch })
+      .eq("id", approval.id);
+  };
+
+  if (plan.kind === "error") {
+    // not_approved / already_executed are guarded before we get here; the
+    // remaining reasons mean "nothing to auto-execute" — record and move on.
+    await stamp("skipped", { execution_error: `not_executed:${plan.reason}` });
+    await audit(svc, actorId, "approval.execution_skipped", "approval", approval.id, { reason: plan.reason });
+    return { execution_status: "skipped", reason: plan.reason };
+  }
+  if (plan.kind === "authorize_only") {
+    await stamp("executed");
+    await audit(svc, actorId, "approval.authorized", "approval", approval.id, { approval_type: plan.approvalType });
+    return { execution_status: "executed" };
+  }
+  try {
+    const { result } = await dispatchApprovalAction(svc, plan.action, plan.payload, actorId, approval.id);
+    await stamp("executed", { execution_error: null });
+    await audit(svc, actorId, "approval.executed", "approval", approval.id, { action: plan.action, ...result });
+    return { execution_status: "executed", result };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    await stamp("failed", { execution_error: message });
+    await audit(svc, actorId, "approval.execution_failed", "approval", approval.id, { action: plan.action, error: message });
+    return { execution_status: "failed", error: message };
+  }
+}
+
+// Approve an approval and run its execution atomically-ish. Idempotent: a
+// second approve on an already-executed approval is a safe error.
+async function approveAndExecute(
+  svc: ReturnType<typeof serviceClient>,
+  approvalId: string,
+  actorId: string,
+  notes: string | null,
+): Promise<{ httpErr?: Response; approval?: unknown; execution?: unknown }> {
+  const { data: current, error: cErr } = await svc.from("approvals").select("*").eq("id", approvalId).single();
+  if (cErr || !current) return { httpErr: err("Approval not found", 404) };
+  if (current.execution_status === "executed") {
+    return { httpErr: err("This approval has already been executed", 409) };
+  }
+  const { data: approval, error: uErr } = await svc
+    .from("approvals")
+    .update({
+      status: "approved",
+      decision: "proceed",
+      decision_notes: notes ?? current.decision_notes,
+      decided_at: new Date().toISOString(),
+    })
+    .eq("id", approvalId)
+    .select()
+    .single();
+  if (uErr || !approval) return { httpErr: err(uErr?.message ?? "Approval update failed", 400) };
+  const execution = await runApprovalExecution(svc, approval as ApprovalRow, actorId);
+  return { approval, execution };
+}
+
 const handlers: Record<string, Handler> = {
-  // Manager approves / returns / escalates a pending approval.
+  // Manager decides a pending approval. On "approved" the ORIGINAL requested
+  // action is executed by the Approval Execution Engine (once). "returned" and
+  // "escalated" never execute anything.
   async decide_approval(payload, caller) {
     if (!canApproveCommercialAction(caller.roles)) return err("Commercial approval authority required", 403);
     const approvalId = String(payload.approvalId ?? "");
     const decision = String(payload.decision ?? "");
+    const notes = (payload.notes as string) ?? null;
     if (!approvalId) return err("approvalId is required");
+    const svc = serviceClient();
+
+    if (decision === "approved") {
+      const out = await approveAndExecute(svc, approvalId, caller.userId, notes);
+      if (out.httpErr) return out.httpErr;
+      await audit(svc, caller.userId, "approval.approved", "approval", approvalId, out.execution);
+      return json({ ok: true, approval: out.approval, execution: out.execution });
+    }
+
     const map: Record<string, { status: string; decision: string }> = {
-      approved: { status: "approved", decision: "proceed" },
       returned: { status: "returned", decision: "management_review" },
       escalated: { status: "escalated", decision: "management_review" },
     };
     const m = map[decision];
     if (!m) return err("Invalid decision");
-    const svc = serviceClient();
     const { data, error } = await svc
       .from("approvals")
       .update({
         status: m.status,
         decision: m.decision,
-        decision_notes: (payload.notes as string) ?? null,
+        decision_notes: notes,
         decided_at: new Date().toISOString(),
       })
       .eq("id", approvalId)
@@ -437,31 +729,14 @@ const handlers: Record<string, Handler> = {
       .single();
     if (oErr || !opp) return err("Opportunity not found", 404);
     const from = opp.sales_stage ?? "jih";
-    if (!(SALES_TRANSITIONS[from] ?? []).includes(toStage)) {
-      return err(`Transition ${from} -> ${toStage} is not allowed`, 409);
-    }
 
-    // Per-target requirement checks.
-    if (toStage === "under_negotiation" && !notes && !evidence) {
-      return err("Negotiation evidence (a note or evidence) is required", 409);
-    }
-    if (toStage === "verbally_awarded") {
-      const m = missing(fields, ["verbal_award_contact_name", "verbal_award_contact_title", "expected_contract_date"]);
-      if (m.length) return err(`Missing for verbal award: ${m.join(", ")}`, 409);
-      if (!evidence && !fields.verbal_award_evidence) return err("Verbal award evidence is required", 409);
-    }
-    if (toStage === "contract_received") {
-      const m = missing(fields, ["contract_value"]);
-      if (m.length) return err(`Missing for contract: ${m.join(", ")}`, 409);
-      if (!fields.contract_document_url && !evidence) return err("A signed contract/PO document is required", 409);
-    }
-    if (toStage === "lost" && !fields.loss_reason) return err("Loss reason is mandatory", 409);
-    if (toStage === "on_hold") {
-      const m = missing(fields, ["hold_reason", "hold_review_date"]);
-      if (m.length) return err(`Missing for hold: ${m.join(", ")}`, 409);
-    }
+    // Requirements are enforced identically for both the direct path and the
+    // approval-execution path (validateSalesStage is shared).
+    const vErr = validateSalesStage(from, toStage, fields, notes, evidence);
+    if (vErr) return err(vErr, 409);
 
-    // Manager gate: a salesperson only REQUESTS a gated stage.
+    // Manager gate: a salesperson only REQUESTS a gated stage. The full request
+    // payload is persisted so the Approval Execution Engine can apply it later.
     const isManager = canChangeCommercialStage(caller.roles);
     if (SALES_GATED.has(toStage) && !isManager) {
       const { data: appr } = await svc
@@ -475,6 +750,8 @@ const handlers: Record<string, Handler> = {
           decision_notes: notes,
           linked_record_type: "opportunity",
           linked_record_id: opportunityId,
+          requested_action: "advance_sales_stage",
+          requested_payload: { opportunityId, toStage, fields, notes, evidence },
         })
         .select()
         .single();
@@ -486,60 +763,9 @@ const handlers: Record<string, Handler> = {
       return json({ ok: true, pending_approval: true, approval: appr });
     }
 
-    // Apply the transition.
-    const patch: Record<string, unknown> = { sales_stage: toStage, action_required: false };
-    if (toStage === "verbally_awarded") {
-      patch.verbal_award_contact_name = fields.verbal_award_contact_name;
-      patch.verbal_award_contact_title = fields.verbal_award_contact_title;
-      patch.verbal_award_method = fields.verbal_award_method ?? null;
-      patch.verbal_award_date = fields.verbal_award_date ?? new Date().toISOString().slice(0, 10);
-      patch.verbal_award_evidence = fields.verbal_award_evidence ?? evidence;
-      patch.expected_contract_date = fields.expected_contract_date;
-    }
-    if (toStage === "contract_received") {
-      patch.contract_value = fields.contract_value;
-      patch.contract_reference_number = fields.contract_reference_number ?? null;
-      patch.contract_received_date = fields.contract_received_date ?? new Date().toISOString().slice(0, 10);
-    }
-    if (toStage === "won") {
-      patch.stage = "won";
-      patch.handover_status = "pending";
-    }
-    if (toStage === "lost") {
-      patch.stage = "lost";
-      patch.loss_reason = fields.loss_reason;
-      patch.loss_notes = fields.loss_notes ?? null;
-    }
-    if (toStage === "on_hold") {
-      patch.hold_reason = fields.hold_reason;
-      patch.hold_review_date = fields.hold_review_date;
-    }
-    const { error } = await svc.from("opportunities").update(patch).eq("id", opportunityId);
-    if (error) return err(error.message, 400);
-
-    // Won triggers an operations handover checklist.
-    if (toStage === "won") {
-      await svc.from("operations_handovers").insert({
-        opportunity_id: opportunityId,
-        commercial_owner_id: opp.owner_id,
-        handover_checklist_status: "pending",
-        created_by: caller.userId,
-      });
-    }
-    if (evidence || fields.verbal_award_evidence || fields.contract_document_url) {
-      await svc.from("award_evidence").insert({
-        linked_record_type: "opportunity",
-        linked_record_id: opportunityId,
-        evidence_type: toStage,
-        uploaded_by: caller.userId,
-        document_url: (fields.contract_document_url as string) ?? null,
-        note: evidence ?? (fields.verbal_award_evidence as string) ?? null,
-        date_received: new Date().toISOString().slice(0, 10),
-      });
-    }
-    await logTransition(svc, "opportunity", opportunityId, from, toStage, caller.userId, notes, evidence);
-    await audit(svc, caller.userId, "sales_stage.changed", "opportunity", opportunityId, { from, to: toStage });
-    return json({ ok: true, from, to: toStage });
+    // Direct apply (manager or non-gated stage).
+    const res = await applySalesStage(svc, opp, from, toStage, fields, notes, evidence, caller.userId);
+    return json({ ok: true, ...res });
   },
 
   // Set win confidence. SURE_WIN requires evidence + manager approval.
@@ -561,6 +787,8 @@ const handlers: Record<string, Handler> = {
           decision_notes: String(payload.evidence),
           linked_record_type: "opportunity",
           linked_record_id: opportunityId,
+          requested_action: "set_win_confidence",
+          requested_payload: { opportunityId, value },
         })
         .select()
         .single();
@@ -628,6 +856,8 @@ const handlers: Record<string, Handler> = {
         decision_notes: (payload.notes as string) ?? null,
         linked_record_type: "tender",
         linked_record_id: tenderId,
+        requested_action: "execute_tender_conversion",
+        requested_payload: { tenderId },
       })
       .select()
       .single();
@@ -635,40 +865,28 @@ const handlers: Record<string, Handler> = {
     return json({ ok: true, pending_approval: true, approval: appr });
   },
 
-  // Manager approves a tender conversion — creates the JIH opportunity.
+  // Manager approves a tender conversion — creates the JIH opportunity. Routes
+  // through the Approval Execution Engine when an approval id is supplied (the
+  // normal path), guaranteeing single execution + consistent audit. Falls back
+  // to a direct conversion only when no approval record exists.
   async approve_tender_conversion(payload, caller) {
     if (!canApproveCommercialAction(caller.roles)) return err("Commercial approval authority required", 403);
     const tenderId = String(payload.tenderId ?? "");
     const approvalId = (payload.approvalId as string) || null;
-    if (!tenderId) return err("tenderId is required");
     const svc = serviceClient();
+
+    if (approvalId) {
+      const out = await approveAndExecute(svc, approvalId, caller.userId, (payload.notes as string) ?? null);
+      if (out.httpErr) return out.httpErr;
+      await audit(svc, caller.userId, "approval.approved", "approval", approvalId, out.execution);
+      return json({ ok: true, approval: out.approval, execution: out.execution });
+    }
+
+    if (!tenderId) return err("tenderId is required");
     const { data: tender, error: tErr } = await svc.from("tenders").select("*").eq("id", tenderId).single();
     if (tErr || !tender) return err("Tender not found", 404);
-    const { data: opp, error } = await svc
-      .from("opportunities")
-      .insert({
-        project_name: tender.tender_name,
-        project_id: tender.project_id,
-        main_contractor_id: tender.main_contractor_id,
-        company_id: tender.main_contractor_id,
-        estimated_value_max: tender.estimated_project_value,
-        flow_type: "tender_converted",
-        sales_stage: "jih",
-        stage: "qualification",
-        pipeline_step: "qualified_lead",
-        owner_id: tender.tender_owner_id ?? caller.userId,
-        created_by: caller.userId,
-      })
-      .select()
-      .single();
-    if (error) return err(error.message, 400);
-    await svc.from("tenders").update({ tender_stage: "converted_to_jih", converted_opportunity_id: opp.id }).eq("id", tenderId);
-    if (approvalId) {
-      await svc.from("approvals").update({ status: "approved", decision: "proceed", decided_at: new Date().toISOString() }).eq("id", approvalId);
-    }
-    await logTransition(svc, "tender", tenderId, "awarded_to_contractor", "converted_to_jih", caller.userId, null, null, approvalId);
-    await logTransition(svc, "opportunity", opp.id, null, "jih", caller.userId);
-    await audit(svc, caller.userId, "tender.converted", "tender", tenderId, { opportunity_id: opp.id });
+    if (tender.tender_stage === "converted_to_jih") return err("Tender already converted", 409);
+    const opp = await executeTenderConversion(svc, tender as Record<string, unknown>, caller.userId, null);
     return json({ ok: true, opportunity: opp });
   },
 
