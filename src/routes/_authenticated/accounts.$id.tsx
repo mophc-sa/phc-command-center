@@ -14,6 +14,7 @@ import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { updateCompany, changeAccountOwner, type CompanyType } from "@/lib/crm-actions";
 import { canAssignOwner } from "@/lib/roles";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/accounts/$id")({
   head: () => ({ meta: [{ title: "Account — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -108,6 +109,21 @@ function AccountDetail() {
                 {t("crm_reassign_owner")}
               </button>
             ) : null}
+            {(() => {
+              const primary = (c.contacts ?? []).find((x: any) => !!x.email) ?? (c.contacts ?? [])[0];
+              return (
+                <EmailComposeButton
+                  template="contractor_introduction"
+                  context={{
+                    recipientName: primary?.name ?? null,
+                    recipientEmail: primary?.email ?? null,
+                    companyName: c.name,
+                    ownerName: ownerName(c.account_owner_id),
+                  }}
+                  linked={{ type: "company", id: c.id, label: c.name, companyId: c.id, contactId: primary?.id ?? null }}
+                />
+              );
+            })()}
           </div>
         }
       />

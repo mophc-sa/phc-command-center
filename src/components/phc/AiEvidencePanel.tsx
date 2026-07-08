@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, Eye, ShieldAlert, FileSearch } from "lucide-react";
 import { StatusPill } from "@/components/phc/StatusPill";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 import {
   listEvidence,
   buildEvidencePanel,
@@ -86,6 +87,7 @@ export function AiEvidencePanel({
 
       {/* Actions */}
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-4">
+        <EmptyEmailBtn rec={rec} />
         <button disabled={busy} onClick={() => onAction("dismiss")} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50">
           <XCircle className="h-3.5 w-3.5" /> Dismiss
         </button>
@@ -103,5 +105,30 @@ export function AiEvidencePanel({
         )}
       </div>
     </div>
+  );
+}
+
+// AI recommendation follow-up: opens the compose modal only. It never
+// executes a sensitive action; sensitive AI accepts still route through
+// "Create approval". This is why we render the button alongside — not
+// instead of — the standard actions.
+function EmptyEmailBtn({ rec }: { rec: AiRecommendation }) {
+  return (
+    <EmailComposeButton
+      size="sm"
+      variant="ghost"
+      template="opportunity_follow_up"
+      context={{
+        recipientName: null,
+        recipientEmail: null,
+        aiRecommendation: rec.recommendation,
+      }}
+      linked={{
+        type: "ai_recommendation",
+        id: rec.id,
+        label: rec.recommendation,
+        opportunityId: (rec as unknown as { opportunity_id?: string | null }).opportunity_id ?? null,
+      }}
+    />
   );
 }

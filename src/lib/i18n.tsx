@@ -782,6 +782,43 @@ export const strings = {
   import_cancel: { en: "Cancel Import", ar: "إلغاء الاستيراد" },
   import_no_batches: { en: "No imports yet", ar: "لا يوجد استيرادات بعد" },
   import_file_rejected: { en: "File rejected", ar: "الملف مرفوض" },
+
+  // Email via Outlook (Phase 1 — compose only, mailto handoff)
+  email_via_outlook: { en: "Email via Outlook", ar: "بريد عبر Outlook" },
+  email_open_in_outlook: { en: "Open in Outlook", ar: "فتح في Outlook" },
+  email_copy_text: { en: "Copy email text", ar: "نسخ نص البريد" },
+  email_copied: { en: "Email text copied", ar: "تم نسخ نص البريد" },
+  email_to: { en: "To", ar: "إلى" },
+  email_cc: { en: "CC", ar: "نسخة" },
+  email_subject: { en: "Subject", ar: "الموضوع" },
+  email_body: { en: "Body", ar: "المحتوى" },
+  email_linked_record: { en: "Linked record", ar: "السجل المرتبط" },
+  email_compose_desc: {
+    en: "Review, then open the draft in your Outlook mail client. Nothing is sent from PHC.",
+    ar: "راجع الرسالة ثم افتحها في Outlook. لا يتم الإرسال من داخل النظام.",
+  },
+  email_no_recipient: {
+    en: "No recipient email found. Add a contact email or use Copy email text.",
+    ar: "لا يوجد بريد للمستلم. أضف بريداً للتواصل أو انسخ نص البريد يدوياً.",
+  },
+  email_invalid_recipient: {
+    en: "Recipient email doesn't look valid.",
+    ar: "بريد المستلم يبدو غير صالح.",
+  },
+  email_mailto_truncated_hint: {
+    en: "This message is long — some mail clients may truncate it. Use Copy email text for the full version.",
+    ar: "الرسالة طويلة وقد يقتطعها بعض عملاء البريد. استخدم نسخ نص البريد للنسخة الكاملة.",
+  },
+  email_phase1_disclaimer: {
+    en: "Compose only — you review and send from Outlook. PHC does not send emails automatically.",
+    ar: "تجهيز فقط — تراجع وترسل من Outlook. لا يقوم النظام بإرسال أي بريد تلقائياً.",
+  },
+  email_tpl_opportunity_follow_up: { en: "Opportunity follow-up", ar: "متابعة الفرصة" },
+  email_tpl_tender_clarification: { en: "Tender / RFQ clarification", ar: "توضيحات المناقصة / طلب العرض" },
+  email_tpl_contractor_introduction: { en: "Contractor introduction", ar: "تعريف بالمقاول" },
+  email_tpl_meeting_request: { en: "Meeting request", ar: "طلب اجتماع" },
+  email_tpl_missing_information: { en: "Missing information", ar: "معلومات ناقصة" },
+  email_tpl_quotation_follow_up: { en: "Quotation follow-up", ar: "متابعة عرض السعر" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;

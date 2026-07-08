@@ -10,6 +10,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatNumber } from "@/lib/i18n";
 import { completeFollowUp } from "@/lib/opportunity-actions";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/follow-ups")({
   head: () => ({ meta: [{ title: "Follow-ups — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -125,6 +126,27 @@ function FollowUpsPage() {
                     <div className="num text-right text-[11px] text-muted-foreground" data-tabular="true">
                       {dd ?? "—"}
                     </div>
+                    <EmailComposeButton
+                      size="xs"
+                      variant="ghost"
+                      template="opportunity_follow_up"
+                      context={{
+                        projectName: opp?.project_name ?? null,
+                        opportunityName: opp?.project_name ?? null,
+                        companyName: opp?.main_contractor ?? null,
+                        nextAction: f.notes ?? null,
+                      }}
+                      linked={
+                        opp
+                          ? {
+                              type: "follow_up",
+                              id: f.id,
+                              label: opp.project_name,
+                              opportunityId: opp.id,
+                            }
+                          : null
+                      }
+                    />
                     <button
                       onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })}
                       className="rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-[11px] font-medium text-amber-light transition-colors hover:bg-amber/20"

@@ -14,6 +14,7 @@ import { createRfq, convertRfqToJih } from "@/lib/rfq-actions";
 import {
   advanceSalesStage, nextSalesStages, SALES_STAGES, type SalesStage,
 } from "@/lib/workflow-actions";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/rfq-jih")({
   head: () => ({ meta: [{ title: "RFQ & JIH Board — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -151,8 +152,20 @@ function RfqJihBoard() {
                       {t("wf_convert_to_jih")} <ArrowRight className="ms-0.5 inline h-2.5 w-2.5" />
                     </button>
                   </div>
-                  <div className="mt-2 num text-[11px] text-muted-foreground" data-tabular="true">
-                    {formatCurrency(r.estimated_value, lang, "SAR")}
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="num text-[11px] text-muted-foreground" data-tabular="true">
+                      {formatCurrency(r.estimated_value, lang, "SAR")}
+                    </span>
+                    <EmailComposeButton
+                      size="xs"
+                      variant="ghost"
+                      template="tender_clarification"
+                      context={{
+                        rfqName: r.rfq_number ?? "RFQ",
+                        projectName: r.rfq_number ?? null,
+                      }}
+                      linked={{ type: "rfq", id: r.id, label: r.rfq_number ?? "RFQ" }}
+                    />
                   </div>
                 </div>
               ))}

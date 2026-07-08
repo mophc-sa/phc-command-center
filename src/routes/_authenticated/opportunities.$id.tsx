@@ -21,6 +21,7 @@ import {
   updateOpportunityStage,
 } from "@/lib/opportunity-actions";
 import { ArrowLeft, ArrowRight, ExternalLink, FileText } from "lucide-react";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
@@ -273,6 +274,32 @@ function OpportunityDetail() {
             <ActionButton onClick={() => setAction("schedule")}>{t("action_schedule")}</ActionButton>
             <ActionButton onClick={() => setAction("assign")}>{t("action_assign")}</ActionButton>
             <ActionButton onClick={() => setAction("escalate")}>{t("action_escalate")}</ActionButton>
+            {(() => {
+              const primary = (stakeholdersQ.data ?? []).find((s: any) => !!s.email) ?? (stakeholdersQ.data ?? [])[0];
+              return (
+                <EmailComposeButton
+                  template="opportunity_follow_up"
+                  context={{
+                    recipientName: primary?.name ?? null,
+                    recipientEmail: primary?.email ?? null,
+                    companyName: o.company?.name ?? o.client ?? null,
+                    projectName: o.project_name,
+                    opportunityName: o.project_name,
+                    currentStage: humanize(o.stage),
+                    nextAction: o.next_action,
+                    aiRecommendation: o.agent_recommendation ? humanize(o.agent_recommendation) : null,
+                  }}
+                  linked={{
+                    type: "opportunity",
+                    id: o.id,
+                    label: o.project_name,
+                    opportunityId: o.id,
+                    companyId: o.company?.id ?? null,
+                    contactId: primary?.id ?? null,
+                  }}
+                />
+              );
+            })()}
           </div>
         </div>
       </Panel>

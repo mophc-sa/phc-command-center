@@ -14,6 +14,7 @@ import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { updateProject, type ProjectStage } from "@/lib/crm-actions";
 import { canApproveCommercialAction } from "@/lib/roles";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/projects/$id")({
   head: () => ({ meta: [{ title: "Project — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -94,6 +95,16 @@ function ProjectDetail() {
                 {t("crm_verified")}
               </button>
             ) : null}
+            <EmailComposeButton
+              template="contractor_introduction"
+              context={{
+                recipientName: null,
+                recipientEmail: null,
+                companyName: p.main_contractor?.name ?? null,
+                projectName: p.name,
+              }}
+              linked={{ type: "project", id: p.id, label: p.name, companyId: p.main_contractor?.id ?? null }}
+            />
           </div>
         }
       />
