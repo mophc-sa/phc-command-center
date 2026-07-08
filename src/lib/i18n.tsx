@@ -27,6 +27,7 @@ export const strings = {
   nav_vendors: { en: "Vendors", ar: "الموردون" },
   nav_reference_library: { en: "Reference Library", ar: "مكتبة المراجع" },
   nav_knowledge: { en: "Knowledge Search", ar: "البحث المعرفي" },
+  nav_ai_agents: { en: "AI Agents", ar: "وكلاء الذكاء" },
   nav_rfq_jih: { en: "RFQ & JIH Board", ar: "لوحة RFQ والفرص القائمة" },
   nav_tenders: { en: "Tender Monitor", ar: "مراقب المناقصات" },
   nav_award_queue: { en: "Award & Contract Queue", ar: "طابور الترسية والعقود" },

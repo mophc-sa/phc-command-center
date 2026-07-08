@@ -34,6 +34,7 @@ import { Route as AuthenticatedCommandCenterRouteImport } from './routes/_authen
 import { Route as AuthenticatedBoqRouteImport } from './routes/_authenticated/boq'
 import { Route as AuthenticatedAwardQueueRouteImport } from './routes/_authenticated/award-queue'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated/approvals'
+import { Route as AuthenticatedAiAgentsRouteImport } from './routes/_authenticated/ai-agents'
 import { Route as AuthenticatedAgentActivityRouteImport } from './routes/_authenticated/agent-activity'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin-settings'
 import { Route as AuthenticatedActionCenterRouteImport } from './routes/_authenticated/action-center'
@@ -175,6 +176,11 @@ const AuthenticatedApprovalsRoute = AuthenticatedApprovalsRouteImport.update({
   path: '/approvals',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAiAgentsRoute = AuthenticatedAiAgentsRouteImport.update({
+  id: '/ai-agents',
+  path: '/ai-agents',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAgentActivityRoute =
   AuthenticatedAgentActivityRouteImport.update({
     id: '/agent-activity',
@@ -254,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/action-center': typeof AuthenticatedActionCenterRoute
   '/admin-settings': typeof AuthenticatedAdminSettingsRoute
   '/agent-activity': typeof AuthenticatedAgentActivityRoute
+  '/ai-agents': typeof AuthenticatedAiAgentsRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/award-queue': typeof AuthenticatedAwardQueueRoute
   '/boq': typeof AuthenticatedBoqRoute
@@ -292,6 +299,7 @@ export interface FileRoutesByTo {
   '/action-center': typeof AuthenticatedActionCenterRoute
   '/admin-settings': typeof AuthenticatedAdminSettingsRoute
   '/agent-activity': typeof AuthenticatedAgentActivityRoute
+  '/ai-agents': typeof AuthenticatedAiAgentsRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/award-queue': typeof AuthenticatedAwardQueueRoute
   '/boq': typeof AuthenticatedBoqRoute
@@ -332,6 +340,7 @@ export interface FileRoutesById {
   '/_authenticated/action-center': typeof AuthenticatedActionCenterRoute
   '/_authenticated/admin-settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/agent-activity': typeof AuthenticatedAgentActivityRoute
+  '/_authenticated/ai-agents': typeof AuthenticatedAiAgentsRoute
   '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
   '/_authenticated/award-queue': typeof AuthenticatedAwardQueueRoute
   '/_authenticated/boq': typeof AuthenticatedBoqRoute
@@ -372,6 +381,7 @@ export interface FileRouteTypes {
     | '/action-center'
     | '/admin-settings'
     | '/agent-activity'
+    | '/ai-agents'
     | '/approvals'
     | '/award-queue'
     | '/boq'
@@ -410,6 +420,7 @@ export interface FileRouteTypes {
     | '/action-center'
     | '/admin-settings'
     | '/agent-activity'
+    | '/ai-agents'
     | '/approvals'
     | '/award-queue'
     | '/boq'
@@ -449,6 +460,7 @@ export interface FileRouteTypes {
     | '/_authenticated/action-center'
     | '/_authenticated/admin-settings'
     | '/_authenticated/agent-activity'
+    | '/_authenticated/ai-agents'
     | '/_authenticated/approvals'
     | '/_authenticated/award-queue'
     | '/_authenticated/boq'
@@ -666,6 +678,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedApprovalsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/ai-agents': {
+      id: '/_authenticated/ai-agents'
+      path: '/ai-agents'
+      fullPath: '/ai-agents'
+      preLoaderRoute: typeof AuthenticatedAiAgentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/agent-activity': {
       id: '/_authenticated/agent-activity'
       path: '/agent-activity'
@@ -784,6 +803,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedActionCenterRoute: typeof AuthenticatedActionCenterRoute
   AuthenticatedAdminSettingsRoute: typeof AuthenticatedAdminSettingsRoute
   AuthenticatedAgentActivityRoute: typeof AuthenticatedAgentActivityRoute
+  AuthenticatedAiAgentsRoute: typeof AuthenticatedAiAgentsRoute
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
   AuthenticatedAwardQueueRoute: typeof AuthenticatedAwardQueueRoute
   AuthenticatedBoqRoute: typeof AuthenticatedBoqRoute
@@ -814,6 +834,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedActionCenterRoute: AuthenticatedActionCenterRoute,
   AuthenticatedAdminSettingsRoute: AuthenticatedAdminSettingsRoute,
   AuthenticatedAgentActivityRoute: AuthenticatedAgentActivityRoute,
+  AuthenticatedAiAgentsRoute: AuthenticatedAiAgentsRoute,
   AuthenticatedApprovalsRoute: AuthenticatedApprovalsRoute,
   AuthenticatedAwardQueueRoute: AuthenticatedAwardQueueRoute,
   AuthenticatedBoqRoute: AuthenticatedBoqRoute,
