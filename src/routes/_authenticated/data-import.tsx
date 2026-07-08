@@ -498,29 +498,50 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
   busy: boolean;
   t: (k: any) => string;
 }) {
-  const columns = files[0]?.column_names ?? [];
-  const [draft, setDraft] = useState<Record<string, { target: string; isKey: boolean }>>(() => {
-    const init: Record<string, { target: string; isKey: boolean }> = {};
-    for (const m of mappings) {
-      init[m.source_column] = { target: m.target_column, isKey: m.is_key };
-    }
-    return init;
+  const columns: string[] = files[0]?.column_names ?? [];
+
+  // Row state keyed by column INDEX (not header name) so files with duplicate
+  // or blank headers keep each row independent.
+  type Row = { source: string; target: string; isKey: boolean };
+  const [draft, setDraft] = useState<Row[]>(() => {
+    const byCol = new Map<string, { target: string; isKey: boolean }>();
+    for (const m of mappings) byCol.set(m.source_column, { target: m.target_column, isKey: m.is_key });
+    return columns.map((c) => ({
+      source: c,
+      target: byCol.get(c)?.target ?? "",
+      isKey: byCol.get(c)?.isKey ?? false,
+    }));
   });
 
   if (!batch || columns.length === 0) {
     return <EmptyState message={t("import_tab_upload")} />;
   }
 
+  const updateRow = (idx: number, patch: Partial<Row>) =>
+    setDraft((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+
   const handleSave = async () => {
-    const mapped = Object.entries(draft)
-      .filter(([, v]) => v.target)
-      .map(([source, v]) => ({
-        source_column: source,
+    // Only rows with a target field. Drop duplicates on source_column to
+    // satisfy UNIQUE(batch_id, source_column); skip blank source names.
+    const seen = new Set<string>();
+    const mapped = draft
+      .filter((r) => {
+        if (!r.target || !r.source) return false;
+        if (seen.has(r.source)) return false;
+        seen.add(r.source);
+        return true;
+      })
+      .map((r) => ({
+        source_column: r.source,
         target_table: "companies",
-        target_column: v.target,
+        target_column: r.target,
         transform: null,
-        is_key: v.isKey,
+        is_key: r.isKey,
       }));
+    if (mapped.length === 0) {
+      toast.error(t("toast_error") + "select a target field for at least one column");
+      return;
+    }
     await onSave(mapped);
   };
 
@@ -536,13 +557,15 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
             </tr>
           </thead>
           <tbody>
-            {columns.map((col: string) => (
-              <tr key={col} className="border-b border-border last:border-0">
-                <td className="px-4 py-2 font-mono text-xs text-foreground">{col}</td>
+            {draft.map((row, idx) => (
+              <tr key={idx} className="border-b border-border last:border-0">
+                <td className="px-4 py-2 font-mono text-xs text-foreground">
+                  {row.source || <span className="text-muted-foreground">(column {idx + 1})</span>}
+                </td>
                 <td className="px-4 py-2">
                   <select
-                    value={draft[col]?.target ?? ""}
-                    onChange={(e) => setDraft((p) => ({ ...p, [col]: { target: e.target.value, isKey: p[col]?.isKey ?? false } }))}
+                    value={row.target}
+                    onChange={(e) => updateRow(idx, { target: e.target.value })}
                     className="w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
                   >
                     <option value="">— skip —</option>
@@ -554,8 +577,8 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
                 <td className="px-4 py-2 text-center">
                   <input
                     type="checkbox"
-                    checked={draft[col]?.isKey ?? false}
-                    onChange={(e) => setDraft((p) => ({ ...p, [col]: { target: p[col]?.target ?? "", isKey: e.target.checked } }))}
+                    checked={row.isKey}
+                    onChange={(e) => updateRow(idx, { isKey: e.target.checked })}
                     className="h-4 w-4 rounded border-border"
                   />
                 </td>
@@ -564,6 +587,7 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
           </tbody>
         </table>
       </div>
+
 
       <div className="flex gap-3">
         <button
