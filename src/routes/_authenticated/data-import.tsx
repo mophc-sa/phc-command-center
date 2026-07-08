@@ -49,17 +49,6 @@ function DataImportCenter() {
   const canApprove = hasAnyRole([...APPROVE_COMMIT_ROLES] as any[]);
   const isSystemAdmin = hasRole("system_admin" as any);
 
-  if (!canAccess) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="max-w-md text-center">
-          <ShieldCheck className="mx-auto h-12 w-12 text-muted-foreground" />
-          <p className="mt-4 text-lg font-medium text-foreground">{t("import_blocked")}</p>
-        </div>
-      </div>
-    );
-  }
-
   const [tab, setTab] = useState("history");
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -68,37 +57,38 @@ function DataImportCenter() {
   const { data: batches = [], isLoading: batchesLoading } = useQuery({
     queryKey: ["import-batches"],
     queryFn: listBatches,
+    enabled: canAccess,
   });
 
   const { data: activeBatch } = useQuery({
     queryKey: ["import-batch", activeBatchId],
     queryFn: () => (activeBatchId ? getBatch(activeBatchId) : null),
-    enabled: !!activeBatchId,
+    enabled: canAccess && !!activeBatchId,
     refetchInterval: busy ? 3000 : false,
   });
 
   const { data: mappings = [] } = useQuery({
     queryKey: ["import-mappings", activeBatchId],
     queryFn: () => (activeBatchId ? getMappings(activeBatchId) : []),
-    enabled: !!activeBatchId,
+    enabled: canAccess && !!activeBatchId,
   });
 
   const { data: errors = [] } = useQuery({
     queryKey: ["import-errors", activeBatchId],
     queryFn: () => (activeBatchId ? getImportErrors(activeBatchId) : []),
-    enabled: !!activeBatchId && (tab === "validation" || tab === "result"),
+    enabled: canAccess && !!activeBatchId && (tab === "validation" || tab === "result"),
   });
 
   const { data: dupes = [] } = useQuery({
     queryKey: ["import-dupes", activeBatchId],
     queryFn: () => (activeBatchId ? getDuplicateCandidates(activeBatchId) : []),
-    enabled: !!activeBatchId && (tab === "duplicates" || tab === "result"),
+    enabled: canAccess && !!activeBatchId && (tab === "duplicates" || tab === "result"),
   });
 
   const { data: files = [] } = useQuery({
     queryKey: ["import-files", activeBatchId],
     queryFn: () => (activeBatchId ? getImportFiles(activeBatchId) : []),
-    enabled: !!activeBatchId,
+    enabled: canAccess && !!activeBatchId,
   });
 
   const refresh = () => {
@@ -111,6 +101,17 @@ function DataImportCenter() {
       qc.invalidateQueries({ queryKey: ["import-mappings", activeBatchId] });
     }
   };
+
+  if (!canAccess) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="max-w-md text-center">
+          <ShieldCheck className="mx-auto h-12 w-12 text-muted-foreground" />
+          <p className="mt-4 text-lg font-medium text-foreground">{t("import_blocked")}</p>
+        </div>
+      </div>
+    );
+  }
 
   // -- Handlers ----------------------------------------------------------------
 
@@ -296,11 +297,14 @@ function DataImportCenter() {
               if (!activeBatchId) return;
               try {
                 setBusy(true);
-                await saveMappings(activeBatchId, m);
-                toast.success(t("toast_success"));
+                const saved = await saveMappings(activeBatchId, m);
+                qc.setQueryData(["import-mappings", activeBatchId], saved);
+                toast.success("Column mappings saved.");
                 refresh();
+                return saved;
               } catch (e: any) {
                 toast.error(t("toast_error") + e.message);
+                throw e;
               } finally {
                 setBusy(false);
               }
@@ -493,8 +497,8 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
   batch: ImportBatch | null | undefined;
   files: any[];
   mappings: ImportMapping[];
-  onSave: (m: Omit<ImportMapping, "id" | "batch_id">[]) => Promise<void>;
-  onValidate: () => void;
+  onSave: (m: Omit<ImportMapping, "id" | "batch_id">[]) => Promise<ImportMapping[] | void>;
+  onValidate: () => Promise<void>;
   busy: boolean;
   t: (k: any) => string;
 }) {
@@ -534,19 +538,24 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
     const seen = new Set<string>();
     return draft
       .filter((r) => {
-        if (!r.target || !r.source) return false;
-        if (seen.has(r.source)) return false;
-        seen.add(r.source);
+        const source = r.source.trim();
+        if (!r.target || !source) return false;
+        if (seen.has(source)) return false;
+        seen.add(source);
         return true;
       })
       .map((r) => ({
-        source_column: r.source,
+        source_column: r.source.trim(),
         target_table: "companies",
-        target_column: r.target,
+        target_column: r.target.trim(),
         transform: null,
         is_key: r.isKey,
       }));
   };
+
+  const validDraftCount = buildPayload().length;
+  const canValidate = validDraftCount > 0 || mappings.length > 0;
+  const hasUnsavedDraft = validDraftCount > 0;
 
   const handleSave = async () => {
     const mapped = buildPayload();
@@ -554,7 +563,10 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
       toast.error(t("toast_error") + "select a target field for at least one column");
       return;
     }
-    await onSave(mapped);
+    const saved = await onSave(mapped);
+    if (saved && saved.length === 0) {
+      toast.error(t("toast_error") + "select a target field for at least one column");
+    }
   };
 
   // Save the current draft first (so the user doesn't have to click Save
@@ -562,12 +574,15 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
   // error when the user goes straight to Validate.
   const handleValidateClick = async () => {
     const mapped = buildPayload();
-    if (mapped.length === 0) {
+    if (mapped.length === 0 && mappings.length === 0) {
       toast.error(t("toast_error") + "select a target field for at least one column");
       return;
     }
-    await onSave(mapped);
-    onValidate();
+    if (mapped.length > 0) {
+      const saved = await onSave(mapped);
+      if (saved && saved.length === 0) return;
+    }
+    await onValidate();
   };
 
   return (
@@ -614,21 +629,24 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
       </div>
 
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={handleSave}
-          disabled={busy}
+          disabled={busy || validDraftCount === 0}
           className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
         >
           {t("import_save_mapping")}
         </button>
         <button
           onClick={handleValidateClick}
-          disabled={busy || batch.status === "uploading"}
+          disabled={busy || batch.status === "uploading" || !canValidate}
           className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
         >
-          {busy ? t("import_validating") : t("import_validate")}
+          {busy ? t("import_validating") : hasUnsavedDraft ? "Save & Validate" : t("import_validate")}
         </button>
+        {hasUnsavedDraft && (
+          <span className="text-xs text-muted-foreground">Unsaved mappings will be saved before validation.</span>
+        )}
       </div>
     </div>
   );

@@ -252,20 +252,33 @@ export async function getMappings(batchId: string): Promise<ImportMapping[]> {
 export async function saveMappings(
   batchId: string,
   mappings: Omit<ImportMapping, "id" | "batch_id">[],
-): Promise<void> {
+): Promise<ImportMapping[]> {
+  const seen = new Set<string>();
+  const validMappings = mappings.filter((mapping) => {
+    const source = mapping.source_column?.trim();
+    const target = mapping.target_column?.trim();
+    if (!source || !target || seen.has(source)) return false;
+    seen.add(source);
+    return true;
+  });
+
   // Delete existing mappings for this batch
-  await db.from("import_mappings").delete().eq("batch_id", batchId);
+  const { error: deleteError } = await db.from("import_mappings").delete().eq("batch_id", batchId);
+  if (deleteError) throw new Error(deleteError.message);
 
-  if (mappings.length === 0) return;
+  if (validMappings.length === 0) return [];
 
-  const { error } = await db.from("import_mappings").insert(
-    mappings.map((m) => ({ ...m, batch_id: batchId })),
-  );
+  const { data, error } = await db.from("import_mappings").insert(
+    validMappings.map((m) => ({ ...m, batch_id: batchId })),
+  ).select();
 
   if (error) throw new Error(error.message);
 
   // Update batch status
-  await db.from("import_batches").update({ status: "validating" }).eq("id", batchId);
+  const { error: batchError } = await db.from("import_batches").update({ status: "validating" }).eq("id", batchId);
+  if (batchError) throw new Error(batchError.message);
+
+  return (data ?? []) as ImportMapping[];
 }
 
 // -- Queries for UI ------------------------------------------------------------
