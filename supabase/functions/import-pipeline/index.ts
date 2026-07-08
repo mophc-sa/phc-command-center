@@ -65,6 +65,17 @@ function parseCsv(text: string): { headers: string[]; rows: string[][] } {
   return { headers, rows };
 }
 
+function uniqueSourceColumns(headers: string[]): string[] {
+  const seen = new Map<string, number>();
+
+  return headers.map((header, idx) => {
+    const base = String(header ?? "").trim() || `column_${idx + 1}`;
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    return count === 0 ? base : `${base}_${count + 1}`;
+  });
+}
+
 // -- Handlers ------------------------------------------------------------------
 
 type Handler = (
@@ -109,9 +120,9 @@ handlers["parse"] = async (payload, caller) => {
     headers = parsed.headers;
     rows = parsed.rows;
   } else if (file.file_type === "xlsx") {
-    // For xlsx, we use the SheetJS library available via CDN in Deno
+    // For xlsx, use the npm SheetJS build supported by the edge runtime.
     try {
-      const { read, utils } = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
+      const { read, utils } = await import("npm:xlsx@0.18.5");
       const ab = await fileData.arrayBuffer();
       const wb = read(new Uint8Array(ab), { type: "array" });
       const sheetName = file.sheet_name ?? wb.SheetNames[0];
@@ -132,6 +143,8 @@ handlers["parse"] = async (payload, caller) => {
   if (rows.length > MAX_ROWS) {
     return err(`File has ${rows.length} data rows, exceeding the ${MAX_ROWS} row limit`);
   }
+
+  headers = uniqueSourceColumns(headers);
 
   // Update file with column names and row count
   await svc.from("import_files").update({
