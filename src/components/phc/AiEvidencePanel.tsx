@@ -87,6 +87,7 @@ export function AiEvidencePanel({
 
       {/* Actions */}
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-4">
+        <EmptyEmailBtn rec={rec} />
         <button disabled={busy} onClick={() => onAction("dismiss")} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50">
           <XCircle className="h-3.5 w-3.5" /> Dismiss
         </button>
