@@ -14,6 +14,7 @@ import {
   createTender, advanceTenderStage, requestTenderConversion, nextTenderStages,
   TENDER_STAGES, type TenderStage,
 } from "@/lib/tender-actions";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/tenders")({
   head: () => ({ meta: [{ title: "Tender Monitor — PHC" }, { name: "robots", content: "noindex" }] }),
