@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useSupabaseAuth";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { upsertSalesTarget } from "@/lib/sales-actions";
 import { cn } from "@/lib/utils";
+import { canApproveCommercialAction } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/targets")({
   head: () => ({
@@ -60,8 +61,8 @@ function ProgressRow({
 function TargetsPage() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
-  const { hasRole } = useAuth();
-  const isManager = hasRole("ceo") || hasRole("sales_manager");
+  const { roles } = useAuth();
+  const isManager = canApproveCommercialAction(roles);
   const [setOpen, setSetOpen] = useState(false);
   const period = monthStart();
 

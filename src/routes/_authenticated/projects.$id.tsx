@@ -13,6 +13,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { updateProject, type ProjectStage } from "@/lib/crm-actions";
+import { canApproveCommercialAction } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/projects/$id")({
   head: () => ({ meta: [{ title: "Project — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -32,10 +33,10 @@ function humanize(s: string | null | undefined) {
 function ProjectDetail() {
   const { id } = Route.useParams();
   const { t, lang } = useI18n();
-  const { hasAnyRole } = useAuth();
+  const { roles } = useAuth();
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
-  const isManager = hasAnyRole(["ceo", "sales_manager"]);
+  const isManager = canApproveCommercialAction(roles);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", id],

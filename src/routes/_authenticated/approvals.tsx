@@ -12,6 +12,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { decideApproval } from "@/lib/opportunity-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canApproveCommercialAction } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/approvals")({
   head: () => ({ meta: [{ title: "Approvals — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -34,8 +35,8 @@ type Decision = "approved" | "returned" | "escalated";
 
 function ApprovalsPage() {
   const { t, lang } = useI18n();
-  const { hasAnyRole } = useAuth();
-  const canDecide = hasAnyRole(["ceo", "sales_manager"]);
+  const { roles } = useAuth();
+  const canDecide = canApproveCommercialAction(roles);
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"pending" | "recent">("pending");
   const [decideFor, setDecideFor] = useState<{ id: string; oppId: string; kind: Decision } | null>(null);

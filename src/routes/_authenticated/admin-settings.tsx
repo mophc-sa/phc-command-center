@@ -17,6 +17,16 @@ import {
   type AppRole,
   type TeamMember,
 } from "@/lib/team-actions";
+import {
+  canApproveCommercialAction,
+  canAssignOwner,
+  canManageSalesPipeline,
+  canManageTeam,
+  canViewSalesAdmin,
+  isExecutive,
+  isSalesManager,
+  isBdOrSalesOps,
+} from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/admin-settings")({
   head: () => ({
@@ -40,28 +50,33 @@ type CapKey =
   | "cap_view_opps"
   | "cap_view_audit";
 
-const CAPABILITIES: { key: CapKey; roles: AppRole[] }[] = [
-  { key: "cap_manage_roles", roles: ["ceo"] },
-  { key: "cap_approve_decisions", roles: ["ceo", "sales_manager"] },
-  { key: "cap_escalate", roles: ["ceo", "sales_manager"] },
-  { key: "cap_manage_opps", roles: ["ceo", "sales_manager", "bd_manager"] },
-  { key: "cap_assign_owner", roles: ["ceo", "sales_manager", "bd_manager"] },
-  { key: "cap_schedule_followups", roles: ["ceo", "sales_manager", "bd_manager"] },
-  { key: "cap_view_audit", roles: ["ceo", "sales_manager"] },
-  { key: "cap_view_reports", roles: ["ceo", "sales_manager", "bd_manager", "viewer"] },
-  { key: "cap_view_opps", roles: ["ceo", "sales_manager", "bd_manager", "viewer"] },
+// Each capability's `allowed` predicate is derived from the canonical helpers in
+// src/lib/roles.ts, so this matrix always reflects the real authority model.
+const CAPABILITIES: { key: CapKey; allowed: (r: AppRole) => boolean }[] = [
+  { key: "cap_manage_roles", allowed: (r) => canManageTeam(r) },
+  { key: "cap_approve_decisions", allowed: (r) => canApproveCommercialAction(r) },
+  { key: "cap_escalate", allowed: (r) => canApproveCommercialAction(r) },
+  { key: "cap_manage_opps", allowed: (r) => canManageSalesPipeline(r) },
+  { key: "cap_assign_owner", allowed: (r) => canAssignOwner(r) },
+  { key: "cap_schedule_followups", allowed: (r) => canManageSalesPipeline(r) },
+  { key: "cap_view_audit", allowed: (r) => canViewSalesAdmin(r) },
+  // Read-only surfaces: everyone but a pure salesperson sees reports; all roles
+  // can read the opportunity list (RLS SELECT is open to authenticated).
+  { key: "cap_view_reports", allowed: (r) => r !== "salesperson" },
+  { key: "cap_view_opps", allowed: () => true },
 ];
 
 function roleTone(r: AppRole): "attention" | "positive" | "neutral" | "muted" {
-  if (r === "ceo" || r === "sales_manager") return "attention";
-  if (r === "bd_manager") return "positive";
+  if (isExecutive(r) || isSalesManager(r)) return "attention";
+  if (isBdOrSalesOps(r)) return "positive";
+  if (r === "system_admin") return "neutral";
   return "muted";
 }
 
 function AdminSettingsPage() {
   const { t, lang } = useI18n();
-  const { user, hasRole } = useAuth();
-  const isCeo = hasRole("ceo");
+  const { user, roles } = useAuth();
+  const canManage = canManageTeam(roles);
   const qc = useQueryClient();
 
   const { data: team = [], isLoading, isError, refetch } = useQuery({
@@ -98,7 +113,7 @@ function AdminSettingsPage() {
 
       <GitSyncStatus />
 
-      {!isCeo ? (
+      {!canManage ? (
         <div className="rounded-md border border-amber/30 bg-amber/10 px-4 py-3 text-xs text-amber-light">
           {t("admin_settings_forbidden")}
         </div>
@@ -123,7 +138,7 @@ function AdminSettingsPage() {
                 <tr key={cap.key} className="border-t border-border/60">
                   <td className="py-2.5 pe-4 text-foreground">{t(cap.key)}</td>
                   {ALL_ROLES.map((r) => {
-                    const allowed = cap.roles.includes(r);
+                    const allowed = cap.allowed(r);
                     return (
                       <td key={r} className="px-2 py-2.5 text-center">
                         {allowed ? (
@@ -225,9 +240,9 @@ function AdminSettingsPage() {
                       </td>
                       {ALL_ROLES.map((role) => {
                         const has = m.roles.includes(role);
-                        const isManagerRole = role === "ceo" || role === "sales_manager";
+                        const isManagerRole = isExecutive(role) || isSalesManager(role);
                         const guardSelf = isSelf && has && isManagerRole;
-                        const disabled = !isCeo || guardSelf;
+                        const disabled = !canManage || guardSelf;
                         return (
                           <td key={role} className="px-2 py-2 text-center">
                             <button

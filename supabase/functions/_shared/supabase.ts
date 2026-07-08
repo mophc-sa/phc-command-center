@@ -23,12 +23,11 @@ export function serviceClient(): SupabaseClient {
   );
 }
 
-export type AppRole =
-  | "ceo"
-  | "sales_manager"
-  | "bd_manager"
-  | "salesperson"
-  | "viewer";
+// Canonical role type + capability helpers live in ./roles.ts (mirror of
+// src/lib/roles.ts). Re-export so existing importers keep working.
+export type { AppRole } from "./roles.ts";
+export * from "./roles.ts";
+import type { AppRole } from "./roles.ts";
 
 // Resolve the caller: their user id and roles. Throws a 401-style error object
 // if the JWT is missing or invalid.

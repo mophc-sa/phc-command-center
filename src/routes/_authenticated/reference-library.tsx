@@ -13,6 +13,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { createReferenceProject } from "@/lib/vendor-actions";
+import { canManageSalesPipeline } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/reference-library")({
   head: () => ({ meta: [{ title: "Reference Library — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -21,13 +22,13 @@ export const Route = createFileRoute("/_authenticated/reference-library")({
 
 function ReferenceLibraryPage() {
   const { t, lang } = useI18n();
-  const { hasAnyRole } = useAuth();
+  const { roles } = useAuth();
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [q, setQ] = useState("");
   const [sector, setSector] = useState("all");
   const [shareableOnly, setShareableOnly] = useState(false);
-  const canEdit = hasAnyRole(["bd_manager", "sales_manager", "ceo"]);
+  const canEdit = canManageSalesPipeline(roles);
 
   const { data: refs = [], isLoading } = useQuery({
     queryKey: ["reference-projects"],
