@@ -200,12 +200,15 @@ handlers["validate"] = async (payload, caller) => {
   const { data: mappings } = await svc.from("import_mappings").select("*").eq("batch_id", batchId);
   if (!mappings || mappings.length === 0) return err("No mappings configured");
 
-  // Get rows
+  // Get rows — skip excluded/deleted rows from validation
   const { data: rows } = await svc.from("import_rows")
-    .select("id, row_number, raw_data")
+    .select("id, row_number, raw_data, is_excluded, row_status")
     .eq("batch_id", batchId)
     .order("row_number");
   if (!rows) return err("No rows found");
+
+  // Clear old validation errors so re-validate produces a clean report
+  await svc.from("import_errors").delete().eq("batch_id", batchId);
 
   const errors: Array<{
     batch_id: string; row_id: string; row_number: number;
@@ -213,8 +216,16 @@ handlers["validate"] = async (payload, caller) => {
   }> = [];
   let validCount = 0;
   let errorCount = 0;
+  let excludedCount = 0;
 
   for (const row of rows) {
+    // Skip rows the user has excluded or soft-deleted from the batch
+    if (row.is_excluded || row.row_status === "excluded" || row.row_status === "deleted") {
+      await svc.from("import_rows").update({ status: "excluded" }).eq("id", row.id);
+      excludedCount++;
+      continue;
+    }
+
     const raw = row.raw_data as Record<string, unknown>;
     const mapped: Record<string, unknown> = {};
     let rowHasError = false;
@@ -271,11 +282,12 @@ handlers["validate"] = async (payload, caller) => {
   }).eq("id", batchId);
 
   await audit(svc, caller.userId, "import_validate", "import_batches", batchId, {
-    valid: validCount, errors: errorCount,
+    valid: validCount, errors: errorCount, excluded: excludedCount,
   });
 
-  return json({ valid_rows: validCount, error_rows: errorCount, total_errors: errors.length });
+  return json({ valid_rows: validCount, error_rows: errorCount, excluded_rows: excludedCount, total_errors: errors.length });
 };
+
 
 // DETECT_DUPLICATES: deterministic matching against existing companies
 handlers["detect_duplicates"] = async (payload, caller) => {
@@ -512,6 +524,63 @@ function quote(s: string | null | undefined): string {
   return s;
 }
 
+// PURGE_BATCH: permanently delete a batch (storage file + all import_* rows).
+// system_admin ONLY. Callers are refused if the batch has any real committed
+// links (import_record_links) — Phase 1.1 dry-run only, so this should be 0.
+handlers["purge_batch"] = async (payload, caller) => {
+  const batchId = payload.batch_id as string;
+  const confirm = payload.confirm as string;
+  if (!batchId) return err("batch_id required");
+  if (confirm !== "DELETE") return err("Confirmation token required ('DELETE')");
+
+  if (!hasAny(caller.roles, ["system_admin" as AppRole])) {
+    return err("Only system_admin can permanently purge an import batch", 403);
+  }
+
+  const svc = serviceClient();
+
+  // Safety: refuse to purge batches with committed record links
+  const { count: linkCount } = await svc
+    .from("import_record_links")
+    .select("*", { count: "exact", head: true })
+    .eq("batch_id", batchId);
+  if ((linkCount ?? 0) > 0) {
+    return err(`Batch has ${linkCount} committed record link(s); purge blocked.`, 409);
+  }
+
+  // 1. Remove storage objects for this batch
+  const { data: storageObjs } = await svc.storage.from("imports").list(batchId, { limit: 1000 });
+  if (storageObjs && storageObjs.length > 0) {
+    const paths = storageObjs.map((o) => `${batchId}/${o.name}`);
+    const { error: rmError } = await svc.storage.from("imports").remove(paths);
+    if (rmError) return err("Storage removal failed: " + rmError.message);
+  }
+
+  // 2. Delete child rows in dependency order, then the batch itself
+  const childTables = [
+    "import_record_links",
+    "import_approval_queue",
+    "import_duplicate_candidates",
+    "import_errors",
+    "import_mappings",
+    "import_rows",
+    "import_files",
+  ];
+  for (const tbl of childTables) {
+    const { error } = await svc.from(tbl).delete().eq("batch_id", batchId);
+    if (error) return err(`Failed to purge ${tbl}: ${error.message}`);
+  }
+  const { error: batchError } = await svc.from("import_batches").delete().eq("id", batchId);
+  if (batchError) return err(`Failed to purge batch: ${batchError.message}`);
+
+  await audit(svc, caller.userId, "import_purge", "import_batches", batchId, {
+    storage_files_removed: storageObjs?.length ?? 0,
+  });
+
+  return json({ purged: true, storage_files_removed: storageObjs?.length ?? 0 });
+};
+
+
 // -- Main router ---------------------------------------------------------------
 
 Deno.serve(async (req: Request) => {
@@ -532,7 +601,7 @@ Deno.serve(async (req: Request) => {
     const action = body.action as string;
 
     if (!action || !handlers[action]) {
-      return err("Unknown action. Available: parse, validate, detect_duplicates, approve, dry_run_commit, generate_report");
+      return err("Unknown action. Available: parse, validate, detect_duplicates, approve, dry_run_commit, generate_report, purge_batch");
     }
 
     return await handlers[action](body, caller);
@@ -542,3 +611,4 @@ Deno.serve(async (req: Request) => {
     return err(message, status);
   }
 });
+

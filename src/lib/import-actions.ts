@@ -41,6 +41,8 @@ export type ImportBatch = {
   created_by: string;
   status: ImportBatchStatus;
   source_type: string;
+  file_name: string | null;
+  target_entity: ImportTargetEntity;
   total_rows: number;
   valid_rows: number;
   error_rows: number;
@@ -51,13 +53,48 @@ export type ImportBatch = {
   approved_at: string | null;
   committed_at: string | null;
   notes: string | null;
+  archived_at: string | null;
+  archived_by: string | null;
+  deleted_at: string | null;
+  deleted_by: string | null;
+  delete_reason: string | null;
   created_at: string;
   updated_at: string;
 };
 
+export type ImportTargetEntity =
+  | "companies" | "contacts" | "leads" | "opportunities" | "projects" | "boq";
+
+export const TARGET_ENTITIES: { value: ImportTargetEntity; label: string }[] = [
+  { value: "companies",     label: "Companies" },
+  { value: "contacts",      label: "Contacts" },
+  { value: "leads",         label: "Leads" },
+  { value: "opportunities", label: "Opportunities" },
+  { value: "projects",      label: "Projects" },
+  { value: "boq",           label: "BOQ / Estimates" },
+];
+
+export type ImportRow = {
+  id: string;
+  batch_id: string;
+  file_id: string | null;
+  row_number: number;
+  raw_data: Record<string, unknown> | null;
+  mapped_data: Record<string, unknown> | null;
+  status: string;
+  is_excluded: boolean;
+  row_status: "active" | "edited" | "excluded" | "deleted";
+  edited_at: string | null;
+  edited_by: string | null;
+  deleted_at: string | null;
+  deleted_by: string | null;
+};
+
 // -- Batch CRUD ----------------------------------------------------------------
 
-export async function createBatch(): Promise<ImportBatch> {
+export async function createBatch(
+  opts: { target_entity?: ImportTargetEntity } = {},
+): Promise<ImportBatch> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
@@ -66,21 +103,30 @@ export async function createBatch(): Promise<ImportBatch> {
     status: "uploading",
     dry_run: true,
     ai_suggestions_enabled: false,
+    target_entity: opts.target_entity ?? "companies",
   }).select().single();
 
   if (error) throw new Error(error.message);
   return data as ImportBatch;
 }
 
-export async function listBatches(): Promise<ImportBatch[]> {
-  const { data, error } = await db
-    .from("import_batches")
-    .select("*")
-    .order("created_at", { ascending: false });
-
+/**
+ * List batches. By default hides archived and soft-deleted batches.
+ * Pass includeArchived / includeDeleted to override.
+ */
+export async function listBatches(
+  opts: { includeArchived?: boolean; includeDeleted?: boolean } = {},
+): Promise<ImportBatch[]> {
+  let q = db.from("import_batches").select("*").order("created_at", { ascending: false });
+  if (!opts.includeArchived) q = q.is("archived_at", null);
+  if (!opts.includeDeleted)  q = q.is("deleted_at", null);
+  const { data, error } = await q;
   if (error) throw new Error(error.message);
   return (data ?? []) as ImportBatch[];
 }
+
+// Alias per Phase 1.1 spec
+export const listImportBatches = listBatches;
 
 export async function getBatch(id: string): Promise<ImportBatch | null> {
   const { data, error } = await db
@@ -93,6 +139,17 @@ export async function getBatch(id: string): Promise<ImportBatch | null> {
   return data as ImportBatch;
 }
 
+// Alias per Phase 1.1 spec
+export const getImportBatchDetails = getBatch;
+
+export async function updateBatch(
+  id: string,
+  patch: Partial<Pick<ImportBatch, "target_entity" | "notes" | "file_name">>,
+): Promise<void> {
+  const { error } = await db.from("import_batches").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function cancelBatch(id: string): Promise<void> {
   const { error } = await db
     .from("import_batches")
@@ -100,6 +157,53 @@ export async function cancelBatch(id: string): Promise<void> {
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+}
+
+// -- Archive / Soft delete / Purge --------------------------------------------
+
+export async function archiveImportBatch(id: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { error } = await db.from("import_batches").update({
+    archived_at: new Date().toISOString(),
+    archived_by: user.id,
+  }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function unarchiveImportBatch(id: string): Promise<void> {
+  const { error } = await db.from("import_batches").update({
+    archived_at: null, archived_by: null,
+  }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function softDeleteImportBatch(id: string, reason: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  if (!reason?.trim()) throw new Error("A reason is required to delete a batch");
+  const { error } = await db.from("import_batches").update({
+    deleted_at: new Date().toISOString(),
+    deleted_by: user.id,
+    delete_reason: reason.trim(),
+  }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function restoreImportBatch(id: string): Promise<void> {
+  const { error } = await db.from("import_batches").update({
+    deleted_at: null, deleted_by: null, delete_reason: null,
+  }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Permanently delete batch, storage file, and every import_* child row.
+ * system_admin only (enforced by edge function + DB policy).
+ * Requires typed confirmation string 'DELETE'.
+ */
+export async function purgeImportBatch(id: string, confirm: string): Promise<void> {
+  await callPipeline("purge_batch", { batch_id: id, confirm });
 }
 
 // -- File upload ---------------------------------------------------------------
@@ -138,8 +242,12 @@ export async function uploadImportFile(
 
   if (insertError) throw new Error(insertError.message);
 
+  // Denormalize file name onto the batch for history display
+  await db.from("import_batches").update({ file_name: file.name }).eq("id", batchId);
+
   return { fileId: fileRecord.id, storagePath };
 }
+
 
 // -- Pipeline actions (call edge function) -------------------------------------
 
@@ -336,6 +444,73 @@ export async function getImportFiles(batchId: string) {
   return data ?? [];
 }
 
+// -- Parsed rows: view + edit + exclude + restore -----------------------------
+
+export async function getImportRows(
+  batchId: string,
+  opts: { limit?: number; includeDeleted?: boolean } = {},
+): Promise<ImportRow[]> {
+  let q = db.from("import_rows").select("*").eq("batch_id", batchId).order("row_number");
+  if (!opts.includeDeleted) q = q.neq("row_status", "deleted");
+  q = q.limit(opts.limit ?? 500);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ImportRow[];
+}
+
+/**
+ * Edit a single parsed row's raw_data cells.
+ * Only touches import_rows — never writes to real CRM tables.
+ */
+export async function updateImportRow(
+  rowId: string,
+  patch: { raw_data: Record<string, unknown> },
+): Promise<ImportRow> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { data, error } = await db.from("import_rows").update({
+    raw_data: patch.raw_data,
+    edited_at: new Date().toISOString(),
+    edited_by: user.id,
+    row_status: "edited",
+    status: "pending", // must re-validate after edit
+  }).eq("id", rowId).select().single();
+  if (error) throw new Error(error.message);
+  return data as ImportRow;
+}
+
+export async function excludeImportRow(rowId: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { error } = await db.from("import_rows").update({
+    is_excluded: true,
+    row_status: "excluded",
+    deleted_at: new Date().toISOString(),
+    deleted_by: user.id,
+  }).eq("id", rowId);
+  if (error) throw new Error(error.message);
+}
+
+export async function restoreImportRow(rowId: string): Promise<void> {
+  const { error } = await db.from("import_rows").update({
+    is_excluded: false,
+    row_status: "active",
+    deleted_at: null,
+    deleted_by: null,
+  }).eq("id", rowId);
+  if (error) throw new Error(error.message);
+}
+
+// -- Storage download ---------------------------------------------------------
+
+export async function getFileDownloadUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("imports")
+    .createSignedUrl(storagePath, 60);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
+
 // Target columns for company mapping
 export const COMPANY_TARGET_COLUMNS = [
   { value: "name", label: "Company Name", required: true },
@@ -348,3 +523,4 @@ export const COMPANY_TARGET_COLUMNS = [
   { value: "internal_notes", label: "Internal Notes" },
   { value: "source", label: "Source" },
 ] as const;
+
