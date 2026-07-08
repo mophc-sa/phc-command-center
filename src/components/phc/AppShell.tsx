@@ -35,6 +35,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import phcLogo from "@/assets/phc-logo.png.asset.json";
+import phcIcon from "@/assets/phc-icon.png.asset.json";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "./StatusPill";
 
@@ -128,17 +130,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-full flex-col">
       {/* Brand */}
       <div className="px-5 pt-6 pb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-8 w-8 place-items-center rounded-lg bg-foreground/95 text-[13px] font-semibold text-primary-foreground tracking-tight">
-            P
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">PHC</div>
-            <div className="truncate text-[13px] font-semibold text-foreground">
-              {t("area_sales_agent")}
-            </div>
-          </div>
-        </div>
+        <Link to="/command-center" className="flex items-center gap-3">
+          <img
+            src={phcIcon.url}
+            alt="PHC"
+            className="h-8 w-8 shrink-0 object-contain"
+          />
+          <img
+            src={phcLogo.url}
+            alt="PHC Wayfinding Signs"
+            className="h-6 min-w-0 flex-1 object-contain object-left"
+          />
+        </Link>
       </div>
 
       <div className="mx-4 h-px bg-border/70" />
