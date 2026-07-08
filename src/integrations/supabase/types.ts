@@ -759,16 +759,23 @@ export type Database = {
           ai_suggestions_enabled: boolean
           approved_at: string | null
           approved_by: string | null
+          archived_at: string | null
+          archived_by: string | null
           committed_at: string | null
           created_at: string
           created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           dry_run: boolean
           duplicate_rows: number
           error_rows: number
+          file_name: string | null
           id: string
           notes: string | null
           source_type: string
           status: string
+          target_entity: string
           total_rows: number
           updated_at: string
           valid_rows: number
@@ -777,16 +784,23 @@ export type Database = {
           ai_suggestions_enabled?: boolean
           approved_at?: string | null
           approved_by?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           committed_at?: string | null
           created_at?: string
           created_by: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           dry_run?: boolean
           duplicate_rows?: number
           error_rows?: number
+          file_name?: string | null
           id?: string
           notes?: string | null
           source_type?: string
           status?: string
+          target_entity?: string
           total_rows?: number
           updated_at?: string
           valid_rows?: number
@@ -795,16 +809,23 @@ export type Database = {
           ai_suggestions_enabled?: boolean
           approved_at?: string | null
           approved_by?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           committed_at?: string | null
           created_at?: string
           created_by?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           dry_run?: boolean
           duplicate_rows?: number
           error_rows?: number
+          file_name?: string | null
           id?: string
           notes?: string | null
           source_type?: string
           status?: string
+          target_entity?: string
           total_rows?: number
           updated_at?: string
           valid_rows?: number
@@ -1059,31 +1080,49 @@ export type Database = {
         Row: {
           batch_id: string
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          edited_at: string | null
+          edited_by: string | null
           file_id: string
           id: string
+          is_excluded: boolean
           mapped_data: Json | null
           raw_data: Json
           row_number: number
+          row_status: string
           status: string
         }
         Insert: {
           batch_id: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
           file_id: string
           id?: string
+          is_excluded?: boolean
           mapped_data?: Json | null
           raw_data: Json
           row_number: number
+          row_status?: string
           status?: string
         }
         Update: {
           batch_id?: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
           file_id?: string
           id?: string
+          is_excluded?: boolean
           mapped_data?: Json | null
           raw_data?: Json
           row_number?: number
+          row_status?: string
           status?: string
         }
         Relationships: [
