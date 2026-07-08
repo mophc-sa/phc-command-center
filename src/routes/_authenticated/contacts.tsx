@@ -161,6 +161,25 @@ function ContactsPage() {
                   <td className="num px-5 py-3 text-end text-muted-foreground" data-tabular="true">
                     {c.confidence_score != null ? `${c.confidence_score}%` : "—"}
                   </td>
+                  <td className="px-5 py-3 text-end">
+                    <EmailComposeButton
+                      size="xs"
+                      variant="ghost"
+                      template="contractor_introduction"
+                      context={{
+                        recipientName: c.name,
+                        recipientEmail: c.email,
+                        companyName: c.companies?.name ?? null,
+                      }}
+                      linked={{
+                        type: "contact",
+                        id: c.id,
+                        label: c.name,
+                        contactId: c.id,
+                        companyId: c.companies?.id ?? c.company_id ?? null,
+                      }}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
