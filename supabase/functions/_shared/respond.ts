@@ -7,6 +7,6 @@ export function json(body: unknown, status = 200): Response {
   });
 }
 
-export function err(message: string, status = 400): Response {
-  return json({ error: message }, status);
+export function err(message: string, status = 400, extra?: Record<string, unknown>): Response {
+  return json({ error: message, ...(extra ?? {}) }, status);
 }

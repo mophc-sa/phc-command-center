@@ -95,8 +95,23 @@ export async function advanceTenderStage(input: {
   return await callBackend("advance_tender_stage", { ...input });
 }
 
-export async function requestTenderConversion(tenderId: Uuid, notes?: string) {
-  return await callBackend("request_tender_conversion", { tenderId, notes });
+export type ConversionReviewInput = {
+  project_stage_suitable?: boolean;
+  package_not_closed?: boolean;
+  estimated_signage_value?: number | null;
+  contact_plan_ready?: boolean;
+  main_contractor_confirmed?: boolean;
+  signage_package_status?: string | null;
+  signage_package_confidence?: string | null;
+  conversion_reason?: string | null;
+};
+
+export async function requestTenderConversion(
+  tenderId: Uuid,
+  review?: ConversionReviewInput,
+  notes?: string,
+) {
+  return await callBackend("request_tender_conversion", { tenderId, review, notes });
 }
 
 export async function approveTenderConversion(tenderId: Uuid, approvalId?: Uuid) {

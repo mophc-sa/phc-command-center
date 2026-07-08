@@ -263,17 +263,39 @@ function RfqJihBoard() {
           { key: "next_action", type: "text", label: t("crm_next_action"), required: true },
           { key: "follow_up_date", type: "date", label: t("crm_next_action"), required: true },
           { key: "value_pending", type: "select", label: t("crm_total_value"), defaultValue: "no", options: [{ value: "no", label: "—" }, { value: "yes", label: t("crm_pending_verification") }] },
+          // PHC conversion review gates.
+          { key: "project_stage_suitable", type: "select", label: t("conv_stage_suitable"), required: true, options: [{ value: "yes", label: t("conv_yes") }, { value: "no", label: t("conv_no") }] },
+          { key: "package_not_closed", type: "select", label: t("conv_package_open"), required: true, options: [{ value: "yes", label: t("conv_yes") }, { value: "no", label: t("conv_no") }] },
+          { key: "estimated_signage_value", type: "text", label: t("conv_signage_value"), required: true, defaultValue: convertRfq?.estimated_signage_value ?? convertRfq?.estimated_value ?? "" },
+          { key: "contact_plan_ready", type: "select", label: t("conv_contact_plan"), required: true, options: [{ value: "yes", label: t("conv_yes") }, { value: "no", label: t("conv_no") }] },
+          { key: "main_contractor_confirmed", type: "select", label: t("conv_contractor_confirmed"), required: true, options: [{ value: "yes", label: t("conv_yes") }, { value: "no", label: t("conv_no") }] },
+          { key: "signage_package_status", type: "select", label: t("conv_package_status"), required: true, options: [{ value: "confirmed", label: "Confirmed / open" }, { value: "likely", label: "Likely" }, { value: "unknown", label: "Unknown" }, { value: "no_package_identified", label: "No package" }] },
+          { key: "signage_package_confidence", type: "select", label: t("conv_package_confidence"), required: true, options: [{ value: "high", label: "High" }, { value: "medium", label: "Medium" }, { value: "low", label: "Low" }] },
+          { key: "conversion_reason", type: "textarea", label: t("conv_reason"), required: true },
         ]}
         onSubmit={async (v) => {
           try {
-            await convertRfqToJih(convertRfq.id, {
-              project_name: v.project_name,
-              next_action: v.next_action,
-              follow_up_date: v.follow_up_date,
-              value_pending: v.value_pending === "yes",
-              signage_relevant: true,
-            });
-            toast.success(t("crm_saved"));
+            const r: any = await convertRfqToJih(
+              convertRfq.id,
+              {
+                project_name: v.project_name,
+                next_action: v.next_action,
+                follow_up_date: v.follow_up_date,
+                value_pending: v.value_pending === "yes",
+                signage_relevant: true,
+              },
+              {
+                project_stage_suitable: v.project_stage_suitable === "yes",
+                package_not_closed: v.package_not_closed === "yes",
+                estimated_signage_value: v.estimated_signage_value ? Number(v.estimated_signage_value) : null,
+                contact_plan_ready: v.contact_plan_ready === "yes",
+                main_contractor_confirmed: v.main_contractor_confirmed === "yes",
+                signage_package_status: v.signage_package_status || null,
+                signage_package_confidence: v.signage_package_confidence || null,
+                conversion_reason: v.conversion_reason || null,
+              },
+            );
+            toast.success(r?.pending_exception ? t("wf_pending_exception") : t("crm_saved"));
             refresh();
             qc.invalidateQueries({ queryKey: ["opportunities"] });
           } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }

@@ -40,6 +40,59 @@ function fieldsForTenderStage(t: string, tt: (k: string) => string, contractors:
   return [{ key: "notes", type: "textarea", label: tt("wf_notes") }];
 }
 
+// The PHC Tender Conversion Review — the questions that gate RFQ/Tender -> JIH.
+function conversionReviewFields(tt: (k: string) => string, tender: any): DialogField[] {
+  const yn = [
+    { value: "yes", label: tt("conv_yes") },
+    { value: "no", label: tt("conv_no") },
+  ];
+  return [
+    { key: "project_stage_suitable", type: "select", label: tt("conv_stage_suitable"), required: true, options: yn },
+    { key: "package_not_closed", type: "select", label: tt("conv_package_open"), required: true, options: yn },
+    {
+      key: "estimated_signage_value",
+      type: "text",
+      label: tt("conv_signage_value"),
+      required: true,
+      defaultValue: tender?.estimated_signage_value ?? tender?.estimated_project_value ?? "",
+    },
+    { key: "contact_plan_ready", type: "select", label: tt("conv_contact_plan"), required: true, options: yn },
+    {
+      key: "main_contractor_confirmed",
+      type: "select",
+      label: tt("conv_contractor_confirmed"),
+      required: true,
+      defaultValue: tender?.main_contractor_id ? "yes" : "",
+      options: yn,
+    },
+    {
+      key: "signage_package_status",
+      type: "select",
+      label: tt("conv_package_status"),
+      required: true,
+      options: [
+        { value: "confirmed", label: "Confirmed / open" },
+        { value: "likely", label: "Likely" },
+        { value: "unknown", label: "Unknown" },
+        { value: "no_package_identified", label: "No package" },
+      ],
+    },
+    {
+      key: "signage_package_confidence",
+      type: "select",
+      label: tt("conv_package_confidence"),
+      required: true,
+      defaultValue: tender?.signage_potential ?? "",
+      options: [
+        { value: "high", label: "High" },
+        { value: "medium", label: "Medium" },
+        { value: "low", label: "Low" },
+      ],
+    },
+    { key: "conversion_reason", type: "textarea", label: tt("conv_reason"), required: true },
+  ];
+}
+
 function daysUntil(d?: string | null): number | null {
   if (!d) return null;
   const dt = new Date(d);
@@ -52,6 +105,7 @@ function TenderMonitor() {
   const qc = useQueryClient();
   const [newTender, setNewTender] = useState(false);
   const [advance, setAdvance] = useState<{ tender: any; toStage: TenderStage } | null>(null);
+  const [convertReview, setConvertReview] = useState<any | null>(null);
   const [classFilter, setClassFilter] = useState<"all" | "A" | "B" | "C">("all");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"board" | "table">("board");
@@ -176,10 +230,7 @@ function TenderMonitor() {
                         <div className="mt-1.5 flex flex-wrap justify-end gap-1">
                           {stage === "awarded_to_contractor" ? (
                             <button
-                              onClick={async () => {
-                                try { const r: any = await requestTenderConversion(x.id); toast.success(r?.pending_approval ? t("wf_pending_approval") : t("crm_saved")); qc.invalidateQueries({ queryKey: ["approvals"] }); }
-                                catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
-                              }}
+                              onClick={() => setConvertReview(x)}
                               className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/20"
                             >
                               {t("wf_request_conversion")}
@@ -281,6 +332,34 @@ function TenderMonitor() {
             toast.success(t("crm_saved"));
             refresh();
           } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+        }}
+      />
+
+      <ActionDialog
+        open={!!convertReview}
+        onOpenChange={(o) => !o && setConvertReview(null)}
+        title={t("conv_review_title")}
+        submitLabel={t("wf_request_conversion")}
+        fields={convertReview ? conversionReviewFields((k) => t(k as never), convertReview) : []}
+        onSubmit={async (v) => {
+          if (!convertReview) return;
+          try {
+            const r: any = await requestTenderConversion(convertReview.id, {
+              project_stage_suitable: v.project_stage_suitable === "yes",
+              package_not_closed: v.package_not_closed === "yes",
+              estimated_signage_value: v.estimated_signage_value ? Number(v.estimated_signage_value) : null,
+              contact_plan_ready: v.contact_plan_ready === "yes",
+              main_contractor_confirmed: v.main_contractor_confirmed === "yes",
+              signage_package_status: v.signage_package_status || null,
+              signage_package_confidence: v.signage_package_confidence || null,
+              conversion_reason: v.conversion_reason || null,
+            });
+            toast.success(r?.pending_exception ? t("wf_pending_exception") : r?.pending_approval ? t("wf_pending_approval") : t("crm_saved"));
+            qc.invalidateQueries({ queryKey: ["approvals"] });
+            qc.invalidateQueries({ queryKey: ["tenders"] });
+          } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
         }}
       />
     </div>
