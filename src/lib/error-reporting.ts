@@ -8,8 +8,8 @@
  * raw customer messages, raw form data, phone numbers, full emails.
  *
  * Environment separation: dev/preview log to console only; production forwards
- * to the Lovable events channel (window.__lovableEvents.captureException) when
- * available. No third-party SDK is wired in this phase.
+ * to a configurable reporting endpoint when available. No vendor-specific SDK
+ * or secrets are wired in this phase — plug in Sentry, Axiom, etc. in Phase B.
  */
 
 type Env = "development" | "preview" | "production";
@@ -200,17 +200,12 @@ export function reportError(error: unknown, context: ReportContext = {}) {
     return;
   }
 
-  // Production: forward to Lovable events channel when present.
-  if (typeof window !== "undefined" && window.__lovableEvents?.captureException) {
-    window.__lovableEvents.captureException(
-      error instanceof Error ? error : new Error(payload.error.message),
-      payload as unknown as Record<string, unknown>,
-      { mechanism: "manual", handled: true, severity: payload.severity },
-    );
-  } else {
-    // eslint-disable-next-line no-console
-    console.error("[error-report]", payload);
-  }
+  // Production: forward to a reporting provider when configured.
+  // Plug in your provider here (Sentry, Axiom, custom endpoint, etc.).
+  // Until a provider is wired, production errors are logged to the console
+  // so they surface in browser dev tools and server logs.
+  // eslint-disable-next-line no-console
+  console.error("[error-report]", payload);
 }
 
 let installed = false;

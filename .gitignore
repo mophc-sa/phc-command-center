@@ -30,3 +30,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code / Lovable
+.agents/
+.mcp.json
+skills-lock.json
+
+# Lock files (using bun.lock)
+package-lock.json
+
+# Supabase temp
+supabase/.temp/
