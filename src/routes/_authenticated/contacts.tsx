@@ -11,6 +11,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { createContact, type ContactAuthority, type ContactLocation } from "@/lib/crm-actions";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/contacts")({
   head: () => ({ meta: [{ title: "Contacts — PHC" }, { name: "robots", content: "noindex" }] }),
