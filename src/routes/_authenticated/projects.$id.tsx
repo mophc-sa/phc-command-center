@@ -14,6 +14,7 @@ import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { updateProject, type ProjectStage } from "@/lib/crm-actions";
 import { canApproveCommercialAction } from "@/lib/roles";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/projects/$id")({
   head: () => ({ meta: [{ title: "Project — PHC" }, { name: "robots", content: "noindex" }] }),
