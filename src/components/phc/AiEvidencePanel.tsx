@@ -107,3 +107,28 @@ export function AiEvidencePanel({
     </div>
   );
 }
+
+// AI recommendation follow-up: opens the compose modal only. It never
+// executes a sensitive action; sensitive AI accepts still route through
+// "Create approval". This is why we render the button alongside — not
+// instead of — the standard actions.
+function EmptyEmailBtn({ rec }: { rec: AiRecommendation }) {
+  return (
+    <EmailComposeButton
+      size="sm"
+      variant="ghost"
+      template="opportunity_follow_up"
+      context={{
+        recipientName: null,
+        recipientEmail: null,
+        aiRecommendation: rec.recommendation,
+      }}
+      linked={{
+        type: "ai_recommendation",
+        id: rec.id,
+        label: rec.recommendation,
+        opportunityId: (rec as unknown as { opportunity_id?: string | null }).opportunity_id ?? null,
+      }}
+    />
+  );
+}
