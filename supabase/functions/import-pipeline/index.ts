@@ -200,12 +200,15 @@ handlers["validate"] = async (payload, caller) => {
   const { data: mappings } = await svc.from("import_mappings").select("*").eq("batch_id", batchId);
   if (!mappings || mappings.length === 0) return err("No mappings configured");
 
-  // Get rows
+  // Get rows — skip excluded/deleted rows from validation
   const { data: rows } = await svc.from("import_rows")
-    .select("id, row_number, raw_data")
+    .select("id, row_number, raw_data, is_excluded, row_status")
     .eq("batch_id", batchId)
     .order("row_number");
   if (!rows) return err("No rows found");
+
+  // Clear old validation errors so re-validate produces a clean report
+  await svc.from("import_errors").delete().eq("batch_id", batchId);
 
   const errors: Array<{
     batch_id: string; row_id: string; row_number: number;
@@ -213,8 +216,16 @@ handlers["validate"] = async (payload, caller) => {
   }> = [];
   let validCount = 0;
   let errorCount = 0;
+  let excludedCount = 0;
 
   for (const row of rows) {
+    // Skip rows the user has excluded or soft-deleted from the batch
+    if (row.is_excluded || row.row_status === "excluded" || row.row_status === "deleted") {
+      await svc.from("import_rows").update({ status: "excluded" }).eq("id", row.id);
+      excludedCount++;
+      continue;
+    }
+
     const raw = row.raw_data as Record<string, unknown>;
     const mapped: Record<string, unknown> = {};
     let rowHasError = false;
@@ -271,11 +282,12 @@ handlers["validate"] = async (payload, caller) => {
   }).eq("id", batchId);
 
   await audit(svc, caller.userId, "import_validate", "import_batches", batchId, {
-    valid: validCount, errors: errorCount,
+    valid: validCount, errors: errorCount, excluded: excludedCount,
   });
 
-  return json({ valid_rows: validCount, error_rows: errorCount, total_errors: errors.length });
+  return json({ valid_rows: validCount, error_rows: errorCount, excluded_rows: excludedCount, total_errors: errors.length });
 };
+
 
 // DETECT_DUPLICATES: deterministic matching against existing companies
 handlers["detect_duplicates"] = async (payload, caller) => {
