@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, Copy, ShieldCheck,
-  BarChart3, Download, X, Loader2, History,
+  BarChart3, Download, X, Loader2, History, Archive, Trash2, Flame, RotateCcw,
+  Save, Ban, Pencil, FileText,
 } from "lucide-react";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -14,14 +15,23 @@ import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
   createBatch, listBatches, getBatch, cancelBatch,
   uploadImportFile, parseFile, validateBatch, detectDuplicates,
   approveBatch, dryRunCommit, downloadReport,
   saveMappings, getMappings, getImportErrors, getDuplicateCandidates,
   resolveDuplicate, getImportFiles,
+  getImportRows, updateImportRow, excludeImportRow, restoreImportRow,
+  archiveImportBatch, softDeleteImportBatch, purgeImportBatch,
+  updateBatch, getFileDownloadUrl,
   IMPORT_CAPABLE_ROLES, APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
-  COMPANY_TARGET_COLUMNS,
-  type ImportBatch, type ImportMapping,
+  COMPANY_TARGET_COLUMNS, TARGET_ENTITIES,
+  type ImportBatch, type ImportMapping, type ImportRow, type ImportTargetEntity,
 } from "@/lib/import-actions";
 
 export const Route = createFileRoute("/_authenticated/data-import")({
@@ -39,15 +49,82 @@ function statusTone(s: string): StatusTone {
   return "neutral";
 }
 
+type HistoryFilter =
+  | "active" | "all" | "parsed" | "needs_mapping" | "validation_failed"
+  | "dry_run" | "archived" | "deleted";
+
 function DataImportCenter() {
   const { t } = useI18n();
   const { hasAnyRole, hasRole } = useAuth();
   const qc = useQueryClient();
 
-  // Access check
   const canAccess = hasAnyRole([...UPLOAD_ROLES] as any[]);
   const canApprove = hasAnyRole([...APPROVE_COMMIT_ROLES] as any[]);
   const isSystemAdmin = hasRole("system_admin" as any);
+
+  const [tab, setTab] = useState("history");
+  const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [filter, setFilter] = useState<HistoryFilter>("active");
+
+  // Include archived/deleted only when the user wants to see them
+  const includeArchived = filter === "all" || filter === "archived";
+  const includeDeleted  = filter === "all" || filter === "deleted";
+
+  const { data: batches = [], isLoading: batchesLoading } = useQuery<ImportBatch[]>({
+    queryKey: ["import-batches", { includeArchived, includeDeleted }],
+    queryFn: () => listBatches({ includeArchived, includeDeleted }),
+    enabled: canAccess,
+  });
+
+  const { data: activeBatch } = useQuery({
+    queryKey: ["import-batch", activeBatchId],
+    queryFn: () => (activeBatchId ? getBatch(activeBatchId) : null),
+    enabled: canAccess && !!activeBatchId,
+    refetchInterval: busy ? 3000 : false,
+  });
+
+  const { data: mappings = [] } = useQuery({
+    queryKey: ["import-mappings", activeBatchId],
+    queryFn: () => (activeBatchId ? getMappings(activeBatchId) : []),
+    enabled: canAccess && !!activeBatchId,
+  });
+
+  const { data: errors = [] } = useQuery({
+    queryKey: ["import-errors", activeBatchId],
+    queryFn: () => (activeBatchId ? getImportErrors(activeBatchId) : []),
+    enabled: canAccess && !!activeBatchId && (tab === "validation" || tab === "result"),
+  });
+
+  const { data: dupes = [] } = useQuery({
+    queryKey: ["import-dupes", activeBatchId],
+    queryFn: () => (activeBatchId ? getDuplicateCandidates(activeBatchId) : []),
+    enabled: canAccess && !!activeBatchId && (tab === "duplicates" || tab === "result"),
+  });
+
+  const { data: files = [] } = useQuery({
+    queryKey: ["import-files", activeBatchId],
+    queryFn: () => (activeBatchId ? getImportFiles(activeBatchId) : []),
+    enabled: canAccess && !!activeBatchId,
+  });
+
+  const { data: rows = [] } = useQuery<ImportRow[]>({
+    queryKey: ["import-rows", activeBatchId],
+    queryFn: () => (activeBatchId ? getImportRows(activeBatchId, { includeDeleted: true }) : Promise.resolve([])),
+    enabled: canAccess && !!activeBatchId && (tab === "rows" || tab === "staged"),
+  });
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["import-batches"] });
+    if (activeBatchId) {
+      qc.invalidateQueries({ queryKey: ["import-batch", activeBatchId] });
+      qc.invalidateQueries({ queryKey: ["import-errors", activeBatchId] });
+      qc.invalidateQueries({ queryKey: ["import-dupes", activeBatchId] });
+      qc.invalidateQueries({ queryKey: ["import-files", activeBatchId] });
+      qc.invalidateQueries({ queryKey: ["import-mappings", activeBatchId] });
+      qc.invalidateQueries({ queryKey: ["import-rows", activeBatchId] });
+    }
+  };
 
   if (!canAccess) {
     return (
@@ -60,58 +137,6 @@ function DataImportCenter() {
     );
   }
 
-  const [tab, setTab] = useState("history");
-  const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  // Queries
-  const { data: batches = [], isLoading: batchesLoading } = useQuery({
-    queryKey: ["import-batches"],
-    queryFn: listBatches,
-  });
-
-  const { data: activeBatch } = useQuery({
-    queryKey: ["import-batch", activeBatchId],
-    queryFn: () => (activeBatchId ? getBatch(activeBatchId) : null),
-    enabled: !!activeBatchId,
-    refetchInterval: busy ? 3000 : false,
-  });
-
-  const { data: mappings = [] } = useQuery({
-    queryKey: ["import-mappings", activeBatchId],
-    queryFn: () => (activeBatchId ? getMappings(activeBatchId) : []),
-    enabled: !!activeBatchId,
-  });
-
-  const { data: errors = [] } = useQuery({
-    queryKey: ["import-errors", activeBatchId],
-    queryFn: () => (activeBatchId ? getImportErrors(activeBatchId) : []),
-    enabled: !!activeBatchId && (tab === "validation" || tab === "result"),
-  });
-
-  const { data: dupes = [] } = useQuery({
-    queryKey: ["import-dupes", activeBatchId],
-    queryFn: () => (activeBatchId ? getDuplicateCandidates(activeBatchId) : []),
-    enabled: !!activeBatchId && (tab === "duplicates" || tab === "result"),
-  });
-
-  const { data: files = [] } = useQuery({
-    queryKey: ["import-files", activeBatchId],
-    queryFn: () => (activeBatchId ? getImportFiles(activeBatchId) : []),
-    enabled: !!activeBatchId,
-  });
-
-  const refresh = () => {
-    qc.invalidateQueries({ queryKey: ["import-batches"] });
-    if (activeBatchId) {
-      qc.invalidateQueries({ queryKey: ["import-batch", activeBatchId] });
-      qc.invalidateQueries({ queryKey: ["import-errors", activeBatchId] });
-      qc.invalidateQueries({ queryKey: ["import-dupes", activeBatchId] });
-      qc.invalidateQueries({ queryKey: ["import-files", activeBatchId] });
-      qc.invalidateQueries({ queryKey: ["import-mappings", activeBatchId] });
-    }
-  };
-
   // -- Handlers ----------------------------------------------------------------
 
   const handleNewBatch = async () => {
@@ -120,7 +145,7 @@ function DataImportCenter() {
       const batch = await createBatch();
       setActiveBatchId(batch.id);
       setTab("upload");
-      toast.success(t("toast_success"));
+      toast.success("New import batch created");
     } catch (e: any) {
       toast.error(t("toast_error") + e.message);
     } finally {
@@ -134,12 +159,10 @@ function DataImportCenter() {
     try {
       setBusy(true);
       const { fileId } = await uploadImportFile(activeBatchId, file);
-      toast.success(t("toast_success"));
-
-      // Auto-parse
+      toast.success(`Uploaded ${file.name}`);
       await parseFile(activeBatchId, fileId);
       setTab("mapping");
-      toast.success(t("toast_success"));
+      toast.success("File parsed");
     } catch (e: any) {
       toast.error(t("toast_error") + e.message);
     } finally {
@@ -154,7 +177,7 @@ function DataImportCenter() {
       setBusy(true);
       await validateBatch(activeBatchId);
       setTab("validation");
-      toast.success(t("toast_success"));
+      toast.success("Validation complete");
     } catch (e: any) {
       toast.error(t("toast_error") + e.message);
     } finally {
@@ -169,7 +192,7 @@ function DataImportCenter() {
       setBusy(true);
       await detectDuplicates(activeBatchId);
       setTab("duplicates");
-      toast.success(t("toast_success"));
+      toast.success("Duplicate detection complete");
     } catch (e: any) {
       toast.error(t("toast_error") + e.message);
     } finally {
@@ -184,7 +207,7 @@ function DataImportCenter() {
       setBusy(true);
       await approveBatch(activeBatchId);
       setTab("approval");
-      toast.success(t("toast_success"));
+      toast.success("Batch approved");
     } catch (e: any) {
       toast.error(t("toast_error") + e.message);
     } finally {
@@ -199,7 +222,7 @@ function DataImportCenter() {
       setBusy(true);
       await dryRunCommit(activeBatchId);
       setTab("result");
-      toast.success(t("toast_success"));
+      toast.success("Dry-run complete — no real CRM records were created");
     } catch (e: any) {
       toast.error(t("toast_error") + e.message);
     } finally {
@@ -214,7 +237,7 @@ function DataImportCenter() {
       await cancelBatch(activeBatchId);
       setActiveBatchId(null);
       setTab("history");
-      toast.success(t("toast_success"));
+      toast.success("Batch cancelled");
     } catch (e: any) {
       toast.error(t("toast_error") + e.message);
     } finally {
@@ -224,8 +247,75 @@ function DataImportCenter() {
 
   const openBatch = (id: string) => {
     setActiveBatchId(id);
-    setTab("upload");
+    setTab("overview");
   };
+
+  // -- Row edit handlers -----------------------------------------------------
+
+  const handleRowEdit = async (rowId: string, raw_data: Record<string, unknown>) => {
+    try {
+      await updateImportRow(rowId, { raw_data });
+      toast.success("Row updated. Re-run validation to refresh results.");
+      qc.invalidateQueries({ queryKey: ["import-rows", activeBatchId] });
+      qc.invalidateQueries({ queryKey: ["import-batch", activeBatchId] });
+    } catch (e: any) {
+      toast.error(t("toast_error") + e.message);
+    }
+  };
+
+  const handleRowExclude = async (rowId: string) => {
+    try {
+      await excludeImportRow(rowId);
+      toast.success("Row excluded from batch");
+      qc.invalidateQueries({ queryKey: ["import-rows", activeBatchId] });
+    } catch (e: any) {
+      toast.error(t("toast_error") + e.message);
+    }
+  };
+
+  const handleRowRestore = async (rowId: string) => {
+    try {
+      await restoreImportRow(rowId);
+      toast.success("Row restored");
+      qc.invalidateQueries({ queryKey: ["import-rows", activeBatchId] });
+    } catch (e: any) {
+      toast.error(t("toast_error") + e.message);
+    }
+  };
+
+  // -- Batch lifecycle handlers ---------------------------------------------
+
+  const handleArchive = async (id: string) => {
+    try {
+      await archiveImportBatch(id);
+      toast.success("Batch archived");
+      refresh();
+    } catch (e: any) { toast.error(t("toast_error") + e.message); }
+  };
+
+  const handleSoftDelete = async (id: string, reason: string) => {
+    try {
+      await softDeleteImportBatch(id, reason);
+      toast.success("Batch deleted");
+      if (id === activeBatchId) { setActiveBatchId(null); setTab("history"); }
+      refresh();
+    } catch (e: any) { toast.error(t("toast_error") + e.message); }
+  };
+
+  const handlePurge = async (id: string) => {
+    try {
+      setBusy(true);
+      await purgeImportBatch(id, "DELETE");
+      toast.success("Batch permanently purged");
+      if (id === activeBatchId) { setActiveBatchId(null); setTab("history"); }
+      refresh();
+    } catch (e: any) {
+      toast.error(t("toast_error") + e.message);
+    } finally { setBusy(false); }
+  };
+
+  // Filter batches according to the History filter selection
+  const visibleBatches = useMemo(() => filterBatches(batches, filter), [batches, filter]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
@@ -245,12 +335,10 @@ function DataImportCenter() {
         }
       />
 
-      {/* Dry-run notice */}
       <div className="mb-6 rounded-md border border-amber/30 bg-amber/5 px-4 py-3 text-sm text-amber">
         {t("import_dry_run_note")}
       </div>
 
-      {/* System admin notice */}
       {isSystemAdmin && !canApprove && (
         <div className="mb-6 rounded-md border border-muted bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
           {t("import_no_approve")}
@@ -259,22 +347,44 @@ function DataImportCenter() {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6 flex flex-wrap gap-1">
-          <TabsTrigger value="history"><History className="mr-1.5 h-3.5 w-3.5" />{t("import_tab_history")}</TabsTrigger>
-          <TabsTrigger value="upload"><Upload className="mr-1.5 h-3.5 w-3.5" />{t("import_tab_upload")}</TabsTrigger>
-          <TabsTrigger value="mapping"><FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />{t("import_tab_mapping")}</TabsTrigger>
-          <TabsTrigger value="validation"><AlertTriangle className="mr-1.5 h-3.5 w-3.5" />{t("import_tab_validation")}</TabsTrigger>
-          <TabsTrigger value="duplicates"><Copy className="mr-1.5 h-3.5 w-3.5" />{t("import_tab_duplicates")}</TabsTrigger>
-          <TabsTrigger value="approval"><ShieldCheck className="mr-1.5 h-3.5 w-3.5" />{t("import_tab_approval")}</TabsTrigger>
-          <TabsTrigger value="result"><CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />{t("import_tab_result")}</TabsTrigger>
-          <TabsTrigger value="analysis"><BarChart3 className="mr-1.5 h-3.5 w-3.5" />{t("import_tab_analysis")}</TabsTrigger>
+          <TabsTrigger value="history"><History className="mr-1.5 h-3.5 w-3.5" />History</TabsTrigger>
+          <TabsTrigger value="overview" disabled={!activeBatchId}><FileText className="mr-1.5 h-3.5 w-3.5" />Overview</TabsTrigger>
+          <TabsTrigger value="upload" disabled={!activeBatchId}><Upload className="mr-1.5 h-3.5 w-3.5" />Upload</TabsTrigger>
+          <TabsTrigger value="mapping" disabled={!activeBatchId}><FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />Mapping</TabsTrigger>
+          <TabsTrigger value="rows" disabled={!activeBatchId}><Pencil className="mr-1.5 h-3.5 w-3.5" />Rows</TabsTrigger>
+          <TabsTrigger value="validation" disabled={!activeBatchId}><AlertTriangle className="mr-1.5 h-3.5 w-3.5" />Validation</TabsTrigger>
+          <TabsTrigger value="duplicates" disabled={!activeBatchId}><Copy className="mr-1.5 h-3.5 w-3.5" />Duplicates</TabsTrigger>
+          <TabsTrigger value="approval" disabled={!activeBatchId}><ShieldCheck className="mr-1.5 h-3.5 w-3.5" />Approval</TabsTrigger>
+          <TabsTrigger value="result" disabled={!activeBatchId}><CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />Result</TabsTrigger>
+          <TabsTrigger value="analysis" disabled={!activeBatchId}><BarChart3 className="mr-1.5 h-3.5 w-3.5" />Analysis</TabsTrigger>
         </TabsList>
 
-        {/* HISTORY */}
         <TabsContent value="history">
-          <HistoryTab batches={batches} loading={batchesLoading} onOpen={openBatch} t={t} />
+          <HistoryTab
+            batches={visibleBatches}
+            loading={batchesLoading}
+            filter={filter}
+            onFilter={setFilter}
+            onOpen={openBatch}
+            onArchive={handleArchive}
+            onSoftDelete={handleSoftDelete}
+            onPurge={handlePurge}
+            isSystemAdmin={isSystemAdmin}
+          />
         </TabsContent>
 
-        {/* UPLOAD */}
+        <TabsContent value="overview">
+          <OverviewTab
+            batch={activeBatch}
+            files={files}
+            onUpdate={async (patch) => {
+              if (!activeBatchId) return;
+              try { await updateBatch(activeBatchId, patch); toast.success("Batch updated"); refresh(); }
+              catch (e: any) { toast.error(t("toast_error") + e.message); }
+            }}
+          />
+        </TabsContent>
+
         <TabsContent value="upload">
           <UploadTab
             batch={activeBatch}
@@ -286,7 +396,6 @@ function DataImportCenter() {
           />
         </TabsContent>
 
-        {/* MAPPING */}
         <TabsContent value="mapping">
           <MappingTab
             batch={activeBatch}
@@ -296,11 +405,14 @@ function DataImportCenter() {
               if (!activeBatchId) return;
               try {
                 setBusy(true);
-                await saveMappings(activeBatchId, m);
-                toast.success(t("toast_success"));
+                const saved = await saveMappings(activeBatchId, m);
+                qc.setQueryData(["import-mappings", activeBatchId], saved);
+                toast.success("Column mappings saved.");
                 refresh();
+                return saved;
               } catch (e: any) {
                 toast.error(t("toast_error") + e.message);
+                throw e;
               } finally {
                 setBusy(false);
               }
@@ -311,7 +423,19 @@ function DataImportCenter() {
           />
         </TabsContent>
 
-        {/* VALIDATION */}
+        <TabsContent value="rows">
+          <RowsTab
+            batch={activeBatch}
+            rows={rows}
+            files={files}
+            onEdit={handleRowEdit}
+            onExclude={handleRowExclude}
+            onRestore={handleRowRestore}
+            onRevalidate={handleValidate}
+            busy={busy}
+          />
+        </TabsContent>
+
         <TabsContent value="validation">
           <ValidationTab
             batch={activeBatch}
@@ -323,18 +447,13 @@ function DataImportCenter() {
           />
         </TabsContent>
 
-        {/* DUPLICATES */}
         <TabsContent value="duplicates">
           <DuplicatesTab
             batch={activeBatch}
             dupes={dupes}
             onResolve={async (id, res) => {
-              try {
-                await resolveDuplicate(id, res);
-                refresh();
-              } catch (e: any) {
-                toast.error(t("toast_error") + e.message);
-              }
+              try { await resolveDuplicate(id, res); refresh(); }
+              catch (e: any) { toast.error(t("toast_error") + e.message); }
             }}
             onProceedToApproval={() => setTab("approval")}
             onDownload={() => activeBatchId && downloadReport(activeBatchId, "duplicate_candidates")}
@@ -343,7 +462,6 @@ function DataImportCenter() {
           />
         </TabsContent>
 
-        {/* APPROVAL */}
         <TabsContent value="approval">
           <ApprovalTab
             batch={activeBatch}
@@ -356,7 +474,6 @@ function DataImportCenter() {
           />
         </TabsContent>
 
-        {/* RESULT */}
         <TabsContent value="result">
           <ResultTab
             batch={activeBatch}
@@ -367,7 +484,6 @@ function DataImportCenter() {
           />
         </TabsContent>
 
-        {/* ANALYSIS */}
         <TabsContent value="analysis">
           <AnalysisTab batch={activeBatch} t={t} />
         </TabsContent>
@@ -377,39 +493,363 @@ function DataImportCenter() {
 }
 
 // =============================================================================
-// Sub-components for each tab
+// Helpers
 // =============================================================================
 
-function HistoryTab({ batches, loading, onOpen, t }: {
-  batches: ImportBatch[]; loading: boolean; onOpen: (id: string) => void; t: (k: any) => string;
+function filterBatches(batches: ImportBatch[], f: HistoryFilter): ImportBatch[] {
+  switch (f) {
+    case "all":      return batches;
+    case "archived": return batches.filter((b) => !!b.archived_at);
+    case "deleted":  return batches.filter((b) => !!b.deleted_at);
+    case "parsed":            return batches.filter((b) => b.status === "mapping" || b.status === "validating");
+    case "needs_mapping":     return batches.filter((b) => b.status === "mapping");
+    case "validation_failed": return batches.filter((b) => b.error_rows > 0);
+    case "dry_run":           return batches.filter((b) => b.status === "dry_run");
+    case "active":
+    default:
+      return batches.filter((b) => !b.archived_at && !b.deleted_at);
+  }
+}
+
+// =============================================================================
+// History
+// =============================================================================
+
+const FILTER_OPTIONS: { value: HistoryFilter; label: string }[] = [
+  { value: "active",            label: "Active" },
+  { value: "all",               label: "All" },
+  { value: "parsed",            label: "Parsed" },
+  { value: "needs_mapping",     label: "Needs Mapping" },
+  { value: "validation_failed", label: "Validation Failed" },
+  { value: "dry_run",           label: "Dry-run Completed" },
+  { value: "archived",          label: "Archived" },
+  { value: "deleted",           label: "Deleted" },
+];
+
+function HistoryTab({
+  batches, loading, filter, onFilter, onOpen, onArchive, onSoftDelete, onPurge, isSystemAdmin,
+}: {
+  batches: ImportBatch[];
+  loading: boolean;
+  filter: HistoryFilter;
+  onFilter: (f: HistoryFilter) => void;
+  onOpen: (id: string) => void;
+  onArchive: (id: string) => void;
+  onSoftDelete: (id: string, reason: string) => void;
+  onPurge: (id: string) => void;
+  isSystemAdmin: boolean;
 }) {
-  if (loading) return <EmptyState message="Loading…" />;
-  if (batches.length === 0) return <EmptyState message={t("import_no_batches")} />;
+  const [confirm, setConfirm] = useState<{
+    kind: "archive" | "delete" | "purge"; batch: ImportBatch;
+  } | null>(null);
 
   return (
-    <div className="space-y-2">
-      {batches.map((b) => (
-        <button
-          key={b.id}
-          onClick={() => onOpen(b.id)}
-          className="flex w-full items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-muted/50"
-        >
-          <div className="min-w-0">
-            <div className="text-sm font-medium text-foreground">
-              {b.id.slice(0, 8)}… · {b.total_rows} {t("import_rows_total").toLowerCase()}
-            </div>
-            <div className="mt-1 text-xs text-muted-foreground">
-              {new Date(b.created_at).toLocaleDateString()} · {b.source_type}
-            </div>
-          </div>
-          <StatusPill tone={statusTone(b.status)}>
-            {t(("import_status_" + b.status) as any)}
-          </StatusPill>
-        </button>
-      ))}
+    <div className="space-y-4">
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-1.5">
+        {FILTER_OPTIONS.map((o) => (
+          <button
+            key={o.value}
+            onClick={() => onFilter(o.value)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              filter === o.value
+                ? "border-foreground bg-foreground text-background"
+                : "border-border bg-surface text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <EmptyState message="Loading…" />
+      ) : batches.length === 0 ? (
+        <EmptyState message="No import batches match this filter." />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="px-3 py-2 font-medium">File</th>
+                <th className="px-3 py-2 font-medium">Target</th>
+                <th className="px-3 py-2 font-medium">Uploaded</th>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 text-right font-medium">Total</th>
+                <th className="px-3 py-2 text-right font-medium">Valid</th>
+                <th className="px-3 py-2 text-right font-medium">Errors</th>
+                <th className="px-3 py-2 text-right font-medium">Dupes</th>
+                <th className="px-3 py-2 font-medium">Updated</th>
+                <th className="px-3 py-2 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {batches.map((b) => (
+                <tr
+                  key={b.id}
+                  className={`border-b border-border last:border-0 ${b.deleted_at ? "opacity-60" : ""}`}
+                >
+                  <td className="px-3 py-2">
+                    <button
+                      onClick={() => onOpen(b.id)}
+                      className="text-left text-sm font-medium text-foreground hover:underline"
+                    >
+                      {b.file_name ?? <span className="text-muted-foreground">(no file)</span>}
+                    </button>
+                    <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">{b.id.slice(0, 8)}…</div>
+                  </td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">{b.target_entity}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {new Date(b.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-3 py-2">
+                    <StatusPill tone={statusTone(b.status)}>{b.status}</StatusPill>
+                    {b.archived_at && <span className="ml-1 text-[10px] text-muted-foreground">·archived</span>}
+                    {b.deleted_at && <span className="ml-1 text-[10px] text-danger">·deleted</span>}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-xs">{b.total_rows}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs text-positive">{b.valid_rows}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs text-danger">{b.error_rows}</td>
+                  <td className="px-3 py-2 text-right font-mono text-xs text-amber">{b.duplicate_rows}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground">
+                    {new Date(b.updated_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => onOpen(b.id)}
+                        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        title="Open batch"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                      </button>
+                      {!b.archived_at && !b.deleted_at && (
+                        <button
+                          onClick={() => setConfirm({ kind: "archive", batch: b })}
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          title="Archive"
+                        >
+                          <Archive className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {!b.deleted_at && (
+                        <button
+                          onClick={() => setConfirm({ kind: "delete", batch: b })}
+                          className="rounded p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                          title="Delete (soft)"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {isSystemAdmin && (
+                        <button
+                          onClick={() => setConfirm({ kind: "purge", batch: b })}
+                          className="rounded p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                          title="Permanent purge (system_admin only)"
+                        >
+                          <Flame className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <ConfirmDialog
+        state={confirm}
+        onClose={() => setConfirm(null)}
+        onArchive={onArchive}
+        onSoftDelete={onSoftDelete}
+        onPurge={onPurge}
+      />
     </div>
   );
 }
+
+function ConfirmDialog({
+  state, onClose, onArchive, onSoftDelete, onPurge,
+}: {
+  state: { kind: "archive" | "delete" | "purge"; batch: ImportBatch } | null;
+  onClose: () => void;
+  onArchive: (id: string) => void;
+  onSoftDelete: (id: string, reason: string) => void;
+  onPurge: (id: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [typed, setTyped] = useState("");
+
+  useEffect(() => { setReason(""); setTyped(""); }, [state?.batch.id, state?.kind]);
+
+  if (!state) return null;
+  const { kind, batch } = state;
+
+  const isPurge = kind === "purge";
+  const isDelete = kind === "delete";
+
+  return (
+    <AlertDialog open onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {kind === "archive" && "Archive this import batch?"}
+            {kind === "delete"  && "Delete this import batch?"}
+            {kind === "purge"   && "Permanently purge this import batch?"}
+          </AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3 text-sm">
+              <div className="rounded-md border border-border bg-muted/30 p-2 font-mono text-xs">
+                {batch.file_name ?? batch.id.slice(0, 8)} · {batch.total_rows} rows · {batch.status}
+              </div>
+              {kind === "archive" && (
+                <p className="text-muted-foreground">
+                  Archived batches are hidden from the active history but remain fully recoverable.
+                  The uploaded file and all import records are kept.
+                </p>
+              )}
+              {isDelete && (
+                <>
+                  <p className="text-muted-foreground">
+                    Soft-deletes the batch. It stays out of the normal history but the audit trail,
+                    file, and rows are preserved. No CRM records are affected (dry-run only).
+                  </p>
+                  <Textarea
+                    placeholder="Reason for deletion (required)"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    rows={3}
+                  />
+                </>
+              )}
+              {isPurge && (
+                <>
+                  <p className="text-danger">
+                    This is irreversible. It removes the original file from storage and every
+                    import_* row for this batch. system_admin only.
+                  </p>
+                  <p className="text-muted-foreground">
+                    Type <span className="font-mono font-semibold">DELETE</span> to confirm:
+                  </p>
+                  <Input
+                    value={typed}
+                    onChange={(e) => setTyped(e.target.value)}
+                    placeholder="DELETE"
+                    className="font-mono"
+                  />
+                </>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={(isDelete && !reason.trim()) || (isPurge && typed !== "DELETE")}
+            onClick={() => {
+              if (kind === "archive")   onArchive(batch.id);
+              else if (kind === "delete") onSoftDelete(batch.id, reason);
+              else if (kind === "purge")  onPurge(batch.id);
+              onClose();
+            }}
+            className={isPurge || isDelete ? "bg-danger text-danger-foreground hover:bg-danger/90" : ""}
+          >
+            {kind === "archive" ? "Archive" : isDelete ? "Delete" : "Permanently purge"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+// =============================================================================
+// Overview
+// =============================================================================
+
+function OverviewTab({ batch, files, onUpdate }: {
+  batch: ImportBatch | null | undefined;
+  files: any[];
+  onUpdate: (patch: { target_entity?: ImportTargetEntity; notes?: string }) => Promise<void>;
+}) {
+  if (!batch) return <EmptyState message="Open a batch from History to see details." />;
+
+  const file = files[0];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <KpiCard icon={<FileSpreadsheet className="h-4 w-4" />} label="Total rows" value={batch.total_rows} />
+        <KpiCard icon={<CheckCircle2 className="h-4 w-4" />} label="Valid" value={batch.valid_rows} />
+        <KpiCard icon={<AlertTriangle className="h-4 w-4" />} label="Errors" value={batch.error_rows} />
+        <KpiCard icon={<Copy className="h-4 w-4" />} label="Duplicates" value={batch.duplicate_rows} />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <h3 className="text-sm font-medium text-foreground">Batch</h3>
+          <dl className="mt-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt className="text-muted-foreground">Batch ID</dt>
+            <dd className="font-mono text-xs text-foreground">{batch.id}</dd>
+            <dt className="text-muted-foreground">File</dt>
+            <dd className="text-foreground">{batch.file_name ?? "—"}</dd>
+            <dt className="text-muted-foreground">Uploaded</dt>
+            <dd className="text-foreground">{new Date(batch.created_at).toLocaleString()}</dd>
+            <dt className="text-muted-foreground">Status</dt>
+            <dd><StatusPill tone={statusTone(batch.status)}>{batch.status}</StatusPill></dd>
+            <dt className="text-muted-foreground">Target</dt>
+            <dd>
+              <select
+                value={batch.target_entity}
+                onChange={(e) => onUpdate({ target_entity: e.target.value as ImportTargetEntity })}
+                className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
+              >
+                {TARGET_ENTITIES.map((te) => (
+                  <option key={te.value} value={te.value}>{te.label}</option>
+                ))}
+              </select>
+            </dd>
+            <dt className="text-muted-foreground">Dry-run</dt>
+            <dd className="text-foreground">Yes (Phase 1 — no CRM writes)</dd>
+          </dl>
+        </div>
+
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <h3 className="text-sm font-medium text-foreground">Original file</h3>
+          {file ? (
+            <div className="mt-3 space-y-3 text-sm">
+              <div className="flex items-center gap-2 text-foreground">
+                <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+                {file.file_name}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {(file.file_size_bytes / 1024).toFixed(1)} KB · {file.file_type} · {file.row_count ?? 0} rows
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    const url = await getFileDownloadUrl(file.storage_path);
+                    window.open(url, "_blank");
+                  } catch (e: any) { toast.error(e.message); }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+              >
+                <Download className="h-3 w-3" /> Download original
+              </button>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">No file uploaded yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Upload
+// =============================================================================
 
 function UploadTab({ batch, busy, onUpload, onCancel, files, t }: {
   batch: ImportBatch | null | undefined; busy: boolean;
@@ -431,13 +871,10 @@ function UploadTab({ batch, busy, onUpload, onCancel, files, t }: {
     if (file) onUpload(file);
   }, [onUpload]);
 
-  if (!batch) {
-    return <EmptyState message={t("import_new_batch")} />;
-  }
+  if (!batch) return <EmptyState message={t("import_new_batch")} />;
 
   return (
     <div className="space-y-6">
-      {/* Drop zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
@@ -447,23 +884,13 @@ function UploadTab({ batch, busy, onUpload, onCancel, files, t }: {
           dragOver ? "border-foreground bg-muted/50" : "border-border hover:border-muted-foreground"
         }`}
       >
-        {busy ? (
-          <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-        ) : (
-          <Upload className="h-10 w-10 text-muted-foreground" />
-        )}
+        {busy ? <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+              : <Upload className="h-10 w-10 text-muted-foreground" />}
         <p className="mt-4 text-sm text-foreground">{t("import_upload_prompt")}</p>
         <p className="mt-1 text-xs text-muted-foreground">{t("import_upload_limit")}</p>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv,.xlsx"
-          onChange={handleChange}
-          className="hidden"
-        />
+        <input ref={fileRef} type="file" accept=".csv,.xlsx" onChange={handleChange} className="hidden" />
       </div>
 
-      {/* Uploaded files */}
       {files.length > 0 && (
         <div className="space-y-2">
           {files.map((f: any) => (
@@ -479,7 +906,6 @@ function UploadTab({ batch, busy, onUpload, onCancel, files, t }: {
         </div>
       )}
 
-      {/* Cancel */}
       <div className="flex justify-end">
         <button onClick={onCancel} className="text-sm text-muted-foreground hover:text-danger">
           <X className="mr-1 inline h-3.5 w-3.5" />{t("import_cancel")}
@@ -489,39 +915,90 @@ function UploadTab({ batch, busy, onUpload, onCancel, files, t }: {
   );
 }
 
+// =============================================================================
+// Mapping
+// =============================================================================
+
 function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
   batch: ImportBatch | null | undefined;
   files: any[];
   mappings: ImportMapping[];
-  onSave: (m: Omit<ImportMapping, "id" | "batch_id">[]) => Promise<void>;
-  onValidate: () => void;
+  onSave: (m: Omit<ImportMapping, "id" | "batch_id">[]) => Promise<ImportMapping[] | void>;
+  onValidate: () => Promise<void>;
   busy: boolean;
   t: (k: any) => string;
 }) {
-  const columns = files[0]?.column_names ?? [];
-  const [draft, setDraft] = useState<Record<string, { target: string; isKey: boolean }>>(() => {
-    const init: Record<string, { target: string; isKey: boolean }> = {};
-    for (const m of mappings) {
-      init[m.source_column] = { target: m.target_column, isKey: m.is_key };
-    }
-    return init;
-  });
+  const columns: string[] = files[0]?.column_names ?? [];
+
+  type Row = { source: string; target: string; isKey: boolean };
+  const [draft, setDraft] = useState<Row[]>([]);
+
+  const columnsKey = columns.join("|");
+  const mappingsKey = mappings.map((m) => `${m.source_column}=${m.target_column}:${m.is_key}`).join("|");
+  useEffect(() => {
+    const byCol = new Map<string, { target: string; isKey: boolean }>();
+    for (const m of mappings) byCol.set(m.source_column, { target: m.target_column, isKey: m.is_key });
+    setDraft(columns.map((c) => ({
+      source: c,
+      target: byCol.get(c)?.target ?? "",
+      isKey: byCol.get(c)?.isKey ?? false,
+    })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnsKey, mappingsKey]);
 
   if (!batch || columns.length === 0) {
     return <EmptyState message={t("import_tab_upload")} />;
   }
 
-  const handleSave = async () => {
-    const mapped = Object.entries(draft)
-      .filter(([, v]) => v.target)
-      .map(([source, v]) => ({
-        source_column: source,
-        target_table: "companies",
-        target_column: v.target,
+  const updateRow = (idx: number, patch: Partial<Row>) =>
+    setDraft((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+
+  const buildPayload = () => {
+    const seen = new Set<string>();
+    return draft
+      .filter((r) => {
+        const source = r.source.trim();
+        if (!r.target || !source) return false;
+        if (seen.has(source)) return false;
+        seen.add(source);
+        return true;
+      })
+      .map((r) => ({
+        source_column: r.source.trim(),
+        target_table: batch.target_entity,
+        target_column: r.target.trim(),
         transform: null,
-        is_key: v.isKey,
+        is_key: r.isKey,
       }));
-    await onSave(mapped);
+  };
+
+  const validDraftCount = buildPayload().length;
+  const canValidate = validDraftCount > 0 || mappings.length > 0;
+  const hasUnsavedDraft = validDraftCount > 0;
+
+  const handleSave = async () => {
+    const mapped = buildPayload();
+    if (mapped.length === 0) {
+      toast.error(t("toast_error") + "select a target field for at least one column");
+      return;
+    }
+    const saved = await onSave(mapped);
+    if (saved && saved.length === 0) {
+      toast.error(t("toast_error") + "select a target field for at least one column");
+    }
+  };
+
+  const handleValidateClick = async () => {
+    const mapped = buildPayload();
+    if (mapped.length === 0 && mappings.length === 0) {
+      toast.error(t("toast_error") + "select a target field for at least one column");
+      return;
+    }
+    if (mapped.length > 0) {
+      const saved = await onSave(mapped);
+      if (saved && saved.length === 0) return;
+    }
+    await onValidate();
   };
 
   return (
@@ -536,13 +1013,15 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
             </tr>
           </thead>
           <tbody>
-            {columns.map((col: string) => (
-              <tr key={col} className="border-b border-border last:border-0">
-                <td className="px-4 py-2 font-mono text-xs text-foreground">{col}</td>
+            {draft.map((row, idx) => (
+              <tr key={idx} className="border-b border-border last:border-0">
+                <td className="px-4 py-2 font-mono text-xs text-foreground">
+                  {row.source || <span className="text-muted-foreground">(column {idx + 1})</span>}
+                </td>
                 <td className="px-4 py-2">
                   <select
-                    value={draft[col]?.target ?? ""}
-                    onChange={(e) => setDraft((p) => ({ ...p, [col]: { target: e.target.value, isKey: p[col]?.isKey ?? false } }))}
+                    value={row.target}
+                    onChange={(e) => updateRow(idx, { target: e.target.value })}
                     className="w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
                   >
                     <option value="">— skip —</option>
@@ -554,8 +1033,8 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
                 <td className="px-4 py-2 text-center">
                   <input
                     type="checkbox"
-                    checked={draft[col]?.isKey ?? false}
-                    onChange={(e) => setDraft((p) => ({ ...p, [col]: { target: p[col]?.target ?? "", isKey: e.target.checked } }))}
+                    checked={row.isKey}
+                    onChange={(e) => updateRow(idx, { isKey: e.target.checked })}
                     className="h-4 w-4 rounded border-border"
                   />
                 </td>
@@ -565,25 +1044,197 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
         </table>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={handleSave}
-          disabled={busy}
+          disabled={busy || validDraftCount === 0}
           className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
         >
           {t("import_save_mapping")}
         </button>
         <button
-          onClick={onValidate}
-          disabled={busy || batch.status === "uploading"}
+          onClick={handleValidateClick}
+          disabled={busy || batch.status === "uploading" || !canValidate}
           className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
         >
-          {busy ? t("import_validating") : t("import_validate")}
+          {busy ? t("import_validating") : hasUnsavedDraft ? "Save & Validate" : t("import_validate")}
         </button>
+        {hasUnsavedDraft && (
+          <span className="text-xs text-muted-foreground">Unsaved mappings will be saved before validation.</span>
+        )}
       </div>
     </div>
   );
 }
+
+// =============================================================================
+// Rows (parsed row editing)
+// =============================================================================
+
+function RowsTab({ batch, rows, files, onEdit, onExclude, onRestore, onRevalidate, busy }: {
+  batch: ImportBatch | null | undefined;
+  rows: ImportRow[];
+  files: any[];
+  onEdit: (rowId: string, raw_data: Record<string, unknown>) => Promise<void>;
+  onExclude: (rowId: string) => Promise<void>;
+  onRestore: (rowId: string) => Promise<void>;
+  onRevalidate: () => Promise<void>;
+  busy: boolean;
+}) {
+  const columns: string[] = files[0]?.column_names ?? [];
+  const [editing, setEditing] = useState<{ rowId: string; draft: Record<string, string> } | null>(null);
+
+  if (!batch) return <EmptyState message="Open a batch first." />;
+  if (rows.length === 0) return <EmptyState message="No parsed rows yet — upload a file to parse it." />;
+
+  const activeCount   = rows.filter((r) => r.row_status === "active").length;
+  const editedCount   = rows.filter((r) => r.row_status === "edited").length;
+  const excludedCount = rows.filter((r) => r.row_status === "excluded" || r.row_status === "deleted").length;
+
+  const startEdit = (row: ImportRow) => {
+    const raw = (row.raw_data ?? {}) as Record<string, unknown>;
+    const draft: Record<string, string> = {};
+    for (const c of columns) draft[c] = raw[c] != null ? String(raw[c]) : "";
+    setEditing({ rowId: row.id, draft });
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const patch: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(editing.draft)) patch[k] = v === "" ? null : v;
+    await onEdit(editing.rowId, patch);
+    setEditing(null);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-2 text-xs">
+          <StatusPill tone="neutral">Active: {activeCount}</StatusPill>
+          <StatusPill tone="attention">Edited: {editedCount}</StatusPill>
+          <StatusPill tone="danger">Excluded: {excludedCount}</StatusPill>
+        </div>
+        <button
+          onClick={onRevalidate}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-50"
+        >
+          <RotateCcw className="h-3 w-3" /> Re-run validation
+        </button>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/30">
+              <th className="w-12 px-2 py-2 text-left text-xs font-medium text-muted-foreground">#</th>
+              {columns.map((c) => (
+                <th key={c} className="px-2 py-2 text-left text-xs font-medium text-muted-foreground">{c}</th>
+              ))}
+              <th className="w-24 px-2 py-2 text-left text-xs font-medium text-muted-foreground">Status</th>
+              <th className="w-28 px-2 py-2 text-right text-xs font-medium text-muted-foreground">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const isExcluded = row.is_excluded || row.row_status === "excluded" || row.row_status === "deleted";
+              const isEdit = editing?.rowId === row.id;
+              const raw = (row.raw_data ?? {}) as Record<string, unknown>;
+              return (
+                <tr
+                  key={row.id}
+                  className={`border-b border-border last:border-0 ${
+                    isExcluded ? "opacity-50 line-through"
+                      : row.row_status === "edited" ? "bg-amber/5" : ""
+                  }`}
+                >
+                  <td className="px-2 py-1.5 font-mono text-[10px] text-muted-foreground">{row.row_number}</td>
+                  {columns.map((c) => (
+                    <td key={c} className="px-2 py-1.5 text-xs">
+                      {isEdit ? (
+                        <input
+                          value={editing.draft[c] ?? ""}
+                          onChange={(e) => setEditing({
+                            ...editing,
+                            draft: { ...editing.draft, [c]: e.target.value },
+                          })}
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-xs"
+                        />
+                      ) : (
+                        <span className="text-foreground">{raw[c] != null ? String(raw[c]) : <span className="text-muted-foreground">—</span>}</span>
+                      )}
+                    </td>
+                  ))}
+                  <td className="px-2 py-1.5">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {row.row_status}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <div className="flex justify-end gap-1">
+                      {isEdit ? (
+                        <>
+                          <button
+                            onClick={saveEdit}
+                            className="rounded p-1 text-positive hover:bg-positive/10"
+                            title="Save row"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setEditing(null)}
+                            className="rounded p-1 text-muted-foreground hover:bg-muted"
+                            title="Cancel"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      ) : isExcluded ? (
+                        <button
+                          onClick={() => onRestore(row.id)}
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          title="Restore row"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => startEdit(row)}
+                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                            title="Edit row"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => onExclude(row.id)}
+                            className="rounded p-1 text-muted-foreground hover:bg-danger/10 hover:text-danger"
+                            title="Exclude from batch"
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Edits and exclusions only affect this import batch. Excluded rows are skipped by validation and dry-run.
+        No CRM records are modified.
+      </p>
+    </div>
+  );
+}
+
+// =============================================================================
+// Validation
+// =============================================================================
 
 function ValidationTab({ batch, errors, onDetectDupes, onDownload, busy, t }: {
   batch: ImportBatch | null | undefined;
@@ -597,7 +1248,6 @@ function ValidationTab({ batch, errors, onDetectDupes, onDownload, busy, t }: {
 
   return (
     <div className="space-y-6">
-      {/* KPI cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <KpiCard icon={<FileSpreadsheet className="h-4 w-4" />} label={t("import_rows_total")} value={batch.total_rows} />
         <KpiCard icon={<CheckCircle2 className="h-4 w-4" />} label={t("import_rows_valid")} value={batch.valid_rows} />
@@ -605,7 +1255,6 @@ function ValidationTab({ batch, errors, onDetectDupes, onDownload, busy, t }: {
         <KpiCard icon={<Copy className="h-4 w-4" />} label={t("import_rows_dupes")} value={batch.duplicate_rows} />
       </div>
 
-      {/* Errors table */}
       {errors.length > 0 && (
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-sm">
@@ -654,6 +1303,10 @@ function ValidationTab({ batch, errors, onDetectDupes, onDownload, busy, t }: {
     </div>
   );
 }
+
+// =============================================================================
+// Duplicates
+// =============================================================================
 
 function DuplicatesTab({ batch, dupes, onResolve, onProceedToApproval, onDownload, busy, t }: {
   batch: ImportBatch | null | undefined;
@@ -725,6 +1378,10 @@ function DuplicatesTab({ batch, dupes, onResolve, onProceedToApproval, onDownloa
   );
 }
 
+// =============================================================================
+// Approval
+// =============================================================================
+
 function ApprovalTab({ batch, canApprove, isSystemAdmin, onApprove, onDryRun, busy, t }: {
   batch: ImportBatch | null | undefined;
   canApprove: boolean;
@@ -738,7 +1395,6 @@ function ApprovalTab({ batch, canApprove, isSystemAdmin, onApprove, onDryRun, bu
 
   return (
     <div className="space-y-6">
-      {/* Summary */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <KpiCard icon={<FileSpreadsheet className="h-4 w-4" />} label={t("import_rows_total")} value={batch.total_rows} />
         <KpiCard icon={<CheckCircle2 className="h-4 w-4" />} label={t("import_rows_valid")} value={batch.valid_rows} />
@@ -746,7 +1402,6 @@ function ApprovalTab({ batch, canApprove, isSystemAdmin, onApprove, onDryRun, bu
         <KpiCard icon={<Copy className="h-4 w-4" />} label={t("import_rows_dupes")} value={batch.duplicate_rows} />
       </div>
 
-      {/* Status */}
       <div className="rounded-lg border border-border bg-surface p-4">
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground">Status:</span>
@@ -754,12 +1409,9 @@ function ApprovalTab({ batch, canApprove, isSystemAdmin, onApprove, onDryRun, bu
             {t(("import_status_" + batch.status) as any)}
           </StatusPill>
         </div>
-        {batch.dry_run && (
-          <p className="mt-2 text-xs text-amber">{t("import_dry_run_note")}</p>
-        )}
+        {batch.dry_run && <p className="mt-2 text-xs text-amber">{t("import_dry_run_note")}</p>}
       </div>
 
-      {/* Actions */}
       <div className="flex gap-3">
         {canApprove && batch.status === "pending_approval" && (
           <button
@@ -787,6 +1439,10 @@ function ApprovalTab({ batch, canApprove, isSystemAdmin, onApprove, onDryRun, bu
   );
 }
 
+// =============================================================================
+// Result
+// =============================================================================
+
 function ResultTab({ batch, onDownloadSummary, onDownloadErrors, onDownloadDupes, t }: {
   batch: ImportBatch | null | undefined;
   onDownloadSummary: () => void;
@@ -808,9 +1464,7 @@ function ResultTab({ batch, onDownloadSummary, onDownloadErrors, onDownloadDupes
         <StatusPill tone={statusTone(batch.status)}>
           {t(("import_status_" + batch.status) as any)}
         </StatusPill>
-        {batch.dry_run && (
-          <p className="mt-2 text-xs text-amber">{t("import_dry_run_note")}</p>
-        )}
+        {batch.dry_run && <p className="mt-2 text-xs text-amber">{t("import_dry_run_note")}</p>}
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -828,15 +1482,17 @@ function ResultTab({ batch, onDownloadSummary, onDownloadErrors, onDownloadDupes
   );
 }
 
+// =============================================================================
+// Analysis
+// =============================================================================
+
 function AnalysisTab({ batch, t }: {
   batch: ImportBatch | null | undefined;
   t: (k: any) => string;
 }) {
   if (!batch) return <EmptyState message={t("import_tab_result")} />;
 
-  const successRate = batch.total_rows > 0
-    ? ((batch.valid_rows / batch.total_rows) * 100).toFixed(1)
-    : "0";
+  const successRate = batch.total_rows > 0 ? ((batch.valid_rows / batch.total_rows) * 100).toFixed(1) : "0";
 
   return (
     <div className="space-y-6">
@@ -864,6 +1520,8 @@ function AnalysisTab({ batch, t }: {
         <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
           <dt className="text-muted-foreground">Batch ID</dt>
           <dd className="font-mono text-xs text-foreground">{batch.id}</dd>
+          <dt className="text-muted-foreground">Target entity</dt>
+          <dd className="text-foreground">{batch.target_entity}</dd>
           <dt className="text-muted-foreground">Created</dt>
           <dd className="text-foreground">{new Date(batch.created_at).toLocaleString()}</dd>
           <dt className="text-muted-foreground">Status</dt>

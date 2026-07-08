@@ -2,7 +2,51 @@
 @source "../src";
 @import "tw-animate-css";
 
+@font-face {
+  font-family: "Manifa Pro";
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+  src: url("/__l5e/assets-v1/e42d7d59-0bec-4790-a00b-b2262251bc6b/ManifaPro2-Thin.otf") format("opentype");
+}
+@font-face {
+  font-family: "Manifa Pro";
+  font-style: italic;
+  font-weight: 100;
+  font-display: swap;
+  src: url("/__l5e/assets-v1/6859b5a1-ce72-49d1-a729-4bcd4c0298d6/ManifaPro2-ThinItalic.otf") format("opentype");
+}
+@font-face {
+  font-family: "Manifa Pro";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("/__l5e/assets-v1/556ea3a8-68a5-43d7-8357-04604fa665f7/ManifaPro2-Light.otf") format("opentype");
+}
+@font-face {
+  font-family: "Manifa Pro";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/__l5e/assets-v1/e708df1d-e2d1-46b5-817f-e1f668c0c376/ManifaPro2-Regular.otf") format("opentype");
+}
+@font-face {
+  font-family: "Manifa Pro";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/__l5e/assets-v1/222cc9bd-db57-4f95-8b3e-ee8d67b5eefa/ManifaPro2-SemiBold.otf") format("opentype");
+}
+@font-face {
+  font-family: "Manifa Pro";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/__l5e/assets-v1/85ca9065-de0a-4f4d-8b99-77d9655e8540/ManifaPro2-Bold.otf") format("opentype");
+}
+
 @custom-variant dark (&:is(.dark *));
+
 
 /*
  * PHC Sales Agent — Executive dark-first design system.
@@ -60,12 +104,37 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: "Inter", "Almarai", ui-sans-serif, system-ui, sans-serif;
-  --font-arabic: "IBM Plex Sans Arabic", "Almarai", ui-sans-serif, sans-serif;
+  --font-sans: "Manifa Pro", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-arabic: "Manifa Pro", "IBM Plex Sans Arabic", "Almarai", ui-sans-serif, sans-serif;
+
+  /* Typography scale */
+  --text-2xs: 0.6875rem;
+  --text-xs:  0.75rem;
+  --text-sm:  0.8125rem;
+  --text-base:0.9375rem;
+  --text-md:  1rem;
+  --text-lg:  1.125rem;
+  --text-xl:  1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --text-4xl: 3rem;
+
+  --leading-tight:   1.2;
+  --leading-snug:    1.35;
+  --leading-normal:  1.55;
+  --leading-relaxed: 1.7;
+  --leading-arabic:  1.8;
+
+  --tracking-tight:  -0.02em;
+  --tracking-snug:   -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+  --tracking-caps:   0.14em;
 
   --shadow-elevated: 0 1px 0 0 color-mix(in oklch, var(--foreground) 6%, transparent),
                      0 8px 24px -12px oklch(0 0 0 / 0.55);
 }
+
 
 :root {
   --radius: 0.625rem;
@@ -128,7 +197,14 @@
   html {
     color-scheme: dark;
     background-color: var(--color-background);
+    /* User-controlled a11y font scale — bound to <html data-font-scale=...> */
+    font-size: calc(16px * var(--font-scale, 1));
   }
+  html[data-font-scale="sm"] { --font-scale: 0.9375; }   /* 15px */
+  html[data-font-scale="md"] { --font-scale: 1; }        /* 16px */
+  html[data-font-scale="lg"] { --font-scale: 1.125; }    /* 18px */
+  html[data-font-scale="xl"] { --font-scale: 1.25; }     /* 20px */
+
   * {
     border-color: var(--color-border);
   }
@@ -137,21 +213,45 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv11";
-    letter-spacing: -0.005em;
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    letter-spacing: var(--tracking-snug);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
-  html[dir="rtl"] body {
+
+  /* Arabic / RTL: relaxed leading, no negative tracking, Arabic-friendly numerals */
+  html[dir="rtl"] body,
+  html[lang="ar"] body {
     font-family: var(--font-arabic);
+    line-height: var(--leading-arabic);
+    letter-spacing: 0;
+    word-spacing: 0.02em;
+    text-align: start;
   }
-  h1, h2, h3, h4 {
-    letter-spacing: -0.02em;
+  html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] h3, html[dir="rtl"] h4,
+  html[lang="ar"] h1, html[lang="ar"] h2, html[lang="ar"] h3, html[lang="ar"] h4 {
+    letter-spacing: 0;
+    line-height: var(--leading-snug);
   }
+  html[dir="rtl"] p, html[dir="rtl"] li,
+  html[lang="ar"] p, html[lang="ar"] li {
+    line-height: var(--leading-arabic);
+  }
+
+  h1 { font-size: var(--text-3xl); line-height: var(--leading-tight); letter-spacing: var(--tracking-tight); font-weight: 600; }
+  h2 { font-size: var(--text-2xl); line-height: var(--leading-tight); letter-spacing: var(--tracking-tight); font-weight: 600; }
+  h3 { font-size: var(--text-xl);  line-height: var(--leading-snug);  letter-spacing: var(--tracking-snug);  font-weight: 600; }
+  h4 { font-size: var(--text-lg);  line-height: var(--leading-snug);  letter-spacing: var(--tracking-snug);  font-weight: 500; }
+  p  { line-height: var(--leading-relaxed); }
+
   /* Tabular numerals for finance / dates */
   .num, table, [data-tabular="true"] {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
   }
+
   /* Refined scrollbars */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
