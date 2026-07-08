@@ -142,6 +142,7 @@ function ContactsPage() {
                 <th className="px-5 py-3 text-start font-medium">{t("crm_authority")}</th>
                 <th className="px-5 py-3 text-start font-medium">{t("crm_location")}</th>
                 <th className="px-5 py-3 text-end font-medium">{t("crm_confidence")}</th>
+                <th className="px-5 py-3 text-end font-medium">{t("email_via_outlook")}</th>
               </tr>
             </thead>
             <tbody>
