@@ -31,6 +31,7 @@ import {
   GitMerge,
   Award,
   BellRing,
+  DatabaseZap,
   type LucideIcon,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -92,6 +93,7 @@ const groups: NavGroup[] = [
     key: "navgroup_admin",
     items: [
       { to: "/team", key: "nav_team", icon: Users2 },
+      { to: "/data-import", key: "nav_data_import", icon: DatabaseZap, ceoOnly: true },
       { to: "/admin-settings", key: "nav_admin_settings", icon: ShieldAlert, ceoOnly: true },
       { to: "/settings", key: "nav_settings", icon: Settings },
     ],
