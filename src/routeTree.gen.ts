@@ -28,6 +28,7 @@ import { Route as AuthenticatedMyWorkspaceRouteImport } from './routes/_authenti
 import { Route as AuthenticatedKnowledgeRouteImport } from './routes/_authenticated/knowledge'
 import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authenticated/follow-ups'
 import { Route as AuthenticatedDiscoveryRouteImport } from './routes/_authenticated/discovery'
+import { Route as AuthenticatedDataImportRouteImport } from './routes/_authenticated/data-import'
 import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticated/contacts'
 import { Route as AuthenticatedCommandCenterRouteImport } from './routes/_authenticated/command-center'
 import { Route as AuthenticatedBoqRouteImport } from './routes/_authenticated/boq'
@@ -143,6 +144,11 @@ const AuthenticatedDiscoveryRoute = AuthenticatedDiscoveryRouteImport.update({
   path: '/discovery',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDataImportRoute = AuthenticatedDataImportRouteImport.update({
+  id: '/data-import',
+  path: '/data-import',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedContactsRoute = AuthenticatedContactsRouteImport.update({
   id: '/contacts',
   path: '/contacts',
@@ -253,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/boq': typeof AuthenticatedBoqRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
+  '/data-import': typeof AuthenticatedDataImportRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
@@ -290,6 +297,7 @@ export interface FileRoutesByTo {
   '/boq': typeof AuthenticatedBoqRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
+  '/data-import': typeof AuthenticatedDataImportRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
@@ -329,6 +337,7 @@ export interface FileRoutesById {
   '/_authenticated/boq': typeof AuthenticatedBoqRoute
   '/_authenticated/command-center': typeof AuthenticatedCommandCenterRoute
   '/_authenticated/contacts': typeof AuthenticatedContactsRoute
+  '/_authenticated/data-import': typeof AuthenticatedDataImportRoute
   '/_authenticated/discovery': typeof AuthenticatedDiscoveryRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/_authenticated/knowledge': typeof AuthenticatedKnowledgeRoute
@@ -368,6 +377,7 @@ export interface FileRouteTypes {
     | '/boq'
     | '/command-center'
     | '/contacts'
+    | '/data-import'
     | '/discovery'
     | '/follow-ups'
     | '/knowledge'
@@ -405,6 +415,7 @@ export interface FileRouteTypes {
     | '/boq'
     | '/command-center'
     | '/contacts'
+    | '/data-import'
     | '/discovery'
     | '/follow-ups'
     | '/knowledge'
@@ -443,6 +454,7 @@ export interface FileRouteTypes {
     | '/_authenticated/boq'
     | '/_authenticated/command-center'
     | '/_authenticated/contacts'
+    | '/_authenticated/data-import'
     | '/_authenticated/discovery'
     | '/_authenticated/follow-ups'
     | '/_authenticated/knowledge'
@@ -612,6 +624,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDiscoveryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/data-import': {
+      id: '/_authenticated/data-import'
+      path: '/data-import'
+      fullPath: '/data-import'
+      preLoaderRoute: typeof AuthenticatedDataImportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/contacts': {
       id: '/_authenticated/contacts'
       path: '/contacts'
@@ -770,6 +789,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBoqRoute: typeof AuthenticatedBoqRoute
   AuthenticatedCommandCenterRoute: typeof AuthenticatedCommandCenterRoute
   AuthenticatedContactsRoute: typeof AuthenticatedContactsRoute
+  AuthenticatedDataImportRoute: typeof AuthenticatedDataImportRoute
   AuthenticatedDiscoveryRoute: typeof AuthenticatedDiscoveryRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
   AuthenticatedKnowledgeRoute: typeof AuthenticatedKnowledgeRoute
@@ -799,6 +819,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBoqRoute: AuthenticatedBoqRoute,
   AuthenticatedCommandCenterRoute: AuthenticatedCommandCenterRoute,
   AuthenticatedContactsRoute: AuthenticatedContactsRoute,
+  AuthenticatedDataImportRoute: AuthenticatedDataImportRoute,
   AuthenticatedDiscoveryRoute: AuthenticatedDiscoveryRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
   AuthenticatedKnowledgeRoute: AuthenticatedKnowledgeRoute,
