@@ -5,6 +5,8 @@ import { useAuth } from "@/hooks/useSupabaseAuth";
 import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import phcLogo from "@/assets/phc-logo.png.asset.json";
+
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -71,47 +73,74 @@ function AuthPage() {
   };
 
   return (
-    <div dir={dir} className="grid min-h-screen bg-background text-foreground md:grid-cols-[1.1fr_1fr]">
-      <div className="relative hidden overflow-hidden border-border md:block md:border-e">
-        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_20%_10%,rgba(181,105,43,0.14),transparent_60%),linear-gradient(180deg,#0E0F10_0%,#0A0A0B_100%)]" />
+    <div dir={dir} className="grid min-h-dvh bg-background text-foreground md:grid-cols-[1.1fr_1fr]">
+      {/* Brand panel */}
+      <div className="relative hidden overflow-hidden border-border bg-sidebar md:block md:border-e">
+        {/* subtle brand wash — amber signal, tokenised */}
+        <div
+          className="absolute inset-0 opacity-90"
+          style={{
+            backgroundImage:
+              "radial-gradient(1200px 600px at 20% 10%, color-mix(in oklch, var(--color-amber) 14%, transparent), transparent 60%), linear-gradient(180deg, var(--color-sidebar) 0%, var(--color-background) 100%)",
+          }}
+        />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber/30 to-transparent" />
         <div className="relative flex h-full flex-col justify-between p-12">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-              PHC · Command Center
+            <img
+              src={phcLogo.url}
+              alt="PHC"
+              className="h-8 w-auto object-contain object-start"
+            />
+            <div className="mt-6 text-[10px] font-semibold uppercase tracking-[var(--tracking-caps)] text-muted-foreground">
+              {lang === "ar" ? "بي إتش سي · مركز القيادة" : "PHC · Command Center"}
             </div>
-            <div className="mt-4 max-w-md text-[28px] font-semibold leading-[1.15] tracking-[-0.02em] text-foreground">
-              Silent architecture,
-              <br />
-              operational clarity.
-            </div>
+            <h2 className="mt-4 max-w-md text-3xl font-semibold leading-tight tracking-tight text-foreground">
+              {lang === "ar" ? (
+                <>
+                  هندسة صامتة،
+                  <br />
+                  وضوح تشغيلي.
+                </>
+              ) : (
+                <>
+                  Silent architecture,
+                  <br />
+                  operational clarity.
+                </>
+              )}
+            </h2>
           </div>
           <div className="max-w-md text-sm leading-relaxed text-muted-foreground">
             {lang === "ar"
               ? "مركز القيادة الداخلي لإدارة فرص المبيعات، المتابعات، الاعتمادات، والأدلة، بلغة عربية وإنجليزية."
               : "The internal command center for pipeline decisions, follow-ups, approvals, and evidence — in Arabic and English."}
           </div>
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70">
-            Wayfinding · Signs · Fabrication
+          <div className="text-[10px] uppercase tracking-[var(--tracking-caps)] text-muted-foreground/70">
+            {lang === "ar" ? "لافتات · إرشاد · تصنيع" : "Wayfinding · Signs · Fabrication"}
           </div>
         </div>
       </div>
 
+      {/* Sign-in panel */}
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="mb-8 flex items-start justify-between">
+          <div className="mb-8 flex items-start justify-between gap-4">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">PHC</div>
-              <h1 className="mt-2 text-[24px] font-semibold tracking-[-0.02em] text-foreground">{t("sign_in_title")}</h1>
+              <img src={phcLogo.url} alt="PHC" className="mb-4 h-7 w-auto object-contain object-start md:hidden" />
+              <div className="text-[10px] font-semibold uppercase tracking-[var(--tracking-caps)] text-muted-foreground">PHC</div>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{t("sign_in_title")}</h1>
               <p className="mt-1.5 text-sm text-muted-foreground">{t("sign_in_sub")}</p>
             </div>
             <button
               onClick={() => setLang(lang === "en" ? "ar" : "en")}
-              className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted"
+              className="shrink-0 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label={t("language")}
             >
               {lang === "en" ? "AR" : "EN"}
             </button>
           </div>
+
 
           <form onSubmit={submit} className="space-y-3.5">
             {mode === "signup" ? (
