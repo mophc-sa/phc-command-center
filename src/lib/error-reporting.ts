@@ -32,21 +32,8 @@ type ReportContext = {
   severity?: Severity;
 };
 
-type LovableEvents = {
-  captureException?: (
-    error: unknown,
-    context?: Record<string, unknown>,
-    options?: {
-      mechanism?: string;
-      handled?: boolean;
-      severity?: Severity;
-    },
-  ) => void;
-};
-
 declare global {
   interface Window {
-    __lovableEvents?: LovableEvents;
     __phcRole?: string | null;
     __phcRequestId?: string;
   }
