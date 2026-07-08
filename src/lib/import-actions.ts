@@ -152,22 +152,44 @@ async function callPipeline(action: string, payload: Record<string, unknown>) {
   });
 
   if (res.error) {
-    const msg = typeof res.error === "object" && "message" in res.error
-      ? res.error.message
+    // supabase-js wraps non-2xx responses in a FunctionsHttpError with a
+    // generic "non-2xx status" message. The real body lives on
+    // res.error.context (a Response). Read it so the UI shows the cause.
+    let detail = "";
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ctx: any = (res.error as any).context;
+      if (ctx && typeof ctx.text === "function") {
+        const raw = await ctx.text();
+        try {
+          const parsed = JSON.parse(raw);
+          detail = parsed?.error ?? parsed?.message ?? raw;
+        } catch {
+          detail = raw;
+        }
+      }
+    } catch { /* ignore */ }
+    const base = typeof res.error === "object" && "message" in res.error
+      ? (res.error as { message: string }).message
       : String(res.error);
-    throw new Error(msg);
+    throw new Error(detail ? `${base}: ${detail}` : base);
   }
 
   return res.data;
 }
 
 export async function parseFile(batchId: string, fileId: string) {
+  if (!batchId || !fileId) throw new Error("Missing batch or file");
   return callPipeline("parse", { batch_id: batchId, file_id: fileId });
 }
 
 export async function validateBatch(batchId: string) {
+  if (!batchId) throw new Error("Missing batch");
+  const mappings = await getMappings(batchId);
+  if (mappings.length === 0) throw new Error("Save at least one column mapping before validating");
   return callPipeline("validate", { batch_id: batchId });
 }
+
 
 export async function detectDuplicates(batchId: string) {
   return callPipeline("detect_duplicates", { batch_id: batchId });
