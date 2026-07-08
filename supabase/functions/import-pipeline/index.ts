@@ -24,6 +24,22 @@ import {
   audit,
   type AppRole,
 } from "../_shared/supabase.ts";
+import { compareSignals, type DedupSignals } from "../_shared/import-dedup.ts";
+
+// Build the dedup signal set from a row's mapped data (best-effort field names).
+function signalsFromMapped(m: Record<string, string | null> | null): DedupSignals {
+  const g = (k: string) => (m?.[k] ?? null) as string | null;
+  return {
+    company_name: g("name") ?? g("company_name"),
+    cr_number: g("cr_number"),
+    website_domain: g("website_domain") ?? g("website"),
+    email: g("email"),
+    phone: g("phone") ?? g("contact_phone"),
+    project_name: g("project_name"),
+    main_contractor: g("main_contractor"),
+    tender_ref: g("tender_ref") ?? g("rfq_number") ?? g("tender_number"),
+  };
+}
 
 // -- Role groups ---------------------------------------------------------------
 const IMPORT_ROLES: AppRole[] = [
@@ -289,85 +305,110 @@ handlers["validate"] = async (payload, caller) => {
 };
 
 
-// DETECT_DUPLICATES: deterministic matching against existing companies
+// DETECT_DUPLICATES: match each staged row against (1) existing CRM records,
+// (2) other rows within the same file, and (3) rows from previous import
+// batches. Every candidate carries a reason code, matched fields, confidence,
+// and a suggested action. This is staging only — nothing is merged or written
+// to live CRM tables.
+type DupeInsert = {
+  batch_id: string; row_id: string; existing_record_id: string; existing_table: string;
+  match_type: string; confidence: number; resolution: string;
+  match_scope: string; reason_code: string; matched_fields: string[]; suggested_action: string;
+};
+
 handlers["detect_duplicates"] = async (payload, caller) => {
   const batchId = payload.batch_id as string;
   if (!batchId) return err("batch_id required");
 
   const svc = serviceClient();
 
-  // Get valid rows with mapped data
+  const { data: batch } = await svc.from("import_batches")
+    .select("id, target_entity").eq("id", batchId).single();
+
+  // Only rows that are still in play (valid, not excluded/deleted).
   const { data: rows } = await svc.from("import_rows")
-    .select("id, row_number, mapped_data")
+    .select("id, row_number, mapped_data, is_excluded, row_status")
     .eq("batch_id", batchId)
     .eq("status", "valid")
     .order("row_number");
   if (!rows || rows.length === 0) return json({ duplicates: 0 });
+  const liveRows = rows.filter((r) => !r.is_excluded && r.row_status !== "deleted" && r.row_status !== "excluded");
 
-  // Get existing companies for matching
+  // (1) Existing CRM records (companies today; other entities as they gain
+  //     matchable fields). Read-only.
   const { data: companies } = await svc.from("companies")
-    .select("id, name, cr_number, website_domain");
+    .select("id, name, cr_number, website_domain, email, phone");
+  const crmSignals = (companies ?? []).map((c) => ({
+    id: c.id as string,
+    signals: {
+      company_name: c.name, cr_number: c.cr_number, website_domain: c.website_domain,
+      email: (c as { email?: string }).email ?? null, phone: (c as { phone?: string }).phone ?? null,
+    } as DedupSignals,
+  }));
 
-  const existingByName = new Map((companies ?? []).map((c) => [c.name?.toLowerCase().trim(), c]));
-  const existingByCr = new Map((companies ?? []).filter((c) => c.cr_number).map((c) => [c.cr_number, c]));
-  const existingByDomain = new Map((companies ?? []).filter((c) => c.website_domain).map((c) => [c.website_domain, c]));
+  // (3) Rows from PREVIOUS batches (same target entity), read-only staging.
+  const { data: prevRows } = await svc.from("import_rows")
+    .select("id, mapped_data, batch_id")
+    .neq("batch_id", batchId)
+    .neq("row_status", "deleted")
+    .limit(5000);
+  const prevSignals = (prevRows ?? []).map((r) => ({
+    id: r.id as string, signals: signalsFromMapped(r.mapped_data as Record<string, string | null> | null),
+  }));
 
-  const dupes: Array<{
-    batch_id: string; row_id: string; existing_record_id: string;
-    existing_table: string; match_type: string; confidence: number; resolution: string;
-  }> = [];
-  let dupeCount = 0;
+  const dupes: DupeInsert[] = [];
+  const flaggedRowIds = new Set<string>();
+  const seenInFile: { id: string; signals: DedupSignals }[] = [];
 
-  for (const row of rows) {
-    const mapped = row.mapped_data as Record<string, string | null> | null;
-    if (!mapped) continue;
+  const record = (rowId: string, existingId: string, table: string, scope: string, hit: NonNullable<ReturnType<typeof compareSignals>>) => {
+    dupes.push({
+      batch_id: batchId, row_id: rowId, existing_record_id: existingId, existing_table: table,
+      match_type: hit.match_type, confidence: Math.round(hit.confidence * 100), resolution: "pending",
+      match_scope: scope, reason_code: hit.reason_code, matched_fields: hit.matched_fields,
+      suggested_action: hit.suggested_action,
+    });
+    flaggedRowIds.add(rowId);
+  };
 
-    const name = mapped.name?.toLowerCase().trim();
-    const crNumber = mapped.cr_number?.trim();
-    const domain = mapped.website_domain?.trim();
+  for (const row of liveRows) {
+    const signals = signalsFromMapped(row.mapped_data as Record<string, string | null> | null);
 
-    let match: { id: string; type: string; confidence: number } | null = null;
-
-    // CR number match (highest confidence)
-    if (crNumber && existingByCr.has(crNumber)) {
-      match = { id: existingByCr.get(crNumber)!.id, type: "cr_number", confidence: 98 };
+    // (1) existing CRM
+    for (const c of crmSignals) {
+      const hit = compareSignals(signals, c.signals);
+      if (hit) { record(row.id, c.id, batch?.target_entity ?? "companies", "existing_crm", hit); break; }
     }
-    // Domain match
-    else if (domain && existingByDomain.has(domain)) {
-      match = { id: existingByDomain.get(domain)!.id, type: "domain", confidence: 90 };
+    // (2) within this file (rows already scanned)
+    for (const prev of seenInFile) {
+      const hit = compareSignals(signals, prev.signals);
+      if (hit) { record(row.id, prev.id, "import_rows", "within_file", hit); break; }
     }
-    // Exact name match
-    else if (name && existingByName.has(name)) {
-      match = { id: existingByName.get(name)!.id, type: "exact", confidence: 85 };
+    // (3) previous batches
+    for (const p of prevSignals) {
+      const hit = compareSignals(signals, p.signals);
+      if (hit) { record(row.id, p.id, "import_rows", "previous_batch", hit); break; }
     }
 
-    if (match) {
-      dupes.push({
-        batch_id: batchId, row_id: row.id, existing_record_id: match.id,
-        existing_table: "companies", match_type: match.type,
-        confidence: match.confidence, resolution: "pending",
-      });
-      await svc.from("import_rows").update({ status: "duplicate" }).eq("id", row.id);
-      dupeCount++;
-    }
+    seenInFile.push({ id: row.id, signals });
   }
 
-  if (dupes.length > 0) {
-    for (let i = 0; i < dupes.length; i += 500) {
-      await svc.from("import_duplicate_candidates").insert(dupes.slice(i, i + 500));
-    }
+  for (const id of flaggedRowIds) {
+    await svc.from("import_rows").update({ status: "duplicate" }).eq("id", id);
+  }
+  for (let i = 0; i < dupes.length; i += 500) {
+    if (dupes.length) await svc.from("import_duplicate_candidates").insert(dupes.slice(i, i + 500));
   }
 
   await svc.from("import_batches").update({
     status: "pending_approval",
-    duplicate_rows: dupeCount,
+    duplicate_rows: flaggedRowIds.size,
   }).eq("id", batchId);
 
   await audit(svc, caller.userId, "import_detect_duplicates", "import_batches", batchId, {
-    duplicates: dupeCount,
+    duplicate_rows: flaggedRowIds.size, candidates: dupes.length,
   });
 
-  return json({ duplicates: dupeCount });
+  return json({ duplicates: flaggedRowIds.size, candidates: dupes.length });
 };
 
 // APPROVE: manager approves the batch for dry-run commit
@@ -453,66 +494,66 @@ handlers["dry_run_commit"] = async (payload, caller) => {
   return json(summary);
 };
 
-// GENERATE_REPORT: create downloadable CSV reports
+// GENERATE_REPORT: downloadable dry-run reports in CSV (default) or JSON.
 handlers["generate_report"] = async (payload, caller) => {
   const batchId = payload.batch_id as string;
   const reportType = payload.report_type as string;
+  const format = (payload.format as string) === "json" ? "json" : "csv";
   if (!batchId || !reportType) return err("batch_id and report_type required");
 
   const svc = serviceClient();
 
-  const csvRows: string[] = [];
+  let columns: string[] = [];
+  let records: Record<string, unknown>[] = [];
 
   if (reportType === "validation_errors") {
-    const { data: errors } = await svc.from("import_errors")
+    const { data } = await svc.from("import_errors")
       .select("row_number, column_name, error_type, message, severity")
-      .eq("batch_id", batchId)
-      .order("row_number");
-
-    csvRows.push("row_number,column_name,error_type,message,severity");
-    for (const e of errors ?? []) {
-      csvRows.push([
-        e.row_number, quote(e.column_name), e.error_type, quote(e.message), e.severity,
-      ].join(","));
-    }
+      .eq("batch_id", batchId).order("row_number");
+    columns = ["row_number", "column_name", "error_type", "message", "severity"];
+    records = (data ?? []) as Record<string, unknown>[];
   } else if (reportType === "duplicate_candidates") {
-    const { data: dupes } = await svc.from("import_duplicate_candidates")
-      .select("row_id, existing_record_id, existing_table, match_type, confidence, resolution")
+    const { data } = await svc.from("import_duplicate_candidates")
+      .select("row_id, existing_record_id, existing_table, match_scope, match_type, reason_code, matched_fields, confidence, suggested_action, resolution")
       .eq("batch_id", batchId);
-
-    csvRows.push("row_id,existing_record_id,existing_table,match_type,confidence,resolution");
-    for (const d of dupes ?? []) {
-      csvRows.push([
-        d.row_id, d.existing_record_id, d.existing_table, d.match_type, d.confidence, d.resolution,
-      ].join(","));
-    }
+    columns = ["row_id", "existing_record_id", "existing_table", "match_scope", "match_type", "reason_code", "matched_fields", "confidence", "suggested_action", "resolution"];
+    records = (data ?? []) as Record<string, unknown>[];
   } else if (reportType === "import_summary") {
     const { data: batch } = await svc.from("import_batches").select("*").eq("id", batchId).single();
     if (!batch) return err("Batch not found", 404);
-
-    csvRows.push("field,value");
-    csvRows.push(`batch_id,${batch.id}`);
-    csvRows.push(`status,${batch.status}`);
-    csvRows.push(`total_rows,${batch.total_rows}`);
-    csvRows.push(`valid_rows,${batch.valid_rows}`);
-    csvRows.push(`error_rows,${batch.error_rows}`);
-    csvRows.push(`duplicate_rows,${batch.duplicate_rows}`);
-    csvRows.push(`dry_run,${batch.dry_run}`);
-    csvRows.push(`created_at,${batch.created_at}`);
-    csvRows.push(`ai_suggestions_enabled,${batch.ai_suggestions_enabled}`);
+    columns = ["field", "value"];
+    records = [
+      ["batch_id", batch.id], ["status", batch.status], ["target_entity", batch.target_entity],
+      ["total_rows", batch.total_rows], ["valid_rows", batch.valid_rows], ["error_rows", batch.error_rows],
+      ["duplicate_rows", batch.duplicate_rows], ["dry_run", batch.dry_run],
+      ["would_create_new", (batch.valid_rows ?? 0) - (batch.duplicate_rows ?? 0)],
+      ["blocked_from_commit_reason", "controlled_crm_commit_not_enabled"],
+      ["created_at", batch.created_at], ["ai_suggestions_enabled", batch.ai_suggestions_enabled],
+    ].map(([field, value]) => ({ field, value }));
   } else {
     return err("Invalid report_type. Use: validation_errors, duplicate_candidates, import_summary");
   }
 
-  await audit(svc, caller.userId, "import_generate_report", "import_batches", batchId, { report_type: reportType });
+  await audit(svc, caller.userId, "import_generate_report", "import_batches", batchId, { report_type: reportType, format });
 
+  if (format === "json") {
+    const body = JSON.stringify({ report_type: reportType, batch_id: batchId, generated_at: new Date().toISOString(), records }, null, 2);
+    return new Response(body, {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Content-Disposition": `attachment; filename="${reportType}_${batchId.slice(0, 8)}.json"` },
+    });
+  }
+
+  const csvRows = [columns.join(",")];
+  for (const rec of records) {
+    csvRows.push(columns.map((c) => {
+      const v = rec[c];
+      return Array.isArray(v) ? quote(v.join("|")) : typeof v === "string" ? quote(v) : String(v ?? "");
+    }).join(","));
+  }
   return new Response(csvRows.join("\n"), {
     status: 200,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "text/csv",
-      "Content-Disposition": `attachment; filename="${reportType}_${batchId.slice(0, 8)}.csv"`,
-    },
+    headers: { ...corsHeaders, "Content-Type": "text/csv", "Content-Disposition": `attachment; filename="${reportType}_${batchId.slice(0, 8)}.csv"` },
   });
 };
 
