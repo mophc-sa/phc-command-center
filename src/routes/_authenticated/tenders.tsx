@@ -229,6 +229,22 @@ function TenderMonitor() {
                           </div>
                         ) : null}
                         <div className="mt-1.5 flex flex-wrap justify-end gap-1">
+                          <EmailComposeButton
+                            size="xs"
+                            variant="ghost"
+                            template="tender_clarification"
+                            context={{
+                              tenderName: x.tender_name,
+                              companyName: x.main_contractor?.name ?? null,
+                              projectName: x.tender_name,
+                            }}
+                            linked={{
+                              type: "tender",
+                              id: x.id,
+                              label: x.tender_name,
+                              companyId: x.main_contractor?.id ?? null,
+                            }}
+                          />
                           {stage === "awarded_to_contractor" ? (
                             <button
                               onClick={() => setConvertReview(x)}
