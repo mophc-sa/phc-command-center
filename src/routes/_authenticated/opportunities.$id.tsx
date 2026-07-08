@@ -21,6 +21,7 @@ import {
   updateOpportunityStage,
 } from "@/lib/opportunity-actions";
 import { ArrowLeft, ArrowRight, ExternalLink, FileText } from "lucide-react";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
