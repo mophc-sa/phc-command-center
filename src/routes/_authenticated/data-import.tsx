@@ -528,11 +528,11 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
   const updateRow = (idx: number, patch: Partial<Row>) =>
     setDraft((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
 
-  const handleSave = async () => {
-    // Only rows with a target field. Drop duplicates on source_column to
-    // satisfy UNIQUE(batch_id, source_column); skip blank source names.
+  // Build the mapping payload from the current draft, deduping source_column
+  // (UNIQUE constraint) and dropping blank sources / unselected targets.
+  const buildPayload = () => {
     const seen = new Set<string>();
-    const mapped = draft
+    return draft
       .filter((r) => {
         if (!r.target || !r.source) return false;
         if (seen.has(r.source)) return false;
@@ -546,11 +546,28 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
         transform: null,
         is_key: r.isKey,
       }));
+  };
+
+  const handleSave = async () => {
+    const mapped = buildPayload();
     if (mapped.length === 0) {
       toast.error(t("toast_error") + "select a target field for at least one column");
       return;
     }
     await onSave(mapped);
+  };
+
+  // Save the current draft first (so the user doesn't have to click Save
+  // separately) and then validate. Prevents the "no mappings" edge-function
+  // error when the user goes straight to Validate.
+  const handleValidateClick = async () => {
+    const mapped = buildPayload();
+    if (mapped.length === 0) {
+      toast.error(t("toast_error") + "select a target field for at least one column");
+      return;
+    }
+    await onSave(mapped);
+    onValidate();
   };
 
   return (
