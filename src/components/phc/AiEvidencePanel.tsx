@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, Eye, ShieldAlert, FileSearch } from "lucide-react";
 import { StatusPill } from "@/components/phc/StatusPill";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 import {
   listEvidence,
   buildEvidencePanel,
