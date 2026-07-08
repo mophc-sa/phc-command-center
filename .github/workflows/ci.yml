@@ -20,7 +20,7 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - name: TypeScript check
-        run: bunx tsgo --noEmit
+        run: bunx tsc --noEmit
       - name: Production build
         run: bun run build
 
@@ -67,6 +67,13 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: ${{ env.TEST_APP_URL || 'http://localhost:8080' }}
         run: bunx playwright test
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
       - name: Stop app
         if: always()
         run: kill $APP_PID || true
