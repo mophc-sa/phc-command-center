@@ -3,6 +3,16 @@ import { expect, test } from "@playwright/test";
 const FONT_URL_RE = /\/__l5e\/assets-v1\/[^/]+\/ManifaPro2-[^/]+\.otf/;
 
 test.describe("Manifa Pro font loading", () => {
+  // Manifa Pro is served from the Lovable CDN (/__l5e/assets-v1/…), which only
+  // resolves on the DEPLOYED app. Against a local `vite preview` build — i.e. CI
+  // without TEST_APP_URL — that path is unavailable, so the font can never load.
+  // Skip in that case (mirrors the role-matrix credential skip); set
+  // TEST_APP_URL to the deployed app to actually exercise these assertions.
+  test.skip(
+    !process.env.TEST_APP_URL,
+    "Manifa Pro is served by the Lovable CDN; only verifiable against the deployed app (set TEST_APP_URL).",
+  );
+
   test("loads Manifa Pro from CDN without console errors", async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on("console", (msg) => {
