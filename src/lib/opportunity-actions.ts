@@ -160,26 +160,18 @@ export async function completeFollowUp(input: {
 
 /* ---------------- Opportunity ownership / stage ---------------- */
 
+// Owner assignment is a sensitive commercial action — enforced server-side
+// (manager-only + audit). The DB also blocks a direct client owner change.
 export async function assignOwner(input: {
   opportunityId: Uuid;
   ownerId: Uuid | null;
   notes?: string;
 }) {
-  const { data, error } = await supabase
-    .from("opportunities")
-    .update({ owner_id: input.ownerId })
-    .eq("id", input.opportunityId)
-    .select()
-    .single();
-  if (error) throw error;
-  await audit(
-    "opportunity.assigned",
-    "opportunity",
-    input.opportunityId,
-    null,
-    { owner_id: input.ownerId, notes: input.notes ?? null },
-  );
-  return data;
+  return await callBackend("assign_owner", {
+    opportunityId: input.opportunityId,
+    ownerId: input.ownerId,
+    notes: input.notes ?? null,
+  });
 }
 
 export async function escalateOpportunity(input: {
@@ -208,6 +200,8 @@ export async function escalateOpportunity(input: {
   return data;
 }
 
+// Stage changes go through the backend. Commercial stages (won/lost/archived)
+// are manager-gated server-side; the DB blocks a direct client commercial write.
 export async function updateOpportunityStage(input: {
   opportunityId: Uuid;
   stage:
@@ -221,18 +215,11 @@ export async function updateOpportunityStage(input: {
     | "archived";
   notes?: string;
 }) {
-  const { data, error } = await supabase
-    .from("opportunities")
-    .update({ stage: input.stage })
-    .eq("id", input.opportunityId)
-    .select()
-    .single();
-  if (error) throw error;
-  await audit("opportunity.stage_changed", "opportunity", input.opportunityId, null, {
+  return await callBackend("update_opportunity_stage", {
+    opportunityId: input.opportunityId,
     stage: input.stage,
     notes: input.notes ?? null,
   });
-  return data;
 }
 
 /* ---------------- Team lookup ---------------- */

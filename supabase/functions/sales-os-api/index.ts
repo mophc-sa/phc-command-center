@@ -612,6 +612,115 @@ const handlers: Record<string, Handler> = {
     return json({ ok: true, company: data });
   },
 
+  // Assign an opportunity owner directly — commercial managers only.
+  async assign_owner(payload, caller) {
+    if (!canAssignOwner(caller.roles)) return err("Owner assignment authority required", 403);
+    const opportunityId = String(payload.opportunityId ?? "");
+    if (!opportunityId) return err("opportunityId is required");
+    const newOwnerId = (payload.ownerId as string) || (payload.newOwnerId as string) || null;
+    const svc = serviceClient();
+    const { error } = await svc.from("opportunities").update({ owner_id: newOwnerId }).eq("id", opportunityId);
+    if (error) return err(error.message, 400);
+    await audit(svc, caller.userId, "opportunity.assigned", "opportunity", opportunityId, {
+      owner_id: newOwnerId,
+      notes: (payload.notes as string) ?? null,
+    });
+    return json({ ok: true, owner_id: newOwnerId });
+  },
+
+  // A pipeline operator without assignment authority REQUESTS an owner change.
+  async request_owner_assignment(payload, caller) {
+    if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
+    const opportunityId = String(payload.opportunityId ?? "");
+    if (!opportunityId) return err("opportunityId is required");
+    const newOwnerId = (payload.ownerId as string) || (payload.newOwnerId as string) || null;
+    const svc = serviceClient();
+    const { data: appr } = await svc
+      .from("approvals")
+      .insert({
+        related_opportunity_id: opportunityId,
+        approval_type: "owner_assignment",
+        requested_by: caller.userId,
+        status: "pending",
+        recommendation: "management_review",
+        decision_notes: (payload.notes as string) ?? null,
+        linked_record_type: "opportunity",
+        linked_record_id: opportunityId,
+        requested_action: "assign_owner",
+        requested_payload: { opportunityId, newOwnerId },
+      })
+      .select()
+      .single();
+    await audit(svc, caller.userId, "owner_assignment.requested", "opportunity", opportunityId, {
+      approval: appr?.id,
+      owner_id: newOwnerId,
+    });
+    return json({ ok: true, pending_approval: true, approval: appr });
+  },
+
+  // Change an opportunity's CRM stage. Commercial stages (won/lost/archived)
+  // require commercial authority; everything else is allowed for the owner or a
+  // pipeline manager. Never a direct client table write.
+  async update_opportunity_stage(payload, caller) {
+    const opportunityId = String(payload.opportunityId ?? "");
+    const stage = String(payload.stage ?? "");
+    if (!opportunityId || !stage) return err("opportunityId and stage are required");
+    const COMMERCIAL_STAGES = new Set(["won", "lost", "archived"]);
+    const svc = serviceClient();
+    const { data: opp, error: oErr } = await svc
+      .from("opportunities")
+      .select("stage, owner_id")
+      .eq("id", opportunityId)
+      .single();
+    if (oErr || !opp) return err("Opportunity not found", 404);
+
+    if (COMMERCIAL_STAGES.has(stage)) {
+      if (!canChangeCommercialStage(caller.roles)) {
+        return err("Commercial stage changes require a manager or an approval", 403);
+      }
+    } else {
+      const isOwner = opp.owner_id === caller.userId;
+      if (!isOwner && !canManageSalesPipeline(caller.roles)) {
+        return err("Only the owner or a sales manager can change the stage", 403);
+      }
+    }
+    const { error } = await svc.from("opportunities").update({ stage }).eq("id", opportunityId);
+    if (error) return err(error.message, 400);
+    await logTransition(svc, "opportunity", opportunityId, opp.stage ?? null, stage, caller.userId, (payload.notes as string) ?? null);
+    await audit(svc, caller.userId, "opportunity.stage_changed", "opportunity", opportunityId, { stage });
+    return json({ ok: true, stage });
+  },
+
+  // A pipeline operator REQUESTS a commercial stage change (approval-gated).
+  async request_stage_change(payload, caller) {
+    if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
+    const opportunityId = String(payload.opportunityId ?? "");
+    const stage = String(payload.stage ?? "");
+    if (!opportunityId || !stage) return err("opportunityId and stage are required");
+    const svc = serviceClient();
+    const { data: appr } = await svc
+      .from("approvals")
+      .insert({
+        related_opportunity_id: opportunityId,
+        approval_type: "opportunity_stage_change",
+        requested_by: caller.userId,
+        status: "pending",
+        recommendation: "management_review",
+        decision_notes: (payload.notes as string) ?? null,
+        linked_record_type: "opportunity",
+        linked_record_id: opportunityId,
+        requested_action: "update_opportunity_stage",
+        requested_payload: { opportunityId, stage },
+      })
+      .select()
+      .single();
+    await audit(svc, caller.userId, "stage_change.requested", "opportunity", opportunityId, {
+      approval: appr?.id,
+      stage,
+    });
+    return json({ ok: true, pending_approval: true, approval: appr });
+  },
+
   // Accept an AI recommendation — the human-in-the-loop step. Opens the matching
   // approval when the recommendation names one. AI never acts directly.
   async accept_recommendation(payload, caller) {
