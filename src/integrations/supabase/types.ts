@@ -126,6 +126,195 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_agent_feedback: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          note: string | null
+          recommendation_id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          recommendation_id: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          recommendation_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_feedback_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_runs: {
+        Row: {
+          agent_key: string
+          completed_at: string | null
+          created_by: string | null
+          error: string | null
+          id: string
+          recommendations_created: number
+          records_scanned: number
+          started_at: string
+          status: string
+          summary: string | null
+        }
+        Insert: {
+          agent_key: string
+          completed_at?: string | null
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          recommendations_created?: number
+          records_scanned?: number
+          started_at?: string
+          status?: string
+          summary?: string | null
+        }
+        Update: {
+          agent_key?: string
+          completed_at?: string | null
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          recommendations_created?: number
+          records_scanned?: number
+          started_at?: string
+          status?: string
+          summary?: string | null
+        }
+        Relationships: []
+      }
+      ai_evidence_items: {
+        Row: {
+          created_at: string
+          field: string | null
+          id: string
+          label: string
+          recommendation_id: string
+          source_ref: string | null
+          source_type: string | null
+          source_url: string | null
+          value: string | null
+          weight: number | null
+        }
+        Insert: {
+          created_at?: string
+          field?: string | null
+          id?: string
+          label: string
+          recommendation_id: string
+          source_ref?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          value?: string | null
+          weight?: number | null
+        }
+        Update: {
+          created_at?: string
+          field?: string | null
+          id?: string
+          label?: string
+          recommendation_id?: string
+          source_ref?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          value?: string | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_evidence_items_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_recommendations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_recommendations: {
+        Row: {
+          agent_key: string
+          confidence: number | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          generated_by: string
+          id: string
+          missing_data: string[] | null
+          rationale: string | null
+          recommendation: string
+          required_approval_type: string | null
+          run_id: string | null
+          severity: string | null
+          status: string
+          suggested_action: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agent_key: string
+          confidence?: number | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          generated_by?: string
+          id?: string
+          missing_data?: string[] | null
+          rationale?: string | null
+          recommendation: string
+          required_approval_type?: string | null
+          run_id?: string | null
+          severity?: string | null
+          status?: string
+          suggested_action?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agent_key?: string
+          confidence?: number | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          generated_by?: string
+          id?: string
+          missing_data?: string[] | null
+          rationale?: string | null
+          recommendation?: string
+          required_approval_type?: string | null
+          run_id?: string | null
+          severity?: string | null
+          status?: string
+          suggested_action?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_recommendations_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approvals: {
         Row: {
           approval_type: string
@@ -136,6 +325,10 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           decision_notes: string | null
+          executed_at: string | null
+          executed_by: string | null
+          execution_error: string | null
+          execution_status: string
           id: string
           linked_record_id: string | null
           linked_record_type: string | null
@@ -143,7 +336,9 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           related_opportunity_id: string | null
+          requested_action: string | null
           requested_by: string | null
+          requested_payload: Json | null
           status: Database["public"]["Enums"]["approval_status"]
           updated_at: string
         }
@@ -156,6 +351,10 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           decision_notes?: string | null
+          executed_at?: string | null
+          executed_by?: string | null
+          execution_error?: string | null
+          execution_status?: string
           id?: string
           linked_record_id?: string | null
           linked_record_type?: string | null
@@ -163,7 +362,9 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           related_opportunity_id?: string | null
+          requested_action?: string | null
           requested_by?: string | null
+          requested_payload?: Json | null
           status?: Database["public"]["Enums"]["approval_status"]
           updated_at?: string
         }
@@ -176,6 +377,10 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           decision_notes?: string | null
+          executed_at?: string | null
+          executed_by?: string | null
+          execution_error?: string | null
+          execution_status?: string
           id?: string
           linked_record_id?: string | null
           linked_record_type?: string | null
@@ -183,7 +388,9 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           related_opportunity_id?: string | null
+          requested_action?: string | null
           requested_by?: string | null
+          requested_payload?: Json | null
           status?: Database["public"]["Enums"]["approval_status"]
           updated_at?: string
         }
@@ -340,6 +547,33 @@ export type Database = {
           note?: string | null
           source?: string | null
           uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      boq_extractions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          source_file: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          source_file?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          source_file?: string | null
+          status?: string
         }
         Relationships: []
       }
@@ -610,6 +844,82 @@ export type Database = {
           },
         ]
       }
+      duplicate_group_members: {
+        Row: {
+          created_at: string
+          display_label: string | null
+          entity_id: string
+          entity_type: string
+          group_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          display_label?: string | null
+          entity_id: string
+          entity_type: string
+          group_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          display_label?: string | null
+          entity_id?: string
+          entity_type?: string
+          group_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duplicate_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "duplicate_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      duplicate_groups: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          entity_type: string
+          id: string
+          match_reason: string | null
+          matched_fields: string[] | null
+          run_id: string | null
+          status: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          entity_type: string
+          id?: string
+          match_reason?: string | null
+          matched_fields?: string[] | null
+          run_id?: string | null
+          status?: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          entity_type?: string
+          id?: string
+          match_reason?: string | null
+          matched_fields?: string[] | null
+          run_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duplicate_groups_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       evidence_sources: {
         Row: {
           confidence_level: Database["public"]["Enums"]["confidence_level"]
@@ -653,6 +963,50 @@ export type Database = {
             columns: ["related_opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      extracted_boq_items: {
+        Row: {
+          created_at: string
+          extraction_id: string
+          id: string
+          item_description: string | null
+          quantity: number | null
+          sign_type: string | null
+          source_ref: string | null
+          uncertain: boolean
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string
+          extraction_id: string
+          id?: string
+          item_description?: string | null
+          quantity?: number | null
+          sign_type?: string | null
+          source_ref?: string | null
+          uncertain?: boolean
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string
+          extraction_id?: string
+          id?: string
+          item_description?: string | null
+          quantity?: number | null
+          sign_type?: string | null
+          source_ref?: string | null
+          uncertain?: boolean
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extracted_boq_items_extraction_id_fkey"
+            columns: ["extraction_id"]
+            isOneToOne: false
+            referencedRelation: "boq_extractions"
             referencedColumns: ["id"]
           },
         ]
@@ -1174,6 +1528,60 @@ export type Database = {
           title?: string | null
         }
         Relationships: []
+      }
+      lead_scores: {
+        Row: {
+          band: string
+          created_at: string
+          evidence: Json | null
+          id: string
+          lead_id: string
+          missing_information: string[] | null
+          next_best_action: string | null
+          reason_codes: string[] | null
+          run_id: string | null
+          score: number
+        }
+        Insert: {
+          band: string
+          created_at?: string
+          evidence?: Json | null
+          id?: string
+          lead_id: string
+          missing_information?: string[] | null
+          next_best_action?: string | null
+          reason_codes?: string[] | null
+          run_id?: string | null
+          score: number
+        }
+        Update: {
+          band?: string
+          created_at?: string
+          evidence?: Json | null
+          id?: string
+          lead_id?: string
+          missing_information?: string[] | null
+          next_best_action?: string | null
+          reason_codes?: string[] | null
+          run_id?: string | null
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_scores_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_scores_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       leads: {
         Row: {
@@ -1708,6 +2116,74 @@ export type Database = {
           },
         ]
       }
+      protenders_imports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_name: string | null
+          id: string
+          row_count: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          id?: string
+          row_count?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          id?: string
+          row_count?: number
+          status?: string
+        }
+        Relationships: []
+      }
+      protenders_projects: {
+        Row: {
+          created_at: string
+          id: string
+          import_id: string | null
+          main_contractor: string | null
+          project_name: string | null
+          raw: Json | null
+          stage: string | null
+          value_est: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          import_id?: string | null
+          main_contractor?: string | null
+          project_name?: string | null
+          raw?: Json | null
+          stage?: string | null
+          value_est?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          import_id?: string | null
+          main_contractor?: string | null
+          project_name?: string | null
+          raw?: Json | null
+          stage?: string | null
+          value_est?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protenders_projects_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "protenders_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotations: {
         Row: {
           boq_id: string | null
@@ -1939,63 +2415,97 @@ export type Database = {
       }
       rfqs: {
         Row: {
+          below_300k_exception_approval_id: string | null
           company_id: string | null
           contact_id: string | null
+          contact_plan_ready: boolean
+          conversion_reason: string | null
           created_at: string
           created_by: string | null
           document_url: string | null
+          estimated_signage_value: number | null
           estimated_value: number | null
           id: string
+          main_contractor_confirmed: boolean
           notes: string | null
           opportunity_id: string | null
+          package_not_closed: boolean
           project_id: string | null
+          project_stage_suitable: boolean
           received_date: string
           response_due_date: string | null
           rfq_number: string | null
           sales_owner_id: string | null
+          signage_package_confidence: Database["public"]["Enums"]["confidence_level"]
+          signage_package_status: Database["public"]["Enums"]["signage_package_status"]
           source_type: string | null
           status: Database["public"]["Enums"]["rfq_status"]
           updated_at: string
         }
         Insert: {
+          below_300k_exception_approval_id?: string | null
           company_id?: string | null
           contact_id?: string | null
+          contact_plan_ready?: boolean
+          conversion_reason?: string | null
           created_at?: string
           created_by?: string | null
           document_url?: string | null
+          estimated_signage_value?: number | null
           estimated_value?: number | null
           id?: string
+          main_contractor_confirmed?: boolean
           notes?: string | null
           opportunity_id?: string | null
+          package_not_closed?: boolean
           project_id?: string | null
+          project_stage_suitable?: boolean
           received_date?: string
           response_due_date?: string | null
           rfq_number?: string | null
           sales_owner_id?: string | null
+          signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
+          signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
           source_type?: string | null
           status?: Database["public"]["Enums"]["rfq_status"]
           updated_at?: string
         }
         Update: {
+          below_300k_exception_approval_id?: string | null
           company_id?: string | null
           contact_id?: string | null
+          contact_plan_ready?: boolean
+          conversion_reason?: string | null
           created_at?: string
           created_by?: string | null
           document_url?: string | null
+          estimated_signage_value?: number | null
           estimated_value?: number | null
           id?: string
+          main_contractor_confirmed?: boolean
           notes?: string | null
           opportunity_id?: string | null
+          package_not_closed?: boolean
           project_id?: string | null
+          project_stage_suitable?: boolean
           received_date?: string
           response_due_date?: string | null
           rfq_number?: string | null
           sales_owner_id?: string | null
+          signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
+          signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
           source_type?: string | null
           status?: Database["public"]["Enums"]["rfq_status"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "rfqs_below_300k_exception_approval_id_fkey"
+            columns: ["below_300k_exception_approval_id"]
+            isOneToOne: false
+            referencedRelation: "approvals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rfqs_company_id_fkey"
             columns: ["company_id"]
@@ -2352,15 +2862,23 @@ export type Database = {
         Row: {
           archive_reason: string | null
           award_evidence: string | null
+          below_300k_exception_approval_id: string | null
+          contact_plan_ready: boolean
+          conversion_reason: string | null
           converted_opportunity_id: string | null
           created_at: string
           created_by: string | null
           estimated_project_value: number | null
+          estimated_signage_value: number | null
           expected_award_date: string | null
           id: string
+          main_contractor_confirmed: boolean
           main_contractor_id: string | null
           next_follow_up_date: string | null
+          package_not_closed: boolean
           project_id: string | null
+          project_stage_suitable: boolean
+          signage_package_status: Database["public"]["Enums"]["signage_package_status"]
           signage_potential:
             | Database["public"]["Enums"]["confidence_level"]
             | null
@@ -2376,15 +2894,23 @@ export type Database = {
         Insert: {
           archive_reason?: string | null
           award_evidence?: string | null
+          below_300k_exception_approval_id?: string | null
+          contact_plan_ready?: boolean
+          conversion_reason?: string | null
           converted_opportunity_id?: string | null
           created_at?: string
           created_by?: string | null
           estimated_project_value?: number | null
+          estimated_signage_value?: number | null
           expected_award_date?: string | null
           id?: string
+          main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
           next_follow_up_date?: string | null
+          package_not_closed?: boolean
           project_id?: string | null
+          project_stage_suitable?: boolean
+          signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
           signage_potential?:
             | Database["public"]["Enums"]["confidence_level"]
             | null
@@ -2400,15 +2926,23 @@ export type Database = {
         Update: {
           archive_reason?: string | null
           award_evidence?: string | null
+          below_300k_exception_approval_id?: string | null
+          contact_plan_ready?: boolean
+          conversion_reason?: string | null
           converted_opportunity_id?: string | null
           created_at?: string
           created_by?: string | null
           estimated_project_value?: number | null
+          estimated_signage_value?: number | null
           expected_award_date?: string | null
           id?: string
+          main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
           next_follow_up_date?: string | null
+          package_not_closed?: boolean
           project_id?: string | null
+          project_stage_suitable?: boolean
+          signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
           signage_potential?:
             | Database["public"]["Enums"]["confidence_level"]
             | null
@@ -2422,6 +2956,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tenders_below_300k_exception_approval_id_fkey"
+            columns: ["below_300k_exception_approval_id"]
+            isOneToOne: false
+            referencedRelation: "approvals"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tenders_converted_opportunity_id_fkey"
             columns: ["converted_opportunity_id"]
@@ -2601,6 +3142,9 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_commercial_manager: { Args: { _user_id: string }; Returns: boolean }
+      is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
+      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       match_knowledge: {
         Args: {
           filter_source_type?: string
