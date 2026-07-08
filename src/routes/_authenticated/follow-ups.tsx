@@ -10,6 +10,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatNumber } from "@/lib/i18n";
 import { completeFollowUp } from "@/lib/opportunity-actions";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/follow-ups")({
   head: () => ({ meta: [{ title: "Follow-ups — PHC" }, { name: "robots", content: "noindex" }] }),
