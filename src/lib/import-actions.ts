@@ -444,6 +444,73 @@ export async function getImportFiles(batchId: string) {
   return data ?? [];
 }
 
+// -- Parsed rows: view + edit + exclude + restore -----------------------------
+
+export async function getImportRows(
+  batchId: string,
+  opts: { limit?: number; includeDeleted?: boolean } = {},
+): Promise<ImportRow[]> {
+  let q = db.from("import_rows").select("*").eq("batch_id", batchId).order("row_number");
+  if (!opts.includeDeleted) q = q.neq("row_status", "deleted");
+  q = q.limit(opts.limit ?? 500);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ImportRow[];
+}
+
+/**
+ * Edit a single parsed row's raw_data cells.
+ * Only touches import_rows — never writes to real CRM tables.
+ */
+export async function updateImportRow(
+  rowId: string,
+  patch: { raw_data: Record<string, unknown> },
+): Promise<ImportRow> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { data, error } = await db.from("import_rows").update({
+    raw_data: patch.raw_data,
+    edited_at: new Date().toISOString(),
+    edited_by: user.id,
+    row_status: "edited",
+    status: "pending", // must re-validate after edit
+  }).eq("id", rowId).select().single();
+  if (error) throw new Error(error.message);
+  return data as ImportRow;
+}
+
+export async function excludeImportRow(rowId: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { error } = await db.from("import_rows").update({
+    is_excluded: true,
+    row_status: "excluded",
+    deleted_at: new Date().toISOString(),
+    deleted_by: user.id,
+  }).eq("id", rowId);
+  if (error) throw new Error(error.message);
+}
+
+export async function restoreImportRow(rowId: string): Promise<void> {
+  const { error } = await db.from("import_rows").update({
+    is_excluded: false,
+    row_status: "active",
+    deleted_at: null,
+    deleted_by: null,
+  }).eq("id", rowId);
+  if (error) throw new Error(error.message);
+}
+
+// -- Storage download ---------------------------------------------------------
+
+export async function getFileDownloadUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("imports")
+    .createSignedUrl(storagePath, 60);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
+
 // Target columns for company mapping
 export const COMPANY_TARGET_COLUMNS = [
   { value: "name", label: "Company Name", required: true },
@@ -456,3 +523,4 @@ export const COMPANY_TARGET_COLUMNS = [
   { value: "internal_notes", label: "Internal Notes" },
   { value: "source", label: "Source" },
 ] as const;
+
