@@ -503,15 +503,23 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
   // Row state keyed by column INDEX (not header name) so files with duplicate
   // or blank headers keep each row independent.
   type Row = { source: string; target: string; isKey: boolean };
-  const [draft, setDraft] = useState<Row[]>(() => {
+  const [draft, setDraft] = useState<Row[]>([]);
+
+  // Re-seed the draft whenever the parsed columns or saved mappings change
+  // (files load asynchronously, so the initial value would otherwise be []).
+  const columnsKey = columns.join("|");
+  const mappingsKey = mappings.map((m) => `${m.source_column}=${m.target_column}:${m.is_key}`).join("|");
+  useEffect(() => {
     const byCol = new Map<string, { target: string; isKey: boolean }>();
     for (const m of mappings) byCol.set(m.source_column, { target: m.target_column, isKey: m.is_key });
-    return columns.map((c) => ({
+    setDraft(columns.map((c) => ({
       source: c,
       target: byCol.get(c)?.target ?? "",
       isKey: byCol.get(c)?.isKey ?? false,
-    }));
-  });
+    })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnsKey, mappingsKey]);
+
 
   if (!batch || columns.length === 0) {
     return <EmptyState message={t("import_tab_upload")} />;
