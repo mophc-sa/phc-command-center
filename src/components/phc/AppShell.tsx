@@ -36,7 +36,6 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import phcLogo from "@/assets/phc-logo.png.asset.json";
-import phcIcon from "@/assets/phc-icon.png.asset.json";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "./StatusPill";
 
