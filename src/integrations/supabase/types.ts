@@ -478,6 +478,7 @@ export type Database = {
           account_owner_id: string | null
           account_status: Database["public"]["Enums"]["account_status"]
           company_type: Database["public"]["Enums"]["company_type"]
+          cr_number: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -491,11 +492,14 @@ export type Database = {
           source: string | null
           updated_at: string
           upsell_notes: string | null
+          website: string | null
+          website_domain: string | null
         }
         Insert: {
           account_owner_id?: string | null
           account_status?: Database["public"]["Enums"]["account_status"]
           company_type?: Database["public"]["Enums"]["company_type"]
+          cr_number?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -509,11 +513,14 @@ export type Database = {
           source?: string | null
           updated_at?: string
           upsell_notes?: string | null
+          website?: string | null
+          website_domain?: string | null
         }
         Update: {
           account_owner_id?: string | null
           account_status?: Database["public"]["Enums"]["account_status"]
           company_type?: Database["public"]["Enums"]["company_type"]
+          cr_number?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -527,6 +534,8 @@ export type Database = {
           source?: string | null
           updated_at?: string
           upsell_notes?: string | null
+          website?: string | null
+          website_domain?: string | null
         }
         Relationships: []
       }
@@ -694,6 +703,441 @@ export type Database = {
             columns: ["opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_approval_queue: {
+        Row: {
+          action: string
+          batch_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision: string | null
+          id: string
+          reason: string | null
+          requested_at: string
+          requested_by: string
+        }
+        Insert: {
+          action: string
+          batch_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          id?: string
+          reason?: string | null
+          requested_at?: string
+          requested_by: string
+        }
+        Update: {
+          action?: string
+          batch_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          id?: string
+          reason?: string | null
+          requested_at?: string
+          requested_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_approval_queue_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_batches: {
+        Row: {
+          ai_suggestions_enabled: boolean
+          approved_at: string | null
+          approved_by: string | null
+          archived_at: string | null
+          archived_by: string | null
+          committed_at: string | null
+          created_at: string
+          created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          dry_run: boolean
+          duplicate_rows: number
+          error_rows: number
+          file_name: string | null
+          id: string
+          notes: string | null
+          source_type: string
+          status: string
+          target_entity: string
+          total_rows: number
+          updated_at: string
+          valid_rows: number
+        }
+        Insert: {
+          ai_suggestions_enabled?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          committed_at?: string | null
+          created_at?: string
+          created_by: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          dry_run?: boolean
+          duplicate_rows?: number
+          error_rows?: number
+          file_name?: string | null
+          id?: string
+          notes?: string | null
+          source_type?: string
+          status?: string
+          target_entity?: string
+          total_rows?: number
+          updated_at?: string
+          valid_rows?: number
+        }
+        Update: {
+          ai_suggestions_enabled?: boolean
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
+          committed_at?: string | null
+          created_at?: string
+          created_by?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          dry_run?: boolean
+          duplicate_rows?: number
+          error_rows?: number
+          file_name?: string | null
+          id?: string
+          notes?: string | null
+          source_type?: string
+          status?: string
+          target_entity?: string
+          total_rows?: number
+          updated_at?: string
+          valid_rows?: number
+        }
+        Relationships: []
+      }
+      import_duplicate_candidates: {
+        Row: {
+          batch_id: string
+          confidence: number
+          created_at: string
+          existing_record_id: string
+          existing_table: string
+          id: string
+          match_type: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          row_id: string
+        }
+        Insert: {
+          batch_id: string
+          confidence?: number
+          created_at?: string
+          existing_record_id: string
+          existing_table: string
+          id?: string
+          match_type: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          row_id: string
+        }
+        Update: {
+          batch_id?: string
+          confidence?: number
+          created_at?: string
+          existing_record_id?: string
+          existing_table?: string
+          id?: string
+          match_type?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          row_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_duplicate_candidates_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_duplicate_candidates_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_errors: {
+        Row: {
+          batch_id: string
+          column_name: string | null
+          created_at: string
+          error_type: string
+          id: string
+          message: string
+          row_id: string | null
+          row_number: number | null
+          severity: string
+        }
+        Insert: {
+          batch_id: string
+          column_name?: string | null
+          created_at?: string
+          error_type: string
+          id?: string
+          message: string
+          row_id?: string | null
+          row_number?: number | null
+          severity?: string
+        }
+        Update: {
+          batch_id?: string
+          column_name?: string | null
+          created_at?: string
+          error_type?: string
+          id?: string
+          message?: string
+          row_id?: string | null
+          row_number?: number | null
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_errors_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_errors_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_files: {
+        Row: {
+          batch_id: string
+          column_names: string[] | null
+          created_at: string
+          file_name: string
+          file_size_bytes: number
+          file_type: string
+          header_row: number
+          id: string
+          row_count: number | null
+          sheet_name: string | null
+          storage_path: string
+        }
+        Insert: {
+          batch_id: string
+          column_names?: string[] | null
+          created_at?: string
+          file_name: string
+          file_size_bytes: number
+          file_type: string
+          header_row?: number
+          id?: string
+          row_count?: number | null
+          sheet_name?: string | null
+          storage_path: string
+        }
+        Update: {
+          batch_id?: string
+          column_names?: string[] | null
+          created_at?: string
+          file_name?: string
+          file_size_bytes?: number
+          file_type?: string
+          header_row?: number
+          id?: string
+          row_count?: number | null
+          sheet_name?: string | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_files_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_mappings: {
+        Row: {
+          batch_id: string
+          created_at: string
+          id: string
+          is_key: boolean
+          source_column: string
+          target_column: string
+          target_table: string
+          transform: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          id?: string
+          is_key?: boolean
+          source_column: string
+          target_column: string
+          target_table: string
+          transform?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          id?: string
+          is_key?: boolean
+          source_column?: string
+          target_column?: string
+          target_table?: string
+          transform?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_mappings_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_record_links: {
+        Row: {
+          action: string
+          batch_id: string
+          created_at: string
+          id: string
+          row_id: string
+          target_id: string
+          target_table: string
+        }
+        Insert: {
+          action: string
+          batch_id: string
+          created_at?: string
+          id?: string
+          row_id: string
+          target_id: string
+          target_table: string
+        }
+        Update: {
+          action?: string
+          batch_id?: string
+          created_at?: string
+          id?: string
+          row_id?: string
+          target_id?: string
+          target_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_record_links_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_record_links_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_rows: {
+        Row: {
+          batch_id: string
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          edited_at: string | null
+          edited_by: string | null
+          file_id: string
+          id: string
+          is_excluded: boolean
+          mapped_data: Json | null
+          raw_data: Json
+          row_number: number
+          row_status: string
+          status: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
+          file_id: string
+          id?: string
+          is_excluded?: boolean
+          mapped_data?: Json | null
+          raw_data: Json
+          row_number: number
+          row_status?: string
+          status?: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
+          file_id?: string
+          id?: string
+          is_excluded?: boolean
+          mapped_data?: Json | null
+          raw_data?: Json
+          row_number?: number
+          row_status?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "import_files"
             referencedColumns: ["id"]
           },
         ]
