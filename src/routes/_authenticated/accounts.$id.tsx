@@ -14,6 +14,7 @@ import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { updateCompany, changeAccountOwner, type CompanyType } from "@/lib/crm-actions";
 import { canAssignOwner } from "@/lib/roles";
+import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/accounts/$id")({
   head: () => ({ meta: [{ title: "Account — PHC" }, { name: "robots", content: "noindex" }] }),
