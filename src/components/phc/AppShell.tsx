@@ -1,6 +1,8 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
+import { FontSizeControl } from "@/components/phc/FontSizeControl";
+
 import {
   LayoutDashboard,
   FolderKanban,
@@ -270,6 +272,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
 
             <div className="ms-auto flex items-center gap-2">
+              <FontSizeControl />
               <button
                 onClick={() => setLang(lang === "en" ? "ar" : "en")}
                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -285,6 +288,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Bell className="h-3.5 w-3.5" />
               </button>
             </div>
+
           </div>
         </header>
 
