@@ -1,6 +1,8 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
+import { FontSizeControl } from "@/components/phc/FontSizeControl";
+
 import {
   LayoutDashboard,
   FolderKanban,
