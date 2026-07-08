@@ -623,7 +623,7 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
           {t("import_save_mapping")}
         </button>
         <button
-          onClick={onValidate}
+          onClick={handleValidateClick}
           disabled={busy || batch.status === "uploading"}
           className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
         >
