@@ -17,7 +17,18 @@ export type OpportunityRow = {
   next_action: string | null;
   last_activity_at: string | null;
   source_confidence: "high" | "medium" | "low";
+  // Sprint 4 — optional: not every caller selects these columns.
+  score?: number | null;
+  score_tier?: "A" | "B" | "C" | "not_qualified" | null;
 };
+
+function scoreTierTone(tier: OpportunityRow["score_tier"]): "positive" | "attention" | "danger" | "muted" {
+  if (tier === "A") return "positive";
+  if (tier === "B") return "attention";
+  if (tier === "C") return "muted";
+  if (tier === "not_qualified") return "danger";
+  return "muted";
+}
 
 export function OpportunityCard({ o, lang }: { o: OpportunityRow; lang: Lang }) {
   const val =
@@ -34,6 +45,11 @@ export function OpportunityCard({ o, lang }: { o: OpportunityRow; lang: Lang }) 
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill tone={o.tier === "A" ? "attention" : "neutral"}>Tier {o.tier}</StatusPill>
             <StatusPill tone="muted">{humanize(o.stage)}</StatusPill>
+            {o.score != null ? (
+              <StatusPill tone={scoreTierTone(o.score_tier)}>
+                {o.score}{o.score_tier ? ` · ${o.score_tier === "not_qualified" ? "NQ" : o.score_tier}` : ""}
+              </StatusPill>
+            ) : null}
           </div>
           <div className="mt-2 truncate text-sm font-semibold text-foreground">{o.project_name}</div>
           <div className="mt-1 truncate text-xs text-muted-foreground">
