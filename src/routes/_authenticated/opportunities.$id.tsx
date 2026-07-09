@@ -19,9 +19,14 @@ import {
   listTeamMembers,
   decideApproval,
   updateOpportunityStage,
+  recomputeOpportunityScore,
+  overrideOpportunityScore,
 } from "@/lib/opportunity-actions";
-import { ArrowLeft, ArrowRight, ExternalLink, FileText } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, FileText, RefreshCw } from "lucide-react";
 import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canManageSalesPipeline } from "@/lib/roles";
+import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
@@ -82,6 +87,10 @@ function OpportunityDetail() {
   const [evidenceOpen, setEvidenceOpen] = useState<any | null>(null);
   const [filter, setFilter] = useState<TimelineFilter>("all");
   const show = (k: TimelineFilter) => filter === "all" || filter === k;
+  const [scoring, setScoring] = useState(false);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const { user, roles } = useAuth();
+  const canScore = canManageSalesPipeline(roles);
 
   const teamQ = useQuery({ queryKey: ["team"], queryFn: listTeamMembers });
 
@@ -184,6 +193,10 @@ function OpportunityDetail() {
   const val = o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min;
   const BackIcon = dir === "rtl" ? ArrowRight : ArrowLeft;
   const recTone = recToTone(o.agent_recommendation);
+  const canActOnScore = canScore || o.owner_id === user?.id;
+  const scoreTierTone = (tier: string | null | undefined): "positive" | "attention" | "danger" | "muted" =>
+    tier === "A" ? "positive" : tier === "B" ? "attention" : tier === "C" ? "muted" : tier === "not_qualified" ? "danger" : "muted";
+  const scoreTierLabel = (tier: string | null | undefined) => (tier === "not_qualified" ? t("score_not_qualified") : tier ?? "—");
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6">
@@ -575,6 +588,105 @@ function OpportunityDetail() {
       </Panel>
       )}
 
+      {/* 7b. SCORING — Sprint 4 */}
+      {show("decision") && (
+      <Panel
+        title={t("section_scoring")}
+        action={
+          canActOnScore ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={async () => {
+                  setScoring(true);
+                  try {
+                    await recomputeOpportunityScore(o.id);
+                    toast.success(t("crm_saved"));
+                    qc.invalidateQueries({ queryKey: ["opp", id] });
+                  } catch (e) {
+                    toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+                  } finally {
+                    setScoring(false);
+                  }
+                }}
+                disabled={scoring}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                <RefreshCw className={`h-3 w-3 ${scoring ? "animate-spin" : ""}`} />
+                {t("score_recalculate")}
+              </button>
+              <button
+                onClick={() => setOverrideOpen(true)}
+                className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {t("score_override")}
+              </button>
+            </div>
+          ) : undefined
+        }
+      >
+        {o.scored_at == null ? (
+          <EmptyState message={t("score_never_scored")} />
+        ) : (
+          <div className="grid gap-4">
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+              <DataField label={t("score_label")} value={<span className="num" data-tabular="true">{o.score}/100</span>} />
+              <DataField
+                label={t("score_tier_label")}
+                value={
+                  <span className="inline-flex items-center gap-1.5">
+                    <StatusPill tone={scoreTierTone(o.score_tier)}>{scoreTierLabel(o.score_tier)}</StatusPill>
+                    {o.score_manual_override ? <StatusPill tone="attention">{t("score_overridden_badge")}</StatusPill> : null}
+                  </span>
+                }
+              />
+              <DataField label={t("score_confidence_label")} value={humanize(o.score_confidence)} />
+              <DataField label={t("score_last_scored")} value={fmtDate(o.scored_at, lang)} />
+            </div>
+
+            {o.score_manual_override && o.score_override_reason ? (
+              <DataField label={t("score_override_reason_label")} value={o.score_override_reason} />
+            ) : null}
+
+            <DataField label={t("score_recommended_action_label")} value={o.score_recommended_action} />
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{t("score_missing_data_label")}</div>
+                {o.score_missing_data && o.score_missing_data.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {o.score_missing_data.map((m: string) => <StatusPill key={m} tone="attention">{humanize(m)}</StatusPill>)}
+                  </div>
+                ) : (
+                  <div className="mt-2 text-sm text-muted-foreground">{t("score_none")}</div>
+                )}
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{t("score_risk_flags_label")}</div>
+                {o.score_risk_flags && o.score_risk_flags.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {o.score_risk_flags.map((r: string) => <StatusPill key={r} tone="danger">{humanize(r)}</StatusPill>)}
+                  </div>
+                ) : (
+                  <div className="mt-2 text-sm text-muted-foreground">{t("score_none")}</div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{t("score_reasons_label")}</div>
+              {o.score_reasons && o.score_reasons.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {o.score_reasons.map((r: string) => <StatusPill key={r} tone="muted">{humanize(r)}</StatusPill>)}
+                </div>
+              ) : (
+                <div className="mt-2 text-sm text-muted-foreground">{t("score_none")}</div>
+              )}
+            </div>
+          </div>
+        )}
+      </Panel>
+      )}
+
       {/* Evidence viewer */}
       <EvidenceViewer
         evidence={evidenceOpen}
@@ -808,6 +920,38 @@ function OpportunityDetail() {
           </>
         );
       })()}
+
+      <ActionDialog
+        open={overrideOpen}
+        onOpenChange={setOverrideOpen}
+        title={t("score_override")}
+        submitLabel={t("score_override")}
+        fields={[
+          {
+            key: "tier",
+            type: "select",
+            label: t("score_tier_label"),
+            required: true,
+            defaultValue: o.score_tier ?? "",
+            options: [
+              { value: "A", label: "A" },
+              { value: "B", label: "B" },
+              { value: "C", label: "C" },
+              { value: "not_qualified", label: t("score_not_qualified") },
+            ],
+          },
+          { key: "reason", type: "textarea", label: t("score_override_reason_label"), required: true },
+        ]}
+        onSubmit={async (v) => {
+          try {
+            await overrideOpportunityScore({ opportunityId: o.id, tier: v.tier as OpportunityScoreTier, reason: v.reason });
+            toast.success(t("crm_saved"));
+            qc.invalidateQueries({ queryKey: ["opp", id] });
+          } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
     </div>
   );
 }

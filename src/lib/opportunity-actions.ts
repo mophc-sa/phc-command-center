@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { callBackend } from "@/lib/backend";
+import { scoreOpportunity, type OpportunityScoreResult, type OpportunityScoreTier } from "@/lib/opportunity-scoring";
+import { createFlag, resolveFlag, type RiskFlag } from "@/lib/workflow-actions";
 
 type Uuid = string;
 
@@ -220,6 +222,119 @@ export async function updateOpportunityStage(input: {
     stage: input.stage,
     notes: input.notes ?? null,
   });
+}
+
+/* ---------------- Scoring (Sprint 4) ---------------- */
+// Direct RLS-gated writes (owner or manager, same as any other opportunity
+// edit) rather than a backend call: scoring is advisory/informational, not a
+// commercial-decision gate like stage or owner changes. Every write — auto
+// or override — is still audited.
+
+// Marks flags this feature created, so re-scoring can resolve/refresh them
+// without touching flags a human raised by hand.
+const SCORE_FLAG_MARKER = "[auto-score]";
+
+async function syncScoreFlags(opportunityId: Uuid, result: OpportunityScoreResult) {
+  const { data: existing } = await supabase
+    .from("opportunity_flags")
+    .select("id, flag_kind, reason")
+    .eq("linked_record_type", "opportunity")
+    .eq("linked_record_id", opportunityId)
+    .eq("status", "open");
+
+  const scorerActionFlag = (existing ?? []).find((f) => f.flag_kind === "action_required" && f.reason?.startsWith(SCORE_FLAG_MARKER));
+  const scorerRiskFlag = (existing ?? []).find((f) => f.flag_kind === "risk" && f.reason?.startsWith(SCORE_FLAG_MARKER));
+
+  // Missing data feeds the action queue (opportunity_flags), per the Sprint 4 rule.
+  if (result.missing_data.length > 0) {
+    if (!scorerActionFlag) {
+      await createFlag({
+        linkedRecordType: "opportunity",
+        linkedRecordId: opportunityId,
+        kind: "action_required",
+        actionType: "technical_review_required",
+        reason: `${SCORE_FLAG_MARKER} Missing: ${result.missing_data.join(", ")}`,
+      });
+    }
+  } else if (scorerActionFlag) {
+    await resolveFlag(scorerActionFlag.id);
+  }
+
+  if (result.risk_flags.length > 0) {
+    if (!scorerRiskFlag) {
+      await createFlag({
+        linkedRecordType: "opportunity",
+        linkedRecordId: opportunityId,
+        kind: "risk",
+        riskFlag: result.risk_flags[0] as RiskFlag,
+        reason: `${SCORE_FLAG_MARKER} Risks: ${result.risk_flags.join(", ")}`,
+      });
+    }
+  } else if (scorerRiskFlag) {
+    await resolveFlag(scorerRiskFlag.id);
+  }
+}
+
+export async function recomputeOpportunityScore(opportunityId: Uuid) {
+  const { data: o, error } = await supabase.from("opportunities").select("*").eq("id", opportunityId).single();
+  if (error) throw error;
+
+  const result = scoreOpportunity(o);
+  const uid = await currentUserId();
+  const patch = {
+    score: result.score,
+    score_tier: result.tier,
+    score_confidence: result.confidence,
+    score_missing_data: result.missing_data,
+    score_reasons: result.reasons,
+    score_risk_flags: result.risk_flags,
+    score_recommended_action: result.recommended_next_action,
+    score_manual_override: false,
+    score_override_reason: null,
+    scored_at: new Date().toISOString(),
+    scored_by: uid,
+  };
+  const { data, error: updErr } = await supabase.from("opportunities").update(patch).eq("id", opportunityId).select().single();
+  if (updErr) throw updErr;
+  await audit("opportunity.scored", "opportunity", opportunityId, null, patch);
+
+  await syncScoreFlags(opportunityId, result);
+
+  return { opportunity: data, result };
+}
+
+// Manual override — requires a reason and is always audited (enforced here
+// as well as by the UI's required field, in case this is ever called from
+// somewhere that skips the dialog).
+export async function overrideOpportunityScore(input: {
+  opportunityId: Uuid;
+  tier: OpportunityScoreTier;
+  reason: string;
+}) {
+  if (!input.reason || !input.reason.trim()) {
+    throw new Error("An override reason is required.");
+  }
+  const { data: before } = await supabase
+    .from("opportunities")
+    .select("score_tier, score_manual_override, score_override_reason")
+    .eq("id", input.opportunityId)
+    .maybeSingle();
+  const { data, error } = await supabase
+    .from("opportunities")
+    .update({
+      score_tier: input.tier,
+      score_manual_override: true,
+      score_override_reason: input.reason,
+    })
+    .eq("id", input.opportunityId)
+    .select()
+    .single();
+  if (error) throw error;
+  await audit("opportunity.score_overridden", "opportunity", input.opportunityId, before, {
+    score_tier: input.tier,
+    reason: input.reason,
+  });
+  return data;
 }
 
 /* ---------------- Team lookup ---------------- */

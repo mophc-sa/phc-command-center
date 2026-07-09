@@ -146,9 +146,10 @@ function OppList() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
-          <div className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <div>{lang === "ar" ? "المشروع" : "Project"}</div>
             <div>{lang === "ar" ? "الطبقة" : "Tier"}</div>
+            <div>{t("score_label")}</div>
             <div>{lang === "ar" ? "المرحلة" : "Stage"}</div>
             <div className="text-right">{lang === "ar" ? "القيمة" : "Value"}</div>
             <div>{lang === "ar" ? "التالي" : "Next action"}</div>
@@ -159,13 +160,20 @@ function OppList() {
                 <Link
                   to="/opportunities/$id"
                   params={{ id: o.id }}
-                  className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-t border-border/60 px-4 py-3 first:border-t-0"
+                  className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-t border-border/60 px-4 py-3 first:border-t-0"
                 >
                   <div className="min-w-0">
                     <div className="truncate text-[13px] font-medium text-foreground">{o.project_name}</div>
                     <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{o.client ?? "—"}{o.main_contractor ? ` · ${o.main_contractor}` : ""}</div>
                   </div>
                   <StatusPill tone={o.tier === "A" ? "attention" : "neutral"}>{o.tier}</StatusPill>
+                  {(o as any).score != null ? (
+                    <StatusPill tone={(o as any).score_tier === "A" ? "positive" : (o as any).score_tier === "not_qualified" ? "danger" : "muted"}>
+                      {(o as any).score}
+                    </StatusPill>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">—</span>
+                  )}
                   <StatusPill tone="muted">{humanize(o.stage)}</StatusPill>
                   <div className="num text-right text-[12px] font-medium text-foreground" data-tabular="true">
                     {formatCurrency(o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min, lang, o.currency)}

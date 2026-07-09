@@ -1876,6 +1876,17 @@ export type Database = {
           project_stage: Database["public"]["Enums"]["project_stage"]
           quotation_value: number | null
           sales_stage: Database["public"]["Enums"]["sales_stage"] | null
+          score: number | null
+          score_confidence: Database["public"]["Enums"]["confidence_level"] | null
+          score_manual_override: boolean
+          score_missing_data: string[] | null
+          score_override_reason: string | null
+          score_reasons: string[] | null
+          score_recommended_action: string | null
+          score_risk_flags: string[] | null
+          score_tier: Database["public"]["Enums"]["opportunity_score_tier"] | null
+          scored_at: string | null
+          scored_by: string | null
           sector: string | null
           signage_package_confidence: Database["public"]["Enums"]["confidence_level"]
           signage_package_status: Database["public"]["Enums"]["signage_package_status"]
@@ -1940,6 +1951,17 @@ export type Database = {
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
           sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
+          score?: number | null
+          score_confidence?: Database["public"]["Enums"]["confidence_level"] | null
+          score_manual_override?: boolean
+          score_missing_data?: string[] | null
+          score_override_reason?: string | null
+          score_reasons?: string[] | null
+          score_recommended_action?: string | null
+          score_risk_flags?: string[] | null
+          score_tier?: Database["public"]["Enums"]["opportunity_score_tier"] | null
+          scored_at?: string | null
+          scored_by?: string | null
           sector?: string | null
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
@@ -2004,6 +2026,17 @@ export type Database = {
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
           sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
+          score?: number | null
+          score_confidence?: Database["public"]["Enums"]["confidence_level"] | null
+          score_manual_override?: boolean
+          score_missing_data?: string[] | null
+          score_override_reason?: string | null
+          score_reasons?: string[] | null
+          score_recommended_action?: string | null
+          score_risk_flags?: string[] | null
+          score_tier?: Database["public"]["Enums"]["opportunity_score_tier"] | null
+          scored_at?: string | null
+          scored_by?: string | null
           sector?: string | null
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
@@ -3391,6 +3424,7 @@ export type Database = {
         | "human_review"
         | "converted"
         | "rejected"
+      opportunity_score_tier: "A" | "B" | "C" | "not_qualified"
       opportunity_stage:
         | "discovery"
         | "qualification"
