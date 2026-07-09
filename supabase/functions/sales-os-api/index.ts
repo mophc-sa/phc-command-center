@@ -180,11 +180,15 @@ const STAGE_APPROVAL: Record<string, string> = {
 };
 
 // ---- Tender workflow ----
+// converted_to_jih is deliberately NOT reachable via advance_tender_stage —
+// it must only ever be set by approve_tender_conversion, which requires a
+// completed conversion review (evaluateConversion) and, in the normal path,
+// a manager-approved TENDER_TO_JIH_APPROVAL. See the explicit guard below.
 const TENDER_TRANSITIONS: Record<string, string[]> = {
   tender_identified: ["tender_under_process", "tender_lost_or_archived"],
   tender_under_process: ["award_negotiation", "awarded_to_contractor", "tender_lost_or_archived"],
   award_negotiation: ["awarded_to_contractor", "tender_lost_or_archived"],
-  awarded_to_contractor: ["converted_to_jih", "tender_lost_or_archived"],
+  awarded_to_contractor: ["tender_lost_or_archived"],
   converted_to_jih: [],
   tender_lost_or_archived: [],
 };
@@ -1057,6 +1061,13 @@ const handlers: Record<string, Handler> = {
     const toStage = String(payload.toStage ?? "");
     if (!tenderId || !toStage) return err("tenderId and toStage are required");
     const fields = (payload.fields as Record<string, unknown>) ?? {};
+    // Belt-and-braces: even if TENDER_TRANSITIONS is ever edited to include it
+    // again, converted_to_jih can never be reached from here — only through
+    // request_tender_conversion + approve_tender_conversion, which enforce
+    // the conversion review gate (evaluateConversion) server-side.
+    if (toStage === "converted_to_jih") {
+      return err("Use request_tender_conversion / approve_tender_conversion — direct conversion is not allowed", 409);
+    }
     const svc = serviceClient();
     const { data: tender, error: tErr } = await svc.from("tenders").select("*").eq("id", tenderId).single();
     if (tErr || !tender) return err("Tender not found", 404);

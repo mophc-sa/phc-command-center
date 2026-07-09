@@ -2872,6 +2872,7 @@ export type Database = {
           estimated_signage_value: number | null
           expected_award_date: string | null
           id: string
+          is_watchlisted: boolean
           main_contractor_confirmed: boolean
           main_contractor_id: string | null
           next_follow_up_date: string | null
@@ -2904,6 +2905,7 @@ export type Database = {
           estimated_signage_value?: number | null
           expected_award_date?: string | null
           id?: string
+          is_watchlisted?: boolean
           main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
           next_follow_up_date?: string | null
@@ -2936,6 +2938,7 @@ export type Database = {
           estimated_signage_value?: number | null
           expected_award_date?: string | null
           id?: string
+          is_watchlisted?: boolean
           main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
           next_follow_up_date?: string | null

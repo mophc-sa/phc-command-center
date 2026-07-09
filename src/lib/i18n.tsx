@@ -67,6 +67,23 @@ export const strings = {
   tstage_converted_to_jih: { en: "Converted to JIH", ar: "تحويل إلى فرصة قائمة" },
   tstage_tender_lost_or_archived: { en: "Lost / Archived", ar: "خاسرة / مؤرشفة" },
 
+  // Tender board — Sprint 2 (columns/fields not covered by tstage_*/wf_* above)
+  tb_watchlist: { en: "Watchlist", ar: "قائمة المتابعة" },
+  tb_mark_watchlist: { en: "Add to Watchlist", ar: "إضافة لقائمة المتابعة" },
+  tb_unmark_watchlist: { en: "Remove from Watchlist", ar: "إزالة من قائمة المتابعة" },
+  tb_client_owner: { en: "Client / Owner", ar: "العميل / المالك" },
+  tb_scope_summary: { en: "Scope Summary", ar: "ملخص النطاق" },
+  tb_signage_relevance: { en: "Signage/Wayfinding Relevance", ar: "صلة اللوحات الإرشادية" },
+  tb_consultant: { en: "Consultant", ar: "الاستشاري" },
+  tb_evidence_count: { en: "Evidence", ar: "الأدلة" },
+  tb_conversion_readiness: { en: "Conversion Readiness", ar: "جاهزية التحويل" },
+  tb_edit_tender: { en: "Edit Tender", ar: "تعديل المناقصة" },
+  tb_assign_owner: { en: "Assign Owner", ar: "تعيين المسؤول" },
+  tb_add_follow_up: { en: "Add Follow-up", ar: "إضافة متابعة" },
+  tb_add_evidence: { en: "Add Evidence", ar: "إضافة دليل" },
+  tb_no_owner: { en: "Unassigned", ar: "بدون تعيين" },
+  label_owner: { en: "Owner", ar: "المسؤول" },
+
   // Workflow generic
   wf_new_rfq: { en: "New RFQ", ar: "طلب عرض سعر جديد" },
   wf_new_tender: { en: "New Tender", ar: "مناقصة جديدة" },
@@ -161,6 +178,7 @@ export const strings = {
   crm_linked_contacts: { en: "Contacts", ar: "جهات الاتصال" },
   crm_linked_opportunities: { en: "Opportunities", ar: "الفرص" },
   crm_saved: { en: "Saved", ar: "تم الحفظ" },
+  crm_save_changes: { en: "Save Changes", ar: "حفظ التغييرات" },
   crm_filter_all_types: { en: "All Types", ar: "كل الأنواع" },
 
   // Company types
