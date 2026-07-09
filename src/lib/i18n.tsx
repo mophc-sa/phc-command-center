@@ -210,6 +210,16 @@ export const strings = {
   ws_none: { en: "Nothing here.", ar: "لا شيء هنا." },
   ws_log_activity: { en: "Log Activity", ar: "تسجيل نشاط" },
   ws_of: { en: "of", ar: "من" },
+  ws_today_followups: { en: "Today follow-ups", ar: "متابعات اليوم" },
+  ws_tier_a_opportunities: { en: "My Tier A opportunities", ar: "فرصي من الفئة A" },
+  ws_my_rfqs: { en: "My RFQs", ar: "طلبات عروض أسعاري" },
+  ws_my_tenders: { en: "My tenders", ar: "مناقصاتي" },
+  ws_missing_data: { en: "Missing data tasks", ar: "مهام بيانات ناقصة" },
+  ws_target_snapshot: { en: "Target Snapshot", ar: "لمحة الأهداف" },
+  ws_target_reactivation: { en: "Reactivation", ar: "إعادة التنشيط" },
+  ws_actual_not_tracked: { en: "Actuals not tracked yet", ar: "لم يُحتسب الفعلي بعد" },
+  ws_rfqs_open: { en: "open", ar: "مفتوح" },
+  ws_tenders_active: { en: "active", ar: "نشطة" },
 
   // Activity types
   activity_type_call: { en: "Call", ar: "مكالمة" },
