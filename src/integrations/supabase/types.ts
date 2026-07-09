@@ -2080,6 +2080,9 @@ export type Database = {
         Row: {
           action_owner_id: string | null
           action_type: Database["public"]["Enums"]["action_type"] | null
+          ai_generated: boolean
+          completed_at: string | null
+          completed_by: string | null
           created_at: string
           created_by: string | null
           due_date: string | null
@@ -2088,7 +2091,9 @@ export type Database = {
           linked_record_id: string
           linked_record_type: string
           priority: Database["public"]["Enums"]["priority_tier"] | null
+          queue_action_type: Database["public"]["Enums"]["queue_action_type"] | null
           reason: string | null
+          recommended_action: string | null
           risk_flag: Database["public"]["Enums"]["risk_flag"] | null
           status: Database["public"]["Enums"]["flag_status"]
           updated_at: string
@@ -2096,6 +2101,9 @@ export type Database = {
         Insert: {
           action_owner_id?: string | null
           action_type?: Database["public"]["Enums"]["action_type"] | null
+          ai_generated?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           created_by?: string | null
           due_date?: string | null
@@ -2104,7 +2112,9 @@ export type Database = {
           linked_record_id: string
           linked_record_type: string
           priority?: Database["public"]["Enums"]["priority_tier"] | null
+          queue_action_type?: Database["public"]["Enums"]["queue_action_type"] | null
           reason?: string | null
+          recommended_action?: string | null
           risk_flag?: Database["public"]["Enums"]["risk_flag"] | null
           status?: Database["public"]["Enums"]["flag_status"]
           updated_at?: string
@@ -2112,6 +2122,9 @@ export type Database = {
         Update: {
           action_owner_id?: string | null
           action_type?: Database["public"]["Enums"]["action_type"] | null
+          ai_generated?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           created_by?: string | null
           due_date?: string | null
@@ -2120,7 +2133,9 @@ export type Database = {
           linked_record_id?: string
           linked_record_type?: string
           priority?: Database["public"]["Enums"]["priority_tier"] | null
+          queue_action_type?: Database["public"]["Enums"]["queue_action_type"] | null
           reason?: string | null
+          recommended_action?: string | null
           risk_flag?: Database["public"]["Enums"]["risk_flag"] | null
           status?: Database["public"]["Enums"]["flag_status"]
           updated_at?: string
@@ -3376,7 +3391,14 @@ export type Database = {
         | "insufficient_evidence"
         | "other"
       flag_kind: "action_required" | "risk"
-      flag_status: "open" | "resolved"
+      flag_status:
+        | "open"
+        | "resolved"
+        | "in_progress"
+        | "completed"
+        | "dismissed"
+        | "escalated"
+        | "blocked"
       flow_type: "direct_rfq" | "tender_converted" | "manual"
       follow_up_status:
         | "scheduled"
@@ -3463,6 +3485,17 @@ export type Database = {
         | "near_handover"
         | "completed"
         | "unknown"
+      queue_action_type:
+        | "follow_up_due"
+        | "follow_up_overdue"
+        | "missing_data"
+        | "rfq_review_needed"
+        | "tender_review_needed"
+        | "approval_needed"
+        | "quotation_follow_up"
+        | "no_next_action"
+        | "inactive_tier_a_opportunity"
+        | "contract_evidence_missing"
       quotation_status:
         | "draft"
         | "under_internal_review"
@@ -3727,7 +3760,15 @@ export const Constants = {
         "other",
       ],
       flag_kind: ["action_required", "risk"],
-      flag_status: ["open", "resolved"],
+      flag_status: [
+        "open",
+        "resolved",
+        "in_progress",
+        "completed",
+        "dismissed",
+        "escalated",
+        "blocked",
+      ],
       flow_type: ["direct_rfq", "tender_converted", "manual"],
       follow_up_status: [
         "scheduled",
@@ -3790,6 +3831,18 @@ export const Constants = {
         "near_handover",
         "completed",
         "unknown",
+      ],
+      queue_action_type: [
+        "follow_up_due",
+        "follow_up_overdue",
+        "missing_data",
+        "rfq_review_needed",
+        "tender_review_needed",
+        "approval_needed",
+        "quotation_follow_up",
+        "no_next_action",
+        "inactive_tier_a_opportunity",
+        "contract_evidence_missing",
       ],
       quotation_status: [
         "draft",

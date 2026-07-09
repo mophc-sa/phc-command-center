@@ -1440,27 +1440,48 @@ const handlers: Record<string, Handler> = {
     return notConfiguredRun(serviceClient(), "smart_followup", caller.userId, "Smart Follow-up Agent scaffold — drafting model not configured. Never sends automatically.");
   },
 
-  // Evaluate the time-based automation rules and raise flags / action items.
-  // Intended to be called on a schedule (pg_cron / n8n) or manually by a manager.
+  // Evaluate the time-based automation rules and raise Sales Action Queue
+  // items (opportunity_flags rows). Intended to be called on a schedule
+  // (pg_cron / n8n) or manually by a manager. This is the Sprint 5 "daily
+  // action engine" — it reuses the same table/route the pre-existing 3
+  // rules already fed (Action Center), just tags every item with a
+  // queue_action_type so the UI can group/filter by the Sprint 5 vocabulary.
+  // 'missing_data' is deliberately not raised here — it is already produced
+  // by the Sprint 4 scoring engine (recomputeOpportunityScore -> syncScoreFlags)
+  // whenever a score is (re)computed, so it is not duplicated in this loop.
   async run_automations(_payload, caller) {
     if (!canRunSensitiveSalesAction(caller.roles)) return err("Sensitive-action authority required", 403);
     const svc = serviceClient();
     const now = Date.now();
-    const daysAgo = (d: number) => new Date(now - d * 864e5).toISOString();
+    const today = new Date(now).toISOString().slice(0, 10);
+    const daysAgo = (d: number) => new Date(now - d * 864e5).toISOString().slice(0, 10);
+    const daysFromNow = (d: number) => new Date(now + d * 864e5).toISOString().slice(0, 10);
     let raised = 0;
     const raiseFlag = async (
       recordType: string,
       recordId: string,
       kind: "action_required" | "risk",
-      opts: { action_type?: string; risk_flag?: string; reason: string },
+      opts: {
+        action_type?: string;
+        risk_flag?: string;
+        queue_action_type: string;
+        reason: string;
+        recommended_action?: string;
+        owner_id?: string | null;
+        due_date?: string | null;
+        priority?: "A" | "B" | "C";
+      },
     ) => {
-      // Avoid duplicates: skip if an open flag of the same kind already exists.
+      // Avoid duplicates: skip if an active (open/in_progress) item of the
+      // same queue_action_type already exists for this record. Scoping the
+      // dedup check to queue_action_type (not just flag_kind) means two
+      // different rules on the same record no longer suppress each other.
       const { data: existing } = await svc
         .from("opportunity_flags")
         .select("id")
         .eq("linked_record_id", recordId)
-        .eq("status", "open")
-        .eq("flag_kind", kind)
+        .in("status", ["open", "in_progress"])
+        .eq("queue_action_type", opts.queue_action_type)
         .limit(1);
       if (existing && existing.length) return;
       await svc.from("opportunity_flags").insert({
@@ -1469,13 +1490,19 @@ const handlers: Record<string, Handler> = {
         flag_kind: kind,
         action_type: opts.action_type ?? null,
         risk_flag: opts.risk_flag ?? null,
+        queue_action_type: opts.queue_action_type,
+        recommended_action: opts.recommended_action ?? null,
+        action_owner_id: opts.owner_id ?? null,
+        due_date: opts.due_date ?? null,
+        priority: opts.priority ?? null,
         reason: opts.reason,
         status: "open",
+        ai_generated: true,
       });
       raised++;
     };
 
-    // RFQ with no owner for 24h.
+    // RFQ with no owner for 24h -> RFQ review needed.
     const { data: orphanRfqs } = await svc
       .from("rfqs")
       .select("id, created_at")
@@ -1483,28 +1510,188 @@ const handlers: Record<string, Handler> = {
       .eq("status", "open")
       .lt("created_at", daysAgo(1));
     for (const r of orphanRfqs ?? []) {
-      await raiseFlag("rfq", r.id, "action_required", { action_type: "follow_up_required", reason: "RFQ unassigned for 24h" });
+      await raiseFlag("rfq", r.id, "action_required", {
+        action_type: "follow_up_required",
+        queue_action_type: "rfq_review_needed",
+        reason: "RFQ unassigned for 24h",
+        recommended_action: "Assign a sales owner to this RFQ.",
+        priority: "A",
+      });
     }
-    // Verbally awarded with no contract after 14 days.
+
+    // Verbally awarded with no contract after 14 days -> contract evidence missing.
     const { data: staleAwards } = await svc
       .from("opportunities")
-      .select("id, verbal_award_date")
+      .select("id, owner_id, verbal_award_date")
       .eq("sales_stage", "verbally_awarded")
-      .lt("verbal_award_date", new Date(now - 14 * 864e5).toISOString().slice(0, 10));
+      .lt("verbal_award_date", daysAgo(14));
     for (const o of staleAwards ?? []) {
-      await raiseFlag("opportunity", o.id, "risk", { risk_flag: "contract_pending", reason: "Verbally awarded >14d without contract" });
+      await raiseFlag("opportunity", o.id, "risk", {
+        risk_flag: "contract_pending",
+        queue_action_type: "contract_evidence_missing",
+        reason: "Verbally awarded >14d without contract",
+        recommended_action: "Follow up on the contract and record it once received.",
+        owner_id: o.owner_id,
+        priority: "A",
+      });
     }
-    // Tenders with expected award within 7 days.
+    // Verbally awarded without any recorded award evidence -> contract evidence missing.
+    const { data: verbalNoEvidence } = await svc
+      .from("opportunities")
+      .select("id, owner_id, verbal_award_date")
+      .eq("sales_stage", "verbally_awarded")
+      .is("verbal_award_evidence", null)
+      .lt("verbal_award_date", daysAgo(3));
+    for (const o of verbalNoEvidence ?? []) {
+      await raiseFlag("opportunity", o.id, "risk", {
+        risk_flag: "contract_pending",
+        queue_action_type: "contract_evidence_missing",
+        reason: "Verbal award recorded without evidence",
+        recommended_action: "Upload verbal award evidence (email, letter, or call note).",
+        owner_id: o.owner_id,
+        priority: "A",
+      });
+    }
+    // Contract stage reached without a contract reference number -> contract evidence missing.
+    const { data: contractNoRef } = await svc
+      .from("opportunities")
+      .select("id, owner_id")
+      .in("sales_stage", ["contract_received", "won"])
+      .is("contract_reference_number", null);
+    for (const o of contractNoRef ?? []) {
+      await raiseFlag("opportunity", o.id, "action_required", {
+        queue_action_type: "contract_evidence_missing",
+        reason: "Contract stage reached without a contract reference number",
+        recommended_action: "Record the signed contract reference number.",
+        owner_id: o.owner_id,
+        priority: "A",
+      });
+    }
+
+    // Tenders with expected award within 7 days -> tender review needed.
     const { data: dueTenders } = await svc
       .from("tenders")
-      .select("id, expected_award_date")
+      .select("id, tender_owner_id, expected_award_date")
       .not("expected_award_date", "is", null)
-      .lte("expected_award_date", new Date(now + 7 * 864e5).toISOString().slice(0, 10))
+      .lte("expected_award_date", daysFromNow(7))
       .neq("tender_stage", "converted_to_jih")
       .neq("tender_stage", "tender_lost_or_archived");
     for (const tdr of dueTenders ?? []) {
-      await raiseFlag("tender", tdr.id, "action_required", { action_type: "tender_decision_required", reason: "Tender award expected within 7 days" });
+      await raiseFlag("tender", tdr.id, "action_required", {
+        action_type: "tender_decision_required",
+        queue_action_type: "tender_review_needed",
+        reason: "Tender award expected within 7 days",
+        recommended_action: "Review the tender and confirm the go/no-go decision.",
+        owner_id: tdr.tender_owner_id,
+        due_date: tdr.expected_award_date,
+        priority: "A",
+      });
     }
+
+    // Follow-ups due today -> follow-up due.
+    const { data: dueFollowUps } = await svc
+      .from("follow_ups")
+      .select("id, opportunity_id, owner_id, due_date, cadence_tier")
+      .eq("status", "scheduled")
+      .eq("due_date", today);
+    for (const f of dueFollowUps ?? []) {
+      await raiseFlag("opportunity", f.opportunity_id, "action_required", {
+        action_type: "follow_up_required",
+        queue_action_type: "follow_up_due",
+        reason: "Follow-up due today",
+        recommended_action: "Complete today's scheduled follow-up.",
+        owner_id: f.owner_id,
+        due_date: f.due_date,
+        priority: f.cadence_tier,
+      });
+    }
+
+    // Follow-ups past due -> follow-up overdue.
+    const { data: overdueFollowUps } = await svc
+      .from("follow_ups")
+      .select("id, opportunity_id, owner_id, due_date, cadence_tier")
+      .not("status", "in", "(completed,cancelled)")
+      .lt("due_date", today);
+    for (const f of overdueFollowUps ?? []) {
+      await raiseFlag("opportunity", f.opportunity_id, "risk", {
+        risk_flag: "follow_up_overdue",
+        queue_action_type: "follow_up_overdue",
+        reason: `Follow-up overdue since ${f.due_date}`,
+        recommended_action: "Contact the customer immediately and reschedule.",
+        owner_id: f.owner_id,
+        due_date: f.due_date,
+        priority: "A",
+      });
+    }
+
+    // Important (Tier A/B) opportunities with no next action -> no next action.
+    const { data: noNextAction } = await svc
+      .from("opportunities")
+      .select("id, owner_id, tier")
+      .in("tier", ["A", "B"])
+      .is("next_action", null)
+      .not("stage", "in", "(won,lost,archived)");
+    for (const o of noNextAction ?? []) {
+      await raiseFlag("opportunity", o.id, "action_required", {
+        queue_action_type: "no_next_action",
+        reason: "Important opportunity has no next action set",
+        recommended_action: "Define and record the next action for this opportunity.",
+        owner_id: o.owner_id,
+        priority: o.tier,
+      });
+    }
+
+    // Tier A opportunities inactive 14+ days -> inactive Tier A opportunity.
+    const { data: inactiveTierA } = await svc
+      .from("opportunities")
+      .select("id, owner_id, last_activity_at")
+      .eq("tier", "A")
+      .not("stage", "in", "(won,lost,archived)")
+      .or(`last_activity_at.is.null,last_activity_at.lt.${daysAgo(14)}`);
+    for (const o of inactiveTierA ?? []) {
+      await raiseFlag("opportunity", o.id, "risk", {
+        queue_action_type: "inactive_tier_a_opportunity",
+        reason: "Tier A opportunity with no activity in 14+ days",
+        recommended_action: "Re-engage the client and log an activity.",
+        owner_id: o.owner_id,
+        priority: "A",
+      });
+    }
+
+    // Pending approvals -> approval needed.
+    const { data: pendingApprovals } = await svc
+      .from("approvals")
+      .select("id, assigned_approver, requested_by, approval_type")
+      .eq("status", "pending");
+    for (const a of pendingApprovals ?? []) {
+      await raiseFlag("approval", a.id, "action_required", {
+        queue_action_type: "approval_needed",
+        reason: `Pending ${a.approval_type} approval`,
+        recommended_action: "Review and decide on this approval request.",
+        owner_id: a.assigned_approver ?? a.requested_by,
+        priority: "A",
+      });
+    }
+
+    // Quotations with no follow-up in 5+ days -> quotation follow-up.
+    const { data: staleQuotations } = await svc
+      .from("quotations")
+      .select("id, owner_id, issued_date, last_follow_up_at, status")
+      .in("status", ["submitted", "follow_up", "negotiation"]);
+    const followUpCutoff = daysAgo(5);
+    for (const q of staleQuotations ?? []) {
+      const lastTouch = q.last_follow_up_at ?? q.issued_date;
+      if (lastTouch && lastTouch < followUpCutoff) {
+        await raiseFlag("quotation", q.id, "action_required", {
+          queue_action_type: "quotation_follow_up",
+          reason: "No follow-up on this quotation in 5+ days",
+          recommended_action: "Follow up with the client on the submitted quotation.",
+          owner_id: q.owner_id,
+          priority: "B",
+        });
+      }
+    }
+
     await audit(svc, caller.userId, "automations.run", "system", "run_automations", { raised });
     return json({ ok: true, raised });
   },

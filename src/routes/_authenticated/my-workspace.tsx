@@ -87,8 +87,16 @@ function WorkspacePage() {
   const { data: flags = [] } = useQuery({
     queryKey: ["ws-flags", uid, myOppIds.length],
     enabled: !!uid && myOppIds.length > 0,
+    // linked_record_type/linked_record_id is the real (polymorphic) key on
+    // opportunity_flags — there is no opportunity_id column on this table.
     queryFn: async () =>
-      (await supabase.from("opportunity_flags").select("*").eq("status", "open").in("opportunity_id", myOppIds).order("created_at", { ascending: false })).data ?? [],
+      (await supabase
+        .from("opportunity_flags")
+        .select("*")
+        .in("status", ["open", "in_progress"])
+        .eq("linked_record_type", "opportunity")
+        .in("linked_record_id", myOppIds)
+        .order("created_at", { ascending: false })).data ?? [],
   });
 
   const { data: myRfqs = [] } = useQuery({
