@@ -42,3 +42,7 @@ package-lock.json
 # Supabase temp
 supabase/.temp/
 test-results/
+
+# Local data export inspection (sensitive — never commit)
+/exports-inspected/
+/exports*/
