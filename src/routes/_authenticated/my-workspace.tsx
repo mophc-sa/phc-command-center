@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, ListChecks, BellRing, ShieldCheck, Sparkles } from "lucide-react";
+import { CalendarClock, ListChecks, BellRing, ShieldCheck, Sparkles, FileText, Award } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { ChartFrame } from "@/components/phc/ChartFrame";
@@ -12,7 +12,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { RecommendationCard } from "@/components/phc/RecommendationCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
+import { useI18n, formatCurrency, formatNumber, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { logActivity, type ActivityType } from "@/lib/activity-actions";
 import { acceptRecommendation, dismissRecommendation } from "@/lib/recommendation-actions";
@@ -51,7 +51,7 @@ function WorkspacePage() {
       const [target, accounts, opps, followups, tasks, activities, approvals] = await Promise.all([
         supabase.from("sales_targets").select("*").eq("user_id", uid).eq("period_start", monthStart()).maybeSingle(),
         supabase.from("companies").select("id, name, company_type, account_status").eq("account_owner_id", uid).order("updated_at", { ascending: false }),
-        supabase.from("opportunities").select("id, project_name, stage, pipeline_step, estimated_value_max, currency, owner_id").eq("owner_id", uid).not("stage", "in", "(won,lost,archived)").order("updated_at", { ascending: false }),
+        supabase.from("opportunities").select("id, project_name, stage, tier, pipeline_step, estimated_value_max, currency, owner_id").eq("owner_id", uid).not("stage", "in", "(won,lost,archived)").order("updated_at", { ascending: false }),
         supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, notes").eq("owner_id", uid).neq("status", "completed").order("due_date", { ascending: true }),
         supabase.from("tasks").select("id, title, due_date, status").eq("owner_id", uid).neq("status", "done").order("due_date", { ascending: true }),
         supabase.from("activities").select("id, activity_type, summary, occurred_at, related_opportunity_id").eq("owner_id", uid).order("occurred_at", { ascending: false }).limit(12),
@@ -91,6 +91,20 @@ function WorkspacePage() {
       (await supabase.from("opportunity_flags").select("*").eq("status", "open").in("opportunity_id", myOppIds).order("created_at", { ascending: false })).data ?? [],
   });
 
+  const { data: myRfqs = [] } = useQuery({
+    queryKey: ["ws-rfqs", uid],
+    enabled: !!uid,
+    queryFn: async () =>
+      (await supabase.from("rfqs").select("id, rfq_number, status, estimated_value, response_due_date").eq("sales_owner_id", uid).eq("status", "open").order("response_due_date", { ascending: true })).data ?? [],
+  });
+
+  const { data: myTenders = [] } = useQuery({
+    queryKey: ["ws-tenders", uid],
+    enabled: !!uid,
+    queryFn: async () =>
+      (await supabase.from("tenders").select("id, tender_name, tender_stage, tender_priority_classification, estimated_project_value, expected_award_date").eq("tender_owner_id", uid).not("tender_stage", "in", "(converted_to_jih,tender_lost_or_archived)").order("expected_award_date", { ascending: true })).data ?? [],
+  });
+
   if (isLoading || !data) return <EmptyState message={t("loading")} />;
 
   const pipelineValue = data.opps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
@@ -105,6 +119,9 @@ function WorkspacePage() {
   const upcomingTasks = data.tasks.filter((tk: any) => !tk.due_date || tk.due_date > today);
 
   const myApprovals = data.approvals.filter((a: any) => a.assigned_approver === uid || a.requested_by === uid);
+
+  const tierAOpps = data.opps.filter((o: any) => o.tier === "A");
+  const missingDataFlags = flags.filter((f: any) => f.flag_kind === "action_required");
 
   const oppName = (id: string | null) => (id ? data.opps.find((o: any) => o.id === id)?.project_name ?? "—" : "—");
 
@@ -130,6 +147,29 @@ function WorkspacePage() {
         <KpiCard label={lang === "ar" ? "متأخرات اليوم" : "Overdue today"} value={formatNumber(overdueFU.length + overdueTasks.length, lang)} hint={lang === "ar" ? "متابعات ومهام" : "Follow-ups & tasks"} trend={overdueFU.length + overdueTasks.length > 0 ? "down" : "flat"} />
         <KpiCard label={lang === "ar" ? "بانتظار قرارك" : "Awaiting your decision"} value={formatNumber(myApprovals.length, lang)} hint={t("metric_awaiting_approval")} />
         <KpiCard label={lang === "ar" ? "حسابات نشطة" : "Active accounts"} value={formatNumber(data.accounts.length, lang)} hint={lang === "ar" ? "تحت إدارتك" : "Under your ownership"} />
+      </section>
+
+      {/* Pipeline snapshot row — Sales OS pilot Sprint 1 widgets */}
+      <section className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <KpiCard label={t("ws_today_followups")} value={formatNumber(todayFU.length, lang)} hint={lang === "ar" ? "مستحقة اليوم" : "Due today"} />
+        <KpiCard label={t("ws_overdue_followups")} value={formatNumber(overdueFU.length, lang)} hint={lang === "ar" ? "تحتاج متابعة فورية" : "Needs immediate follow-up"} trend={overdueFU.length > 0 ? "down" : "flat"} />
+        <KpiCard label={t("ws_tier_a_opportunities")} value={formatNumber(tierAOpps.length, lang)} hint={formatCurrency(tierAOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")} />
+        <KpiCard label={t("ws_my_rfqs")} value={formatNumber(myRfqs.length, lang)} hint={t("ws_rfqs_open")} />
+        <KpiCard label={t("ws_my_tenders")} value={formatNumber(myTenders.length, lang)} hint={t("ws_tenders_active")} />
+        <KpiCard label={t("ws_missing_data")} value={formatNumber(missingDataFlags.length, lang)} hint={lang === "ar" ? "بانتظار استكمال البيانات" : "Awaiting data completion"} trend={missingDataFlags.length > 0 ? "down" : "flat"} />
+      </section>
+
+      {/* Target snapshot — multi-dimensional target vs. tracked actuals (pipeline only for now) */}
+      <section className="mt-3">
+        <ChartFrame title={t("ws_target_snapshot")} subtitle={tg ? undefined : t("ws_no_target")}>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <TargetMetric label={t("ws_target_sales")} target={tg?.sales_target} actual={undefined} lang={lang} />
+            <TargetMetric label={t("ws_target_pipeline")} target={tg?.pipeline_target} actual={pipelineValue} lang={lang} />
+            <TargetMetric label={t("ws_target_quotations")} target={tg?.quotation_target} actual={undefined} lang={lang} isCount />
+            <TargetMetric label={t("ws_target_activities")} target={tg?.activity_target} actual={data.activities.length} lang={lang} isCount />
+            <TargetMetric label={t("ws_target_reactivation")} target={tg?.reactivation_target} actual={undefined} lang={lang} isCount />
+          </div>
+        </ChartFrame>
       </section>
 
       {recs.length > 0 ? (
@@ -173,6 +213,8 @@ function WorkspacePage() {
             <TabItem value="followups" icon={<CalendarClock className="h-3.5 w-3.5" />} label={t("nav_follow_ups")} count={data.followups.length} />
             <TabItem value="action" icon={<BellRing className="h-3.5 w-3.5" />} label={t("nav_action_center")} count={flags.length} />
             <TabItem value="approvals" icon={<ShieldCheck className="h-3.5 w-3.5" />} label={t("nav_approvals")} count={myApprovals.length} />
+            <TabItem value="rfqs" icon={<FileText className="h-3.5 w-3.5" />} label={t("ws_my_rfqs")} count={myRfqs.length} />
+            <TabItem value="tenders" icon={<Award className="h-3.5 w-3.5" />} label={t("ws_my_tenders")} count={myTenders.length} />
           </TabsList>
 
           <TabsContent value="today" className="mt-0 grid gap-3 lg:grid-cols-2">
@@ -297,6 +339,38 @@ function WorkspacePage() {
               />
             </ChartFrame>
           </TabsContent>
+
+          <TabsContent value="rfqs" className="mt-0">
+            <ChartFrame title={t("ws_my_rfqs")} subtitle={`${formatNumber(myRfqs.length, lang)} ${t("ws_rfqs_open")}`} padded={false}>
+              <List
+                empty={t("ws_none")}
+                items={myRfqs.map((r: any) => ({
+                  key: r.id,
+                  primary: r.rfq_number || "—",
+                  secondary: humanize(r.status),
+                  tone: r.response_due_date && r.response_due_date < today ? "attention" : "neutral",
+                  label: r.response_due_date && r.response_due_date < today ? (lang === "ar" ? "متأخر" : "Overdue") : humanize(r.status),
+                  right: formatCurrency(r.estimated_value, lang, "SAR"),
+                }))}
+              />
+            </ChartFrame>
+          </TabsContent>
+
+          <TabsContent value="tenders" className="mt-0">
+            <ChartFrame title={t("ws_my_tenders")} subtitle={`${formatNumber(myTenders.length, lang)} ${t("ws_tenders_active")}`} padded={false}>
+              <List
+                empty={t("ws_none")}
+                items={myTenders.map((tn: any) => ({
+                  key: tn.id,
+                  primary: tn.tender_name,
+                  secondary: `${t(`tstage_${tn.tender_stage}` as never)}${tn.tender_priority_classification ? ` · ${t("label_tier")} ${tn.tender_priority_classification}` : ""}`,
+                  tone: "muted",
+                  label: tn.tender_priority_classification ?? humanize(tn.tender_stage),
+                  right: formatCurrency(tn.estimated_project_value, lang, "SAR"),
+                }))}
+              />
+            </ChartFrame>
+          </TabsContent>
         </Tabs>
       </section>
 
@@ -342,6 +416,41 @@ function TabItem({ value, icon, label, count }: { value: string; icon: React.Rea
         {count}
       </span>
     </TabsTrigger>
+  );
+}
+
+/**
+ * Sprint 1 target snapshot — placeholder-honest: shows the configured target
+ * for the period, and the tracked actual only where we already compute one
+ * cheaply (pipeline value, activity count). Dimensions without a wired
+ * actual-so-far metric show ws_actual_not_tracked rather than a fabricated
+ * number.
+ */
+function TargetMetric({
+  label,
+  target,
+  actual,
+  lang,
+  isCount = false,
+}: {
+  label: string;
+  target: number | null | undefined;
+  actual: number | undefined;
+  lang: Lang;
+  isCount?: boolean;
+}) {
+  const { t } = useI18n();
+  const format = (n: number) => (isCount ? formatNumber(n, lang) : formatCurrency(n, lang, "SAR"));
+  return (
+    <div className="rounded-lg border border-border/60 bg-surface-2/30 p-3">
+      <div className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{label}</div>
+      <div className="num mt-1.5 text-[18px] font-semibold text-foreground" data-tabular="true">
+        {target != null ? format(target) : "—"}
+      </div>
+      <div className="mt-0.5 text-[11px] text-muted-foreground">
+        {actual != null ? `${format(actual)} ${t("ws_of")} ${lang === "ar" ? "الهدف" : "target"}` : t("ws_actual_not_tracked")}
+      </div>
+    </div>
   );
 }
 
