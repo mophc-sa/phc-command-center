@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { callBackend } from "@/lib/backend";
 import { scoreOpportunity, type OpportunityScoreResult, type OpportunityScoreTier } from "@/lib/opportunity-scoring";
-import { createFlag, resolveFlag, type RiskFlag } from "@/lib/workflow-actions";
+import { createFlag, resolveFlag, ACTIVE_FLAG_STATUSES, type RiskFlag } from "@/lib/workflow-actions";
 
 type Uuid = string;
 
@@ -240,7 +240,7 @@ async function syncScoreFlags(opportunityId: Uuid, result: OpportunityScoreResul
     .select("id, flag_kind, reason")
     .eq("linked_record_type", "opportunity")
     .eq("linked_record_id", opportunityId)
-    .in("status", ["open", "in_progress"]);
+    .in("status", ACTIVE_FLAG_STATUSES);
 
   const scorerActionFlag = (existing ?? []).find((f) => f.flag_kind === "action_required" && f.reason?.startsWith(SCORE_FLAG_MARKER));
   const scorerRiskFlag = (existing ?? []).find((f) => f.flag_kind === "risk" && f.reason?.startsWith(SCORE_FLAG_MARKER));

@@ -1472,15 +1472,18 @@ const handlers: Record<string, Handler> = {
         priority?: "A" | "B" | "C";
       },
     ) => {
-      // Avoid duplicates: skip if an active (open/in_progress) item of the
-      // same queue_action_type already exists for this record. Scoping the
-      // dedup check to queue_action_type (not just flag_kind) means two
-      // different rules on the same record no longer suppress each other.
+      // Avoid duplicates: skip if an active item of the same queue_action_type
+      // already exists for this record. "Active" mirrors ACTIVE_FLAG_STATUSES
+      // in workflow-actions.ts (open/in_progress/escalated/blocked) so an
+      // escalated or blocked item doesn't get silently duplicated by the next
+      // automation run. Scoping the dedup check to queue_action_type (not
+      // just flag_kind) means two different rules on the same record no
+      // longer suppress each other.
       const { data: existing } = await svc
         .from("opportunity_flags")
         .select("id")
         .eq("linked_record_id", recordId)
-        .in("status", ["open", "in_progress"])
+        .in("status", ["open", "in_progress", "escalated", "blocked"])
         .eq("queue_action_type", opts.queue_action_type)
         .limit(1);
       if (existing && existing.length) return;

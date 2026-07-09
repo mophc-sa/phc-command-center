@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useI18n, formatCurrency, formatNumber, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { logActivity, type ActivityType } from "@/lib/activity-actions";
+import { ACTIVE_FLAG_STATUSES } from "@/lib/workflow-actions";
 import { acceptRecommendation, dismissRecommendation } from "@/lib/recommendation-actions";
 
 export const Route = createFileRoute("/_authenticated/my-workspace")({
@@ -93,7 +94,7 @@ function WorkspacePage() {
       (await supabase
         .from("opportunity_flags")
         .select("*")
-        .in("status", ["open", "in_progress"])
+        .in("status", ACTIVE_FLAG_STATUSES)
         .eq("linked_record_type", "opportunity")
         .in("linked_record_id", myOppIds)
         .order("created_at", { ascending: false })).data ?? [],
