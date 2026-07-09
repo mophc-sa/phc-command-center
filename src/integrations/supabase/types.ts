@@ -1496,6 +1496,108 @@ export type Database = {
           },
         ]
       }
+      inbox_items: {
+        Row: {
+          archive_reason: string | null
+          assigned_owner_id: string | null
+          classification: Database["public"]["Enums"]["inbox_classification"]
+          client_owner: string | null
+          company_name: string | null
+          consultant: string | null
+          contact_name: string | null
+          converted_record_id: string | null
+          converted_record_type: string | null
+          created_at: string
+          created_by: string | null
+          deadline: string | null
+          duplicate_of_id: string | null
+          duplicate_of_type: string | null
+          email: string | null
+          estimated_value: number | null
+          evidence_url: string | null
+          follow_up_date: string | null
+          id: string
+          location: string | null
+          main_contractor: string | null
+          missing_data_reason: string | null
+          next_action: string | null
+          notes: string | null
+          phone: string | null
+          project_name: string | null
+          scope: string | null
+          source_name: string | null
+          source_type: Database["public"]["Enums"]["inbox_source_type"]
+          status: Database["public"]["Enums"]["inbox_status"]
+          updated_at: string
+        }
+        Insert: {
+          archive_reason?: string | null
+          assigned_owner_id?: string | null
+          classification?: Database["public"]["Enums"]["inbox_classification"]
+          client_owner?: string | null
+          company_name?: string | null
+          consultant?: string | null
+          contact_name?: string | null
+          converted_record_id?: string | null
+          converted_record_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          deadline?: string | null
+          duplicate_of_id?: string | null
+          duplicate_of_type?: string | null
+          email?: string | null
+          estimated_value?: number | null
+          evidence_url?: string | null
+          follow_up_date?: string | null
+          id?: string
+          location?: string | null
+          main_contractor?: string | null
+          missing_data_reason?: string | null
+          next_action?: string | null
+          notes?: string | null
+          phone?: string | null
+          project_name?: string | null
+          scope?: string | null
+          source_name?: string | null
+          source_type: Database["public"]["Enums"]["inbox_source_type"]
+          status?: Database["public"]["Enums"]["inbox_status"]
+          updated_at?: string
+        }
+        Update: {
+          archive_reason?: string | null
+          assigned_owner_id?: string | null
+          classification?: Database["public"]["Enums"]["inbox_classification"]
+          client_owner?: string | null
+          company_name?: string | null
+          consultant?: string | null
+          contact_name?: string | null
+          converted_record_id?: string | null
+          converted_record_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          deadline?: string | null
+          duplicate_of_id?: string | null
+          duplicate_of_type?: string | null
+          email?: string | null
+          estimated_value?: number | null
+          evidence_url?: string | null
+          follow_up_date?: string | null
+          id?: string
+          location?: string | null
+          main_contractor?: string | null
+          missing_data_reason?: string | null
+          next_action?: string | null
+          notes?: string | null
+          phone?: string | null
+          project_name?: string | null
+          scope?: string | null
+          source_name?: string | null
+          source_type?: Database["public"]["Enums"]["inbox_source_type"]
+          status?: Database["public"]["Enums"]["inbox_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       knowledge_chunks: {
         Row: {
           content: string
@@ -3250,6 +3352,33 @@ export type Database = {
         | "completed"
         | "cancelled"
       handover_status: "pending" | "ready" | "handed_over"
+      inbox_classification:
+        | "unclassified"
+        | "company"
+        | "contact"
+        | "project"
+        | "rfq"
+        | "tender"
+        | "opportunity_candidate"
+        | "signal_watchlist"
+        | "duplicate"
+        | "incomplete"
+      inbox_source_type:
+        | "manual_lead"
+        | "manual_tender"
+        | "manual_rfq"
+        | "old_data_candidate"
+        | "referral"
+        | "market_signal"
+        | "email_placeholder"
+        | "whatsapp_placeholder"
+      inbox_status:
+        | "new"
+        | "in_review"
+        | "converted"
+        | "sent_to_missing_data"
+        | "marked_duplicate"
+        | "archived"
       lead_stage:
         | "detected"
         | "duplicate_check"

@@ -34,6 +34,7 @@ import {
   Award,
   BellRing,
   DatabaseZap,
+  Mailbox,
   type LucideIcon,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -64,6 +65,7 @@ const groups: NavGroup[] = [
   {
     key: "navgroup_pipeline",
     items: [
+      { to: "/lead-tender-inbox", key: "nav_lead_tender_inbox", icon: Mailbox },
       { to: "/rfq-jih", key: "nav_rfq_jih", icon: ClipboardCheck },
       { to: "/tenders", key: "nav_tenders", icon: Gavel },
       { to: "/tender-conversion", key: "nav_tender_conversion", icon: GitMerge },
