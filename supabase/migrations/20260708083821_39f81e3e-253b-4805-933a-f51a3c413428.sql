@@ -157,55 +157,66 @@ ALTER TABLE public.import_duplicate_candidates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.import_approval_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.import_record_links ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS import_batches_select ON public.import_batches;
 CREATE POLICY import_batches_select ON public.import_batches FOR SELECT USING (
   has_any_role(auth.uid(), ARRAY['system_admin','managing_director','general_manager','ceo','sales_manager']::app_role[])
   OR (has_role(auth.uid(), 'bd_manager'::app_role) AND created_by = auth.uid())
 );
+DROP POLICY IF EXISTS import_batches_insert ON public.import_batches;
 CREATE POLICY import_batches_insert ON public.import_batches FOR INSERT WITH CHECK (
   has_any_role(auth.uid(), ARRAY['system_admin','managing_director','general_manager','ceo','sales_manager']::app_role[])
   OR (has_role(auth.uid(), 'bd_manager'::app_role) AND created_by = auth.uid())
 );
+DROP POLICY IF EXISTS import_batches_update ON public.import_batches;
 CREATE POLICY import_batches_update ON public.import_batches FOR UPDATE USING (
   has_any_role(auth.uid(), ARRAY['system_admin','managing_director','general_manager','ceo','sales_manager']::app_role[])
   OR (has_role(auth.uid(), 'bd_manager'::app_role) AND created_by = auth.uid())
 );
 
+DROP POLICY IF EXISTS import_files_select ON public.import_files;
 CREATE POLICY import_files_select ON public.import_files FOR SELECT USING (
   EXISTS (SELECT 1 FROM public.import_batches b WHERE b.id = batch_id
     AND (has_any_role(auth.uid(), ARRAY['system_admin','managing_director','general_manager','ceo','sales_manager']::app_role[])
          OR (has_role(auth.uid(), 'bd_manager'::app_role) AND b.created_by = auth.uid())))
 );
+DROP POLICY IF EXISTS import_files_insert ON public.import_files;
 CREATE POLICY import_files_insert ON public.import_files FOR INSERT WITH CHECK (
   EXISTS (SELECT 1 FROM public.import_batches b WHERE b.id = batch_id
     AND (has_any_role(auth.uid(), ARRAY['system_admin','managing_director','general_manager','ceo','sales_manager']::app_role[])
          OR (has_role(auth.uid(), 'bd_manager'::app_role) AND b.created_by = auth.uid())))
 );
 
+DROP POLICY IF EXISTS import_mappings_all ON public.import_mappings;
 CREATE POLICY import_mappings_all ON public.import_mappings FOR ALL USING (
   EXISTS (SELECT 1 FROM public.import_batches b WHERE b.id = batch_id
     AND (has_any_role(auth.uid(), ARRAY['system_admin','managing_director','general_manager','ceo','sales_manager']::app_role[])
          OR (has_role(auth.uid(), 'bd_manager'::app_role) AND b.created_by = auth.uid())))
 );
+DROP POLICY IF EXISTS import_rows_all ON public.import_rows;
 CREATE POLICY import_rows_all ON public.import_rows FOR ALL USING (
   EXISTS (SELECT 1 FROM public.import_batches b WHERE b.id = batch_id
     AND (has_any_role(auth.uid(), ARRAY['system_admin','managing_director','general_manager','ceo','sales_manager']::app_role[])
          OR (has_role(auth.uid(), 'bd_manager'::app_role) AND b.created_by = auth.uid())))
 );
+DROP POLICY IF EXISTS import_errors_all ON public.import_errors;
 CREATE POLICY import_errors_all ON public.import_errors FOR ALL USING (
   EXISTS (SELECT 1 FROM public.import_batches b WHERE b.id = batch_id
     AND (has_any_role(auth.uid(), ARRAY['system_admin','managing_director','general_manager','ceo','sales_manager']::app_role[])
          OR (has_role(auth.uid(), 'bd_manager'::app_role) AND b.created_by = auth.uid())))
 );
+DROP POLICY IF EXISTS import_dupes_all ON public.import_duplicate_candidates;
 CREATE POLICY import_dupes_all ON public.import_duplicate_candidates FOR ALL USING (
   EXISTS (SELECT 1 FROM public.import_batches b WHERE b.id = batch_id
     AND (has_any_role(auth.uid(), ARRAY['system_admin','managing_director','general_manager','ceo','sales_manager']::app_role[])
          OR (has_role(auth.uid(), 'bd_manager'::app_role) AND b.created_by = auth.uid())))
 );
+DROP POLICY IF EXISTS import_approval_all ON public.import_approval_queue;
 CREATE POLICY import_approval_all ON public.import_approval_queue FOR ALL USING (
   EXISTS (SELECT 1 FROM public.import_batches b WHERE b.id = batch_id
     AND (has_any_role(auth.uid(), ARRAY['system_admin','managing_director','general_manager','ceo','sales_manager']::app_role[])
          OR (has_role(auth.uid(), 'bd_manager'::app_role) AND b.created_by = auth.uid())))
 );
+DROP POLICY IF EXISTS import_links_all ON public.import_record_links;
 CREATE POLICY import_links_all ON public.import_record_links FOR ALL USING (
   EXISTS (SELECT 1 FROM public.import_batches b WHERE b.id = batch_id
     AND (has_any_role(auth.uid(), ARRAY['system_admin','managing_director','general_manager','ceo','sales_manager']::app_role[])

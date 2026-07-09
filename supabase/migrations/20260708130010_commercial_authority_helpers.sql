@@ -82,14 +82,17 @@ $$;
 
 -- ---- 3. Role management (user_roles) — platform admins ------------------------
 DROP POLICY IF EXISTS "Managers can view all roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Platform admins can view all roles" ON public.user_roles;
 CREATE POLICY "Platform admins can view all roles" ON public.user_roles FOR SELECT TO authenticated
   USING (public.is_platform_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "Managers can grant roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Platform admins can grant roles" ON public.user_roles;
 CREATE POLICY "Platform admins can grant roles" ON public.user_roles FOR INSERT TO authenticated
   WITH CHECK (public.is_platform_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "Managers can revoke roles" ON public.user_roles;
+DROP POLICY IF EXISTS "Platform admins can revoke roles" ON public.user_roles;
 CREATE POLICY "Platform admins can revoke roles" ON public.user_roles FOR DELETE TO authenticated
   USING (public.is_platform_admin(auth.uid()));
 
@@ -123,11 +126,13 @@ $$;
 
 -- ---- 4. Approvals — commercial managers decide; requesters may open ----------
 DROP POLICY IF EXISTS "Approvals writable by Manager/CEO" ON public.approvals;
+DROP POLICY IF EXISTS "Approvals writable by commercial managers" ON public.approvals;
 CREATE POLICY "Approvals writable by commercial managers" ON public.approvals FOR ALL TO authenticated
   USING (public.is_commercial_manager(auth.uid()))
   WITH CHECK (public.is_pipeline_operator(auth.uid()));
 
 -- ---- 5. Audit log — visible to platform admins -------------------------------
 DROP POLICY IF EXISTS "Audit log readable by Manager/CEO" ON public.audit_log;
+DROP POLICY IF EXISTS "Audit log readable by platform admins" ON public.audit_log;
 CREATE POLICY "Audit log readable by platform admins" ON public.audit_log FOR SELECT TO authenticated
   USING (public.is_platform_admin(auth.uid()));
