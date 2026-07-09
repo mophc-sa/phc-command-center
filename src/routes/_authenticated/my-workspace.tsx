@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useI18n, formatCurrency, formatNumber, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { logActivity, type ActivityType } from "@/lib/activity-actions";
+import { ACTIVE_FLAG_STATUSES } from "@/lib/workflow-actions";
 import { acceptRecommendation, dismissRecommendation } from "@/lib/recommendation-actions";
 
 export const Route = createFileRoute("/_authenticated/my-workspace")({
@@ -87,8 +88,16 @@ function WorkspacePage() {
   const { data: flags = [] } = useQuery({
     queryKey: ["ws-flags", uid, myOppIds.length],
     enabled: !!uid && myOppIds.length > 0,
+    // linked_record_type/linked_record_id is the real (polymorphic) key on
+    // opportunity_flags — there is no opportunity_id column on this table.
     queryFn: async () =>
-      (await supabase.from("opportunity_flags").select("*").eq("status", "open").in("opportunity_id", myOppIds).order("created_at", { ascending: false })).data ?? [],
+      (await supabase
+        .from("opportunity_flags")
+        .select("*")
+        .in("status", ACTIVE_FLAG_STATUSES)
+        .eq("linked_record_type", "opportunity")
+        .in("linked_record_id", myOppIds)
+        .order("created_at", { ascending: false })).data ?? [],
   });
 
   const { data: myRfqs = [] } = useQuery({

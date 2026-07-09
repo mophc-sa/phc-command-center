@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { callBackend } from "@/lib/backend";
 import { scoreOpportunity, type OpportunityScoreResult, type OpportunityScoreTier } from "@/lib/opportunity-scoring";
-import { createFlag, resolveFlag, type RiskFlag } from "@/lib/workflow-actions";
+import { createFlag, resolveFlag, ACTIVE_FLAG_STATUSES, type RiskFlag } from "@/lib/workflow-actions";
 
 type Uuid = string;
 
@@ -240,12 +240,15 @@ async function syncScoreFlags(opportunityId: Uuid, result: OpportunityScoreResul
     .select("id, flag_kind, reason")
     .eq("linked_record_type", "opportunity")
     .eq("linked_record_id", opportunityId)
-    .eq("status", "open");
+    .in("status", ACTIVE_FLAG_STATUSES);
 
   const scorerActionFlag = (existing ?? []).find((f) => f.flag_kind === "action_required" && f.reason?.startsWith(SCORE_FLAG_MARKER));
   const scorerRiskFlag = (existing ?? []).find((f) => f.flag_kind === "risk" && f.reason?.startsWith(SCORE_FLAG_MARKER));
 
-  // Missing data feeds the action queue (opportunity_flags), per the Sprint 4 rule.
+  // Missing data feeds the action queue (opportunity_flags), per the Sprint 4
+  // rule — surfaced in the Sprint 5 Sales Action Queue as queue_action_type
+  // 'missing_data', system-generated (ai_generated) with the engine's own
+  // recommended next action carried through.
   if (result.missing_data.length > 0) {
     if (!scorerActionFlag) {
       await createFlag({
@@ -253,6 +256,9 @@ async function syncScoreFlags(opportunityId: Uuid, result: OpportunityScoreResul
         linkedRecordId: opportunityId,
         kind: "action_required",
         actionType: "technical_review_required",
+        queueActionType: "missing_data",
+        recommendedAction: result.recommended_next_action,
+        aiGenerated: true,
         reason: `${SCORE_FLAG_MARKER} Missing: ${result.missing_data.join(", ")}`,
       });
     }
@@ -262,11 +268,15 @@ async function syncScoreFlags(opportunityId: Uuid, result: OpportunityScoreResul
 
   if (result.risk_flags.length > 0) {
     if (!scorerRiskFlag) {
+      const topRisk = result.risk_flags[0] as RiskFlag;
       await createFlag({
         linkedRecordType: "opportunity",
         linkedRecordId: opportunityId,
         kind: "risk",
-        riskFlag: result.risk_flags[0] as RiskFlag,
+        riskFlag: topRisk,
+        queueActionType: topRisk === "follow_up_overdue" ? "follow_up_overdue" : undefined,
+        recommendedAction: result.recommended_next_action,
+        aiGenerated: true,
         reason: `${SCORE_FLAG_MARKER} Risks: ${result.risk_flags.join(", ")}`,
       });
     }
