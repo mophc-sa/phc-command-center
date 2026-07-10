@@ -65,11 +65,47 @@ export async function logActivity(input: {
   return data;
 }
 
+// Pure guard for markActivitySent — kept separate from the Supabase calls so
+// it's testable without a live client. Throws a clear, specific error for
+// each way an activity is NOT a sendable draft, rather than letting
+// markActivitySent silently update whatever row/status it's pointed at (the
+// UI only ever shows "Mark as Sent" for draft email_draft/whatsapp_draft
+// rows, but the function itself must not trust that — it can be called
+// directly with any id).
+export function assertSendableDraft(
+  activity: Activity | null | undefined,
+  activityId: Uuid,
+): asserts activity is Activity {
+  if (!activity) {
+    throw new Error(`Cannot mark as sent: activity ${activityId} was not found.`);
+  }
+  if (activity.activity_type !== "email_draft" && activity.activity_type !== "whatsapp_draft") {
+    throw new Error(
+      `Cannot mark as sent: activity ${activityId} has type "${activity.activity_type}", ` +
+        `only email_draft/whatsapp_draft activities can be marked as sent.`,
+    );
+  }
+  if (activity.status !== "draft") {
+    throw new Error(
+      `Cannot mark as sent: activity ${activityId} has status "${activity.status}", ` +
+        `only draft activities can be marked as sent.`,
+    );
+  }
+}
+
 // Human confirms a draft (email_draft/whatsapp_draft) was actually sent
 // outside the app (Outlook / WhatsApp). Phase 1 never sets this itself.
 export async function markActivitySent(activityId: Uuid) {
   const uid = await currentUserId();
-  const { data: before } = await supabase.from("activities").select("*").eq("id", activityId).maybeSingle();
+
+  const { data: before, error: fetchError } = await supabase
+    .from("activities")
+    .select("*")
+    .eq("id", activityId)
+    .maybeSingle();
+  if (fetchError) throw fetchError;
+  assertSendableDraft(before, activityId);
+
   const { data, error } = await supabase
     .from("activities")
     .update({ status: "sent", sent_at: new Date().toISOString(), sent_by: uid })
@@ -77,15 +113,24 @@ export async function markActivitySent(activityId: Uuid) {
     .select()
     .single();
   if (error) throw error;
-  await supabase.from("audit_log").insert({
+
+  // The status update above already succeeded — an audit-log failure here
+  // must be surfaced (not silently swallowed) but must never roll back or
+  // re-throw, since that would falsely report the "mark as sent" action as
+  // failed when the actual state change already committed.
+  const { error: auditError } = await supabase.from("audit_log").insert({
     actor_id: uid,
     actor_type: "user",
     action: "activity.marked_sent",
     entity_type: "activity",
     entity_id: activityId,
-    before_value: (before ?? null) as never,
+    before_value: before as never,
     after_value: data as never,
   });
+  if (auditError) {
+    console.error(`[activity] audit insert failed for activity.marked_sent on activity ${activityId}:`, auditError);
+  }
+
   return data;
 }
 
