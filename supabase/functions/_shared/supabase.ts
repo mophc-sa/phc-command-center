@@ -52,16 +52,26 @@ export function hasAny(roles: AppRole[], allowed: AppRole[]): boolean {
 }
 
 // Append an audit row using the service client (matches the app's convention:
-// every sensitive mutation writes to audit_log).
+// every sensitive mutation writes to audit_log). entity_id is nullable in the
+// schema — pass null for system-level actions with no single entity (do not
+// pass a non-UUID string literal, it fails the column's uuid type check).
+//
+// Failures are logged (visible in Supabase function logs) and returned to the
+// caller, but never thrown: audit() is called after the real business write
+// has already succeeded, so throwing here would surface a false failure to
+// the caller and risk it retrying — duplicating the business write — over an
+// audit-only problem. Logging (instead of silently swallowing, as before)
+// is the safe middle ground: the failure is now visible without being able
+// to break or duplicate the action it's auditing.
 export async function audit(
   svc: SupabaseClient,
   actorId: string,
   action: string,
   entityType: string,
-  entityId: string,
+  entityId: string | null,
   after?: unknown,
 ) {
-  await svc.from("audit_log").insert({
+  const { error } = await svc.from("audit_log").insert({
     actor_id: actorId,
     actor_type: "user",
     action,
@@ -69,4 +79,11 @@ export async function audit(
     entity_id: entityId,
     after_value: (after ?? null) as never,
   });
+  if (error) {
+    console.error(
+      `[audit] insert failed — action="${action}" entity_type="${entityType}" entity_id="${entityId ?? "null"}":`,
+      error,
+    );
+  }
+  return { error };
 }

@@ -1695,7 +1695,11 @@ const handlers: Record<string, Handler> = {
       }
     }
 
-    await audit(svc, caller.userId, "automations.run", "system", "run_automations", { raised });
+    // entity_id is nullable — this is a system-level action with no single
+    // entity, so pass null rather than a non-UUID string literal (the
+    // previous "run_automations" string silently failed the column's uuid
+    // check and the insert never happened).
+    await audit(svc, caller.userId, "automations.run", "system", null, { raised });
     return json({ ok: true, raised });
   },
 };
