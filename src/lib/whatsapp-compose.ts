@@ -1,19 +1,19 @@
-// Best-effort audit log for the "Email via Outlook" compose action.
+// Best-effort audit log for the WhatsApp click-to-chat compose action.
 //
-// Phase 1 rule: we log ONLY that a compose window was opened. We never log
-// "sent" — real sending happens outside our app (in Outlook), and we do not
-// integrate with Microsoft Graph in Phase 1. If the underlying activities
-// table cannot accept the row (e.g. no linked opportunity), we swallow the
-// error — the compose action itself must never be blocked by logging.
+// Phase 1 rule: we log ONLY that a chat window was opened. We never log
+// "sent" — real sending happens outside our app (in WhatsApp), and there is
+// no WhatsApp Business API integration in Phase 1. If the underlying
+// activities table cannot accept the row (e.g. no linked record at all), we
+// swallow the error — the compose action itself must never be blocked by
+// logging.
 
 import { supabase } from "@/integrations/supabase/client";
 
-export type OutlookComposeLog = {
+export type WhatsAppComposeLog = {
   linked_record_type: string;
   linked_record_id: string;
-  recipient_email: string;
-  subject: string;
-  body?: string | null;
+  recipient_phone: string;
+  message: string;
   opportunityId?: string | null;
   companyId?: string | null;
   contactId?: string | null;
@@ -22,29 +22,26 @@ export type OutlookComposeLog = {
   templateId?: string | null;
 };
 
-export async function logOutlookComposeOpened(input: OutlookComposeLog): Promise<void> {
+export async function logWhatsAppOpened(input: WhatsAppComposeLog): Promise<void> {
   try {
     const { data: userRes } = await supabase.auth.getUser();
     const uid = userRes.user?.id ?? null;
 
-    // Reuse the existing `activities` table with the `email_draft` type,
-    // status stays "draft" (never "sent"), and we tag the summary with the
-    // compose_opened marker so timelines can filter these entries.
-    const summary = `[outlook_compose_opened] ${input.subject}`.slice(0, 500);
+    const summary = `[whatsapp_opened] ${input.message}`.slice(0, 500);
     const draftContent = [
-      `Recipient: ${input.recipient_email}`,
+      `Recipient: ${input.recipient_phone}`,
       `Linked: ${input.linked_record_type}#${input.linked_record_id}`,
       "",
-      input.body ?? "",
+      input.message,
     ]
       .join("\n")
       .slice(0, 8000);
 
-    // Only attempt the insert if we can attach it to at least one FK that RLS
-    // will allow the current user to see. Otherwise, fall back to audit_log.
-    if (input.opportunityId || input.companyId || input.contactId || input.rfqId || input.tenderId) {
+    const hasLink =
+      input.opportunityId || input.companyId || input.contactId || input.rfqId || input.tenderId;
+    if (hasLink) {
       await supabase.from("activities").insert({
-        activity_type: "email_draft",
+        activity_type: "whatsapp_draft",
         status: "draft",
         summary,
         draft_content: draftContent,
@@ -63,12 +60,11 @@ export async function logOutlookComposeOpened(input: OutlookComposeLog): Promise
     await supabase.from("audit_log").insert({
       actor_id: uid,
       actor_type: "user",
-      action: "outlook_compose_opened",
+      action: "whatsapp_compose_opened",
       entity_type: input.linked_record_type,
       entity_id: input.linked_record_id,
       after_value: {
-        recipient_email: input.recipient_email,
-        subject: input.subject,
+        recipient_phone: input.recipient_phone,
         status: "compose_opened",
         opened_at: new Date().toISOString(),
       } as never,

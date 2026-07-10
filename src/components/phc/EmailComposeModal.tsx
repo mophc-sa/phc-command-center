@@ -50,6 +50,8 @@ export type EmailLinkedRecord = {
   opportunityId?: string | null;
   companyId?: string | null;
   contactId?: string | null;
+  rfqId?: string | null;
+  tenderId?: string | null;
 };
 
 export function EmailComposeModal({
@@ -104,6 +106,8 @@ export function EmailComposeModal({
           opportunityId: linked.opportunityId ?? null,
           companyId: linked.companyId ?? null,
           contactId: linked.contactId ?? null,
+          rfqId: linked.rfqId ?? null,
+          tenderId: linked.tenderId ?? null,
           body,
         });
       }
