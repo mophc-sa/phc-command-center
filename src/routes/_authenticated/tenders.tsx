@@ -16,6 +16,7 @@ import {
 } from "@/lib/tender-actions";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
+import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
 import {
   Dialog,
   DialogContent,
@@ -115,6 +116,7 @@ function TenderMonitor() {
   const [advance, setAdvance] = useState<{ tender: any; toStage: TenderStage } | null>(null);
   const [convertReview, setConvertReview] = useState<any | null>(null);
   const [classFilter, setClassFilter] = useState<"all" | "A" | "B" | "C">("all");
+  const [showArchived, setShowArchived] = useState(false);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"board" | "table">("board");
   const [historyTender, setHistoryTender] = useState<{ id: string; label: string } | null>(null);
@@ -138,9 +140,10 @@ function TenderMonitor() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return tenders
+      .filter((x: any) => showArchived || !x.archived_at)
       .filter((x: any) => classFilter === "all" || x.tender_priority_classification === classFilter)
       .filter((x: any) => !q || (x.tender_name ?? "").toLowerCase().includes(q) || (x.main_contractor?.name ?? "").toLowerCase().includes(q));
-  }, [tenders, classFilter, query]);
+  }, [tenders, classFilter, query, showArchived]);
 
   const kpis = useMemo(() => {
     const active = tenders.filter((x: any) => !["converted_to_jih", "tender_lost_or_archived"].includes(x.tender_stage)).length;
@@ -191,6 +194,12 @@ function TenderMonitor() {
                 {c === "all" ? t("crm_filter_all_types") : c}
               </button>
             ))}
+            <button
+              onClick={() => setShowArchived((v) => !v)}
+              className={`rounded-full border px-3 py-1 text-xs ${showArchived ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              {t("lifecycle_include_archived")}
+            </button>
           </div>
           <div className="flex rounded-md border border-border p-0.5">
             {(["board", "table"] as const).map((v) => (
@@ -225,6 +234,7 @@ function TenderMonitor() {
                       <div key={x.id} className="rounded-md border border-border/70 bg-background/40 px-3 py-2">
                         <div className="flex items-start justify-between gap-2">
                           <span className="truncate text-sm text-foreground">{x.tender_name}</span>
+                          <ArchivedBadge archived={!!x.archived_at} />
                           {x.tender_priority_classification ? <StatusPill tone="muted">{x.tender_priority_classification}</StatusPill> : null}
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">

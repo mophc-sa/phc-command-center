@@ -11,6 +11,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { createCompany, type CompanyType, type AccountStatus } from "@/lib/crm-actions";
+import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
 
 export const Route = createFileRoute("/_authenticated/accounts")({
   head: () => ({
@@ -44,6 +45,7 @@ function AccountsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<CompanyType | "all">("all");
   const [query, setQuery] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
   const { data: companies = [], isLoading } = useQuery({
     queryKey: ["companies"],
@@ -61,6 +63,7 @@ function AccountsPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return companies
+      .filter((c: any) => showArchived || !c.archived_at)
       .filter((c: any) => typeFilter === "all" || c.company_type === typeFilter)
       .filter(
         (c: any) =>
@@ -68,7 +71,7 @@ function AccountsPage() {
           (c.name && c.name.toLowerCase().includes(q)) ||
           (c.regions && c.regions.toLowerCase().includes(q)),
       );
-  }, [companies, typeFilter, query]);
+  }, [companies, typeFilter, query, showArchived]);
 
   const kpis = useMemo(() => {
     const active = companies.filter((c: any) => c.account_status === "active").length;
@@ -127,6 +130,12 @@ function AccountsPage() {
               {typeLabel(ct)}
             </button>
           ))}
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className={`rounded-full border px-3 py-1 text-xs ${showArchived ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            {t("lifecycle_include_archived")}
+          </button>
         </div>
       </div>
 
@@ -148,9 +157,12 @@ function AccountsPage() {
                   <div className="truncate text-sm font-medium text-foreground">{c.name}</div>
                   <div className="mt-1 text-xs text-muted-foreground">{typeLabel(c.company_type)}</div>
                 </div>
-                <StatusPill tone={statusTone(c.account_status)}>
-                  {c.account_status === "pending_review" ? t("crm_pending_review") : t(`account_status_${c.account_status}` as never)}
-                </StatusPill>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <ArchivedBadge archived={!!c.archived_at} />
+                  <StatusPill tone={statusTone(c.account_status)}>
+                    {c.account_status === "pending_review" ? t("crm_pending_review") : t(`account_status_${c.account_status}` as never)}
+                  </StatusPill>
+                </div>
               </div>
               <div className="mt-3 flex items-center gap-4 text-[11px] text-muted-foreground">
                 <span className="num" data-tabular="true">{t("crm_linked_projects")}: {c.projects?.length ?? 0}</span>

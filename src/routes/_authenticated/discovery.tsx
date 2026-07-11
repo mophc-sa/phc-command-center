@@ -20,6 +20,7 @@ import {
   type LeadStage,
 } from "@/lib/lead-actions";
 import { canManageSalesPipeline } from "@/lib/roles";
+import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
 
 export const Route = createFileRoute("/_authenticated/discovery")({
   head: () => ({ meta: [{ title: "Lead Intake — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -63,6 +64,7 @@ function LeadIntakePage() {
   const [rejectFor, setRejectFor] = useState<string | null>(null);
   const [bucket, setBucket] = useState<Bucket>("all");
   const [query, setQuery] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const canQualify = canManageSalesPipeline(roles);
 
   const { data: leads = [], isLoading } = useQuery({
@@ -80,6 +82,7 @@ function LeadIntakePage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return leads
+      .filter((l: any) => showArchived || !l.archived_at)
       .filter((l: any) => bucket === "all" || bucketOf(l.lead_stage) === bucket)
       .filter((l: any) =>
         !q ||
@@ -87,7 +90,7 @@ function LeadIntakePage() {
         (l.main_contractor_guess && l.main_contractor_guess.toLowerCase().includes(q)) ||
         (l.location && l.location.toLowerCase().includes(q)),
       );
-  }, [leads, bucket, query]);
+  }, [leads, bucket, query, showArchived]);
 
   const counts = useMemo(() => {
     const c = { all: leads.length, new: 0, review: 0, qualified: 0, converted: 0, rejected: 0 } as Record<Bucket, number>;
@@ -143,6 +146,12 @@ function LeadIntakePage() {
               {b.label}
             </button>
           ))}
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className={`rounded-full border px-3 py-1 text-xs ${showArchived ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            {t("lifecycle_include_archived")}
+          </button>
         </div>
       </div>
 
@@ -163,6 +172,7 @@ function LeadIntakePage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="truncate text-sm font-medium text-foreground">{l.project_name}</span>
                       <StatusPill tone={stageTone(l.lead_stage)}>{humanize(l.lead_stage)}</StatusPill>
+                      <ArchivedBadge archived={!!l.archived_at} />
                       {l.lead_score != null ? (
                         <StatusPill tone="muted">{t("lead_score")}: {l.lead_score}</StatusPill>
                       ) : null}

@@ -11,8 +11,9 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { decideApproval } from "@/lib/opportunity-actions";
+import { executeDelete, DELETABLE_ENTITY_TYPES } from "@/lib/record-lifecycle-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canApproveCommercialAction } from "@/lib/roles";
+import { canApproveCommercialAction, canExecuteDelete } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/approvals")({
   head: () => ({ meta: [{ title: "Approvals — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -37,9 +38,11 @@ function ApprovalsPage() {
   const { t, lang } = useI18n();
   const { roles } = useAuth();
   const canDecide = canApproveCommercialAction(roles);
+  const canExecute = canExecuteDelete(roles);
   const qc = useQueryClient();
   const [filter, setFilter] = useState<"pending" | "recent">("pending");
   const [decideFor, setDecideFor] = useState<{ id: string; oppId: string; kind: Decision } | null>(null);
+  const [executeFor, setExecuteFor] = useState<{ id: string } | null>(null);
 
   const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["approvals", filter],
@@ -159,6 +162,18 @@ function ApprovalsPage() {
                   ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs">
+                  {a.requested_action === "delete_record" &&
+                  (DELETABLE_ENTITY_TYPES as readonly string[]).includes(a.linked_record_type) &&
+                  a.status === "approved" &&
+                  a.execution_status !== "executed" &&
+                  canExecute ? (
+                    <button
+                      className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-1.5 font-medium text-red-300 hover:bg-red-500/20"
+                      onClick={() => setExecuteFor({ id: a.id })}
+                    >
+                      {t("lifecycle_execute_delete")}
+                    </button>
+                  ) : null}
                   {pending && canDecide ? (
                     <>
                       <button
@@ -216,6 +231,26 @@ function ApprovalsPage() {
             qc.invalidateQueries({ queryKey: ["approvals"] });
             qc.invalidateQueries({ queryKey: ["approvals-stats"] });
             qc.invalidateQueries({ queryKey: ["cc-metrics"] });
+          } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
+
+      <ActionDialog
+        open={!!executeFor}
+        onOpenChange={(v) => !v && setExecuteFor(null)}
+        title={t("lifecycle_execute_delete")}
+        description={t("lifecycle_execute_delete_desc")}
+        submitLabel={t("lifecycle_execute_delete")}
+        destructive
+        fields={[]}
+        onSubmit={async () => {
+          try {
+            await executeDelete({ approvalId: executeFor!.id });
+            toast.success(t("lifecycle_executed_toast"));
+            qc.invalidateQueries({ queryKey: ["approvals"] });
+            qc.invalidateQueries({ queryKey: ["approvals-stats"] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
           }

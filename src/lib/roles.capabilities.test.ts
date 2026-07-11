@@ -15,6 +15,8 @@ import {
   canViewSalesAdmin,
   canManageTeam,
   canManageSalesPipeline,
+  canCreateSalesRecords,
+  canExecuteDelete,
   type AppRole,
 } from "./roles";
 
@@ -73,4 +75,22 @@ test("helpers accept a multi-role array (a user's full role set)", () => {
   expect(canApproveCommercialAction(["viewer", "sales_manager"])).toBe(true);
   expect(canApproveCommercialAction(["viewer", "salesperson"])).toBe(false);
   expect(canManageSalesPipeline(["salesperson", "bd_manager"])).toBe(true);
+});
+
+test("canCreateSalesRecords includes salesperson (unlike canManageSalesPipeline)", () => {
+  for (const role of ["managing_director", "general_manager", "ceo", "sales_manager", "bd_manager", "sales_ops", "salesperson"] as AppRole[]) {
+    expect(canCreateSalesRecords(role), role).toBe(true);
+  }
+  for (const role of ["system_admin", "viewer"] as AppRole[]) {
+    expect(canCreateSalesRecords(role), role).toBe(false);
+  }
+});
+
+test("canExecuteDelete is system_admin only — no commercial manager, no pipeline operator", () => {
+  expect(canExecuteDelete("system_admin")).toBe(true);
+  for (const role of [
+    "managing_director", "general_manager", "ceo", "sales_manager", "bd_manager", "sales_ops", "salesperson", "viewer",
+  ] as AppRole[]) {
+    expect(canExecuteDelete(role), role).toBe(false);
+  }
 });

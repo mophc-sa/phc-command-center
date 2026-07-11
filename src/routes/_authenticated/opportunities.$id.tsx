@@ -25,6 +25,7 @@ import {
 import { ArrowLeft, ArrowRight, ExternalLink, FileText, RefreshCw } from "lucide-react";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
+import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline } from "@/lib/roles";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
@@ -252,6 +253,7 @@ function OpportunityDetail() {
             {o.agent_recommendation ? (
               <StatusPill tone={recTone}>{humanize(o.agent_recommendation)}</StatusPill>
             ) : null}
+            <RecordLifecycleMenu entityType="opportunities" entityId={o.id} roles={roles} onDone={invalidate} />
           </div>
         </div>
       </div>
