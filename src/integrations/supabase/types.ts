@@ -2797,6 +2797,7 @@ export type Database = {
       sales_targets: {
         Row: {
           activity_target: number
+          conversion_target: number
           created_at: string
           created_by: string | null
           id: string
@@ -2812,6 +2813,7 @@ export type Database = {
         }
         Insert: {
           activity_target?: number
+          conversion_target?: number
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2827,6 +2829,7 @@ export type Database = {
         }
         Update: {
           activity_target?: number
+          conversion_target?: number
           created_at?: string
           created_by?: string | null
           id?: string

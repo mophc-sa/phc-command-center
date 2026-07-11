@@ -270,6 +270,7 @@ export async function upsertSalesTarget(input: {
   pipelineTarget: number;
   quotationTarget: number;
   activityTarget: number;
+  conversionTarget?: number;
   reactivationTarget?: number;
   notes?: string;
 }) {
@@ -285,6 +286,7 @@ export async function upsertSalesTarget(input: {
         pipeline_target: input.pipelineTarget,
         quotation_target: input.quotationTarget,
         activity_target: input.activityTarget,
+        conversion_target: input.conversionTarget ?? 0,
         reactivation_target: input.reactivationTarget ?? 0,
         notes: input.notes ?? null,
         created_by,
