@@ -568,6 +568,15 @@ next to a manual "mark reviewed" action once that review endpoint exists.
 
 ## Deployment procedure
 
+`serviceClient()` (in `_shared/supabase.ts`, shared by all three Edge
+Functions including this one) resolves its privileged Supabase API key
+through `_shared/service-key-resolver.ts` — preferring the new-format
+`SUPABASE_SECRET_KEYS["default"]` (`sb_secret_...`) and falling back to the
+legacy `SUPABASE_SERVICE_ROLE_KEY` only when the new variable isn't set at
+all. See `docs/deployment-governance.md`'s "Privileged Server Keys" section
+for the full precedence rules, the Cloudflare SSR admin client's separate
+migration path, and the rule against ever printing a raw key value.
+
 1. Code review + CI (`typecheck-build`, `playwright-smoke`) on the Draft PR.
 2. Migration preflight against PHC AGENT (`lrfdtoexyeghrzynapyn`), read-only:
    confirm `20260711180000_ai_orchestrator.sql` is the only pending

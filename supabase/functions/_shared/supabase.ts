@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { resolveServiceKey, describeResolveServiceKeyReason } from "./service-key-resolver.ts";
 
 // Client scoped to the calling user's JWT — RLS applies. Used to resolve the
 // caller's identity.
@@ -15,10 +16,23 @@ export function userClient(authHeader: string): SupabaseClient {
 
 // Service-role client — bypasses RLS. Only used AFTER the function has done its
 // own authorization check in code. This is the backend's privileged actor.
+//
+// The API key itself is resolved by service-key-resolver.ts: it prefers the
+// new-format SUPABASE_SECRET_KEYS["default"] (sb_secret_...) and falls back
+// to the legacy SUPABASE_SERVICE_ROLE_KEY only when the new variable isn't
+// set at all — see that module's header comment for the full precedence
+// rationale. ai-orchestrator, sales-os-api, and import-pipeline all resolve
+// through this single function; none duplicates the parsing logic.
 export function serviceClient(): SupabaseClient {
+  const resolved = resolveServiceKey((key) => Deno.env.get(key));
+  if (!resolved.ok) {
+    // Never include the raw SUPABASE_SECRET_KEYS content or any key value —
+    // describeResolveServiceKeyReason() returns a stable, non-secret message.
+    throw new Error(`[serviceClient] ${describeResolveServiceKeyReason(resolved.reason)}`);
+  }
   return createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    resolved.key,
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }
