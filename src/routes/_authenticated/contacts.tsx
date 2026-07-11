@@ -12,6 +12,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { createContact, type ContactAuthority, type ContactLocation } from "@/lib/crm-actions";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
+import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
 
 export const Route = createFileRoute("/_authenticated/contacts")({
   head: () => ({ meta: [{ title: "Contacts — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -35,6 +36,7 @@ function ContactsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [authFilter, setAuthFilter] = useState<ContactAuthority | "all">("all");
+  const [showArchived, setShowArchived] = useState(false);
 
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ["contacts"],
@@ -58,6 +60,7 @@ function ContactsPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return contacts
+      .filter((c: any) => showArchived || !c.archived_at)
       .filter((c: any) => authFilter === "all" || c.authority === authFilter)
       .filter(
         (c: any) =>
@@ -66,7 +69,7 @@ function ContactsPage() {
           (c.title && c.title.toLowerCase().includes(q)) ||
           (c.companies?.name && c.companies.name.toLowerCase().includes(q)),
       );
-  }, [contacts, query, authFilter]);
+  }, [contacts, query, authFilter, showArchived]);
 
   const kpis = useMemo(() => {
     const dm = contacts.filter((c: any) => c.authority === "decision_maker").length;
@@ -124,6 +127,12 @@ function ContactsPage() {
               {authorityLabel(a)}
             </button>
           ))}
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className={`rounded-full border px-3 py-1 text-xs ${showArchived ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+          >
+            {t("lifecycle_include_archived")}
+          </button>
         </div>
       </div>
 
@@ -149,7 +158,10 @@ function ContactsPage() {
               {filtered.map((c: any) => (
                 <tr key={c.id} className="border-b border-border/40 text-foreground last:border-0 hover:bg-surface">
                   <td className="px-5 py-3">
-                    <div className="font-medium">{c.name}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium">{c.name}</span>
+                      <ArchivedBadge archived={!!c.archived_at} />
+                    </div>
                     {c.email ? <div className="text-[11px] text-muted-foreground">{c.email}</div> : null}
                   </td>
                   <td className="px-5 py-3 text-muted-foreground">{c.companies?.name ?? "—"}</td>

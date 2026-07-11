@@ -43,6 +43,7 @@ import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticat
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedOpportunitiesIndexRouteImport } from './routes/_authenticated/opportunities.index'
+import { Route as AuthenticatedAccountsIndexRouteImport } from './routes/_authenticated/accounts.index'
 import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects.$id'
 import { Route as AuthenticatedOpportunitiesIdRouteImport } from './routes/_authenticated/opportunities.$id'
 import { Route as AuthenticatedAccountsIdRouteImport } from './routes/_authenticated/accounts.$id'
@@ -229,6 +230,12 @@ const AuthenticatedOpportunitiesIndexRoute =
     path: '/opportunities/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAccountsIndexRoute =
+  AuthenticatedAccountsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAccountsRoute,
+  } as any)
 const AuthenticatedProjectsIdRoute = AuthenticatedProjectsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -295,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
+  '/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -303,7 +311,6 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  '/accounts': typeof AuthenticatedAccountsRouteWithChildren
   '/action-center': typeof AuthenticatedActionCenterRoute
   '/admin-settings': typeof AuthenticatedAdminSettingsRoute
   '/agent-activity': typeof AuthenticatedAgentActivityRoute
@@ -335,6 +342,7 @@ export interface FileRoutesByTo {
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
+  '/accounts': typeof AuthenticatedAccountsIndexRoute
   '/opportunities': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRoutesById {
@@ -377,6 +385,7 @@ export interface FileRoutesById {
   '/_authenticated/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/_authenticated/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
+  '/_authenticated/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/_authenticated/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRouteTypes {
@@ -419,6 +428,7 @@ export interface FileRouteTypes {
     | '/accounts/$id'
     | '/opportunities/$id'
     | '/projects/$id'
+    | '/accounts/'
     | '/opportunities/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -427,7 +437,6 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
-    | '/accounts'
     | '/action-center'
     | '/admin-settings'
     | '/agent-activity'
@@ -459,6 +468,7 @@ export interface FileRouteTypes {
     | '/accounts/$id'
     | '/opportunities/$id'
     | '/projects/$id'
+    | '/accounts'
     | '/opportunities'
   id:
     | '__root__'
@@ -500,6 +510,7 @@ export interface FileRouteTypes {
     | '/_authenticated/accounts/$id'
     | '/_authenticated/opportunities/$id'
     | '/_authenticated/projects/$id'
+    | '/_authenticated/accounts/'
     | '/_authenticated/opportunities/'
   fileRoutesById: FileRoutesById
 }
@@ -754,6 +765,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOpportunitiesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/accounts/': {
+      id: '/_authenticated/accounts/'
+      path: '/'
+      fullPath: '/accounts/'
+      preLoaderRoute: typeof AuthenticatedAccountsIndexRouteImport
+      parentRoute: typeof AuthenticatedAccountsRoute
+    }
     '/_authenticated/projects/$id': {
       id: '/_authenticated/projects/$id'
       path: '/$id'
@@ -794,10 +812,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAccountsRouteChildren {
   AuthenticatedAccountsIdRoute: typeof AuthenticatedAccountsIdRoute
+  AuthenticatedAccountsIndexRoute: typeof AuthenticatedAccountsIndexRoute
 }
 
 const AuthenticatedAccountsRouteChildren: AuthenticatedAccountsRouteChildren = {
   AuthenticatedAccountsIdRoute: AuthenticatedAccountsIdRoute,
+  AuthenticatedAccountsIndexRoute: AuthenticatedAccountsIndexRoute,
 }
 
 const AuthenticatedAccountsRouteWithChildren =

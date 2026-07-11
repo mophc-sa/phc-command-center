@@ -16,6 +16,7 @@ import { updateCompany, changeAccountOwner, type CompanyType } from "@/lib/crm-a
 import { canAssignOwner } from "@/lib/roles";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
+import { ArchivedBadge, RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 
 export const Route = createFileRoute("/_authenticated/accounts/$id")({
   head: () => ({ meta: [{ title: "Account — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -86,6 +87,7 @@ function AccountDetail() {
             <StatusPill tone={c.account_status === "active" ? "positive" : c.account_status === "pending_review" ? "attention" : "muted"}>
               {t(`account_status_${c.account_status}` as never)}
             </StatusPill>
+            <ArchivedBadge archived={!!c.archived_at} />
             {c.regions ? <span className="text-xs text-muted-foreground">{c.regions}</span> : null}
           </span>
         }
@@ -126,6 +128,13 @@ function AccountDetail() {
                 />
               );
             })()}
+            <RecordLifecycleMenu
+              entityType="companies"
+              entityId={c.id}
+              roles={roles}
+              archived={!!c.archived_at}
+              onDone={() => qc.invalidateQueries({ queryKey: ["company", id] })}
+            />
           </div>
         }
       />

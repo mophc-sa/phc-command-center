@@ -783,6 +783,9 @@ export type Database = {
         Row: {
           account_owner_id: string | null
           account_status: Database["public"]["Enums"]["account_status"]
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           company_type: Database["public"]["Enums"]["company_type"]
           cr_number: string | null
           created_at: string
@@ -804,6 +807,9 @@ export type Database = {
         Insert: {
           account_owner_id?: string | null
           account_status?: Database["public"]["Enums"]["account_status"]
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           company_type?: Database["public"]["Enums"]["company_type"]
           cr_number?: string | null
           created_at?: string
@@ -825,6 +831,9 @@ export type Database = {
         Update: {
           account_owner_id?: string | null
           account_status?: Database["public"]["Enums"]["account_status"]
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           company_type?: Database["public"]["Enums"]["company_type"]
           cr_number?: string | null
           created_at?: string
@@ -847,6 +856,9 @@ export type Database = {
       }
       contacts: {
         Row: {
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           authority: Database["public"]["Enums"]["contact_authority"]
           company_id: string | null
           confidence_score: number | null
@@ -867,6 +879,9 @@ export type Database = {
           verification_status: Database["public"]["Enums"]["verification_status"]
         }
         Insert: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           authority?: Database["public"]["Enums"]["contact_authority"]
           company_id?: string | null
           confidence_score?: number | null
@@ -887,6 +902,9 @@ export type Database = {
           verification_status?: Database["public"]["Enums"]["verification_status"]
         }
         Update: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           authority?: Database["public"]["Enums"]["contact_authority"]
           company_id?: string | null
           confidence_score?: number | null
@@ -1759,6 +1777,9 @@ export type Database = {
       }
       leads: {
         Row: {
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           converted_opportunity_id: string | null
           created_at: string
           created_by: string | null
@@ -1784,6 +1805,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           converted_opportunity_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1809,6 +1833,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           converted_opportunity_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -2637,6 +2664,9 @@ export type Database = {
       }
       rfqs: {
         Row: {
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           below_300k_exception_approval_id: string | null
           company_id: string | null
           contact_id: string | null
@@ -2665,6 +2695,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           below_300k_exception_approval_id?: string | null
           company_id?: string | null
           contact_id?: string | null
@@ -2693,6 +2726,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           below_300k_exception_approval_id?: string | null
           company_id?: string | null
           contact_id?: string | null
@@ -3083,6 +3119,8 @@ export type Database = {
       tenders: {
         Row: {
           archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           award_evidence: string | null
           below_300k_exception_approval_id: string | null
           contact_plan_ready: boolean
@@ -3115,6 +3153,8 @@ export type Database = {
         }
         Insert: {
           archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           award_evidence?: string | null
           below_300k_exception_approval_id?: string | null
           contact_plan_ready?: boolean
@@ -3147,6 +3187,8 @@ export type Database = {
         }
         Update: {
           archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           award_evidence?: string | null
           below_300k_exception_approval_id?: string | null
           contact_plan_ready?: boolean

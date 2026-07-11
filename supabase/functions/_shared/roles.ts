@@ -79,3 +79,13 @@ export const canViewSalesAdmin = (r: RoleInput) =>
 export const canManageTeam = (r: RoleInput) =>
   inGroup(r, [...ROLE_GROUPS.systemAdmin, ...COMMERCIAL_MANAGERS]);
 export const canManageSalesPipeline = (r: RoleInput) => inGroup(r, PIPELINE_OPERATORS);
+
+// Record creation (leads, contacts, companies, opportunities, RFQs, tenders,
+// follow-ups, ...) — pipeline operators plus salesperson. Mirrors the DB
+// helper public.is_sales_contributor(uuid) used in RLS INSERT policies.
+export const canCreateSalesRecords = (r: RoleInput) =>
+  inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.salesperson]);
+
+// Final delete execution — system_admin only, and only after a commercial
+// manager has approved the underlying delete request via decide_approval.
+export const canExecuteDelete = (r: RoleInput) => isSystemAdmin(r);

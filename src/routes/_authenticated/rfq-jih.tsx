@@ -85,7 +85,12 @@ function RfqJihBoard() {
 
   const { data: rfqs = [] } = useQuery({
     queryKey: ["rfqs-open"],
-    queryFn: async () => (await supabase.from("rfqs").select("*").eq("status", "open").order("received_date", { ascending: false })).data ?? [],
+    // Archived RFQs are excluded — there is no archive affordance on this
+    // board (Kanban view of the active pipeline only), but this guards
+    // against a record archived elsewhere (e.g. the account page) still
+    // showing up here.
+    queryFn: async () =>
+      (await supabase.from("rfqs").select("*").eq("status", "open").is("archived_at", null).order("received_date", { ascending: false })).data ?? [],
   });
   const { data: opps = [], isLoading } = useQuery({
     queryKey: ["opps-sales-stage"],
