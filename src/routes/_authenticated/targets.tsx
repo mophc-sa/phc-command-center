@@ -16,6 +16,8 @@ import { canApproveCommercialAction } from "@/lib/roles";
 import {
   computeSalespersonMetrics,
   computeManagerMetrics,
+  validateConversionTarget,
+  normalizePeriodStart,
   type SalesTargetRow,
   type OpportunityRow,
   type RfqRow,
@@ -37,6 +39,22 @@ function monthStart(d = new Date()) {
 }
 function todayIso(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Month selector options for the Set Target dialog (Required Fix 3): a
+// curated dropdown of already-normalized YYYY-MM-01 values, so a manager can
+// never pick a mid-month date that would create a target row no query ever
+// looks up again. Covers 2 months back (catch-up) through 11 months forward.
+function monthOptions(lang: "en" | "ar") {
+  const now = new Date();
+  const opts: { value: string; label: string }[] = [];
+  for (let i = -2; i <= 11; i++) {
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() + i, 1));
+    const value = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+    const label = d.toLocaleDateString(lang === "ar" ? "ar" : "en", { month: "long", year: "numeric", timeZone: "UTC" });
+    opts.push({ value, label });
+  }
+  return opts;
 }
 
 function ProgressRow({
@@ -399,10 +417,11 @@ function TargetsPage() {
           },
           {
             key: "periodStart",
-            type: "date",
+            type: "select",
             label: t("field_period_start"),
             required: true,
             defaultValue: period,
+            options: monthOptions(lang),
           },
           { key: "salesTarget", type: "text", label: t("field_sales_target"), required: true },
           { key: "pipelineTarget", type: "text", label: t("field_pipeline_target"), required: true },
@@ -412,16 +431,31 @@ function TargetsPage() {
           { key: "notes", type: "textarea", label: t("field_notes") },
         ]}
         onSubmit={async (v) => {
+          // Client-side validation (Required Fix 2 / Fix 3): reject clearly
+          // rather than silently coercing bad input to 0, and never send an
+          // un-normalized period_start. sales-actions.ts re-validates both
+          // independently as defense in depth, and the DB CHECK constraint
+          // re-validates conversion_target independently of both.
+          const conversionCheck = validateConversionTarget(v.conversionTarget);
+          if (!conversionCheck.ok) {
+            toast.error(conversionCheck.error);
+            return;
+          }
+          const normalizedPeriod = normalizePeriodStart("monthly", v.periodStart);
+          if (!normalizedPeriod.ok) {
+            toast.error(normalizedPeriod.error);
+            return;
+          }
           try {
             await upsertSalesTarget({
               userId: v.userId,
               periodType: "monthly",
-              periodStart: v.periodStart,
+              periodStart: normalizedPeriod.value,
               salesTarget: Number(v.salesTarget) || 0,
               pipelineTarget: Number(v.pipelineTarget) || 0,
               quotationTarget: Number(v.quotationTarget) || 0,
               activityTarget: Number(v.activityTarget) || 0,
-              conversionTarget: Number(v.conversionTarget) || 0,
+              conversionTarget: conversionCheck.value,
               notes: v.notes || undefined,
             });
             toast.success(t("toast_target_saved"));

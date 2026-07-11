@@ -1,8 +1,12 @@
-// PHC Sales OS — Sprint 8 Targets & Performance metric calculations. Run with `bun test src`.
+// PHC Sales OS — Sprint 9 Targets & Performance metric calculations. Run with `bun test src`.
 import { test, expect } from "bun:test";
 import {
   achievementPct,
   forecastValue,
+  periodWindow,
+  inPeriod,
+  validateConversionTarget,
+  normalizePeriodStart,
   computeSalespersonMetrics,
   computeManagerMetrics,
   type SalesTargetRow,
@@ -21,6 +25,7 @@ function target(over: Partial<SalesTargetRow> = {}): SalesTargetRow {
   return {
     id: "t1",
     user_id: U1,
+    period_type: "monthly",
     period_start: "2026-07-01",
     sales_target: 100000,
     pipeline_target: 200000,
@@ -64,6 +69,137 @@ test("forecastValue weights open opportunities by win_confidence, skips closed o
     opp({ stage: "lost", estimated_value_max: 999999, win_confidence: "sure_win" }), // excluded (closed)
   ];
   expect(forecastValue(opps)).toBe(90000 + 10000 + 20000);
+});
+
+// ---------------------------------------------------------------------------
+// Required Fix 1 — period boundaries
+// ---------------------------------------------------------------------------
+
+test("periodWindow: monthly end is the first day of next month", () => {
+  expect(periodWindow("monthly", "2026-07-01")).toEqual({ periodStart: "2026-07-01", periodEnd: "2026-08-01" });
+});
+
+test("periodWindow: quarterly end is the first day of the next quarter", () => {
+  expect(periodWindow("quarterly", "2026-07-01")).toEqual({ periodStart: "2026-07-01", periodEnd: "2026-10-01" });
+});
+
+test("periodWindow: monthly year rollover (December -> January)", () => {
+  expect(periodWindow("monthly", "2026-12-01")).toEqual({ periodStart: "2026-12-01", periodEnd: "2027-01-01" });
+});
+
+test("periodWindow: quarterly year rollover (Q4 -> Q1 next year)", () => {
+  expect(periodWindow("quarterly", "2026-10-01")).toEqual({ periodStart: "2026-10-01", periodEnd: "2027-01-01" });
+});
+
+test("inPeriod: record exactly at period start is included", () => {
+  const w = periodWindow("monthly", "2026-07-01");
+  expect(inPeriod("2026-07-01T00:00:00.000Z", w)).toBe(true);
+});
+
+test("inPeriod: record one day before period end is included", () => {
+  const w = periodWindow("monthly", "2026-07-01");
+  expect(inPeriod("2026-07-31T23:59:59.999Z", w)).toBe(true);
+});
+
+test("inPeriod: record exactly at period end is excluded", () => {
+  const w = periodWindow("monthly", "2026-07-01");
+  expect(inPeriod("2026-08-01T00:00:00.000Z", w)).toBe(false);
+});
+
+test("inPeriod: next-month record is excluded", () => {
+  const w = periodWindow("monthly", "2026-07-01");
+  expect(inPeriod("2026-08-15T10:00:00.000Z", w)).toBe(false);
+});
+
+test("inPeriod: quarterly boundary excludes the following quarter", () => {
+  const w = periodWindow("quarterly", "2026-07-01");
+  expect(inPeriod("2026-09-30T23:59:59.999Z", w)).toBe(true);
+  expect(inPeriod("2026-10-01T00:00:00.000Z", w)).toBe(false);
+});
+
+test("inPeriod: invalid or missing dates are safely excluded, not thrown", () => {
+  const w = periodWindow("monthly", "2026-07-01");
+  expect(inPeriod(null, w)).toBe(false);
+  expect(inPeriod(undefined, w)).toBe(false);
+  expect(inPeriod("", w)).toBe(false);
+  expect(inPeriod("not-a-date", w)).toBe(false);
+});
+
+test("computeSalespersonMetrics excludes a next-month win from this month's wonValue (regression for the unbounded-window bug)", () => {
+  const opps: OpportunityRow[] = [
+    opp({ id: "o1", stage: "won", estimated_value_max: 60000, updated_at: "2026-07-15" }),
+    opp({ id: "o2", stage: "won", estimated_value_max: 999999, updated_at: "2026-08-01T00:00:00.000Z" }), // next month, must be excluded
+  ];
+  const m = computeSalespersonMetrics(target(), { opportunities: opps, rfqs: [], tenders: [], quotations: [], followUps: [] });
+  expect(m.wonValue).toBe(60000);
+});
+
+test("computeSalespersonMetrics: openPipeline is NOT period-bounded (current-state snapshot)", () => {
+  // An opportunity last touched well before this month's period_start still
+  // counts toward open pipeline, because pipeline is "what's open right
+  // now," not "what changed this period."
+  const opps: OpportunityRow[] = [opp({ stage: "quotation", estimated_value_max: 25000, updated_at: "2026-01-01" })];
+  const m = computeSalespersonMetrics(target(), { opportunities: opps, rfqs: [], tenders: [], quotations: [], followUps: [] });
+  expect(m.openPipeline).toBe(25000);
+});
+
+// ---------------------------------------------------------------------------
+// Required Fix 2 — conversion_target validation
+// ---------------------------------------------------------------------------
+
+test("validateConversionTarget: accepts 0 as an explicit valid value", () => {
+  expect(validateConversionTarget(0)).toEqual({ ok: true, value: 0 });
+  expect(validateConversionTarget("0")).toEqual({ ok: true, value: 0 });
+});
+
+test("validateConversionTarget: accepts 100", () => {
+  expect(validateConversionTarget(100)).toEqual({ ok: true, value: 100 });
+});
+
+test("validateConversionTarget: accepts a valid decimal", () => {
+  expect(validateConversionTarget("35.5")).toEqual({ ok: true, value: 35.5 });
+});
+
+test("validateConversionTarget: rejects -1", () => {
+  const r = validateConversionTarget(-1);
+  expect(r.ok).toBe(false);
+});
+
+test("validateConversionTarget: rejects 100.01", () => {
+  const r = validateConversionTarget(100.01);
+  expect(r.ok).toBe(false);
+});
+
+test("validateConversionTarget: rejects NaN / non-numeric input, without silently coercing to 0", () => {
+  expect(validateConversionTarget("abc").ok).toBe(false);
+  expect(validateConversionTarget(NaN).ok).toBe(false);
+  expect(validateConversionTarget("").ok).toBe(false);
+  expect(validateConversionTarget("   ").ok).toBe(false); // whitespace-only must not parse as 0
+  expect(validateConversionTarget(null).ok).toBe(false);
+  expect(validateConversionTarget(undefined).ok).toBe(false);
+});
+
+// ---------------------------------------------------------------------------
+// Required Fix 3 — period_start normalization
+// ---------------------------------------------------------------------------
+
+test("normalizePeriodStart: monthly snaps a mid-month date to the 1st", () => {
+  expect(normalizePeriodStart("monthly", "2026-07-15")).toEqual({ ok: true, value: "2026-07-01" });
+});
+
+test("normalizePeriodStart: monthly is a no-op when already normalized", () => {
+  expect(normalizePeriodStart("monthly", "2026-07-01")).toEqual({ ok: true, value: "2026-07-01" });
+});
+
+test("normalizePeriodStart: quarterly snaps to the containing quarter's first month", () => {
+  expect(normalizePeriodStart("quarterly", "2026-08-20")).toEqual({ ok: true, value: "2026-07-01" }); // Q3
+  expect(normalizePeriodStart("quarterly", "2026-01-01")).toEqual({ ok: true, value: "2026-01-01" }); // Q1, already aligned
+  expect(normalizePeriodStart("quarterly", "2026-12-31")).toEqual({ ok: true, value: "2026-10-01" }); // Q4
+});
+
+test("normalizePeriodStart: rejects malformed input", () => {
+  expect(normalizePeriodStart("monthly", "not-a-date").ok).toBe(false);
+  expect(normalizePeriodStart("monthly", "2026-13-01").ok).toBe(false);
 });
 
 test("computeSalespersonMetrics rolls up won value, pipeline, and conversion rate for one owner only", () => {

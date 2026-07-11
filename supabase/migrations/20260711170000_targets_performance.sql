@@ -1,9 +1,11 @@
 -- =========================================================
--- PHC Sales OS — Sprint 8: Targets & Performance
+-- PHC Sales OS — Sprint 9: Targets & Performance
 --
 -- 1. Adds a conversion-rate target (percentage) alongside the existing
 --    sales/pipeline/quotation/activity/reactivation targets, so managers can
---    set an explicit won-vs-closed conversion goal per salesperson.
+--    set an explicit won-vs-closed conversion goal per salesperson. A CHECK
+--    constraint enforces the 0-100 range at the DB layer as defense in
+--    depth alongside client-side and sales-actions.ts validation.
 -- 2. Fixes public.sales_targets RLS, which still hardcoded
 --    ARRAY['sales_manager','ceo'] from the Sprint-7 migration that created
 --    it — predating the Phase-1 commercial-authority helpers. This meant
@@ -15,11 +17,17 @@
 --
 -- Non-destructive: additive column + in-place policy replacement. No data
 -- migration required (existing rows default conversion_target to 0, meaning
--- "no conversion target set" until a manager sets one).
+-- "no conversion target set" until a manager sets one). public.sales_targets
+-- is empty in every environment as of this migration, so the CHECK
+-- constraint has nothing to validate retroactively.
 -- =========================================================
 
 ALTER TABLE public.sales_targets
   ADD COLUMN conversion_target NUMERIC(5,2) NOT NULL DEFAULT 0;
+
+ALTER TABLE public.sales_targets
+  ADD CONSTRAINT sales_targets_conversion_target_range_check
+  CHECK (conversion_target >= 0 AND conversion_target <= 100);
 
 COMMENT ON COLUMN public.sales_targets.conversion_target IS
   'Target won/closed conversion rate for the period, as a percentage (0-100).';
