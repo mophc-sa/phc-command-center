@@ -42,6 +42,17 @@ export function redactId(id: string | null | undefined): string | null {
   return id.length > 8 ? `${id.slice(0, 8)}…` : id;
 }
 
+// Required Fix 7: replaces two `as Record<string, unknown>` double-casts
+// (TS2352 under `deno check` — a dynamic, non-literal `.select(someVar)`
+// argument makes supabase-js infer a generic/error-shaped union for `data`,
+// which doesn't structurally overlap with Record<string, unknown> closely
+// enough for a direct assertion). This is a real runtime type guard, not a
+// blind cast: `data`/`record` are narrowed through `unknown` only after
+// actually checking they are a plain, non-array object.
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export type ContextManifest = {
   fields_loaded: string[];
   record_counts: Record<string, number>;
@@ -85,7 +96,7 @@ async function checkOwnershipAccess(
   const ownerField = ownerFieldFor(entityType);
   if (!ownerField) return { ok: true };
   const { data } = await svc.from(entityType).select(ownerField).eq("id", entityId).maybeSingle();
-  const ownerValue = data ? (data as Record<string, unknown>)[ownerField] : null;
+  const ownerValue = isPlainRecord(data) ? data[ownerField] : null;
   if (!isOwnedBy(ownerValue, userId)) {
     return { ok: false, code: "AI_RECORD_ACCESS_DENIED", message: "You do not have access to this record." };
   }
@@ -168,6 +179,27 @@ async function loadOpportunityEvaluationContext(
 // Agent 2 — old_data_classifier
 // ---------------------------------------------------------------------------
 
+// Required Fix 4: the loader's own query limits are chosen so
+// 1 (row) + OLD_DATA_MAPPINGS_LIMIT + OLD_DATA_DUPES_LIMIT can never exceed
+// MAX_CONTEXT_RECORDS (20) — previously this loader could load up to 26
+// records (1 + 20 mappings + 5 dupes), self-rejecting with AI_CONTEXT_TOO_LARGE
+// on entirely ordinary import batches.
+const OLD_DATA_MAPPINGS_LIMIT = 15;
+const OLD_DATA_DUPES_LIMIT = 4;
+const OLD_DATA_HEADERS_LIMIT = 50;
+// raw_data/mapped_data are arbitrary staged jsonb — cap each independently
+// so one oversized cell can't blow past the context character budget
+// (previously unbounded; only the DB row COUNT was checked, never text
+// length).
+const RAW_DATA_MAX_CHARS = 3000;
+const MAPPED_DATA_MAX_CHARS = 3000;
+
+function truncateSerialized(value: unknown, maxChars: number): string {
+  const serialized = JSON.stringify(value ?? null);
+  if (serialized.length <= maxChars) return serialized;
+  return `${serialized.slice(0, maxChars)}…[truncated, ${serialized.length} chars total]`;
+}
+
 async function loadOldDataClassifierContext(
   svc: SupabaseClient,
   entityType: EntityType,
@@ -201,20 +233,28 @@ async function loadOldDataClassifierContext(
     .from("import_mappings")
     .select("source_column, target_table, target_column, is_key")
     .eq("batch_id", row.batch_id)
-    .limit(20);
+    .limit(OLD_DATA_MAPPINGS_LIMIT);
   const { data: dupes } = await svc
     .from("import_duplicate_candidates")
     .select("existing_table, existing_record_id, match_type, confidence")
     .eq("row_id", entityId)
-    .limit(5);
+    .limit(OLD_DATA_DUPES_LIMIT);
+
+  const detectedHeaders = (file?.column_names ?? []).slice(0, OLD_DATA_HEADERS_LIMIT);
 
   const contextText = JSON.stringify(
     {
-      staged_row: { raw_data: row.raw_data, mapped_data: row.mapped_data, status: row.status },
+      staged_row: {
+        // Individually capped, not re-parsed — a bounded string either way,
+        // whether or not truncation actually fired.
+        raw_data: truncateSerialized(row.raw_data, RAW_DATA_MAX_CHARS),
+        mapped_data: truncateSerialized(row.mapped_data, MAPPED_DATA_MAX_CHARS),
+        status: row.status,
+      },
       batch: batch
         ? { status: batch.status, source_type: batch.source_type, target_entity: batch.target_entity, total_rows: batch.total_rows }
         : null,
-      detected_headers: file?.column_names ?? [],
+      detected_headers: detectedHeaders,
       existing_field_mappings: (mappings ?? []).map((m) => ({
         source: m.source_column,
         target: `${m.target_table}.${m.target_column}`,
@@ -317,9 +357,9 @@ async function loadSmartFollowupDraftContext(
   if (!entry) return { ok: false, code: "AI_ENTITY_NOT_ALLOWED", message: "Unsupported entity type for this agent." };
 
   const { data: record } = await svc.from(entityType).select(entry.select).eq("id", entityId).maybeSingle();
-  if (!record) return { ok: false, code: "AI_INPUT_INVALID", message: "Linked record not found." };
+  if (!isPlainRecord(record)) return { ok: false, code: "AI_INPUT_INVALID", message: "Linked record not found." };
 
-  const summary = entry.toSummary(record as Record<string, unknown>);
+  const summary = entry.toSummary(record);
   const language = typeof input.language === "string" && (input.language === "en" || input.language === "ar") ? input.language : "en";
   const contextText = JSON.stringify({ requested_channel: requestedChannel, language, linked_record: summary }, null, 2);
   const manifest: ContextManifest = {

@@ -51,11 +51,12 @@ test("ai-orchestrator never calls a hard-delete on any table", () => {
 
 test("ai-orchestrator never issues an owner_id / stage / status update against a live CRM table", () => {
   // The only .update(...) calls anywhere in this sprint's code target
-  // ai_agent_outputs (via the shared updated_at trigger) — never opportunities/
+  // ai_agent_outputs (via the shared updated_at trigger) and ai_agent_requests
+  // (the Required-Fix-2 concurrency-claim ledger) — never opportunities/
   // rfqs/tenders/quotations/companies/contacts.
   const updateCalls = [...combinedAiSource.matchAll(/\.from\(\s*["'`]([\w]+)["'`]\s*\)[\s\S]{0,200}?\.update\(/g)];
   for (const m of updateCalls) {
-    expect(["ai_agent_trace_events", "ai_agent_outputs"]).toContain(m[1]);
+    expect(["ai_agent_trace_events", "ai_agent_outputs", "ai_agent_requests"]).toContain(m[1]);
   }
 });
 
@@ -65,7 +66,11 @@ test("ai-orchestrator never invokes the import-pipeline commit action", () => {
 });
 
 test("ai-orchestrator never calls an email/WhatsApp/webhook send API", () => {
-  const dangerous = /\b(sendEmail|sendWhatsApp|sendMessage|resend\.emails|twilio|webhook)\b/i;
+  // Matched as an actual invocation/call shape, not a bare word — this
+  // module's own guardrail code legitimately discusses "webhook" as
+  // *language to detect and reject* (ai-guardrails.ts's ACTION_URL_CONTEXT),
+  // which is the opposite of calling one.
+  const dangerous = /\b(sendEmail|sendWhatsApp|sendMessage)\s*\(|resend\.emails\.|twilio\.|\bwebhook\s*\(/i;
   expect(combinedAiSource).not.toMatch(dangerous);
 });
 
@@ -154,11 +159,19 @@ test("the frontend client's request body only contains fields the strict request
 // "service-role writes target only AI trace/output tables in this sprint"
 // ---------------------------------------------------------------------------
 
-test("every insert/update in ai-orchestrator's index.ts targets only the two AI tables", () => {
+test("every insert/update in ai-orchestrator's index.ts targets only the three AI tables", () => {
   const writeCalls = [...orchestratorIndex.matchAll(/\.from\(\s*["'`]([\w]+)["'`]\s*\)[\s\S]{0,150}?\.(insert|update)\(/g)];
   expect(writeCalls.length).toBeGreaterThan(0); // sanity: the test actually found writes to check
   for (const m of writeCalls) {
-    expect(["ai_agent_trace_events", "ai_agent_outputs"]).toContain(m[1]);
+    expect(["ai_agent_trace_events", "ai_agent_outputs", "ai_agent_requests"]).toContain(m[1]);
+  }
+});
+
+test("index.ts's only RPC call is the request-claim function — no other server-side procedure is invoked", () => {
+  const rpcCalls = [...orchestratorIndex.matchAll(/\.rpc\(\s*["'`]([\w]+)["'`]/g)].map((m) => m[1]);
+  expect(rpcCalls.length).toBeGreaterThan(0);
+  for (const name of rpcCalls) {
+    expect(name).toBe("claim_ai_agent_request");
   }
 });
 

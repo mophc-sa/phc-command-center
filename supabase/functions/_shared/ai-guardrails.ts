@@ -102,12 +102,26 @@ export function isOwnedBy(ownerFieldValue: unknown, userId: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// 5 & 6. Size limits — input length and context record count
+// 5 & 6. Size limits — input length, context record count, and context
+// character length (Required Fix 4: record count alone was not sufficient —
+// a single record with an oversized field could pass the count check while
+// still producing a huge prompt).
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_MAX_INPUT_CHARS = 4000;
 export const MAX_CONTEXT_RECORDS = 20;
 export const MAX_OUTPUT_CHARS = 20000;
+// Ceiling on the fully-built context text (the string actually sent to the
+// provider as the untrusted CONTEXT block), independent of how many DB rows
+// contributed to it.
+export const MAX_CONTEXT_CHARS = 12000;
+
+// AI_MAX_INPUT_CHARS bounds (Required Fix 4 "bounded configuration"): an
+// operator can tune the client-input size limit, but never outside a sane
+// range — too low would break every real request, too high would defeat the
+// point of having a limit at all.
+export const MIN_INPUT_CHARS_BOUND = 500;
+export const MAX_INPUT_CHARS_BOUND = 20000;
 
 export function isInputWithinLimit(input: unknown, maxChars: number = DEFAULT_MAX_INPUT_CHARS): boolean {
   return JSON.stringify(input ?? {}).length <= maxChars;
@@ -117,8 +131,27 @@ export function isContextRecordCountWithinLimit(recordCount: number, max: number
   return recordCount <= max;
 }
 
+export function isContextTextWithinCharLimit(contextText: string, maxChars: number = MAX_CONTEXT_CHARS): boolean {
+  return contextText.length <= maxChars;
+}
+
 export function isOutputWithinSizeLimit(value: unknown, maxChars: number = MAX_OUTPUT_CHARS): boolean {
   return JSON.stringify(value ?? {}).length <= maxChars;
+}
+
+// Reads AI_MAX_INPUT_CHARS via the injected EnvReader (same
+// dependency-injection pattern as ai-providers.ts's resolveProviderConfig,
+// so this stays bun-testable with a fake env). Unset, non-numeric, or
+// out-of-bounds values all fall back to DEFAULT_MAX_INPUT_CHARS rather than
+// silently accepting an unsafe operator misconfiguration.
+export function resolveMaxInputChars(env: (key: string) => string | undefined): number {
+  const raw = env("AI_MAX_INPUT_CHARS");
+  if (!raw) return DEFAULT_MAX_INPUT_CHARS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < MIN_INPUT_CHARS_BOUND || parsed > MAX_INPUT_CHARS_BOUND) {
+    return DEFAULT_MAX_INPUT_CHARS;
+  }
+  return parsed;
 }
 
 // ---------------------------------------------------------------------------
@@ -179,19 +212,40 @@ const EXECUTION_CLAIM_PATTERNS: RegExp[] = [
 export type GuardrailFinding =
   | { kind: "prohibited_action"; action: ProhibitedAction }
   | { kind: "execution_claim" }
-  | { kind: "embedded_url" };
+  | { kind: "dangerous_url_protocol" }
+  | { kind: "action_url" };
+
+// Required Fix 6: a plain https:// citation (e.g. old_data_classifier
+// legitimately referencing a source/evidence URL) is no longer treated as a
+// violation on its own — that produced real false positives on valid
+// output. Two narrower things are still hard-blocked:
+//
+// 1. Non-http(s) URL protocols. These have no legitimate use in any of the
+//    three agents' free-text output and are inherently dangerous
+//    (javascript:/data: are classic XSS/script-injection vectors if this
+//    text were ever rendered as HTML by a careless reviewer UI; file: can
+//    read local files in some contexts). Blocked unconditionally, any field.
+// 2. An http(s) URL appearing alongside webhook/action-triggering language
+//    ("call this webhook", "post this to", "trigger this endpoint" ...) —
+//    i.e. the URL is being framed as something to be ACTED ON, not cited as
+//    a reference. None of the three agents' schemas have an actual
+//    tool/action field a provider could use to trigger a real call, so this
+//    is defense in depth against a human reviewer being misled into
+//    manually visiting/triggering something, not a technical RCE vector.
+const DANGEROUS_URL_PROTOCOLS = /\b(javascript|data|file|vbscript|about|blob):/i;
+const ACTION_URL_CONTEXT = /\b(webhook|call(?:ing)? this (?:webhook|endpoint|api|url|link)|post (?:this|it) to|trigger this|execute this (?:url|link|webhook))\b/i;
 
 // Recursively scans a parsed structured output for any prohibited-action
-// token, execution claim, or embedded URL — defense in depth on top of the
-// tight zod schemas, in case a provider smuggles a prohibited term inside an
-// otherwise schema-valid free-text field (rationale, message, warnings...).
-// None of the three agents in this sprint have a legitimate reason to return
-// a URL, so any embedded URL is treated as a tool/action risk and flagged.
+// token, execution claim, or unsafe URL usage — defense in depth on top of
+// the tight zod schemas, in case a provider smuggles a prohibited term
+// inside an otherwise schema-valid free-text field (rationale, message,
+// warnings...).
 export function scanForGuardrailViolations(value: unknown): GuardrailFinding[] {
   const findings: GuardrailFinding[] = [];
   const seenActions = new Set<string>();
   let sawExecutionClaim = false;
-  let sawUrl = false;
+  let sawDangerousProtocol = false;
+  let sawActionUrl = false;
 
   const visit = (v: unknown) => {
     if (typeof v === "string") {
@@ -206,9 +260,13 @@ export function scanForGuardrailViolations(value: unknown): GuardrailFinding[] {
         sawExecutionClaim = true;
         findings.push({ kind: "execution_claim" });
       }
-      if (!sawUrl && /https?:\/\//i.test(v)) {
-        sawUrl = true;
-        findings.push({ kind: "embedded_url" });
+      if (!sawDangerousProtocol && DANGEROUS_URL_PROTOCOLS.test(v)) {
+        sawDangerousProtocol = true;
+        findings.push({ kind: "dangerous_url_protocol" });
+      }
+      if (!sawActionUrl && /https?:\/\/\S+/i.test(v) && ACTION_URL_CONTEXT.test(v)) {
+        sawActionUrl = true;
+        findings.push({ kind: "action_url" });
       }
     } else if (Array.isArray(v)) {
       v.forEach(visit);

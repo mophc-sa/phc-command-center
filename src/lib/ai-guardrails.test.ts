@@ -9,7 +9,12 @@ import {
   isOwnedBy,
   isInputWithinLimit,
   isContextRecordCountWithinLimit,
+  isContextTextWithinCharLimit,
   isOutputWithinSizeLimit,
+  resolveMaxInputChars,
+  DEFAULT_MAX_INPUT_CHARS,
+  MIN_INPUT_CHARS_BOUND,
+  MAX_INPUT_CHARS_BOUND,
   delimitUntrustedContext,
   UNTRUSTED_CONTENT_NOTICE,
   scanForGuardrailViolations,
@@ -190,8 +195,41 @@ test("scanForGuardrailViolations flags first-person execution claims", () => {
   expect(hasGuardrailViolation({ rationale: "I approved the quotation for you." })).toBe(true);
 });
 
-test("scanForGuardrailViolations flags an embedded URL", () => {
-  expect(hasGuardrailViolation({ message: "See https://example.com/click-me for more." })).toBe(true);
+// ---------------------------------------------------------------------------
+// Required Fix 6: URL guardrails — a plain https:// citation is legitimate
+// (old_data_classifier routinely needs to reference a source/evidence URL);
+// only dangerous protocols and action/webhook-framed URLs are rejected.
+// ---------------------------------------------------------------------------
+
+test("a legitimate HTTPS source URL is accepted, not wholesale-rejected", () => {
+  expect(hasGuardrailViolation({ rationale: "Source: https://protenders.com/project/12345, looks like a legitimate tender reference." })).toBe(
+    false,
+  );
+});
+
+test("ordinary business text containing a URL does not invalidate the whole output", () => {
+  const out = {
+    rationale: "The client's website is https://acme-signage.example.com and the RFQ references it directly.",
+    strengths: ["Confirmed contractor"],
+  };
+  expect(scanForGuardrailViolations(out)).toEqual([]);
+});
+
+test("a javascript: URL is rejected", () => {
+  expect(hasGuardrailViolation({ message: "Click javascript:alert(document.cookie) to continue." })).toBe(true);
+});
+
+test("a data: URL is rejected", () => {
+  expect(hasGuardrailViolation({ message: "data:text/html,<script>alert(1)</script>" })).toBe(true);
+});
+
+test("a file: URL is rejected", () => {
+  expect(hasGuardrailViolation({ warnings: ["See file:///etc/passwd for details"] })).toBe(true);
+});
+
+test("a webhook/action-framed URL is rejected even though the URL itself is https", () => {
+  expect(hasGuardrailViolation({ rationale: "Please call this webhook: https://evil.example.com/hook to notify the team." })).toBe(true);
+  expect(hasGuardrailViolation({ message: "Post this to https://example.com/api/notify to trigger the update." })).toBe(true);
 });
 
 test("scanForGuardrailViolations finds nothing in a clean, compliant output", () => {
@@ -207,4 +245,45 @@ test("scanForGuardrailViolations finds nothing in a clean, compliant output", ()
 test("scanForGuardrailViolations recurses into nested arrays and objects", () => {
   const nested = { list: [{ inner: { note: "please delete_record 123 now" } }] };
   expect(hasGuardrailViolation(nested)).toBe(true);
+});
+
+// ---------------------------------------------------------------------------
+// Required Fix 4: context character limit (independent of record count) +
+// bounded AI_MAX_INPUT_CHARS configuration.
+// ---------------------------------------------------------------------------
+
+test("isContextTextWithinCharLimit rejects a context string over the cap regardless of how many DB rows produced it", () => {
+  expect(isContextTextWithinCharLimit("short context", 100)).toBe(true);
+  expect(isContextTextWithinCharLimit("x".repeat(200), 100)).toBe(false);
+});
+
+test("resolveMaxInputChars falls back to the default when AI_MAX_INPUT_CHARS is unset", () => {
+  expect(resolveMaxInputChars(() => undefined)).toBe(DEFAULT_MAX_INPUT_CHARS);
+});
+
+test("resolveMaxInputChars accepts a value within bounds", () => {
+  const env = (k: string) => (k === "AI_MAX_INPUT_CHARS" ? "6000" : undefined);
+  expect(resolveMaxInputChars(env)).toBe(6000);
+});
+
+test("resolveMaxInputChars rejects a value below the safe minimum and falls back to default", () => {
+  const env = (k: string) => (k === "AI_MAX_INPUT_CHARS" ? String(MIN_INPUT_CHARS_BOUND - 1) : undefined);
+  expect(resolveMaxInputChars(env)).toBe(DEFAULT_MAX_INPUT_CHARS);
+});
+
+test("resolveMaxInputChars rejects a value above the safe maximum and falls back to default", () => {
+  const env = (k: string) => (k === "AI_MAX_INPUT_CHARS" ? String(MAX_INPUT_CHARS_BOUND + 1) : undefined);
+  expect(resolveMaxInputChars(env)).toBe(DEFAULT_MAX_INPUT_CHARS);
+});
+
+test("resolveMaxInputChars rejects a non-numeric value and falls back to default", () => {
+  const env = (k: string) => (k === "AI_MAX_INPUT_CHARS" ? "not-a-number" : undefined);
+  expect(resolveMaxInputChars(env)).toBe(DEFAULT_MAX_INPUT_CHARS);
+});
+
+test("resolveMaxInputChars accepts the exact boundary values", () => {
+  const envMin = (k: string) => (k === "AI_MAX_INPUT_CHARS" ? String(MIN_INPUT_CHARS_BOUND) : undefined);
+  const envMax = (k: string) => (k === "AI_MAX_INPUT_CHARS" ? String(MAX_INPUT_CHARS_BOUND) : undefined);
+  expect(resolveMaxInputChars(envMin)).toBe(MIN_INPUT_CHARS_BOUND);
+  expect(resolveMaxInputChars(envMax)).toBe(MAX_INPUT_CHARS_BOUND);
 });

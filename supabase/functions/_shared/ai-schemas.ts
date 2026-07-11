@@ -68,6 +68,18 @@ export const AI_ERROR_CODES = [
   "AI_OUTPUT_VALIDATION_FAILED",
   "AI_GUARDRAIL_REJECTED",
   "AI_OUTPUT_PERSIST_FAILED",
+  // A concurrent request with the same idempotency key is already being
+  // processed (a fresh, non-stale ai_agent_requests claim) — the caller
+  // should not retry immediately; the in-flight request will produce the
+  // real result. See ai-agent-registry.ts's claim flow (Required Fix 2).
+  "AI_REQUEST_IN_PROGRESS",
+  // The output was validated and persisted, but the DB write that records
+  // the request as successfully completed (the "succeeded" trace event
+  // and/or the request-claim row) failed. The output row itself still
+  // exists and is preserved for reconciliation — see docs/ai-orchestrator.md
+  // "Reconciliation" — this is deliberately never silently reported as
+  // ok:true (Required Fix 3).
+  "AI_TRACE_PERSIST_FAILED",
   "AI_UNKNOWN_ERROR",
 ] as const;
 export type AiErrorCode = (typeof AI_ERROR_CODES)[number];
@@ -237,5 +249,11 @@ export const ErrorEnvelopeSchema = z
     code: z.enum(AI_ERROR_CODES),
     message: z.string(),
     traceId: z.string().uuid().nullable(),
+    // Only ever populated for AI_TRACE_PERSIST_FAILED: the output was
+    // successfully created but the terminal trace event couldn't be
+    // recorded. Carrying the id here is the "record enough metadata to
+    // identify it" requirement — a human/ops can look the row up directly
+    // even though the response itself is ok:false.
+    outputId: z.string().uuid().optional(),
   })
   .strict();

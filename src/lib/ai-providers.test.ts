@@ -4,6 +4,8 @@ import { test, expect } from "bun:test";
 import {
   resolveProviderConfig,
   generateStructured,
+  MIN_TIMEOUT_MS,
+  MAX_TIMEOUT_MS,
   type ProviderConfig,
   type FetchLike,
   type EnvReader,
@@ -72,6 +74,50 @@ test("resolveProviderConfig falls back to the default timeout when AI_REQUEST_TI
   const r = resolveProviderConfig(env, null, false);
   expect(r.ok).toBe(true);
   if (r.ok) expect(r.config.timeoutMs).toBeGreaterThan(0);
+});
+
+// Required Fix 9: bounded timeout configuration — no unlimited/absurd value.
+test("resolveProviderConfig accepts a timeout within bounds", () => {
+  const env = makeEnv({ AI_PROVIDER: "openai", OPENAI_API_KEY: "k", OPENAI_MODEL: "gpt-x", AI_REQUEST_TIMEOUT_MS: "5000" });
+  const r = resolveProviderConfig(env, null, false);
+  expect(r.ok).toBe(true);
+  if (r.ok) expect(r.config.timeoutMs).toBe(5000);
+});
+
+test("resolveProviderConfig rejects a timeout below the safe minimum and falls back to default", () => {
+  const env = makeEnv({
+    AI_PROVIDER: "openai",
+    OPENAI_API_KEY: "k",
+    OPENAI_MODEL: "gpt-x",
+    AI_REQUEST_TIMEOUT_MS: String(MIN_TIMEOUT_MS - 1),
+  });
+  const r = resolveProviderConfig(env, null, false);
+  expect(r.ok).toBe(true);
+  if (r.ok) expect(r.config.timeoutMs).not.toBe(MIN_TIMEOUT_MS - 1);
+});
+
+test("resolveProviderConfig rejects an absurdly high timeout and falls back to default rather than allowing it unbounded", () => {
+  const env = makeEnv({
+    AI_PROVIDER: "openai",
+    OPENAI_API_KEY: "k",
+    OPENAI_MODEL: "gpt-x",
+    AI_REQUEST_TIMEOUT_MS: "999999999",
+  });
+  const r = resolveProviderConfig(env, null, false);
+  expect(r.ok).toBe(true);
+  if (r.ok) {
+    expect(r.config.timeoutMs).toBeLessThanOrEqual(MAX_TIMEOUT_MS);
+    expect(r.config.timeoutMs).not.toBe(999999999);
+  }
+});
+
+test("resolveProviderConfig accepts the exact min/max boundary timeout values", () => {
+  const envMin = makeEnv({ AI_PROVIDER: "openai", OPENAI_API_KEY: "k", OPENAI_MODEL: "gpt-x", AI_REQUEST_TIMEOUT_MS: String(MIN_TIMEOUT_MS) });
+  const envMax = makeEnv({ AI_PROVIDER: "openai", OPENAI_API_KEY: "k", OPENAI_MODEL: "gpt-x", AI_REQUEST_TIMEOUT_MS: String(MAX_TIMEOUT_MS) });
+  const rMin = resolveProviderConfig(envMin, null, false);
+  const rMax = resolveProviderConfig(envMax, null, false);
+  expect(rMin.ok && rMin.config.timeoutMs).toBe(MIN_TIMEOUT_MS);
+  expect(rMax.ok && rMax.config.timeoutMs).toBe(MAX_TIMEOUT_MS);
 });
 
 // ---------------------------------------------------------------------------

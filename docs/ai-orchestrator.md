@@ -17,18 +17,28 @@ supabase/functions/ai-orchestrator/index.ts        <- the only public entry poin
         |-- authenticate (resolveCaller, _shared/supabase.ts)
         |-- validate request (ai-schemas.ts, zod, .strict())
         |-- resolve agent (ai-agent-registry.ts -> AGENT_REGISTRY[agent])
-        |-- idempotency check (ai_agent_outputs, clientRequestId)
         |-- role + ownership check (ai-guardrails.ts, reuses roles.ts helpers)
-        |-- insert "started" trace event (ai_agent_trace_events)
+        |-- atomic request claim, only if clientRequestId supplied
+        |     (claim_ai_agent_request() RPC + ai_agent_requests; see
+        |      "Concurrent request claiming" below — a duplicate-succeeded
+        |      claim returns the existing output immediately; a duplicate
+        |      still-processing claim returns AI_REQUEST_IN_PROGRESS; only
+        |      the claimant proceeds)
+        |-- insert "started" trace event (ai_agent_trace_events) — write is
+        |     checked; abort with AI_TRACE_PERSIST_FAILED if it fails, before
+        |     any context load or provider call
         |-- load minimal context (agent's own loadContext)
-        |-- enforce context size (ai-guardrails.ts)
+        |-- enforce context size — record count AND character length (ai-guardrails.ts)
         |-- build prompt (ai-prompts.ts, versioned, system/context separated)
-        |-- resolve provider config (ai-providers.ts, env-driven)
+        |-- resolve provider config (ai-providers.ts, env-driven, bounded timeout)
         |-- call provider with timeout (ai-providers.ts)
         |-- validate structured output (agent's zod output schema)
         |-- scan for guardrail violations (ai-guardrails.ts)
-        |-- insert ai_agent_outputs (status = pending_review)
-        |-- insert "succeeded" trace event
+        |-- insert ai_agent_outputs (status = pending_review) — preserved even
+        |     if the next two writes fail
+        |-- mark claim succeeded + insert "succeeded" trace event — both
+        |     checked; either failing returns AI_TRACE_PERSIST_FAILED
+        |     (carrying outputId), never a silent ok:true
         v
 { ok: true, traceId, outputId, agent, status: "pending_review", result }
 ```
@@ -40,12 +50,13 @@ supabase/functions/ai-orchestrator/index.ts        <- the only public entry poin
 | `supabase/functions/_shared/ai-schemas.ts` | zod request/output/error-code schemas | yes (bare `"zod"` specifier, see below) |
 | `supabase/functions/_shared/ai-guardrails.ts` | allowlists, role/ownership checks, size limits, prompt-injection delimiting, prohibited-action scanner | yes |
 | `supabase/functions/_shared/ai-prompts.ts` | versioned prompt templates, one per agent | yes |
-| `supabase/functions/_shared/ai-providers.ts` | provider-neutral `generateStructured()`, OpenAI/Anthropic adapters, env resolution | yes (env + fetch are dependency-injected) |
+| `supabase/functions/_shared/ai-providers.ts` | provider-neutral `generateStructured()`, OpenAI/Anthropic adapters, env resolution, bounded timeout | yes (env + fetch are dependency-injected) |
+| `supabase/functions/_shared/ai-idempotency.ts` | interprets the claim RPC's result into a typed outcome (claimed / duplicate-processing / duplicate-succeeded / error) | yes |
 | `supabase/functions/_shared/ai-agent-registry.ts` | `AGENT_REGISTRY` — context loaders + wiring | no (needs a live `SupabaseClient`, like `_shared/supabase.ts`) |
 | `supabase/functions/ai-orchestrator/index.ts` | HTTP entry point, orchestration flow | no (Deno-only: `Deno.serve`, `Deno.env`) |
 | `src/lib/ai-orchestrator-actions.ts` | thin typed frontend wrapper | n/a (frontend) |
 
-Four of the five shared modules have zero Deno-specific APIs and are unit
+Five of the six shared modules have zero Deno-specific APIs and are unit
 tested directly from `bun test ./src` (`src/lib/ai-*.test.ts`), matching this
 repo's existing `_shared/conversion.ts` convention. `ai-providers.ts` reads
 environment variables and calls `fetch()`, but both are dependency-injected
@@ -73,8 +84,12 @@ a model, endpoint, or system prompt.
 | `OPENAI_MODEL` | Required to use the OpenAI provider — **no hardcoded fallback model**. |
 | `ANTHROPIC_API_KEY` | Required to use the Anthropic provider. Never logged, never returned. |
 | `ANTHROPIC_MODEL` | Required to use the Anthropic provider — **no hardcoded fallback model**. |
-| `AI_REQUEST_TIMEOUT_MS` | Per-call timeout, defaults to 20000 if unset/invalid. |
-| `AI_MAX_INPUT_CHARS` | Not read at runtime yet — `DEFAULT_MAX_INPUT_CHARS` (4000) is used directly in `ai-guardrails.ts`. Wiring an env override is a one-line follow-up if a specific limit is needed before launch. |
+| `AI_REQUEST_TIMEOUT_MS` | Per-call timeout in ms. Bounded to `[1000, 60000]` (`MIN_TIMEOUT_MS`/`MAX_TIMEOUT_MS` in `ai-providers.ts`); unset, non-numeric, or out-of-bounds values fall back to the 20000ms default. Never unlimited. |
+| `AI_MAX_INPUT_CHARS` | Bounded client-input size limit, read via `resolveMaxInputChars()` in `ai-guardrails.ts`. Bounded to `[500, 20000]` (`MIN_INPUT_CHARS_BOUND`/`MAX_INPUT_CHARS_BOUND`); unset, non-numeric, or out-of-bounds values fall back to the 4000-char default (`DEFAULT_MAX_INPUT_CHARS`). |
+
+Both bounded variables follow the same rule: an operator can tune the value,
+but never outside a sane range, and an invalid value never disables the
+limit — it falls back to a safe default instead of failing open.
 
 An unset `<PROVIDER>_MODEL` is treated identically to a missing API key —
 both mean "not configured." This repository has no existing documented
@@ -127,13 +142,22 @@ tier, value, next step/due date, last activity, sector, win confidence; the
 up to 3 linked RFQs and 3 linked tenders (status/reference only).
 
 **`old_data_classifier`**: the single `import_rows` row (`raw_data`,
-`mapped_data`, `status`); its parent `import_batches`' status/source
-type/target entity/total rows; the batch's detected column headers
-(`import_files.column_names`); up to 20 already-chosen `import_mappings` for
-the batch (substituting for a "field dictionary" table, which does not exist
-in this schema — confirmed during discovery); up to 5 `import_duplicate_
-candidates` for the row (table/id/match type/confidence — already-safe
-references, not full records).
+`mapped_data`, `status` — `raw_data`/`mapped_data` each individually
+truncated to 3000 characters with a `…[truncated, N chars total]` marker if
+larger, so one oversized staged cell can't blow past the context budget);
+its parent `import_batches`' status/source type/target entity/total rows;
+the batch's detected column headers (`import_files.column_names`, capped to
+the first 50); up to 15 already-chosen `import_mappings` for the batch
+(substituting for a "field dictionary" table, which does not exist in this
+schema — confirmed during discovery); up to 4 `import_duplicate_candidates`
+for the row (table/id/match type/confidence — already-safe references, not
+full records). The 15/4 query limits are deliberately chosen so
+`1 (the row) + 15 + 4 = 20` can never exceed `MAX_CONTEXT_RECORDS` (20) —
+previously this loader could load up to 26 records on a wide/well-mapped
+batch, self-rejecting with `AI_CONTEXT_TOO_LARGE` on entirely ordinary data
+(Required Fix 4). The fully-built context text is also checked against a
+hard character cap (`MAX_CONTEXT_CHARS`, 12000) independent of record count,
+for every agent, not just this one.
 
 **`smart_followup_draft`**: the requested channel and language from the
 caller's `input`; a compact summary of the linked record (reference, status,
@@ -182,13 +206,27 @@ partial-failure handling asked for in place of a full DB transaction (Edge
 Functions cannot open a cross-statement transaction against PostgREST the
 way a single SQL migration can).
 
-Write order is strict and one-directional: role/access check -> `started`
-event -> context load -> provider call -> output validation -> guardrail
-scan -> **insert `ai_agent_outputs`** -> **insert `succeeded` event**. If
-anything fails before the output insert, no output row is ever written — only
-a `failed`/`rejected`/`skipped` trace event. There is no code path that
-writes a `succeeded` event without a corresponding output row, or an output
-row without an eventual trace event.
+Write order is strict and one-directional: role/access check -> claim (if
+`clientRequestId` supplied) -> `started` event -> context load -> provider
+call -> output validation -> guardrail scan -> **insert `ai_agent_outputs`**
+-> mark claim succeeded + **insert `succeeded` event**. If anything fails
+before the output insert, no output row is ever written — only a
+`failed`/`rejected`/`skipped` trace event (and the claim, if one was made, is
+released back to `'failed'` so a legitimate retry isn't blocked for the
+staleness window).
+
+**Every trace write is checked, not fired-and-forgotten** (`insertTraceEvent`
+returns `{ok:true} | {ok:false}`, and every call site inspects it):
+- If the `started` event fails to write, the request **aborts before any
+  context load or provider call** and returns `AI_TRACE_PERSIST_FAILED` —
+  there is no path that can produce a successful output with zero
+  corresponding trace rows.
+- If the output insert succeeds but the `succeeded` event (or the claim's
+  succeeded-status update) then fails, the response is **not** a silent
+  `ok:true`. It's `{ok:false, code:"AI_TRACE_PERSIST_FAILED", traceId,
+  outputId}` — the output row itself is never deleted or rolled back; it's
+  preserved for reconciliation (see "Reconciliation" below), and the
+  response carries `outputId` specifically so a human/ops can locate it.
 
 `ai_agent_outputs.status` is only ever inserted as `'pending_review'` in this
 sprint — there is no accept/reject/apply code path anywhere in this sprint.
@@ -214,7 +252,7 @@ replacement for the Phase-5 tables, which keep working exactly as before.
 
 ## Role and entity policies (RLS)
 
-Both tables enable RLS. Neither grants `INSERT`/`UPDATE`/`DELETE` to
+All three tables enable RLS. None grants `INSERT`/`UPDATE`/`DELETE` to
 `authenticated` — every write in this sprint comes from the Edge Function's
 service-role client, after the function has already done its own role +
 ownership check in code (same pattern as `sales-os-api`).
@@ -234,8 +272,27 @@ ownership check in code (same pattern as `sales-os-api`).
   and fall through to `true`, since role membership — already enforced at
   creation time — is the only access gate that exists for those. **This is a
   disclosed simplification**, not a literal per-permission-system replay.
-- No `DELETE` policy on either table; `REVOKE DELETE ... FROM authenticated`
-  is explicit in the migration even though no `DELETE` grant was ever issued.
+- **`ai_agent_requests`** — no policy at all for `authenticated` (RLS
+  enabled, zero grants, zero SELECT policy). This table is purely internal
+  concurrency-control plumbing (Required Fix 2); its outcome is always
+  surfaced back to the caller through the `ai-orchestrator` response itself
+  (an existing output, or `AI_REQUEST_IN_PROGRESS`), so there is no reason
+  for a client to read it directly.
+- No `DELETE` policy on any of the three tables; `REVOKE DELETE ... FROM
+  authenticated` is explicit in the migration for the two audit-facing
+  tables even though no `DELETE` grant was ever issued.
+
+**`requested_by` and user deletion (Required Fix 5)**: all three tables use
+`requested_by uuid NULL REFERENCES auth.users(id) ON DELETE SET NULL` — never
+`ON DELETE CASCADE` — matching this codebase's own `audit_log.actor_id`
+convention. Deleting a user account nulls `requested_by` on their historical
+rows instead of deleting the rows. This is safe by construction, not by
+special-casing: `requested_by = auth.uid()` is simply never `true` when
+`requested_by` is `NULL` (SQL's `NULL = x` semantics), so a nulled row
+silently drops out of the "own rows" branch of both SELECT policies above —
+nothing is broadened, something is narrowed. Only `is_platform_admin`/
+`is_commercial_manager` can still see it, exactly as intended for a
+preserved-but-de-attributed audit record.
 
 ## Error codes
 
@@ -252,14 +309,16 @@ ownership check in code (same pattern as `sales-os-api`).
 | `AI_PROVIDER_ERROR` | Provider returned a non-2xx response or the network call failed |
 | `AI_RESPONSE_PARSE_FAILED` | Provider response body was not valid JSON |
 | `AI_OUTPUT_VALIDATION_FAILED` | Parsed JSON didn't match the agent's zod output schema |
-| `AI_GUARDRAIL_REJECTED` | Output was schema-valid but tripped the prohibited-action/execution-claim/URL scanner, or exceeded the output size limit |
+| `AI_GUARDRAIL_REJECTED` | Output was schema-valid but tripped the prohibited-action/execution-claim/unsafe-URL scanner, or exceeded the output size limit |
 | `AI_OUTPUT_PERSIST_FAILED` | The DB insert for `ai_agent_outputs` itself failed |
+| `AI_REQUEST_IN_PROGRESS` | A concurrent request with the same idempotency key (`requested_by`+`agent_key`+`entity_type`+`entity_id`+`clientRequestId`) is already being processed — HTTP 409, the caller should not retry immediately |
+| `AI_TRACE_PERSIST_FAILED` | The output was validated and persisted, but the terminal trace event and/or the request-claim's succeeded status could not be recorded — the output is preserved; see "Reconciliation" |
 | `AI_UNKNOWN_ERROR` | Last-resort catch-all — never a raw stack trace |
 
-`AI_UNAUTHENTICATED` and `AI_UNKNOWN_ERROR` are additions beyond the sprint
-brief's listed set — both are needed for the flow to have no unhandled
-branch (an auth failure and a truly unexpected exception both need a stable
-code) and are included for completeness.
+`AI_UNAUTHENTICATED`, `AI_REQUEST_IN_PROGRESS`, `AI_TRACE_PERSIST_FAILED`, and
+`AI_UNKNOWN_ERROR` are additions beyond the sprint brief's originally-listed
+set — each is needed for the flow to have no unhandled or silently-incorrect
+branch, and each is included for completeness.
 
 ## Graceful fallback behavior
 
@@ -288,23 +347,110 @@ benefit over letting the human retry deliberately from the UI.
 `merge_records`, `modify_roles`, `run_automations`.
 
 `scanForGuardrailViolations()` recursively scans the **parsed, schema-valid**
-structured output for any of these tokens embedded in free text, for
-first-person execution-claim phrasing ("I sent...", "I approved...", etc.),
-and for any embedded URL (none of the three agents in this sprint have a
-legitimate reason to return one). Any hit rejects the entire output —
-`AI_GUARDRAIL_REJECTED`, no partial/sanitized save. This runs in addition to,
-not instead of, the tight zod schemas — defense in depth against a provider
-smuggling a prohibited term inside an otherwise well-formed field.
+structured output for any of these tokens embedded in free text, and for
+first-person execution-claim phrasing ("I sent...", "I approved...", etc.).
+Any hit rejects the entire output — `AI_GUARDRAIL_REJECTED`, no
+partial/sanitized save. This runs in addition to, not instead of, the tight
+zod schemas — defense in depth against a provider smuggling a prohibited
+term inside an otherwise well-formed field.
+
+**URL handling (Required Fix 6)**: a plain `https://` citation is *not*
+rejected on its own — `old_data_classifier` in particular routinely has a
+legitimate reason to reference a source/evidence URL, and treating every URL
+as a violation produced real false positives on valid output. Two narrower
+things are still hard-blocked, in any field:
+1. **Non-http(s) URL protocols** (`javascript:`, `data:`, `file:`,
+   `vbscript:`, `about:`, `blob:`) — no legitimate use in any of the three
+   agents' output, and classic XSS/local-file-access vectors if this text
+   were ever rendered as HTML by a careless reviewer UI.
+2. **An http(s) URL framed as something to act on**, not cite — text
+   matching `ACTION_URL_CONTEXT` in `ai-guardrails.ts` (e.g. "call this
+   webhook", "post this to", "trigger this endpoint") appearing alongside a
+   URL. None of the three agents' schemas have an actual tool/action field a
+   provider could use to trigger a real call, so this is defense in depth
+   against misleading a human reviewer into manually visiting/triggering
+   something — not a technical remote-execution vector.
 
 ## Idempotency
 
-An optional `clientRequestId` in the request scopes a unique index:
-`(requested_by, agent_key, client_request_id)` — partial (`WHERE
-client_request_id IS NOT NULL`) so requests that never supply one don't
-collide with each other. If a matching `ai_agent_outputs` row already exists
-for this exact key, the orchestrator returns it immediately: no new trace
-event, no provider call, no duplicate row. This check runs before role/access
-re-validation, immediately after the agent is resolved from the registry.
+An optional `clientRequestId` in the request scopes uniqueness to
+`(requested_by, agent_key, entity_type, entity_id, client_request_id)` —
+**entity-scoped** (Required Fix 1). Reusing the same `clientRequestId`
+against a *different* entity can never match an existing row from a
+different entity — the two are simply different keys. The same exact
+request (identical entity too) reliably returns the same existing output.
+`ai_agent_outputs`' idempotency index is partial (`WHERE client_request_id
+IS NOT NULL`) so requests that never supply one don't collide with each
+other; requests with no `clientRequestId` at all are never deduplicated
+(idempotency remains opt-in, matching the original design).
+
+## Concurrent request claiming
+
+The `ai_agent_outputs` unique index above is a **final data-integrity
+backstop**, not the primary defense against two simultaneous requests both
+calling the provider (Required Fix 2) — by the time two concurrent requests
+would collide there, both have already paid for a provider call. The actual
+defense is `public.ai_agent_requests` plus the `claim_ai_agent_request()`
+RPC (both in the migration), called once the caller is confirmed authorized
+and before any provider call:
+
+- **Brand-new key** → RPC inserts a `processing` claim row and returns
+  `claimed=true`. The caller proceeds normally.
+- **A fresh, still-processing duplicate** (the archetypal double-click race)
+  → the RPC's `INSERT` hits the unique constraint, its reclaim `UPDATE`'s
+  `WHERE` clause doesn't match (not `failed`, not stale), so it returns
+  `claimed=false, status='processing'`. The orchestrator returns
+  `AI_REQUEST_IN_PROGRESS` (HTTP 409) **without calling the provider**.
+- **A completed duplicate** → `claimed=false, status='succeeded'`, carrying
+  the winning request's `output_id`. The orchestrator fetches and returns
+  that existing output directly — no new provider call, no new trace event.
+- **A previously failed or abandoned (stale) claim** → the RPC's reclaim
+  `UPDATE` matches (`status='failed'`, or `status='processing'` with
+  `updated_at` older than the staleness threshold — default 120s, well above
+  `AI_REQUEST_TIMEOUT_MS`'s own 20s default so a genuinely in-flight request
+  is never stolen from itself) and returns `claimed=true`. The caller
+  proceeds normally — this is the stale/crashed-request recovery path: an
+  Edge Function instance that crashed mid-flight leaves its claim in
+  `processing` forever otherwise, so the staleness window is what makes a
+  retry eventually succeed instead of being permanently blocked.
+
+**Atomicity**: the RPC's fast path is a single `INSERT`; a concurrent second
+caller's `INSERT` blocks on Postgres's own unique-index locking until the
+first commits, then raises `unique_violation` and falls into the reclaim
+`UPDATE` — whose `WHERE` clause no longer matches (the first caller's row is
+now `processing` with a fresh `updated_at`). At most one caller can ever have
+`claimed=true` for a given key at a given time; this is enforced by Postgres
+itself, not by application-level coordination.
+
+`ai-idempotency.ts`'s `interpretClaimRpcResult()` is the pure mapping from
+the RPC's raw row to the four outcomes above — split out specifically so
+this logic has real unit tests (`ai-idempotency.test.ts`) independent of the
+Deno-only orchestrator file that calls it.
+
+**A request with no `clientRequestId` is never claimed at all** — the whole
+mechanism above is skipped, and the request always calls the provider
+directly (matching the original opt-in idempotency design).
+
+## Reconciliation
+
+`AI_TRACE_PERSIST_FAILED` (returned after the output is already saved but
+the terminal trace/claim write failed) always carries the `outputId` needed
+to find the affected row. To find every output whose terminal trace event
+never made it — e.g. to sweep for these after an incident:
+
+```sql
+SELECT o.id, o.trace_id, o.agent_key, o.created_at
+FROM public.ai_agent_outputs o
+LEFT JOIN public.ai_agent_trace_events t
+  ON t.trace_id = o.trace_id AND t.status = 'succeeded'
+WHERE t.id IS NULL
+ORDER BY o.created_at DESC;
+```
+
+Every row this returns is a real, valid, already-reviewable output — nothing
+about the trace-write failure invalidates the AI result itself. The query is
+find-only; no automated cleanup/deletion is implemented for this in this
+sprint, matching "no hard-delete workflow for AI traces or outputs."
 
 ## Manual review lifecycle
 
@@ -333,14 +479,21 @@ next to a manual "mark reviewed" action once that review endpoint exists.
 1. Code review + CI (`typecheck-build`, `playwright-smoke`) on the Draft PR.
 2. Migration preflight against PHC AGENT (`lrfdtoexyeghrzynapyn`), read-only:
    confirm `20260711180000_ai_orchestrator.sql` is the only pending
-   migration, confirm the two new tables don't already exist, confirm
+   migration, confirm none of the three new tables (`ai_agent_trace_events`,
+   `ai_agent_outputs`, `ai_agent_requests`) already exist, confirm
    `is_platform_admin`/`is_commercial_manager` exist with the expected
    signatures.
 3. Explicit approval, then `supabase db push --linked` for that one
    migration only.
-4. Explicit approval, then `supabase functions deploy ai-orchestrator
-   --project-ref lrfdtoexyeghrzynapyn` — this function only, never a
-   blanket "deploy all functions."
+4. Explicit approval, then deploy **with the import map explicitly
+   specified** — required for the bare `"zod"` specifier in `ai-schemas.ts`
+   to resolve (see "A note on `npm:` specifiers" above):
+   ```
+   supabase functions deploy ai-orchestrator \
+     --project-ref lrfdtoexyeghrzynapyn \
+     --import-map supabase/functions/import_map.json
+   ```
+   This function only, never a blanket "deploy all functions."
 5. Set secrets via `supabase secrets set` (not committed anywhere, not
    printed to any log): `AI_PROVIDER`, and the key/model pair for whichever
    provider is chosen. Until this step runs, the function is deployed but
@@ -349,7 +502,12 @@ next to a manual "mark reviewed" action once that review endpoint exists.
    a test provider key, confirm `pending_review` rows appear with the
    correct `structured_output` shape, confirm a deliberately-missing-role
    caller gets `AI_RECORD_ACCESS_DENIED`/`AI_AGENT_NOT_ALLOWED`, confirm the
-   idempotency key prevents a double-submit from creating two rows.
+   idempotency key prevents a double-submit from creating two rows, confirm
+   a genuinely concurrent double-submit (two requests fired near-
+   simultaneously with the same `clientRequestId`) produces exactly one
+   provider call and one output — the second response should be either the
+   first's result or `AI_REQUEST_IN_PROGRESS`, never a second independent
+   result.
 7. Merge only after UAT passes.
 
 ## Rollback procedure
@@ -362,10 +520,13 @@ next to a manual "mark reviewed" action once that review endpoint exists.
   AI_PROVIDER ...` immediately reverts the function to the graceful
   `AI_NOT_CONFIGURED` fallback without needing a redeploy — the fastest
   possible "turn it off" lever if something looks wrong in production.
-- **Migration**: both new tables are strictly additive (no existing table
-  altered, no existing column touched, no existing RLS policy modified) — a
-  rollback migration would simply `DROP TABLE IF EXISTS public.
-  ai_agent_outputs, public.ai_agent_trace_events CASCADE;` and `DROP
-  FUNCTION IF EXISTS public.ai_output_entity_still_owned;`. Given the tables
-  are additive and no other table references them via foreign key, this is
-  safe to do at any time without touching CRM data.
+- **Migration**: all three new tables are strictly additive (no existing
+  table altered, no existing column touched, no existing RLS policy
+  modified) — a rollback migration would simply
+  `DROP TABLE IF EXISTS public.ai_agent_requests, public.ai_agent_outputs,
+  public.ai_agent_trace_events CASCADE;` (drop the claim table first, since
+  it has an FK to `ai_agent_outputs`) and
+  `DROP FUNCTION IF EXISTS public.ai_output_entity_still_owned;` /
+  `DROP FUNCTION IF EXISTS public.claim_ai_agent_request;`. Given the tables
+  are additive and no *existing* table references them via foreign key, this
+  is safe to do at any time without touching CRM data.

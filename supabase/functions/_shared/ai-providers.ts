@@ -32,6 +32,14 @@ export type ProviderConfig = {
 
 const SUPPORTED_PROVIDERS: readonly ProviderName[] = ["openai", "anthropic"];
 const DEFAULT_TIMEOUT_MS = 20000;
+// Required Fix 9: AI_REQUEST_TIMEOUT_MS must be bounded, not just "any
+// positive number." Too low would abort every real provider call before it
+// could ever finish; too high would let a single request hold an Edge
+// Function instance (and a caller's HTTP connection) open indefinitely,
+// which is exactly the "unlimited or absurdly high timeout" this fix
+// prohibits regardless of what the platform's own execution ceiling is.
+export const MIN_TIMEOUT_MS = 1000;
+export const MAX_TIMEOUT_MS = 60000;
 const DEFAULT_MAX_OUTPUT_TOKENS = 1500;
 const DEFAULT_TEMPERATURE = 0.2;
 
@@ -72,7 +80,8 @@ export function resolveProviderConfig(
 
   const timeoutRaw = env("AI_REQUEST_TIMEOUT_MS");
   const parsedTimeout = timeoutRaw ? Number(timeoutRaw) : NaN;
-  const timeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : DEFAULT_TIMEOUT_MS;
+  const timeoutInBounds = Number.isFinite(parsedTimeout) && parsedTimeout >= MIN_TIMEOUT_MS && parsedTimeout <= MAX_TIMEOUT_MS;
+  const timeoutMs = timeoutInBounds ? parsedTimeout : DEFAULT_TIMEOUT_MS;
 
   return { ok: true, config: { provider, apiKey, model, timeoutMs } };
 }
