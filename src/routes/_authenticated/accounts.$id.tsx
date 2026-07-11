@@ -14,7 +14,8 @@ import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { updateCompany, changeAccountOwner, type CompanyType } from "@/lib/crm-actions";
 import { canAssignOwner } from "@/lib/roles";
-import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
+import { CommunicationActions } from "@/components/phc/CommunicationActions";
+import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 
 export const Route = createFileRoute("/_authenticated/accounts/$id")({
   head: () => ({ meta: [{ title: "Account — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -112,15 +113,16 @@ function AccountDetail() {
             {(() => {
               const primary = (c.contacts ?? []).find((x: any) => !!x.email) ?? (c.contacts ?? [])[0];
               return (
-                <EmailComposeButton
-                  template="contractor_introduction"
-                  context={{
-                    recipientName: primary?.name ?? null,
-                    recipientEmail: primary?.email ?? null,
+                <CommunicationActions
+                  linked={{ type: "company", id: c.id, label: c.name, companyId: c.id, contactId: primary?.id ?? null }}
+                  recipientName={primary?.name ?? null}
+                  recipientEmail={primary?.email ?? null}
+                  recipientPhone={primary?.phone ?? null}
+                  emailTemplate="contractor_introduction"
+                  emailContext={{
                     companyName: c.name,
                     ownerName: ownerName(c.account_owner_id),
                   }}
-                  linked={{ type: "company", id: c.id, label: c.name, companyId: c.id, contactId: primary?.id ?? null }}
                 />
               );
             })()}
@@ -174,11 +176,24 @@ function AccountDetail() {
           {(c.contacts ?? []).length === 0 ? (
             <div className="text-xs text-muted-foreground">—</div>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-2.5">
               {c.contacts.map((ct: any) => (
-                <li key={ct.id} className="text-sm text-foreground">
-                  {ct.name}
-                  {ct.title ? <span className="text-xs text-muted-foreground"> — {ct.title}</span> : null}
+                <li key={ct.id}>
+                  <div className="text-sm text-foreground">
+                    {ct.name}
+                    {ct.title ? <span className="text-xs text-muted-foreground"> — {ct.title}</span> : null}
+                  </div>
+                  <div className="mt-1.5">
+                    <CommunicationActions
+                      linked={{ type: "contact", id: ct.id, label: ct.name, contactId: ct.id, companyId: c.id }}
+                      recipientName={ct.name}
+                      recipientEmail={ct.email}
+                      recipientPhone={ct.phone}
+                      emailTemplate="contractor_introduction"
+                      emailContext={{ companyName: c.name, ownerName: ownerName(c.account_owner_id) }}
+                      size="xs"
+                    />
+                  </div>
                 </li>
               ))}
             </ul>
@@ -220,6 +235,10 @@ function AccountDetail() {
           )}
         </Panel>
       </div>
+
+      <Panel title={t("comm_history")}>
+        <CommunicationTimeline filter={{ companyId: c.id }} />
+      </Panel>
 
       <ActionDialog
         open={editOpen}

@@ -26,8 +26,13 @@ export type Database = {
           occurred_at: string
           owner_id: string | null
           related_opportunity_id: string | null
+          related_rfq_id: string | null
+          related_tender_id: string | null
+          sent_at: string | null
+          sent_by: string | null
           status: Database["public"]["Enums"]["activity_status"]
           summary: string | null
+          template_id: string | null
         }
         Insert: {
           activity_type: Database["public"]["Enums"]["activity_type"]
@@ -40,8 +45,13 @@ export type Database = {
           occurred_at?: string
           owner_id?: string | null
           related_opportunity_id?: string | null
+          related_rfq_id?: string | null
+          related_tender_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
           status?: Database["public"]["Enums"]["activity_status"]
           summary?: string | null
+          template_id?: string | null
         }
         Update: {
           activity_type?: Database["public"]["Enums"]["activity_type"]
@@ -54,8 +64,13 @@ export type Database = {
           occurred_at?: string
           owner_id?: string | null
           related_opportunity_id?: string | null
+          related_rfq_id?: string | null
+          related_tender_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
           status?: Database["public"]["Enums"]["activity_status"]
           summary?: string | null
+          template_id?: string | null
         }
         Relationships: [
           {
@@ -77,6 +92,27 @@ export type Database = {
             columns: ["related_opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_related_rfq_id_fkey"
+            columns: ["related_rfq_id"]
+            isOneToOne: false
+            referencedRelation: "rfqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_related_tender_id_fkey"
+            columns: ["related_tender_id"]
+            isOneToOne: false
+            referencedRelation: "tenders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "communication_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -706,6 +742,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      communication_templates: {
+        Row: {
+          body: string
+          channel: Database["public"]["Enums"]["activity_type"]
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          subject: string | null
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          channel: Database["public"]["Enums"]["activity_type"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          channel?: Database["public"]["Enums"]["activity_type"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       companies: {
         Row: {

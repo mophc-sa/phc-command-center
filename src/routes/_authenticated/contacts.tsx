@@ -11,7 +11,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { createContact, type ContactAuthority, type ContactLocation } from "@/lib/crm-actions";
-import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
+import { CommunicationActions } from "@/components/phc/CommunicationActions";
 
 export const Route = createFileRoute("/_authenticated/contacts")({
   head: () => ({ meta: [{ title: "Contacts — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -142,7 +142,7 @@ function ContactsPage() {
                 <th className="px-5 py-3 text-start font-medium">{t("crm_authority")}</th>
                 <th className="px-5 py-3 text-start font-medium">{t("crm_location")}</th>
                 <th className="px-5 py-3 text-end font-medium">{t("crm_confidence")}</th>
-                <th className="px-5 py-3 text-end font-medium">{t("email_via_outlook")}</th>
+                <th className="px-5 py-3 text-end font-medium">{t("comm_log_activity")}</th>
               </tr>
             </thead>
             <tbody>
@@ -162,15 +162,8 @@ function ContactsPage() {
                     {c.confidence_score != null ? `${c.confidence_score}%` : "—"}
                   </td>
                   <td className="px-5 py-3 text-end">
-                    <EmailComposeButton
+                    <CommunicationActions
                       size="xs"
-                      variant="ghost"
-                      template="contractor_introduction"
-                      context={{
-                        recipientName: c.name,
-                        recipientEmail: c.email,
-                        companyName: c.companies?.name ?? null,
-                      }}
                       linked={{
                         type: "contact",
                         id: c.id,
@@ -178,6 +171,11 @@ function ContactsPage() {
                         contactId: c.id,
                         companyId: c.companies?.id ?? c.company_id ?? null,
                       }}
+                      recipientName={c.name}
+                      recipientEmail={c.email}
+                      recipientPhone={c.phone}
+                      emailTemplate="contractor_introduction"
+                      emailContext={{ companyName: c.companies?.name ?? null }}
                     />
                   </td>
                 </tr>

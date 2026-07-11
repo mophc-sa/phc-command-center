@@ -23,7 +23,8 @@ import {
   overrideOpportunityScore,
 } from "@/lib/opportunity-actions";
 import { ArrowLeft, ArrowRight, ExternalLink, FileText, RefreshCw } from "lucide-react";
-import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
+import { CommunicationActions } from "@/components/phc/CommunicationActions";
+import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline } from "@/lib/roles";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
@@ -290,18 +291,7 @@ function OpportunityDetail() {
             {(() => {
               const primary = (stakeholdersQ.data ?? []).find((s: any) => !!s.email) ?? (stakeholdersQ.data ?? [])[0];
               return (
-                <EmailComposeButton
-                  template="opportunity_follow_up"
-                  context={{
-                    recipientName: primary?.name ?? null,
-                    recipientEmail: primary?.email ?? null,
-                    companyName: o.company?.name ?? o.client ?? null,
-                    projectName: o.project_name,
-                    opportunityName: o.project_name,
-                    currentStage: humanize(o.stage),
-                    nextAction: o.next_action,
-                    aiRecommendation: o.agent_recommendation ? humanize(o.agent_recommendation) : null,
-                  }}
+                <CommunicationActions
                   linked={{
                     type: "opportunity",
                     id: o.id,
@@ -309,6 +299,18 @@ function OpportunityDetail() {
                     opportunityId: o.id,
                     companyId: o.company?.id ?? null,
                     contactId: primary?.id ?? null,
+                  }}
+                  recipientName={primary?.name ?? null}
+                  recipientEmail={primary?.email ?? null}
+                  recipientPhone={primary?.phone ?? null}
+                  emailTemplate="opportunity_follow_up"
+                  emailContext={{
+                    companyName: o.company?.name ?? o.client ?? null,
+                    projectName: o.project_name,
+                    opportunityName: o.project_name,
+                    currentStage: humanize(o.stage),
+                    nextAction: o.next_action,
+                    aiRecommendation: o.agent_recommendation ? humanize(o.agent_recommendation) : null,
                   }}
                 />
               );
@@ -686,6 +688,11 @@ function OpportunityDetail() {
         )}
       </Panel>
       )}
+
+      {/* 7c. COMMUNICATION HISTORY — Communication Hub Phase 1 */}
+      <Panel title={t("comm_history")}>
+        <CommunicationTimeline filter={{ opportunityId: o.id }} />
+      </Panel>
 
       {/* Evidence viewer */}
       <EvidenceViewer

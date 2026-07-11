@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Gavel, AlertTriangle, Trophy, GitMerge } from "lucide-react";
+import { Plus, Search, Gavel, AlertTriangle, Trophy, GitMerge, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -14,7 +14,14 @@ import {
   createTender, advanceTenderStage, requestTenderConversion, nextTenderStages,
   TENDER_STAGES, type TenderStage,
 } from "@/lib/tender-actions";
-import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
+import { CommunicationActions } from "@/components/phc/CommunicationActions";
+import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/tenders")({
   head: () => ({ meta: [{ title: "Tender Monitor — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -110,6 +117,7 @@ function TenderMonitor() {
   const [classFilter, setClassFilter] = useState<"all" | "A" | "B" | "C">("all");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"board" | "table">("board");
+  const [historyTender, setHistoryTender] = useState<{ id: string; label: string } | null>(null);
   const tstageLabel = (s: string) => t(`tstage_${s}` as never);
 
   const { data: tenders = [], isLoading } = useQuery({
@@ -228,21 +236,29 @@ function TenderMonitor() {
                             {overdue ? `Overdue ${Math.abs(d)}d` : `${d}d to award`}
                           </div>
                         ) : null}
-                        <div className="mt-1.5 flex flex-wrap justify-end gap-1">
-                          <EmailComposeButton
+                        <div className="mt-1.5 flex flex-wrap items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setHistoryTender({ id: x.id, label: x.tender_name })}
+                            title={t("comm_history")}
+                            className="grid h-6 w-6 place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground"
+                          >
+                            <History className="h-3 w-3" />
+                          </button>
+                          <CommunicationActions
                             size="xs"
-                            variant="ghost"
-                            template="tender_clarification"
-                            context={{
-                              tenderName: x.tender_name,
-                              companyName: x.main_contractor?.name ?? null,
-                              projectName: x.tender_name,
-                            }}
                             linked={{
                               type: "tender",
                               id: x.id,
                               label: x.tender_name,
+                              tenderId: x.id,
                               companyId: x.main_contractor?.id ?? null,
+                            }}
+                            emailTemplate="tender_clarification"
+                            emailContext={{
+                              tenderName: x.tender_name,
+                              companyName: x.main_contractor?.name ?? null,
+                              projectName: x.tender_name,
                             }}
                           />
                           {stage === "awarded_to_contractor" ? (
@@ -379,6 +395,15 @@ function TenderMonitor() {
           }
         }}
       />
+
+      <Dialog open={!!historyTender} onOpenChange={(o) => !o && setHistoryTender(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{historyTender ? `${t("comm_history")} — ${historyTender.label}` : t("comm_history")}</DialogTitle>
+          </DialogHeader>
+          {historyTender ? <CommunicationTimeline filter={{ tenderId: historyTender.id }} /> : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

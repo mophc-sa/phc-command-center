@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ArrowRight } from "lucide-react";
+import { Plus, ArrowRight, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -14,7 +14,14 @@ import { createRfq, convertRfqToJih } from "@/lib/rfq-actions";
 import {
   advanceSalesStage, nextSalesStages, SALES_STAGES, type SalesStage,
 } from "@/lib/workflow-actions";
-import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
+import { CommunicationActions } from "@/components/phc/CommunicationActions";
+import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/rfq-jih")({
   head: () => ({ meta: [{ title: "RFQ & JIH Board — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -73,6 +80,7 @@ function RfqJihBoard() {
   const [newRfq, setNewRfq] = useState(false);
   const [convertRfq, setConvertRfq] = useState<any | null>(null);
   const [advance, setAdvance] = useState<{ opp: any; toStage: SalesStage } | null>(null);
+  const [historyRfq, setHistoryRfq] = useState<{ id: string; label: string } | null>(null);
   const sstageLabel = (s: string) => t(`sstage_${s}` as never);
 
   const { data: rfqs = [] } = useQuery({
@@ -156,16 +164,29 @@ function RfqJihBoard() {
                     <span className="num text-[11px] text-muted-foreground" data-tabular="true">
                       {formatCurrency(r.estimated_value, lang, "SAR")}
                     </span>
-                    <EmailComposeButton
-                      size="xs"
-                      variant="ghost"
-                      template="tender_clarification"
-                      context={{
-                        rfqName: r.rfq_number ?? "RFQ",
-                        projectName: r.rfq_number ?? null,
-                      }}
-                      linked={{ type: "rfq", id: r.id, label: r.rfq_number ?? "RFQ" }}
-                    />
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setHistoryRfq({ id: r.id, label: r.rfq_number ?? "RFQ" })}
+                        title={t("comm_history")}
+                        className="grid h-6 w-6 place-items-center rounded-md border border-border/70 text-muted-foreground hover:text-foreground"
+                      >
+                        <History className="h-3 w-3" />
+                      </button>
+                      <CommunicationActions
+                        size="xs"
+                        linked={{
+                          type: "rfq",
+                          id: r.id,
+                          label: r.rfq_number ?? "RFQ",
+                          rfqId: r.id,
+                          companyId: r.company_id ?? null,
+                          contactId: r.contact_id ?? null,
+                        }}
+                        emailTemplate="tender_clarification"
+                        emailContext={{ rfqName: r.rfq_number ?? "RFQ", projectName: r.rfq_number ?? null }}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -339,6 +360,15 @@ function RfqJihBoard() {
           } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
         }}
       />
+
+      <Dialog open={!!historyRfq} onOpenChange={(o) => !o && setHistoryRfq(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{historyRfq ? `${t("comm_history")} — ${historyRfq.label}` : t("comm_history")}</DialogTitle>
+          </DialogHeader>
+          {historyRfq ? <CommunicationTimeline filter={{ rfqId: historyRfq.id }} /> : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

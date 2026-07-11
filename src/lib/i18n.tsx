@@ -968,6 +968,44 @@ export const strings = {
   email_tpl_meeting_request: { en: "Meeting request", ar: "طلب اجتماع" },
   email_tpl_missing_information: { en: "Missing information", ar: "معلومات ناقصة" },
   email_tpl_quotation_follow_up: { en: "Quotation follow-up", ar: "متابعة عرض السعر" },
+
+  // WhatsApp click-to-chat (Phase 1 — compose only, wa.me handoff)
+  wa_button: { en: "WhatsApp", ar: "واتساب" },
+  wa_compose_title: { en: "WhatsApp Message", ar: "رسالة واتساب" },
+  wa_compose_desc: {
+    en: "Review, then open WhatsApp with this message prefilled. Nothing is sent from PHC.",
+    ar: "راجع الرسالة ثم افتحها في واتساب. لا يتم الإرسال من داخل النظام.",
+  },
+  wa_phone: { en: "Phone (with country code)", ar: "الجوال (مع رمز الدولة)" },
+  wa_template: { en: "Template", ar: "القالب" },
+  wa_message: { en: "Message", ar: "الرسالة" },
+  wa_copy_text: { en: "Copy message", ar: "نسخ الرسالة" },
+  wa_copied: { en: "Message copied", ar: "تم نسخ الرسالة" },
+  wa_open: { en: "Open WhatsApp", ar: "فتح واتساب" },
+  wa_no_recipient: {
+    en: "No recipient phone found. Add a contact phone or enter one manually.",
+    ar: "لا يوجد رقم للمستلم. أضف رقم جهة اتصال أو أدخله يدوياً.",
+  },
+  wa_invalid_recipient: { en: "Phone number doesn't look valid.", ar: "رقم الجوال يبدو غير صالح." },
+  wa_normalized_saudi: {
+    en: "Saudi local number converted to international WhatsApp format.",
+    ar: "تم تحويل الرقم المحلي السعودي إلى الصيغة الدولية لواتساب.",
+  },
+  wa_phase1_disclaimer: {
+    en: "Compose only — you review and send from WhatsApp. PHC does not send messages automatically.",
+    ar: "تجهيز فقط — تراجع وترسل من واتساب. لا يقوم النظام بإرسال أي رسالة تلقائياً.",
+  },
+
+  // Communication Hub — shared actions/timeline
+  comm_log_activity: { en: "Log Activity", ar: "تسجيل نشاط" },
+  comm_add_followup: { en: "Add Follow-up", ar: "إضافة متابعة" },
+  comm_timeline_empty: { en: "No communication logged yet.", ar: "لا يوجد تواصل مسجَّل بعد." },
+  comm_mark_sent: { en: "Mark as Sent", ar: "وسم كمُرسَل" },
+  comm_marked_sent: { en: "Marked as sent", ar: "تم الوسم كمُرسَل" },
+  comm_status_draft: { en: "Draft", ar: "مسودة" },
+  comm_status_logged: { en: "Logged", ar: "مسجَّل" },
+  comm_status_sent: { en: "Sent", ar: "مُرسَل" },
+  comm_history: { en: "Communication History", ar: "سجل التواصل" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;
