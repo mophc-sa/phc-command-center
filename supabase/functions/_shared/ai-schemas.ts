@@ -73,6 +73,15 @@ export const AI_ERROR_CODES = [
   // should not retry immediately; the in-flight request will produce the
   // real result. See ai-agent-registry.ts's claim flow (Required Fix 2).
   "AI_REQUEST_IN_PROGRESS",
+  // The same idempotency key (requested_by + agent_key + entity_type +
+  // entity_id + client_request_id) was reused with a genuinely different
+  // request payload (a different request.input and/or effective provider
+  // override) than the one that originally claimed it — regardless of
+  // whether that prior claim is processing, stale-processing, failed, or
+  // succeeded. Returned before any provider call and before any
+  // ai_agent_outputs row is created. See ai-fingerprint.ts and
+  // docs/ai-orchestrator.md's "Idempotency" section.
+  "AI_IDEMPOTENCY_CONFLICT",
   // The output was validated and persisted, but the DB write that records
   // the request as successfully completed (the "succeeded" trace event
   // and/or the request-claim row) failed. The output row itself still

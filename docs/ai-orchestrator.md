@@ -312,6 +312,7 @@ preserved-but-de-attributed audit record.
 | `AI_GUARDRAIL_REJECTED` | Output was schema-valid but tripped the prohibited-action/execution-claim/unsafe-URL scanner, or exceeded the output size limit |
 | `AI_OUTPUT_PERSIST_FAILED` | The DB insert for `ai_agent_outputs` itself failed |
 | `AI_REQUEST_IN_PROGRESS` | A concurrent request with the same idempotency key (`requested_by`+`agent_key`+`entity_type`+`entity_id`+`clientRequestId`) is already being processed — HTTP 409, the caller should not retry immediately |
+| `AI_IDEMPOTENCY_CONFLICT` | The same idempotency key was reused with a genuinely different request payload (different `input` and/or effective `provider` override) than the one that originally claimed it — HTTP 409, before any provider call; see "Payload-conflict fingerprint" under Idempotency |
 | `AI_TRACE_PERSIST_FAILED` | The output was validated and persisted, but the terminal trace event and/or the request-claim's succeeded status could not be recorded — the output is preserved; see "Reconciliation" |
 | `AI_UNKNOWN_ERROR` | Last-resort catch-all — never a raw stack trace |
 
@@ -383,6 +384,97 @@ request (identical entity too) reliably returns the same existing output.
 IS NOT NULL`) so requests that never supply one don't collide with each
 other; requests with no `clientRequestId` at all are never deduplicated
 (idempotency remains opt-in, matching the original design).
+
+### Payload-conflict fingerprint (post-launch hardening)
+
+The 5-field scope above identifies *which* logical request a caller means,
+but on its own it cannot tell whether two calls under the same key actually
+carried the *same* content. A follow-up read-only inspection confirmed this
+as a real gap: reusing a `clientRequestId` against the same entity with
+genuinely different `input` (or a different admin `provider` override) used
+to be silently treated as a replay of the *first* call — the caller got the
+first request's result back, and the second, different request left no
+trace at all.
+
+This is closed with a **SHA-256 request fingerprint**
+(`supabase/functions/_shared/ai-fingerprint.ts`,
+`computeRequestFingerprint()`), computed over the canonical, caller-controlled
+semantic content of the request — `input`, plus the *effective* provider
+override (`null` unless the caller is both admin-authorized to override the
+provider and actually supplied one; a non-admin's ignored `provider` value
+never affects the fingerprint, since it never affects execution either).
+Canonicalization recursively sorts object keys, preserves array order and
+`null`-vs-absent distinctness, and omits `undefined` — so two calls that are
+semantically identical always fingerprint identically regardless of key
+order or incidental formatting. **Raw input is never stored anywhere** —
+only the 64-character lowercase hex digest is persisted, in a new nullable
+`ai_agent_requests.request_fingerprint text` column, and only the digest is
+ever compared — never the canonical JSON string, which this module does not
+even expose as a public function.
+
+`claim_ai_agent_request()` now accepts a trailing `_input_fingerprint text
+DEFAULT NULL` argument and, once it finds an existing row for the 5-field
+key, compares it against that row's stored fingerprint **before** deciding
+whether to reclaim or report the row:
+
+- **Same scope + matching (or previously-unset) fingerprint**: unchanged
+  behavior — the existing succeeded/processing/failed/stale-processing
+  outcomes all apply exactly as documented above and in "Concurrent request
+  claiming" below. A failed or stale-processing row can only be *reclaimed*
+  when the supplied fingerprint matches (or either side has no fingerprint
+  to compare, see the legacy note below) — it is never silently reclaimed
+  out from under a genuinely different retry payload.
+- **Same scope + a different, non-null fingerprint**: a deterministic
+  **`AI_IDEMPOTENCY_CONFLICT`** (HTTP 409) is returned instead — before any
+  provider call, before any context is loaded, before any
+  `ai_agent_outputs` row is created — regardless of whether the existing row
+  is currently processing, stale-processing, failed, or succeeded. The
+  existing row's status, trace_id, and fingerprint are never touched. The
+  idempotency key's semantic meaning can never change after its initial
+  claim. The error response is generic and non-leaking: *"The idempotency
+  key was already used with a different request payload."* — never the old
+  input, the new input, the canonical JSON, the fingerprint itself, or any
+  provider/internal SQL detail. A single `ai_agent_trace_events` row with
+  `status: "rejected"` and `error_code: "AI_IDEMPOTENCY_CONFLICT"` is
+  appended for auditability (metadata carries only `reason:
+  "idempotency_payload_conflict"` plus the existing safe fields — never the
+  fingerprint or raw input); no new schema/enum change was needed for this,
+  since `"rejected"` was already a valid trace status.
+- **Legacy rows with `request_fingerprint IS NULL`**: rows claimed *before*
+  this fix shipped were never asked for a fingerprint and have none stored.
+  These are **not backfilled** — the original caller input was never stored
+  anywhere, so there is nothing authentic to backfill. `claim_ai_agent_request()`
+  treats a `NULL` on either side of the comparison as "unverifiable," not as
+  "matching" — it falls through to the pre-fix reclaim/duplicate logic
+  unchanged, exactly as it always has. This is a **documented,
+  intentional, backward-compatible gap for pre-fix rows only** — it is not
+  claimed to be payload-verified. Once such a row is naturally reclaimed by
+  a genuinely new attempt (post-fix), it receives a real fingerprint and is
+  fully protected going forward.
+
+**Migration-before-deployment sequencing**: `_input_fingerprint` has
+`DEFAULT NULL` specifically so the *currently deployed* Edge Function
+(which does not know this parameter exists) keeps calling
+`claim_ai_agent_request()` successfully in the window between the migration
+being applied and `ai-orchestrator` being redeployed — Postgres always
+resolves the named-argument call the same way it did before, and every
+comparison in the RPC treats a missing fingerprint as "unverifiable"
+rather than failing. Adding the parameter also required explicitly
+`DROP FUNCTION IF EXISTS ...(uuid, text, text, uuid, text, uuid, integer);`
+before recreating it with the new signature — `CREATE OR REPLACE` alone
+does not replace a function whose parameter list changed; it would instead
+create a second, overloaded function and make PostgREST's named-argument
+RPC calls genuinely ambiguous during that same transition window.
+
+**Rollback**: the added column is additive and nullable
+(`DROP COLUMN request_fingerprint` fully reverses it with no data loss to
+anything else); the RPC can be reverted with the same
+`DROP FUNCTION ... ; CREATE OR REPLACE FUNCTION ...` pattern back to the
+7-argument signature. On the function side, redeploying the previous
+`ai-orchestrator` version immediately stops supplying/expecting a
+fingerprint at all — since the parameter always had a default, an
+un-migrated database and a rolled-back function remain mutually compatible
+in either direction.
 
 ## Concurrent request claiming
 
