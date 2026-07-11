@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { callBackend } from "@/lib/backend";
+import { validateConversionTarget, normalizePeriodStart } from "@/lib/targets-metrics";
 
 type Uuid = string;
 export type QuotationStatus = Database["public"]["Enums"]["quotation_status"];
@@ -270,9 +271,25 @@ export async function upsertSalesTarget(input: {
   pipelineTarget: number;
   quotationTarget: number;
   activityTarget: number;
+  conversionTarget?: number;
   reactivationTarget?: number;
   notes?: string;
 }) {
+  // Defense in depth: the UI is expected to send an already-valid,
+  // already-normalized payload (month selector + inline validation), but
+  // this function does not trust that — it re-validates before writing,
+  // the same way the DB CHECK constraint re-validates independently of both.
+  const conversionCheck = validateConversionTarget(input.conversionTarget ?? 0);
+  if (!conversionCheck.ok) throw new Error(conversionCheck.error);
+
+  const normalized = normalizePeriodStart(input.periodType, input.periodStart);
+  if (!normalized.ok) throw new Error(normalized.error);
+  if (normalized.value !== input.periodStart) {
+    throw new Error(
+      `period_start must already be normalized to the first day of its ${input.periodType} period (expected ${normalized.value}, got ${input.periodStart}).`,
+    );
+  }
+
   const created_by = await currentUserId();
   const { data, error } = await supabase
     .from("sales_targets")
@@ -280,11 +297,12 @@ export async function upsertSalesTarget(input: {
       {
         user_id: input.userId,
         period_type: input.periodType,
-        period_start: input.periodStart,
+        period_start: normalized.value,
         sales_target: input.salesTarget,
         pipeline_target: input.pipelineTarget,
         quotation_target: input.quotationTarget,
         activity_target: input.activityTarget,
+        conversion_target: conversionCheck.value,
         reactivation_target: input.reactivationTarget ?? 0,
         notes: input.notes ?? null,
         created_by,
