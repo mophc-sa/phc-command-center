@@ -307,7 +307,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main id="main-content" className="flex-1 px-4 py-6 md:px-8 md:py-10">{children}</main>
+        <main id="main-content" tabIndex={-1} className="flex-1 px-4 py-6 md:px-8 md:py-10">{children}</main>
       </div>
     </div>
   );
