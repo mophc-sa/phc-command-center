@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n } from "@/lib/i18n";
 
@@ -157,7 +158,7 @@ function AgentActivityPage() {
       </div>
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonTable rows={6} />
       ) : filtered.length === 0 ? (
         <EmptyState message={t("empty_agent_runs")} />
       ) : (

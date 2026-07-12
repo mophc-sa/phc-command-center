@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/phc/PageHeader";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonChart } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { RecommendationCard } from "@/components/phc/RecommendationCard";
@@ -114,7 +115,7 @@ function WorkspacePage() {
       (await supabase.from("tenders").select("id, tender_name, tender_stage, tender_priority_classification, estimated_project_value, expected_award_date").eq("tender_owner_id", uid).not("tender_stage", "in", "(converted_to_jih,tender_lost_or_archived)").order("expected_award_date", { ascending: true })).data ?? [],
   });
 
-  if (isLoading || !data) return <EmptyState message={t("loading")} />;
+  if (isLoading || !data) return <SkeletonChart kpis={4} charts={2} />;
 
   const pipelineValue = data.opps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
   const tg = data.target;

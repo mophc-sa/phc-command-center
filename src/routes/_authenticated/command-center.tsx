@@ -30,6 +30,7 @@ import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { PriorityItem } from "@/components/phc/PriorityItem";
 import { StatusPill } from "@/components/phc/StatusPill";
 import type { OpportunityRow } from "@/components/phc/OpportunityCard";
@@ -419,7 +420,7 @@ function CommandCenter() {
           bodyClassName="p-2"
         >
           {isLoading ? (
-            <EmptyState message={t("loading")} />
+            <SkeletonTable rows={3} />
           ) : attention.length === 0 ? (
             <div className="px-3 py-6"><EmptyState message={t("empty_needs_attention")} /></div>
           ) : (

@@ -8,6 +8,7 @@ import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import {
   requestReview,
@@ -180,9 +181,7 @@ function OpportunityDetail() {
     },
   });
 
-  if (oppQ.isLoading) {
-    return <div className="mx-auto max-w-7xl text-sm text-muted-foreground">{t("loading")}</div>;
-  }
+  if (oppQ.isLoading) return <SkeletonForm />;
   const o = oppQ.data;
   if (!o) {
     return (

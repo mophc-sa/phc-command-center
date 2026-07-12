@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -85,7 +86,7 @@ function TenderConversionReview() {
       </div>
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonTable rows={5} />
       ) : rows.length === 0 ? (
         <EmptyState message={t("tc_no_reviews")} />
       ) : (

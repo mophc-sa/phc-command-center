@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { GitSyncStatus } from "@/components/phc/GitSyncStatus";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -159,7 +160,7 @@ function AdminSettingsPage() {
       {/* Holders by Role */}
       <Panel title={t("admin_section_holders")}>
         {isLoading ? (
-          <div className="text-sm text-muted-foreground">{t("loading")}</div>
+          <SkeletonTable rows={4} />
         ) : isError ? (
           <div className="text-sm">
             <div>{t("error_generic")}</div>
@@ -206,7 +207,7 @@ function AdminSettingsPage() {
       {/* Assign Roles (CEO only writes) */}
       <Panel title={t("admin_section_assign")}>
         {isLoading ? (
-          <div className="text-sm text-muted-foreground">{t("loading")}</div>
+          <SkeletonTable rows={4} />
         ) : team.length === 0 ? (
           <EmptyState message={t("empty_team")} />
         ) : (

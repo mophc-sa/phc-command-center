@@ -8,6 +8,7 @@ import { OpportunityCard, type OpportunityRow } from "@/components/phc/Opportuni
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { Link } from "@tanstack/react-router";
 import {
@@ -135,7 +136,7 @@ function OppList() {
       </div>
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonTable rows={8} />
       ) : data.length === 0 ? (
         <EmptyState message={t("empty_opportunities")} />
       ) : filtered.length === 0 ? (

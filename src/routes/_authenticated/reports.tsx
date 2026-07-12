@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonChart } from "@/components/phc/Skeleton";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/reports")({
@@ -144,7 +145,7 @@ function ReportsPage() {
       />
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonChart kpis={3} charts={2} />
       ) : !hasData ? (
         <EmptyState message={t("empty_report")} />
       ) : (
