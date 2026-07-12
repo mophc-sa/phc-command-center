@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { isExecutive, isSalesManager, isBdOrSalesOps, type AppRole } from "@/lib/roles";
+import { isSystemAdmin, isExecutive, isSalesManager, isBdOrSalesOps, type AppRole } from "@/lib/roles";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -14,6 +14,13 @@ export const Route = createFileRoute("/")({
 // Runs client-side so it has access to the authenticated user's roles.
 // Uses the same queryKey as useAuth so TanStack Query shares the cache —
 // no duplicate network request when the user is already logged in.
+//
+// Landing contract (Sprint 1D):
+//   system_admin            → /admin-settings
+//   executive | sales_mgr  → /command-center
+//   bd | sales_ops         → /lead-tender-inbox
+//   salesperson | viewer   → /command-center
+//   no roles               → /pending-approval
 function LandingRedirect() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -46,13 +53,18 @@ function LandingRedirect() {
 
     const r: AppRole[] = roles ?? [];
 
-    if (isExecutive(r) || isSalesManager(r)) {
+    if (isSystemAdmin(r)) {
+      void navigate({ to: "/admin-settings", replace: true });
+    } else if (isExecutive(r) || isSalesManager(r)) {
       void navigate({ to: "/command-center", replace: true });
     } else if (isBdOrSalesOps(r)) {
       void navigate({ to: "/lead-tender-inbox", replace: true });
+    } else if (r.length === 0) {
+      // No roles assigned — account is pending or quarantined
+      void navigate({ to: "/pending-approval", replace: true });
     } else {
-      // salesperson, system_admin, viewer, or no roles yet
-      void navigate({ to: "/my-workspace", replace: true });
+      // salesperson, viewer
+      void navigate({ to: "/command-center", replace: true });
     }
   }, [user, authLoading, roles, rolesLoading, navigate]);
 
