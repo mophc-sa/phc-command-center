@@ -1,0 +1,1191 @@
+{
+  "status": "committed",
+  "source": "PHC Quotation List MAR 2026",
+  "staged_at": "2026-07-12",
+  "cleanup_rules_applied": [
+    "U+FFFD replacement chars → en-dash in all name fields",
+    "3.50M raw literal → total_value NULL (7 projects); value_raw preserved",
+    "IHG + IHG Group → merged as 'IHG Group' (reversible; both aliases retained)",
+    "Shaza + Shaza Hotels → merged as 'Shaza Hotels' (reversible; both aliases retained)",
+    "IHG – VOCO → separate record, review_flag=true, no inferences made",
+    "Company '–'/'?' → data_quality_warning, excluded from CRM creation, preserved in staging",
+    "Radisson / Radisson Collection → separate records (distinct brands)"
+  ],
+  "counts": {
+    "total_staging_records": 124,
+    "companies_total": 49,
+    "companies_crm_create": 48,
+    "companies_dq_excluded": 1,
+    "companies_review_flagged": 1,
+    "projects": 34,
+    "projects_value_null": 10,
+    "projects_value_placeholder_null": 7,
+    "projects_value_approximate": 1,
+    "ref_projects": 13,
+    "contacts": 28
+  },
+  "merge_log": [
+    {
+      "absorbed": "Shaza Hotels",
+      "into": "Shaza Hotels",
+      "original_source_name": "Shaza Hotels"
+    },
+    {
+      "absorbed": "IHG Group",
+      "into": "IHG Group",
+      "original_source_name": "IHG Group"
+    }
+  ],
+  "companies": [
+    {
+      "name": "CENOMI",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "CENOMI",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "OSOOL",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "OSOOL",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Mawan Real Estate",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Mawan Real Estate",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "MAS ECC",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "MAS ECC",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "IHG Group",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "IHG",
+      "aliases": [
+        "IHG"
+      ],
+      "import_action": "create"
+    },
+    {
+      "name": "Al Basateen",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Al Basateen",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "NMDC",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "NMDC",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Saudi Icon",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "Saudi Icon",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Saudi Binladin Group",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Saudi Binladin Group",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "SEVEN",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "SEVEN",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Shapoorji Pallonji",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "Shapoorji Pallonji",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "MISK Foundation",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "MISK Foundation",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "SAUDICON",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "SAUDICON",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Samsung",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Samsung",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Laysen Valley",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Laysen Valley",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Al Saedan",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Al Saedan",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Radisson Collection",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Radisson Collection",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "HOLIDAY INN",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "HOLIDAY INN",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Dur Hospitality",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "Dur Hospitality",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Al Saad Contracting Co.",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "Al Saad Contracting Co.",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Shaza Hotels",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Shaza",
+      "aliases": [
+        "Shaza"
+      ],
+      "import_action": "create"
+    },
+    {
+      "name": "Hesham Contracting",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "Hesham Contracting",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Antara",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Antara",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "El Latifia Contracting",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "El Latifia Contracting",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "VOCO Hotel",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "VOCO Hotel",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Arabian Centres",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Arabian Centres",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Arabian National Bank",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Arabian National Bank",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Diplomatic Quarters",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Diplomatic Quarters",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Madinah Gate Development",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Madinah Gate Development",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "MRTC",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "MRTC",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "King Abdullah University of Science and Technology",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "King Abdullah University of Science and Technology",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "SAUDI BIGA",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "SAUDI BIGA",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Mansard Hotel",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Mansard Hotel",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "KSPF",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "KSPF",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Freyssinet",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "Freyssinet",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Via Riyadh",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Via Riyadh",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Creative Art",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "Creative Art",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Lina Snack Food Co.",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "Lina Snack Food Co.",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Radisson",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Radisson",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Taibah Holiday Inn",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "Taibah Holiday Inn",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Antara Real Estate",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Antara Real Estate",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "IHG – VOCO",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "IHG � VOCO",
+      "aliases": [
+        "IHG � VOCO"
+      ],
+      "review_flag": true,
+      "review_note": "Possible relationship with VOCO Hotel / IHG; requires manual entity resolution.",
+      "import_action": "create_with_review_flag"
+    },
+    {
+      "name": "Unified Real Estate Dvt",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Unified Real Estate Dvt",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "–",
+      "company_type": "main_contractor",
+      "account_status": "active",
+      "source_name": "�",
+      "aliases": [
+        "�"
+      ],
+      "record_status": "data_quality_warning",
+      "data_quality_note": "Missing/corrupt contractor value in source.",
+      "import_action": "exclude_from_crm"
+    },
+    {
+      "name": "Damac Properties",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Damac Properties",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Al Rajhi Bank",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Al Rajhi Bank",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Al Waseel Hills Company",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Al Waseel Hills Company",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Various Clients",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Various Clients",
+      "aliases": [],
+      "import_action": "create"
+    },
+    {
+      "name": "Marriott International",
+      "company_type": "client",
+      "account_status": "active",
+      "source_name": "Marriott International",
+      "aliases": [],
+      "import_action": "create"
+    }
+  ],
+  "projects": [
+    {
+      "name": "SEVEN EXIT 15 AL NAHDA",
+      "location": "Saudi Arabia",
+      "client_name": "",
+      "main_contractor": null,
+      "scope": "Signage Fabrication & Installation",
+      "total_value": null,
+      "status": "",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": ""
+    },
+    {
+      "name": "SEVEN MAKKAH ENTERTAINMENT COMPLEX",
+      "location": "Saudi Arabia",
+      "client_name": "",
+      "main_contractor": null,
+      "scope": "Signage Fabrication & Installation",
+      "total_value": null,
+      "status": "",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": ""
+    },
+    {
+      "name": "SEVEN TAIF ENTERTAINMENT COMPLEX",
+      "location": "Saudi Arabia",
+      "client_name": "",
+      "main_contractor": null,
+      "scope": "Signage Fabrication & Installation",
+      "total_value": null,
+      "status": "",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": ""
+    },
+    {
+      "name": "CENOMI - Westfield Jeddah",
+      "location": "JEDDAH",
+      "client_name": "CENOMI",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 5100000,
+      "status": "Ongoing 2026",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "5.1 M"
+    },
+    {
+      "name": "GRANADA BUSINESS PARK",
+      "location": "Riyadh",
+      "client_name": "OSOOL",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 500000,
+      "status": "Ongoing 2026",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "500K"
+    },
+    {
+      "name": "Prime Business Park",
+      "location": "Riyadh",
+      "client_name": "Mawan Real Estate",
+      "main_contractor": "MAS ECC",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 2300000,
+      "status": "Ongoing 2026",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "2.30M"
+    },
+    {
+      "name": "IHG Cabana Hotel",
+      "location": "Riyadh",
+      "client_name": "IHG",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 500000,
+      "status": "Ongoing 2025",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "0.50M"
+    },
+    {
+      "name": "Al Basateen Project",
+      "location": "Riyadh",
+      "client_name": "Al Basateen",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 1300000,
+      "status": "Ongoing 2025",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "1.30M"
+    },
+    {
+      "name": "New Murabba Development",
+      "location": "Riyadh",
+      "client_name": "NMDC",
+      "main_contractor": "Saudi Icon",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 1450000,
+      "status": "Ongoing 2025",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "1.45M"
+    },
+    {
+      "name": "Makkah Haram",
+      "location": "Makkah",
+      "client_name": "Saudi Binladin Group",
+      "main_contractor": "Saudi Binladin Group",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 1400000,
+      "status": "Ongoing 2025",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "1.40M"
+    },
+    {
+      "name": "SEVEN Exit 10 Al Hamra",
+      "location": "Riyadh",
+      "client_name": "SEVEN",
+      "main_contractor": "Shapoorji Pallonji",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 3000000,
+      "status": "Ongoing 2025",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "3.00M+",
+      "value_note": "Approximate (source: 3.00M+)"
+    },
+    {
+      "name": "Misk Art Institute",
+      "location": "Riyadh",
+      "client_name": "MISK Foundation",
+      "main_contractor": "SAUDICON",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 1000000,
+      "status": "Ongoing 2025",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "1.00M"
+    },
+    {
+      "name": "CENOMI – UWalk Jeddah",
+      "location": "Jeddah",
+      "client_name": "CENOMI",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 1420000,
+      "status": "Ongoing 2025",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "1.42M"
+    },
+    {
+      "name": "CENOMI – Jeddah Park",
+      "location": "Jeddah",
+      "client_name": "CENOMI",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 4410000,
+      "status": "Ongoing 2025",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "4.41M"
+    },
+    {
+      "name": "Tadawul Samsung Tower",
+      "location": "Riyadh",
+      "client_name": "Samsung",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 1450000,
+      "status": "Ongoing 2025",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "1.45M"
+    },
+    {
+      "name": "Laysen Valley",
+      "location": "Riyadh",
+      "client_name": "Laysen Valley",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 1420000,
+      "status": "Completed 2023",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "1.42M"
+    },
+    {
+      "name": "Granada Mall",
+      "location": "Riyadh",
+      "client_name": "OSOOL",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 3300000,
+      "status": "Completed 2025",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "3.30M"
+    },
+    {
+      "name": "Courtyard by Marriott - Riyadh",
+      "location": "Riyadh",
+      "client_name": "Al Saedan",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 1400000,
+      "status": "Completed 2021",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "1.40M"
+    },
+    {
+      "name": "Mansard Riyadh",
+      "location": "Riyadh",
+      "client_name": "Radisson Collection",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 1400000,
+      "status": "Completed 2022",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "1.40M"
+    },
+    {
+      "name": "Holiday Inn Al Jubail Taibah",
+      "location": "Al Jubail",
+      "client_name": "HOLIDAY INN",
+      "main_contractor": "Dur Hospitality",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 800000,
+      "status": "Completed 2020",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "0.80M"
+    },
+    {
+      "name": "Crowne Plaza Riyadh",
+      "location": "Riyadh",
+      "client_name": "IHG",
+      "main_contractor": "Al Saad Contracting Co.",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 1120000,
+      "status": "Completed 2020",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "1.12M"
+    },
+    {
+      "name": "Shaza Hotel",
+      "location": "Madinah",
+      "client_name": "Shaza",
+      "main_contractor": "Hesham Contracting",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 500000,
+      "status": "Completed 2018",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "0.50M"
+    },
+    {
+      "name": "Antara Resort",
+      "location": "Riyadh",
+      "client_name": "Antara",
+      "main_contractor": "El Latifia Contracting",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 550000,
+      "status": "Completed 2019",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "0.55M"
+    },
+    {
+      "name": "Voco Hotel",
+      "location": "Riyadh",
+      "client_name": "VOCO Hotel",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 390000,
+      "status": "Completed 2020",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "0.39M"
+    },
+    {
+      "name": "Aloft Hotel",
+      "location": "Riyadh",
+      "client_name": "Arabian Centres",
+      "main_contractor": "Arabian Centres",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 250000,
+      "status": "Completed 2017",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "0.25M"
+    },
+    {
+      "name": "Riyadh Gallery Mall",
+      "location": "Riyadh",
+      "client_name": "Arabian National Bank",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 29000000,
+      "status": "Completed 2021",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "29.00M"
+    },
+    {
+      "name": "Diplomatic Quarter",
+      "location": "Riyadh",
+      "client_name": "Diplomatic Quarters",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": 200000,
+      "status": "Completed 2025",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "0.20M"
+    },
+    {
+      "name": "Madinah Gate Development",
+      "location": "Riyadh",
+      "client_name": "Madinah Gate Development",
+      "main_contractor": "MRTC",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": null,
+      "status": "Completed 2025",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "3.50M",
+      "value_note": "Placeholder in source (3.50M) — unverified"
+    },
+    {
+      "name": "SSOIEIKAUST - THUWAL",
+      "location": "Riyadh",
+      "client_name": "King Abdullah University of Science and Technology",
+      "main_contractor": "SAUDI BIGA",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": null,
+      "status": "Ongoing 2025",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "3.50M",
+      "value_note": "Placeholder in source (3.50M) — unverified"
+    },
+    {
+      "name": "Mansard Hotel",
+      "location": "Riyadh",
+      "client_name": "Mansard Hotel",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": null,
+      "status": "Completed 2023",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "3.50M",
+      "value_note": "Placeholder in source (3.50M) — unverified"
+    },
+    {
+      "name": "The View mall",
+      "location": "Riyadh",
+      "client_name": "CENOMI",
+      "main_contractor": "Direct to Client",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": null,
+      "status": "Completed 2023",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "3.50M",
+      "value_note": "Placeholder in source (3.50M) — unverified"
+    },
+    {
+      "name": "King Salman Park (KSP)",
+      "location": "Riyadh",
+      "client_name": "KSPF",
+      "main_contractor": "Freyssinet",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": null,
+      "status": "On-going 2025",
+      "stage": "rfq_received",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "3.50M",
+      "value_note": "Placeholder in source (3.50M) — unverified"
+    },
+    {
+      "name": "Via Riyadh",
+      "location": "Riyadh",
+      "client_name": "Via Riyadh",
+      "main_contractor": "Creative Art",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": null,
+      "status": "Completed 2022",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "3.50M",
+      "value_note": "Placeholder in source (3.50M) — unverified"
+    },
+    {
+      "name": "Holiday Inn Airport",
+      "location": "Riyadh",
+      "client_name": "Holiday Inn",
+      "main_contractor": "Lina Snack Food Co.",
+      "scope": "Signage Fabrication & Installation",
+      "total_value": null,
+      "status": "Completed 2023",
+      "stage": "won",
+      "source": "PHC Quotation List MAR 2026",
+      "value_raw": "3.50M",
+      "value_note": "Placeholder in source (3.50M) — unverified"
+    }
+  ],
+  "ref_projects": [
+    {
+      "name": "Courtyard by Marriott – Riyadh",
+      "location": "Riyadh",
+      "client_name": "Al Saedan",
+      "main_contractor": "Direct to Client",
+      "scope": "Hospitality Signage Package",
+      "year_completed": 2021,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Mansard Riyadh – Radisson Collection",
+      "location": "Riyadh",
+      "client_name": "Radisson",
+      "main_contractor": "Direct to Client",
+      "scope": "Full Interior & Exterior Signage",
+      "year_completed": 2022,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Holiday Inn Al Jubail",
+      "location": "Al Jubail",
+      "client_name": "Dur Hospitality",
+      "main_contractor": "Taibah Holiday Inn",
+      "scope": "Hotel Signage",
+      "year_completed": 2020,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Diplomatic Quarter Development",
+      "location": "Riyadh",
+      "client_name": "Unified Real Estate Dvt",
+      "main_contractor": "Direct to Client",
+      "scope": "External Signage & Map Totems",
+      "year_completed": 2025,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Mansard Hotel (Radisson Collection)",
+      "location": "Riyadh",
+      "client_name": "Mansard Hotel",
+      "main_contractor": "Direct to Client",
+      "scope": "Hospitality Signage & Digital Displays",
+      "year_completed": 2023,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Damac Tower / Showroom",
+      "location": "Riyadh",
+      "client_name": "Damac Properties",
+      "main_contractor": "Direct to Client",
+      "scope": "External Identification Signage",
+      "year_completed": 2023,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Information Center Building",
+      "location": "Riyadh",
+      "client_name": "Private Client",
+      "main_contractor": null,
+      "scope": "Internal Wayfinding Signage",
+      "year_completed": 2022,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Al Rajhi Bank Headquarters",
+      "location": "Riyadh",
+      "client_name": "Al Rajhi Bank",
+      "main_contractor": null,
+      "scope": "Corporate Signage & Identification Systems",
+      "year_completed": 2023,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Al Waseel Hills Development",
+      "location": "Riyadh",
+      "client_name": "Al Waseel Hills Company",
+      "main_contractor": null,
+      "scope": "External Wayfinding Signage",
+      "year_completed": 2024,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Al Takasusi Business Center",
+      "location": "Riyadh",
+      "client_name": "Private Client",
+      "main_contractor": null,
+      "scope": "Internal Signage System",
+      "year_completed": 2023,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Car Park Facility",
+      "location": "Riyadh",
+      "client_name": "Various Clients",
+      "main_contractor": null,
+      "scope": "Parking Wayfinding System",
+      "year_completed": 2022,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Marriott Hotel",
+      "location": "Riyadh",
+      "client_name": "Marriott International",
+      "main_contractor": null,
+      "scope": "Hospitality Signage Package",
+      "year_completed": 2021,
+      "source": "PHC Quotation List MAR 2026"
+    },
+    {
+      "name": "Holiday Inn (Various Branches)",
+      "location": "Kingdom-wide",
+      "client_name": "IHG Group",
+      "main_contractor": null,
+      "scope": "Multiple Hotel Signage Packages",
+      "year_completed": 2020,
+      "source": "PHC Quotation List MAR 2026"
+    }
+  ],
+  "contacts": [
+    {
+      "name": "Dowel Sanchez, Procurement CENOMI K.S.A. � +966 114350000.",
+      "email": null,
+      "phone": "+966114350000",
+      "company_name": "CENOMI",
+      "title": null
+    },
+    {
+      "name": "Ahmad Ismail,Property�Management�DirectorMob +966 500778959",
+      "email": null,
+      "phone": "+966500778959",
+      "company_name": "OSOOL",
+      "title": null
+    },
+    {
+      "name": "MAS ECC | Hesham Alihesham@masecc.comInfo@masecc.com",
+      "email": "Alihesham@masecc.comInfo",
+      "phone": null,
+      "company_name": "Mawan Real Estate",
+      "title": null
+    },
+    {
+      "name": "Nestor Mindoro| Material SecretaryIHG� InterContinental RiyadhNestor.Mindoro@ihg.com",
+      "email": "RiyadhNestor.Mindoro@ihg.com",
+      "phone": null,
+      "company_name": "IHG",
+      "title": null
+    },
+    {
+      "name": "Rahamtallah OmerSenior Procurement EngineerPMP � � PMI-SP �� PMI-RMP �Toll Free: 92000 3749albasateen.sa",
+      "email": null,
+      "phone": "920003749",
+      "company_name": "Al Basateen",
+      "title": null
+    },
+    {
+      "name": "Hussam AlbawabProcurement Engr., Saudi Iconh.albawab@saudi-icon.com",
+      "email": "Iconh.albawab@saudi-icon.com",
+      "phone": null,
+      "company_name": "NMDC",
+      "title": null
+    },
+    {
+      "name": "Adel Mahmoud AbdoSAUDI BINLADIN GROUP (ABCD)HARAM EXPANSION PROJECTProcurement and Bid SectionEmail : adel.abdo@sbg-mp.com",
+      "email": "adel.abdo@sbg-mp.com",
+      "phone": null,
+      "company_name": "Saudi Binladin Group",
+      "title": null
+    },
+    {
+      "name": "Satish KemkarDesign HeadShapoorji Pallonji Mideast L.L.CExit 10 project, Riyadh, K.S.Asatish.kemkar@shapoorji.com",
+      "email": "K.S.Asatish.kemkar@shapoorji.com",
+      "phone": null,
+      "company_name": "SEVEN",
+      "title": null
+    },
+    {
+      "name": "Rafsan Hammie M. PalaoTendering Department SAUDICONT: +966 11 4765555 Ext. 183",
+      "email": null,
+      "phone": "+966114765555",
+      "company_name": "MISK Foundation",
+      "title": null
+    },
+    {
+      "name": "Saudi Tadawul GroupCustomer Service Contact: (+966) 9200 13130 E-mail: info@tadawulgroup.",
+      "email": null,
+      "phone": "920013130",
+      "company_name": "Samsung",
+      "title": null
+    },
+    {
+      "name": "Laysen Valley | Purchasng Dept0505309999 � info@laysenvalley.sa",
+      "email": "info@laysenvalley.sa",
+      "phone": "0505309999",
+      "company_name": "Laysen Valley",
+      "title": null
+    },
+    {
+      "name": "Eng. Alaa Altahir, CIPS L4Senior Procurement LeadTel: +966 112059922 Ext: 2218aaltahir@osoolre.com",
+      "email": "2218aaltahir@osoolre.com",
+      "phone": "+966112059922",
+      "company_name": "OSOOL",
+      "title": null
+    },
+    {
+      "name": "Al Saedan Real Estate CompanyProcurement and Purchasing9200 04365Info@alsaedan.com",
+      "email": "04365Info@alsaedan.com",
+      "phone": "920004365",
+      "company_name": "Al Saedan",
+      "title": null
+    },
+    {
+      "name": "Radisson Collection | Procurementinfo.mansard@radissoncollection.com.t +966 11 829 0900.",
+      "email": "Procurementinfo.mansard@radissoncollection.com",
+      "phone": "+966118290900",
+      "company_name": "Radisson Collection",
+      "title": null
+    },
+    {
+      "name": "Dur Hospitality | Procurement(+966) 11 481 6666 info@dur.sa.",
+      "email": "info@dur.sa",
+      "phone": "114816666",
+      "company_name": "HOLIDAY INN",
+      "title": null
+    },
+    {
+      "name": "NEDAL ABDULRAHMAN ALIEstimation Unit HeadCivil EngineerE: nedal@alsaad.com.saT: +966 12 6830306",
+      "email": "nedal@alsaad.com.saT",
+      "phone": "+966126830306",
+      "company_name": "IHG",
+      "title": null
+    },
+    {
+      "name": "Procurement Dept Contact: +966 53 634 8208.Email : info@hashem-sa.com",
+      "email": "info@hashem-sa.com",
+      "phone": "+966536348208",
+      "company_name": "Shaza",
+      "title": null
+    },
+    {
+      "name": "Al Laatifia - Procurement Dept.+966 11 455 7417 (fax) or email latifia.build@latifia.com.",
+      "email": "latifia.build@latifia.com",
+      "phone": "+966114557417",
+      "company_name": "Antara",
+      "title": null
+    },
+    {
+      "name": "AskProcurement@ ihg.com",
+      "email": null,
+      "phone": null,
+      "company_name": "VOCO Hotel",
+      "title": null
+    },
+    {
+      "name": "Dowel Sanchez, Procurement CENOMI K.S.A. � +966 114350000.",
+      "email": null,
+      "phone": "+966114350000",
+      "company_name": "Arabian Centres",
+      "title": null
+    },
+    {
+      "name": "ANB Procurement Office+966-11-4029000info@anb.com.sa.",
+      "email": "Office+966-11-4029000info@anb.com.sa",
+      "phone": "+966114029000",
+      "company_name": "Arabian National Bank",
+      "title": null
+    },
+    {
+      "name": "Unified - Procurement Dept+966 11 207 5500.",
+      "email": null,
+      "phone": "+966112075500",
+      "company_name": "Diplomatic Quarters",
+      "title": null
+    },
+    {
+      "name": "Jaseem PonnethTendering MRTCjaseem@mrtc.com.sa",
+      "email": "MRTCjaseem@mrtc.com.sa",
+      "phone": null,
+      "company_name": "Madinah Gate Development",
+      "title": null
+    },
+    {
+      "name": "Mutrik AlqataniSAUDI BIGA -  Civil Engrmutrik.alqahtani@saudibiga.com",
+      "email": "Engrmutrik.alqahtani@saudibiga.com",
+      "phone": null,
+      "company_name": "King Abdullah University of Science and Technology",
+      "title": null
+    },
+    {
+      "name": "Radisson Collection | Procurementinfo.mansard@radissoncollection.com.t +966 11 829 0900.",
+      "email": "Procurementinfo.mansard@radissoncollection.com",
+      "phone": "+966118290900",
+      "company_name": "Mansard Hotel",
+      "title": null
+    },
+    {
+      "name": "Mohammad Sulaiman\tMaterial Manager\tm 966-502186135\tmuhammad.sulaiman@fsa.com.sa>",
+      "email": "muhammad.sulaiman@fsa.com.sa",
+      "phone": "966502186135",
+      "company_name": "KSPF",
+      "title": null
+    },
+    {
+      "name": "Via Riyadh - Purchasing Deptcontact@viariyadh.com",
+      "email": "Deptcontact@viariyadh.com",
+      "phone": null,
+      "company_name": "Via Riyadh",
+      "title": null
+    },
+    {
+      "name": "Holiday Inn - Purchasing DeptCall +966-11-4612000",
+      "email": null,
+      "phone": "+966114612000",
+      "company_name": "Holiday Inn",
+      "title": null
+    }
+  ],
+  "committed_at": "2026-07-12",
+  "committed_to": "lrfdtoexyeghrzynapyn",
+  "transaction_result": {
+    "companies_inserted": 48,
+    "projects_inserted": 34,
+    "ref_projects_inserted": 13,
+    "contacts_inserted": 28,
+    "companies_excluded_from_crm": 1,
+    "projects_value_null": 10,
+    "projects_placeholder_flagged": 7
+  }
+}
