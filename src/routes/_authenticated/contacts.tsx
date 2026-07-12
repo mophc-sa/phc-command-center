@@ -44,7 +44,7 @@ function ContactsPage() {
       (
         await supabase
           .from("contacts")
-          .select("*, companies(id, name)")
+          .select("*, companies(id, name, website)")
           .order("updated_at", { ascending: false })
       ).data ?? [],
   });
@@ -145,9 +145,12 @@ function ContactsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/60 text-start text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                <th className="px-5 py-3 text-start font-medium">{t("crm_new_contact")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("ibx_contact_name" as never)}</th>
                 <th className="px-5 py-3 text-start font-medium">{t("crm_company")}</th>
                 <th className="px-5 py-3 text-start font-medium">{t("crm_title")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("crm_phone")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("crm_email")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("crm_website")}</th>
                 <th className="px-5 py-3 text-start font-medium">{t("crm_authority")}</th>
                 <th className="px-5 py-3 text-start font-medium">{t("crm_location")}</th>
                 <th className="px-5 py-3 text-end font-medium">{t("crm_confidence")}</th>
@@ -162,10 +165,22 @@ function ContactsPage() {
                       <span className="font-medium">{c.name}</span>
                       <ArchivedBadge archived={!!c.archived_at} />
                     </div>
-                    {c.email ? <div className="text-[11px] text-muted-foreground">{c.email}</div> : null}
                   </td>
                   <td className="px-5 py-3 text-muted-foreground">{c.companies?.name ?? "—"}</td>
                   <td className="px-5 py-3 text-muted-foreground">{c.title ?? "—"}</td>
+                  <td className="px-5 py-3 text-muted-foreground">{c.phone ?? "—"}</td>
+                  <td className="px-5 py-3 text-muted-foreground">
+                    {c.email
+                      ? <a href={`mailto:${c.email}`} className="hover:text-foreground transition-colors">{c.email}</a>
+                      : "—"}
+                  </td>
+                  <td className="px-5 py-3 text-muted-foreground">
+                    {c.companies?.website
+                      ? <a href={c.companies.website} target="_blank" rel="noreferrer" className="hover:text-foreground transition-colors truncate max-w-[160px] block">
+                          {c.companies.website.replace(/^https?:\/\//, "")}
+                        </a>
+                      : "—"}
+                  </td>
                   <td className="px-5 py-3">
                     <StatusPill tone={authorityTone(c.authority)}>{authorityLabel(c.authority)}</StatusPill>
                   </td>
