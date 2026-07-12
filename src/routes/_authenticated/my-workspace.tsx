@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, ListChecks, BellRing, ShieldCheck, Sparkles, FileText, Award, Clock } from "lucide-react";
+import { CalendarClock, ListChecks, BellRing, ShieldCheck, Sparkles, FileText, Award, CheckCheck, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { ChartFrame } from "@/components/phc/ChartFrame";
@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useSupabaseAuth";
 import { logActivity, type ActivityType } from "@/lib/activity-actions";
 import { ACTIVE_FLAG_STATUSES } from "@/lib/workflow-actions";
 import { acceptRecommendation, dismissRecommendation } from "@/lib/recommendation-actions";
+import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions";
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 
@@ -45,6 +46,8 @@ function WorkspacePage() {
   const uid = user?.id ?? "";
   const [logOpen, setLogOpen] = useState(false);
   const [tab, setTab] = useState("today");
+  const [completeFor, setCompleteFor] = useState<{ id: string; oppId: string } | null>(null);
+  const [rescheduleFor, setRescheduleFor] = useState<{ id: string; oppId: string; currentDate: string } | null>(null);
   const { recent } = useRecentRecords();
 
   const today = new Date().toISOString().slice(0, 10);
@@ -232,18 +235,53 @@ function WorkspacePage() {
 
           <TabsContent value="today" className="mt-0 grid gap-3 lg:grid-cols-2">
             <ChartFrame title={lang === "ar" ? "متابعات اليوم" : "Follow-ups today"} subtitle={`${formatNumber(overdueFU.length, lang)} ${lang === "ar" ? "متأخرة" : "overdue"} · ${formatNumber(todayFU.length, lang)} ${lang === "ar" ? "اليوم" : "today"}`} padded={false}>
-              <List
-                empty={t("ws_none")}
-                items={[...overdueFU, ...todayFU].slice(0, 8).map((f: any) => ({
-                  key: f.id,
-                  primary: oppName(f.opportunity_id),
-                  secondary: `${humanize(f.channel)} · ${t("label_tier")} ${f.cadence_tier ?? "—"}`,
-                  tone: f.status === "overdue" || (f.due_date && f.due_date < today) ? "attention" : "neutral",
-                  label: f.status === "overdue" || (f.due_date && f.due_date < today) ? (lang === "ar" ? "متأخر" : "Overdue") : (lang === "ar" ? "اليوم" : "Today"),
-                  right: f.due_date,
-                  href: f.opportunity_id ? { to: "/opportunities/$id" as const, params: { id: f.opportunity_id } } : undefined,
-                }))}
-              />
+              {[...overdueFU, ...todayFU].length === 0 ? (
+                <div className="px-5 py-8"><EmptyState message={t("ws_none")} /></div>
+              ) : (
+                <ul>
+                  {[...overdueFU, ...todayFU].slice(0, 8).map((f: any) => {
+                    const isOverdue = f.status === "overdue" || (f.due_date && f.due_date < today);
+                    return (
+                      <li key={f.id} className="border-t border-border/60 first:border-t-0">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-5 py-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <StatusPill tone={isOverdue ? "attention" : "neutral"}>
+                                {isOverdue ? (lang === "ar" ? "متأخر" : "Overdue") : (lang === "ar" ? "اليوم" : "Today")}
+                              </StatusPill>
+                              <span className="text-[11px] text-muted-foreground">{humanize(f.channel)}</span>
+                            </div>
+                            {f.opportunity_id ? (
+                              <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="mt-1 block truncate text-[13px] font-medium text-foreground hover:underline">
+                                {oppName(f.opportunity_id)}
+                              </Link>
+                            ) : (
+                              <div className="mt-1 truncate text-[13px] font-medium text-foreground">{oppName(f.opportunity_id)}</div>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <span className="num text-[11px] text-muted-foreground tabular-nums">{f.due_date ?? "—"}</span>
+                            <button
+                              onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })}
+                              title={lang === "ar" ? "إعادة الجدولة" : "Reschedule"}
+                              className="grid h-6 w-6 place-items-center rounded border border-border/70 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                            >
+                              <CalendarClock className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })}
+                              title={lang === "ar" ? "تمت" : "Mark complete"}
+                              className="grid h-6 w-6 place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light transition-colors hover:bg-amber/20"
+                            >
+                              <CheckCheck className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </ChartFrame>
             <ChartFrame title={lang === "ar" ? "مهام اليوم" : "Tasks today"} subtitle={`${formatNumber(overdueTasks.length, lang)} ${lang === "ar" ? "متأخرة" : "overdue"} · ${formatNumber(todayTasks.length, lang)} ${lang === "ar" ? "اليوم" : "today"}`} padded={false}>
               <List
@@ -431,6 +469,62 @@ function WorkspacePage() {
             });
             toast.success(t("crm_saved"));
             qc.invalidateQueries({ queryKey: ["workspace", uid] });
+          } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
+
+      <ActionDialog
+        open={!!completeFor}
+        onOpenChange={(v) => !v && setCompleteFor(null)}
+        title={t("dialog_complete_title")}
+        description={t("dialog_complete_desc")}
+        submitLabel={t("action_complete")}
+        fields={[{ key: "outcome", type: "textarea", label: t("field_outcome"), required: true }]}
+        onSubmit={async (v) => {
+          try {
+            await completeFollowUp({
+              followUpId: completeFor!.id,
+              opportunityId: completeFor!.oppId,
+              outcome: v.outcome,
+            });
+            toast.success(t("toast_complete_ok"));
+            qc.invalidateQueries({ queryKey: ["workspace", uid] });
+            qc.invalidateQueries({ queryKey: ["all-followups"] });
+          } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
+
+      <ActionDialog
+        open={!!rescheduleFor}
+        onOpenChange={(v) => !v && setRescheduleFor(null)}
+        title={lang === "ar" ? "إعادة جدولة المتابعة" : "Reschedule Follow-up"}
+        description={lang === "ar" ? "اختر تاريخاً جديداً للمتابعة." : "Pick a new due date for this follow-up."}
+        submitLabel={lang === "ar" ? "إعادة الجدولة" : "Reschedule"}
+        fields={[
+          {
+            key: "dueDate",
+            type: "date",
+            label: lang === "ar" ? "التاريخ الجديد" : "New date",
+            required: true,
+            defaultValue: rescheduleFor?.currentDate ?? "",
+          },
+          { key: "notes", type: "textarea", label: lang === "ar" ? "ملاحظات (اختياري)" : "Notes (optional)" },
+        ]}
+        onSubmit={async (v) => {
+          try {
+            await rescheduleFollowUp({
+              followUpId: rescheduleFor!.id,
+              opportunityId: rescheduleFor!.oppId,
+              dueDate: v.dueDate,
+              notes: v.notes || undefined,
+            });
+            toast.success(lang === "ar" ? "تمت إعادة الجدولة." : "Follow-up rescheduled.");
+            qc.invalidateQueries({ queryKey: ["workspace", uid] });
+            qc.invalidateQueries({ queryKey: ["all-followups"] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
           }
