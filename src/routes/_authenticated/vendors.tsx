@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { DataField } from "@/components/phc/DataField";
 import { ActionDialog } from "@/components/phc/ActionDialog";
@@ -119,7 +120,7 @@ function VendorsPage() {
       </div>
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonTable rows={6} />
       ) : filtered.length === 0 ? (
         <EmptyState message={t("vendor_no_vendors")} hint={term || scope !== "all" ? "Try clearing filters" : undefined} />
       ) : (

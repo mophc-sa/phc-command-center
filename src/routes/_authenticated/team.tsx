@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -117,7 +118,7 @@ function TeamPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-sm text-muted-foreground">{t("loading")}</div>
+        <SkeletonTable rows={6} />
       ) : isError ? (
         <div className="rounded-lg border border-border bg-surface p-6 text-sm">
           <div className="text-foreground">{t("error_generic")}</div>

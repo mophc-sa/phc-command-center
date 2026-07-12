@@ -6,6 +6,7 @@ import { Sparkles, Users, Copy, FileBarChart } from "lucide-react";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonCard } from "@/components/phc/Skeleton";
 import { AiEvidencePanel } from "@/components/phc/AiEvidencePanel";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline } from "@/lib/roles";
@@ -89,7 +90,7 @@ function AiAgentsPage() {
 
       <Panel title="Recommendations">
         {isLoading ? (
-          <EmptyState message="Loading…" />
+          <SkeletonCard count={3} />
         ) : recs.length === 0 ? (
           <EmptyState message="No pending recommendations. Run an agent to generate evidence-backed suggestions." />
         ) : (
