@@ -2548,6 +2548,7 @@ export type Database = {
           full_name: string | null
           id: string
           language: string
+          status: Database["public"]["Enums"]["user_status"]
           updated_at: string
         }
         Insert: {
@@ -2557,6 +2558,7 @@ export type Database = {
           full_name?: string | null
           id: string
           language?: string
+          status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
         }
         Update: {
@@ -2566,6 +2568,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           language?: string
+          status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
         }
         Relationships: []
@@ -4008,6 +4011,7 @@ export type Database = {
         | "awarded_to_contractor"
         | "converted_to_jih"
         | "tender_lost_or_archived"
+      user_status: "pending_approval" | "active" | "suspended"
       verification_status: "pending_verification" | "verified" | "rejected"
       win_confidence: "low" | "possible" | "strong" | "sure_win"
     }
@@ -4395,6 +4399,7 @@ export const Constants = {
         "converted_to_jih",
         "tender_lost_or_archived",
       ],
+      user_status: ["pending_approval", "active", "suspended"],
       verification_status: ["pending_verification", "verified", "rejected"],
       win_confidence: ["low", "possible", "strong", "sure_win"],
     },

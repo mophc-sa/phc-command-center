@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Clock } from "lucide-react";
 const phcLogo = { url: "/phc-logo.png" };
 
 
@@ -27,7 +27,7 @@ function AuthPage() {
   const { user, loading } = useAuth();
   const nav = useNavigate();
   const { next } = Route.useSearch();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "pending">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -62,7 +62,8 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        toast.success(lang === "ar" ? "تم إنشاء الحساب" : "Account created");
+        // Show pending-approval holding state — do NOT redirect into the app.
+        setMode("pending");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t("error_generic");
@@ -71,6 +72,33 @@ function AuthPage() {
       setBusy(false);
     }
   };
+
+  // Post-signup holding screen — account created, awaiting admin approval.
+  if (mode === "pending") {
+    return (
+      <div dir={dir} className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background p-6 text-foreground">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-amber/30 bg-amber/10">
+          <Clock className="h-6 w-6 text-amber-light" />
+        </div>
+        <div className="max-w-sm space-y-2 text-center">
+          <h1 className="text-xl font-semibold tracking-tight">
+            {lang === "ar" ? "طلبك قيد المراجعة" : "Account pending approval"}
+          </h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {lang === "ar"
+              ? "تم إنشاء حسابك بنجاح. سيقوم المسؤول بتفعيله قريبًا — ستتمكن من تسجيل الدخول بعد الموافقة."
+              : "Your account has been created. An administrator will activate it shortly — you'll be able to sign in once approved."}
+          </p>
+        </div>
+        <button
+          onClick={() => setMode("signin")}
+          className="rounded-md border border-border bg-surface px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          {lang === "ar" ? "العودة لتسجيل الدخول" : "Back to sign in"}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div dir={dir} className="grid min-h-dvh bg-background text-foreground md:grid-cols-[1.1fr_1fr]">
