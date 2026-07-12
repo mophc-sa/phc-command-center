@@ -434,7 +434,7 @@ function CommandCenter() {
                 due={a.due ?? undefined}
                 value={a.value}
                 actionLabel={t("action_review")}
-                onAction={() => a.oppId && nav({ to: "/opportunities" })}
+                onAction={() => a.oppId && nav({ to: "/opportunities/$id", params: { id: a.oppId } })}
               />
             ))
           )}

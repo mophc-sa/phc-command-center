@@ -241,7 +241,7 @@ function LeadTenderInbox() {
                   <button onClick={() => openMarkDuplicate(x)} className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground">
                     {t("ibx_mark_duplicate")}
                   </button>
-                  <button onClick={() => setArchiveFor(x)} className="rounded border border-border p-1 text-muted-foreground hover:text-foreground" title={t("ibx_archive")}>
+                  <button onClick={() => setArchiveFor(x)} className="rounded border border-border p-1 text-muted-foreground hover:text-foreground" aria-label={t("ibx_archive")} title={t("ibx_archive")}>
                     <ArchiveIcon className="h-3 w-3" />
                   </button>
                 </div>

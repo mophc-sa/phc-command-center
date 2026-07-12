@@ -69,6 +69,7 @@ export function ActionDialog({
 }) {
   const { t, dir } = useI18n();
   const [values, setValues] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -77,13 +78,30 @@ export function ActionDialog({
       const seed: Record<string, string> = {};
       for (const f of fields) seed[f.key] = "defaultValue" in f ? (f.defaultValue ?? "") : "";
       setValues(seed);
+      setErrors({});
     }
   }, [open, fields]);
 
+  function clearFieldError(key: string) {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
   async function handleSubmit() {
+    // Collect all validation errors before bailing so every required field is marked at once.
+    const newErrors: Record<string, string> = {};
     for (const f of fields) {
-      if (f.required && !values[f.key]) return;
+      if (f.required && !values[f.key]) newErrors[f.key] = t("dialog_field_required");
     }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
     setBusy(true);
     try {
       await onSubmit(values);
@@ -105,14 +123,20 @@ export function ActionDialog({
             <div key={f.key} className="grid gap-1.5">
               <Label htmlFor={f.key} className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                 {f.label}
-                {f.required ? " *" : ""}
+                {f.required ? <span aria-hidden="true"> *</span> : ""}
               </Label>
               {f.type === "textarea" ? (
                 <Textarea
                   id={f.key}
                   value={values[f.key] ?? ""}
                   placeholder={"placeholder" in f ? f.placeholder : undefined}
-                  onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                  aria-required={f.required ?? undefined}
+                  aria-invalid={errors[f.key] ? true : undefined}
+                  aria-describedby={errors[f.key] ? `${f.key}-err` : undefined}
+                  onChange={(e) => {
+                    setValues((v) => ({ ...v, [f.key]: e.target.value }));
+                    clearFieldError(f.key);
+                  }}
                   rows={4}
                 />
               ) : f.type === "file" ? (
@@ -121,10 +145,14 @@ export function ActionDialog({
                     id={f.key}
                     type="file"
                     disabled={uploading}
+                    aria-required={f.required ?? undefined}
+                    aria-invalid={errors[f.key] ? true : undefined}
+                    aria-describedby={errors[f.key] ? `${f.key}-err` : undefined}
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
                       setUploading(true);
+                      clearFieldError(f.key);
                       try {
                         const { url } = await uploadAttachment(f.folder, file);
                         setValues((v) => ({ ...v, [f.key]: url ?? "" }));
@@ -135,14 +163,22 @@ export function ActionDialog({
                       }
                     }}
                   />
-                  {values[f.key] ? <span className="text-xs text-emerald-300">✓</span> : null}
+                  {values[f.key] ? <span className="text-xs text-emerald-300" aria-hidden="true">✓</span> : null}
                 </div>
               ) : f.type === "select" ? (
                 <Select
                   value={values[f.key] ? values[f.key] : "__none__"}
-                  onValueChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v === "__none__" ? "" : v }))}
+                  onValueChange={(v) => {
+                    setValues((prev) => ({ ...prev, [f.key]: v === "__none__" ? "" : v }));
+                    clearFieldError(f.key);
+                  }}
                 >
-                  <SelectTrigger id={f.key}>
+                  <SelectTrigger
+                    id={f.key}
+                    aria-required={f.required ?? undefined}
+                    aria-invalid={errors[f.key] ? true : undefined}
+                    aria-describedby={errors[f.key] ? `${f.key}-err` : undefined}
+                  >
                     <SelectValue placeholder="—" />
                   </SelectTrigger>
                   <SelectContent>
@@ -159,9 +195,20 @@ export function ActionDialog({
                   type={f.type === "date" ? "date" : "text"}
                   value={values[f.key] ?? ""}
                   placeholder={"placeholder" in f ? f.placeholder : undefined}
-                  onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                  aria-required={f.required ?? undefined}
+                  aria-invalid={errors[f.key] ? true : undefined}
+                  aria-describedby={errors[f.key] ? `${f.key}-err` : undefined}
+                  onChange={(e) => {
+                    setValues((v) => ({ ...v, [f.key]: e.target.value }));
+                    clearFieldError(f.key);
+                  }}
                 />
               )}
+              {errors[f.key] ? (
+                <p id={`${f.key}-err`} role="alert" className="text-xs text-destructive">
+                  {errors[f.key]}
+                </p>
+              ) : null}
             </div>
           ))}
         </div>

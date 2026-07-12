@@ -109,7 +109,7 @@ function ContactsPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("crm_search_contacts" as never) || "Search"}
-            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
+            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -139,8 +139,20 @@ function ContactsPage() {
 
       {isLoading ? (
         <SkeletonTable rows={8} />
+      ) : contacts.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title={t("empty_title_contacts")}
+          description={t("empty_desc_contacts")}
+          primaryAction={{ label: t("crm_new_contact"), onClick: () => setCreateOpen(true), icon: Plus }}
+        />
       ) : filtered.length === 0 ? (
-        <EmptyState message={t("crm_no_contacts")} />
+        <EmptyState
+          variant="no-results"
+          title={t("empty_title_no_results")}
+          description={t("empty_desc_no_results")}
+          secondaryAction={{ label: t("empty_clear_filters"), onClick: () => { setQuery(""); setAuthFilter("all"); setShowArchived(false); } }}
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
           <table className="w-full text-sm">
