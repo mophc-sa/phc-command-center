@@ -20,7 +20,10 @@ const __dirname = path.dirname(__filename);
 const AUTH_FILE = path.join(__dirname, ".auth.json");
 const APP_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:8080";
 
-test("capture session interactively", async ({ page, browser }) => {
+// Never runs in CI — this is a local-only interactive helper.
+test.skip(!!process.env.CI, "Local-only: requires a human to sign in interactively");
+
+test("capture session interactively", async ({ page }) => {
   console.log(`\n\n🔑  Opening ${APP_URL}/auth — please sign in with any account that has access to /follow-ups.\n`);
   await page.goto(`${APP_URL}/auth`);
 
