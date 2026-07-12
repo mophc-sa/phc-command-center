@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canViewSalesAdmin, ALL_ROLES, type AppRole } from "@/lib/roles";
 import { usePinnedRecords, type PinnedRecord } from "@/hooks/usePinnedRecords";
 import { useRecentRecords } from "@/hooks/useRecentRecords";
+import { useNotifications } from "@/hooks/useNotifications";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { NotificationCenter } from "@/components/phc/NotificationCenter";
 import { FontSizeControl } from "@/components/phc/FontSizeControl";
@@ -198,6 +199,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+
+  const { data: notifItems = [] } = useNotifications();
+  const notifCount = notifItems.length;
 
   const isOnAdminRoute = ADMIN_ROUTE_PREFIXES.some((prefix) => path.startsWith(prefix));
   const [adminOpen, setAdminOpen] = useState(() => canAdmin || isOnAdminRoute);
@@ -602,9 +606,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               <button
                 className="relative grid h-8 w-8 place-items-center rounded-md border border-border bg-surface text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => setNotifOpen(true)}
-                aria-label={t("notif_title")}
+                aria-label={`${t("notif_title")}${notifCount > 0 ? ` (${notifCount})` : ""}`}
               >
                 <Bell className="h-3.5 w-3.5" />
+                {notifCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute end-1 top-1 h-1.5 w-1.5 rounded-full bg-amber"
+                  />
+                )}
               </button>
             </div>
           </div>
