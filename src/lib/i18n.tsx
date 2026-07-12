@@ -748,6 +748,19 @@ export const strings = {
   admin_section_assign: { en: "Assign Roles", ar: "تعيين الأدوار" },
   admin_col_capability: { en: "Capability", ar: "الصلاحية" },
   admin_no_holders: { en: "No members assigned.", ar: "لا يوجد أعضاء معيّنون." },
+  admin_section_pending: { en: "Pending Registrations", ar: "طلبات التسجيل المعلّقة" },
+  admin_pending_empty: { en: "No pending registrations.", ar: "لا توجد طلبات تسجيل معلّقة." },
+  admin_pending_approve: { en: "Approve", ar: "تفعيل" },
+  admin_pending_reject: { en: "Reject", ar: "رفض" },
+  admin_pending_role_label: { en: "Grant role", ar: "منح دور" },
+  admin_pending_registered: { en: "Registered", ar: "سجّل في" },
+  admin_user_suspend: { en: "Suspend", ar: "تعليق" },
+  admin_user_activate: { en: "Activate", ar: "تفعيل" },
+  admin_col_status: { en: "Status", ar: "الحالة" },
+  toast_user_approved: { en: "Account approved", ar: "تم تفعيل الحساب" },
+  toast_user_rejected: { en: "Account rejected", ar: "تم رفض الحساب" },
+  toast_user_suspended: { en: "Account suspended", ar: "تم تعليق الحساب" },
+  toast_user_activated: { en: "Account activated", ar: "تم تفعيل الحساب" },
 
   // Quotations
   empty_quotations: {
