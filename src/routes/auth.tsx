@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useSupabaseAuth";
 import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import phcLogo from "@/assets/phc-logo.png.asset.json";
+const phcLogo = { url: "/phc-logo.png" };
 
 
 export const Route = createFileRoute("/auth")({
