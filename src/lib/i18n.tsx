@@ -1054,6 +1054,27 @@ export const strings = {
   comm_status_logged: { en: "Logged", ar: "مسجَّل" },
   comm_status_sent: { en: "Sent", ar: "مُرسَل" },
   comm_history: { en: "Communication History", ar: "سجل التواصل" },
+
+  // Phase 0 UX — EmptyState 2.0 contextual titles and descriptions
+  empty_title_accounts: { en: "No accounts yet", ar: "لا توجد حسابات بعد" },
+  empty_desc_accounts: { en: "Add your first target account to start building your CRM.", ar: "أضف أول حساب مستهدف لبدء بناء قاعدة علاقاتك." },
+  empty_title_contacts: { en: "No contacts yet", ar: "لا توجد جهات اتصال بعد" },
+  empty_desc_contacts: { en: "Add decision makers and influencers to your contact network.", ar: "أضف صانعي القرار والمؤثرين إلى شبكة علاقاتك." },
+  empty_desc_opportunities: { en: "Opportunities appear here once they are added to the pipeline.", ar: "ستظهر الفرص هنا بعد إضافتها إلى خط الأنابيب." },
+  empty_title_tenders: { en: "No tenders yet", ar: "لا توجد مناقصات بعد" },
+  empty_desc_tenders: { en: "Track tenders, deadlines, and conversion readiness from here.", ar: "تتبع المناقصات والمواعيد وجاهزية التحويل من هنا." },
+  empty_title_action_center: { en: "Queue is clear", ar: "القائمة فارغة" },
+  empty_desc_action_center: { en: "No active actions — the team is up to date.", ar: "لا توجد إجراءات نشطة — الفريق محدَّث." },
+  empty_title_no_results: { en: "No results", ar: "لا نتائج" },
+  empty_desc_no_results: { en: "No records match the current filters.", ar: "لا توجد سجلات تطابق الفلاتر الحالية." },
+  empty_clear_filters: { en: "Clear filters", ar: "مسح الفلاتر" },
+
+  // Phase 0 UX — ActionDialog inline validation
+  dialog_field_required: { en: "This field is required", ar: "هذا الحقل مطلوب" },
+
+  // Phase 0 UX — urgency labels for color-only fixes
+  urgency_overdue: { en: "Overdue", ar: "متأخر" },
+  urgency_due_soon: { en: "Due soon", ar: "يستحق قريبًا" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;

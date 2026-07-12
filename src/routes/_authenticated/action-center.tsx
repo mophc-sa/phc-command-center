@@ -290,9 +290,15 @@ function ActionCenter() {
       {isLoading ? (
         <SkeletonTable rows={6} />
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-border/70 bg-surface/60 py-10">
-          <EmptyState message={tab === "active" ? t("ac_no_active") : t("wf_no_records")} />
-        </div>
+        tab === "active" ? (
+          <EmptyState
+            icon={CheckIcon}
+            title={t("empty_title_action_center")}
+            description={t("empty_desc_action_center")}
+          />
+        ) : (
+          <EmptyState message={t("wf_no_records")} compact />
+        )
       ) : (
         <ul className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
           {filtered.map((f) => {
@@ -321,8 +327,12 @@ function ActionCenter() {
                       ) : null}
                       <span className="text-[11px] text-muted-foreground">{t((RECORD_TYPE_KEY[f.linked_record_type] ?? "") as never) || humanize(f.linked_record_type)}</span>
                       {f.due_date ? (
-                        <span className={`num text-[11px] ${overdue ? "font-medium text-red-400" : "text-muted-foreground"}`} data-tabular="true">
-                          · {t("ac_due")}: {f.due_date}
+                        <span
+                          className={`inline-flex items-center gap-1 num text-[11px] ${overdue ? "font-medium text-red-400" : "text-muted-foreground"}`}
+                          data-tabular="true"
+                        >
+                          {overdue ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
+                          {overdue ? t("urgency_overdue") : t("ac_due")}: {f.due_date}
                         </span>
                       ) : null}
                     </div>
