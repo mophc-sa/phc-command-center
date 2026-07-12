@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, ListChecks, BellRing, ShieldCheck, Sparkles, FileText, Award, CheckCheck } from "lucide-react";
+import { CalendarClock, ListChecks, BellRing, ShieldCheck, Sparkles, FileText, Award, CheckCheck, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { ChartFrame } from "@/components/phc/ChartFrame";
@@ -19,9 +19,11 @@ import { logActivity, type ActivityType } from "@/lib/activity-actions";
 import { ACTIVE_FLAG_STATUSES } from "@/lib/workflow-actions";
 import { acceptRecommendation, dismissRecommendation } from "@/lib/recommendation-actions";
 import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions";
+import { useRecentRecords } from "@/hooks/useRecentRecords";
+import { RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 
 export const Route = createFileRoute("/_authenticated/my-workspace")({
-  head: () => ({ meta: [{ title: "My Workspace — PHC" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "My Day — PHC" }, { name: "robots", content: "noindex" }] }),
   component: WorkspacePage,
 });
 
@@ -46,6 +48,7 @@ function WorkspacePage() {
   const [tab, setTab] = useState("today");
   const [completeFor, setCompleteFor] = useState<{ id: string; oppId: string } | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<{ id: string; oppId: string; currentDate: string } | null>(null);
+  const { recent } = useRecentRecords();
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -141,8 +144,8 @@ function WorkspacePage() {
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
-        eyebrow={lang === "ar" ? "مساحة العمل" : "Daily Workspace"}
-        title={t("ws_title")}
+        eyebrow={lang === "ar" ? "مساحة العمل" : "Workspace"}
+        title={t("nav_my_day")}
         description={user?.email ?? undefined}
         actions={
           <button
@@ -320,6 +323,29 @@ function WorkspacePage() {
                 }))}
               />
             </ChartFrame>
+            {recent.length > 0 && (
+              <ChartFrame title={lang === "ar" ? "سجلات زرتها مؤخرًا" : "Recently Visited"} subtitle={String(recent.length)} padded={false}>
+                <ul>
+                  {recent.map((r) => {
+                    const Icon = RECORD_TYPE_ICONS[r.type as keyof typeof RECORD_TYPE_ICONS] ?? Clock;
+                    return (
+                      <li key={r.to} className="transition-colors hover:bg-surface-2/40">
+                        <Link to={r.to as any} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-border/60 px-5 py-3 first:border-t-0">
+                          <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <div className="min-w-0">
+                            <div className="truncate text-[13px] font-medium text-foreground">{r.label}</div>
+                            <div className="mt-0.5 text-[11px] text-muted-foreground">{r.type}</div>
+                          </div>
+                          <span className="text-[11px] text-muted-foreground">
+                            {new Date(r.visitedAt).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" })}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </ChartFrame>
+            )}
           </TabsContent>
 
           <TabsContent value="tasks" className="mt-0">
