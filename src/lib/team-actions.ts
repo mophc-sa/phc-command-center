@@ -3,11 +3,21 @@ import { type AppRole, ALL_ROLES } from "@/lib/roles";
 
 export { type AppRole, ALL_ROLES };
 
+export type UserStatus = "pending_approval" | "active" | "suspended";
+
 export type TeamMember = {
   id: string;
   email: string | null;
   full_name: string | null;
   roles: AppRole[];
+  status: UserStatus;
+};
+
+export type PendingUser = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  created_at: string;
 };
 
 async function currentUserId(): Promise<string | null> {
@@ -29,7 +39,11 @@ async function audit(action: string, entityId: string, after: unknown) {
 
 export async function listTeam(): Promise<TeamMember[]> {
   const [{ data: profiles, error: pErr }, { data: rolesRows, error: rErr }] = await Promise.all([
-    supabase.from("profiles").select("id, email, full_name").order("full_name", { ascending: true, nullsFirst: false }),
+    supabase
+      .from("profiles")
+      .select("id, email, full_name, status")
+      .eq("status", "active")
+      .order("full_name", { ascending: true, nullsFirst: false }),
     supabase.from("user_roles").select("user_id, role"),
   ]);
   if (pErr) throw pErr;
@@ -45,7 +59,61 @@ export async function listTeam(): Promise<TeamMember[]> {
     email: p.email,
     full_name: p.full_name,
     roles: byUser.get(p.id) ?? [],
+    status: (p.status ?? "active") as UserStatus,
   }));
+}
+
+export async function listPendingUsers(): Promise<PendingUser[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, email, full_name, created_at")
+    .eq("status", "pending_approval")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    email: p.email,
+    full_name: p.full_name,
+    created_at: p.created_at,
+  }));
+}
+
+export async function approveUser(userId: string, role: AppRole): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ status: "active" })
+    .eq("id", userId);
+  if (error) throw error;
+  // Grant the chosen role — reuse existing grantRole (includes audit)
+  await grantRole(userId, role);
+  await audit("user.approved", userId, { role });
+}
+
+export async function rejectUser(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ status: "suspended" })
+    .eq("id", userId);
+  if (error) throw error;
+  await audit("user.rejected", userId, { status: "suspended" });
+}
+
+export async function suspendUser(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ status: "suspended" })
+    .eq("id", userId);
+  if (error) throw error;
+  await audit("user.suspended", userId, { status: "suspended" });
+}
+
+export async function activateUser(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ status: "active" })
+    .eq("id", userId);
+  if (error) throw error;
+  await audit("user.activated", userId, { status: "active" });
 }
 
 export async function grantRole(userId: string, role: AppRole) {
