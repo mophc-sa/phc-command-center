@@ -36,9 +36,18 @@ async function signIn(page: Page, email: string, password: string) {
 }
 
 // -------------------------------------------------------
-// /auth page smoke — always runs in CI
+// /auth page smoke — requires deployed app (TEST_APP_URL)
+//
+// The preview build used in CI has a placeholder Supabase anon key;
+// the JS client throws on startup, so even the public /auth page
+// cannot render. Gate on TEST_APP_URL like font-loading.spec.ts.
 // -------------------------------------------------------
 test.describe("auth page smoke", () => {
+  test.skip(
+    !process.env.TEST_APP_URL,
+    "Requires deployed app with real Supabase key (set TEST_APP_URL).",
+  );
+
   test("/auth renders sign-in form", async ({ page }) => {
     await page.goto("/auth");
     await expect(page.getByLabel(/email/i).first()).toBeVisible();
