@@ -1,7 +1,7 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canViewSalesAdmin } from "@/lib/roles";
+import { canViewSalesAdmin, ALL_ROLES, type AppRole } from "@/lib/roles";
 import { FontSizeControl } from "@/components/phc/FontSizeControl";
 import {
   LayoutDashboard,
@@ -27,7 +27,8 @@ import {
   Briefcase,
   Truck,
   Library,
-  Sparkles,
+  Bot,
+  BookOpen,
   ClipboardCheck,
   Gavel,
   GitMerge,
@@ -89,8 +90,8 @@ const groups: NavGroup[] = [
       { to: "/approvals", key: "nav_approvals", icon: ShieldCheck },
       { to: "/vendors", key: "nav_vendors", icon: Truck },
       { to: "/reference-library", key: "nav_reference_library", icon: Library },
-      { to: "/knowledge", key: "nav_knowledge", icon: Sparkles },
-      { to: "/ai-agents", key: "nav_ai_agents", icon: Sparkles },
+      { to: "/knowledge", key: "nav_knowledge", icon: BookOpen },
+      { to: "/ai-agents", key: "nav_ai_agents", icon: Bot },
       { to: "/reports", key: "nav_reports", icon: LineChart },
       { to: "/agent-activity", key: "nav_agent_activity", icon: Activity },
     ],
@@ -115,10 +116,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const isActive = (to: string) =>
     to === "/" ? path === "/" : path === to || path.startsWith(to + "/");
-  const isCeo = roles.includes("ceo");
   // Admin-group items (data import, admin settings) are visible to platform
   // admins and commercial managers — not only the legacy CEO role.
   const canAdmin = canViewSalesAdmin(roles);
+  // Pick the highest-priority role the user holds for the sidebar identity label.
+  const topRole = ALL_ROLES.find((r) => (roles as AppRole[]).includes(r));
   const tSafe = (k: string, fallback: string) => {
     const v = t(k as never);
     return v === k ? fallback : v;
@@ -210,7 +212,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {user?.email ?? ""}
             </div>
             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
-              {isCeo ? "CEO" : t("nav_workspace")}
+              {topRole ? t(`role_${topRole}` as never) : "—"}
             </div>
           </div>
           <button
@@ -230,6 +232,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div dir={dir} className="min-h-screen bg-background text-foreground">
+      {/* Skip-to-main-content — hidden until focused (WCAG 2.4.1) */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-[100] focus:rounded-md focus:border focus:border-border focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:text-foreground focus:shadow-lg"
+      >
+        {lang === "ar" ? "تخطى إلى المحتوى الرئيسي" : "Skip to main content"}
+      </a>
       {/* Sidebar (desktop) */}
       <aside
         className={cn(
@@ -298,7 +307,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-10">{children}</main>
+        <main id="main-content" className="flex-1 px-4 py-6 md:px-8 md:py-10">{children}</main>
       </div>
     </div>
   );
