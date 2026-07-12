@@ -1075,6 +1075,45 @@ export const strings = {
   // Phase 0 UX — urgency labels for color-only fixes
   urgency_overdue: { en: "Overdue", ar: "متأخر" },
   urgency_due_soon: { en: "Due soon", ar: "يستحق قريبًا" },
+
+  // Workspace Foundation — navigation labels (new keys; old keys retained for compatibility)
+  nav_my_day: { en: "My Day", ar: "يومي" },
+  nav_notifications: { en: "Notifications", ar: "الإشعارات" },
+  nav_pipeline_overview: { en: "Pipeline Overview", ar: "نظرة خط المبيعات" },
+  nav_intake: { en: "Intake", ar: "الاستقبال" },
+  nav_awards: { en: "Awards", ar: "الترسيات" },
+  nav_conversion_queue: { en: "Conversion Queue", ar: "طابور التحويل" },
+
+  // Workspace Foundation — nav groups
+  navgroup_workspace: { en: "Workspace", ar: "مساحة العمل" },
+  navgroup_reports: { en: "Reports & Analysis", ar: "التقارير والتحليل" },
+  navgroup_resources: { en: "Resources", ar: "الموارد" },
+
+  // Command Palette
+  cmd_placeholder: { en: "Search records, pages…", ar: "ابحث في السجلات والصفحات…" },
+  cmd_no_results: { en: "No results found.", ar: "لا نتائج." },
+  cmd_pages: { en: "Pages", ar: "الصفحات" },
+  cmd_records: { en: "Records", ar: "السجلات" },
+  cmd_pinned: { en: "Pinned", ar: "المثبتة" },
+  cmd_recent: { en: "Recent", ar: "الأخيرة" },
+
+  // Notification Center
+  notif_title: { en: "Notifications", ar: "الإشعارات" },
+  notif_empty: { en: "You're all caught up", ar: "لا إشعارات جديدة" },
+  notif_empty_desc: { en: "Approvals, assignments, and alerts will appear here.", ar: "ستظهر هنا الاعتمادات والتكليفات والتنبيهات." },
+  notif_mark_all_read: { en: "Mark all read", ar: "وسم الكل كمقروء" },
+  notif_coming_soon: { en: "Live notifications coming soon", ar: "الإشعارات الفعلية قادمة قريباً" },
+
+  // Quick Actions menu
+  nav_quick_actions: { en: "Quick Actions", ar: "الإجراءات السريعة" },
+  qa_log_activity: { en: "Log Activity", ar: "تسجيل نشاط" },
+  qa_new_lead: { en: "New Lead", ar: "عميل محتمل جديد" },
+  qa_new_follow_up: { en: "New Follow-up", ar: "متابعة جديدة" },
+  qa_new_opportunity: { en: "New Opportunity", ar: "فرصة جديدة" },
+
+  // Pinned records
+  pin_add: { en: "Pin to sidebar", ar: "تثبيت في الشريط" },
+  pin_remove: { en: "Unpin", ar: "إلغاء التثبيت" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;
