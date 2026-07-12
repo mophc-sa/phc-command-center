@@ -10,6 +10,7 @@ import {
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -541,7 +542,7 @@ function StagedTab({ batchId }: { batchId: string }) {
   for (const r of active) {
     for (const g of stagedGroupsForRow(r.mapped_data ?? r.raw_data)) groups[g].push(r);
   }
-  if (isLoading) return <div className="text-sm text-muted-foreground">Loading staged data…</div>;
+  if (isLoading) return <SkeletonTable rows={4} />;
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[11px] text-amber-light">
@@ -569,7 +570,7 @@ function OriginalFileTab({ batchId }: { batchId: string }) {
     queryKey: ["import-files", batchId],
     queryFn: () => getImportFiles(batchId),
   });
-  if (isLoading) return <div className="text-sm text-muted-foreground">Loading…</div>;
+  if (isLoading) return <SkeletonTable rows={3} />;
   if (!files.length) return <div className="text-sm text-muted-foreground">No file uploaded for this batch.</div>;
   return (
     <div className="space-y-3">
@@ -641,7 +642,7 @@ function ActivityTab({ batchId }: { batchId: string }) {
     queryKey: ["import-activity", batchId],
     queryFn: () => getBatchActivity(batchId),
   });
-  if (isLoading) return <div className="text-sm text-muted-foreground">Loading activity…</div>;
+  if (isLoading) return <SkeletonTable rows={4} />;
   if (!rows.length) return <div className="text-sm text-muted-foreground">No activity recorded yet.</div>;
   return (
     <ul className="space-y-1.5 text-xs">
@@ -726,7 +727,7 @@ function HistoryTab({
       </div>
 
       {loading ? (
-        <EmptyState message="Loading…" />
+        <SkeletonTable rows={5} />
       ) : batches.length === 0 ? (
         <EmptyState message="No import batches match this filter." />
       ) : (

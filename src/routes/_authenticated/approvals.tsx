@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
@@ -115,7 +116,7 @@ function ApprovalsPage() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-xl border border-border/70 bg-surface/60 p-6 text-sm text-muted-foreground">{t("loading")}</div>
+        <SkeletonTable rows={5} />
       ) : isError ? (
         <div className="rounded-xl border border-border/70 bg-surface/60 p-6 text-sm">
           <div className="text-foreground">{t("approvals_error")}</div>

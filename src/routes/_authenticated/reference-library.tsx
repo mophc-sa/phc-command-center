@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { DataField } from "@/components/phc/DataField";
 import { ActionDialog } from "@/components/phc/ActionDialog";
@@ -104,7 +105,7 @@ function ReferenceLibraryPage() {
       </div>
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonTable rows={6} />
       ) : filtered.length === 0 ? (
         <EmptyState message={t("ref_no_projects")} hint={term || sector !== "all" || shareableOnly ? "Try clearing filters" : undefined} />
       ) : (

@@ -9,6 +9,7 @@ import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -61,7 +62,7 @@ function AccountDetail() {
     return p?.full_name || p?.email || uid;
   };
 
-  if (isLoading) return <EmptyState message={t("loading")} />;
+  if (isLoading) return <SkeletonForm />;
   if (!company) return <EmptyState message={t("crm_no_accounts")} />;
   const c: any = company;
   const typeLabel = (ct: string) => t(`company_type_${ct}` as never);
