@@ -38,7 +38,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import phcLogo from "@/assets/phc-logo.png.asset.json";
+const phcLogo = { url: "/phc-logo.png" };
 import { cn } from "@/lib/utils";
 import { StatusPill } from "./StatusPill";
 
