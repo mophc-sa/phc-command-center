@@ -4,6 +4,13 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ShieldAlert, PlayCircle, Sparkles, PlayIcon, CheckIcon, XIcon, ArrowUpCircle, PauseCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -264,16 +271,20 @@ function ActionCenter() {
             </button>
           ))}
         </div>
-        <select
+        <Select
           value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as "all" | QueueActionType)}
-          className="h-8 rounded-md border border-border/70 bg-surface/60 px-2 text-[11px] text-foreground"
+          onValueChange={(v) => setTypeFilter(v as "all" | QueueActionType)}
         >
-          <option value="all">{t("crm_filter_all_types")}</option>
-          {QUEUE_ACTION_TYPES.map((qt) => (
-            <option key={qt} value={qt}>{t(TYPE_KEY[qt] as never)}</option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 w-auto min-w-[10rem] border-border/70 bg-surface/60 text-[11px] text-foreground">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("crm_filter_all_types")}</SelectItem>
+            {QUEUE_ACTION_TYPES.map((qt) => (
+              <SelectItem key={qt} value={qt}>{t(TYPE_KEY[qt] as never)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
@@ -344,6 +355,7 @@ function ActionCenter() {
                         {f.status === "open" ? (
                           <button
                             onClick={() => handleStart(f)}
+                            aria-label={t("ac_start")}
                             title={t("ac_start")}
                             className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                           >
@@ -352,6 +364,7 @@ function ActionCenter() {
                         ) : null}
                         <button
                           onClick={() => setDialog({ kind: "complete", flag: f })}
+                          aria-label={t("ac_complete")}
                           title={t("ac_complete")}
                           className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 transition-colors hover:bg-emerald-500/20"
                         >
@@ -360,6 +373,7 @@ function ActionCenter() {
                         {f.status !== "escalated" ? (
                           <button
                             onClick={() => setDialog({ kind: "escalate", flag: f })}
+                            aria-label={t("ac_escalate")}
                             title={t("ac_escalate")}
                             className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                           >
@@ -369,6 +383,7 @@ function ActionCenter() {
                         {f.status !== "blocked" ? (
                           <button
                             onClick={() => setDialog({ kind: "block", flag: f })}
+                            aria-label={t("ac_block")}
                             title={t("ac_block")}
                             className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                           >
@@ -377,6 +392,7 @@ function ActionCenter() {
                         ) : null}
                         <button
                           onClick={() => setDialog({ kind: "dismiss", flag: f })}
+                          aria-label={t("ac_dismiss")}
                           title={t("ac_dismiss")}
                           className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                         >
