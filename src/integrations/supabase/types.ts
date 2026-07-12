@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activities: {
@@ -26,8 +51,13 @@ export type Database = {
           occurred_at: string
           owner_id: string | null
           related_opportunity_id: string | null
+          related_rfq_id: string | null
+          related_tender_id: string | null
+          sent_at: string | null
+          sent_by: string | null
           status: Database["public"]["Enums"]["activity_status"]
           summary: string | null
+          template_id: string | null
         }
         Insert: {
           activity_type: Database["public"]["Enums"]["activity_type"]
@@ -40,8 +70,13 @@ export type Database = {
           occurred_at?: string
           owner_id?: string | null
           related_opportunity_id?: string | null
+          related_rfq_id?: string | null
+          related_tender_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
           status?: Database["public"]["Enums"]["activity_status"]
           summary?: string | null
+          template_id?: string | null
         }
         Update: {
           activity_type?: Database["public"]["Enums"]["activity_type"]
@@ -54,8 +89,13 @@ export type Database = {
           occurred_at?: string
           owner_id?: string | null
           related_opportunity_id?: string | null
+          related_rfq_id?: string | null
+          related_tender_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
           status?: Database["public"]["Enums"]["activity_status"]
           summary?: string | null
+          template_id?: string | null
         }
         Relationships: [
           {
@@ -77,6 +117,27 @@ export type Database = {
             columns: ["related_opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_related_rfq_id_fkey"
+            columns: ["related_rfq_id"]
+            isOneToOne: false
+            referencedRelation: "rfqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_related_tender_id_fkey"
+            columns: ["related_tender_id"]
+            isOneToOne: false
+            referencedRelation: "tenders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "communication_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -161,6 +222,119 @@ export type Database = {
           },
         ]
       }
+      ai_agent_outputs: {
+        Row: {
+          agent_key: string
+          client_request_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          output_type: string
+          requested_by: string | null
+          review_decision: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          structured_output: Json
+          summary: string | null
+          trace_id: string
+          updated_at: string
+        }
+        Insert: {
+          agent_key: string
+          client_request_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          output_type: string
+          requested_by?: string | null
+          review_decision?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          structured_output: Json
+          summary?: string | null
+          trace_id: string
+          updated_at?: string
+        }
+        Update: {
+          agent_key?: string
+          client_request_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          output_type?: string
+          requested_by?: string | null
+          review_decision?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          structured_output?: Json
+          summary?: string | null
+          trace_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_agent_requests: {
+        Row: {
+          agent_key: string
+          client_request_id: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          error_code: string | null
+          id: string
+          output_id: string | null
+          request_fingerprint: string | null
+          requested_by: string | null
+          status: string
+          trace_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_key: string
+          client_request_id: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          error_code?: string | null
+          id?: string
+          output_id?: string | null
+          request_fingerprint?: string | null
+          requested_by?: string | null
+          status?: string
+          trace_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_key?: string
+          client_request_id?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          error_code?: string | null
+          id?: string
+          output_id?: string | null
+          request_fingerprint?: string | null
+          requested_by?: string | null
+          status?: string
+          trace_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_requests_output_id_fkey"
+            columns: ["output_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_outputs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_agent_runs: {
         Row: {
           agent_key: string
@@ -197,6 +371,72 @@ export type Database = {
           started_at?: string
           status?: string
           summary?: string | null
+        }
+        Relationships: []
+      }
+      ai_agent_trace_events: {
+        Row: {
+          agent_key: string
+          context_manifest: Json
+          created_at: string
+          duration_ms: number | null
+          entity_id: string | null
+          entity_type: string | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          input_character_count: number | null
+          input_token_count: number | null
+          metadata: Json
+          model: string | null
+          output_character_count: number | null
+          output_token_count: number | null
+          provider: string | null
+          requested_by: string | null
+          status: string
+          trace_id: string
+        }
+        Insert: {
+          agent_key: string
+          context_manifest?: Json
+          created_at?: string
+          duration_ms?: number | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          input_character_count?: number | null
+          input_token_count?: number | null
+          metadata?: Json
+          model?: string | null
+          output_character_count?: number | null
+          output_token_count?: number | null
+          provider?: string | null
+          requested_by?: string | null
+          status: string
+          trace_id: string
+        }
+        Update: {
+          agent_key?: string
+          context_manifest?: Json
+          created_at?: string
+          duration_ms?: number | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          input_character_count?: number | null
+          input_token_count?: number | null
+          metadata?: Json
+          model?: string | null
+          output_character_count?: number | null
+          output_token_count?: number | null
+          provider?: string | null
+          requested_by?: string | null
+          status?: string
+          trace_id?: string
         }
         Relationships: []
       }
@@ -553,29 +793,43 @@ export type Database = {
       boq_extractions: {
         Row: {
           created_at: string
-          created_by: string | null
           id: string
           notes: string | null
-          source_file: string | null
+          related_opportunity_id: string | null
+          source_file_url: string | null
+          source_type: string | null
           status: string
+          uploaded_by: string | null
         }
         Insert: {
           created_at?: string
-          created_by?: string | null
           id?: string
           notes?: string | null
-          source_file?: string | null
+          related_opportunity_id?: string | null
+          source_file_url?: string | null
+          source_type?: string | null
           status?: string
+          uploaded_by?: string | null
         }
         Update: {
           created_at?: string
-          created_by?: string | null
           id?: string
           notes?: string | null
-          source_file?: string | null
+          related_opportunity_id?: string | null
+          source_file_url?: string | null
+          source_type?: string | null
           status?: string
+          uploaded_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "boq_extractions_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       boq_items: {
         Row: {
@@ -707,10 +961,49 @@ export type Database = {
           },
         ]
       }
+      communication_templates: {
+        Row: {
+          body: string
+          channel: Database["public"]["Enums"]["activity_type"]
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          subject: string | null
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          channel: Database["public"]["Enums"]["activity_type"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          channel?: Database["public"]["Enums"]["activity_type"]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           account_owner_id: string | null
           account_status: Database["public"]["Enums"]["account_status"]
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           company_type: Database["public"]["Enums"]["company_type"]
           cr_number: string | null
           created_at: string
@@ -732,6 +1025,9 @@ export type Database = {
         Insert: {
           account_owner_id?: string | null
           account_status?: Database["public"]["Enums"]["account_status"]
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           company_type?: Database["public"]["Enums"]["company_type"]
           cr_number?: string | null
           created_at?: string
@@ -753,6 +1049,9 @@ export type Database = {
         Update: {
           account_owner_id?: string | null
           account_status?: Database["public"]["Enums"]["account_status"]
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           company_type?: Database["public"]["Enums"]["company_type"]
           cr_number?: string | null
           created_at?: string
@@ -775,6 +1074,9 @@ export type Database = {
       }
       contacts: {
         Row: {
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           authority: Database["public"]["Enums"]["contact_authority"]
           company_id: string | null
           confidence_score: number | null
@@ -795,6 +1097,9 @@ export type Database = {
           verification_status: Database["public"]["Enums"]["verification_status"]
         }
         Insert: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           authority?: Database["public"]["Enums"]["contact_authority"]
           company_id?: string | null
           confidence_score?: number | null
@@ -815,6 +1120,9 @@ export type Database = {
           verification_status?: Database["public"]["Enums"]["verification_status"]
         }
         Update: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           authority?: Database["public"]["Enums"]["contact_authority"]
           company_id?: string | null
           confidence_score?: number | null
@@ -1559,6 +1867,108 @@ export type Database = {
           },
         ]
       }
+      inbox_items: {
+        Row: {
+          archive_reason: string | null
+          assigned_owner_id: string | null
+          classification: Database["public"]["Enums"]["inbox_classification"]
+          client_owner: string | null
+          company_name: string | null
+          consultant: string | null
+          contact_name: string | null
+          converted_record_id: string | null
+          converted_record_type: string | null
+          created_at: string
+          created_by: string | null
+          deadline: string | null
+          duplicate_of_id: string | null
+          duplicate_of_type: string | null
+          email: string | null
+          estimated_value: number | null
+          evidence_url: string | null
+          follow_up_date: string | null
+          id: string
+          location: string | null
+          main_contractor: string | null
+          missing_data_reason: string | null
+          next_action: string | null
+          notes: string | null
+          phone: string | null
+          project_name: string | null
+          scope: string | null
+          source_name: string | null
+          source_type: Database["public"]["Enums"]["inbox_source_type"]
+          status: Database["public"]["Enums"]["inbox_status"]
+          updated_at: string
+        }
+        Insert: {
+          archive_reason?: string | null
+          assigned_owner_id?: string | null
+          classification?: Database["public"]["Enums"]["inbox_classification"]
+          client_owner?: string | null
+          company_name?: string | null
+          consultant?: string | null
+          contact_name?: string | null
+          converted_record_id?: string | null
+          converted_record_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          deadline?: string | null
+          duplicate_of_id?: string | null
+          duplicate_of_type?: string | null
+          email?: string | null
+          estimated_value?: number | null
+          evidence_url?: string | null
+          follow_up_date?: string | null
+          id?: string
+          location?: string | null
+          main_contractor?: string | null
+          missing_data_reason?: string | null
+          next_action?: string | null
+          notes?: string | null
+          phone?: string | null
+          project_name?: string | null
+          scope?: string | null
+          source_name?: string | null
+          source_type: Database["public"]["Enums"]["inbox_source_type"]
+          status?: Database["public"]["Enums"]["inbox_status"]
+          updated_at?: string
+        }
+        Update: {
+          archive_reason?: string | null
+          assigned_owner_id?: string | null
+          classification?: Database["public"]["Enums"]["inbox_classification"]
+          client_owner?: string | null
+          company_name?: string | null
+          consultant?: string | null
+          contact_name?: string | null
+          converted_record_id?: string | null
+          converted_record_type?: string | null
+          created_at?: string
+          created_by?: string | null
+          deadline?: string | null
+          duplicate_of_id?: string | null
+          duplicate_of_type?: string | null
+          email?: string | null
+          estimated_value?: number | null
+          evidence_url?: string | null
+          follow_up_date?: string | null
+          id?: string
+          location?: string | null
+          main_contractor?: string | null
+          missing_data_reason?: string | null
+          next_action?: string | null
+          notes?: string | null
+          phone?: string | null
+          project_name?: string | null
+          scope?: string | null
+          source_name?: string | null
+          source_type?: Database["public"]["Enums"]["inbox_source_type"]
+          status?: Database["public"]["Enums"]["inbox_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       knowledge_chunks: {
         Row: {
           content: string
@@ -1648,6 +2058,9 @@ export type Database = {
       }
       leads: {
         Row: {
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           converted_opportunity_id: string | null
           created_at: string
           created_by: string | null
@@ -1673,6 +2086,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           converted_opportunity_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1698,6 +2114,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           converted_opportunity_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1837,6 +2256,21 @@ export type Database = {
           project_stage: Database["public"]["Enums"]["project_stage"]
           quotation_value: number | null
           sales_stage: Database["public"]["Enums"]["sales_stage"] | null
+          score: number | null
+          score_confidence:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          score_manual_override: boolean
+          score_missing_data: string[] | null
+          score_override_reason: string | null
+          score_reasons: string[] | null
+          score_recommended_action: string | null
+          score_risk_flags: string[] | null
+          score_tier:
+            | Database["public"]["Enums"]["opportunity_score_tier"]
+            | null
+          scored_at: string | null
+          scored_by: string | null
           sector: string | null
           signage_package_confidence: Database["public"]["Enums"]["confidence_level"]
           signage_package_status: Database["public"]["Enums"]["signage_package_status"]
@@ -1901,6 +2335,21 @@ export type Database = {
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
           sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
+          score?: number | null
+          score_confidence?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          score_manual_override?: boolean
+          score_missing_data?: string[] | null
+          score_override_reason?: string | null
+          score_reasons?: string[] | null
+          score_recommended_action?: string | null
+          score_risk_flags?: string[] | null
+          score_tier?:
+            | Database["public"]["Enums"]["opportunity_score_tier"]
+            | null
+          scored_at?: string | null
+          scored_by?: string | null
           sector?: string | null
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
@@ -1965,6 +2414,21 @@ export type Database = {
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
           sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
+          score?: number | null
+          score_confidence?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          score_manual_override?: boolean
+          score_missing_data?: string[] | null
+          score_override_reason?: string | null
+          score_reasons?: string[] | null
+          score_recommended_action?: string | null
+          score_risk_flags?: string[] | null
+          score_tier?:
+            | Database["public"]["Enums"]["opportunity_score_tier"]
+            | null
+          scored_at?: string | null
+          scored_by?: string | null
           sector?: string | null
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
@@ -2008,6 +2472,9 @@ export type Database = {
         Row: {
           action_owner_id: string | null
           action_type: Database["public"]["Enums"]["action_type"] | null
+          ai_generated: boolean
+          completed_at: string | null
+          completed_by: string | null
           created_at: string
           created_by: string | null
           due_date: string | null
@@ -2016,7 +2483,11 @@ export type Database = {
           linked_record_id: string
           linked_record_type: string
           priority: Database["public"]["Enums"]["priority_tier"] | null
+          queue_action_type:
+            | Database["public"]["Enums"]["queue_action_type"]
+            | null
           reason: string | null
+          recommended_action: string | null
           risk_flag: Database["public"]["Enums"]["risk_flag"] | null
           status: Database["public"]["Enums"]["flag_status"]
           updated_at: string
@@ -2024,6 +2495,9 @@ export type Database = {
         Insert: {
           action_owner_id?: string | null
           action_type?: Database["public"]["Enums"]["action_type"] | null
+          ai_generated?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           created_by?: string | null
           due_date?: string | null
@@ -2032,7 +2506,11 @@ export type Database = {
           linked_record_id: string
           linked_record_type: string
           priority?: Database["public"]["Enums"]["priority_tier"] | null
+          queue_action_type?:
+            | Database["public"]["Enums"]["queue_action_type"]
+            | null
           reason?: string | null
+          recommended_action?: string | null
           risk_flag?: Database["public"]["Enums"]["risk_flag"] | null
           status?: Database["public"]["Enums"]["flag_status"]
           updated_at?: string
@@ -2040,6 +2518,9 @@ export type Database = {
         Update: {
           action_owner_id?: string | null
           action_type?: Database["public"]["Enums"]["action_type"] | null
+          ai_generated?: boolean
+          completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           created_by?: string | null
           due_date?: string | null
@@ -2048,7 +2529,11 @@ export type Database = {
           linked_record_id?: string
           linked_record_type?: string
           priority?: Database["public"]["Enums"]["priority_tier"] | null
+          queue_action_type?:
+            | Database["public"]["Enums"]["queue_action_type"]
+            | null
           reason?: string | null
+          recommended_action?: string | null
           risk_flag?: Database["public"]["Enums"]["risk_flag"] | null
           status?: Database["public"]["Enums"]["flag_status"]
           updated_at?: string
@@ -2182,60 +2667,78 @@ export type Database = {
       protenders_imports: {
         Row: {
           created_at: string
-          created_by: string | null
-          file_name: string | null
+          filename: string | null
+          format: string | null
           id: string
+          notes: string | null
           row_count: number
+          source: string
           status: string
+          uploaded_by: string | null
         }
         Insert: {
           created_at?: string
-          created_by?: string | null
-          file_name?: string | null
+          filename?: string | null
+          format?: string | null
           id?: string
+          notes?: string | null
           row_count?: number
+          source?: string
           status?: string
+          uploaded_by?: string | null
         }
         Update: {
           created_at?: string
-          created_by?: string | null
-          file_name?: string | null
+          filename?: string | null
+          format?: string | null
           id?: string
+          notes?: string | null
           row_count?: number
+          source?: string
           status?: string
+          uploaded_by?: string | null
         }
         Relationships: []
       }
       protenders_projects: {
         Row: {
           created_at: string
+          evidence_text: string | null
+          evidence_url: string | null
           id: string
           import_id: string | null
           main_contractor: string | null
+          package: string | null
           project_name: string | null
           raw: Json | null
+          source_date: string | null
           stage: string | null
-          value_est: number | null
         }
         Insert: {
           created_at?: string
+          evidence_text?: string | null
+          evidence_url?: string | null
           id?: string
           import_id?: string | null
           main_contractor?: string | null
+          package?: string | null
           project_name?: string | null
           raw?: Json | null
+          source_date?: string | null
           stage?: string | null
-          value_est?: number | null
         }
         Update: {
           created_at?: string
+          evidence_text?: string | null
+          evidence_url?: string | null
           id?: string
           import_id?: string | null
           main_contractor?: string | null
+          package?: string | null
           project_name?: string | null
           raw?: Json | null
+          source_date?: string | null
           stage?: string | null
-          value_est?: number | null
         }
         Relationships: [
           {
@@ -2478,6 +2981,9 @@ export type Database = {
       }
       rfqs: {
         Row: {
+          archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           below_300k_exception_approval_id: string | null
           company_id: string | null
           contact_id: string | null
@@ -2506,6 +3012,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           below_300k_exception_approval_id?: string | null
           company_id?: string | null
           contact_id?: string | null
@@ -2534,6 +3043,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           below_300k_exception_approval_id?: string | null
           company_id?: string | null
           contact_id?: string | null
@@ -2602,6 +3114,7 @@ export type Database = {
       sales_targets: {
         Row: {
           activity_target: number
+          conversion_target: number
           created_at: string
           created_by: string | null
           id: string
@@ -2617,6 +3130,7 @@ export type Database = {
         }
         Insert: {
           activity_target?: number
+          conversion_target?: number
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2632,6 +3146,7 @@ export type Database = {
         }
         Update: {
           activity_target?: number
+          conversion_target?: number
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2924,6 +3439,8 @@ export type Database = {
       tenders: {
         Row: {
           archive_reason: string | null
+          archived_at: string | null
+          archived_by: string | null
           award_evidence: string | null
           below_300k_exception_approval_id: string | null
           contact_plan_ready: boolean
@@ -2935,6 +3452,7 @@ export type Database = {
           estimated_signage_value: number | null
           expected_award_date: string | null
           id: string
+          is_watchlisted: boolean
           main_contractor_confirmed: boolean
           main_contractor_id: string | null
           next_follow_up_date: string | null
@@ -2956,6 +3474,8 @@ export type Database = {
         }
         Insert: {
           archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           award_evidence?: string | null
           below_300k_exception_approval_id?: string | null
           contact_plan_ready?: boolean
@@ -2967,6 +3487,7 @@ export type Database = {
           estimated_signage_value?: number | null
           expected_award_date?: string | null
           id?: string
+          is_watchlisted?: boolean
           main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
           next_follow_up_date?: string | null
@@ -2988,6 +3509,8 @@ export type Database = {
         }
         Update: {
           archive_reason?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           award_evidence?: string | null
           below_300k_exception_approval_id?: string | null
           contact_plan_ready?: boolean
@@ -2999,6 +3522,7 @@ export type Database = {
           estimated_signage_value?: number | null
           expected_award_date?: string | null
           id?: string
+          is_watchlisted?: boolean
           main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
           next_follow_up_date?: string | null
@@ -3191,6 +3715,33 @@ export type Database = {
       }
     }
     Functions: {
+      ai_output_entity_still_owned: {
+        Args: { _entity_id: string; _entity_type: string; _user_id: string }
+        Returns: boolean
+      }
+      claim_ai_agent_request: {
+        Args: {
+          _agent_key: string
+          _client_request_id: string
+          _entity_id: string
+          _entity_type: string
+          _input_fingerprint?: string
+          _requested_by: string
+          _stale_after_seconds?: number
+          _trace_id: string
+        }
+        Returns: {
+          claim_id: string
+          claimed: boolean
+          request_output_id: string
+          request_status: string
+          request_trace_id: string
+        }[]
+      }
+      execute_approved_record_delete: {
+        Args: { _actor_id: string; _approval_id: string }
+        Returns: Json
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
@@ -3208,6 +3759,7 @@ export type Database = {
       is_commercial_manager: { Args: { _user_id: string }; Returns: boolean }
       is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_sales_contributor: { Args: { _user_id: string }; Returns: boolean }
       match_knowledge: {
         Args: {
           filter_source_type?: string
@@ -3304,7 +3856,14 @@ export type Database = {
         | "insufficient_evidence"
         | "other"
       flag_kind: "action_required" | "risk"
-      flag_status: "open" | "resolved"
+      flag_status:
+        | "open"
+        | "resolved"
+        | "in_progress"
+        | "completed"
+        | "dismissed"
+        | "escalated"
+        | "blocked"
       flow_type: "direct_rfq" | "tender_converted" | "manual"
       follow_up_status:
         | "scheduled"
@@ -3313,6 +3872,33 @@ export type Database = {
         | "completed"
         | "cancelled"
       handover_status: "pending" | "ready" | "handed_over"
+      inbox_classification:
+        | "unclassified"
+        | "company"
+        | "contact"
+        | "project"
+        | "rfq"
+        | "tender"
+        | "opportunity_candidate"
+        | "signal_watchlist"
+        | "duplicate"
+        | "incomplete"
+      inbox_source_type:
+        | "manual_lead"
+        | "manual_tender"
+        | "manual_rfq"
+        | "old_data_candidate"
+        | "referral"
+        | "market_signal"
+        | "email_placeholder"
+        | "whatsapp_placeholder"
+      inbox_status:
+        | "new"
+        | "in_review"
+        | "converted"
+        | "sent_to_missing_data"
+        | "marked_duplicate"
+        | "archived"
       lead_stage:
         | "detected"
         | "duplicate_check"
@@ -3325,6 +3911,7 @@ export type Database = {
         | "human_review"
         | "converted"
         | "rejected"
+      opportunity_score_tier: "A" | "B" | "C" | "not_qualified"
       opportunity_stage:
         | "discovery"
         | "qualification"
@@ -3363,6 +3950,17 @@ export type Database = {
         | "near_handover"
         | "completed"
         | "unknown"
+      queue_action_type:
+        | "follow_up_due"
+        | "follow_up_overdue"
+        | "missing_data"
+        | "rfq_review_needed"
+        | "tender_review_needed"
+        | "approval_needed"
+        | "quotation_follow_up"
+        | "no_next_action"
+        | "inactive_tier_a_opportunity"
+        | "contract_evidence_missing"
       quotation_status:
         | "draft"
         | "under_internal_review"
@@ -3537,6 +4135,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       account_status: ["pending_review", "active", "dormant", "do_not_target"],
@@ -3627,7 +4228,15 @@ export const Constants = {
         "other",
       ],
       flag_kind: ["action_required", "risk"],
-      flag_status: ["open", "resolved"],
+      flag_status: [
+        "open",
+        "resolved",
+        "in_progress",
+        "completed",
+        "dismissed",
+        "escalated",
+        "blocked",
+      ],
       flow_type: ["direct_rfq", "tender_converted", "manual"],
       follow_up_status: [
         "scheduled",
@@ -3637,6 +4246,36 @@ export const Constants = {
         "cancelled",
       ],
       handover_status: ["pending", "ready", "handed_over"],
+      inbox_classification: [
+        "unclassified",
+        "company",
+        "contact",
+        "project",
+        "rfq",
+        "tender",
+        "opportunity_candidate",
+        "signal_watchlist",
+        "duplicate",
+        "incomplete",
+      ],
+      inbox_source_type: [
+        "manual_lead",
+        "manual_tender",
+        "manual_rfq",
+        "old_data_candidate",
+        "referral",
+        "market_signal",
+        "email_placeholder",
+        "whatsapp_placeholder",
+      ],
+      inbox_status: [
+        "new",
+        "in_review",
+        "converted",
+        "sent_to_missing_data",
+        "marked_duplicate",
+        "archived",
+      ],
       lead_stage: [
         "detected",
         "duplicate_check",
@@ -3650,6 +4289,7 @@ export const Constants = {
         "converted",
         "rejected",
       ],
+      opportunity_score_tier: ["A", "B", "C", "not_qualified"],
       opportunity_stage: [
         "discovery",
         "qualification",
@@ -3690,6 +4330,18 @@ export const Constants = {
         "near_handover",
         "completed",
         "unknown",
+      ],
+      queue_action_type: [
+        "follow_up_due",
+        "follow_up_overdue",
+        "missing_data",
+        "rfq_review_needed",
+        "tender_review_needed",
+        "approval_needed",
+        "quotation_follow_up",
+        "no_next_action",
+        "inactive_tier_a_opportunity",
+        "contract_evidence_missing",
       ],
       quotation_status: [
         "draft",
