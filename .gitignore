@@ -46,3 +46,4 @@ test-results/
 # Local data export inspection (sensitive — never commit)
 /exports-inspected/
 /exports*/
+tests/e2e/setup/.auth.json
