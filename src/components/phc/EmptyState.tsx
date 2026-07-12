@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 type Action = { label: string; onClick: () => void; icon?: LucideIcon };
 
@@ -42,7 +43,7 @@ export function EmptyState({
 
   return (
     <div
-      role="status"
+      role={variant === "error" ? "alert" : undefined}
       className={cn(
         "flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed text-center",
         compact ? "px-4 py-5" : "px-5 py-8",
@@ -68,25 +69,17 @@ export function EmptyState({
       {primaryAction || secondaryAction ? (
         <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
           {primaryAction ? (
-            <button
-              type="button"
-              onClick={primaryAction.onClick}
-              className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20"
-            >
+            <Button size="sm" onClick={primaryAction.onClick}>
               {PrimaryIcon ? (
                 <PrimaryIcon className="h-3.5 w-3.5" aria-hidden="true" />
               ) : null}
               {primaryAction.label}
-            </button>
+            </Button>
           ) : null}
           {secondaryAction ? (
-            <button
-              type="button"
-              onClick={secondaryAction.onClick}
-              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
+            <Button variant="ghost" size="sm" onClick={secondaryAction.onClick}>
               {secondaryAction.label}
-            </button>
+            </Button>
           ) : null}
         </div>
       ) : null}
