@@ -267,6 +267,7 @@ export const strings = {
   crm_confidence: { en: "Confidence", ar: "مستوى الثقة" },
   crm_phone: { en: "Phone", ar: "الجوال" },
   crm_email: { en: "Email", ar: "البريد" },
+  crm_website: { en: "Website", ar: "الموقع الإلكتروني" },
   crm_company: { en: "Company", ar: "الشركة" },
   crm_project_stage: { en: "Project Stage", ar: "مرحلة المشروع" },
   crm_completion: { en: "Completion", ar: "نسبة الإنجاز" },
