@@ -33,7 +33,8 @@ import {
   getBatchActivity, getReadinessChecklist, saveReadinessChecklist, deriveAutoChecklist,
   READINESS_ITEMS, stagedGroupsForRow,
   IMPORT_CAPABLE_ROLES, APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
-  COMPANY_TARGET_COLUMNS, TARGET_ENTITIES,
+  COMPANY_TARGET_COLUMNS, TARGET_ENTITIES, getTargetColumns, EXTRA_DATA_SENTINEL,
+  suggestImportMappings, type AiMappingSuggestion,
   type ImportBatch, type ImportMapping, type ImportRow, type ImportTargetEntity,
   type ReadinessChecklist, type StagedGroup,
 } from "@/lib/import-actions";
@@ -72,6 +73,8 @@ function DataImportCenter() {
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<HistoryFilter>("active");
   const [commitResult, setCommitResult] = useState<{ committed: number; failed: number; total: number } | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<AiMappingSuggestion[] | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   // Include archived/deleted only when the user wants to see them
   const includeArchived = filter === "all" || filter === "archived";
@@ -170,7 +173,18 @@ function DataImportCenter() {
       toast.success(`Uploaded ${file.name}`);
       await parseFile(activeBatchId, fileId);
       setTab("mapping");
-      toast.success("File parsed");
+      toast.success("File parsed — AI is suggesting column mappings…");
+      // Kick off AI mapping suggestions in the background (non-blocking)
+      setAiLoading(true);
+      suggestImportMappings(activeBatchId)
+        .then((suggestions) => {
+          setAiSuggestions(suggestions);
+          if (suggestions && suggestions.length > 0) {
+            toast.success("AI mapping suggestions ready — review below");
+          }
+        })
+        .catch(() => { /* AI unavailable — silent fallback to manual mapping */ })
+        .finally(() => setAiLoading(false));
     } catch (e: any) {
       toast.error(t("toast_error") + e.message);
     } finally {
@@ -448,6 +462,8 @@ function DataImportCenter() {
             onValidate={handleValidate}
             busy={busy}
             t={t}
+            aiSuggestions={aiSuggestions}
+            aiLoading={aiLoading}
           />
         </TabsContent>
 
@@ -1107,7 +1123,7 @@ function UploadTab({ batch, busy, onUpload, onCancel, files, t }: {
 // Mapping
 // =============================================================================
 
-function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
+function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t, aiSuggestions, aiLoading }: {
   batch: ImportBatch | null | undefined;
   files: any[];
   mappings: ImportMapping[];
@@ -1115,38 +1131,74 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
   onValidate: () => Promise<void>;
   busy: boolean;
   t: (k: any) => string;
+  aiSuggestions?: AiMappingSuggestion[] | null;
+  aiLoading?: boolean;
 }) {
   const columns: string[] = files[0]?.column_names ?? [];
+  const targetColumns = getTargetColumns(batch?.target_entity ?? "companies");
 
-  type Row = { source: string; target: string; isKey: boolean };
+  type Row = { source: string; target: string; isKey: boolean; aiSuggested?: boolean; aiConfidence?: number };
   const [draft, setDraft] = useState<Row[]>([]);
 
   const columnsKey = columns.join("|");
   const mappingsKey = mappings.map((m) => `${m.source_column}=${m.target_column}:${m.is_key}`).join("|");
+  const suggestionsKey = aiSuggestions?.map((s) => `${s.sourceColumn}=${s.suggestedTarget}`).join("|") ?? "";
+
   useEffect(() => {
     const byCol = new Map<string, { target: string; isKey: boolean }>();
     for (const m of mappings) byCol.set(m.source_column, { target: m.target_column, isKey: m.is_key });
-    setDraft(columns.map((c) => ({
-      source: c,
-      target: byCol.get(c)?.target ?? "",
-      isKey: byCol.get(c)?.isKey ?? false,
-    })));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnsKey, mappingsKey]);
+
+    // Build suggestion index (only if no saved mapping exists for this column)
+    const aiByCol = new Map<string, AiMappingSuggestion>();
+    for (const s of (aiSuggestions ?? [])) aiByCol.set(s.sourceColumn, s);
+
+    setDraft(columns.map((c) => {
+      const saved = byCol.get(c);
+      if (saved) return { source: c, target: saved.target, isKey: saved.isKey };
+      const ai = aiByCol.get(c);
+      if (ai) return {
+        source: c,
+        target: ai.suggestedTarget,
+        isKey: ai.isKey,
+        aiSuggested: true,
+        aiConfidence: ai.confidence,
+      };
+      return { source: c, target: "", isKey: false };
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnsKey, mappingsKey, suggestionsKey]);
 
   if (!batch || columns.length === 0) {
     return <EmptyState message={t("import_tab_upload")} />;
   }
 
   const updateRow = (idx: number, patch: Partial<Row>) =>
-    setDraft((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+    setDraft((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch, aiSuggested: false } : r)));
+
+  /** Accept all AI suggestions at once */
+  const acceptAllAi = () => {
+    if (!aiSuggestions) return;
+    const aiByCol = new Map(aiSuggestions.map((s) => [s.sourceColumn, s]));
+    setDraft((prev) => prev.map((r) => {
+      const ai = aiByCol.get(r.source);
+      if (!ai) return r;
+      return { ...r, target: ai.suggestedTarget, isKey: ai.isKey, aiSuggested: true, aiConfidence: ai.confidence };
+    }));
+  };
+
+  /** Set all currently-unmapped columns to extra_data */
+  const fillUnmappedAsExtra = () => {
+    setDraft((prev) => prev.map((r) =>
+      (!r.target || r.target === "") ? { ...r, target: EXTRA_DATA_SENTINEL } : r,
+    ));
+  };
 
   const buildPayload = () => {
     const seen = new Set<string>();
     return draft
       .filter((r) => {
         const source = r.source.trim();
-        if (!r.target || !source) return false;
+        if (!r.target || r.target === "__skip__" || !source) return false;
         if (seen.has(source)) return false;
         seen.add(source);
         return true;
@@ -1163,6 +1215,8 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
   const validDraftCount = buildPayload().length;
   const canValidate = validDraftCount > 0 || mappings.length > 0;
   const hasUnsavedDraft = validDraftCount > 0;
+  const aiSuggestedCount = draft.filter((r) => r.aiSuggested).length;
+  const unmappedCount = draft.filter((r) => !r.target || r.target === "").length;
 
   const handleSave = async () => {
     const mapped = buildPayload();
@@ -1190,7 +1244,42 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* AI banner */}
+      {aiLoading && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber/30 bg-amber/10 px-4 py-2.5 text-sm text-amber-foreground">
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          AI is analyzing your columns…
+        </div>
+      )}
+      {!aiLoading && aiSuggestions && aiSuggestions.length > 0 && (
+        <div className="rounded-lg border border-amber/30 bg-amber/10 px-4 py-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-amber-foreground">
+              AI suggested mappings for <strong>{aiSuggestions.length}</strong> column{aiSuggestions.length !== 1 ? "s" : ""}.
+              {aiSuggestedCount > 0 && <span className="ml-1 text-muted-foreground">({aiSuggestedCount} applied)</span>}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={acceptAllAi}
+                className="rounded-md bg-amber/20 px-3 py-1 text-xs font-medium text-amber-foreground hover:bg-amber/30"
+              >
+                Accept All AI Suggestions
+              </button>
+              {unmappedCount > 0 && (
+                <button
+                  onClick={fillUnmappedAsExtra}
+                  className="rounded-md border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                >
+                  Keep remaining {unmappedCount} as Additional Data
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mapping table */}
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
           <thead>
@@ -1202,9 +1291,20 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
           </thead>
           <tbody>
             {draft.map((row, idx) => (
-              <tr key={idx} className="border-b border-border last:border-0">
-                <td className="px-4 py-2 font-mono text-xs text-foreground">
-                  {row.source || <span className="text-muted-foreground">(column {idx + 1})</span>}
+              <tr key={idx} className={`border-b border-border last:border-0 ${row.aiSuggested ? "bg-amber/5" : ""}`}>
+                <td className="px-4 py-2">
+                  <span className="font-mono text-xs text-foreground">
+                    {row.source || <span className="text-muted-foreground">(column {idx + 1})</span>}
+                  </span>
+                  {row.aiSuggested && row.aiConfidence != null && (
+                    <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                      row.aiConfidence >= 0.8 ? "bg-emerald-500/15 text-emerald-400" :
+                      row.aiConfidence >= 0.5 ? "bg-amber/20 text-amber-foreground" :
+                      "bg-muted text-muted-foreground"
+                    }`}>
+                      AI {Math.round(row.aiConfidence * 100)}%
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-2">
                   <select
@@ -1213,7 +1313,7 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t }: {
                     className="w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
                   >
                     <option value="">— skip —</option>
-                    {COMPANY_TARGET_COLUMNS.map((tc) => (
+                    {targetColumns.map((tc) => (
                       <option key={tc.value} value={tc.value}>{tc.label}</option>
                     ))}
                   </select>
