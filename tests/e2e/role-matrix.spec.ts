@@ -16,11 +16,17 @@ for (const role of ALL_ROLES) {
 
     test.skip(!creds, `Skipping ${role}: TEST_${role.toUpperCase()}_EMAIL/PASSWORD not set`);
 
-    test("signs in and reaches expected default landing", async ({ page }) => {
+    const matrix = ROLE_MATRIX[role as RoleName];
+
+    test("signs in and lands on the correct page (Sprint 1D contract)", async ({ page }) => {
       if (!creds) return;
       await signIn(page, creds.email, creds.password);
-      await expect(page).toHaveURL(/(command-center|my-workspace|agent-activity|admin-settings)/);
 
+      // Exact landing path per Sprint 1D role landing contract.
+      const landingRe = new RegExp(matrix.landing.replace("/", "\\/"));
+      await expect(page).toHaveURL(landingRe, { timeout: 10_000 });
+
+      // No console/runtime errors on the landing page.
       const errors: string[] = [];
       page.on("pageerror", (err) => errors.push(err.message));
       page.on("console", (msg) => {
@@ -30,10 +36,8 @@ for (const role of ALL_ROLES) {
       expect(errors, `Console/runtime errors for ${role}: ${errors.join(" | ")}`).toEqual([]);
     });
 
-    const matrix = ROLE_MATRIX[role as RoleName];
-
     for (const route of matrix.allow) {
-      test(`allowed route ${route} loads (200)`, async ({ page }) => {
+      test(`allowed route ${route} loads (2xx)`, async ({ page }) => {
         if (!creds) return;
         await signIn(page, creds.email, creds.password);
         const resp = await page.goto(route);
@@ -42,11 +46,11 @@ for (const role of ALL_ROLES) {
     }
 
     for (const route of matrix.deny) {
-      test(`denied route ${route} shows access-denied or redirect`, async ({ page }) => {
+      test(`denied route ${route} redirects or shows access-denied`, async ({ page }) => {
         if (!creds) return;
         await signIn(page, creds.email, creds.password);
         await page.goto(route);
-        // Either redirected away, or an access-denied surface is rendered.
+        // Either redirected away from the target, or an access-denied surface is rendered.
         const url = page.url();
         const body = await page.locator("body").innerText();
         const denied =

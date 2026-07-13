@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarClock, CheckCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -9,7 +10,7 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatNumber } from "@/lib/i18n";
-import { completeFollowUp } from "@/lib/opportunity-actions";
+import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions";
 import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
 export const Route = createFileRoute("/_authenticated/follow-ups")({
@@ -28,6 +29,7 @@ function FollowUpsPage() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
   const [completeFor, setCompleteFor] = useState<{ id: string; oppId: string } | null>(null);
+  const [rescheduleFor, setRescheduleFor] = useState<{ id: string; oppId: string; currentDate: string } | null>(null);
   const [bucket, setBucket] = useState<Bucket | "all">("all");
 
   const today = new Date().toISOString().slice(0, 10);
@@ -122,8 +124,8 @@ function FollowUpsPage() {
                       <div className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">{f.notes}</div>
                     ) : null}
                   </div>
-                  <div className="flex items-center gap-3 pe-4">
-                    <div className="num text-right text-[11px] text-muted-foreground" data-tabular="true">
+                  <div className="flex items-center gap-2 pe-4">
+                    <div className="num text-right text-[11px] text-muted-foreground tabular-nums" data-tabular="true">
                       {dd ?? "—"}
                     </div>
                     <EmailComposeButton
@@ -148,10 +150,18 @@ function FollowUpsPage() {
                       }
                     />
                     <button
-                      onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })}
-                      className="rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-[11px] font-medium text-amber-light transition-colors hover:bg-amber/20"
+                      onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: dd ?? "" })}
+                      title={lang === "ar" ? "إعادة الجدولة" : "Reschedule"}
+                      className="grid h-7 w-7 place-items-center rounded-md border border-border/70 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                     >
-                      {t("action_complete")}
+                      <CalendarClock className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })}
+                      title={lang === "ar" ? "تمت" : "Mark complete"}
+                      className="grid h-7 w-7 place-items-center rounded-md border border-amber/40 bg-amber/10 text-amber-light transition-colors hover:bg-amber/20"
+                    >
+                      <CheckCheck className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
@@ -178,6 +188,41 @@ function FollowUpsPage() {
             toast.success(t("toast_complete_ok"));
             qc.invalidateQueries({ queryKey: ["all-followups"] });
             qc.invalidateQueries({ queryKey: ["cc-core"] });
+            qc.invalidateQueries({ queryKey: ["workspace"] });
+          } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
+
+      <ActionDialog
+        open={!!rescheduleFor}
+        onOpenChange={(v) => !v && setRescheduleFor(null)}
+        title={lang === "ar" ? "إعادة جدولة المتابعة" : "Reschedule Follow-up"}
+        description={lang === "ar" ? "اختر تاريخاً جديداً للمتابعة." : "Pick a new due date for this follow-up."}
+        submitLabel={lang === "ar" ? "إعادة الجدولة" : "Reschedule"}
+        fields={[
+          {
+            key: "dueDate",
+            type: "date",
+            label: lang === "ar" ? "التاريخ الجديد" : "New date",
+            required: true,
+            defaultValue: rescheduleFor?.currentDate ?? "",
+          },
+          { key: "notes", type: "textarea", label: lang === "ar" ? "ملاحظات (اختياري)" : "Notes (optional)" },
+        ]}
+        onSubmit={async (v) => {
+          try {
+            await rescheduleFollowUp({
+              followUpId: rescheduleFor!.id,
+              opportunityId: rescheduleFor!.oppId,
+              dueDate: v.dueDate,
+              notes: v.notes || undefined,
+            });
+            toast.success(lang === "ar" ? "تمت إعادة الجدولة." : "Follow-up rescheduled.");
+            qc.invalidateQueries({ queryKey: ["all-followups"] });
+            qc.invalidateQueries({ queryKey: ["cc-core"] });
+            qc.invalidateQueries({ queryKey: ["workspace"] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
           }

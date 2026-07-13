@@ -10,6 +10,7 @@ import {
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -23,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   createBatch, listBatches, getBatch, cancelBatch,
   uploadImportFile, parseFile, validateBatch, detectDuplicates,
-  approveBatch, dryRunCommit, downloadReport,
+  approveBatch, dryRunCommit, commitBatch, downloadReport,
   saveMappings, getMappings, getImportErrors, getDuplicateCandidates,
   resolveDuplicate, getImportFiles,
   getImportRows, updateImportRow, excludeImportRow, restoreImportRow, softDeleteImportRow,
@@ -70,6 +71,7 @@ function DataImportCenter() {
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<HistoryFilter>("active");
+  const [commitResult, setCommitResult] = useState<{ committed: number; failed: number; total: number } | null>(null);
 
   // Include archived/deleted only when the user wants to see them
   const includeArchived = filter === "all" || filter === "archived";
@@ -77,12 +79,14 @@ function DataImportCenter() {
 
   const { data: batches = [], isLoading: batchesLoading } = useQuery<ImportBatch[]>({
     queryKey: ["import-batches", { includeArchived, includeDeleted }],
+    staleTime: 10_000,
     queryFn: () => listBatches({ includeArchived, includeDeleted }),
     enabled: canAccess,
   });
 
   const { data: activeBatch } = useQuery({
     queryKey: ["import-batch", activeBatchId],
+    staleTime: 10_000,
     queryFn: () => (activeBatchId ? getBatch(activeBatchId) : null),
     enabled: canAccess && !!activeBatchId,
     refetchInterval: busy ? 3000 : false,
@@ -227,6 +231,22 @@ function DataImportCenter() {
       await dryRunCommit(activeBatchId);
       setTab("result");
       toast.success("Dry-run complete — no real CRM records were created");
+    } catch (e: any) {
+      toast.error(t("toast_error") + e.message);
+    } finally {
+      setBusy(false);
+      refresh();
+    }
+  };
+
+  const handleCommit = async () => {
+    if (!activeBatchId) return;
+    if (!window.confirm(t("import_commit_confirm" as any))) return;
+    try {
+      setBusy(true);
+      const result = await commitBatch(activeBatchId);
+      setCommitResult(result);
+      toast.success(`Committed ${result.committed} record(s) to CRM`);
     } catch (e: any) {
       toast.error(t("toast_error") + e.message);
     } finally {
@@ -500,6 +520,10 @@ function DataImportCenter() {
             onDownloadSummary={(fmt) => activeBatchId && downloadReport(activeBatchId, "import_summary", fmt)}
             onDownloadErrors={(fmt) => activeBatchId && downloadReport(activeBatchId, "validation_errors", fmt)}
             onDownloadDupes={(fmt) => activeBatchId && downloadReport(activeBatchId, "duplicate_candidates", fmt)}
+            canApprove={canApprove}
+            onCommit={handleCommit}
+            commitResult={commitResult}
+            busy={busy}
             t={t}
           />
         </TabsContent>
@@ -530,6 +554,7 @@ const STAGED_GROUP_LABELS: Record<StagedGroup, string> = {
 };
 
 function StagedTab({ batchId }: { batchId: string }) {
+  const { t } = useI18n();
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["import-rows-staged", batchId],
     queryFn: () => getImportRows(batchId, { limit: 1000 }),
@@ -541,11 +566,11 @@ function StagedTab({ batchId }: { batchId: string }) {
   for (const r of active) {
     for (const g of stagedGroupsForRow(r.mapped_data ?? r.raw_data)) groups[g].push(r);
   }
-  if (isLoading) return <div className="text-sm text-muted-foreground">Loading staged data…</div>;
+  if (isLoading) return <SkeletonTable rows={4} />;
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-[11px] text-amber-light">
-        Staging preview only — grouped by intended target area. No live CRM records are created in Phase 1.1.
+        {t("import_staging_only_warning" as any)}
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         {(Object.keys(groups) as StagedGroup[]).map((g) => (
@@ -569,7 +594,7 @@ function OriginalFileTab({ batchId }: { batchId: string }) {
     queryKey: ["import-files", batchId],
     queryFn: () => getImportFiles(batchId),
   });
-  if (isLoading) return <div className="text-sm text-muted-foreground">Loading…</div>;
+  if (isLoading) return <SkeletonTable rows={3} />;
   if (!files.length) return <div className="text-sm text-muted-foreground">No file uploaded for this batch.</div>;
   return (
     <div className="space-y-3">
@@ -641,7 +666,7 @@ function ActivityTab({ batchId }: { batchId: string }) {
     queryKey: ["import-activity", batchId],
     queryFn: () => getBatchActivity(batchId),
   });
-  if (isLoading) return <div className="text-sm text-muted-foreground">Loading activity…</div>;
+  if (isLoading) return <SkeletonTable rows={4} />;
   if (!rows.length) return <div className="text-sm text-muted-foreground">No activity recorded yet.</div>;
   return (
     <ul className="space-y-1.5 text-xs">
@@ -726,7 +751,7 @@ function HistoryTab({
       </div>
 
       {loading ? (
-        <EmptyState message="Loading…" />
+        <SkeletonTable rows={5} />
       ) : batches.length === 0 ? (
         <EmptyState message="No import batches match this filter." />
       ) : (
@@ -1608,11 +1633,15 @@ function ApprovalTab({ batch, canApprove, isSystemAdmin, onApprove, onDryRun, bu
 
 type ReportFmt = "csv" | "json";
 
-function ResultTab({ batch, onDownloadSummary, onDownloadErrors, onDownloadDupes, t }: {
+function ResultTab({ batch, onDownloadSummary, onDownloadErrors, onDownloadDupes, canApprove, onCommit, commitResult, busy, t }: {
   batch: ImportBatch | null | undefined;
   onDownloadSummary: (fmt: ReportFmt) => void;
   onDownloadErrors: (fmt: ReportFmt) => void;
   onDownloadDupes: (fmt: ReportFmt) => void;
+  canApprove: boolean;
+  onCommit: () => void;
+  commitResult: { committed: number; failed: number; total: number } | null;
+  busy: boolean;
   t: (k: any) => string;
 }) {
   if (!batch) return <EmptyState message={t("import_tab_approval")} />;
@@ -1651,25 +1680,43 @@ function ResultTab({ batch, onDownloadSummary, onDownloadErrors, onDownloadDupes
         <ReportRow label="Duplicate candidates" onDl={onDownloadDupes} />
       </div>
 
-      {/* Section I — controlled CRM commit scaffold. Deliberately disabled. */}
-      <div className="rounded-lg border border-amber/40 bg-amber/5 p-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-amber-light">
-          <Lock className="h-4 w-4" /> Commit to CRM
+      {/* Section I — CRM commit */}
+      {batch.status === "committed" || commitResult ? (
+        <div className="rounded-lg border border-positive/40 bg-positive/5 p-4">
+          <div className="text-sm font-medium text-positive">{t("import_commit_to_crm" as any)}</div>
+          <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+            <div className="rounded-md border border-border bg-surface px-3 py-2">
+              <div className="text-xs text-muted-foreground">{t("import_committed_records" as any)}</div>
+              <div className="mt-1 text-xl font-semibold text-positive">{commitResult?.committed ?? "—"}</div>
+            </div>
+            <div className="rounded-md border border-border bg-surface px-3 py-2">
+              <div className="text-xs text-muted-foreground">{t("import_commit_failed_rows" as any)}</div>
+              <div className="mt-1 text-xl font-semibold text-danger">{commitResult?.failed ?? "—"}</div>
+            </div>
+            <div className="rounded-md border border-border bg-surface px-3 py-2">
+              <div className="text-xs text-muted-foreground">Total</div>
+              <div className="mt-1 text-xl font-semibold text-foreground">{commitResult?.total ?? batch.total_rows ?? "—"}</div>
+            </div>
+          </div>
         </div>
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          Controlled CRM commit is not enabled yet. This batch stays in staging — no records are written to
-          companies, contacts, opportunities, tenders, RFQs, or projects. A future controlled commit will
-          require mapping, validation, resolved duplicates, a dry-run report, and explicit approval.
-        </p>
-        <button
-          type="button"
-          disabled
-          title="Controlled CRM commit is not enabled yet"
-          className="mt-3 inline-flex cursor-not-allowed items-center gap-1.5 rounded-md border border-border bg-muted/40 px-4 py-2 text-sm font-medium text-muted-foreground opacity-60"
-        >
-          <Lock className="h-3.5 w-3.5" /> Commit to CRM
-        </button>
-      </div>
+      ) : canApprove && batch.status === "dry_run" ? (
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            {t("import_commit_to_crm" as any)}
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {t("import_staging_only_warning" as any)}
+          </p>
+          <button
+            type="button"
+            onClick={onCommit}
+            disabled={busy}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {t("import_commit_to_crm" as any)}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

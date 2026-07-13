@@ -30,6 +30,7 @@ import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { PriorityItem } from "@/components/phc/PriorityItem";
 import { StatusPill } from "@/components/phc/StatusPill";
 import type { OpportunityRow } from "@/components/phc/OpportunityCard";
@@ -65,18 +66,19 @@ function CommandCenter() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["cc-core"],
+    staleTime: 60_000,
     queryFn: async () => {
       const since = new Date();
       since.setDate(since.getDate() - 29);
       const sinceIso = since.toISOString();
 
       const [opps, followUps, approvals, agentRuns, activities, rfqs] = await Promise.all([
-        supabase.from("opportunities").select("*").order("last_activity_at", { ascending: false, nullsFirst: false }),
-        supabase.from("follow_ups").select("*").neq("status", "completed").order("due_date", { ascending: true }),
+        supabase.from("opportunities").select("id, project_name, stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor").order("last_activity_at", { ascending: false, nullsFirst: false }).limit(200),
+        supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, owner_id").neq("status", "completed").order("due_date", { ascending: true }).limit(100),
         supabase.from("approvals").select("*").eq("status", "pending"),
         supabase.from("agent_runs").select("*").order("started_at", { ascending: false }).limit(6),
         supabase.from("activities").select("id, occurred_at").gte("occurred_at", sinceIso),
-        supabase.from("rfqs").select("id, status, estimated_value"),
+        supabase.from("rfqs").select("id, status, estimated_value").limit(200),
       ]);
       return {
         opportunities: (opps.data ?? []) as unknown as OpportunityRow[],
@@ -419,7 +421,7 @@ function CommandCenter() {
           bodyClassName="p-2"
         >
           {isLoading ? (
-            <EmptyState message={t("loading")} />
+            <SkeletonTable rows={3} />
           ) : attention.length === 0 ? (
             <div className="px-3 py-6"><EmptyState message={t("empty_needs_attention")} /></div>
           ) : (
@@ -433,7 +435,7 @@ function CommandCenter() {
                 due={a.due ?? undefined}
                 value={a.value}
                 actionLabel={t("action_review")}
-                onAction={() => a.oppId && nav({ to: "/opportunities" })}
+                onAction={() => a.oppId && nav({ to: "/opportunities/$id", params: { id: a.oppId } })}
               />
             ))
           )}

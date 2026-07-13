@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
@@ -44,7 +45,7 @@ function ContactsPage() {
       (
         await supabase
           .from("contacts")
-          .select("*, companies(id, name)")
+          .select("*, companies(id, name, website)")
           .order("updated_at", { ascending: false })
       ).data ?? [],
   });
@@ -108,7 +109,7 @@ function ContactsPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("crm_search_contacts" as never) || "Search"}
-            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
+            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -137,17 +138,32 @@ function ContactsPage() {
       </div>
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonTable rows={8} />
+      ) : contacts.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title={t("empty_title_contacts")}
+          description={t("empty_desc_contacts")}
+          primaryAction={{ label: t("crm_new_contact"), onClick: () => setCreateOpen(true), icon: Plus }}
+        />
       ) : filtered.length === 0 ? (
-        <EmptyState message={t("crm_no_contacts")} />
+        <EmptyState
+          variant="no-results"
+          title={t("empty_title_no_results")}
+          description={t("empty_desc_no_results")}
+          secondaryAction={{ label: t("empty_clear_filters"), onClick: () => { setQuery(""); setAuthFilter("all"); setShowArchived(false); } }}
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/60 text-start text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                <th className="px-5 py-3 text-start font-medium">{t("crm_new_contact")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("ibx_contact_name" as never)}</th>
                 <th className="px-5 py-3 text-start font-medium">{t("crm_company")}</th>
                 <th className="px-5 py-3 text-start font-medium">{t("crm_title")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("crm_phone")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("crm_email")}</th>
+                <th className="px-5 py-3 text-start font-medium">{t("crm_website")}</th>
                 <th className="px-5 py-3 text-start font-medium">{t("crm_authority")}</th>
                 <th className="px-5 py-3 text-start font-medium">{t("crm_location")}</th>
                 <th className="px-5 py-3 text-end font-medium">{t("crm_confidence")}</th>
@@ -162,10 +178,22 @@ function ContactsPage() {
                       <span className="font-medium">{c.name}</span>
                       <ArchivedBadge archived={!!c.archived_at} />
                     </div>
-                    {c.email ? <div className="text-[11px] text-muted-foreground">{c.email}</div> : null}
                   </td>
                   <td className="px-5 py-3 text-muted-foreground">{c.companies?.name ?? "—"}</td>
                   <td className="px-5 py-3 text-muted-foreground">{c.title ?? "—"}</td>
+                  <td className="px-5 py-3 text-muted-foreground">{c.phone ?? "—"}</td>
+                  <td className="px-5 py-3 text-muted-foreground">
+                    {c.email
+                      ? <a href={`mailto:${c.email}`} className="hover:text-foreground transition-colors">{c.email}</a>
+                      : "—"}
+                  </td>
+                  <td className="px-5 py-3 text-muted-foreground">
+                    {c.companies?.website
+                      ? <a href={c.companies.website} target="_blank" rel="noreferrer" className="hover:text-foreground transition-colors truncate max-w-[160px] block">
+                          {c.companies.website.replace(/^https?:\/\//, "")}
+                        </a>
+                      : "—"}
+                  </td>
                   <td className="px-5 py-3">
                     <StatusPill tone={authorityTone(c.authority)}>{authorityLabel(c.authority)}</StatusPill>
                   </td>

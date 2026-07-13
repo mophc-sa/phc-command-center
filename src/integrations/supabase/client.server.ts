@@ -4,6 +4,7 @@
 // For user-authenticated queries (with RLS), use the auth middleware instead.
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { resolveServiceKey, describeResolveServiceKeyReason } from '../../../supabase/functions/_shared/service-key-resolver';
 
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
@@ -31,17 +32,27 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 function createSupabaseAdminClient() {
   const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    const missing = [
-      ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
-      ...(!SUPABASE_SERVICE_ROLE_KEY ? ['SUPABASE_SERVICE_ROLE_KEY'] : []),
-    ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
+  if (!SUPABASE_URL) {
+    const message = `Missing Supabase environment variable(s): SUPABASE_URL. Connect Supabase in Lovable Cloud.`;
     console.error(`[Supabase] ${message}`);
     throw new Error(message);
   }
+
+  // Resolved via service-key-resolver.ts (same module the Edge Functions use):
+  // prefers SUPABASE_SECRET_KEYS["default"] if this environment ever provides
+  // it, otherwise falls back to SUPABASE_SERVICE_ROLE_KEY — the variable NAME
+  // Cloudflare's Worker secret store already uses today. That variable's
+  // VALUE may now be either the legacy JWT or an operator-pasted sb_secret_
+  // key; both are accepted without requiring Cloudflare to adopt a
+  // Supabase-specific JSON-dictionary format it has no natural notion of.
+  const resolved = resolveServiceKey((key) => process.env[key]);
+  if (!resolved.ok) {
+    const message = `[Supabase] ${describeResolveServiceKeyReason(resolved.reason)}`;
+    console.error(message);
+    throw new Error(message);
+  }
+  const SUPABASE_SERVICE_ROLE_KEY = resolved.key;
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     global: {

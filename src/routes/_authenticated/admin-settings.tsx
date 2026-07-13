@@ -1,20 +1,29 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Minus } from "lucide-react";
+import { useState } from "react";
+import { Check, Minus, Clock, UserCheck, UserX, ShieldOff, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { GitSyncStatus } from "@/components/phc/GitSyncStatus";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import {
   ALL_ROLES,
+  approveUser,
+  rejectUser,
+  suspendUser,
+  activateUser,
   grantRole,
+  listPendingUsers,
   listTeam,
   revokeRole,
   type AppRole,
+  type PendingUser,
   type TeamMember,
 } from "@/lib/team-actions";
 import {
@@ -28,7 +37,26 @@ import {
   isBdOrSalesOps,
 } from "@/lib/roles";
 
+// ── Route guard ───────────────────────────────────────────────────────────────
+// Any authenticated user could previously navigate to this URL directly.
+// This beforeLoad check blocks non-managers at the route level.
 export const Route = createFileRoute("/_authenticated/admin-settings")({
+  beforeLoad: async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return; // parent _authenticated guard handles the redirect
+
+    const { data: rolesRows } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id);
+
+    const roles = (rolesRows ?? []).map((r) => r.role as AppRole);
+    if (!canManageTeam(roles)) {
+      throw redirect({ to: "/command-center" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Admin Settings — PHC" },
@@ -38,7 +66,7 @@ export const Route = createFileRoute("/_authenticated/admin-settings")({
   component: AdminSettingsPage,
 });
 
-// Capability matrix — single source of truth for what each role can do.
+// ── Capability matrix ─────────────────────────────────────────────────────────
 type CapKey =
   | "cap_manage_roles"
   | "cap_approve_decisions"
@@ -50,8 +78,6 @@ type CapKey =
   | "cap_view_opps"
   | "cap_view_audit";
 
-// Each capability's `allowed` predicate is derived from the canonical helpers in
-// src/lib/roles.ts, so this matrix always reflects the real authority model.
 const CAPABILITIES: { key: CapKey; allowed: (r: AppRole) => boolean }[] = [
   { key: "cap_manage_roles", allowed: (r) => canManageTeam(r) },
   { key: "cap_approve_decisions", allowed: (r) => canApproveCommercialAction(r) },
@@ -60,8 +86,6 @@ const CAPABILITIES: { key: CapKey; allowed: (r: AppRole) => boolean }[] = [
   { key: "cap_assign_owner", allowed: (r) => canAssignOwner(r) },
   { key: "cap_schedule_followups", allowed: (r) => canManageSalesPipeline(r) },
   { key: "cap_view_audit", allowed: (r) => canViewSalesAdmin(r) },
-  // Read-only surfaces: everyone but a pure salesperson sees reports; all roles
-  // can read the opportunity list (RLS SELECT is open to authenticated).
   { key: "cap_view_reports", allowed: (r) => r !== "salesperson" },
   { key: "cap_view_opps", allowed: () => true },
 ];
@@ -73,18 +97,89 @@ function roleTone(r: AppRole): "attention" | "positive" | "neutral" | "muted" {
   return "muted";
 }
 
+// ── Page component ────────────────────────────────────────────────────────────
 function AdminSettingsPage() {
   const { t, lang } = useI18n();
   const { user, roles } = useAuth();
   const canManage = canManageTeam(roles);
   const qc = useQueryClient();
 
-  const { data: team = [], isLoading, isError, refetch } = useQuery({
+  // Pending registrations state
+  const [approveRoles, setApproveRoles] = useState<Record<string, AppRole>>({});
+  const [pendingBusy, setPendingBusy] = useState<Record<string, boolean>>({});
+
+  const {
+    data: pending = [],
+    isLoading: pendingLoading,
+  } = useQuery({
+    queryKey: ["pending-users"],
+    queryFn: listPendingUsers,
+    enabled: canManage,
+  });
+
+  const {
+    data: team = [],
+    isLoading: teamLoading,
+    isError: teamError,
+    refetch: refetchTeam,
+  } = useQuery({
     queryKey: ["team-full"],
     queryFn: listTeam,
   });
 
-  async function toggle(member: TeamMember, role: AppRole, has: boolean) {
+  function invalidateAll() {
+    qc.invalidateQueries({ queryKey: ["team-full"] });
+    qc.invalidateQueries({ queryKey: ["pending-users"] });
+  }
+
+  async function handleApprove(p: PendingUser) {
+    const role = approveRoles[p.id] ?? "viewer";
+    setPendingBusy((b) => ({ ...b, [p.id]: true }));
+    try {
+      await approveUser(p.id, role);
+      toast.success(t("toast_user_approved"));
+      invalidateAll();
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    } finally {
+      setPendingBusy((b) => ({ ...b, [p.id]: false }));
+    }
+  }
+
+  async function handleReject(p: PendingUser) {
+    setPendingBusy((b) => ({ ...b, [p.id]: true }));
+    try {
+      await rejectUser(p.id);
+      toast.success(t("toast_user_rejected"));
+      invalidateAll();
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    } finally {
+      setPendingBusy((b) => ({ ...b, [p.id]: false }));
+    }
+  }
+
+  async function handleSuspend(member: TeamMember) {
+    try {
+      await suspendUser(member.id);
+      toast.success(t("toast_user_suspended"));
+      invalidateAll();
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    }
+  }
+
+  async function handleActivate(member: TeamMember) {
+    try {
+      await activateUser(member.id);
+      toast.success(t("toast_user_activated"));
+      invalidateAll();
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    }
+  }
+
+  async function toggleRole(member: TeamMember, role: AppRole, has: boolean) {
     try {
       if (has) {
         await revokeRole(member.id, role);
@@ -93,8 +188,7 @@ function AdminSettingsPage() {
         await grantRole(member.id, role);
         toast.success(t("toast_role_granted"));
       }
-      qc.invalidateQueries({ queryKey: ["team-full"] });
-      qc.invalidateQueries({ queryKey: ["roles", member.id] });
+      invalidateAll();
     } catch (e) {
       toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
     }
@@ -110,16 +204,103 @@ function AdminSettingsPage() {
         description={t("admin_settings_intro")}
       />
 
-
       <GitSyncStatus />
 
-      {!canManage ? (
-        <div className="rounded-md border border-amber/30 bg-amber/10 px-4 py-3 text-xs text-amber-light">
-          {t("admin_settings_forbidden")}
-        </div>
-      ) : null}
+      {/* ── Pending Registrations ── */}
+      {canManage && (
+        <Panel
+          title={t("admin_section_pending")}
+          // Badge shows count when there are pending users
+          action={
+            pending.length > 0 ? (
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber/20 text-[11px] font-semibold text-amber-light">
+                {pending.length}
+              </span>
+            ) : undefined
+          }
+        >
+          {pendingLoading ? (
+            <SkeletonTable rows={2} />
+          ) : pending.length === 0 ? (
+            <EmptyState message={t("admin_pending_empty")} />
+          ) : (
+            <ul className="divide-y divide-border/60">
+              {pending.map((p) => {
+                const busy = !!pendingBusy[p.id];
+                const selectedRole = approveRoles[p.id] ?? "viewer";
+                const registeredAt = new Date(p.created_at).toLocaleDateString(
+                  lang === "ar" ? "ar-SA" : "en-GB",
+                  { day: "numeric", month: "short", year: "numeric" },
+                );
+                return (
+                  <li key={p.id} className="flex flex-wrap items-center gap-3 py-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-amber/30 bg-amber/10">
+                        <Clock className="h-4 w-4 text-amber-light" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-foreground">
+                          {p.full_name || (lang === "ar" ? "بدون اسم" : "Unnamed")}
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {p.email}
+                          <span className="mx-1.5 opacity-40">·</span>
+                          {t("admin_pending_registered")} {registeredAt}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {/* Role selector */}
+                      <label className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground">
+                          {t("admin_pending_role_label")}
+                        </span>
+                        <select
+                          value={selectedRole}
+                          disabled={busy}
+                          onChange={(e) =>
+                            setApproveRoles((prev) => ({
+                              ...prev,
+                              [p.id]: e.target.value as AppRole,
+                            }))
+                          }
+                          className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground focus:border-amber/60 focus:outline-none focus:ring-1 focus:ring-amber/40 disabled:opacity-50"
+                        >
+                          {ALL_ROLES.map((r) => (
+                            <option key={r} value={r}>
+                              {t(`role_${r}` as never)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {/* Approve */}
+                      <button
+                        disabled={busy}
+                        onClick={() => handleApprove(p)}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <UserCheck className="h-3.5 w-3.5" />
+                        {t("admin_pending_approve")}
+                      </button>
+                      {/* Reject */}
+                      <button
+                        disabled={busy}
+                        onClick={() => handleReject(p)}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <UserX className="h-3.5 w-3.5" />
+                        {t("admin_pending_reject")}
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
+      )}
 
-      {/* Capabilities Matrix */}
+      {/* ── Capabilities Matrix ── */}
       <Panel title={t("admin_section_matrix")}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
@@ -156,15 +337,15 @@ function AdminSettingsPage() {
         </div>
       </Panel>
 
-      {/* Holders by Role */}
+      {/* ── Members by Role ── */}
       <Panel title={t("admin_section_holders")}>
-        {isLoading ? (
-          <div className="text-sm text-muted-foreground">{t("loading")}</div>
-        ) : isError ? (
+        {teamLoading ? (
+          <SkeletonTable rows={4} />
+        ) : teamError ? (
           <div className="text-sm">
             <div>{t("error_generic")}</div>
             <button
-              onClick={() => refetch()}
+              onClick={() => refetchTeam()}
               className="mt-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-muted"
             >
               {t("retry")}
@@ -203,10 +384,10 @@ function AdminSettingsPage() {
         )}
       </Panel>
 
-      {/* Assign Roles (CEO only writes) */}
+      {/* ── Assign Roles + Suspend/Activate ── */}
       <Panel title={t("admin_section_assign")}>
-        {isLoading ? (
-          <div className="text-sm text-muted-foreground">{t("loading")}</div>
+        {teamLoading ? (
+          <SkeletonTable rows={4} />
         ) : team.length === 0 ? (
           <EmptyState message={t("empty_team")} />
         ) : (
@@ -220,6 +401,9 @@ function AdminSettingsPage() {
                       {t(`role_${r}` as never)}
                     </th>
                   ))}
+                  {canManage && (
+                    <th className="px-2 py-2 text-center font-medium">{t("admin_col_status")}</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -248,7 +432,7 @@ function AdminSettingsPage() {
                             <button
                               type="button"
                               disabled={disabled}
-                              onClick={() => toggle(m, role, has)}
+                              onClick={() => toggleRole(m, role, has)}
                               title={
                                 guardSelf
                                   ? lang === "ar"
@@ -269,6 +453,31 @@ function AdminSettingsPage() {
                           </td>
                         );
                       })}
+                      {canManage && (
+                        <td className="px-2 py-2 text-center">
+                          {isSelf ? (
+                            <span className="text-[11px] text-muted-foreground/50">—</span>
+                          ) : m.status === "active" ? (
+                            <button
+                              type="button"
+                              onClick={() => handleSuspend(m)}
+                              className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-400"
+                            >
+                              <ShieldOff className="h-3 w-3" />
+                              {t("admin_user_suspend")}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleActivate(m)}
+                              className="inline-flex items-center gap-1 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] text-emerald-400 transition-colors hover:bg-emerald-400/20"
+                            >
+                              <ShieldCheck className="h-3 w-3" />
+                              {t("admin_user_activate")}
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

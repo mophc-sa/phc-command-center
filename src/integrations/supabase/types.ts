@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activities: {
@@ -197,6 +222,119 @@ export type Database = {
           },
         ]
       }
+      ai_agent_outputs: {
+        Row: {
+          agent_key: string
+          client_request_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          output_type: string
+          requested_by: string | null
+          review_decision: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          structured_output: Json
+          summary: string | null
+          trace_id: string
+          updated_at: string
+        }
+        Insert: {
+          agent_key: string
+          client_request_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          output_type: string
+          requested_by?: string | null
+          review_decision?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          structured_output: Json
+          summary?: string | null
+          trace_id: string
+          updated_at?: string
+        }
+        Update: {
+          agent_key?: string
+          client_request_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          output_type?: string
+          requested_by?: string | null
+          review_decision?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          structured_output?: Json
+          summary?: string | null
+          trace_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_agent_requests: {
+        Row: {
+          agent_key: string
+          client_request_id: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          error_code: string | null
+          id: string
+          output_id: string | null
+          request_fingerprint: string | null
+          requested_by: string | null
+          status: string
+          trace_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_key: string
+          client_request_id: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          error_code?: string | null
+          id?: string
+          output_id?: string | null
+          request_fingerprint?: string | null
+          requested_by?: string | null
+          status?: string
+          trace_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_key?: string
+          client_request_id?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          error_code?: string | null
+          id?: string
+          output_id?: string | null
+          request_fingerprint?: string | null
+          requested_by?: string | null
+          status?: string
+          trace_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_requests_output_id_fkey"
+            columns: ["output_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_outputs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_agent_runs: {
         Row: {
           agent_key: string
@@ -233,6 +371,72 @@ export type Database = {
           started_at?: string
           status?: string
           summary?: string | null
+        }
+        Relationships: []
+      }
+      ai_agent_trace_events: {
+        Row: {
+          agent_key: string
+          context_manifest: Json
+          created_at: string
+          duration_ms: number | null
+          entity_id: string | null
+          entity_type: string | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          input_character_count: number | null
+          input_token_count: number | null
+          metadata: Json
+          model: string | null
+          output_character_count: number | null
+          output_token_count: number | null
+          provider: string | null
+          requested_by: string | null
+          status: string
+          trace_id: string
+        }
+        Insert: {
+          agent_key: string
+          context_manifest?: Json
+          created_at?: string
+          duration_ms?: number | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          input_character_count?: number | null
+          input_token_count?: number | null
+          metadata?: Json
+          model?: string | null
+          output_character_count?: number | null
+          output_token_count?: number | null
+          provider?: string | null
+          requested_by?: string | null
+          status: string
+          trace_id: string
+        }
+        Update: {
+          agent_key?: string
+          context_manifest?: Json
+          created_at?: string
+          duration_ms?: number | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          input_character_count?: number | null
+          input_token_count?: number | null
+          metadata?: Json
+          model?: string | null
+          output_character_count?: number | null
+          output_token_count?: number | null
+          provider?: string | null
+          requested_by?: string | null
+          status?: string
+          trace_id?: string
         }
         Relationships: []
       }
@@ -589,29 +793,43 @@ export type Database = {
       boq_extractions: {
         Row: {
           created_at: string
-          created_by: string | null
           id: string
           notes: string | null
-          source_file: string | null
+          related_opportunity_id: string | null
+          source_file_url: string | null
+          source_type: string | null
           status: string
+          uploaded_by: string | null
         }
         Insert: {
           created_at?: string
-          created_by?: string | null
           id?: string
           notes?: string | null
-          source_file?: string | null
+          related_opportunity_id?: string | null
+          source_file_url?: string | null
+          source_type?: string | null
           status?: string
+          uploaded_by?: string | null
         }
         Update: {
           created_at?: string
-          created_by?: string | null
           id?: string
           notes?: string | null
-          source_file?: string | null
+          related_opportunity_id?: string | null
+          source_file_url?: string | null
+          source_type?: string | null
           status?: string
+          uploaded_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "boq_extractions_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       boq_items: {
         Row: {
@@ -1211,14 +1429,19 @@ export type Database = {
           delete_reason: string | null
           deleted_at: string | null
           deleted_by: string | null
+          detected_header_row_index: number | null
           dry_run: boolean
           duplicate_rows: number
           error_rows: number
           file_name: string | null
           id: string
           notes: string | null
+          parser_version: string | null
+          readiness_checklist: Json
           source_type: string
           status: string
+          structure_analysis: Json
+          structure_confidence: number | null
           target_entity: string
           total_rows: number
           updated_at: string
@@ -1236,14 +1459,19 @@ export type Database = {
           delete_reason?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
+          detected_header_row_index?: number | null
           dry_run?: boolean
           duplicate_rows?: number
           error_rows?: number
           file_name?: string | null
           id?: string
           notes?: string | null
+          parser_version?: string | null
+          readiness_checklist?: Json
           source_type?: string
           status?: string
+          structure_analysis?: Json
+          structure_confidence?: number | null
           target_entity?: string
           total_rows?: number
           updated_at?: string
@@ -1261,14 +1489,19 @@ export type Database = {
           delete_reason?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
+          detected_header_row_index?: number | null
           dry_run?: boolean
           duplicate_rows?: number
           error_rows?: number
           file_name?: string | null
           id?: string
           notes?: string | null
+          parser_version?: string | null
+          readiness_checklist?: Json
           source_type?: string
           status?: string
+          structure_analysis?: Json
+          structure_confidence?: number | null
           target_entity?: string
           total_rows?: number
           updated_at?: string
@@ -1284,11 +1517,15 @@ export type Database = {
           existing_record_id: string
           existing_table: string
           id: string
+          match_scope: string
           match_type: string
+          matched_fields: string[] | null
+          reason_code: string | null
           resolution: string | null
           resolved_at: string | null
           resolved_by: string | null
           row_id: string
+          suggested_action: string | null
         }
         Insert: {
           batch_id: string
@@ -1297,11 +1534,15 @@ export type Database = {
           existing_record_id: string
           existing_table: string
           id?: string
+          match_scope?: string
           match_type: string
+          matched_fields?: string[] | null
+          reason_code?: string | null
           resolution?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
           row_id: string
+          suggested_action?: string | null
         }
         Update: {
           batch_id?: string
@@ -1310,11 +1551,15 @@ export type Database = {
           existing_record_id?: string
           existing_table?: string
           id?: string
+          match_scope?: string
           match_type?: string
+          matched_fields?: string[] | null
+          reason_code?: string | null
           resolution?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
           row_id?: string
+          suggested_action?: string | null
         }
         Relationships: [
           {
@@ -1437,9 +1682,11 @@ export type Database = {
       import_mappings: {
         Row: {
           batch_id: string
+          confidence_score: number | null
           created_at: string
           id: string
           is_key: boolean
+          mapping_source: string
           source_column: string
           target_column: string
           target_table: string
@@ -1447,9 +1694,11 @@ export type Database = {
         }
         Insert: {
           batch_id: string
+          confidence_score?: number | null
           created_at?: string
           id?: string
           is_key?: boolean
+          mapping_source?: string
           source_column: string
           target_column: string
           target_table: string
@@ -1457,9 +1706,11 @@ export type Database = {
         }
         Update: {
           batch_id?: string
+          confidence_score?: number | null
           created_at?: string
           id?: string
           is_key?: boolean
+          mapping_source?: string
           source_column?: string
           target_column?: string
           target_table?: string
@@ -1523,51 +1774,81 @@ export type Database = {
       import_rows: {
         Row: {
           batch_id: string
+          confidence_reasons: Json | null
+          confidence_score: number | null
           created_at: string
           deleted_at: string | null
           deleted_by: string | null
+          edit_reason: string | null
           edited_at: string | null
           edited_by: string | null
+          excluded_at: string | null
+          excluded_by: string | null
           file_id: string
           id: string
           is_excluded: boolean
           mapped_data: Json | null
+          needs_review: boolean
+          normalized_data: Json | null
+          original_row_number: number | null
           raw_data: Json
+          review_status: string
           row_number: number
           row_status: string
           status: string
+          target_entity: string | null
         }
         Insert: {
           batch_id: string
+          confidence_reasons?: Json | null
+          confidence_score?: number | null
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
+          edit_reason?: string | null
           edited_at?: string | null
           edited_by?: string | null
+          excluded_at?: string | null
+          excluded_by?: string | null
           file_id: string
           id?: string
           is_excluded?: boolean
           mapped_data?: Json | null
+          needs_review?: boolean
+          normalized_data?: Json | null
+          original_row_number?: number | null
           raw_data: Json
+          review_status?: string
           row_number: number
           row_status?: string
           status?: string
+          target_entity?: string | null
         }
         Update: {
           batch_id?: string
+          confidence_reasons?: Json | null
+          confidence_score?: number | null
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
+          edit_reason?: string | null
           edited_at?: string | null
           edited_by?: string | null
+          excluded_at?: string | null
+          excluded_by?: string | null
           file_id?: string
           id?: string
           is_excluded?: boolean
           mapped_data?: Json | null
+          needs_review?: boolean
+          normalized_data?: Json | null
+          original_row_number?: number | null
           raw_data?: Json
+          review_status?: string
           row_number?: number
           row_status?: string
           status?: string
+          target_entity?: string | null
         }
         Relationships: [
           {
@@ -1976,14 +2257,18 @@ export type Database = {
           quotation_value: number | null
           sales_stage: Database["public"]["Enums"]["sales_stage"] | null
           score: number | null
-          score_confidence: Database["public"]["Enums"]["confidence_level"] | null
+          score_confidence:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
           score_manual_override: boolean
           score_missing_data: string[] | null
           score_override_reason: string | null
           score_reasons: string[] | null
           score_recommended_action: string | null
           score_risk_flags: string[] | null
-          score_tier: Database["public"]["Enums"]["opportunity_score_tier"] | null
+          score_tier:
+            | Database["public"]["Enums"]["opportunity_score_tier"]
+            | null
           scored_at: string | null
           scored_by: string | null
           sector: string | null
@@ -2051,14 +2336,18 @@ export type Database = {
           quotation_value?: number | null
           sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
           score?: number | null
-          score_confidence?: Database["public"]["Enums"]["confidence_level"] | null
+          score_confidence?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
           score_manual_override?: boolean
           score_missing_data?: string[] | null
           score_override_reason?: string | null
           score_reasons?: string[] | null
           score_recommended_action?: string | null
           score_risk_flags?: string[] | null
-          score_tier?: Database["public"]["Enums"]["opportunity_score_tier"] | null
+          score_tier?:
+            | Database["public"]["Enums"]["opportunity_score_tier"]
+            | null
           scored_at?: string | null
           scored_by?: string | null
           sector?: string | null
@@ -2126,14 +2415,18 @@ export type Database = {
           quotation_value?: number | null
           sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
           score?: number | null
-          score_confidence?: Database["public"]["Enums"]["confidence_level"] | null
+          score_confidence?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
           score_manual_override?: boolean
           score_missing_data?: string[] | null
           score_override_reason?: string | null
           score_reasons?: string[] | null
           score_recommended_action?: string | null
           score_risk_flags?: string[] | null
-          score_tier?: Database["public"]["Enums"]["opportunity_score_tier"] | null
+          score_tier?:
+            | Database["public"]["Enums"]["opportunity_score_tier"]
+            | null
           scored_at?: string | null
           scored_by?: string | null
           sector?: string | null
@@ -2190,7 +2483,9 @@ export type Database = {
           linked_record_id: string
           linked_record_type: string
           priority: Database["public"]["Enums"]["priority_tier"] | null
-          queue_action_type: Database["public"]["Enums"]["queue_action_type"] | null
+          queue_action_type:
+            | Database["public"]["Enums"]["queue_action_type"]
+            | null
           reason: string | null
           recommended_action: string | null
           risk_flag: Database["public"]["Enums"]["risk_flag"] | null
@@ -2211,7 +2506,9 @@ export type Database = {
           linked_record_id: string
           linked_record_type: string
           priority?: Database["public"]["Enums"]["priority_tier"] | null
-          queue_action_type?: Database["public"]["Enums"]["queue_action_type"] | null
+          queue_action_type?:
+            | Database["public"]["Enums"]["queue_action_type"]
+            | null
           reason?: string | null
           recommended_action?: string | null
           risk_flag?: Database["public"]["Enums"]["risk_flag"] | null
@@ -2232,7 +2529,9 @@ export type Database = {
           linked_record_id?: string
           linked_record_type?: string
           priority?: Database["public"]["Enums"]["priority_tier"] | null
-          queue_action_type?: Database["public"]["Enums"]["queue_action_type"] | null
+          queue_action_type?:
+            | Database["public"]["Enums"]["queue_action_type"]
+            | null
           reason?: string | null
           recommended_action?: string | null
           risk_flag?: Database["public"]["Enums"]["risk_flag"] | null
@@ -2249,6 +2548,7 @@ export type Database = {
           full_name: string | null
           id: string
           language: string
+          status: Database["public"]["Enums"]["user_status"]
           updated_at: string
         }
         Insert: {
@@ -2258,6 +2558,7 @@ export type Database = {
           full_name?: string | null
           id: string
           language?: string
+          status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
         }
         Update: {
@@ -2267,6 +2568,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           language?: string
+          status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
         }
         Relationships: []
@@ -2368,60 +2670,78 @@ export type Database = {
       protenders_imports: {
         Row: {
           created_at: string
-          created_by: string | null
-          file_name: string | null
+          filename: string | null
+          format: string | null
           id: string
+          notes: string | null
           row_count: number
+          source: string
           status: string
+          uploaded_by: string | null
         }
         Insert: {
           created_at?: string
-          created_by?: string | null
-          file_name?: string | null
+          filename?: string | null
+          format?: string | null
           id?: string
+          notes?: string | null
           row_count?: number
+          source?: string
           status?: string
+          uploaded_by?: string | null
         }
         Update: {
           created_at?: string
-          created_by?: string | null
-          file_name?: string | null
+          filename?: string | null
+          format?: string | null
           id?: string
+          notes?: string | null
           row_count?: number
+          source?: string
           status?: string
+          uploaded_by?: string | null
         }
         Relationships: []
       }
       protenders_projects: {
         Row: {
           created_at: string
+          evidence_text: string | null
+          evidence_url: string | null
           id: string
           import_id: string | null
           main_contractor: string | null
+          package: string | null
           project_name: string | null
           raw: Json | null
+          source_date: string | null
           stage: string | null
-          value_est: number | null
         }
         Insert: {
           created_at?: string
+          evidence_text?: string | null
+          evidence_url?: string | null
           id?: string
           import_id?: string | null
           main_contractor?: string | null
+          package?: string | null
           project_name?: string | null
           raw?: Json | null
+          source_date?: string | null
           stage?: string | null
-          value_est?: number | null
         }
         Update: {
           created_at?: string
+          evidence_text?: string | null
+          evidence_url?: string | null
           id?: string
           import_id?: string | null
           main_contractor?: string | null
+          package?: string | null
           project_name?: string | null
           raw?: Json | null
+          source_date?: string | null
           stage?: string | null
-          value_est?: number | null
         }
         Relationships: [
           {
@@ -3135,6 +3455,7 @@ export type Database = {
           estimated_signage_value: number | null
           expected_award_date: string | null
           id: string
+          is_watchlisted: boolean
           main_contractor_confirmed: boolean
           main_contractor_id: string | null
           next_follow_up_date: string | null
@@ -3169,6 +3490,7 @@ export type Database = {
           estimated_signage_value?: number | null
           expected_award_date?: string | null
           id?: string
+          is_watchlisted?: boolean
           main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
           next_follow_up_date?: string | null
@@ -3203,6 +3525,7 @@ export type Database = {
           estimated_signage_value?: number | null
           expected_award_date?: string | null
           id?: string
+          is_watchlisted?: boolean
           main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
           next_follow_up_date?: string | null
@@ -3395,6 +3718,33 @@ export type Database = {
       }
     }
     Functions: {
+      ai_output_entity_still_owned: {
+        Args: { _entity_id: string; _entity_type: string; _user_id: string }
+        Returns: boolean
+      }
+      claim_ai_agent_request: {
+        Args: {
+          _agent_key: string
+          _client_request_id: string
+          _entity_id: string
+          _entity_type: string
+          _input_fingerprint?: string
+          _requested_by: string
+          _stale_after_seconds?: number
+          _trace_id: string
+        }
+        Returns: {
+          claim_id: string
+          claimed: boolean
+          request_output_id: string
+          request_status: string
+          request_trace_id: string
+        }[]
+      }
+      execute_approved_record_delete: {
+        Args: { _actor_id: string; _approval_id: string }
+        Returns: Json
+      }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
@@ -3412,6 +3762,7 @@ export type Database = {
       is_commercial_manager: { Args: { _user_id: string }; Returns: boolean }
       is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_sales_contributor: { Args: { _user_id: string }; Returns: boolean }
       match_knowledge: {
         Args: {
           filter_source_type?: string
@@ -3660,6 +4011,7 @@ export type Database = {
         | "awarded_to_contractor"
         | "converted_to_jih"
         | "tender_lost_or_archived"
+      user_status: "pending_approval" | "active" | "suspended"
       verification_status: "pending_verification" | "verified" | "rejected"
       win_confidence: "low" | "possible" | "strong" | "sure_win"
     }
@@ -3787,6 +4139,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       account_status: ["pending_review", "active", "dormant", "do_not_target"],
@@ -3895,6 +4250,36 @@ export const Constants = {
         "cancelled",
       ],
       handover_status: ["pending", "ready", "handed_over"],
+      inbox_classification: [
+        "unclassified",
+        "company",
+        "contact",
+        "project",
+        "rfq",
+        "tender",
+        "opportunity_candidate",
+        "signal_watchlist",
+        "duplicate",
+        "incomplete",
+      ],
+      inbox_source_type: [
+        "manual_lead",
+        "manual_tender",
+        "manual_rfq",
+        "old_data_candidate",
+        "referral",
+        "market_signal",
+        "email_placeholder",
+        "whatsapp_placeholder",
+      ],
+      inbox_status: [
+        "new",
+        "in_review",
+        "converted",
+        "sent_to_missing_data",
+        "marked_duplicate",
+        "archived",
+      ],
       lead_stage: [
         "detected",
         "duplicate_check",
@@ -3908,6 +4293,7 @@ export const Constants = {
         "converted",
         "rejected",
       ],
+      opportunity_score_tier: ["A", "B", "C", "not_qualified"],
       opportunity_stage: [
         "discovery",
         "qualification",
@@ -4013,6 +4399,7 @@ export const Constants = {
         "converted_to_jih",
         "tender_lost_or_archived",
       ],
+      user_status: ["pending_approval", "active", "suspended"],
       verification_status: ["pending_verification", "verified", "rejected"],
       win_confidence: ["low", "possible", "strong", "sure_win"],
     },

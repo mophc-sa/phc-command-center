@@ -11,12 +11,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { TrendingUp, Wallet, AlertCircle, XCircle } from "lucide-react";
+import { TrendingUp, Wallet, AlertCircle, XCircle, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonChart } from "@/components/phc/Skeleton";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/reports")({
@@ -78,6 +79,22 @@ function ReportsPage() {
     queryKey: ["report-quotes"],
     queryFn: async () =>
       (await supabase.from("quotations").select("id, status, value, win_loss_reason")).data ?? [],
+  });
+
+  // Latest AI weekly report — stored as an audit log entry (action = 'ai.weekly_report')
+  const { data: weeklyReport } = useQuery({
+    queryKey: ["ai-weekly-report-latest"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("audit_log")
+        .select("after_value, timestamp")
+        .eq("action", "ai.weekly_report")
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data ?? null;
+    },
+    staleTime: 60_000,
   });
 
   const stageRows = useMemo(
@@ -144,7 +161,7 @@ function ReportsPage() {
       />
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonChart kpis={3} charts={2} />
       ) : !hasData ? (
         <EmptyState message={t("empty_report")} />
       ) : (
@@ -235,6 +252,30 @@ function ReportsPage() {
                   </li>
                 ))}
               </ul>
+            </ChartFrame>
+          ) : null}
+
+          {weeklyReport ? (
+            <ChartFrame
+              title={lang === "ar" ? "التقرير الأسبوعي للذكاء الاصطناعي" : "AI Weekly Report"}
+              subtitle={weeklyReport.timestamp ? new Date(weeklyReport.timestamp).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : undefined}
+            >
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+                <Bot className="h-3.5 w-3.5 shrink-0" />
+                <span>{lang === "ar" ? "ملخص مُولَّد تلقائياً — يُحدَّث كل أحد الساعة 06:00 بتوقيت الخليج" : "Auto-generated summary — updated every Sunday 06:00 GST"}</span>
+              </div>
+              {weeklyReport.after_value && typeof weeklyReport.after_value === "object" ? (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {Object.entries(weeklyReport.after_value as Record<string, unknown>).map(([key, val]) => (
+                    <div key={key} className="rounded-lg border border-border bg-surface/60 px-3 py-2">
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                        {key.replaceAll("_", " ")}
+                      </div>
+                      <div className="mt-1 text-lg font-semibold text-foreground num">{String(val ?? "—")}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </ChartFrame>
           ) : null}
         </div>

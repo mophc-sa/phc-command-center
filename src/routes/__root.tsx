@@ -11,7 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { installGlobalErrorReporting, reportError } from "../lib/error-reporting";
-import { I18nProvider } from "@/lib/i18n";
+import { I18nProvider, useI18n } from "@/lib/i18n";
 import { AuthProvider } from "@/hooks/useSupabaseAuth";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -121,6 +121,17 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/** Syncs <html dir> and <html lang> to the active i18n language. */
+function HtmlDirSync() {
+  const { lang } = useI18n();
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  }, [lang]);
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useEffect(() => {
@@ -129,6 +140,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
+        <HtmlDirSync />
         <AuthProvider>
           <Outlet />
           <Toaster richColors position="top-right" theme="dark" />

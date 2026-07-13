@@ -54,6 +54,7 @@ import {
 import { resolveProviderConfig, generateStructured } from "../_shared/ai-providers.ts";
 import { PROMPT_VERSION } from "../_shared/ai-prompts.ts";
 import { interpretClaimRpcResult, type ClaimRpcRow } from "../_shared/ai-idempotency.ts";
+import { computeRequestFingerprint, resolveEffectiveProviderOverride } from "../_shared/ai-fingerprint.ts";
 
 type Caller = { userId: string; roles: AppRole[] };
 type ServiceClient = ReturnType<typeof serviceClient>;
@@ -123,7 +124,15 @@ async function insertTraceEvent(
 // claimed/deduplicated, matching the original opt-in design.
 async function claimRequest(
   svc: ServiceClient,
-  params: { requestedBy: string; agentKey: AgentKey; entityType: EntityType; entityId: string; clientRequestId: string; traceId: string },
+  params: {
+    requestedBy: string;
+    agentKey: AgentKey;
+    entityType: EntityType;
+    entityId: string;
+    clientRequestId: string;
+    traceId: string;
+    inputFingerprint: string;
+  },
 ) {
   const { data, error } = await svc.rpc("claim_ai_agent_request", {
     _requested_by: params.requestedBy,
@@ -132,6 +141,7 @@ async function claimRequest(
     _entity_id: params.entityId,
     _client_request_id: params.clientRequestId,
     _trace_id: params.traceId,
+    _input_fingerprint: params.inputFingerprint,
   });
   if (error) console.error("[ai-orchestrator] claim_ai_agent_request RPC failed:", error.message);
   const row = Array.isArray(data) ? (data[0] as ClaimRpcRow | undefined) : undefined;
@@ -213,7 +223,14 @@ async function handleRequest(req: Request): Promise<Response> {
     return errorEnvelope("AI_RECORD_ACCESS_DENIED", access.message, traceId, 403);
   }
 
-  // ---- Atomic claim (Required Fix 1 + 2) -------------------------------------
+  // Resolved once, here, and reused both for fingerprinting (below) and for
+  // the real provider resolution (step 10) — a requested provider override
+  // from a non-admin caller must never be honored OR fingerprinted; it is
+  // fully ignored, identically to "no override supplied at all."
+  const adminOverrideAllowed = isSystemAdmin(caller.roles);
+  const effectiveProviderOverride = resolveEffectiveProviderOverride(request.provider ?? null, adminOverrideAllowed);
+
+  // ---- Atomic claim (Required Fix 1 + 2 + idempotency payload-conflict fix) --
   // Only attempted once the caller is known to be authorized — an
   // unauthorized request never creates a claim row at all. A matching prior
   // SUCCEEDED request (same requested_by + agent_key + entity_type +
@@ -221,9 +238,16 @@ async function handleRequest(req: Request): Promise<Response> {
   // clientRequestId against a different entity can never match) returns the
   // existing output immediately; a matching IN-FLIGHT request returns a
   // controlled AI_REQUEST_IN_PROGRESS instead of allowing a second provider
-  // call to start.
+  // call to start. A matching key whose stored fingerprint differs from
+  // this request's — i.e. the same nominal request reused with genuinely
+  // different content — returns AI_IDEMPOTENCY_CONFLICT instead of ever
+  // reclaiming/reusing that row, regardless of its current status.
   let claimId: string | null = null;
   if (request.clientRequestId) {
+    const inputFingerprint = await computeRequestFingerprint({
+      input: request.input,
+      providerOverride: effectiveProviderOverride,
+    });
     const claim = await claimRequest(svc, {
       requestedBy: caller.userId,
       agentKey: request.agent,
@@ -231,7 +255,34 @@ async function handleRequest(req: Request): Promise<Response> {
       entityId,
       clientRequestId: request.clientRequestId,
       traceId,
+      inputFingerprint,
     });
+    if (claim.kind === "conflict") {
+      // Safe audit trail for the rejected call — reuses THIS call's own
+      // fresh traceId (never the prior claimant's), never touches the
+      // existing request row's status, never includes the fingerprint,
+      // canonical JSON, or raw input. "rejected" is an existing trace
+      // status (see the migration's status CHECK) — no schema change
+      // needed for this trace event.
+      await insertTraceEvent(svc, {
+        traceId,
+        requestedBy: caller.userId,
+        agentKey: request.agent,
+        entityType,
+        entityId,
+        status: "rejected",
+        errorCode: "AI_IDEMPOTENCY_CONFLICT",
+        errorMessage: "The idempotency key was already used with a different request payload.",
+        durationMs: Date.now() - startedAt,
+        metadata: { promptVersion: PROMPT_VERSION, reason: "idempotency_payload_conflict" },
+      });
+      return errorEnvelope(
+        "AI_IDEMPOTENCY_CONFLICT",
+        "The idempotency key was already used with a different request payload.",
+        traceId,
+        409,
+      );
+    }
     if (claim.kind === "duplicate_succeeded") {
       if (claim.outputId) {
         const { data: existing } = await svc
@@ -363,8 +414,9 @@ async function handleRequest(req: Request): Promise<Response> {
   // ---- 10. Resolve configured provider -----------------------------------------------
   // Provider override is only honored for system_admin — every other
   // caller's `provider` field is ignored (server-side config decides), not
-  // merely rejected.
-  const adminOverrideAllowed = isSystemAdmin(caller.roles);
+  // merely rejected. adminOverrideAllowed was already resolved above (step
+  // 5), before the claim, so the fingerprint and the real provider
+  // resolution are always computed from the exact same admin-gate decision.
   const providerResolution = resolveProviderConfig((key) => Deno.env.get(key), request.provider ?? null, adminOverrideAllowed);
   if (!providerResolution.ok) {
     // Both failure reasons (unsupported provider, missing key/model) map to

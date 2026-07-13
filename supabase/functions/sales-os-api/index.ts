@@ -536,7 +536,7 @@ const handlers: Record<string, Handler> = {
     if (decision === "approved") {
       const out = await approveAndExecute(svc, approvalId, caller.userId, notes);
       if (out.httpErr) return out.httpErr;
-      await audit(svc, caller.userId, "approval.approved", "approval", approvalId, out.execution);
+      await audit(svc, caller.userId, "approval.approved", "approval", approvalId, out.execution, caller.roles);
       return json({ ok: true, approval: out.approval, execution: out.execution });
     }
 
@@ -558,7 +558,7 @@ const handlers: Record<string, Handler> = {
       .select()
       .single();
     if (error) return err(error.message, 400);
-    await audit(svc, caller.userId, `approval.${decision}`, "approval", approvalId, data);
+    await audit(svc, caller.userId, `approval.${decision}`, "approval", approvalId, data, caller.roles);
     return json({ ok: true, approval: data });
   },
 
@@ -595,7 +595,7 @@ const handlers: Record<string, Handler> = {
     await audit(svc, caller.userId, "quotation.status_changed", "quotation", quotationId, {
       status,
       reason,
-    });
+    }, caller.roles);
 
     if (quote.related_opportunity_id) {
       await svc
@@ -609,6 +609,7 @@ const handlers: Record<string, Handler> = {
         "opportunity",
         quote.related_opportunity_id,
         { stage: status, notes: `Auto-synced from quotation ${status}` },
+        caller.roles,
       );
     }
     return json({ ok: true, quotation: data });
@@ -648,7 +649,7 @@ const handlers: Record<string, Handler> = {
       .from("leads")
       .update({ lead_stage: "converted", converted_opportunity_id: opp.id })
       .eq("id", leadId);
-    await audit(svc, caller.userId, "lead.converted", "lead", leadId, { opportunity_id: opp.id });
+    await audit(svc, caller.userId, "lead.converted", "lead", leadId, { opportunity_id: opp.id }, caller.roles);
     return json({ ok: true, opportunity: opp });
   },
 
@@ -668,7 +669,7 @@ const handlers: Record<string, Handler> = {
     if (error) return err(error.message, 400);
     await audit(svc, caller.userId, "company.owner_changed", "company", companyId, {
       account_owner_id: newOwnerId,
-    });
+    }, caller.roles);
     return json({ ok: true, company: data });
   },
 
@@ -684,7 +685,7 @@ const handlers: Record<string, Handler> = {
     await audit(svc, caller.userId, "opportunity.assigned", "opportunity", opportunityId, {
       owner_id: newOwnerId,
       notes: (payload.notes as string) ?? null,
-    });
+    }, caller.roles);
     return json({ ok: true, owner_id: newOwnerId });
   },
 
@@ -714,7 +715,7 @@ const handlers: Record<string, Handler> = {
     await audit(svc, caller.userId, "owner_assignment.requested", "opportunity", opportunityId, {
       approval: appr?.id,
       owner_id: newOwnerId,
-    });
+    }, caller.roles);
     return json({ ok: true, pending_approval: true, approval: appr });
   },
 
@@ -747,7 +748,7 @@ const handlers: Record<string, Handler> = {
     const { error } = await svc.from("opportunities").update({ stage }).eq("id", opportunityId);
     if (error) return err(error.message, 400);
     await logTransition(svc, "opportunity", opportunityId, opp.stage ?? null, stage, caller.userId, (payload.notes as string) ?? null);
-    await audit(svc, caller.userId, "opportunity.stage_changed", "opportunity", opportunityId, { stage });
+    await audit(svc, caller.userId, "opportunity.stage_changed", "opportunity", opportunityId, { stage }, caller.roles);
     return json({ ok: true, stage });
   },
 
@@ -777,7 +778,7 @@ const handlers: Record<string, Handler> = {
     await audit(svc, caller.userId, "stage_change.requested", "opportunity", opportunityId, {
       approval: appr?.id,
       stage,
-    });
+    }, caller.roles);
     return json({ ok: true, pending_approval: true, approval: appr });
   },
 
@@ -817,7 +818,7 @@ const handlers: Record<string, Handler> = {
     }
     await audit(svc, caller.userId, "recommendation.accepted", "recommendation", recommendationId, {
       approval: rec.required_approval_type ?? null,
-    });
+    }, caller.roles);
     return json({ ok: true, approval });
   },
 
@@ -859,7 +860,7 @@ const handlers: Record<string, Handler> = {
     if (error) return err(error.message, 400);
     await audit(svc, caller.userId, "knowledge.indexed", "knowledge_chunk", sourceId ?? sourceType, {
       chunks: resolved.length,
-    });
+    }, caller.roles);
     return json({ ok: true, indexed: resolved.length });
   },
 
@@ -887,7 +888,7 @@ const handlers: Record<string, Handler> = {
     }
     await audit(svc, caller.userId, "knowledge.reindexed", "knowledge_chunk", "reference_library", {
       indexed,
-    });
+    }, caller.roles);
     return json({ ok: true, indexed });
   },
 
@@ -912,7 +913,7 @@ const handlers: Record<string, Handler> = {
     await persistConversionReview(svc, "rfqs", rfqId, review);
     const decision = evaluateConversion(review);
     if (decision.blocked.length) {
-      await audit(svc, caller.userId, "rfq.conversion_blocked", "rfq", rfqId, { reasons: decision.blocked });
+      await audit(svc, caller.userId, "rfq.conversion_blocked", "rfq", rfqId, { reasons: decision.blocked }, caller.roles);
       return err(`Conversion blocked: ${decision.blocked.join(", ")}`, 409, { reasons: decision.blocked });
     }
     if (decision.requiresException) {
@@ -937,7 +938,7 @@ const handlers: Record<string, Handler> = {
           .select()
           .single();
         await svc.from("rfqs").update({ below_300k_exception_approval_id: exAppr?.id }).eq("id", rfqId);
-        await audit(svc, caller.userId, "rfq.exception_requested", "rfq", rfqId, { approval: exAppr?.id });
+        await audit(svc, caller.userId, "rfq.exception_requested", "rfq", rfqId, { approval: exAppr?.id }, caller.roles);
         return json({ ok: true, pending_exception: true, approval: exAppr });
       }
     }
@@ -963,7 +964,7 @@ const handlers: Record<string, Handler> = {
     if (error) return err(error.message, 400);
     await svc.from("rfqs").update({ status: "converted", opportunity_id: opp.id }).eq("id", rfqId);
     await logTransition(svc, "opportunity", opp.id, "rfq_received", "jih", caller.userId);
-    await audit(svc, caller.userId, "rfq.converted_to_jih", "rfq", rfqId, { opportunity_id: opp.id });
+    await audit(svc, caller.userId, "rfq.converted_to_jih", "rfq", rfqId, { opportunity_id: opp.id }, caller.roles);
     return json({ ok: true, opportunity: opp });
   },
 
@@ -1016,7 +1017,7 @@ const handlers: Record<string, Handler> = {
       await audit(svc, caller.userId, "sales_stage.requested", "opportunity", opportunityId, {
         to: toStage,
         approval: appr?.id,
-      });
+      }, caller.roles);
       return json({ ok: true, pending_approval: true, approval: appr });
     }
 
@@ -1049,12 +1050,12 @@ const handlers: Record<string, Handler> = {
         })
         .select()
         .single();
-      await audit(svc, caller.userId, "win_confidence.requested", "opportunity", opportunityId, { value });
+      await audit(svc, caller.userId, "win_confidence.requested", "opportunity", opportunityId, { value }, caller.roles);
       return json({ ok: true, pending_approval: true, approval: appr });
     }
     const { error } = await svc.from("opportunities").update({ win_confidence: value }).eq("id", opportunityId);
     if (error) return err(error.message, 400);
-    await audit(svc, caller.userId, "win_confidence.set", "opportunity", opportunityId, { value });
+    await audit(svc, caller.userId, "win_confidence.set", "opportunity", opportunityId, { value }, caller.roles);
     return json({ ok: true, win_confidence: value });
   },
 
@@ -1086,7 +1087,7 @@ const handlers: Record<string, Handler> = {
     const { error } = await svc.from("tenders").update(patch).eq("id", tenderId);
     if (error) return err(error.message, 400);
     await logTransition(svc, "tender", tenderId, from, toStage, caller.userId, (fields.notes as string) ?? null);
-    await audit(svc, caller.userId, "tender_stage.changed", "tender", tenderId, { from, to: toStage });
+    await audit(svc, caller.userId, "tender_stage.changed", "tender", tenderId, { from, to: toStage }, caller.roles);
     return json({ ok: true, from, to: toStage });
   },
 
@@ -1111,7 +1112,7 @@ const handlers: Record<string, Handler> = {
 
     // Hard blocks: never convert. Clear reason codes + audit.
     if (decision.blocked.length) {
-      await audit(svc, caller.userId, "tender.conversion_blocked", "tender", tenderId, { reasons: decision.blocked });
+      await audit(svc, caller.userId, "tender.conversion_blocked", "tender", tenderId, { reasons: decision.blocked }, caller.roles);
       return err(`Conversion blocked: ${decision.blocked.join(", ")}`, 409, { reasons: decision.blocked });
     }
 
@@ -1141,7 +1142,7 @@ const handlers: Record<string, Handler> = {
         await audit(svc, caller.userId, "tender.exception_requested", "tender", tenderId, {
           approval: exAppr?.id,
           estimated_signage_value: review.estimated_signage_value,
-        });
+        }, caller.roles);
         return json({ ok: true, pending_exception: true, approval: exAppr });
       }
     }
@@ -1162,7 +1163,7 @@ const handlers: Record<string, Handler> = {
       })
       .select()
       .single();
-    await audit(svc, caller.userId, "tender.conversion_requested", "tender", tenderId, { approval: appr?.id });
+    await audit(svc, caller.userId, "tender.conversion_requested", "tender", tenderId, { approval: appr?.id }, caller.roles);
     return json({ ok: true, pending_approval: true, approval: appr });
   },
 
@@ -1179,7 +1180,7 @@ const handlers: Record<string, Handler> = {
     if (approvalId) {
       const out = await approveAndExecute(svc, approvalId, caller.userId, (payload.notes as string) ?? null);
       if (out.httpErr) return out.httpErr;
-      await audit(svc, caller.userId, "approval.approved", "approval", approvalId, out.execution);
+      await audit(svc, caller.userId, "approval.approved", "approval", approvalId, out.execution, caller.roles);
       return json({ ok: true, approval: out.approval, execution: out.execution });
     }
 
@@ -1252,7 +1253,7 @@ const handlers: Record<string, Handler> = {
       recommendations_created: created,
       summary: `Scored ${(leads ?? []).length} leads, ${created} recommendations.`,
     });
-    await audit(svc, caller.userId, "ai.lead_scoring_run", "ai_agent_run", runId ?? "lead_scoring", { created });
+    await audit(svc, caller.userId, "ai.lead_scoring_run", "ai_agent_run", runId ?? "lead_scoring", { created }, caller.roles);
     return json({ ok: true, run_id: runId, scored: (leads ?? []).length, recommendations: created });
   },
 
@@ -1319,7 +1320,7 @@ const handlers: Record<string, Handler> = {
       recommendations_created: created,
       summary: `Found ${created} duplicate groups across ${(companies ?? []).length} companies.`,
     });
-    await audit(svc, caller.userId, "ai.duplicate_detection_run", "ai_agent_run", runId ?? "dupe", { created });
+    await audit(svc, caller.userId, "ai.duplicate_detection_run", "ai_agent_run", runId ?? "dupe", { created }, caller.roles);
     return json({ ok: true, run_id: runId, groups: created });
   },
 
@@ -1336,7 +1337,7 @@ const handlers: Record<string, Handler> = {
       open_risk_flags: await count(svc.from("opportunity_flags").select("id", { count: "exact", head: true }).eq("status", "open").eq("flag_kind", "risk") as never),
       pending_ai_recommendations: await count(svc.from("ai_recommendations").select("id", { count: "exact", head: true }).eq("status", "pending") as never),
     };
-    await audit(svc, caller.userId, "ai.weekly_report", "system", "ai_weekly_report", report);
+    await audit(svc, caller.userId, "ai.weekly_report", "system", "ai_weekly_report", report, caller.roles);
     return json({ ok: true, generated_at: new Date().toISOString(), report });
   },
 
@@ -1387,7 +1388,7 @@ const handlers: Record<string, Handler> = {
     }
     await audit(svc, caller.userId, `ai_recommendation.${action}`, "ai_recommendation", recommendationId, {
       approval: approval?.id ?? null,
-    });
+    }, caller.roles);
     return json({ ok: true, status: statusMap[action], approval });
   },
 
@@ -1428,7 +1429,7 @@ const handlers: Record<string, Handler> = {
         })),
       );
     }
-    await audit(svc, caller.userId, "ai.protenders_ingest", "protenders_import", (imp as { id: string })?.id ?? "manual", { rows: rows.length });
+    await audit(svc, caller.userId, "ai.protenders_ingest", "protenders_import", (imp as { id: string })?.id ?? "manual", { rows: rows.length }, caller.roles);
     return json({ ok: true, import_id: (imp as { id: string })?.id ?? null, ingested: rows.length });
   },
   async run_boq_extraction(_payload, caller) {
@@ -1707,7 +1708,7 @@ const handlers: Record<string, Handler> = {
     // entity, so pass null rather than a non-UUID string literal (the
     // previous "run_automations" string silently failed the column's uuid
     // check and the insert never happened).
-    await audit(svc, caller.userId, "automations.run", "system", null, { raised });
+    await audit(svc, caller.userId, "automations.run", "system", null, { raised }, caller.roles);
     return json({ ok: true, raised });
   },
 
@@ -1737,7 +1738,7 @@ const handlers: Record<string, Handler> = {
       .select()
       .single();
     if (error) return err(error.message, 400);
-    await audit(svc, caller.userId, `${entityType}.archived`, entityType, entityId, { reason });
+    await audit(svc, caller.userId, `${entityType}.archived`, entityType, entityId, { reason }, caller.roles);
     return json({ ok: true, record: data });
   },
 
@@ -1757,7 +1758,7 @@ const handlers: Record<string, Handler> = {
       .select()
       .single();
     if (error) return err(error.message, 400);
-    await audit(svc, caller.userId, `${entityType}.unarchived`, entityType, entityId, {});
+    await audit(svc, caller.userId, `${entityType}.unarchived`, entityType, entityId, {}, caller.roles);
     return json({ ok: true, record: data });
   },
 
@@ -1817,7 +1818,7 @@ const handlers: Record<string, Handler> = {
       }
       return err(error.message, 400);
     }
-    await audit(svc, caller.userId, "delete.requested", entityType, entityId, { approval: appr?.id, reason });
+    await audit(svc, caller.userId, "delete.requested", entityType, entityId, { approval: appr?.id, reason }, caller.roles);
     return json({ ok: true, pending_approval: true, approval: appr });
   },
 
@@ -1908,7 +1909,7 @@ const handlers: Record<string, Handler> = {
     await audit(svc, caller.userId, "duplicate.flagged", entityType, entityId, {
       group_id: group.id,
       duplicate_of: duplicateOfId,
-    });
+    }, caller.roles);
     return json({ ok: true, group_id: group.id });
   },
 
@@ -1931,7 +1932,7 @@ const handlers: Record<string, Handler> = {
       .select()
       .single();
     if (error) return err(error.message, 400);
-    await audit(svc, caller.userId, "duplicate.resolved", "duplicate_group", groupId, { resolution });
+    await audit(svc, caller.userId, "duplicate.resolved", "duplicate_group", groupId, { resolution }, caller.roles);
     return json({ ok: true, group: data });
   },
 };
@@ -1939,6 +1940,10 @@ const handlers: Record<string, Handler> = {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return err("Method not allowed", 405);
+
+  // Reject oversized bodies before parsing — prevents DoS via huge JSON payloads.
+  const contentLength = parseInt(req.headers.get("content-length") ?? "0", 10);
+  if (contentLength > 1_048_576) return err("Request body exceeds 1 MB limit", 413);
 
   let body: { action?: string; payload?: Record<string, unknown> };
   try {

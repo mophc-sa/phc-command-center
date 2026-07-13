@@ -176,7 +176,8 @@
   --border: oklch(0.36 0.015 253 / 0.55);
   --border-strong: oklch(0.36 0.015 253 / 0.85);
   --input: oklch(0.36 0.015 253 / 0.55);
-  --ring: oklch(0.68 0.008 253 / 0.35);
+  /* Raised from 0.35 opacity to full opacity L=0.80 — meets WCAG 2.2 AA 3:1 minimum */
+  --ring: oklch(0.80 0.008 253);
 
   /* Sidebar shell — deepest surface, quiet */
   --sidebar: oklch(0.13 0.018 253);               /* deeper than background */
@@ -265,6 +266,13 @@
     background: color-mix(in oklch, var(--color-structural) 75%, transparent);
     background-clip: content-box;
   }
+  /* WCAG 2.2 AA focus baseline — safety-net for interactive elements without Tailwind ring utilities.
+     Shadcn components use box-shadow rings and their own focus-visible:outline-none, so no double-ring. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
   /* Respect reduced motion */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

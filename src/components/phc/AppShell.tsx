@@ -1,8 +1,29 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canViewSalesAdmin } from "@/lib/roles";
+import { canViewSalesAdmin, ALL_ROLES, type AppRole } from "@/lib/roles";
+import { usePinnedRecords, type PinnedRecord } from "@/hooks/usePinnedRecords";
+import { useRecentRecords } from "@/hooks/useRecentRecords";
+import { useNotifications } from "@/hooks/useNotifications";
+import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
+import { NotificationCenter } from "@/components/phc/NotificationCenter";
 import { FontSizeControl } from "@/components/phc/FontSizeControl";
+import { StatusPill } from "@/components/phc/StatusPill";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -27,7 +48,8 @@ import {
   Briefcase,
   Truck,
   Library,
-  Sparkles,
+  Bot,
+  BookOpen,
   ClipboardCheck,
   Gavel,
   GitMerge,
@@ -35,109 +57,273 @@ import {
   BellRing,
   DatabaseZap,
   Mailbox,
+  Search,
+  Plus,
+  ChevronDown,
+  Pin,
+  Clock,
   type LucideIcon,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import phcLogo from "@/assets/phc-logo.png.asset.json";
 import { cn } from "@/lib/utils";
-import { StatusPill } from "./StatusPill";
 
-type NavItem = { to: string; key: string; icon: LucideIcon; ceoOnly?: boolean };
-type NavGroup = { key: string; items: NavItem[] };
+const phcLogo = { url: "/phc-logo.png" };
 
-const groups: NavGroup[] = [
+// ── Nav type system ────────────────────────────────────────────────────────
+
+type NavLink = {
+  kind: "link";
+  to: string;
+  key: string;
+  icon: LucideIcon;
+  requireAdmin?: boolean;
+};
+
+type NavButton = {
+  kind: "button";
+  action: "notifications";
+  key: string;
+  icon: LucideIcon;
+};
+
+type NavItem = NavLink | NavButton;
+
+type NavGroup = {
+  key: string;
+  fallback: string;
+  collapsible?: boolean;
+  items: NavItem[];
+};
+
+// ── Navigation architecture ────────────────────────────────────────────────
+
+const NAV_GROUPS: NavGroup[] = [
   {
-    key: "navgroup_overview",
+    key: "navgroup_workspace",
+    fallback: "Workspace",
     items: [
-      { to: "/command-center", key: "nav_command_center", icon: LayoutDashboard },
-      { to: "/my-workspace", key: "nav_workspace", icon: Briefcase },
-    ],
-  },
-  {
-    key: "navgroup_crm",
-    items: [
-      { to: "/accounts", key: "nav_accounts", icon: Building2 },
-      { to: "/contacts", key: "nav_contacts", icon: Contact2 },
-      { to: "/projects", key: "nav_projects", icon: Landmark },
-      { to: "/opportunities", key: "nav_opportunities", icon: FolderKanban },
+      { kind: "link",   to: "/my-workspace",      key: "nav_my_day",        icon: Briefcase },
+      { kind: "link",   to: "/action-center",      key: "nav_action_center", icon: BellRing },
+      { kind: "button", action: "notifications",   key: "nav_notifications", icon: Bell },
     ],
   },
   {
     key: "navgroup_pipeline",
+    fallback: "Pipeline",
     items: [
-      { to: "/lead-tender-inbox", key: "nav_lead_tender_inbox", icon: Mailbox },
-      { to: "/rfq-jih", key: "nav_rfq_jih", icon: ClipboardCheck },
-      { to: "/tenders", key: "nav_tenders", icon: Gavel },
-      { to: "/tender-conversion", key: "nav_tender_conversion", icon: GitMerge },
-      { to: "/award-queue", key: "nav_award_queue", icon: Award },
+      { kind: "link", to: "/command-center",    key: "nav_pipeline_overview", icon: LayoutDashboard },
+      { kind: "link", to: "/lead-tender-inbox", key: "nav_intake",            icon: Mailbox },
+      { kind: "link", to: "/opportunities",     key: "nav_opportunities",     icon: FolderKanban },
+      { kind: "link", to: "/rfq-jih",           key: "nav_rfq_jih",           icon: ClipboardCheck },
+      { kind: "link", to: "/tenders",           key: "nav_tenders",           icon: Gavel },
     ],
   },
   {
     key: "navgroup_execution",
+    fallback: "Execution",
     items: [
-      { to: "/action-center", key: "nav_action_center", icon: BellRing },
-      { to: "/follow-ups", key: "nav_follow_ups", icon: CalendarClock },
-      { to: "/quotations", key: "nav_quotations", icon: FileText },
-      { to: "/boq", key: "nav_boq", icon: ClipboardList },
-      { to: "/targets", key: "nav_targets", icon: Target },
+      { kind: "link", to: "/approvals",         key: "nav_approvals",         icon: ShieldCheck },
+      { kind: "link", to: "/follow-ups",        key: "nav_follow_ups",        icon: CalendarClock },
+      { kind: "link", to: "/quotations",        key: "nav_quotations",        icon: FileText },
+      { kind: "link", to: "/boq",               key: "nav_boq",               icon: ClipboardList },
+      { kind: "link", to: "/award-queue",       key: "nav_awards",            icon: Award },
+      { kind: "link", to: "/tender-conversion", key: "nav_conversion_queue",  icon: GitMerge },
     ],
   },
   {
-    key: "navgroup_intelligence",
+    key: "navgroup_crm",
+    fallback: "CRM",
     items: [
-      { to: "/discovery", key: "nav_discovery", icon: Inbox },
-      { to: "/approvals", key: "nav_approvals", icon: ShieldCheck },
-      { to: "/vendors", key: "nav_vendors", icon: Truck },
-      { to: "/reference-library", key: "nav_reference_library", icon: Library },
-      { to: "/knowledge", key: "nav_knowledge", icon: Sparkles },
-      { to: "/ai-agents", key: "nav_ai_agents", icon: Sparkles },
-      { to: "/reports", key: "nav_reports", icon: LineChart },
-      { to: "/agent-activity", key: "nav_agent_activity", icon: Activity },
+      { kind: "link", to: "/accounts", key: "nav_accounts", icon: Building2 },
+      { kind: "link", to: "/contacts", key: "nav_contacts", icon: Contact2 },
+      { kind: "link", to: "/projects", key: "nav_projects", icon: Landmark },
+    ],
+  },
+  {
+    key: "navgroup_reports",
+    fallback: "Reports & Analysis",
+    items: [
+      { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart },
+      { kind: "link", to: "/targets", key: "nav_targets", icon: Target },
+    ],
+  },
+  {
+    key: "navgroup_resources",
+    fallback: "Resources",
+    items: [
+      { kind: "link", to: "/knowledge",         key: "nav_knowledge",         icon: BookOpen },
+      { kind: "link", to: "/reference-library", key: "nav_reference_library", icon: Library },
+      { kind: "link", to: "/vendors",           key: "nav_vendors",           icon: Truck },
+      { kind: "link", to: "/discovery",         key: "nav_discovery",         icon: Inbox },
     ],
   },
   {
     key: "navgroup_admin",
+    fallback: "Admin",
+    collapsible: true,
     items: [
-      { to: "/team", key: "nav_team", icon: Users2 },
-      { to: "/data-import", key: "nav_data_import", icon: DatabaseZap, ceoOnly: true },
-      { to: "/admin-settings", key: "nav_admin_settings", icon: ShieldAlert, ceoOnly: true },
-      { to: "/settings", key: "nav_settings", icon: Settings },
+      { kind: "link", to: "/ai-agents",       key: "nav_ai_agents",       icon: Bot },
+      { kind: "link", to: "/agent-activity",  key: "nav_agent_activity",  icon: Activity },
+      { kind: "link", to: "/team",            key: "nav_team",            icon: Users2 },
+      { kind: "link", to: "/data-import",     key: "nav_data_import",     icon: DatabaseZap, requireAdmin: true },
+      { kind: "link", to: "/admin-settings",  key: "nav_admin_settings",  icon: ShieldAlert, requireAdmin: true },
+      { kind: "link", to: "/settings",        key: "nav_settings",        icon: Settings },
     ],
   },
 ];
+
+// Admin routes — used to auto-open the admin group when the user is on one
+const ADMIN_ROUTE_PREFIXES = [
+  "/ai-agents", "/agent-activity", "/team", "/data-import", "/admin-settings", "/settings",
+];
+
+// Record type → to-path segment mapping (for auto-tracking recents)
+const PATH_TO_TYPE: Record<string, PinnedRecord["type"]> = {
+  opportunities: "opportunity",
+  accounts: "account",
+  projects: "project",
+};
+
+// ── AppShell ───────────────────────────────────────────────────────────────
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t, lang, setLang, dir } = useI18n();
   const { user, signOut, roles } = useAuth();
   const nav_ = useNavigate();
+  const qc = useQueryClient();
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const isActive = (to: string) =>
-    to === "/" ? path === "/" : path === to || path.startsWith(to + "/");
-  const isCeo = roles.includes("ceo");
-  // Admin-group items (data import, admin settings) are visible to platform
-  // admins and commercial managers — not only the legacy CEO role.
   const canAdmin = canViewSalesAdmin(roles);
-  const tSafe = (k: string, fallback: string) => {
-    const v = t(k as never);
-    return v === k ? fallback : v;
-  };
+  const topRole = ALL_ROLES.find((r) => (roles as AppRole[]).includes(r));
 
-  const groupFallbacks: Record<string, string> = {
-    navgroup_overview: "Overview",
-    navgroup_crm: "CRM",
-    navgroup_pipeline: "Pipeline",
-    navgroup_execution: "Execution",
-    navgroup_intelligence: "Intelligence & Resources",
-    navgroup_admin: "Admin",
-  };
+  // UI state
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const { data: notifItems = [] } = useNotifications();
+  const notifCount = notifItems.length;
+
+  const isOnAdminRoute = ADMIN_ROUTE_PREFIXES.some((prefix) => path.startsWith(prefix));
+  const [adminOpen, setAdminOpen] = useState(() => canAdmin || isOnAdminRoute);
+
+  // Auto-open admin group when navigating to admin route
+  useEffect(() => {
+    if (isOnAdminRoute) setAdminOpen(true);
+  }, [isOnAdminRoute]);
+
+  // Recents & pins
+  const { recent, trackRecent } = useRecentRecords();
+  const { pinned } = usePinnedRecords();
+
+  // Auto-track $id page visits from the path
+  useEffect(() => {
+    const m = path.match(/^\/(opportunities|accounts|projects)\/([0-9a-f-]{36})/i);
+    if (!m) return;
+    const [, segment, id] = m;
+    const type = PATH_TO_TYPE[segment];
+    if (!type) return;
+    // Try to find the label in React Query cache
+    const cached =
+      qc.getQueryData<any>(["opportunity", id]) ??
+      qc.getQueryData<any>(["company", id]) ??
+      qc.getQueryData<any>(["project", id]);
+    const label =
+      cached?.project_name ??
+      cached?.name ??
+      cached?.tender_name ??
+      (type.charAt(0).toUpperCase() + type.slice(1));
+    trackRecent({ id, type, label, to: path, visitedAt: Date.now() });
+  }, [path, qc, trackRecent]);
+
+  // Global keyboard shortcut: Cmd+K / Ctrl+K
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  const isActive = useCallback(
+    (to: string) =>
+      to === "/" ? path === "/" : path === to || path.startsWith(to + "/"),
+    [path],
+  );
+
+  const tSafe = useCallback(
+    (k: string, fallback: string) => {
+      const v = t(k as never);
+      return v === k ? fallback : v;
+    },
+    [t],
+  );
+
+  // ── Nav item renderers ───────────────────────────────────────────────────
+
+  function renderNavItem(n: NavItem) {
+    if (n.kind === "button") {
+      // Notification trigger button styled as a nav item
+      return (
+        <button
+          key={n.key}
+          onClick={() => { setNotifOpen(true); setMobileOpen(false); }}
+          className="group relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-[13px] text-muted-foreground transition-colors duration-150 hover:bg-sidebar-accent/50 hover:text-foreground"
+        >
+          <n.icon
+            className="h-[15px] w-[15px] shrink-0 text-muted-foreground/80 transition-colors group-hover:text-foreground"
+            strokeWidth={1.75}
+          />
+          <span className="truncate">{t(n.key as never)}</span>
+        </button>
+      );
+    }
+
+    // Regular link
+    const active = isActive(n.to);
+    return (
+      <Link
+        key={n.to}
+        to={n.to}
+        onClick={() => setMobileOpen(false)}
+        className={cn(
+          "group relative flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition-colors duration-150",
+          active
+            ? "bg-sidebar-accent text-foreground"
+            : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
+        )}
+      >
+        {active && (
+          <span
+            className={cn(
+              "absolute top-1.5 bottom-1.5 w-[2px] rounded-full bg-foreground",
+              dir === "rtl" ? "right-0" : "left-0",
+            )}
+          />
+        )}
+        <n.icon
+          className={cn(
+            "h-[15px] w-[15px] shrink-0 transition-colors",
+            active
+              ? "text-foreground"
+              : "text-muted-foreground/80 group-hover:text-foreground",
+          )}
+          strokeWidth={1.75}
+        />
+        <span className="truncate">{t(n.key as never)}</span>
+      </Link>
+    );
+  }
+
+  // ── Sidebar content ──────────────────────────────────────────────────────
 
   const sidebar = (
     <div className="flex h-full flex-col">
       {/* Brand */}
-      <div className="px-5 pt-6 pb-5">
-        <Link to="/command-center" className="flex items-center gap-3">
+      <div className="px-5 pt-6 pb-4">
+        <Link to="/my-workspace" className="flex items-center gap-3">
           <img
             src={phcLogo.url}
             alt="PHC Wayfinding Signs"
@@ -148,51 +334,119 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="mx-4 h-px bg-border/70" />
 
+      {/* Search trigger */}
+      <div className="px-3 pt-3 pb-1">
+        <button
+          onClick={() => { setPaletteOpen(true); setMobileOpen(false); }}
+          className="flex w-full items-center gap-2 rounded-md border border-border/50 bg-surface/40 px-3 py-1.5 text-left text-[12px] text-muted-foreground transition-colors hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          aria-label={t("cmd_placeholder")}
+        >
+          <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="flex-1 truncate">{t("cmd_placeholder")}</span>
+          <kbd className="hidden select-none rounded bg-surface-2 px-1 py-0.5 font-mono text-[10px] text-muted-foreground/60 sm:inline">
+            ⌘K
+          </kbd>
+        </button>
+      </div>
+
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {groups.map((g) => {
-          const items = g.items.filter((n) => !n.ceoOnly || canAdmin);
-          if (items.length === 0) return null;
+      <nav className="flex-1 overflow-y-auto px-3 py-3" aria-label="Main navigation">
+
+        {/* Pinned records */}
+        {pinned.length > 0 && (
+          <div className="mb-4">
+            <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
+              {t("cmd_pinned")}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {pinned.map((r) => {
+                const Icon = RECORD_TYPE_ICONS[r.type] ?? Pin;
+                return (
+                  <Link
+                    key={r.id}
+                    to={r.to as never}
+                    onClick={() => setMobileOpen(false)}
+                    className="group flex items-center gap-3 rounded-md px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
+                  >
+                    <Icon className="h-[14px] w-[14px] shrink-0 text-muted-foreground/50" strokeWidth={1.75} aria-hidden="true" />
+                    <span className="truncate">{r.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Recent records */}
+        {recent.length > 0 && (
+          <div className="mb-4">
+            <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
+              {t("cmd_recent")}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {recent.slice(0, 3).map((r) => {
+                const Icon = RECORD_TYPE_ICONS[r.type] ?? Clock;
+                return (
+                  <Link
+                    key={r.to}
+                    to={r.to as never}
+                    onClick={() => setMobileOpen(false)}
+                    className="group flex items-center gap-3 rounded-md px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
+                  >
+                    <Icon className="h-[14px] w-[14px] shrink-0 text-muted-foreground/50" strokeWidth={1.75} aria-hidden="true" />
+                    <span className="truncate">{r.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Divider if recent/pinned present */}
+        {(pinned.length > 0 || recent.length > 0) && (
+          <div className="mx-3 mb-4 h-px bg-border/50" />
+        )}
+
+        {/* Main nav groups */}
+        {NAV_GROUPS.map((g) => {
+          const visibleItems = g.items.filter(
+            (n) => !(n.kind === "link" && n.requireAdmin) || canAdmin,
+          );
+          if (visibleItems.length === 0) return null;
+
+          if (g.collapsible) {
+            return (
+              <Collapsible
+                key={g.key}
+                open={adminOpen}
+                onOpenChange={setAdminOpen}
+                className="mb-5 last:mb-0"
+              >
+                <CollapsibleTrigger asChild>
+                  <button className="flex w-full items-center gap-1 px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80 hover:text-muted-foreground">
+                    <span className="flex-1 text-left">{tSafe(g.key, g.fallback)}</span>
+                    <ChevronDown
+                      className={cn("h-3 w-3 transition-transform", adminOpen && "rotate-180")}
+                      aria-hidden="true"
+                    />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="flex flex-col gap-0.5">
+                    {visibleItems.map(renderNavItem)}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          }
+
           return (
             <div key={g.key} className="mb-5 last:mb-0">
               <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">
-                {tSafe(g.key, groupFallbacks[g.key] ?? g.key)}
+                {tSafe(g.key, g.fallback)}
               </div>
               <div className="flex flex-col gap-0.5">
-                {items.map((n) => {
-                  const Icon = n.icon;
-                  const active = isActive(n.to);
-                  return (
-                    <Link
-                      key={n.to}
-                      to={n.to}
-                      onClick={() => setMobileOpen(false)}
-                      className={cn(
-                        "group relative flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition-colors duration-150",
-                        active
-                          ? "bg-sidebar-accent text-foreground"
-                          : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
-                      )}
-                    >
-                      {active ? (
-                        <span
-                          className={cn(
-                            "absolute top-1.5 bottom-1.5 w-[2px] rounded-full bg-foreground",
-                            dir === "rtl" ? "right-0" : "left-0",
-                          )}
-                        />
-                      ) : null}
-                      <Icon
-                        className={cn(
-                          "h-[15px] w-[15px] shrink-0 transition-colors",
-                          active ? "text-foreground" : "text-muted-foreground/80 group-hover:text-foreground",
-                        )}
-                        strokeWidth={1.75}
-                      />
-                      <span className="truncate">{t(n.key as never)}</span>
-                    </Link>
-                  );
-                })}
+                {visibleItems.map(renderNavItem)}
               </div>
             </div>
           );
@@ -202,7 +456,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Footer identity */}
       <div className="border-t border-border/70 px-4 py-3">
         <div className="flex items-center gap-2.5">
-          <div className="grid h-7 w-7 place-items-center rounded-full bg-surface-2 text-[11px] font-medium text-foreground">
+          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface-2 text-[11px] font-medium text-foreground">
             {(user?.email ?? "?").slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
@@ -210,7 +464,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {user?.email ?? ""}
             </div>
             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
-              {isCeo ? "CEO" : t("nav_workspace")}
+              {topRole ? t(`role_${topRole}` as never) : "—"}
             </div>
           </div>
           <button
@@ -219,7 +473,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               nav_({ to: "/auth", search: { next: "" } });
             }}
             aria-label={t("sign_out")}
-            className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <LogOut className="h-3.5 w-3.5" />
           </button>
@@ -228,78 +482,152 @@ export function AppShell({ children }: { children: ReactNode }) {
     </div>
   );
 
+  // ── Layout ─────────────────────────────────────────────────────────────
+
   return (
     <div dir={dir} className="min-h-screen bg-background text-foreground">
-      {/* Sidebar (desktop) */}
+      {/* Skip-to-main-content (WCAG 2.4.1) */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-[100] focus:rounded-md focus:border focus:border-border focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:text-foreground focus:shadow-lg"
+      >
+        {lang === "ar" ? "تخطى إلى المحتوى الرئيسي" : "Skip to main content"}
+      </a>
+
+      {/* Sidebar — desktop */}
       <aside
         className={cn(
           "fixed inset-y-0 z-40 hidden w-64 bg-sidebar md:block",
-          dir === "rtl" ? "right-0 border-l border-sidebar-border" : "left-0 border-r border-sidebar-border",
+          dir === "rtl"
+            ? "right-0 border-l border-sidebar-border"
+            : "left-0 border-r border-sidebar-border",
         )}
       >
         {sidebar}
       </aside>
 
       {/* Mobile drawer */}
-      {mobileOpen ? (
+      {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+            aria-hidden="true"
+          />
           <div
             className={cn(
               "absolute inset-y-0 w-72 bg-sidebar",
-              dir === "rtl" ? "right-0 border-l border-sidebar-border" : "left-0 border-r border-sidebar-border",
+              dir === "rtl"
+                ? "right-0 border-l border-sidebar-border"
+                : "left-0 border-r border-sidebar-border",
             )}
           >
             {sidebar}
           </div>
         </div>
-      ) : null}
+      )}
 
       {/* Main column */}
       <div className={cn("flex min-h-screen flex-col", dir === "rtl" ? "md:mr-64" : "md:ml-64")}>
         <header className="sticky top-0 z-30 border-b border-border/70 bg-background/80 backdrop-blur-xl">
           <div className="flex h-14 items-center gap-3 px-4 md:px-8">
+            {/* Mobile hamburger */}
             <button
-              className="grid h-9 w-9 place-items-center rounded-md border border-border bg-surface text-muted-foreground transition-colors hover:text-foreground md:hidden"
+              className="grid h-9 w-9 place-items-center rounded-md border border-border bg-surface text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:hidden"
               onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
+              aria-label={lang === "ar" ? "فتح القائمة" : "Open navigation"}
             >
               <Menu className="h-4 w-4" />
             </button>
 
+            {/* Desktop status */}
             <div className="hidden items-center gap-3 md:flex">
               <StatusPill tone="positive">● {t("agent_status_running")}</StatusPill>
               <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
                 {t("last_refreshed")}
                 <span className="ms-2 normal-case tracking-normal text-foreground/70">
-                  {new Date().toLocaleTimeString(lang === "ar" ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+                  {new Date().toLocaleTimeString(
+                    lang === "ar" ? "ar-SA" : "en-US",
+                    { hour: "2-digit", minute: "2-digit" },
+                  )}
                 </span>
               </span>
             </div>
 
+            {/* Right actions */}
             <div className="ms-auto flex items-center gap-2">
               <FontSizeControl />
+
+              {/* Language toggle */}
               <button
                 onClick={() => setLang(lang === "en" ? "ar" : "en")}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 aria-label={t("language")}
               >
                 <Globe className="h-3.5 w-3.5" />
                 {lang === "en" ? "AR" : "EN"}
               </button>
+
+              {/* Quick Actions "+" */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="grid h-8 w-8 place-items-center rounded-md border border-border bg-surface text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    aria-label={t("nav_quick_actions")}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {t("nav_quick_actions")}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => nav_({ to: "/my-workspace" })}>
+                    <Activity className="h-3.5 w-3.5" />
+                    {t("qa_log_activity")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => nav_({ to: "/lead-tender-inbox" })}>
+                    <Mailbox className="h-3.5 w-3.5" />
+                    {t("qa_new_lead")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => nav_({ to: "/follow-ups" })}>
+                    <CalendarClock className="h-3.5 w-3.5" />
+                    {t("qa_new_follow_up")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => nav_({ to: "/opportunities" })}>
+                    <FolderKanban className="h-3.5 w-3.5" />
+                    {t("qa_new_opportunity")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Notification bell */}
               <button
-                className="relative hidden h-8 w-8 place-items-center rounded-md border border-border bg-surface text-muted-foreground transition-colors hover:text-foreground sm:grid"
-                aria-label="Notifications"
+                className="relative grid h-8 w-8 place-items-center rounded-md border border-border bg-surface text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                onClick={() => setNotifOpen(true)}
+                aria-label={`${t("notif_title")}${notifCount > 0 ? ` (${notifCount})` : ""}`}
               >
                 <Bell className="h-3.5 w-3.5" />
+                {notifCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute end-1 top-1 h-1.5 w-1.5 rounded-full bg-amber"
+                  />
+                )}
               </button>
             </div>
-
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-10">{children}</main>
+        <main id="main-content" tabIndex={-1} className="flex-1 px-4 py-6 md:px-8 md:py-10">
+          {children}
+        </main>
       </div>
+
+      {/* Global overlays — mounted once at shell level */}
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <NotificationCenter open={notifOpen} onOpenChange={setNotifOpen} />
     </div>
   );
 }

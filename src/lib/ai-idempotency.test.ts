@@ -43,3 +43,29 @@ test("an unexpected status value (defensive) is treated as still in progress, ne
   const row = { claim_id: "claim-1", claimed: false, request_status: "some_future_status", request_output_id: null } as ClaimRpcRow;
   expect(interpretClaimRpcResult(row, false)).toEqual({ kind: "duplicate_processing" });
 });
+
+// ---------------------------------------------------------------------------
+// Idempotency payload-conflict fix: the RPC's new "conflict" outcome — same
+// 5-field key, but the caller-supplied fingerprint differs from the one the
+// existing row was originally claimed with.
+// ---------------------------------------------------------------------------
+
+test("a 'conflict' request_status maps to the 'conflict' outcome, never claimed and never a provider call", () => {
+  const row: ClaimRpcRow = { claim_id: "claim-1", claimed: false, request_status: "conflict", request_output_id: null };
+  expect(interpretClaimRpcResult(row, false)).toEqual({ kind: "conflict" });
+});
+
+test("'conflict' is recognized even when the existing row happens to have a resolvable output_id — output details are never surfaced for a conflict", () => {
+  const row: ClaimRpcRow = { claim_id: "claim-1", claimed: false, request_status: "conflict", request_output_id: "output-9" };
+  // The outcome carries no outputId field at all for "conflict" — unlike
+  // duplicate_succeeded, nothing about the prior request's result is ever
+  // exposed through this outcome.
+  expect(interpretClaimRpcResult(row, false)).toEqual({ kind: "conflict" });
+});
+
+test("'conflict' is checked ahead of 'succeeded' so a conflict against an already-succeeded prior row is never mistaken for duplicate_succeeded", () => {
+  const row: ClaimRpcRow = { claim_id: "claim-1", claimed: false, request_status: "conflict", request_output_id: "output-9" };
+  const outcome = interpretClaimRpcResult(row, false);
+  expect(outcome.kind).not.toBe("duplicate_succeeded");
+  expect(outcome.kind).toBe("conflict");
+});

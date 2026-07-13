@@ -4,9 +4,17 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ShieldAlert, PlayCircle, Sparkles, PlayIcon, CheckIcon, XIcon, ArrowUpCircle, PauseCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatNumber } from "@/lib/i18n";
@@ -118,6 +126,7 @@ function ActionCenter() {
 
   const { data: flags = [], isLoading } = useQuery({
     queryKey: ["action-queue", tab],
+    staleTime: 30_000,
     queryFn: async () => {
       let q = supabase.from("opportunity_flags").select("*").order("created_at", { ascending: false });
       if (tab === "active") q = q.in("status", ACTIVE_FLAG_STATUSES);
@@ -140,6 +149,7 @@ function ActionCenter() {
 
   const { data: relatedRecords } = useQuery({
     queryKey: ["action-queue-related", ids.opportunity.length, ids.rfq.length, ids.tender.length, ids.approval.length, ids.quotation.length],
+    staleTime: 30_000,
     enabled: flags.length > 0,
     queryFn: async () => {
       const [opps, rfqs, tenders, approvals, quotations] = await Promise.all([
@@ -161,6 +171,7 @@ function ActionCenter() {
 
   const { data: owners } = useQuery({
     queryKey: ["action-queue-owners", ownerIds.join(",")],
+    staleTime: 30_000,
     enabled: ownerIds.length > 0,
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("id, full_name, email").in("id", ownerIds);
@@ -263,24 +274,34 @@ function ActionCenter() {
             </button>
           ))}
         </div>
-        <select
+        <Select
           value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as "all" | QueueActionType)}
-          className="h-8 rounded-md border border-border/70 bg-surface/60 px-2 text-[11px] text-foreground"
+          onValueChange={(v) => setTypeFilter(v as "all" | QueueActionType)}
         >
-          <option value="all">{t("crm_filter_all_types")}</option>
-          {QUEUE_ACTION_TYPES.map((qt) => (
-            <option key={qt} value={qt}>{t(TYPE_KEY[qt] as never)}</option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 w-auto min-w-[10rem] border-border/70 bg-surface/60 text-[11px] text-foreground">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("crm_filter_all_types")}</SelectItem>
+            {QUEUE_ACTION_TYPES.map((qt) => (
+              <SelectItem key={qt} value={qt}>{t(TYPE_KEY[qt] as never)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonTable rows={6} />
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-border/70 bg-surface/60 py-10">
-          <EmptyState message={tab === "active" ? t("ac_no_active") : t("wf_no_records")} />
-        </div>
+        tab === "active" ? (
+          <EmptyState
+            icon={CheckIcon}
+            title={t("empty_title_action_center")}
+            description={t("empty_desc_action_center")}
+          />
+        ) : (
+          <EmptyState message={t("wf_no_records")} compact />
+        )
       ) : (
         <ul className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
           {filtered.map((f) => {
@@ -309,8 +330,12 @@ function ActionCenter() {
                       ) : null}
                       <span className="text-[11px] text-muted-foreground">{t((RECORD_TYPE_KEY[f.linked_record_type] ?? "") as never) || humanize(f.linked_record_type)}</span>
                       {f.due_date ? (
-                        <span className={`num text-[11px] ${overdue ? "font-medium text-red-400" : "text-muted-foreground"}`} data-tabular="true">
-                          · {t("ac_due")}: {f.due_date}
+                        <span
+                          className={`inline-flex items-center gap-1 num text-[11px] ${overdue ? "font-medium text-red-400" : "text-muted-foreground"}`}
+                          data-tabular="true"
+                        >
+                          {overdue ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
+                          {overdue ? t("urgency_overdue") : t("ac_due")}: {f.due_date}
                         </span>
                       ) : null}
                     </div>
@@ -343,6 +368,7 @@ function ActionCenter() {
                         {f.status === "open" ? (
                           <button
                             onClick={() => handleStart(f)}
+                            aria-label={t("ac_start")}
                             title={t("ac_start")}
                             className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                           >
@@ -351,6 +377,7 @@ function ActionCenter() {
                         ) : null}
                         <button
                           onClick={() => setDialog({ kind: "complete", flag: f })}
+                          aria-label={t("ac_complete")}
                           title={t("ac_complete")}
                           className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 transition-colors hover:bg-emerald-500/20"
                         >
@@ -359,6 +386,7 @@ function ActionCenter() {
                         {f.status !== "escalated" ? (
                           <button
                             onClick={() => setDialog({ kind: "escalate", flag: f })}
+                            aria-label={t("ac_escalate")}
                             title={t("ac_escalate")}
                             className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                           >
@@ -368,6 +396,7 @@ function ActionCenter() {
                         {f.status !== "blocked" ? (
                           <button
                             onClick={() => setDialog({ kind: "block", flag: f })}
+                            aria-label={t("ac_block")}
                             title={t("ac_block")}
                             className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                           >
@@ -376,6 +405,7 @@ function ActionCenter() {
                         ) : null}
                         <button
                           onClick={() => setDialog({ kind: "dismiss", flag: f })}
+                          aria-label={t("ac_dismiss")}
                           title={t("ac_dismiss")}
                           className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                         >

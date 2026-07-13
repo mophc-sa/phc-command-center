@@ -9,6 +9,7 @@ import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -53,7 +54,7 @@ function ProjectDetail() {
       ).data,
   });
 
-  if (isLoading) return <EmptyState message={t("loading")} />;
+  if (isLoading) return <SkeletonForm />;
   if (!project) return <EmptyState message={t("crm_no_projects")} />;
   const p: any = project;
   const oppCount = p.opportunities?.length ?? 0;

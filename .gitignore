@@ -1,3 +1,8 @@
+# Environment files — only .env.example is committed; all others are local
+.env
+.env.*
+!.env.example
+
 # Logs
 logs
 *.log
@@ -46,3 +51,4 @@ test-results/
 # Local data export inspection (sensitive — never commit)
 /exports-inspected/
 /exports*/
+tests/e2e/setup/.auth.json

@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -45,6 +47,14 @@ jobs:
       TEST_SALESPERSON_PASSWORD: ${{ secrets.TEST_SALESPERSON_PASSWORD }}
       TEST_VIEWER_EMAIL: ${{ secrets.TEST_VIEWER_EMAIL }}
       TEST_VIEWER_PASSWORD: ${{ secrets.TEST_VIEWER_PASSWORD }}
+      TEST_SALES_OPS_EMAIL: ${{ secrets.TEST_SALES_OPS_EMAIL }}
+      TEST_SALES_OPS_PASSWORD: ${{ secrets.TEST_SALES_OPS_PASSWORD }}
+      TEST_CEO_EMAIL: ${{ secrets.TEST_CEO_EMAIL }}
+      TEST_CEO_PASSWORD: ${{ secrets.TEST_CEO_PASSWORD }}
+      TEST_PENDING_EMAIL: ${{ secrets.TEST_PENDING_EMAIL }}
+      TEST_PENDING_PASSWORD: ${{ secrets.TEST_PENDING_PASSWORD }}
+      TEST_SUSPENDED_EMAIL: ${{ secrets.TEST_SUSPENDED_EMAIL }}
+      TEST_SUSPENDED_PASSWORD: ${{ secrets.TEST_SUSPENDED_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2

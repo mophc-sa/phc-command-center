@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonCard } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
@@ -49,6 +50,7 @@ function AccountsPage() {
 
   const { data: companies = [], isLoading } = useQuery({
     queryKey: ["companies"],
+    staleTime: 60_000,
     queryFn: async () =>
       (
         await supabase
@@ -111,7 +113,7 @@ function AccountsPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("crm_search_accounts" as never) || "Search accounts"}
-            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
+            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -140,9 +142,23 @@ function AccountsPage() {
       </div>
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonCard count={6} />
       ) : filtered.length === 0 ? (
-        <EmptyState message={t("crm_no_accounts")} />
+        companies.length === 0 ? (
+          <EmptyState
+            icon={Building2}
+            title={t("empty_title_accounts")}
+            description={t("empty_desc_accounts")}
+            primaryAction={{ label: t("crm_new_account"), onClick: () => setCreateOpen(true), icon: Plus }}
+          />
+        ) : (
+          <EmptyState
+            variant="no-results"
+            title={t("empty_title_no_results")}
+            description={t("empty_desc_no_results")}
+            secondaryAction={{ label: t("empty_clear_filters"), onClick: () => { setTypeFilter("all"); setQuery(""); setShowArchived(false); } }}
+          />
+        )
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {filtered.map((c: any) => (

@@ -145,7 +145,7 @@ test("the frontend client never sends a systemPrompt/model/template field to the
 });
 
 test("the frontend client's request body only contains fields the strict request schema accepts", () => {
-  const bodyMatch = frontendClientSource.match(/body:\s*\{([\s\S]*?)\n\s*\},\n\s*\}\);/);
+  const bodyMatch = frontendClientSource.match(/body:\s*\{([\s\S]*?)\r?\n\s*\},\r?\n\s*\}\);/);
   expect(bodyMatch).not.toBeNull();
   const bodyBlock = bodyMatch![1];
   const allowedKeys = ["agent", "entityType", "entityId", "input", "provider", "clientRequestId"];

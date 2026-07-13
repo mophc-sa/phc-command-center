@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
@@ -184,7 +185,7 @@ function TenderMonitor() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search tenders or contractor"
-            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
+            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -212,9 +213,23 @@ function TenderMonitor() {
       </div>
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonTable rows={6} />
       ) : filtered.length === 0 ? (
-        <EmptyState message={t("wf_no_records")} />
+        tenders.length === 0 ? (
+          <EmptyState
+            icon={Gavel}
+            title={t("empty_title_tenders")}
+            description={t("empty_desc_tenders")}
+            primaryAction={{ label: t("wf_new_tender"), onClick: () => setNewTender(true), icon: Plus }}
+          />
+        ) : (
+          <EmptyState
+            variant="no-results"
+            title={t("empty_title_no_results")}
+            description={t("empty_desc_no_results")}
+            secondaryAction={{ label: t("empty_clear_filters"), onClick: () => { setClassFilter("all"); setQuery(""); } }}
+          />
+        )
       ) : view === "board" ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {TENDER_STAGES.map((stage) => {
@@ -242,8 +257,9 @@ function TenderMonitor() {
                           <span className="num" data-tabular="true">{formatCurrency(x.estimated_project_value, lang, "SAR")}</span>
                         </div>
                         {d != null ? (
-                          <div className={`mt-1 text-[11px] ${overdue ? "text-red-300" : urgent ? "text-amber-light" : "text-muted-foreground"}`}>
-                            {overdue ? `Overdue ${Math.abs(d)}d` : `${d}d to award`}
+                          <div className={`mt-1 flex items-center gap-1 text-[11px] ${overdue ? "text-red-300" : urgent ? "text-amber-light" : "text-muted-foreground"}`}>
+                            {(overdue || urgent) ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
+                            <span>{overdue ? `${t("urgency_overdue")} ${Math.abs(d)}d` : urgent ? `${t("urgency_due_soon")} · ${d}d` : `${d}d`}</span>
                           </div>
                         ) : null}
                         <div className="mt-1.5 flex flex-wrap items-center justify-end gap-1">
@@ -251,6 +267,7 @@ function TenderMonitor() {
                             type="button"
                             onClick={() => setHistoryTender({ id: x.id, label: x.tender_name })}
                             title={t("comm_history")}
+                            aria-label={t("comm_history")}
                             className="grid h-6 w-6 place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground"
                           >
                             <History className="h-3 w-3" />
@@ -320,7 +337,12 @@ function TenderMonitor() {
                     <td className="px-4 py-2.5 text-muted-foreground">{x.tender_priority_classification ?? "—"}</td>
                     <td className="px-4 py-2.5 text-right text-foreground num" data-tabular="true">{formatCurrency(x.estimated_project_value, lang, "SAR")}</td>
                     <td className={`px-4 py-2.5 text-right num ${overdue ? "text-red-300" : urgent ? "text-amber-light" : "text-muted-foreground"}`} data-tabular="true">
-                      {d == null ? "—" : overdue ? `Overdue ${Math.abs(d)}d` : `${d}d`}
+                      {d == null ? "—" : (
+                        <span className="inline-flex items-center justify-end gap-1">
+                          {(overdue || urgent) ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
+                          {overdue ? `${t("urgency_overdue")} ${Math.abs(d)}d` : urgent ? `${t("urgency_due_soon")} · ${d}d` : `${d}d`}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );

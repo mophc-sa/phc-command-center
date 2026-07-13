@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -60,7 +61,7 @@ function TeamPage() {
     : data;
 
   const managers = useMemo(
-    () => data.filter((m) => m.roles.some((r) => r === "ceo" || r === "sales_manager")).length,
+    () => data.filter((m) => isExecutive(m.roles) || isSalesManager(m.roles)).length,
     [data],
   );
   const bdCount = useMemo(() => data.filter((m) => m.roles.includes("bd_manager")).length, [data]);
@@ -95,7 +96,7 @@ function TeamPage() {
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Members" value={data.length} />
-        <KpiCard label="Managers" value={managers} hint="CEO or Sales Manager" />
+        <KpiCard label="Managers" value={managers} hint="Executive + Sales Manager" />
         <KpiCard label="BD Managers" value={bdCount} />
         <KpiCard label="Viewers" value={viewers} />
       </div>
@@ -117,7 +118,7 @@ function TeamPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-sm text-muted-foreground">{t("loading")}</div>
+        <SkeletonTable rows={6} />
       ) : isError ? (
         <div className="rounded-lg border border-border bg-surface p-6 text-sm">
           <div className="text-foreground">{t("error_generic")}</div>

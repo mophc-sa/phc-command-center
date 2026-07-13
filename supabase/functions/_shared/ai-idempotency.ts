@@ -10,8 +10,17 @@
 // this mapping out of index.ts (which is Deno-only and untestable under
 // `bun test`) into its own portable module means every branch — claimed,
 // a fresh in-flight duplicate, a completed duplicate (with or without a
-// resolvable output), and an RPC failure — has a real, executable test
-// instead of relying on reading the SQL alone.
+// resolvable output), a payload conflict, and an RPC failure — has a real,
+// executable test instead of relying on reading the SQL alone.
+//
+// Idempotency payload-conflict fix (post-launch hardening): the RPC now
+// also compares a caller-supplied request_fingerprint (see
+// ai-fingerprint.ts) against whatever fingerprint the existing row already
+// stored for this exact 5-field key. "conflict" means the same idempotency
+// key is being reused with a genuinely different request — see
+// docs/ai-orchestrator.md's "Idempotency" section for the full contract,
+// including the documented backward-compatible behavior for legacy rows
+// whose stored fingerprint is NULL (claimed before this fix shipped).
 // =============================================================================
 
 export type ClaimRpcRow = {
@@ -25,6 +34,7 @@ export type ClaimOutcome =
   | { kind: "claimed"; claimId: string }
   | { kind: "duplicate_processing" }
   | { kind: "duplicate_succeeded"; outputId: string | null }
+  | { kind: "conflict" }
   | { kind: "claim_error" };
 
 // `rpcErrored` covers a transport/DB-level failure calling the RPC itself
@@ -33,10 +43,16 @@ export type ClaimOutcome =
 export function interpretClaimRpcResult(row: ClaimRpcRow | null | undefined, rpcErrored: boolean): ClaimOutcome {
   if (rpcErrored || !row) return { kind: "claim_error" };
   if (row.claimed) return { kind: "claimed", claimId: row.claim_id };
+  // "conflict" is a transient RPC output value only — it is never persisted
+  // as an ai_agent_requests.status (that column's CHECK constraint still
+  // only allows processing/succeeded/failed; see the migration). It must be
+  // checked before "succeeded" below since a conflict can occur against an
+  // already-succeeded prior row.
+  if (row.request_status === "conflict") return { kind: "conflict" };
   if (row.request_status === "succeeded") return { kind: "duplicate_succeeded", outputId: row.request_output_id };
-  // Any non-succeeded, non-claimed status (in practice always "processing"
-  // and not stale — a stale or failed prior claim would have been reclaimed
-  // by the RPC itself, coming back with claimed=true) means a genuinely
-  // in-flight duplicate: never proceed to call the provider for it.
+  // Any other status (in practice always "processing" and not stale — a
+  // stale or failed prior claim would have been reclaimed by the RPC
+  // itself, coming back with claimed=true) means a genuinely in-flight
+  // duplicate: never proceed to call the provider for it.
   return { kind: "duplicate_processing" };
 }

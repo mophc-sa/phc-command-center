@@ -8,6 +8,7 @@ import { OpportunityCard, type OpportunityRow } from "@/components/phc/Opportuni
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { Link } from "@tanstack/react-router";
 import {
@@ -95,7 +96,7 @@ function OppList() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("filter_search")}
-            className="h-9 w-full rounded-md bg-transparent pe-3 ps-8 text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+            className="h-9 w-full rounded-md bg-transparent pe-3 ps-8 text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
         <Select value={stage} onValueChange={setStage}>
@@ -135,11 +136,16 @@ function OppList() {
       </div>
 
       {isLoading ? (
-        <EmptyState message={t("loading")} />
+        <SkeletonTable rows={8} />
       ) : data.length === 0 ? (
-        <EmptyState message={t("empty_opportunities")} />
+        <EmptyState title={t("empty_opportunities")} description={t("empty_desc_opportunities")} />
       ) : filtered.length === 0 ? (
-        <EmptyState message={t("filter_no_results")} />
+        <EmptyState
+          variant="no-results"
+          title={t("empty_title_no_results")}
+          description={t("empty_desc_no_results")}
+          secondaryAction={{ label: t("empty_clear_filters"), onClick: () => { setSearch(""); setStage("all"); setTier("all"); } }}
+        />
       ) : view === "cards" ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((o) => <OpportunityCard key={o.id} o={o} lang={lang} />)}

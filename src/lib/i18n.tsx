@@ -271,6 +271,7 @@ export const strings = {
   crm_confidence: { en: "Confidence", ar: "مستوى الثقة" },
   crm_phone: { en: "Phone", ar: "الجوال" },
   crm_email: { en: "Email", ar: "البريد" },
+  crm_website: { en: "Website", ar: "الموقع الإلكتروني" },
   crm_company: { en: "Company", ar: "الشركة" },
   crm_project_stage: { en: "Project Stage", ar: "مرحلة المشروع" },
   crm_completion: { en: "Completion", ar: "نسبة الإنجاز" },
@@ -755,6 +756,19 @@ export const strings = {
   admin_section_assign: { en: "Assign Roles", ar: "تعيين الأدوار" },
   admin_col_capability: { en: "Capability", ar: "الصلاحية" },
   admin_no_holders: { en: "No members assigned.", ar: "لا يوجد أعضاء معيّنون." },
+  admin_section_pending: { en: "Pending Registrations", ar: "طلبات التسجيل المعلّقة" },
+  admin_pending_empty: { en: "No pending registrations.", ar: "لا توجد طلبات تسجيل معلّقة." },
+  admin_pending_approve: { en: "Approve", ar: "تفعيل" },
+  admin_pending_reject: { en: "Reject", ar: "رفض" },
+  admin_pending_role_label: { en: "Grant role", ar: "منح دور" },
+  admin_pending_registered: { en: "Registered", ar: "سجّل في" },
+  admin_user_suspend: { en: "Suspend", ar: "تعليق" },
+  admin_user_activate: { en: "Activate", ar: "تفعيل" },
+  admin_col_status: { en: "Status", ar: "الحالة" },
+  toast_user_approved: { en: "Account approved", ar: "تم تفعيل الحساب" },
+  toast_user_rejected: { en: "Account rejected", ar: "تم رفض الحساب" },
+  toast_user_suspended: { en: "Account suspended", ar: "تم تعليق الحساب" },
+  toast_user_activated: { en: "Account activated", ar: "تم تفعيل الحساب" },
 
   // Quotations
   empty_quotations: {
@@ -981,6 +995,12 @@ export const strings = {
   import_blocked: { en: "You do not have access to the Data Import Center", ar: "ليس لديك صلاحية للوصول لمركز الاستيراد" },
   import_no_approve: { en: "Your role cannot approve or commit imports", ar: "دورك لا يسمح باعتماد أو تنفيذ الاستيراد" },
   import_dry_run_note: { en: "Dry-run mode: no production data will be modified", ar: "وضع تجريبي: لن يتم تعديل بيانات الإنتاج" },
+  import_staging_only_warning: { en: "Staging preview only — no live CRM records are created until you commit.", ar: "معاينة مرحلية فقط — لن يتم إنشاء أي سجلات CRM حتى تقوم بالاعتماد النهائي." },
+  import_commit_to_crm: { en: "Commit to CRM", ar: "اعتماد في نظام CRM" },
+  import_commit_confirm: { en: "This will write records to the live CRM. This action cannot be undone. Continue?", ar: "سيتم كتابة السجلات في نظام CRM الحي. هذا الإجراء لا يمكن التراجع عنه. هل تريد المتابعة؟" },
+  import_committed_records: { en: "Records created", ar: "السجلات التي تم إنشاؤها" },
+  import_commit_failed_rows: { en: "Rows failed", ar: "الصفوف التي فشلت" },
+  import_commit_view_crm: { en: "View in CRM", ar: "عرض في CRM" },
   import_would_create: { en: "Would Create", ar: "سيتم إنشاء" },
   import_would_skip: { en: "Would Skip", ar: "سيتم تخطي" },
   import_cancel: { en: "Cancel Import", ar: "إلغاء الاستيراد" },
@@ -1061,6 +1081,66 @@ export const strings = {
   comm_status_logged: { en: "Logged", ar: "مسجَّل" },
   comm_status_sent: { en: "Sent", ar: "مُرسَل" },
   comm_history: { en: "Communication History", ar: "سجل التواصل" },
+
+  // Phase 0 UX — EmptyState 2.0 contextual titles and descriptions
+  empty_title_accounts: { en: "No accounts yet", ar: "لا توجد حسابات بعد" },
+  empty_desc_accounts: { en: "Add your first target account to start building your CRM.", ar: "أضف أول حساب مستهدف لبدء بناء قاعدة علاقاتك." },
+  empty_title_contacts: { en: "No contacts yet", ar: "لا توجد جهات اتصال بعد" },
+  empty_desc_contacts: { en: "Add decision makers and influencers to your contact network.", ar: "أضف صانعي القرار والمؤثرين إلى شبكة علاقاتك." },
+  empty_desc_opportunities: { en: "Opportunities appear here once they are added to the pipeline.", ar: "ستظهر الفرص هنا بعد إضافتها إلى خط الأنابيب." },
+  empty_title_tenders: { en: "No tenders yet", ar: "لا توجد مناقصات بعد" },
+  empty_desc_tenders: { en: "Track tenders, deadlines, and conversion readiness from here.", ar: "تتبع المناقصات والمواعيد وجاهزية التحويل من هنا." },
+  empty_title_action_center: { en: "Queue is clear", ar: "القائمة فارغة" },
+  empty_desc_action_center: { en: "No active actions — the team is up to date.", ar: "لا توجد إجراءات نشطة — الفريق محدَّث." },
+  empty_title_no_results: { en: "No results", ar: "لا نتائج" },
+  empty_desc_no_results: { en: "No records match the current filters.", ar: "لا توجد سجلات تطابق الفلاتر الحالية." },
+  empty_clear_filters: { en: "Clear filters", ar: "مسح الفلاتر" },
+
+  // Phase 0 UX — ActionDialog inline validation
+  dialog_field_required: { en: "This field is required", ar: "هذا الحقل مطلوب" },
+
+  // Phase 0 UX — urgency labels for color-only fixes
+  urgency_overdue: { en: "Overdue", ar: "متأخر" },
+  urgency_due_soon: { en: "Due soon", ar: "يستحق قريبًا" },
+
+  // Workspace Foundation — navigation labels (new keys; old keys retained for compatibility)
+  nav_my_day: { en: "My Day", ar: "يومي" },
+  nav_notifications: { en: "Notifications", ar: "الإشعارات" },
+  nav_pipeline_overview: { en: "Pipeline Overview", ar: "نظرة خط المبيعات" },
+  nav_intake: { en: "Intake", ar: "الاستقبال" },
+  nav_awards: { en: "Awards", ar: "الترسيات" },
+  nav_conversion_queue: { en: "Conversion Queue", ar: "طابور التحويل" },
+
+  // Workspace Foundation — nav groups
+  navgroup_workspace: { en: "Workspace", ar: "مساحة العمل" },
+  navgroup_reports: { en: "Reports & Analysis", ar: "التقارير والتحليل" },
+  navgroup_resources: { en: "Resources", ar: "الموارد" },
+
+  // Command Palette
+  cmd_placeholder: { en: "Search records, pages…", ar: "ابحث في السجلات والصفحات…" },
+  cmd_no_results: { en: "No results found.", ar: "لا نتائج." },
+  cmd_pages: { en: "Pages", ar: "الصفحات" },
+  cmd_records: { en: "Records", ar: "السجلات" },
+  cmd_pinned: { en: "Pinned", ar: "المثبتة" },
+  cmd_recent: { en: "Recent", ar: "الأخيرة" },
+
+  // Notification Center
+  notif_title: { en: "Notifications", ar: "الإشعارات" },
+  notif_empty: { en: "You're all caught up", ar: "لا إشعارات جديدة" },
+  notif_empty_desc: { en: "Approvals, assignments, and alerts will appear here.", ar: "ستظهر هنا الاعتمادات والتكليفات والتنبيهات." },
+  notif_mark_all_read: { en: "Mark all read", ar: "وسم الكل كمقروء" },
+  notif_coming_soon: { en: "Live notifications coming soon", ar: "الإشعارات الفعلية قادمة قريباً" },
+
+  // Quick Actions menu
+  nav_quick_actions: { en: "Quick Actions", ar: "الإجراءات السريعة" },
+  qa_log_activity: { en: "Log Activity", ar: "تسجيل نشاط" },
+  qa_new_lead: { en: "New Lead", ar: "عميل محتمل جديد" },
+  qa_new_follow_up: { en: "New Follow-up", ar: "متابعة جديدة" },
+  qa_new_opportunity: { en: "New Opportunity", ar: "فرصة جديدة" },
+
+  // Pinned records
+  pin_add: { en: "Pin to sidebar", ar: "تثبيت في الشريط" },
+  pin_remove: { en: "Unpin", ar: "إلغاء التثبيت" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;
