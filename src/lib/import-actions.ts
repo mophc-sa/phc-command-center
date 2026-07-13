@@ -10,6 +10,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { type AppRole, ROLE_GROUPS } from "@/lib/roles";
 
 // Import tables are not in the auto-generated Supabase types yet.
 // Use this untyped accessor until types are regenerated.
@@ -18,17 +19,19 @@ const db = supabase as any;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-export const IMPORT_CAPABLE_ROLES = [
-  "system_admin", "managing_director", "general_manager", "ceo", "sales_manager",
-] as const;
+// Derived from ROLE_GROUPS so that new executive roles are picked up automatically.
+export const IMPORT_CAPABLE_ROLES: AppRole[] = [
+  ...ROLE_GROUPS.systemAdmin, ...ROLE_GROUPS.executive, ...ROLE_GROUPS.salesManager,
+];
 
-export const APPROVE_COMMIT_ROLES = [
-  "managing_director", "general_manager", "ceo", "sales_manager",
-] as const;
+// Commercial sign-off authority — system_admin intentionally excluded (per roles.ts design rule).
+export const APPROVE_COMMIT_ROLES: AppRole[] = [
+  ...ROLE_GROUPS.executive, ...ROLE_GROUPS.salesManager,
+];
 
-export const UPLOAD_ROLES = [
-  ...IMPORT_CAPABLE_ROLES, "bd_manager",
-] as const;
+export const UPLOAD_ROLES: AppRole[] = [
+  ...IMPORT_CAPABLE_ROLES, ...ROLE_GROUPS.bdSalesOps,
+];
 
 export const BLOCKED_ROLES = ["salesperson", "viewer"] as const;
 
