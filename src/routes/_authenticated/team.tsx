@@ -61,7 +61,7 @@ function TeamPage() {
     : data;
 
   const managers = useMemo(
-    () => data.filter((m) => m.roles.some((r) => r === "ceo" || r === "sales_manager")).length,
+    () => data.filter((m) => isExecutive(m.roles) || isSalesManager(m.roles)).length,
     [data],
   );
   const bdCount = useMemo(() => data.filter((m) => m.roles.includes("bd_manager")).length, [data]);
@@ -96,7 +96,7 @@ function TeamPage() {
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Members" value={data.length} />
-        <KpiCard label="Managers" value={managers} hint="CEO or Sales Manager" />
+        <KpiCard label="Managers" value={managers} hint="Executive + Sales Manager" />
         <KpiCard label="BD Managers" value={bdCount} />
         <KpiCard label="Viewers" value={viewers} />
       </div>
