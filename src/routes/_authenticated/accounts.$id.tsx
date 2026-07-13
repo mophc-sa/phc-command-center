@@ -181,6 +181,17 @@ function AccountDetail() {
         ) : null}
       </Panel>
 
+      {/* Extra data from import — dynamic columns preserved from uploaded files */}
+      {c.extra_data && Object.keys(c.extra_data).length > 0 ? (
+        <Panel title={t("crm_additional_data" as never)}>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-3">
+            {Object.entries(c.extra_data as Record<string, string>).map(([key, val]) => (
+              <DataField key={key} label={key} value={val} />
+            ))}
+          </div>
+        </Panel>
+      ) : null}
+
       <div className="grid gap-5 lg:grid-cols-3">
         <Panel title={t("crm_linked_contacts")} subtitle={String(contactCount)}>
           {(c.contacts ?? []).length === 0 ? (

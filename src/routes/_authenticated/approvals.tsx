@@ -15,16 +15,12 @@ import { decideApproval } from "@/lib/opportunity-actions";
 import { executeDelete, DELETABLE_ENTITY_TYPES } from "@/lib/record-lifecycle-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canApproveCommercialAction, canExecuteDelete } from "@/lib/roles";
+import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/approvals")({
   head: () => ({ meta: [{ title: "Approvals — PHC" }, { name: "robots", content: "noindex" }] }),
   component: ApprovalsPage,
 });
-
-function humanize(s: string | null | undefined) {
-  if (!s) return "—";
-  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function ageDays(d?: string | null): number | null {
   if (!d) return null;

@@ -34,6 +34,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { PriorityItem } from "@/components/phc/PriorityItem";
 import { StatusPill } from "@/components/phc/StatusPill";
 import type { OpportunityRow } from "@/components/phc/OpportunityCard";
+import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/command-center")({
   head: () => ({
@@ -47,18 +48,22 @@ export const Route = createFileRoute("/_authenticated/command-center")({
 });
 
 const CLOSED = ["won", "lost", "archived"];
-const CHART_COLORS = {
-  primary: "oklch(0.97 0.004 253)",
-  primaryDim: "oklch(0.75 0.008 253)",
-  amber: "oklch(0.70 0.115 65)",
-  amberDim: "oklch(0.55 0.09 65)",
-  muted: "oklch(0.50 0.010 253)",
-  grid: "oklch(0.40 0.015 253 / 0.35)",
-} as const;
-
-function humanize(s: string) {
-  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+/** Read chart colours from CSS variables so they stay in sync with the design token system. */
+function getCssVar(name: string) {
+  if (typeof getComputedStyle === "undefined") return "";
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
+const CHART_COLORS = {
+  get primary() { return getCssVar("--chart-primary") || "oklch(0.97 0.004 253)"; },
+  get primaryDim() { return getCssVar("--chart-primary-dim") || "oklch(0.75 0.008 253)"; },
+  get amber() { return getCssVar("--chart-amber") || "oklch(0.70 0.115 65)"; },
+  get amberDim() { return getCssVar("--chart-amber-dim") || "oklch(0.55 0.09 65)"; },
+  get muted() { return getCssVar("--chart-muted") || "oklch(0.50 0.010 253)"; },
+  get grid() { return getCssVar("--chart-grid") || "oklch(0.40 0.015 253 / 0.35)"; },
+};
+
+const CHART_H = "h-[240px]";
+const CHART_H_SM = "h-[160px]";
 
 function CommandCenter() {
   const { t, lang } = useI18n();
@@ -268,7 +273,7 @@ function CommandCenter() {
           {openOpps.length === 0 ? (
             <EmptyChart label={lang === "ar" ? "لا توجد فرص مفتوحة" : "No open opportunities yet"} />
           ) : (
-            <div className="h-[240px]">
+            <div className={CHART_H}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={pipelineByStage} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
                   <CartesianGrid stroke={CHART_COLORS.grid} strokeDasharray="2 4" vertical={false} />
@@ -298,7 +303,7 @@ function CommandCenter() {
           {activities.length === 0 ? (
             <EmptyChart label={lang === "ar" ? "لا يوجد نشاط بعد" : "No activity logged yet"} />
           ) : (
-            <div className="h-[240px]">
+            <div className={CHART_H}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={activityTrend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
                   <CartesianGrid stroke={CHART_COLORS.grid} strokeDasharray="2 4" vertical={false} />
@@ -346,7 +351,7 @@ function CommandCenter() {
                   );
                 })}
               </div>
-              <div className="h-[160px]">
+              <div className={CHART_H_SM}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={followUpsStatus} dataKey="value" nameKey="label" innerRadius={44} outerRadius={64} paddingAngle={2} stroke="none">
@@ -388,7 +393,7 @@ function CommandCenter() {
                   );
                 })}
               </div>
-              <div className="h-[160px]">
+              <div className={CHART_H_SM}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={rfqStatus} dataKey="value" nameKey="label" innerRadius={44} outerRadius={64} paddingAngle={2} stroke="none">
@@ -482,7 +487,7 @@ function CommandCenter() {
 
 function EmptyChart({ label }: { label: string }) {
   return (
-    <div className="flex h-[240px] flex-col items-center justify-center gap-2 text-center">
+    <div className={`flex ${CHART_H} flex-col items-center justify-center gap-2 text-center`}>
       <div className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-surface-2/50 text-muted-foreground">
         <Sparkles className="h-4 w-4" strokeWidth={1.5} />
       </div>

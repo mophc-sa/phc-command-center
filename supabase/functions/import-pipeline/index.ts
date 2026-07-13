@@ -39,6 +39,43 @@ function mv(m: Record<string, unknown> | null, ...keys: string[]): string | null
 
 type CommitResult = { action: "created" | "updated"; recordId: string } | { action: "skipped"; recordId: null; error: string };
 
+// Known CRM columns per entity. Any mapped_data key NOT in this set (and not
+// a sentinel value) is stored in extra_data instead of being discarded.
+const KNOWN_COMPANY_KEYS = new Set([
+  "name","company_name","company_type","cr_number","website","website_domain",
+  "regions","relationship_level","internal_notes","source","created_by",
+]);
+const KNOWN_CONTACT_KEYS = new Set([
+  "name","contact_name","title","job_title","phone","contact_phone","email",
+  "source","created_by",
+]);
+const KNOWN_LEAD_KEYS = new Set([
+  "project_name","location","main_contractor","main_contractor_guess",
+  "source","created_by",
+]);
+
+// User-facing sentinels written into mapped_data by the validate step.
+const SKIP_KEY = "__skip__";
+
+// Collect unknown mapped_data keys into an extra_data object.
+// Keys that match SKIP_KEY or known CRM columns are excluded.
+// Keys prefixed "__extra::" were explicitly mapped to "Additional Data" by
+// the user; strip the prefix to recover the original source column name.
+function collectExtraData(
+  m: Record<string, unknown> | null,
+  knownKeys: Set<string>,
+): Record<string, unknown> | null {
+  if (!m) return null;
+  const extra: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(m)) {
+    if (k === SKIP_KEY || knownKeys.has(k)) continue;
+    if (v == null || String(v).trim() === "") continue;
+    const label = k.startsWith("__extra::") ? k.slice(9) : k;
+    extra[label] = String(v).trim();
+  }
+  return Object.keys(extra).length > 0 ? extra : null;
+}
+
 // deno-lint-ignore no-explicit-any
 async function commitCompany(svc: any, row: { id: string; mapped_data: Record<string, unknown> | null }, actorId: string): Promise<CommitResult> {
   const m = row.mapped_data;
@@ -54,6 +91,8 @@ async function commitCompany(svc: any, row: { id: string; mapped_data: Record<st
   const rl = mv(m, "relationship_level"); if (rl) patch.relationship_level = rl;
   const notes = mv(m, "internal_notes"); if (notes) patch.internal_notes = notes;
   const src = mv(m, "source"); if (src) patch.source = src;
+  const extra = collectExtraData(m, KNOWN_COMPANY_KEYS);
+  if (extra) patch.extra_data = extra;
 
   if (crNumber) {
     const { data, error } = await svc.from("companies")
@@ -87,6 +126,8 @@ async function commitContact(svc: any, row: { id: string; mapped_data: Record<st
   const phone = mv(m, "phone", "contact_phone"); if (phone) patch.phone = phone;
   const email = mv(m, "email"); if (email) patch.email = email;
   const src = mv(m, "source"); if (src) patch.source = src;
+  const extra = collectExtraData(m, KNOWN_CONTACT_KEYS);
+  if (extra) patch.extra_data = extra;
 
   const { data: created, error } = await svc.from("contacts").insert(patch).select("id").single();
   if (error) return { action: "skipped", recordId: null, error: error.message };
@@ -103,6 +144,8 @@ async function commitLead(svc: any, row: { id: string; mapped_data: Record<strin
   const loc = mv(m, "location"); if (loc) patch.location = loc;
   const contractor = mv(m, "main_contractor", "main_contractor_guess"); if (contractor) patch.main_contractor_guess = contractor;
   const src = mv(m, "source"); if (src) patch.source = src;
+  const extra = collectExtraData(m, KNOWN_LEAD_KEYS);
+  if (extra) patch.extra_data = extra;
 
   const { data: created, error } = await svc.from("leads").insert(patch).select("id").single();
   if (error) return { action: "skipped", recordId: null, error: error.message };
@@ -332,6 +375,17 @@ handlers["validate"] = async (payload, caller) => {
     for (const m of mappings) {
       const value = raw[m.source_column];
       const strVal = value != null ? String(value).trim() : "";
+
+      // __skip__ → user explicitly excluded this column; omit from mapped_data.
+      if (m.target_column === SKIP_KEY) continue;
+
+      // __extra_data__ → user wants this column stored in extra_data.
+      // Write it under "__extra::{source_column}" so that collectExtraData()
+      // can recover the original column name without key collisions.
+      if (m.target_column === "__extra_data__") {
+        mapped[`__extra::${m.source_column}`] = strVal || null;
+        continue;
+      }
 
       // Required check for key fields
       if (m.is_key && !strVal) {

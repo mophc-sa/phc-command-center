@@ -287,6 +287,7 @@ export const strings = {
   crm_no_contacts: { en: "No contacts yet.", ar: "لا توجد جهات اتصال بعد." },
   crm_no_projects: { en: "No projects yet.", ar: "لا توجد مشاريع بعد." },
   crm_internal_notes: { en: "Internal Notes", ar: "ملاحظات داخلية" },
+  crm_additional_data: { en: "Additional Data", ar: "بيانات إضافية" },
   crm_linked_projects: { en: "Linked Projects", ar: "المشاريع المرتبطة" },
   crm_linked_contacts: { en: "Contacts", ar: "جهات الاتصال" },
   crm_linked_opportunities: { en: "Opportunities", ar: "الفرص" },

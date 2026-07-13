@@ -657,3 +657,133 @@ export const COMPANY_TARGET_COLUMNS = [
   { value: "source", label: "Source" },
 ] as const;
 
+export const CONTACT_TARGET_COLUMNS = [
+  { value: "name", label: "Contact Name", required: true },
+  { value: "title", label: "Job Title" },
+  { value: "phone", label: "Phone" },
+  { value: "email", label: "Email" },
+  { value: "source", label: "Source" },
+] as const;
+
+export const LEAD_TARGET_COLUMNS = [
+  { value: "project_name", label: "Project Name", required: true },
+  { value: "location", label: "Location" },
+  { value: "main_contractor", label: "Main Contractor" },
+  { value: "source", label: "Source" },
+] as const;
+
+// Sentinel: user explicitly routes a column to extra_data.
+export const EXTRA_DATA_SENTINEL = "__extra_data__";
+
+/** Returns CRM target columns for the given entity, always appending
+ *  "Additional Data" and "Skip" options at the end. */
+export function getTargetColumns(entity: ImportTargetEntity) {
+  const base =
+    entity === "contacts" ? ([...CONTACT_TARGET_COLUMNS] as { value: string; label: string; required?: boolean }[]) :
+    entity === "leads"    ? ([...LEAD_TARGET_COLUMNS]    as { value: string; label: string; required?: boolean }[]) :
+                            ([...COMPANY_TARGET_COLUMNS] as { value: string; label: string; required?: boolean }[]);
+  return [
+    ...base,
+    { value: EXTRA_DATA_SENTINEL, label: "Additional Data (preserve in record)" },
+    { value: "__skip__", label: "Skip this column" },
+  ];
+}
+
+// -- AI-assisted mapping suggestions ------------------------------------------
+
+export type AiMappingSuggestion = {
+  /** source column name from the uploaded file */
+  sourceColumn: string;
+  /** suggested CRM target column (may be EXTRA_DATA_SENTINEL if no match found) */
+  suggestedTarget: string;
+  /** 0–1 confidence from the AI model */
+  confidence: number;
+  /** whether the AI considers this a required / key field */
+  isKey: boolean;
+};
+
+/**
+ * Call the ai-orchestrator (old_data_classifier) on up to 3 sample rows from
+ * the batch, then merge the proposed_field_mapping results into a single
+ * consolidated suggestion list.
+ *
+ * Returns null if AI is unavailable or if the batch has no parsed rows yet.
+ */
+export async function suggestImportMappings(
+  batchId: string,
+): Promise<AiMappingSuggestion[] | null> {
+  // Fetch up to 3 valid/pending rows to sample
+  const { data: rows } = await db
+    .from("import_rows")
+    .select("id, raw_data")
+    .eq("batch_id", batchId)
+    .in("status", ["pending", "valid"])
+    .limit(3);
+
+  if (!rows || rows.length === 0) return null;
+
+  // Call the orchestrator for each sample row in parallel
+  const results = await Promise.allSettled(
+    rows.map((row: { id: string }) =>
+      supabase.functions.invoke("ai-orchestrator", {
+        body: {
+          agent: "old_data_classifier",
+          entityType: "import_rows",
+          entityId: row.id,
+          input: { batch_id: batchId },
+        },
+      }),
+    ),
+  );
+
+  // Merge proposed_field_mappings — use highest-confidence suggestion per column
+  const best = new Map<string, { target: string; confidence: number; isKey: boolean }>();
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    const { data } = result.value;
+    if (!data?.ok || !data?.result?.proposed_field_mapping) continue;
+
+    const mapping = data.result.proposed_field_mapping as Record<string, string>;
+    const confidence: number = data.result.confidence ?? 0.5;
+    const missingRequired: string[] = data.result.missing_required_fields ?? [];
+
+    for (const [source, target] of Object.entries(mapping)) {
+      const existing = best.get(source);
+      if (!existing || confidence > existing.confidence) {
+        const resolvedTarget = target || EXTRA_DATA_SENTINEL;
+        best.set(source, {
+          target: resolvedTarget,
+          confidence,
+          isKey: missingRequired.includes(source) === false && (
+            resolvedTarget === "name" ||
+            resolvedTarget === "project_name" ||
+            resolvedTarget === "cr_number"
+          ),
+        });
+      }
+    }
+  }
+
+  if (best.size === 0) return null;
+
+  // Convert to array; columns with no AI suggestion default to extra_data
+  const { data: file } = await db
+    .from("import_files")
+    .select("column_names")
+    .eq("batch_id", batchId)
+    .limit(1)
+    .single();
+
+  const allColumns: string[] = file?.column_names ?? [];
+  return allColumns.map((col: string) => {
+    const suggestion = best.get(col);
+    return {
+      sourceColumn: col,
+      suggestedTarget: suggestion?.target ?? EXTRA_DATA_SENTINEL,
+      confidence: suggestion?.confidence ?? 0,
+      isKey: suggestion?.isKey ?? false,
+    };
+  });
+}
+

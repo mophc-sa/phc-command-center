@@ -22,16 +22,12 @@ import {
 } from "@/lib/lead-actions";
 import { canManageSalesPipeline } from "@/lib/roles";
 import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
+import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/discovery")({
   head: () => ({ meta: [{ title: "Lead Intake — PHC" }, { name: "robots", content: "noindex" }] }),
   component: LeadIntakePage,
 });
-
-function humanize(s: string | null | undefined) {
-  if (!s) return "—";
-  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function nextStage(s: LeadStage): LeadStage | null {
   const i = LEAD_STAGES.indexOf(s);

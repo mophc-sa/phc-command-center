@@ -203,7 +203,7 @@ function OpportunityDetail() {
     <div className="mx-auto grid max-w-7xl gap-6">
       {/* Breadcrumb + Page header */}
       <div>
-        <Link to="/opportunities" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+        <Link to="/opportunities" search={{ q: "", stage: "all", tier: "all", view: "cards" }} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
           <BackIcon className="h-3.5 w-3.5" />
           {t("nav_opportunities")}
         </Link>

@@ -344,7 +344,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span className="flex-1 truncate">{t("cmd_placeholder")}</span>
           <kbd className="hidden select-none rounded bg-surface-2 px-1 py-0.5 font-mono text-[10px] text-muted-foreground/60 sm:inline">
-            ⌘K
+            {typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"}
           </kbd>
         </button>
       </div>
@@ -595,7 +595,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <CalendarClock className="h-3.5 w-3.5" />
                     {t("qa_new_follow_up")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => nav_({ to: "/opportunities" })}>
+                  <DropdownMenuItem onClick={() => nav_({ to: "/opportunities", search: { q: "", stage: "all", tier: "all", view: "cards" } })}>
                     <FolderKanban className="h-3.5 w-3.5" />
                     {t("qa_new_opportunity")}
                   </DropdownMenuItem>

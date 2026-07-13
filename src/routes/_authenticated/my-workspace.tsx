@@ -25,6 +25,7 @@ import { acceptRecommendation, dismissRecommendation } from "@/lib/recommendatio
 import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions";
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
+import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/my-workspace")({
   head: () => ({ meta: [{ title: "My Day — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -32,11 +33,6 @@ export const Route = createFileRoute("/_authenticated/my-workspace")({
 });
 
 const ACTIVITY_TYPES: ActivityType[] = ["call", "visit", "meeting", "note", "email_draft", "whatsapp_draft"];
-
-function humanize(s: string | null | undefined) {
-  if (!s) return "—";
-  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function monthStart() {
   const d = new Date();
