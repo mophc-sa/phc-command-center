@@ -78,12 +78,14 @@ function DataImportCenter() {
 
   const { data: batches = [], isLoading: batchesLoading } = useQuery<ImportBatch[]>({
     queryKey: ["import-batches", { includeArchived, includeDeleted }],
+    staleTime: 10_000,
     queryFn: () => listBatches({ includeArchived, includeDeleted }),
     enabled: canAccess,
   });
 
   const { data: activeBatch } = useQuery({
     queryKey: ["import-batch", activeBatchId],
+    staleTime: 10_000,
     queryFn: () => (activeBatchId ? getBatch(activeBatchId) : null),
     enabled: canAccess && !!activeBatchId,
     refetchInterval: busy ? 3000 : false,

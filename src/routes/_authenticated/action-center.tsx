@@ -126,6 +126,7 @@ function ActionCenter() {
 
   const { data: flags = [], isLoading } = useQuery({
     queryKey: ["action-queue", tab],
+    staleTime: 30_000,
     queryFn: async () => {
       let q = supabase.from("opportunity_flags").select("*").order("created_at", { ascending: false });
       if (tab === "active") q = q.in("status", ACTIVE_FLAG_STATUSES);
@@ -148,6 +149,7 @@ function ActionCenter() {
 
   const { data: relatedRecords } = useQuery({
     queryKey: ["action-queue-related", ids.opportunity.length, ids.rfq.length, ids.tender.length, ids.approval.length, ids.quotation.length],
+    staleTime: 30_000,
     enabled: flags.length > 0,
     queryFn: async () => {
       const [opps, rfqs, tenders, approvals, quotations] = await Promise.all([
@@ -169,6 +171,7 @@ function ActionCenter() {
 
   const { data: owners } = useQuery({
     queryKey: ["action-queue-owners", ownerIds.join(",")],
+    staleTime: 30_000,
     enabled: ownerIds.length > 0,
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("id, full_name, email").in("id", ownerIds);
