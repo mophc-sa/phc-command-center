@@ -84,6 +84,7 @@ export async function audit(
   entityType: string,
   entityId: string | null,
   after?: unknown,
+  roles?: string[],
 ) {
   const { error } = await svc.from("audit_log").insert({
     actor_id: actorId,
@@ -92,6 +93,7 @@ export async function audit(
     entity_type: entityType,
     entity_id: entityId,
     after_value: (after ?? null) as never,
+    actor_role_snapshot: roles?.length ? roles : null,
   });
   if (error) {
     console.error(
