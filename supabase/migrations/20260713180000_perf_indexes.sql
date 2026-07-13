@@ -19,12 +19,12 @@
 CREATE INDEX IF NOT EXISTS opportunities_last_activity_at_idx
   ON public.opportunities (last_activity_at DESC NULLS LAST);
 
--- Index 2: follow_ups — (due_at, owner_id) partial index
+-- Index 2: follow_ups — (due_date, owner_id) partial index
 -- Supports follow-up inbox and workspace queries:
 --   WHERE status <> 'completed'
---   ORDER BY due_at ASC
+--   ORDER BY due_date ASC
 -- Partial index excludes completed rows so it stays small
 -- and focused on the hot path (active follow-ups).
-CREATE INDEX IF NOT EXISTS follow_ups_due_at_owner_idx
-  ON public.follow_ups (due_at, owner_id)
+CREATE INDEX IF NOT EXISTS follow_ups_due_date_owner_idx
+  ON public.follow_ups (due_date, owner_id)
   WHERE status <> 'completed';

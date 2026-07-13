@@ -36,7 +36,7 @@ BEGIN
     PERFORM cron.schedule(
       'ai-weekly-report',                -- job name (unique)
       '0 3 * * 0',                       -- every Sunday 03:00 UTC
-      $$
+      $cron$
         SELECT net.http_post(
           url     := current_setting('app.settings.supabase_url') || '/functions/v1/sales-os-api',
           headers := jsonb_build_object(
@@ -45,7 +45,7 @@ BEGIN
           ),
           body    := '{"action":"generate_ai_weekly_report"}'::jsonb
         );
-      $$
+      $cron$
     );
   END IF;
 END;
