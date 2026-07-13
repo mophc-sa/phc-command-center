@@ -24,20 +24,20 @@ BEGIN
   PERFORM cron.schedule(
     'audit-log-retention',
     '30 2 * * *',   -- 02:30 UTC daily
-    $$
+    $cron$
       DELETE FROM public.audit_log
       WHERE  timestamp < now() - INTERVAL '2 years';
-    $$
+    $cron$
   );
 
   -- client_errors retention: delete rows older than 90 days.
   PERFORM cron.schedule(
     'client-errors-retention',
     '35 2 * * *',   -- 02:35 UTC daily (5-min stagger)
-    $$
+    $cron$
       DELETE FROM public.client_errors
       WHERE  created_at < now() - INTERVAL '90 days';
-    $$
+    $cron$
   );
 
   RAISE NOTICE 'Retention cron jobs registered.';
