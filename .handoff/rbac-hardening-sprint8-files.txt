@@ -1,0 +1,23 @@
+# RBAC & Record Lifecycle Hardening (Sprint 8) — parked WIP file list
+# Branch: feature/sales-os-rbac-hardening-sprint7
+# Parked at commit: 833dfb535ad8d2d1d37d6b99b98d371b4034b8ae (== main)
+# Patch: .handoff/rbac-hardening-sprint8-wip.patch
+# Apply later with: git apply .handoff/rbac-hardening-sprint8-wip.patch
+#
+# Modified (tracked):
+M	src/integrations/supabase/types.ts
+M	src/lib/i18n.tsx
+M	src/lib/roles.ts
+M	src/routes/_authenticated/accounts.$id.tsx
+M	src/routes/_authenticated/approvals.tsx
+M	src/routes/_authenticated/opportunities.$id.tsx
+M	supabase/functions/_shared/roles.ts
+M	supabase/functions/sales-os-api/index.ts
+#
+# New (untracked):
+A	src/components/phc/RecordLifecycleMenu.tsx
+A	src/lib/record-lifecycle-actions.ts
+A	supabase/migrations/20260711120000_rbac_hardening.sql
+#
+# Excluded (spurious, zero-content CRLF/LF churn only):
+#   src/routeTree.gen.ts

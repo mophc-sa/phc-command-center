@@ -7,42 +7,42 @@
   font-style: normal;
   font-weight: 100;
   font-display: swap;
-  src: url("/__l5e/assets-v1/e42d7d59-0bec-4790-a00b-b2262251bc6b/ManifaPro2-Thin.otf") format("opentype");
+  src: url("/fonts/ManifaPro2-Thin.otf") format("opentype");
 }
 @font-face {
   font-family: "Manifa Pro";
   font-style: italic;
   font-weight: 100;
   font-display: swap;
-  src: url("/__l5e/assets-v1/6859b5a1-ce72-49d1-a729-4bcd4c0298d6/ManifaPro2-ThinItalic.otf") format("opentype");
+  src: url("/fonts/ManifaPro2-ThinItalic.otf") format("opentype");
 }
 @font-face {
   font-family: "Manifa Pro";
   font-style: normal;
   font-weight: 300;
   font-display: swap;
-  src: url("/__l5e/assets-v1/556ea3a8-68a5-43d7-8357-04604fa665f7/ManifaPro2-Light.otf") format("opentype");
+  src: url("/fonts/ManifaPro2-Light.otf") format("opentype");
 }
 @font-face {
   font-family: "Manifa Pro";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/__l5e/assets-v1/e708df1d-e2d1-46b5-817f-e1f668c0c376/ManifaPro2-Regular.otf") format("opentype");
+  src: url("/fonts/ManifaPro2-Regular.otf") format("opentype");
 }
 @font-face {
   font-family: "Manifa Pro";
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url("/__l5e/assets-v1/222cc9bd-db57-4f95-8b3e-ee8d67b5eefa/ManifaPro2-SemiBold.otf") format("opentype");
+  src: url("/fonts/ManifaPro2-SemiBold.otf") format("opentype");
 }
 @font-face {
   font-family: "Manifa Pro";
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url("/__l5e/assets-v1/85ca9065-de0a-4f4d-8b99-77d9655e8540/ManifaPro2-Bold.otf") format("opentype");
+  src: url("/fonts/ManifaPro2-Bold.otf") format("opentype");
 }
 
 @custom-variant dark (&:is(.dark *));
