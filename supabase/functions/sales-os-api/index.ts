@@ -1941,6 +1941,10 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return err("Method not allowed", 405);
 
+  // Reject oversized bodies before parsing — prevents DoS via huge JSON payloads.
+  const contentLength = parseInt(req.headers.get("content-length") ?? "0", 10);
+  if (contentLength > 1_048_576) return err("Request body exceeds 1 MB limit", 413);
+
   let body: { action?: string; payload?: Record<string, unknown> };
   try {
     body = await req.json();

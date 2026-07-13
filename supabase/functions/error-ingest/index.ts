@@ -14,6 +14,28 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 
+// ---------------------------------------------------------------------------
+// Per-IP rate limiting — 50 requests / minute per source IP.
+// Module-level Map is best-effort: state resets on cold start, but is shared
+// across all requests in the same warm isolate, which covers most burst cases.
+// ---------------------------------------------------------------------------
+interface IpEntry { count: number; resetAt: number; }
+const ipCounts = new Map<string, IpEntry>();
+const IP_LIMIT = 50;
+const WINDOW_MS = 60_000;
+
+function checkIpLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = ipCounts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    ipCounts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= IP_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
 // Shape we expect from error-reporting.ts — everything is pre-scrubbed.
 interface ErrorPayload {
   env?: string;
@@ -40,6 +62,15 @@ Deno.serve(async (req: Request) => {
       status: 405,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // Per-IP rate limit — drop silently with 429 to avoid noisy logs on abuse.
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown";
+  if (!checkIpLimit(ip)) {
+    return new Response(null, { status: 429, headers: corsHeaders });
   }
 
   let body: ErrorPayload;
