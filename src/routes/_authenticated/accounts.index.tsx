@@ -50,6 +50,7 @@ function AccountsPage() {
 
   const { data: companies = [], isLoading } = useQuery({
     queryKey: ["companies"],
+    staleTime: 60_000,
     queryFn: async () =>
       (
         await supabase
