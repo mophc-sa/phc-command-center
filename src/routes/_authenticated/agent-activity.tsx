@@ -45,7 +45,6 @@ function AgentActivityPage() {
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["agent-runs-all"],
-    staleTime: 30_000,
     queryFn: async () =>
       (await supabase.from("agent_runs").select("*").order("started_at", { ascending: false }).limit(200)).data ?? [],
     staleTime: 30_000,
