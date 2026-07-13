@@ -164,6 +164,45 @@ export function getRequestId(): string {
   return window.__phcRequestId;
 }
 
+// ---------- Dispatch (fire-and-forget HTTP) ---------------------------------
+
+// Primary endpoint: the error-ingest Supabase Edge Function.
+// Override with VITE_ERROR_REPORTING_ENDPOINT (e.g. Axiom, custom webhook).
+function ingestUrl(): string | null {
+  const meta = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
+  if (meta.VITE_ERROR_REPORTING_ENDPOINT) return meta.VITE_ERROR_REPORTING_ENDPOINT;
+  const base = meta.VITE_SUPABASE_URL;
+  if (base) return `${base}/functions/v1/error-ingest`;
+  return null;
+}
+
+function ingestHeaders(): Record<string, string> {
+  const meta = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
+  const key = meta.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
+  // anon key header lets the Supabase gateway pass the request through
+  return {
+    "Content-Type": "application/json",
+    ...(key ? { apikey: key, Authorization: `Bearer ${key}` } : {}),
+  };
+}
+
+function dispatch(payload: Record<string, unknown>): void {
+  const url = ingestUrl();
+  if (!url) return; // no endpoint configured — console fallback below suffices
+  try {
+    fetch(url, {
+      method: "POST",
+      headers: ingestHeaders(),
+      body: JSON.stringify(payload),
+      keepalive: true, // survives page unload (same guarantee as sendBeacon)
+    }).catch(() => {
+      // Swallow network errors — error reporting must never throw.
+    });
+  } catch {
+    // fetch unavailable (e.g. server-side SSR context) — silently skip.
+  }
+}
+
 // ---------- Public API --------------------------------------------------
 
 function errorPayload(error: unknown) {
@@ -194,16 +233,15 @@ export function reportError(error: unknown, context: ReportContext = {}) {
   };
 
   if (env !== "production") {
-    // Dev/preview: console only — do not forward to production reporting.
+    // Dev/preview: console only — never forward to production reporting.
     // eslint-disable-next-line no-console
     console.error("[error-report]", payload);
     return;
   }
 
-  // Production: forward to a reporting provider when configured.
-  // Plug in your provider here (Sentry, Axiom, custom endpoint, etc.).
-  // Until a provider is wired, production errors are logged to the console
-  // so they surface in browser dev tools and server logs.
+  // Production: forward to error-ingest edge function (fire-and-forget).
+  // Also log to console so errors surface in browser dev tools / server logs.
+  dispatch(payload);
   // eslint-disable-next-line no-console
   console.error("[error-report]", payload);
 }
