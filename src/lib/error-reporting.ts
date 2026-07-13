@@ -164,6 +164,25 @@ export function getRequestId(): string {
   return window.__phcRequestId;
 }
 
+// ---------- Client-side rate limiting (token bucket) -----------------------
+// Max 10 reports per minute per browser session.  Refills 10 tokens / min.
+// Prevents a runaway component re-render from flooding the ingest endpoint.
+
+let _bucketTokens = 10;
+if (typeof window !== "undefined") {
+  const _refill = setInterval(() => {
+    _bucketTokens = Math.min(10, _bucketTokens + 10);
+  }, 60_000);
+  // Clean up on page unload (best-effort).
+  window.addEventListener("beforeunload", () => clearInterval(_refill), { once: true });
+}
+
+function consumeToken(): boolean {
+  if (_bucketTokens <= 0) return false;
+  _bucketTokens--;
+  return true;
+}
+
 // ---------- Dispatch (fire-and-forget HTTP) ---------------------------------
 
 // Primary endpoint: the error-ingest Supabase Edge Function.
@@ -217,6 +236,9 @@ function errorPayload(error: unknown) {
 }
 
 export function reportError(error: unknown, context: ReportContext = {}) {
+  // Drop silently when the client-side rate limit is exhausted.
+  if (!consumeToken()) return;
+
   const env = currentEnv();
   const payload = {
     env,

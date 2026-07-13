@@ -29,21 +29,28 @@ function PendingApprovalPage() {
     }
   }, [loading, user, nav]);
 
-  // If user somehow becomes active (e.g. admin approved while on this page),
-  // redirect them into the app on next poll / auth state change.
+  // If user becomes active while on this page (admin approved in real time),
+  // redirect immediately via Supabase Realtime — no polling needed.
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("status")
-        .eq("id", user.id)
-        .single();
-      if (data?.status === "active") {
-        nav({ to: "/command-center", replace: true });
-      }
-    }, 15_000); // poll every 15 s
-    return () => clearInterval(interval);
+    const channel = supabase
+      .channel(`profile-status-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${user.id}`,
+        },
+        (payload: { new: { status?: string } }) => {
+          if (payload.new?.status === "active") {
+            nav({ to: "/command-center", replace: true });
+          }
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [user, nav]);
 
   async function handleSignOut() {

@@ -824,6 +824,12 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Reject oversized bodies before parsing — prevents DoS via huge JSON payloads.
+  const contentLength = parseInt(req.headers.get("content-length") ?? "0", 10);
+  if (contentLength > 1_048_576) {
+    return err("Request body exceeds 1 MB limit", 413);
+  }
+
   try {
     const authHeader = req.headers.get("authorization");
     const caller = await resolveCaller(authHeader);
