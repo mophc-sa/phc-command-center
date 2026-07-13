@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
+import { humanize } from "@/lib/utils";
 
 export type NotifKind = "flag" | "approval";
 
@@ -73,7 +74,3 @@ export function useNotifications() {
   });
 }
 
-function humanize(s: string | null | undefined): string {
-  if (!s) return "Action required";
-  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}

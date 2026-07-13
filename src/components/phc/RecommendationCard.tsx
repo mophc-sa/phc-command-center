@@ -1,10 +1,6 @@
 import { useI18n } from "@/lib/i18n";
 import { StatusPill } from "./StatusPill";
-
-function humanize(s: string | null | undefined) {
-  if (!s) return "—";
-  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
+import { humanize } from "@/lib/utils";
 
 export type RecommendationRow = {
   id: string;

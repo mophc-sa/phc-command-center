@@ -12,16 +12,12 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatNumber } from "@/lib/i18n";
 import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions";
 import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
+import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/follow-ups")({
   head: () => ({ meta: [{ title: "Follow-ups — PHC" }, { name: "robots", content: "noindex" }] }),
   component: FollowUpsPage,
 });
-
-function humanize(s: string | null | undefined) {
-  if (!s) return "—";
-  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 type Bucket = "overdue" | "today" | "upcoming";
 

@@ -32,6 +32,7 @@ import {
   type FlagStatus,
 } from "@/lib/workflow-actions";
 import { canManageSalesPipeline } from "@/lib/roles";
+import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/action-center")({
   head: () => ({ meta: [{ title: "Sales Action Queue — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -63,11 +64,6 @@ const RELATED_ROUTE: Record<string, string> = {
   approval: "/approvals",
   quotation: "/quotations",
 };
-
-function humanize(s: string | null | undefined) {
-  if (!s) return "—";
-  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function priorityRank(p: string | null | undefined): number {
   if (p === "A") return 0;
@@ -314,7 +310,10 @@ function ActionCenter() {
             return (
               <li key={f.id} className="border-t border-border/60 first:border-t-0">
                 <div className="grid grid-cols-[3px_minmax(0,1fr)_auto] items-stretch">
-                  <div className={high ? "bg-amber/70" : f.flag_kind === "risk" ? "bg-red-500/50" : "bg-transparent"} />
+                  <div
+                    className={high ? "bg-amber/70" : f.flag_kind === "risk" ? "bg-red-500/50" : "bg-transparent"}
+                    aria-label={high ? (lang === "ar" ? "أولوية عالية" : "High priority") : f.flag_kind === "risk" ? (lang === "ar" ? "خطر" : "Risk") : undefined}
+                  />
                   <div className="px-5 py-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusPill tone={f.flag_kind === "risk" ? "danger" : "attention"}>

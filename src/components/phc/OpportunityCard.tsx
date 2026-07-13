@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { StatusPill } from "./StatusPill";
 import { formatCurrency, type Lang } from "@/lib/i18n";
+import { humanize } from "@/lib/utils";
 
 export type OpportunityRow = {
   id: string;
@@ -72,8 +73,4 @@ export function OpportunityCard({ o, lang }: { o: OpportunityRow; lang: Lang }) 
       ) : null}
     </Link>
   );
-}
-
-function humanize(s: string) {
-  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }

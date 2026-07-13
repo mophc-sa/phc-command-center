@@ -21,16 +21,12 @@ import {
   INBOX_SOURCE_TYPES, INBOX_CLASSIFICATIONS,
   type InboxClassification, type DuplicateCandidate,
 } from "@/lib/inbox-actions";
+import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/lead-tender-inbox")({
   head: () => ({ meta: [{ title: "Lead & Tender Inbox — PHC" }, { name: "robots", content: "noindex" }] }),
   component: LeadTenderInbox,
 });
-
-function humanize(s: string | null | undefined) {
-  if (!s) return "—";
-  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function statusTone(s: string): "positive" | "attention" | "danger" | "muted" | "neutral" {
   if (s === "converted") return "positive";

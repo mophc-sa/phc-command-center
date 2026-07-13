@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, LayoutGrid, Rows3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,8 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/opportunities/")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    q:     typeof s.q === "string" ? s.q : "",
+    stage: typeof s.stage === "string" ? s.stage : "all",
+    tier:  typeof s.tier === "string" ? s.tier : "all",
+    view:  s.view === "table" ? "table" as const : "cards" as const,
+  }),
   head: () => ({
     meta: [
       { title: "Opportunities — PHC" },
@@ -33,16 +40,15 @@ export const Route = createFileRoute("/_authenticated/opportunities/")({
 const STAGES = ["discovery", "qualification", "preparation", "quotation", "follow_up", "won", "lost", "archived"] as const;
 const CLOSED = ["won", "lost", "archived"];
 
-function humanize(s: string) {
-  return s.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 function OppList() {
   const { t, lang } = useI18n();
-  const [search, setSearch] = useState("");
-  const [stage, setStage] = useState<string>("all");
-  const [tier, setTier] = useState<string>("all");
-  const [view, setView] = useState<"cards" | "table">("cards");
+  const navigate = useNavigate();
+  const { q: search, stage, tier, view } = Route.useSearch();
+
+  const setSearch = (v: string) => navigate({ to: ".", search: { q: v, stage, tier, view }, replace: true });
+  const setStage  = (v: string) => navigate({ to: ".", search: { q: search, stage: v, tier, view }, replace: true });
+  const setTier   = (v: string) => navigate({ to: ".", search: { q: search, stage, tier: v, view }, replace: true });
+  const setView   = (v: "cards" | "table") => navigate({ to: ".", search: { q: search, stage, tier, view: v }, replace: true });
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["opps"],
