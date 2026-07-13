@@ -332,6 +332,11 @@ export async function dryRunCommit(batchId: string) {
   return callPipeline("dry_run_commit", { batch_id: batchId });
 }
 
+export async function commitBatch(batchId: string) {
+  if (!batchId) throw new Error("Missing batch");
+  return callPipeline("commit", { batch_id: batchId }) as Promise<{ committed: number; failed: number; total: number }>;
+}
+
 export type ReportType = "validation_errors" | "duplicate_candidates" | "import_summary";
 export type ReportFormat = "csv" | "json";
 
