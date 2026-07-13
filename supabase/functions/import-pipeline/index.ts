@@ -26,6 +26,89 @@ import {
 } from "../_shared/supabase.ts";
 import { compareSignals, type DedupSignals } from "../_shared/import-dedup.ts";
 
+// Coerce a mapped_data value to a non-empty string or null (tries keys left-to-right).
+function mv(m: Record<string, unknown> | null, ...keys: string[]): string | null {
+  for (const k of keys) {
+    const v = m?.[k];
+    if (v != null && String(v).trim()) return String(v).trim();
+  }
+  return null;
+}
+
+// -- Commit helpers ------------------------------------------------------------
+
+type CommitResult = { action: "created" | "updated"; recordId: string } | { action: "skipped"; recordId: null; error: string };
+
+// deno-lint-ignore no-explicit-any
+async function commitCompany(svc: any, row: { id: string; mapped_data: Record<string, unknown> | null }, actorId: string): Promise<CommitResult> {
+  const m = row.mapped_data;
+  const name = mv(m, "name", "company_name");
+  if (!name) return { action: "skipped", recordId: null, error: "Missing required field: name" };
+
+  const crNumber = mv(m, "cr_number");
+  const patch: Record<string, unknown> = { name, created_by: actorId };
+  const ct = mv(m, "company_type"); if (ct) patch.company_type = ct;
+  if (crNumber) patch.cr_number = crNumber;
+  const wd = mv(m, "website_domain", "website"); if (wd) patch.website_domain = wd;
+  const reg = mv(m, "regions"); if (reg) patch.regions = [reg];
+  const rl = mv(m, "relationship_level"); if (rl) patch.relationship_level = rl;
+  const notes = mv(m, "internal_notes"); if (notes) patch.internal_notes = notes;
+  const src = mv(m, "source"); if (src) patch.source = src;
+
+  if (crNumber) {
+    const { data, error } = await svc.from("companies")
+      .upsert({ ...patch, cr_number: crNumber }, { onConflict: "cr_number" })
+      .select("id").single();
+    if (error) return { action: "skipped", recordId: null, error: error.message };
+    return { action: "created", recordId: data.id };
+  }
+
+  const { data: existing } = await svc.from("companies").select("id").eq("name", name).maybeSingle();
+  if (existing) {
+    const { error } = await svc.from("companies")
+      .update({ ...patch, updated_at: new Date().toISOString() }).eq("id", existing.id);
+    if (error) return { action: "skipped", recordId: null, error: error.message };
+    return { action: "updated", recordId: existing.id };
+  }
+
+  const { data: created, error } = await svc.from("companies").insert(patch).select("id").single();
+  if (error) return { action: "skipped", recordId: null, error: error.message };
+  return { action: "created", recordId: created.id };
+}
+
+// deno-lint-ignore no-explicit-any
+async function commitContact(svc: any, row: { id: string; mapped_data: Record<string, unknown> | null }, actorId: string): Promise<CommitResult> {
+  const m = row.mapped_data;
+  const name = mv(m, "name", "contact_name");
+  if (!name) return { action: "skipped", recordId: null, error: "Missing required field: name" };
+
+  const patch: Record<string, unknown> = { name, created_by: actorId };
+  const title = mv(m, "title", "job_title"); if (title) patch.title = title;
+  const phone = mv(m, "phone", "contact_phone"); if (phone) patch.phone = phone;
+  const email = mv(m, "email"); if (email) patch.email = email;
+  const src = mv(m, "source"); if (src) patch.source = src;
+
+  const { data: created, error } = await svc.from("contacts").insert(patch).select("id").single();
+  if (error) return { action: "skipped", recordId: null, error: error.message };
+  return { action: "created", recordId: created.id };
+}
+
+// deno-lint-ignore no-explicit-any
+async function commitLead(svc: any, row: { id: string; mapped_data: Record<string, unknown> | null }, actorId: string): Promise<CommitResult> {
+  const m = row.mapped_data;
+  const project_name = mv(m, "project_name");
+  if (!project_name) return { action: "skipped", recordId: null, error: "Missing required field: project_name" };
+
+  const patch: Record<string, unknown> = { project_name, created_by: actorId };
+  const loc = mv(m, "location"); if (loc) patch.location = loc;
+  const contractor = mv(m, "main_contractor", "main_contractor_guess"); if (contractor) patch.main_contractor_guess = contractor;
+  const src = mv(m, "source"); if (src) patch.source = src;
+
+  const { data: created, error } = await svc.from("leads").insert(patch).select("id").single();
+  if (error) return { action: "skipped", recordId: null, error: error.message };
+  return { action: "created", recordId: created.id };
+}
+
 // Build the dedup signal set from a row's mapped data (best-effort field names).
 function signalsFromMapped(m: Record<string, string | null> | null): DedupSignals {
   const g = (k: string) => (m?.[k] ?? null) as string | null;
@@ -494,6 +577,118 @@ handlers["dry_run_commit"] = async (payload, caller) => {
   return json(summary);
 };
 
+// COMMIT: write valid rows to live CRM tables
+handlers["commit"] = async (payload, caller) => {
+  const batchId = payload.batch_id as string;
+  if (!batchId) return err("batch_id required");
+
+  // system_admin explicitly blocked
+  if (hasAny(caller.roles, ["system_admin" as AppRole]) && !hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
+    return err("system_admin cannot commit imports", 403);
+  }
+  if (!hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
+    return err("Insufficient role for commit", 403);
+  }
+
+  const svc = serviceClient();
+
+  const { data: batch } = await svc.from("import_batches").select("*").eq("id", batchId).single();
+  if (!batch) return err("Batch not found", 404);
+  if (batch.status !== "dry_run") return err("Batch must be in dry_run status before commit");
+
+  // Readiness guard: all manual checklist items must be true
+  const MANUAL_KEYS = [
+    "file_source_confirmed", "owner_confirmed", "backup_completed", "no_unnecessary_sensitive_data",
+  ];
+  const checklist = (batch.readiness_checklist ?? {}) as Record<string, boolean>;
+  const incomplete = MANUAL_KEYS.filter((k) => !checklist[k]);
+  if (incomplete.length > 0) {
+    return err(`Readiness checklist incomplete. Unchecked items: ${incomplete.join(", ")}`);
+  }
+
+  const entity = batch.target_entity as string;
+  const SUPPORTED = ["companies", "contacts", "leads"];
+
+  const { data: rows } = await svc
+    .from("import_rows")
+    .select("id, mapped_data, row_number")
+    .eq("batch_id", batchId)
+    .eq("status", "valid")
+    .order("row_number");
+
+  const eligibleRows = (rows ?? []) as { id: string; mapped_data: Record<string, unknown> | null; row_number: number }[];
+  let committed = 0;
+  let failed = 0;
+  const links: Array<{ batch_id: string; row_id: string; target_table: string; target_id: string; action: string }> = [];
+  const commitErrors: Array<{
+    batch_id: string; row_id: string; row_number: number;
+    column_name: string; error_type: string; message: string; severity: string;
+  }> = [];
+
+  for (const row of eligibleRows) {
+    if (!SUPPORTED.includes(entity)) {
+      commitErrors.push({
+        batch_id: batchId, row_id: row.id, row_number: row.row_number,
+        column_name: "*", error_type: "commit_unsupported",
+        message: `Entity '${entity}' is not yet supported for commit. Supported: companies, contacts, leads`,
+        severity: "error",
+      });
+      await svc.from("import_rows").update({ status: "failed" }).eq("id", row.id);
+      failed++;
+      continue;
+    }
+
+    let result: CommitResult;
+    try {
+      if (entity === "companies") result = await commitCompany(svc, row, caller.userId);
+      else if (entity === "contacts") result = await commitContact(svc, row, caller.userId);
+      else result = await commitLead(svc, row, caller.userId);
+    } catch (e) {
+      result = { action: "skipped", recordId: null, error: e instanceof Error ? e.message : String(e) };
+    }
+
+    if (result.action === "skipped") {
+      commitErrors.push({
+        batch_id: batchId, row_id: row.id, row_number: row.row_number,
+        column_name: "*", error_type: "commit_error",
+        message: result.error,
+        severity: "error",
+      });
+      await svc.from("import_rows").update({ status: "failed" }).eq("id", row.id);
+      failed++;
+    } else {
+      await svc.from("import_rows").update({ status: "committed" }).eq("id", row.id);
+      links.push({
+        batch_id: batchId, row_id: row.id,
+        target_table: entity, target_id: result.recordId, action: result.action,
+      });
+      committed++;
+    }
+  }
+
+  // Flush commit errors
+  for (let i = 0; i < commitErrors.length; i += 500) {
+    await svc.from("import_errors").insert(commitErrors.slice(i, i + 500));
+  }
+
+  // Flush record links
+  for (let i = 0; i < links.length; i += 500) {
+    await svc.from("import_record_links").insert(links.slice(i, i + 500));
+  }
+
+  // Mark batch committed
+  await svc.from("import_batches").update({
+    status: "committed",
+    committed_at: new Date().toISOString(),
+  }).eq("id", batchId);
+
+  await audit(svc, caller.userId, "import_commit", "import_batches", batchId, {
+    entity, committed, failed, total: eligibleRows.length,
+  }, caller.roles);
+
+  return json({ committed, failed, total: eligibleRows.length });
+};
+
 // GENERATE_REPORT: downloadable dry-run reports in CSV (default) or JSON.
 handlers["generate_report"] = async (payload, caller) => {
   const batchId = payload.batch_id as string;
@@ -527,7 +722,7 @@ handlers["generate_report"] = async (payload, caller) => {
       ["total_rows", batch.total_rows], ["valid_rows", batch.valid_rows], ["error_rows", batch.error_rows],
       ["duplicate_rows", batch.duplicate_rows], ["dry_run", batch.dry_run],
       ["would_create_new", (batch.valid_rows ?? 0) - (batch.duplicate_rows ?? 0)],
-      ["blocked_from_commit_reason", "controlled_crm_commit_not_enabled"],
+      ["committed_at", batch.committed_at ?? null],
       ["created_at", batch.created_at], ["ai_suggestions_enabled", batch.ai_suggestions_enabled],
     ].map(([field, value]) => ({ field, value }));
   } else {
@@ -648,7 +843,7 @@ Deno.serve(async (req: Request) => {
     const action = body.action as string;
 
     if (!action || !handlers[action]) {
-      return err("Unknown action. Available: parse, validate, detect_duplicates, approve, dry_run_commit, generate_report, purge_batch");
+      return err("Unknown action. Available: parse, validate, detect_duplicates, approve, dry_run_commit, commit, generate_report, purge_batch");
     }
 
     return await handlers[action](body, caller);

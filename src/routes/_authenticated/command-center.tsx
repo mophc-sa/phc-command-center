@@ -66,18 +66,19 @@ function CommandCenter() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["cc-core"],
+    staleTime: 60_000,
     queryFn: async () => {
       const since = new Date();
       since.setDate(since.getDate() - 29);
       const sinceIso = since.toISOString();
 
       const [opps, followUps, approvals, agentRuns, activities, rfqs] = await Promise.all([
-        supabase.from("opportunities").select("*").order("last_activity_at", { ascending: false, nullsFirst: false }),
-        supabase.from("follow_ups").select("*").neq("status", "completed").order("due_date", { ascending: true }),
+        supabase.from("opportunities").select("id, project_name, stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor").order("last_activity_at", { ascending: false, nullsFirst: false }).limit(200),
+        supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, owner_id").neq("status", "completed").order("due_date", { ascending: true }).limit(100),
         supabase.from("approvals").select("*").eq("status", "pending"),
         supabase.from("agent_runs").select("*").order("started_at", { ascending: false }).limit(6),
         supabase.from("activities").select("id, occurred_at").gte("occurred_at", sinceIso),
-        supabase.from("rfqs").select("id, status, estimated_value"),
+        supabase.from("rfqs").select("id, status, estimated_value").limit(200),
       ]);
       return {
         opportunities: (opps.data ?? []) as unknown as OpportunityRow[],

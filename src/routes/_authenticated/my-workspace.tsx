@@ -11,6 +11,10 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonChart } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { RecommendationCard } from "@/components/phc/RecommendationCard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useI18n, formatCurrency, formatNumber, type Lang } from "@/lib/i18n";
@@ -48,6 +52,10 @@ function WorkspacePage() {
   const [tab, setTab] = useState("today");
   const [completeFor, setCompleteFor] = useState<{ id: string; oppId: string } | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<{ id: string; oppId: string; currentDate: string } | null>(null);
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [draftContent, setDraftContent] = useState<string>("");
+  const [draftFuId, setDraftFuId] = useState<string | null>(null);
   const { recent } = useRecentRecords();
 
   const today = new Date().toISOString().slice(0, 10);
@@ -140,6 +148,30 @@ function WorkspacePage() {
   const missingDataFlags = flags.filter((f: any) => f.flag_kind === "action_required");
 
   const oppName = (id: string | null) => (id ? data.opps.find((o: any) => o.id === id)?.project_name ?? "—" : "—");
+
+  const handleDraftFollowUp = async (followUpId: string, opportunityId: string, channel: string | null) => {
+    setDraftFuId(followUpId);
+    setDraftLoading(true);
+    try {
+      const res = await supabase.functions.invoke("ai-orchestrator", {
+        body: {
+          agentKey: "smart_followup_draft",
+          entityType: "opportunity",
+          entityId: opportunityId,
+          input: { follow_up_id: followUpId, channel: channel ?? "email" },
+        },
+      });
+      if (res.error) throw new Error(String(res.error));
+      const draft = res.data?.result?.draft_text ?? res.data?.result?.body ?? JSON.stringify(res.data?.result ?? {}, null, 2);
+      setDraftContent(typeof draft === "string" ? draft : JSON.stringify(draft, null, 2));
+      setDraftOpen(true);
+    } catch (e: any) {
+      toast.error((lang === "ar" ? "تعذّر إنشاء المسودة: " : "Draft failed: ") + e.message);
+    } finally {
+      setDraftLoading(false);
+      setDraftFuId(null);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -366,18 +398,44 @@ function WorkspacePage() {
 
           <TabsContent value="followups" className="mt-0">
             <ChartFrame title={t("nav_follow_ups")} subtitle={formatNumber(data.followups.length, lang)} padded={false}>
-              <List
-                empty={t("empty_follow_ups")}
-                items={[...overdueFU, ...todayFU, ...upcomingFU].map((f: any) => ({
-                  key: f.id,
-                  primary: oppName(f.opportunity_id),
-                  secondary: `${humanize(f.channel)} · ${t("label_tier")} ${f.cadence_tier ?? "—"}${f.notes ? ` · ${f.notes}` : ""}`,
-                  tone: f.status === "overdue" || (f.due_date && f.due_date < today) ? "attention" : "neutral",
-                  label: f.status === "overdue" || (f.due_date && f.due_date < today) ? (lang === "ar" ? "متأخر" : "Overdue") : humanize(f.status),
-                  right: f.due_date ?? "—",
-                  href: f.opportunity_id ? { to: "/opportunities/$id" as const, params: { id: f.opportunity_id } } : undefined,
-                }))}
-              />
+              {[...overdueFU, ...todayFU, ...upcomingFU].length === 0 ? (
+                <EmptyState message={t("empty_follow_ups")} />
+              ) : (
+                <ol className="divide-y divide-border/40">
+                  {[...overdueFU, ...todayFU, ...upcomingFU].map((f: any) => {
+                    const isOverdue = f.status === "overdue" || (f.due_date && f.due_date < today);
+                    return (
+                      <li key={f.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <StatusPill tone={isOverdue ? "attention" : "neutral"}>
+                              {isOverdue ? (lang === "ar" ? "متأخر" : "Overdue") : humanize(f.status)}
+                            </StatusPill>
+                            <span className="truncate text-sm font-medium text-foreground">{oppName(f.opportunity_id)}</span>
+                          </div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">
+                            {humanize(f.channel)} · {t("label_tier")} {f.cadence_tier ?? "—"}{f.notes ? ` · ${f.notes}` : ""}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="text-xs text-muted-foreground num">{f.due_date ?? "—"}</span>
+                          {f.opportunity_id ? (
+                            <button
+                              type="button"
+                              onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)}
+                              disabled={draftLoading && draftFuId === f.id}
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:border-border-strong hover:text-foreground disabled:opacity-50"
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              {lang === "ar" ? "مسودة" : "Draft"}
+                            </button>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
             </ChartFrame>
           </TabsContent>
 
@@ -497,6 +555,37 @@ function WorkspacePage() {
           }
         }}
       />
+
+      {/* Draft follow-up modal */}
+      <AlertDialog open={draftOpen} onOpenChange={setDraftOpen}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{lang === "ar" ? "مسودة المتابعة" : "Follow-up Draft"}</AlertDialogTitle>
+            <AlertDialogDescription>{lang === "ar" ? "مسودة مقترحة من الذكاء الاصطناعي — راجعها قبل الإرسال." : "AI-suggested draft — review before sending."}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <textarea
+            value={draftContent}
+            onChange={(e) => setDraftContent(e.target.value)}
+            rows={10}
+            className="mt-2 w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>{lang === "ar" ? "إغلاق" : "Close"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (draftContent) {
+                  navigator.clipboard.writeText(draftContent).then(() =>
+                    toast.success(lang === "ar" ? "تم النسخ" : "Copied to clipboard"),
+                  ).catch(() => {});
+                }
+                setDraftOpen(false);
+              }}
+            >
+              {lang === "ar" ? "نسخ" : "Copy"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ActionDialog
         open={!!rescheduleFor}
