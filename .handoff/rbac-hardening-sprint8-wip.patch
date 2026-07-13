@@ -1,0 +1,996 @@
+diff --git a/src/components/phc/RecordLifecycleMenu.tsx b/src/components/phc/RecordLifecycleMenu.tsx
+new file mode 100644
+index 0000000..3214989
+--- /dev/null
++++ b/src/components/phc/RecordLifecycleMenu.tsx
+@@ -0,0 +1,131 @@
++import { useState } from "react";
++import { MoreHorizontal } from "lucide-react";
++import { toast } from "sonner";
++import {
++  DropdownMenu,
++  DropdownMenuContent,
++  DropdownMenuItem,
++  DropdownMenuTrigger,
++} from "@/components/ui/dropdown-menu";
++import { ActionDialog } from "@/components/phc/ActionDialog";
++import { useI18n } from "@/lib/i18n";
++import { canCreateSalesRecords, canManageSalesPipeline, type AppRole } from "@/lib/roles";
++import {
++  archiveRecord,
++  flagDuplicate,
++  requestDelete,
++  type ArchivableEntityType,
++  type LifecycleEntityType,
++} from "@/lib/record-lifecycle-actions";
++
++const ARCHIVABLE: ReadonlySet<LifecycleEntityType> = new Set(["leads", "contacts", "companies", "rfqs", "tenders"]);
++
++// Dropdown of record-lifecycle actions (archive / request delete / mark
++// duplicate) — the replacement for direct delete everywhere in the Sales OS.
++// Renders nothing if the caller has no lifecycle capability at all.
++export function RecordLifecycleMenu({
++  entityType,
++  entityId,
++  roles,
++  onDone,
++}: {
++  entityType: LifecycleEntityType;
++  entityId: string;
++  roles: AppRole[] | null | undefined;
++  onDone: () => void;
++}) {
++  const { t } = useI18n();
++  const [archiveOpen, setArchiveOpen] = useState(false);
++  const [deleteOpen, setDeleteOpen] = useState(false);
++  const [duplicateOpen, setDuplicateOpen] = useState(false);
++
++  const canArchive = ARCHIVABLE.has(entityType) && canManageSalesPipeline(roles);
++  const canRequest = canCreateSalesRecords(roles);
++  if (!canArchive && !canRequest) return null;
++
++  return (
++    <>
++      <DropdownMenu>
++        <DropdownMenuTrigger asChild>
++          <button
++            aria-label={t("lifecycle_menu_label")}
++            className="inline-flex items-center justify-center rounded-md border border-border p-1.5 text-muted-foreground hover:text-foreground"
++          >
++            <MoreHorizontal className="h-3.5 w-3.5" />
++          </button>
++        </DropdownMenuTrigger>
++        <DropdownMenuContent align="end">
++          {canArchive ? (
++            <DropdownMenuItem onSelect={() => setArchiveOpen(true)}>{t("lifecycle_archive")}</DropdownMenuItem>
++          ) : null}
++          {canRequest ? (
++            <DropdownMenuItem onSelect={() => setDuplicateOpen(true)}>{t("lifecycle_mark_duplicate")}</DropdownMenuItem>
++          ) : null}
++          {canRequest ? (
++            <DropdownMenuItem className="text-red-400" onSelect={() => setDeleteOpen(true)}>
++              {t("lifecycle_request_delete")}
++            </DropdownMenuItem>
++          ) : null}
++        </DropdownMenuContent>
++      </DropdownMenu>
++
++      <ActionDialog
++        open={archiveOpen}
++        onOpenChange={setArchiveOpen}
++        title={t("lifecycle_archive")}
++        description={t("lifecycle_archive_desc")}
++        submitLabel={t("lifecycle_archive")}
++        fields={[{ key: "reason", type: "textarea", label: t("lifecycle_reason_optional") }]}
++        onSubmit={async (v) => {
++          try {
++            await archiveRecord({ entityType: entityType as ArchivableEntityType, entityId, reason: v.reason || undefined });
++            toast.success(t("lifecycle_archived_toast"));
++            onDone();
++          } catch (e) {
++            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
++          }
++        }}
++      />
++
++      <ActionDialog
++        open={deleteOpen}
++        onOpenChange={setDeleteOpen}
++        title={t("lifecycle_request_delete")}
++        description={t("lifecycle_request_delete_desc")}
++        submitLabel={t("lifecycle_request_delete")}
++        destructive
++        fields={[{ key: "reason", type: "textarea", label: t("lifecycle_reason_required"), required: true }]}
++        onSubmit={async (v) => {
++          try {
++            await requestDelete({ entityType, entityId, reason: v.reason });
++            toast.success(t("lifecycle_delete_requested_toast"));
++            onDone();
++          } catch (e) {
++            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
++          }
++        }}
++      />
++
++      <ActionDialog
++        open={duplicateOpen}
++        onOpenChange={setDuplicateOpen}
++        title={t("lifecycle_mark_duplicate")}
++        description={t("lifecycle_mark_duplicate_desc")}
++        submitLabel={t("lifecycle_mark_duplicate")}
++        fields={[
++          { key: "duplicateOfId", type: "text", label: t("lifecycle_duplicate_of_id"), required: true },
++          { key: "reason", type: "textarea", label: t("lifecycle_reason_optional") },
++        ]}
++        onSubmit={async (v) => {
++          try {
++            await flagDuplicate({ entityType, entityId, duplicateOfId: v.duplicateOfId, reason: v.reason || undefined });
++            toast.success(t("lifecycle_duplicate_flagged_toast"));
++            onDone();
++          } catch (e) {
++            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
++          }
++        }}
++      />
++    </>
++  );
++}
+diff --git a/src/integrations/supabase/types.ts b/src/integrations/supabase/types.ts
+index 7fa1302..e3b5e63 100644
+--- a/src/integrations/supabase/types.ts
++++ b/src/integrations/supabase/types.ts
+@@ -711,6 +711,9 @@ export type Database = {
+         Row: {
+           account_owner_id: string | null
+           account_status: Database["public"]["Enums"]["account_status"]
++          archive_reason: string | null
++          archived_at: string | null
++          archived_by: string | null
+           company_type: Database["public"]["Enums"]["company_type"]
+           cr_number: string | null
+           created_at: string
+@@ -732,6 +735,9 @@ export type Database = {
+         Insert: {
+           account_owner_id?: string | null
+           account_status?: Database["public"]["Enums"]["account_status"]
++          archive_reason?: string | null
++          archived_at?: string | null
++          archived_by?: string | null
+           company_type?: Database["public"]["Enums"]["company_type"]
+           cr_number?: string | null
+           created_at?: string
+@@ -753,6 +759,9 @@ export type Database = {
+         Update: {
+           account_owner_id?: string | null
+           account_status?: Database["public"]["Enums"]["account_status"]
++          archive_reason?: string | null
++          archived_at?: string | null
++          archived_by?: string | null
+           company_type?: Database["public"]["Enums"]["company_type"]
+           cr_number?: string | null
+           created_at?: string
+@@ -775,6 +784,9 @@ export type Database = {
+       }
+       contacts: {
+         Row: {
++          archive_reason: string | null
++          archived_at: string | null
++          archived_by: string | null
+           authority: Database["public"]["Enums"]["contact_authority"]
+           company_id: string | null
+           confidence_score: number | null
+@@ -795,6 +807,9 @@ export type Database = {
+           verification_status: Database["public"]["Enums"]["verification_status"]
+         }
+         Insert: {
++          archive_reason?: string | null
++          archived_at?: string | null
++          archived_by?: string | null
+           authority?: Database["public"]["Enums"]["contact_authority"]
+           company_id?: string | null
+           confidence_score?: number | null
+@@ -815,6 +830,9 @@ export type Database = {
+           verification_status?: Database["public"]["Enums"]["verification_status"]
+         }
+         Update: {
++          archive_reason?: string | null
++          archived_at?: string | null
++          archived_by?: string | null
+           authority?: Database["public"]["Enums"]["contact_authority"]
+           company_id?: string | null
+           confidence_score?: number | null
+@@ -1687,6 +1705,9 @@ export type Database = {
+       }
+       leads: {
+         Row: {
++          archive_reason: string | null
++          archived_at: string | null
++          archived_by: string | null
+           converted_opportunity_id: string | null
+           created_at: string
+           created_by: string | null
+@@ -1712,6 +1733,9 @@ export type Database = {
+           updated_at: string
+         }
+         Insert: {
++          archive_reason?: string | null
++          archived_at?: string | null
++          archived_by?: string | null
+           converted_opportunity_id?: string | null
+           created_at?: string
+           created_by?: string | null
+@@ -1737,6 +1761,9 @@ export type Database = {
+           updated_at?: string
+         }
+         Update: {
++          archive_reason?: string | null
++          archived_at?: string | null
++          archived_by?: string | null
+           converted_opportunity_id?: string | null
+           created_at?: string
+           created_by?: string | null
+@@ -2565,6 +2592,9 @@ export type Database = {
+       }
+       rfqs: {
+         Row: {
++          archive_reason: string | null
++          archived_at: string | null
++          archived_by: string | null
+           below_300k_exception_approval_id: string | null
+           company_id: string | null
+           contact_id: string | null
+@@ -2593,6 +2623,9 @@ export type Database = {
+           updated_at: string
+         }
+         Insert: {
++          archive_reason?: string | null
++          archived_at?: string | null
++          archived_by?: string | null
+           below_300k_exception_approval_id?: string | null
+           company_id?: string | null
+           contact_id?: string | null
+@@ -2621,6 +2654,9 @@ export type Database = {
+           updated_at?: string
+         }
+         Update: {
++          archive_reason?: string | null
++          archived_at?: string | null
++          archived_by?: string | null
+           below_300k_exception_approval_id?: string | null
+           company_id?: string | null
+           contact_id?: string | null
+@@ -3011,6 +3047,8 @@ export type Database = {
+       tenders: {
+         Row: {
+           archive_reason: string | null
++          archived_at: string | null
++          archived_by: string | null
+           award_evidence: string | null
+           below_300k_exception_approval_id: string | null
+           contact_plan_ready: boolean
+@@ -3043,6 +3081,8 @@ export type Database = {
+         }
+         Insert: {
+           archive_reason?: string | null
++          archived_at?: string | null
++          archived_by?: string | null
+           award_evidence?: string | null
+           below_300k_exception_approval_id?: string | null
+           contact_plan_ready?: boolean
+@@ -3075,6 +3115,8 @@ export type Database = {
+         }
+         Update: {
+           archive_reason?: string | null
++          archived_at?: string | null
++          archived_by?: string | null
+           award_evidence?: string | null
+           below_300k_exception_approval_id?: string | null
+           contact_plan_ready?: boolean
+diff --git a/src/lib/i18n.tsx b/src/lib/i18n.tsx
+index 520c366..e69f057 100644
+--- a/src/lib/i18n.tsx
++++ b/src/lib/i18n.tsx
+@@ -306,6 +306,24 @@ export const strings = {
+   crm_edit: { en: "Edit", ar: "تعديل" },
+   crm_back_to_accounts: { en: "Back to Accounts", ar: "العودة للحسابات" },
+ 
++  // Record lifecycle (archive / request delete / mark duplicate)
++  lifecycle_menu_label: { en: "More actions", ar: "إجراءات إضافية" },
++  lifecycle_archive: { en: "Archive", ar: "أرشفة" },
++  lifecycle_archive_desc: { en: "Hide this record from active views. It can be restored later.", ar: "إخفاء هذا السجل من العروض النشطة. يمكن استعادته لاحقًا." },
++  lifecycle_reason_optional: { en: "Reason (optional)", ar: "السبب (اختياري)" },
++  lifecycle_archived_toast: { en: "Archived", ar: "تمت الأرشفة" },
++  lifecycle_request_delete: { en: "Request Delete", ar: "طلب حذف" },
++  lifecycle_request_delete_desc: { en: "Sends this to a commercial manager for approval. Nothing is deleted until a manager approves and a system admin executes it.", ar: "يُرسل هذا لمدير تجاري للموافقة. لن يُحذف شيء حتى يوافق المدير وينفّذه مسؤول النظام." },
++  lifecycle_reason_required: { en: "Reason (required)", ar: "السبب (مطلوب)" },
++  lifecycle_delete_requested_toast: { en: "Delete request submitted for approval", ar: "تم إرسال طلب الحذف للموافقة" },
++  lifecycle_mark_duplicate: { en: "Mark Duplicate", ar: "وضع علامة تكرار" },
++  lifecycle_mark_duplicate_desc: { en: "Flags this record as a likely duplicate for a manager to review. No data is merged automatically.", ar: "يضع علامة على هذا السجل كتكرار محتمل ليراجعه مدير. لا يتم دمج أي بيانات تلقائيًا." },
++  lifecycle_duplicate_of_id: { en: "Duplicate of (record ID)", ar: "مكرر لـ (معرّف السجل)" },
++  lifecycle_duplicate_flagged_toast: { en: "Marked as duplicate", ar: "تم وضع علامة التكرار" },
++  lifecycle_execute_delete: { en: "Execute Delete", ar: "تنفيذ الحذف" },
++  lifecycle_execute_delete_desc: { en: "This permanently deletes the linked record. This cannot be undone.", ar: "سيؤدي هذا إلى حذف السجل المرتبط نهائيًا. لا يمكن التراجع عن هذا." },
++  lifecycle_executed_toast: { en: "Record deleted", ar: "تم حذف السجل" },
++
+   // Contact authority
+   authority_decision_maker: { en: "Decision Maker", ar: "صاحب القرار" },
+   authority_influencer: { en: "Influencer", ar: "مؤثّر" },
+diff --git a/src/lib/record-lifecycle-actions.ts b/src/lib/record-lifecycle-actions.ts
+new file mode 100644
+index 0000000..b8880ae
+--- /dev/null
++++ b/src/lib/record-lifecycle-actions.ts
+@@ -0,0 +1,84 @@
++import { callBackend } from "@/lib/backend";
++
++// Client wrappers for the Sprint 7 record-lifecycle actions in the
++// `sales-os-api` Edge Function. Direct client-side DELETE no longer works on
++// any sales table (RLS DELETE policies dropped + DELETE revoked at the grant
++// layer) — these five actions are the only supported way to retire a record.
++
++export type LifecycleEntityType =
++  | "leads"
++  | "contacts"
++  | "companies"
++  | "opportunities"
++  | "rfqs"
++  | "tenders"
++  | "follow_ups"
++  | "quotations"
++  | "projects"
++  | "boqs"
++  | "activities"
++  | "inbox_items";
++
++// Archivable is a subset of the deletable set — only tables with
++// archived_at/archived_by/archive_reason columns.
++export type ArchivableEntityType = "leads" | "contacts" | "companies" | "rfqs" | "tenders";
++
++export async function archiveRecord(input: {
++  entityType: ArchivableEntityType;
++  entityId: string;
++  reason?: string;
++}) {
++  const res = await callBackend<{ record: unknown }>("archive_record", {
++    entityType: input.entityType,
++    entityId: input.entityId,
++    reason: input.reason ?? null,
++  });
++  return res.record;
++}
++
++export async function requestDelete(input: {
++  entityType: LifecycleEntityType;
++  entityId: string;
++  reason: string;
++}) {
++  const res = await callBackend<{ pending_approval: boolean; approval: unknown }>("request_delete", {
++    entityType: input.entityType,
++    entityId: input.entityId,
++    reason: input.reason,
++  });
++  return res.approval;
++}
++
++// system_admin only, and only once a commercial manager has approved the
++// linked delete_request approval via decideApproval().
++export async function executeDelete(input: { approvalId: string }) {
++  return callBackend<{ deleted: { entityType: string; entityId: string } }>("execute_delete", {
++    approvalId: input.approvalId,
++  });
++}
++
++export async function flagDuplicate(input: {
++  entityType: LifecycleEntityType;
++  entityId: string;
++  duplicateOfId: string;
++  reason?: string;
++}) {
++  const res = await callBackend<{ group_id: string }>("flag_duplicate", {
++    entityType: input.entityType,
++    entityId: input.entityId,
++    duplicateOfId: input.duplicateOfId,
++    reason: input.reason ?? null,
++  });
++  return res.group_id;
++}
++
++export async function resolveDuplicateGroup(input: {
++  groupId: string;
++  resolution: "merged" | "dismissed";
++}) {
++  const res = await callBackend<{ group: unknown }>("resolve_duplicate_group", {
++    groupId: input.groupId,
++    resolution: input.resolution,
++  });
++  return res.group;
++}
+diff --git a/src/lib/roles.ts b/src/lib/roles.ts
+index 565490b..ab86045 100644
+--- a/src/lib/roles.ts
++++ b/src/lib/roles.ts
+@@ -101,3 +101,13 @@ export const canManageTeam = (r: RoleInput) =>
+ // Sales pipeline operations (qualify leads, drive tenders, author recommendations).
+ // BD / Sales Ops and above — not system_admin, not viewers.
+ export const canManageSalesPipeline = (r: RoleInput) => inGroup(r, PIPELINE_OPERATORS);
++
++// Record creation (leads, contacts, companies, opportunities, RFQs, tenders,
++// follow-ups, ...) — pipeline operators plus salesperson. Mirrors the DB
++// helper public.is_sales_contributor(uuid) used in RLS INSERT policies.
++export const canCreateSalesRecords = (r: RoleInput) =>
++  inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.salesperson]);
++
++// Final delete execution — system_admin only, and only after a commercial
++// manager has approved the underlying delete request via decide_approval.
++export const canExecuteDelete = (r: RoleInput) => isSystemAdmin(r);
+diff --git a/src/routes/_authenticated/accounts.$id.tsx b/src/routes/_authenticated/accounts.$id.tsx
+index e3c6fc3..508f2e1 100644
+--- a/src/routes/_authenticated/accounts.$id.tsx
++++ b/src/routes/_authenticated/accounts.$id.tsx
+@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useSupabaseAuth";
+ import { updateCompany, changeAccountOwner, type CompanyType } from "@/lib/crm-actions";
+ import { canAssignOwner } from "@/lib/roles";
+ import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
++import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
+ 
+ export const Route = createFileRoute("/_authenticated/accounts/$id")({
+   head: () => ({ meta: [{ title: "Account — PHC" }, { name: "robots", content: "noindex" }] }),
+@@ -124,6 +125,12 @@ function AccountDetail() {
+                 />
+               );
+             })()}
++            <RecordLifecycleMenu
++              entityType="companies"
++              entityId={c.id}
++              roles={roles}
++              onDone={() => qc.invalidateQueries({ queryKey: ["company", id] })}
++            />
+           </div>
+         }
+       />
+diff --git a/src/routes/_authenticated/approvals.tsx b/src/routes/_authenticated/approvals.tsx
+index f4bc548..47a0d1b 100644
+--- a/src/routes/_authenticated/approvals.tsx
++++ b/src/routes/_authenticated/approvals.tsx
+@@ -11,8 +11,9 @@ import { StatusPill } from "@/components/phc/StatusPill";
+ import { ActionDialog } from "@/components/phc/ActionDialog";
+ import { useI18n } from "@/lib/i18n";
+ import { decideApproval } from "@/lib/opportunity-actions";
++import { executeDelete } from "@/lib/record-lifecycle-actions";
+ import { useAuth } from "@/hooks/useSupabaseAuth";
+-import { canApproveCommercialAction } from "@/lib/roles";
++import { canApproveCommercialAction, canExecuteDelete } from "@/lib/roles";
+ 
+ export const Route = createFileRoute("/_authenticated/approvals")({
+   head: () => ({ meta: [{ title: "Approvals — PHC" }, { name: "robots", content: "noindex" }] }),
+@@ -37,9 +38,11 @@ function ApprovalsPage() {
+   const { t, lang } = useI18n();
+   const { roles } = useAuth();
+   const canDecide = canApproveCommercialAction(roles);
++  const canExecute = canExecuteDelete(roles);
+   const qc = useQueryClient();
+   const [filter, setFilter] = useState<"pending" | "recent">("pending");
+   const [decideFor, setDecideFor] = useState<{ id: string; oppId: string; kind: Decision } | null>(null);
++  const [executeFor, setExecuteFor] = useState<{ id: string } | null>(null);
+ 
+   const { data = [], isLoading, isError, refetch } = useQuery({
+     queryKey: ["approvals", filter],
+@@ -159,6 +162,17 @@ function ApprovalsPage() {
+                   ) : null}
+                 </div>
+                 <div className="flex flex-wrap gap-2 text-xs">
++                  {a.requested_action === "delete_record" &&
++                  a.status === "approved" &&
++                  a.execution_status !== "executed" &&
++                  canExecute ? (
++                    <button
++                      className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-1.5 font-medium text-red-300 hover:bg-red-500/20"
++                      onClick={() => setExecuteFor({ id: a.id })}
++                    >
++                      {t("lifecycle_execute_delete")}
++                    </button>
++                  ) : null}
+                   {pending && canDecide ? (
+                     <>
+                       <button
+@@ -221,6 +235,26 @@ function ApprovalsPage() {
+           }
+         }}
+       />
++
++      <ActionDialog
++        open={!!executeFor}
++        onOpenChange={(v) => !v && setExecuteFor(null)}
++        title={t("lifecycle_execute_delete")}
++        description={t("lifecycle_execute_delete_desc")}
++        submitLabel={t("lifecycle_execute_delete")}
++        destructive
++        fields={[]}
++        onSubmit={async () => {
++          try {
++            await executeDelete({ approvalId: executeFor!.id });
++            toast.success(t("lifecycle_executed_toast"));
++            qc.invalidateQueries({ queryKey: ["approvals"] });
++            qc.invalidateQueries({ queryKey: ["approvals-stats"] });
++          } catch (e) {
++            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
++          }
++        }}
++      />
+     </div>
+   );
+ }
+diff --git a/src/routes/_authenticated/opportunities.$id.tsx b/src/routes/_authenticated/opportunities.$id.tsx
+index e53c8a5..9df78ba 100644
+--- a/src/routes/_authenticated/opportunities.$id.tsx
++++ b/src/routes/_authenticated/opportunities.$id.tsx
+@@ -24,6 +24,7 @@ import {
+ } from "@/lib/opportunity-actions";
+ import { ArrowLeft, ArrowRight, ExternalLink, FileText, RefreshCw } from "lucide-react";
+ import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
++import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
+ import { useAuth } from "@/hooks/useSupabaseAuth";
+ import { canManageSalesPipeline } from "@/lib/roles";
+ import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
+@@ -251,6 +252,7 @@ function OpportunityDetail() {
+             {o.agent_recommendation ? (
+               <StatusPill tone={recTone}>{humanize(o.agent_recommendation)}</StatusPill>
+             ) : null}
++            <RecordLifecycleMenu entityType="opportunities" entityId={o.id} roles={roles} onDone={invalidate} />
+           </div>
+         </div>
+       </div>
+diff --git a/supabase/functions/_shared/roles.ts b/supabase/functions/_shared/roles.ts
+index 8df3d2e..5d0e481 100644
+--- a/supabase/functions/_shared/roles.ts
++++ b/supabase/functions/_shared/roles.ts
+@@ -79,3 +79,13 @@ export const canViewSalesAdmin = (r: RoleInput) =>
+ export const canManageTeam = (r: RoleInput) =>
+   inGroup(r, [...ROLE_GROUPS.systemAdmin, ...COMMERCIAL_MANAGERS]);
+ export const canManageSalesPipeline = (r: RoleInput) => inGroup(r, PIPELINE_OPERATORS);
++
++// Record creation (leads, contacts, companies, opportunities, RFQs, tenders,
++// follow-ups, ...) — pipeline operators plus salesperson. Mirrors the DB
++// helper public.is_sales_contributor(uuid) used in RLS INSERT policies.
++export const canCreateSalesRecords = (r: RoleInput) =>
++  inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.salesperson]);
++
++// Final delete execution — system_admin only, and only after a commercial
++// manager has approved the underlying delete request via decide_approval.
++export const canExecuteDelete = (r: RoleInput) => isSystemAdmin(r);
+diff --git a/supabase/functions/sales-os-api/index.ts b/supabase/functions/sales-os-api/index.ts
+index f78b407..11aab9c 100644
+--- a/supabase/functions/sales-os-api/index.ts
++++ b/supabase/functions/sales-os-api/index.ts
+@@ -23,6 +23,8 @@ import {
+   canApproveCommercialAction,
+   canAssignOwner,
+   canChangeCommercialStage,
++  canCreateSalesRecords,
++  canExecuteDelete,
+   canManageSalesPipeline,
+   canRunSensitiveSalesAction,
+ } from "../_shared/roles.ts";
+@@ -124,6 +126,20 @@ type Handler = (
+   caller: { userId: string; roles: AppRole[] },
+ ) => Promise<Response>;
+ 
++// Tables with archived_at / archived_by / archive_reason columns (added by
++// 20260711120000_rbac_hardening.sql). Opportunities is deliberately absent —
++// it already has an 'archived' stage value instead.
++const ARCHIVABLE_TABLES = ["leads", "contacts", "companies", "rfqs", "tenders"] as const;
++type ArchivableTable = (typeof ARCHIVABLE_TABLES)[number];
++
++// Tables whose client-side DELETE privilege was revoked by the same
++// migration — request_delete / execute_delete are the only remaining path.
++const DELETABLE_TABLES = [
++  "leads", "contacts", "companies", "opportunities", "rfqs", "tenders",
++  "follow_ups", "quotations", "projects", "boqs", "activities", "inbox_items",
++] as const;
++type DeletableTable = (typeof DELETABLE_TABLES)[number];
++
+ // Supabase's built-in embeddings model (gte-small, 384 dims). Runs natively in
+ // the Edge runtime — no external embeddings API / key.
+ declare const Supabase: {
+@@ -1702,6 +1718,158 @@ const handlers: Record<string, Handler> = {
+     await audit(svc, caller.userId, "automations.run", "system", null, { raised });
+     return json({ ok: true, raised });
+   },
++
++  // ---- Record lifecycle: archive / request-delete / execute-delete / duplicate flag ----
++  // Direct client-side DELETE no longer works anywhere (RLS DELETE policies
++  // dropped + DELETE revoked at the grant layer — see
++  // 20260711120000_rbac_hardening.sql). These five actions are the only
++  // supported way to retire a record.
++
++  // Archive — the default, immediate alternative to delete. Restricted to
++  // pipeline operators (BD Manager and above); salespeople use
++  // request_delete or flag_duplicate instead.
++  async archive_record(payload, caller) {
++    if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
++    const entityType = String(payload.entityType ?? "");
++    const entityId = String(payload.entityId ?? "");
++    if (!ARCHIVABLE_TABLES.includes(entityType as ArchivableTable)) {
++      return err(`Unsupported entityType for archive: ${entityType}`);
++    }
++    if (!entityId) return err("entityId is required");
++    const reason = (payload.reason as string) ?? null;
++    const svc = serviceClient();
++    const { data, error } = await svc
++      .from(entityType)
++      .update({ archived_at: new Date().toISOString(), archived_by: caller.userId, archive_reason: reason })
++      .eq("id", entityId)
++      .select()
++      .single();
++    if (error) return err(error.message, 400);
++    await audit(svc, caller.userId, `${entityType}.archived`, entityType, entityId, { reason });
++    return json({ ok: true, record: data });
++  },
++
++  // Any sales contributor may request a delete — this only opens an
++  // approval, never touches the record. "delete_record" is deliberately NOT
++  // in EXECUTABLE_ACTIONS (see _shared/approvals.ts), so a manager approving
++  // this via decide_approval never auto-deletes — it only unblocks
++  // execute_delete below, a genuinely separate step by a different role.
++  async request_delete(payload, caller) {
++    if (!canCreateSalesRecords(caller.roles)) return err("Sales role required", 403);
++    const entityType = String(payload.entityType ?? "");
++    const entityId = String(payload.entityId ?? "");
++    if (!DELETABLE_TABLES.includes(entityType as DeletableTable)) {
++      return err(`Unsupported entityType for delete request: ${entityType}`);
++    }
++    if (!entityId) return err("entityId is required");
++    const reason = (payload.reason as string) ?? null;
++    const svc = serviceClient();
++    const { data: appr, error } = await svc
++      .from("approvals")
++      .insert({
++        approval_type: "delete_request",
++        requested_by: caller.userId,
++        status: "pending",
++        decision_notes: reason,
++        linked_record_type: entityType,
++        linked_record_id: entityId,
++        requested_action: "delete_record",
++        requested_payload: { entityType, entityId, reason },
++      })
++      .select()
++      .single();
++    if (error) return err(error.message, 400);
++    await audit(svc, caller.userId, "delete.requested", entityType, entityId, { approval: appr?.id, reason });
++    return json({ ok: true, pending_approval: true, approval: appr });
++  },
++
++  // The ONLY path that actually deletes a row. system_admin only, and only
++  // once a commercial manager has approved the linked delete_request
++  // approval — two separate steps by two different roles.
++  async execute_delete(payload, caller) {
++    if (!canExecuteDelete(caller.roles)) return err("System admin authority required", 403);
++    const approvalId = String(payload.approvalId ?? "");
++    if (!approvalId) return err("approvalId is required");
++    const svc = serviceClient();
++    const { data: appr, error: aErr } = await svc.from("approvals").select("*").eq("id", approvalId).single();
++    if (aErr || !appr) return err("Approval not found", 404);
++    if (appr.status !== "approved") return err("This delete request has not been approved", 409);
++    if (appr.requested_action !== "delete_record") return err("This approval is not a delete request", 400);
++    if (appr.execution_status === "executed") return err("This delete has already been executed", 409);
++    const entityType = String(appr.linked_record_type ?? "");
++    const entityId = String(appr.linked_record_id ?? "");
++    if (!DELETABLE_TABLES.includes(entityType as DeletableTable) || !entityId) {
++      return err("Approval is missing a valid linked record", 400);
++    }
++    const { error: dErr } = await svc.from(entityType).delete().eq("id", entityId);
++    if (dErr) return err(dErr.message, 400);
++    await svc
++      .from("approvals")
++      .update({
++        execution_status: "executed",
++        executed_at: new Date().toISOString(),
++        executed_by: caller.userId,
++        execution_error: null,
++      })
++      .eq("id", approvalId);
++    await audit(svc, caller.userId, `${entityType}.deleted`, entityType, entityId, { approval: approvalId });
++    return json({ ok: true, deleted: { entityType, entityId } });
++  },
++
++  // Mark a record as a probable duplicate of another. Low blast radius (no
++  // data is touched), so any sales contributor may flag one. A commercial
++  // manager later resolves the group — this never auto-merges.
++  async flag_duplicate(payload, caller) {
++    if (!canCreateSalesRecords(caller.roles)) return err("Sales role required", 403);
++    const entityType = String(payload.entityType ?? "");
++    const entityId = String(payload.entityId ?? "");
++    const duplicateOfId = String(payload.duplicateOfId ?? "");
++    if (!entityType || !entityId || !duplicateOfId) {
++      return err("entityType, entityId, and duplicateOfId are required");
++    }
++    if (entityId === duplicateOfId) return err("A record cannot be a duplicate of itself");
++    const reason = (payload.reason as string) ?? null;
++    const svc = serviceClient();
++    const { data: group, error: gErr } = await svc
++      .from("duplicate_groups")
++      .insert({ entity_type: entityType, match_reason: reason ?? "Manually flagged", status: "open" })
++      .select("id")
++      .single();
++    if (gErr || !group) return err(gErr?.message ?? "Could not create duplicate group", 400);
++    const { error: mErr } = await svc.from("duplicate_group_members").insert([
++      { group_id: group.id, entity_type: entityType, entity_id: entityId },
++      { group_id: group.id, entity_type: entityType, entity_id: duplicateOfId },
++    ]);
++    if (mErr) return err(mErr.message, 400);
++    await audit(svc, caller.userId, "duplicate.flagged", entityType, entityId, {
++      group_id: group.id,
++      duplicate_of: duplicateOfId,
++    });
++    return json({ ok: true, group_id: group.id });
++  },
++
++  // A commercial manager resolves an open duplicate group. "merged" records
++  // the decision only — no field-level merge or child-record relinking is
++  // performed; that remains a manual follow-up.
++  async resolve_duplicate_group(payload, caller) {
++    if (!canApproveCommercialAction(caller.roles)) return err("Commercial approval authority required", 403);
++    const groupId = String(payload.groupId ?? "");
++    const resolution = String(payload.resolution ?? "");
++    if (!groupId) return err("groupId is required");
++    if (resolution !== "merged" && resolution !== "dismissed") {
++      return err("resolution must be 'merged' or 'dismissed'");
++    }
++    const svc = serviceClient();
++    const { data, error } = await svc
++      .from("duplicate_groups")
++      .update({ status: resolution })
++      .eq("id", groupId)
++      .select()
++      .single();
++    if (error) return err(error.message, 400);
++    await audit(svc, caller.userId, "duplicate.resolved", "duplicate_group", groupId, { resolution });
++    return json({ ok: true, group: data });
++  },
+ };
+ 
+ Deno.serve(async (req: Request) => {
+diff --git a/supabase/migrations/20260711120000_rbac_hardening.sql b/supabase/migrations/20260711120000_rbac_hardening.sql
+new file mode 100644
+index 0000000..61e6fb2
+--- /dev/null
++++ b/supabase/migrations/20260711120000_rbac_hardening.sql
+@@ -0,0 +1,237 @@
++-- =========================================================
++-- PHC Sales OS — Sprint 7: Permissions & RBAC hardening.
++--
++-- Three things, applied uniformly across the core sales tables (leads,
++-- contacts, companies, opportunities, rfqs, tenders, follow_ups,
++-- quotations, projects, boqs, activities, inbox_items):
++--
++--   1. INSERT / UPDATE policies stop hardcoding role literals (which meant
++--      managing_director / general_manager / sales_ops were silently
++--      excluded everywhere) and instead call the shared capability
++--      predicates — is_sales_contributor() (new, below) for creation,
++--      is_pipeline_operator() (existing) for the "not the owner but still
++--      allowed to edit" branch of updates. This also fixes a real gap:
++--      leads previously had NO owner-based update path at all, so a
++--      salesperson could not edit their own assigned lead.
++--
++--   2. DELETE is removed everywhere a client could previously hard-delete
++--      a record (sales_manager/ceo could). Direct delete is replaced by
++--      archive / request-delete / duplicate-flag workflows built on top of
++--      the sales-os-api edge function (server-side, audited). Both the RLS
++--      DELETE policy AND the underlying table privilege are removed, so a
++--      client can never delete even if a policy is mistakenly reintroduced
++--      without matching the privilege layer.
++--
++--   3. archived_at / archived_by / archive_reason columns are added to the
++--      tables that had no soft-delete path at all (leads, contacts,
++--      companies, rfqs; tenders already had archive_reason). Opportunities
++--      is deliberately skipped — it already has an 'archived' stage value.
++--
++-- Non-destructive, additive + in-place policy replacement.
++-- =========================================================
++
++-- ---- 0. New capability predicate: is_sales_contributor -----------------
++-- Everyone who may create day-to-day sales records, including salesperson
++-- (who is deliberately excluded from is_pipeline_operator). Mirrors
++-- canCreateSalesRecords in src/lib/roles.ts / supabase/functions/_shared/roles.ts.
++CREATE OR REPLACE FUNCTION public.is_sales_contributor(_user_id uuid)
++RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
++  SELECT public.has_any_role(
++    _user_id,
++    ARRAY['managing_director','general_manager','ceo','sales_manager','bd_manager','sales_ops','salesperson']::public.app_role[]
++  );
++$$;
++REVOKE EXECUTE ON FUNCTION public.is_sales_contributor(uuid) FROM PUBLIC, anon;
++GRANT EXECUTE ON FUNCTION public.is_sales_contributor(uuid) TO authenticated;
++
++-- ---- 1. LEADS ------------------------------------------------------------
++DROP POLICY IF EXISTS "Leads insertable by sales team" ON public.leads;
++CREATE POLICY "Leads insertable by sales team" ON public.leads FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++
++DROP POLICY IF EXISTS "Leads editable by BD/Manager" ON public.leads;
++CREATE POLICY "Leads editable by owner or pipeline operator" ON public.leads FOR UPDATE TO authenticated
++  USING (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()))
++  WITH CHECK (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()));
++
++DROP POLICY IF EXISTS "Leads deletable by Manager" ON public.leads;
++REVOKE DELETE ON public.leads FROM authenticated;
++
++ALTER TABLE public.leads
++  ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ,
++  ADD COLUMN IF NOT EXISTS archived_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
++  ADD COLUMN IF NOT EXISTS archive_reason TEXT;
++
++-- ---- 2. CONTACTS ----------------------------------------------------------
++DROP POLICY IF EXISTS "Contacts insertable by sales team" ON public.contacts;
++CREATE POLICY "Contacts insertable by sales team" ON public.contacts FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++
++DROP POLICY IF EXISTS "Contacts updatable by owner or BD/Manager" ON public.contacts;
++CREATE POLICY "Contacts editable by owner or pipeline operator" ON public.contacts FOR UPDATE TO authenticated
++  USING (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()))
++  WITH CHECK (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()));
++
++DROP POLICY IF EXISTS "Contacts deletable by Manager/CEO" ON public.contacts;
++REVOKE DELETE ON public.contacts FROM authenticated;
++
++ALTER TABLE public.contacts
++  ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ,
++  ADD COLUMN IF NOT EXISTS archived_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
++  ADD COLUMN IF NOT EXISTS archive_reason TEXT;
++
++-- ---- 3. COMPANIES ----------------------------------------------------------
++DROP POLICY IF EXISTS "Companies insertable by sales team" ON public.companies;
++CREATE POLICY "Companies insertable by sales team" ON public.companies FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++
++DROP POLICY IF EXISTS "Companies updatable by owner or BD/Manager" ON public.companies;
++CREATE POLICY "Companies editable by owner or pipeline operator" ON public.companies FOR UPDATE TO authenticated
++  USING (account_owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()))
++  WITH CHECK (account_owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()));
++
++DROP POLICY IF EXISTS "Companies deletable by Manager/CEO" ON public.companies;
++REVOKE DELETE ON public.companies FROM authenticated;
++
++ALTER TABLE public.companies
++  ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ,
++  ADD COLUMN IF NOT EXISTS archived_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
++  ADD COLUMN IF NOT EXISTS archive_reason TEXT;
++
++-- ---- 4. OPPORTUNITIES -------------------------------------------------------
++-- No archive columns — 'archived' is already a valid opportunity_stage value.
++DROP POLICY IF EXISTS "Sales team can insert opportunities" ON public.opportunities;
++CREATE POLICY "Sales team can insert opportunities" ON public.opportunities FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++
++DROP POLICY IF EXISTS "Owner or Manager/CEO can update" ON public.opportunities;
++CREATE POLICY "Owner or pipeline operator can update" ON public.opportunities FOR UPDATE TO authenticated
++  USING (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()))
++  WITH CHECK (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()));
++
++DROP POLICY IF EXISTS "Manager/CEO can delete" ON public.opportunities;
++REVOKE DELETE ON public.opportunities FROM authenticated;
++
++-- ---- 5. RFQS ------------------------------------------------------------
++DROP POLICY IF EXISTS "RFQs insertable by sales team" ON public.rfqs;
++CREATE POLICY "RFQs insertable by sales team" ON public.rfqs FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++
++DROP POLICY IF EXISTS "RFQs updatable by owner or manager" ON public.rfqs;
++CREATE POLICY "RFQs editable by owner or pipeline operator" ON public.rfqs FOR UPDATE TO authenticated
++  USING (sales_owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()))
++  WITH CHECK (sales_owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()));
++
++DROP POLICY IF EXISTS "RFQs deletable by manager" ON public.rfqs;
++REVOKE DELETE ON public.rfqs FROM authenticated;
++
++ALTER TABLE public.rfqs
++  ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ,
++  ADD COLUMN IF NOT EXISTS archived_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
++  ADD COLUMN IF NOT EXISTS archive_reason TEXT;
++
++-- ---- 6. TENDERS ----------------------------------------------------------
++-- archive_reason already exists (20260707100080_rfq_tender.sql).
++DROP POLICY IF EXISTS "Tenders insertable by sales team" ON public.tenders;
++CREATE POLICY "Tenders insertable by sales team" ON public.tenders FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++
++DROP POLICY IF EXISTS "Tenders updatable by owner or manager" ON public.tenders;
++CREATE POLICY "Tenders editable by owner or pipeline operator" ON public.tenders FOR UPDATE TO authenticated
++  USING (tender_owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()))
++  WITH CHECK (tender_owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()));
++
++DROP POLICY IF EXISTS "Tenders deletable by manager" ON public.tenders;
++REVOKE DELETE ON public.tenders FROM authenticated;
++
++ALTER TABLE public.tenders
++  ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ,
++  ADD COLUMN IF NOT EXISTS archived_by UUID REFERENCES auth.users(id) ON DELETE SET NULL;
++
++-- ---- 7. FOLLOW_UPS --------------------------------------------------------
++-- Was a single FOR ALL policy (covering insert/update/delete). Split so
++-- delete can be removed without reopening insert/update.
++DROP POLICY IF EXISTS "Follow-ups editable by owner or Manager/CEO" ON public.follow_ups;
++CREATE POLICY "Follow-ups insertable by sales team" ON public.follow_ups FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++CREATE POLICY "Follow-ups editable by owner or pipeline operator" ON public.follow_ups FOR UPDATE TO authenticated
++  USING (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()))
++  WITH CHECK (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()));
++REVOKE DELETE ON public.follow_ups FROM authenticated;
++
++-- ---- 8. QUOTATIONS --------------------------------------------------------
++DROP POLICY IF EXISTS "Quotations insertable by sales team" ON public.quotations;
++CREATE POLICY "Quotations insertable by sales team" ON public.quotations FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++
++DROP POLICY IF EXISTS "Quotations updatable by owner or Manager/CEO" ON public.quotations;
++CREATE POLICY "Quotations editable by owner or pipeline operator" ON public.quotations FOR UPDATE TO authenticated
++  USING (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()))
++  WITH CHECK (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()));
++
++DROP POLICY IF EXISTS "Quotations deletable by Manager/CEO" ON public.quotations;
++REVOKE DELETE ON public.quotations FROM authenticated;
++
++-- ---- 9. PROJECTS ----------------------------------------------------------
++-- No individual owner column — update authority is role-based, same as
++-- before, just via the shared predicate instead of a literal role array.
++DROP POLICY IF EXISTS "Projects insertable by sales team" ON public.projects;
++CREATE POLICY "Projects insertable by sales team" ON public.projects FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++
++DROP POLICY IF EXISTS "Projects updatable by sales team" ON public.projects;
++CREATE POLICY "Projects updatable by sales team" ON public.projects FOR UPDATE TO authenticated
++  USING (public.is_sales_contributor(auth.uid()))
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++
++DROP POLICY IF EXISTS "Projects deletable by Manager/CEO" ON public.projects;
++REVOKE DELETE ON public.projects FROM authenticated;
++
++-- ---- 10. BOQS ---------------------------------------------------------
++-- Was a single FOR ALL policy. Split the same way as follow_ups; update
++-- authority is creator-or-pipeline-operator (no dedicated owner column).
++DROP POLICY IF EXISTS "BOQs editable by sales team" ON public.boqs;
++CREATE POLICY "BOQs insertable by sales team" ON public.boqs FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++CREATE POLICY "BOQs editable by creator or pipeline operator" ON public.boqs FOR UPDATE TO authenticated
++  USING (created_by = auth.uid() OR public.is_pipeline_operator(auth.uid()))
++  WITH CHECK (created_by = auth.uid() OR public.is_pipeline_operator(auth.uid()));
++REVOKE DELETE ON public.boqs FROM authenticated;
++
++-- ---- 11. ACTIVITIES ---------------------------------------------------
++DROP POLICY IF EXISTS "Activities insertable by sales team" ON public.activities;
++CREATE POLICY "Activities insertable by sales team" ON public.activities FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++
++DROP POLICY IF EXISTS "Activities editable by owner or Manager" ON public.activities;
++CREATE POLICY "Activities editable by owner or pipeline operator" ON public.activities FOR UPDATE TO authenticated
++  USING (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()))
++  WITH CHECK (owner_id = auth.uid() OR public.is_pipeline_operator(auth.uid()));
++
++DROP POLICY IF EXISTS "Activities deletable by owner or Manager" ON public.activities;
++REVOKE DELETE ON public.activities FROM authenticated;
++
++-- ---- 12. INBOX_ITEMS ----------------------------------------------------
++-- Same gap pattern as the tables above (literal role list, no sales_ops /
++-- executives, hard delete available to managers). Already has an
++-- 'archived' inbox_status value and archive_reason column, so no new
++-- archive columns needed.
++DROP POLICY IF EXISTS "Inbox items insertable by sales team" ON public.inbox_items;
++CREATE POLICY "Inbox items insertable by sales team" ON public.inbox_items FOR INSERT TO authenticated
++  WITH CHECK (public.is_sales_contributor(auth.uid()));
++
++DROP POLICY IF EXISTS "Inbox items editable by owner or manager" ON public.inbox_items;
++CREATE POLICY "Inbox items editable by owner or pipeline operator" ON public.inbox_items FOR UPDATE TO authenticated
++  USING (
++    created_by = auth.uid()
++    OR assigned_owner_id = auth.uid()
++    OR public.is_pipeline_operator(auth.uid())
++  )
++  WITH CHECK (
++    created_by = auth.uid()
++    OR assigned_owner_id = auth.uid()
++    OR public.is_pipeline_operator(auth.uid())
++  );
++
++DROP POLICY IF EXISTS "Inbox items deletable by manager" ON public.inbox_items;
++REVOKE DELETE ON public.inbox_items FROM authenticated;
