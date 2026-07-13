@@ -10,6 +10,7 @@ import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/agent-activity")({
@@ -40,11 +41,28 @@ function AgentActivityPage() {
   const [agent, setAgent] = useState<string>("all");
   const [query, setQuery] = useState("");
 
+  const [mainTab, setMainTab] = useState<"runs" | "outputs">("runs");
+
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["agent-runs-all"],
     staleTime: 30_000,
     queryFn: async () =>
       (await supabase.from("agent_runs").select("*").order("started_at", { ascending: false }).limit(200)).data ?? [],
+    staleTime: 30_000,
+  });
+
+  const { data: outputs = [], isLoading: outputsLoading } = useQuery({
+    queryKey: ["ai-agent-outputs"],
+    queryFn: async () =>
+      (
+        await (supabase as any)
+          .from("ai_agent_outputs")
+          .select("id, agent_key, status, entity_type, entity_id, summary, created_at, output_type, client_request_id")
+          .order("created_at", { ascending: false })
+          .limit(200)
+      ).data ?? [],
+    staleTime: 30_000,
+    enabled: mainTab === "outputs",
   });
 
   const agents = useMemo(() => Array.from(new Set(rows.map((r: any) => r.agent_name).filter(Boolean))), [rows]);
@@ -158,38 +176,83 @@ function AgentActivityPage() {
         </div>
       </div>
 
-      {isLoading ? (
-        <SkeletonTable rows={6} />
-      ) : filtered.length === 0 ? (
-        <EmptyState message={t("empty_agent_runs")} />
-      ) : (
-        <ol className="space-y-2">
-          {filtered.map((r: any) => (
-            <li key={r.id} className="rounded-xl border border-border/70 bg-surface/60 px-5 py-3.5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StatusPill tone={statusTone(r.status)}>{r.status?.replaceAll("_", " ") ?? "—"}</StatusPill>
-                    <span className="truncate text-sm font-medium text-foreground">{r.loop_name ?? r.agent_name}</span>
-                    <StatusPill tone="muted">{r.agent_name}</StatusPill>
-                  </div>
-                  {r.summary ? <div className="mt-1 text-xs text-muted-foreground">{r.summary}</div> : null}
-                  {(r.records_processed != null || r.records_created != null || r.records_updated != null) ? (
-                    <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-                      {r.records_processed != null ? <span className="num" data-tabular="true">{r.records_processed} processed</span> : null}
-                      {r.records_created != null ? <span className="num" data-tabular="true">{r.records_created} created</span> : null}
-                      {r.records_updated != null ? <span className="num" data-tabular="true">{r.records_updated} updated</span> : null}
+      <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as "runs" | "outputs")}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="runs">Batch Runs</TabsTrigger>
+          <TabsTrigger value="outputs">AI Outputs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="runs">
+          {isLoading ? (
+            <SkeletonTable rows={6} />
+          ) : filtered.length === 0 ? (
+            <EmptyState message={t("empty_agent_runs")} />
+          ) : (
+            <ol className="space-y-2">
+              {filtered.map((r: any) => (
+                <li key={r.id} className="rounded-xl border border-border/70 bg-surface/60 px-5 py-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusPill tone={statusTone(r.status)}>{r.status?.replaceAll("_", " ") ?? "—"}</StatusPill>
+                        <span className="truncate text-sm font-medium text-foreground">{r.loop_name ?? r.agent_name}</span>
+                        <StatusPill tone="muted">{r.agent_name}</StatusPill>
+                      </div>
+                      {r.summary ? <div className="mt-1 text-xs text-muted-foreground">{r.summary}</div> : null}
+                      {(r.records_processed != null || r.records_created != null || r.records_updated != null) ? (
+                        <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                          {r.records_processed != null ? <span className="num" data-tabular="true">{r.records_processed} processed</span> : null}
+                          {r.records_created != null ? <span className="num" data-tabular="true">{r.records_created} created</span> : null}
+                          {r.records_updated != null ? <span className="num" data-tabular="true">{r.records_updated} updated</span> : null}
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
-                </div>
-                <span className="shrink-0 text-xs text-muted-foreground num" data-tabular="true">
-                  {fmtTime(r.started_at, lang)}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
+                    <span className="shrink-0 text-xs text-muted-foreground num" data-tabular="true">
+                      {fmtTime(r.started_at, lang)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </TabsContent>
+
+        <TabsContent value="outputs">
+          {outputsLoading ? (
+            <SkeletonTable rows={6} />
+          ) : outputs.length === 0 ? (
+            <EmptyState message="No AI agent outputs yet." />
+          ) : (
+            <ol className="space-y-2">
+              {outputs.map((o: any) => (
+                <li key={o.id} className="rounded-xl border border-border/70 bg-surface/60 px-5 py-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusPill tone={o.status === "accepted" ? "positive" : o.status === "rejected" ? "danger" : "attention"}>
+                          {o.status?.replaceAll("_", " ") ?? "—"}
+                        </StatusPill>
+                        <span className="truncate text-sm font-medium text-foreground">{o.agent_key}</span>
+                        {o.output_type ? <StatusPill tone="muted">{o.output_type}</StatusPill> : null}
+                      </div>
+                      {o.summary ? <div className="mt-1 text-xs text-muted-foreground">{o.summary}</div> : null}
+                      {o.entity_type || o.entity_id ? (
+                        <div className="mt-1 text-[11px] text-muted-foreground">
+                          {o.entity_type} {o.entity_id ? `· ${String(o.entity_id).slice(0, 8)}…` : ""}
+                          {o.client_request_id ? ` · req: ${String(o.client_request_id).slice(0, 8)}…` : ""}
+                        </div>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 text-xs text-muted-foreground num" data-tabular="true">
+                      {fmtTime(o.created_at, lang)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
