@@ -701,6 +701,37 @@ export function getTargetColumns(entity: ImportTargetEntity) {
   ];
 }
 
+/** Run the data_cleanup AI agent on an import batch */
+export async function runDataCleanup(batchId: string): Promise<{
+  ok: boolean;
+  corrections?: Array<{ row_id: string; field: string; original: string; corrected: string; reason: string }>;
+  duplicates?: Array<{ row_ids: string[]; reason: string; duplicate_type: string; existing_id?: string }>;
+  quality_score?: number;
+  quality_summary?: string;
+  error?: string;
+}> {
+  const { data, error } = await supabase.functions.invoke("ai-orchestrator", {
+    body: { agent: "data_cleanup", entityType: "import_batches", entityId: batchId },
+  });
+  if (error || !data?.ok) return { ok: false, error: error?.message ?? data?.message ?? "AI unavailable" };
+  return { ok: true, ...(data.result as object) };
+}
+
+/** Run the contact_mapping AI agent on an import batch */
+export async function runContactMapping(batchId: string): Promise<{
+  ok: boolean;
+  classifications?: Array<{ row_id: string; entity_type: string; confidence: number; reason: string }>;
+  contact_company_links?: Array<{ contact_row_id: string; company_row_id?: string; company_name: string; confidence: number; match_basis: string }>;
+  suggested_splits?: Array<{ row_id: string; reason: string }>;
+  error?: string;
+}> {
+  const { data, error } = await supabase.functions.invoke("ai-orchestrator", {
+    body: { agent: "contact_mapping", entityType: "import_batches", entityId: batchId },
+  });
+  if (error || !data?.ok) return { ok: false, error: error?.message ?? data?.message ?? "AI unavailable" };
+  return { ok: true, ...(data.result as object) };
+}
+
 // -- AI-assisted mapping suggestions ------------------------------------------
 
 export type AiMappingSuggestion = {
