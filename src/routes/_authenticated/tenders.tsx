@@ -191,13 +191,13 @@ function TenderMonitor() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex gap-1">
             {(["all", "A", "B", "C"] as const).map((c) => (
-              <button key={c} onClick={() => setClassFilter(c)} className={`rounded-full border px-3 py-1 text-xs ${classFilter === c ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}>
+              <button key={c} onClick={() => setClassFilter(c)} className={`rounded-full border px-3 py-1.5 text-xs ${classFilter === c ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}>
                 {c === "all" ? t("crm_filter_all_types") : c}
               </button>
             ))}
             <button
               onClick={() => setShowArchived((v) => !v)}
-              className={`rounded-full border px-3 py-1 text-xs ${showArchived ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+              className={`rounded-full border px-3 py-1.5 text-xs ${showArchived ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
             >
               {t("lifecycle_include_archived")}
             </button>

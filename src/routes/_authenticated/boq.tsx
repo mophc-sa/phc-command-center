@@ -107,7 +107,7 @@ function BoqPage() {
       <div className="mb-4 flex flex-wrap gap-1.5">
         <button
           onClick={() => setStatusFilter("all")}
-          className={`rounded-full border px-3 py-1 text-xs ${statusFilter === "all" ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+          className={`rounded-full border px-3 py-1.5 text-xs ${statusFilter === "all" ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
         >
           {t("crm_filter_all_types")}
         </button>
@@ -115,7 +115,7 @@ function BoqPage() {
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
-            className={`rounded-full border px-3 py-1 text-xs ${statusFilter === s ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+            className={`rounded-full border px-3 py-1.5 text-xs ${statusFilter === s ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
           >
             {statusLabel(s)}
           </button>

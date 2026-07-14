@@ -516,7 +516,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           />
           <div
             className={cn(
-              "absolute inset-y-0 w-72 bg-sidebar",
+              "absolute inset-y-0 w-[min(18rem,85vw)] bg-sidebar",
               dir === "rtl"
                 ? "right-0 border-l border-sidebar-border"
                 : "left-0 border-r border-sidebar-border",

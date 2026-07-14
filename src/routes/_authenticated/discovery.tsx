@@ -138,14 +138,14 @@ function LeadIntakePage() {
             <button
               key={b.k}
               onClick={() => setBucket(b.k)}
-              className={`rounded-full border px-3 py-1 text-xs ${bucket === b.k ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+              className={`rounded-full border px-3 py-1.5 text-xs ${bucket === b.k ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
             >
               {b.label}
             </button>
           ))}
           <button
             onClick={() => setShowArchived((v) => !v)}
-            className={`rounded-full border px-3 py-1 text-xs ${showArchived ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+            className={`rounded-full border px-3 py-1.5 text-xs ${showArchived ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
           >
             {t("lifecycle_include_archived")}
           </button>

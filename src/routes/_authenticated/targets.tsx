@@ -251,7 +251,7 @@ function TargetsPage() {
           <button
             onClick={() => setTab("mine")}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs",
+              "rounded-full border px-3 py-1.5 text-xs",
               tab === "mine" ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground",
             )}
           >
@@ -260,7 +260,7 @@ function TargetsPage() {
           <button
             onClick={() => setTab("team")}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs",
+              "rounded-full border px-3 py-1.5 text-xs",
               tab === "team" ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground",
             )}
           >
