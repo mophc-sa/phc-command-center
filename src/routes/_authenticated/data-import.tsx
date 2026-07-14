@@ -555,6 +555,7 @@ function DataImportCenter() {
             onExclude={handleRowExclude}
             onRestore={handleRowRestore}
             onRevalidate={handleValidate}
+            onProceedToApproval={() => setTab("approval")}
             busy={busy}
           />
         </TabsContent>
@@ -1438,7 +1439,7 @@ function MappingTab({ batch, files, mappings, onSave, onValidate, busy, t, aiSug
 // Rows (parsed row editing)
 // =============================================================================
 
-function RowsTab({ batch, rows, files, onEdit, onExclude, onRestore, onRevalidate, busy }: {
+function RowsTab({ batch, rows, files, onEdit, onExclude, onRestore, onRevalidate, onProceedToApproval, busy }: {
   batch: ImportBatch | null | undefined;
   rows: ImportRow[];
   files: any[];
@@ -1446,6 +1447,7 @@ function RowsTab({ batch, rows, files, onEdit, onExclude, onRestore, onRevalidat
   onExclude: (rowId: string) => Promise<void>;
   onRestore: (rowId: string) => Promise<void>;
   onRevalidate: () => Promise<void>;
+  onProceedToApproval: () => void;
   busy: boolean;
 }) {
   const columns: string[] = files[0]?.column_names ?? [];
@@ -1475,19 +1477,12 @@ function RowsTab({ batch, rows, files, onEdit, onExclude, onRestore, onRevalidat
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex gap-2 text-xs">
           <StatusPill tone="neutral">Active: {activeCount}</StatusPill>
           <StatusPill tone="attention">Edited: {editedCount}</StatusPill>
           <StatusPill tone="danger">Excluded: {excludedCount}</StatusPill>
         </div>
-        <button
-          onClick={onRevalidate}
-          disabled={busy}
-          className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-50"
-        >
-          <RotateCcw className="h-3 w-3" /> Re-run validation
-        </button>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border">
@@ -1595,6 +1590,22 @@ function RowsTab({ batch, rows, files, onEdit, onExclude, onRestore, onRevalidat
         Edits and exclusions only affect this import batch. Excluded rows are skipped by validation and dry-run.
         No CRM records are modified.
       </p>
+
+      <div className="flex items-center justify-between border-t border-border pt-4">
+        <button
+          onClick={onRevalidate}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+        >
+          <RotateCcw className="h-3 w-3" /> Re-run validation
+        </button>
+        <button
+          onClick={onProceedToApproval}
+          className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+        >
+          Proceed to Approval →
+        </button>
+      </div>
     </div>
   );
 }
@@ -2011,7 +2022,7 @@ function AiPipelineTab({
           );
         })}
       </div>
-      {step === 6 && (
+      {!running && step > 0 && (
         <button
           onClick={onViewRows}
           className="mt-4 rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
