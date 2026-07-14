@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, Users, Copy, FileBarChart } from "lucide-react";
+import { Sparkles, Users, Copy, FileBarChart, Activity } from "lucide-react";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -10,6 +10,7 @@ import { SkeletonCard } from "@/components/phc/Skeleton";
 import { AiEvidencePanel } from "@/components/phc/AiEvidencePanel";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline } from "@/lib/roles";
+import { supabase } from "@/integrations/supabase/client";
 import {
   listRecommendations,
   listAgentRuns,
@@ -32,6 +33,31 @@ function AiAgentsPage() {
   const canRun = canManageSalesPipeline(roles);
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
+
+  const [radarAlerts, setRadarAlerts] = useState<any[]>([]);
+  const [radarScore, setRadarScore] = useState<number | null>(null);
+  const [radarSummary, setRadarSummary] = useState("");
+  const [radarRunning, setRadarRunning] = useState(false);
+  const [radarError, setRadarError] = useState<string | null>(null);
+
+  async function handleRunRadar() {
+    setRadarRunning(true);
+    setRadarError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-orchestrator", {
+        body: { agent: "project_radar", entityType: "pipeline", entityId: "pipeline" },
+      });
+      if (error || !data?.ok) throw new Error(data?.message ?? error?.message ?? "Failed");
+      const result = data.result;
+      setRadarAlerts(result.radar_alerts ?? []);
+      setRadarScore(result.pipeline_health_score ?? null);
+      setRadarSummary(result.summary ?? "");
+    } catch (e: any) {
+      setRadarError(e.message);
+    } finally {
+      setRadarRunning(false);
+    }
+  }
 
   const { data: recs = [], isLoading } = useQuery({ queryKey: ["ai-recs"], queryFn: () => listRecommendations("pending") });
   const { data: runs = [] } = useQuery({ queryKey: ["ai-runs"], queryFn: listAgentRuns });
@@ -118,6 +144,100 @@ function AiAgentsPage() {
             ))}
           </ul>
         )}
+      </Panel>
+
+      <Panel
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Activity className="h-4 w-4 text-emerald-400" />
+            Project Radar
+          </span>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <RunButton
+              icon={<Activity className="h-3.5 w-3.5" />}
+              label="Scan Pipeline"
+              busy={radarRunning}
+              onClick={handleRunRadar}
+            />
+            {radarScore !== null && (
+              <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+                Pipeline Health: {radarScore}/100
+              </span>
+            )}
+          </div>
+
+          {radarRunning && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+              </svg>
+              Scanning pipeline…
+            </div>
+          )}
+
+          {radarError && (
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+              {radarError}
+            </div>
+          )}
+
+          {radarSummary && (
+            <p className="text-sm text-muted-foreground leading-relaxed">{radarSummary}</p>
+          )}
+
+          {radarAlerts.length > 0 && (
+            <div className="space-y-2">
+              {(["high", "medium", "low"] as const).map((sev) => {
+                const group = radarAlerts.filter((a: any) => a.severity === sev);
+                if (group.length === 0) return null;
+                return (
+                  <div key={sev} className="space-y-1.5">
+                    {group.map((alert: any, i: number) => (
+                      <div
+                        key={i}
+                        className="rounded-md border border-border bg-surface px-3 py-2.5 text-xs"
+                      >
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span
+                            className={
+                              "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+                              (sev === "high"
+                                ? "bg-red-500/15 text-red-400"
+                                : sev === "medium"
+                                ? "bg-amber-500/15 text-amber-400"
+                                : "bg-blue-500/15 text-blue-400")
+                            }
+                          >
+                            {sev}
+                          </span>
+                          {alert.entity_name && (
+                            <span className="font-medium text-foreground">{alert.entity_name}</span>
+                          )}
+                        </div>
+                        {alert.description && (
+                          <p className="text-muted-foreground leading-relaxed">{alert.description}</p>
+                        )}
+                        {alert.recommended_action && (
+                          <p className="mt-1 text-muted-foreground/80 italic">{alert.recommended_action}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!radarRunning && radarAlerts.length === 0 && radarScore === null && (
+            <div className="text-xs text-muted-foreground">
+              Click "Scan Pipeline" to run the Project Radar agent.
+            </div>
+          )}
+        </div>
       </Panel>
     </div>
   );

@@ -95,6 +95,26 @@ function OpportunityDetail() {
   const { user, roles } = useAuth();
   const canScore = canManageSalesPipeline(roles);
 
+  const [riskResult, setRiskResult] = useState<any | null>(null);
+  const [riskRunning, setRiskRunning] = useState(false);
+  const [riskError, setRiskError] = useState<string | null>(null);
+
+  async function handleRiskAssessment() {
+    setRiskRunning(true);
+    setRiskError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-orchestrator", {
+        body: { agent: "risk_finance", entityType: "opportunities", entityId: id },
+      });
+      if (error || !data?.ok) throw new Error(data?.message ?? error?.message ?? "Failed");
+      setRiskResult(data.result);
+    } catch (e: any) {
+      setRiskError(e.message);
+    } finally {
+      setRiskRunning(false);
+    }
+  }
+
   const teamQ = useQuery({ queryKey: ["team"], queryFn: listTeamMembers });
 
   const invalidate = () => {
@@ -289,6 +309,15 @@ function OpportunityDetail() {
             <ActionButton onClick={() => setAction("schedule")}>{t("action_schedule")}</ActionButton>
             <ActionButton onClick={() => setAction("assign")}>{t("action_assign")}</ActionButton>
             <ActionButton onClick={() => setAction("escalate")}>{t("action_escalate")}</ActionButton>
+            <button
+              type="button"
+              disabled={riskRunning}
+              onClick={handleRiskAssessment}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${riskRunning ? "animate-spin" : ""}`} />
+              {riskRunning ? "Assessing…" : "Risk Assessment"}
+            </button>
             {(() => {
               const primary = (stakeholdersQ.data ?? []).find((s: any) => !!s.email) ?? (stakeholdersQ.data ?? [])[0];
               return (
@@ -690,7 +719,107 @@ function OpportunityDetail() {
       </Panel>
       )}
 
-      {/* 7c. COMMUNICATION HISTORY — Communication Hub Phase 1 */}
+      {/* 7c. RISK ASSESSMENT */}
+      {(riskError || riskResult) && (
+        <Panel title="Risk Assessment">
+          {riskError && (
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+              {riskError}
+            </div>
+          )}
+          {riskResult && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                {riskResult.risk_level && (
+                  <span
+                    className={
+                      "rounded px-2 py-1 text-xs font-semibold uppercase tracking-wide " +
+                      (riskResult.risk_level === "low"
+                        ? "bg-emerald-500/15 text-emerald-400"
+                        : riskResult.risk_level === "medium"
+                        ? "bg-amber-500/15 text-amber-400"
+                        : riskResult.risk_level === "high"
+                        ? "bg-orange-500/15 text-orange-400"
+                        : "bg-red-500/15 text-red-400")
+                    }
+                  >
+                    {riskResult.risk_level}
+                  </span>
+                )}
+                {riskResult.risk_score != null && (
+                  <span className="text-sm text-foreground font-medium">
+                    Risk Score: {riskResult.risk_score}/100
+                  </span>
+                )}
+              </div>
+
+              {riskResult.risk_factors && riskResult.risk_factors.length > 0 && (
+                <div>
+                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                    Risk Factors
+                  </div>
+                  <ul className="space-y-1.5">
+                    {riskResult.risk_factors.map((factor: any, i: number) => (
+                      <li key={i} className="flex flex-wrap items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs">
+                        {factor.impact && (
+                          <span
+                            className={
+                              "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+                              (factor.impact === "low"
+                                ? "bg-emerald-500/15 text-emerald-400"
+                                : factor.impact === "medium"
+                                ? "bg-amber-500/15 text-amber-400"
+                                : "bg-red-500/15 text-red-400")
+                            }
+                          >
+                            {factor.impact}
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">{factor.description ?? factor}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {riskResult.mitigations && riskResult.mitigations.length > 0 && (
+                <div>
+                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                    Mitigations
+                  </div>
+                  <ul className="space-y-1.5">
+                    {riskResult.mitigations.map((m: any, i: number) => (
+                      <li key={i} className="flex flex-wrap items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs">
+                        {m.priority && (
+                          <span
+                            className={
+                              "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+                              (m.priority === "low"
+                                ? "bg-blue-500/15 text-blue-400"
+                                : m.priority === "medium"
+                                ? "bg-amber-500/15 text-amber-400"
+                                : "bg-red-500/15 text-red-400")
+                            }
+                          >
+                            {m.priority}
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">{m.action ?? m}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
+                This risk assessment is generated by AI and is intended as decision support only. Always validate with your own judgment and local context before taking action.
+              </p>
+            </div>
+          )}
+        </Panel>
+      )}
+
+      {/* 7d. COMMUNICATION HISTORY — Communication Hub Phase 1 */}
       <Panel title={t("comm_history")}>
         <CommunicationTimeline filter={{ opportunityId: o.id }} />
       </Panel>
