@@ -34,7 +34,7 @@ import {
   getBatchActivity, getReadinessChecklist, saveReadinessChecklist, deriveAutoChecklist,
   READINESS_ITEMS, stagedGroupsForRow,
   IMPORT_CAPABLE_ROLES, APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
-  COMPANY_TARGET_COLUMNS, TARGET_ENTITIES, getTargetColumns, EXTRA_DATA_SENTINEL,
+  COMPANY_TARGET_COLUMNS, CONTACT_TARGET_COLUMNS, LEAD_TARGET_COLUMNS, TARGET_ENTITIES, getTargetColumns, EXTRA_DATA_SENTINEL,
   suggestImportMappings, runDataCleanup, runContactMapping, type AiMappingSuggestion,
   type ImportBatch, type ImportMapping, type ImportRow, type ImportTargetEntity,
   type ReadinessChecklist, type StagedGroup,
@@ -166,10 +166,23 @@ function DataImportCenter() {
     setAiPipelineStep(1);
     setAiPipelineResults({});
 
-    // Step 1: Column mapping
+    // Step 1: Column mapping — suggest then auto-save so validateBatch can run
     try {
       const suggestions = await suggestImportMappings(batchId);
       setAiSuggestions(suggestions);
+      if (suggestions && suggestions.length > 0) {
+        const companyVals = new Set<string>(COMPANY_TARGET_COLUMNS.map((c) => c.value));
+        const contactVals = new Set<string>(CONTACT_TARGET_COLUMNS.map((c) => c.value));
+        const leadVals    = new Set<string>(LEAD_TARGET_COLUMNS.map((c) => c.value));
+        const toSave = suggestions
+          .filter((s) => s.suggestedTarget && s.suggestedTarget !== "__skip__" && s.suggestedTarget !== EXTRA_DATA_SENTINEL)
+          .map((s) => {
+            const t = s.suggestedTarget;
+            const target_table = companyVals.has(t) ? "companies" : contactVals.has(t) ? "contacts" : leadVals.has(t) ? "leads" : "companies";
+            return { source_column: s.sourceColumn, target_table, target_column: t, transform: null, is_key: s.isKey };
+          });
+        if (toSave.length > 0) await saveMappings(batchId, toSave);
+      }
       setAiPipelineResults(r => ({ ...r, mapping: { ok: true, count: suggestions?.length ?? 0 } }));
     } catch {
       setAiPipelineResults(r => ({ ...r, mapping: { ok: false } }));
