@@ -155,7 +155,7 @@ function ReportsPage() {
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
-        eyebrow={t("nav_performance" as never) || "Performance"}
+        eyebrow={lang === "ar" ? "الأداء" : "Performance"}
         title={t("nav_reports")}
         description={lang === "ar" ? "نظرة تنفيذية على خط الأنابيب والعروض والفوز/الخسارة." : "Executive view of pipeline, quotations, and win/loss."}
       />
@@ -232,7 +232,7 @@ function ReportsPage() {
                       />
                       <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                         {quoteRows.map((r) => (
-                          <Cell key={r.key} fill={r.key === "won" ? CHART.emerald : r.key === "lost" || r.key === "expired" ? CHART.red : CHART.primary} />
+                          <Cell key={r.key} fill={r.key === "won" ? CHART.emerald : r.key === "lost" || r.key === "expired" ? CHART.red : CHART.amber} />
                         ))}
                       </Bar>
                     </BarChart>
