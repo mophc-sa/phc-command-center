@@ -30,7 +30,7 @@ import {
   isOwnedBy,
   ownerFieldFor,
 } from "./ai-guardrails.ts";
-import type { AppRole } from "./roles.ts";
+import { canManageSalesPipeline, type AppRole } from "./roles.ts";
 import type { z } from "zod";
 
 // Redacts a UUID for the trace's context_manifest (audit-safe summary only —
@@ -372,6 +372,283 @@ async function loadSmartFollowupDraftContext(
 }
 
 // ---------------------------------------------------------------------------
+// Agent 4 — data_cleanup
+// ---------------------------------------------------------------------------
+
+const DATA_CLEANUP_ROWS_LIMIT = 20;
+
+async function loadDataCleanupContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: batch, error: batchError } = await svc
+    .from("import_batches")
+    .select("id, status, source_type, target_entity, total_rows, created_at")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (batchError || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
+
+  const { data: rows } = await svc
+    .from("import_rows")
+    .select("id, raw_data, mapped_data, detected_headers, status")
+    .eq("batch_id", entityId)
+    .limit(DATA_CLEANUP_ROWS_LIMIT);
+
+  const contextText = JSON.stringify(
+    {
+      batch: {
+        id: batch.id,
+        status: batch.status,
+        source_type: batch.source_type,
+        target_entity: batch.target_entity,
+        total_rows: batch.total_rows,
+        created_at: batch.created_at,
+      },
+      rows: (rows ?? []).map((r) => ({
+        id: r.id,
+        raw_data: r.raw_data,
+        mapped_data: r.mapped_data,
+        detected_headers: r.detected_headers,
+        status: r.status,
+      })),
+    },
+    null,
+    2,
+  );
+
+  const rowCount = rows?.length ?? 0;
+  const recordCount = 1 + rowCount;
+  const manifest: ContextManifest = {
+    fields_loaded: ["id", "status", "source_type", "target_entity", "total_rows", "raw_data", "mapped_data", "detected_headers"],
+    record_counts: { import_batches: 1, import_rows: rowCount },
+    source_entity_types: ["import_batches", "import_rows"],
+    redacted_identifiers: { batch_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+async function checkDataCleanupAccess(): Promise<AgentAccessResult> {
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Agent 5 — contact_mapping
+// ---------------------------------------------------------------------------
+
+const CONTACT_MAPPING_ROWS_LIMIT = 20;
+
+async function loadContactMappingContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: batch, error: batchError } = await svc
+    .from("import_batches")
+    .select("id, status, source_type, target_entity, total_rows, created_at")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (batchError || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
+
+  const { data: rows } = await svc
+    .from("import_rows")
+    .select("id, raw_data, mapped_data, detected_headers, status")
+    .eq("batch_id", entityId)
+    .limit(CONTACT_MAPPING_ROWS_LIMIT);
+
+  const contextText = JSON.stringify(
+    {
+      batch: {
+        id: batch.id,
+        status: batch.status,
+        source_type: batch.source_type,
+        target_entity: batch.target_entity,
+        total_rows: batch.total_rows,
+        created_at: batch.created_at,
+      },
+      rows: (rows ?? []).map((r) => ({
+        id: r.id,
+        raw_data: r.raw_data,
+        mapped_data: r.mapped_data,
+        detected_headers: r.detected_headers,
+        status: r.status,
+      })),
+    },
+    null,
+    2,
+  );
+
+  const rowCount = rows?.length ?? 0;
+  const recordCount = 1 + rowCount;
+  const manifest: ContextManifest = {
+    fields_loaded: ["id", "status", "source_type", "target_entity", "total_rows", "raw_data", "mapped_data", "detected_headers"],
+    record_counts: { import_batches: 1, import_rows: rowCount },
+    source_entity_types: ["import_batches", "import_rows"],
+    redacted_identifiers: { batch_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+async function checkContactMappingAccess(): Promise<AgentAccessResult> {
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Agent 6 — project_radar
+// ---------------------------------------------------------------------------
+
+// entityId will be the sentinel string "pipeline" — not a real UUID. Do NOT
+// use it in any SELECT WHERE id = entityId query.
+const PIPELINE_OPPS_LIMIT = 50;
+const PIPELINE_LEADS_LIMIT = 20;
+
+async function loadProjectRadarContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  _entityId: string,
+): Promise<AgentContextResult> {
+  const { data: opps } = await svc
+    .from("opportunities")
+    .select("id, project_name, stage, updated_at, estimated_value_max, owner_id")
+    .order("updated_at", { ascending: false })
+    .limit(PIPELINE_OPPS_LIMIT);
+
+  const { data: leads } = await svc
+    .from("leads")
+    .select("id, project_name, location, stage, created_at")
+    .order("created_at", { ascending: false })
+    .limit(PIPELINE_LEADS_LIMIT);
+
+  const contextText = JSON.stringify(
+    {
+      pipeline_snapshot: {
+        as_of: new Date().toISOString(),
+      },
+      opportunities: (opps ?? []).map((o) => ({
+        id: o.id,
+        project_name: o.project_name,
+        stage: o.stage,
+        updated_at: o.updated_at,
+        value: o.estimated_value_max ?? null,
+        owner_id: o.owner_id,
+      })),
+      leads: (leads ?? []).map((l) => ({
+        id: l.id,
+        project_name: l.project_name,
+        location: l.location,
+        stage: l.stage,
+        created_at: l.created_at,
+      })),
+    },
+    null,
+    2,
+  );
+
+  const oppCount = opps?.length ?? 0;
+  const leadCount = leads?.length ?? 0;
+  const recordCount = oppCount + leadCount;
+  const manifest: ContextManifest = {
+    fields_loaded: ["id", "project_name", "stage", "updated_at", "value", "owner_id", "location", "created_at"],
+    record_counts: { opportunities: oppCount, leads: leadCount },
+    source_entity_types: ["opportunities", "leads"],
+    redacted_identifiers: {},
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+async function checkProjectRadarAccess(): Promise<AgentAccessResult> {
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Agent 7 — risk_finance
+// ---------------------------------------------------------------------------
+
+async function loadRiskFinanceContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: opp, error } = await svc
+    .from("opportunities")
+    .select(
+      "id, project_name, stage, tier, estimated_value_min, estimated_value_max, quotation_value, currency, next_action, next_action_due, last_activity_at, sector, company_id",
+    )
+    .eq("id", entityId)
+    .maybeSingle();
+  if (error || !opp) return { ok: false, code: "AI_INPUT_INVALID", message: "Opportunity not found." };
+
+  // Linked company for client-type risk assessment.
+  let company: { name: unknown; company_type: unknown; relationship_level: unknown } | null = null;
+  if (opp.company_id) {
+    const { data: co } = await svc
+      .from("companies")
+      .select("name, company_type, relationship_level")
+      .eq("id", opp.company_id)
+      .maybeSingle();
+    if (isPlainRecord(co)) {
+      company = { name: co.name, company_type: co.company_type, relationship_level: co.relationship_level };
+    }
+  }
+
+  // Document presence signals (counts only — no PII).
+  const { count: quotationCount } = await svc
+    .from("quotations")
+    .select("id", { count: "exact", head: true })
+    .eq("opportunity_id", entityId);
+
+  const { count: boqCount } = await svc
+    .from("boq_items")
+    .select("id", { count: "exact", head: true })
+    .eq("opportunity_id", entityId);
+
+  const contextText = JSON.stringify(
+    {
+      opportunity: {
+        id: opp.id,
+        project_name: opp.project_name,
+        stage: opp.stage,
+        tier: opp.tier,
+        value_min: opp.estimated_value_min,
+        value_max: opp.estimated_value_max,
+        quotation_value: opp.quotation_value,
+        currency: opp.currency,
+        next_action: opp.next_action,
+        next_action_due: opp.next_action_due,
+        last_activity_at: opp.last_activity_at,
+        sector: opp.sector,
+      },
+      client: company,
+      document_presence: {
+        linked_quotations: quotationCount ?? 0,
+        linked_boq_items: boqCount ?? 0,
+      },
+    },
+    null,
+    2,
+  );
+
+  const recordCount = 1 + (company ? 1 : 0);
+  const manifest: ContextManifest = {
+    fields_loaded: [
+      "project_name", "stage", "tier", "value_min", "value_max", "quotation_value",
+      "currency", "next_action", "next_action_due", "last_activity_at", "sector",
+      "company.name", "company.company_type", "company.relationship_level",
+      "document_presence.linked_quotations", "document_presence.linked_boq_items",
+    ],
+    record_counts: {
+      opportunities: 1,
+      companies: company ? 1 : 0,
+      quotations: quotationCount ?? 0,
+      boq_items: boqCount ?? 0,
+    },
+    source_entity_types: ["opportunities", "companies", "quotations", "boq_items"],
+    redacted_identifiers: { opportunity_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+// ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
@@ -409,6 +686,54 @@ export const AGENT_REGISTRY: Record<AgentKey, AgentDefinition> = {
     buildPrompt: AGENT_PROMPT_BUILDERS.smart_followup_draft,
     outputSchema: AGENT_OUTPUT_SCHEMAS.smart_followup_draft,
     outputType: AGENT_OUTPUT_TYPES.smart_followup_draft,
+    maxContextRecords: 20,
+    allowProviderFallback: true,
+  },
+  data_cleanup: {
+    key: "data_cleanup",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.data_cleanup,
+    hasRole: (roles) => canManageSalesPipeline(roles),
+    checkAccess: checkDataCleanupAccess,
+    loadContext: loadDataCleanupContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.data_cleanup,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.data_cleanup,
+    outputType: AGENT_OUTPUT_TYPES.data_cleanup,
+    maxContextRecords: 20,
+    allowProviderFallback: true,
+  },
+  contact_mapping: {
+    key: "contact_mapping",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.contact_mapping,
+    hasRole: (roles) => canManageSalesPipeline(roles),
+    checkAccess: checkContactMappingAccess,
+    loadContext: loadContactMappingContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.contact_mapping,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.contact_mapping,
+    outputType: AGENT_OUTPUT_TYPES.contact_mapping,
+    maxContextRecords: 20,
+    allowProviderFallback: true,
+  },
+  project_radar: {
+    key: "project_radar",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.project_radar,
+    hasRole: (roles) => canManageSalesPipeline(roles),
+    checkAccess: checkProjectRadarAccess,
+    loadContext: loadProjectRadarContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.project_radar,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.project_radar,
+    outputType: AGENT_OUTPUT_TYPES.project_radar,
+    maxContextRecords: 70,
+    allowProviderFallback: true,
+  },
+  risk_finance: {
+    key: "risk_finance",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.risk_finance,
+    hasRole: (roles) => canManageSalesPipeline(roles),
+    checkAccess: checkOwnershipAccess,
+    loadContext: loadRiskFinanceContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.risk_finance,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.risk_finance,
+    outputType: AGENT_OUTPUT_TYPES.risk_finance,
     maxContextRecords: 20,
     allowProviderFallback: true,
   },

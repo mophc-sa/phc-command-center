@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,7 +35,7 @@ import {
   READINESS_ITEMS, stagedGroupsForRow,
   IMPORT_CAPABLE_ROLES, APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
   COMPANY_TARGET_COLUMNS, TARGET_ENTITIES, getTargetColumns, EXTRA_DATA_SENTINEL,
-  suggestImportMappings, type AiMappingSuggestion,
+  suggestImportMappings, runDataCleanup, runContactMapping, type AiMappingSuggestion,
   type ImportBatch, type ImportMapping, type ImportRow, type ImportTargetEntity,
   type ReadinessChecklist, type StagedGroup,
 } from "@/lib/import-actions";
@@ -75,6 +76,16 @@ function DataImportCenter() {
   const [commitResult, setCommitResult] = useState<{ committed: number; failed: number; total: number } | null>(null);
   const [aiSuggestions, setAiSuggestions] = useState<AiMappingSuggestion[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+
+  const [aiPipelineRunning, setAiPipelineRunning] = useState(false);
+  const [aiPipelineStep, setAiPipelineStep] = useState<number>(0); // 0=idle, 1-5=step running, 6=done
+  const [aiPipelineResults, setAiPipelineResults] = useState<{
+    mapping?: { ok: boolean; count?: number };
+    cleanup?: { ok: boolean; quality_score?: number; corrections?: number; duplicates?: number; error?: string };
+    classification?: { ok: boolean; count?: number; error?: string };
+    validation?: { ok: boolean; error?: string };
+    dedup?: { ok: boolean; error?: string };
+  }>({});
 
   // Include archived/deleted only when the user wants to see them
   const includeArchived = filter === "all" || filter === "archived";
@@ -148,6 +159,69 @@ function DataImportCenter() {
     );
   }
 
+  // -- AI Pipeline ----------------------------------------------------------------
+
+  async function runAiPipeline(batchId: string) {
+    setAiPipelineRunning(true);
+    setAiPipelineStep(1);
+    setAiPipelineResults({});
+
+    // Step 1: Column mapping
+    try {
+      const suggestions = await suggestImportMappings(batchId);
+      setAiSuggestions(suggestions);
+      setAiPipelineResults(r => ({ ...r, mapping: { ok: true, count: suggestions?.length ?? 0 } }));
+    } catch {
+      setAiPipelineResults(r => ({ ...r, mapping: { ok: false } }));
+    }
+    setAiPipelineStep(2);
+
+    // Step 2: Data cleanup
+    const cleanupRes = await runDataCleanup(batchId);
+    setAiPipelineResults(r => ({
+      ...r,
+      cleanup: {
+        ok: cleanupRes.ok,
+        quality_score: cleanupRes.quality_score,
+        corrections: cleanupRes.corrections?.length ?? 0,
+        duplicates: cleanupRes.duplicates?.length ?? 0,
+        error: cleanupRes.error,
+      },
+    }));
+    setAiPipelineStep(3);
+
+    // Step 3: Contact classification
+    const classRes = await runContactMapping(batchId);
+    setAiPipelineResults(r => ({
+      ...r,
+      classification: { ok: classRes.ok, count: classRes.classifications?.length ?? 0, error: classRes.error },
+    }));
+    setAiPipelineStep(4);
+
+    // Step 4: Validation
+    try {
+      await validateBatch(batchId);
+      setAiPipelineResults(r => ({ ...r, validation: { ok: true } }));
+    } catch (e: any) {
+      setAiPipelineResults(r => ({ ...r, validation: { ok: false, error: e.message } }));
+    }
+    setAiPipelineStep(5);
+
+    // Step 5: Duplicate detection
+    try {
+      await detectDuplicates(batchId);
+      setAiPipelineResults(r => ({ ...r, dedup: { ok: true } }));
+    } catch (e: any) {
+      setAiPipelineResults(r => ({ ...r, dedup: { ok: false, error: e.message } }));
+    }
+    setAiPipelineStep(6);
+    setAiPipelineRunning(false);
+
+    // Auto-switch to rows review tab
+    setTab("rows");
+    toast.success("AI pipeline complete — review your rows below");
+  }
+
   // -- Handlers ----------------------------------------------------------------
 
   const handleNewBatch = async () => {
@@ -172,19 +246,9 @@ function DataImportCenter() {
       const { fileId } = await uploadImportFile(activeBatchId, file);
       toast.success(`Uploaded ${file.name}`);
       await parseFile(activeBatchId, fileId);
-      setTab("mapping");
-      toast.success("File parsed — AI is suggesting column mappings…");
-      // Kick off AI mapping suggestions in the background (non-blocking)
-      setAiLoading(true);
-      suggestImportMappings(activeBatchId)
-        .then((suggestions) => {
-          setAiSuggestions(suggestions);
-          if (suggestions && suggestions.length > 0) {
-            toast.success("AI mapping suggestions ready — review below");
-          }
-        })
-        .catch(() => { /* AI unavailable — silent fallback to manual mapping */ })
-        .finally(() => setAiLoading(false));
+      toast.success("File parsed — running AI pipeline…");
+      setTab("ai-pipeline");
+      runAiPipeline(activeBatchId);
     } catch (e: any) {
       toast.error(t("toast_error") + e.message);
     } finally {
@@ -386,8 +450,10 @@ function DataImportCenter() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6 flex flex-wrap gap-1">
           <TabsTrigger value="history"><History className="mr-1.5 h-3.5 w-3.5" />History</TabsTrigger>
+          <TabsTrigger value="protenders"><FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />ProTenders</TabsTrigger>
           <TabsTrigger value="overview" disabled={!activeBatchId}><FileText className="mr-1.5 h-3.5 w-3.5" />Overview</TabsTrigger>
           <TabsTrigger value="upload" disabled={!activeBatchId}><Upload className="mr-1.5 h-3.5 w-3.5" />Upload</TabsTrigger>
+          <TabsTrigger value="ai-pipeline" disabled={!activeBatchId}><BarChart3 className="mr-1.5 h-3.5 w-3.5" />AI Pipeline</TabsTrigger>
           <TabsTrigger value="mapping" disabled={!activeBatchId}><FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />Mapping</TabsTrigger>
           <TabsTrigger value="rows" disabled={!activeBatchId}><Pencil className="mr-1.5 h-3.5 w-3.5" />Rows</TabsTrigger>
           <TabsTrigger value="staged" disabled={!activeBatchId}><Layers className="mr-1.5 h-3.5 w-3.5" />Staged</TabsTrigger>
@@ -436,6 +502,19 @@ function DataImportCenter() {
             files={files}
             t={t}
           />
+        </TabsContent>
+
+        <TabsContent value="ai-pipeline">
+          <AiPipelineTab
+            running={aiPipelineRunning}
+            step={aiPipelineStep}
+            results={aiPipelineResults}
+            onViewRows={() => setTab("rows")}
+          />
+        </TabsContent>
+
+        <TabsContent value="protenders">
+          <ProTendersTab />
         </TabsContent>
 
         <TabsContent value="mapping">
@@ -1871,6 +1950,135 @@ function AnalysisTab({ batch, t }: {
           <dd className="text-foreground">{batch.ai_suggestions_enabled ? "Enabled" : "Disabled"}</dd>
         </dl>
       </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// AI Pipeline Tab
+// =============================================================================
+
+function AiPipelineTab({
+  running,
+  step,
+  results,
+  onViewRows,
+}: {
+  running: boolean;
+  step: number;
+  results: Record<string, any>;
+  onViewRows: () => void;
+}) {
+  const steps = [
+    { key: "mapping", label: "Column Mapping", desc: results.mapping ? `${results.mapping.count ?? 0} columns mapped` : "" },
+    { key: "cleanup", label: "Data Cleanup", desc: results.cleanup ? `Score: ${results.cleanup.quality_score ?? "—"}/100 · ${results.cleanup.corrections ?? 0} corrections · ${results.cleanup.duplicates ?? 0} duplicates` : "" },
+    { key: "classification", label: "Contact Classification", desc: results.classification ? `${results.classification.count ?? 0} rows classified` : "" },
+    { key: "validation", label: "Validation", desc: results.validation?.ok ? "All rows validated" : results.validation?.error ?? "" },
+    { key: "dedup", label: "Duplicate Detection", desc: results.dedup?.ok ? "Complete" : results.dedup?.error ?? "" },
+  ];
+
+  return (
+    <div className="space-y-4 p-4">
+      <h3 className="text-sm font-semibold text-foreground">AI Pipeline</h3>
+      {step === 0 && !running && (
+        <p className="text-sm text-muted-foreground">Upload a file to start the AI pipeline automatically.</p>
+      )}
+      <div className="space-y-3">
+        {steps.map((s, i) => {
+          const stepNum = i + 1;
+          const isDone = step > stepNum || step === 6;
+          const isRunning = step === stepNum && running;
+          const result = results[s.key as keyof typeof results] as any;
+          const hasError = result && !result.ok;
+
+          return (
+            <div key={s.key} className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs font-medium">
+                {isRunning ? (
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+                ) : isDone ? (
+                  hasError ? <span className="text-destructive">✕</span> : <span className="text-green-600">✓</span>
+                ) : (
+                  <span className="text-muted-foreground">{stepNum}</span>
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium">{s.label}</p>
+                {s.desc && <p className="text-xs text-muted-foreground">{s.desc}</p>}
+                {hasError && <p className="text-xs text-destructive">{result.error}</p>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {step === 6 && (
+        <button
+          onClick={onViewRows}
+          className="mt-4 rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+        >
+          Review All Rows →
+        </button>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// ProTenders Tab
+// =============================================================================
+
+function ProTendersTab() {
+  const [file, setFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<{ ingested?: number; leads_created?: number } | null>(null);
+  const client = (supabase as any);
+
+  async function handleImport() {
+    if (!file) return;
+    setImporting(true);
+    try {
+      const path = `protenders/${Date.now()}-${file.name}`;
+      const { error: upErr } = await client.storage.from("imports").upload(path, file);
+      if (upErr) throw upErr;
+
+      const { data, error } = await client.functions.invoke("sales-os-api", {
+        body: { action: "run_protenders_ingest", file_path: path, format: "csv" },
+      });
+      if (error || !data?.ok) throw new Error(data?.detail ?? error?.message ?? "Import failed");
+      setResult({ ingested: data.ingested, leads_created: data.leads_created });
+      toast.success(`Imported ${data.ingested} projects, created ${data.leads_created} leads`);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 p-4">
+      <h3 className="text-sm font-semibold">Import from ProTenders</h3>
+      <p className="text-xs text-muted-foreground">
+        Upload a CSV file exported from ProTenders. Projects will be imported and active tenders will automatically become leads.
+      </p>
+      <input
+        type="file"
+        accept=".csv,.xlsx"
+        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        className="text-sm"
+      />
+      <button
+        onClick={handleImport}
+        disabled={!file || importing}
+        className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+      >
+        {importing ? "Importing…" : "Import"}
+      </button>
+      {result && (
+        <div className="rounded-md border border-border p-3 text-sm">
+          <p className="text-positive">✓ {result.ingested} projects imported</p>
+          <p className="text-positive">✓ {result.leads_created} leads created</p>
+        </div>
+      )}
     </div>
   );
 }

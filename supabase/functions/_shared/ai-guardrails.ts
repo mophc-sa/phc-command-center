@@ -12,7 +12,7 @@
 // portability convention established by _shared/conversion.ts.
 // =============================================================================
 import { AGENT_KEYS, type AgentKey, type EntityType } from "./ai-schemas.ts";
-import { canApproveCommercialAction, canCreateSalesRecords, canViewSalesAdmin, type AppRole } from "./roles.ts";
+import { canApproveCommercialAction, canCreateSalesRecords, canManageSalesPipeline, canViewSalesAdmin, type AppRole } from "./roles.ts";
 
 // ---------------------------------------------------------------------------
 // 1. Agent allowlist
@@ -32,6 +32,13 @@ export const AGENT_ENTITY_ALLOWLIST: Record<AgentKey, readonly EntityType[]> = {
   // proposes a destination; it never receives one as free input.
   old_data_classifier: ["import_batches", "import_rows"],
   smart_followup_draft: ["opportunities", "rfqs", "tenders", "quotations", "companies", "contacts"],
+  // Batch-level quality agents — scoped to import_batches only.
+  data_cleanup: ["import_batches"],
+  contact_mapping: ["import_batches"],
+  // Pipeline-level scan — uses sentinel "pipeline" entity type (not a real UUID).
+  project_radar: ["pipeline"],
+  // Single opportunity risk assessment.
+  risk_finance: ["opportunities"],
 };
 
 export function isEntityAllowedForAgent(agent: AgentKey, entityType: string | null | undefined): boolean {
@@ -61,6 +68,10 @@ export const AGENT_ROLE_CHECK: Record<AgentKey, (roles: AppRole[]) => boolean> =
   opportunity_evaluation: (roles) => canCreateSalesRecords(roles),
   old_data_classifier: (roles) => canViewSalesAdmin(roles),
   smart_followup_draft: (roles) => canCreateSalesRecords(roles),
+  data_cleanup: (roles) => canManageSalesPipeline(roles),
+  contact_mapping: (roles) => canManageSalesPipeline(roles),
+  project_radar: (roles) => canManageSalesPipeline(roles),
+  risk_finance: (roles) => canManageSalesPipeline(roles),
 };
 
 export function hasAgentRole(agent: AgentKey, roles: AppRole[]): boolean {

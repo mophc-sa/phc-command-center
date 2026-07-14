@@ -22,6 +22,10 @@ export const AGENT_KEYS = [
   "opportunity_evaluation",
   "old_data_classifier",
   "smart_followup_draft",
+  "data_cleanup",
+  "contact_mapping",
+  "project_radar",
+  "risk_finance",
 ] as const;
 export type AgentKey = (typeof AGENT_KEYS)[number];
 
@@ -39,6 +43,7 @@ export const ENTITY_TYPES = [
   "contacts",
   "import_batches",
   "import_rows",
+  "pipeline",
 ] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
 
@@ -223,18 +228,187 @@ export const SmartFollowupDraftOutputSchema = z
   .strict();
 export type SmartFollowupDraftOutput = z.infer<typeof SmartFollowupDraftOutputSchema>;
 
+// ---------------------------------------------------------------------------
+// Agent 4 — data_cleanup structured output
+// ---------------------------------------------------------------------------
+
+export const DataCleanupOutputSchema = z
+  .object({
+    corrections: z
+      .array(
+        z
+          .object({
+            row_id: z.string().min(1),
+            field: z.string().min(1).max(200),
+            original: z.unknown(),
+            corrected: z.unknown(),
+            reason: z.string().min(1).max(500),
+          })
+          .strict(),
+      )
+      .max(200),
+    duplicates: z
+      .array(
+        z
+          .object({
+            row_ids: z.array(z.string().min(1)).min(2),
+            reason: z.string().min(1).max(500),
+            duplicate_type: z.enum(["within_batch", "existing_record"]),
+            existing_id: z.string().optional(),
+          })
+          .strict(),
+      )
+      .max(100),
+    quality_score: z.number().min(0).max(100),
+    quality_summary: z.string().min(1).max(300),
+  })
+  .strict();
+export type DataCleanupOutput = z.infer<typeof DataCleanupOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// Agent 5 — contact_mapping structured output
+// ---------------------------------------------------------------------------
+
+export const ContactMappingOutputSchema = z
+  .object({
+    classifications: z
+      .array(
+        z
+          .object({
+            row_id: z.string().min(1),
+            entity_type: z.enum(["companies", "contacts", "leads", "ambiguous"]),
+            confidence: z.number().min(0).max(1),
+            reason: z.string().min(1).max(500),
+          })
+          .strict(),
+      )
+      .max(100),
+    contact_company_links: z
+      .array(
+        z
+          .object({
+            contact_row_id: z.string().min(1),
+            company_row_id: z.string().optional(),
+            existing_company_id: z.string().optional(),
+            company_name: z.string().min(1).max(300),
+            confidence: z.number().min(0).max(1),
+            match_basis: z.string().min(1).max(300),
+          })
+          .strict(),
+      )
+      .max(100),
+    suggested_splits: z
+      .array(
+        z
+          .object({
+            row_id: z.string().min(1),
+            reason: z.string().min(1).max(500),
+          })
+          .strict(),
+      )
+      .max(50),
+  })
+  .strict();
+export type ContactMappingOutput = z.infer<typeof ContactMappingOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// Agent 6 — project_radar structured output
+// ---------------------------------------------------------------------------
+
+const RADAR_ALERT_TYPES = [
+  "stale_opportunity",
+  "missing_boq",
+  "inactive_account",
+  "stage_bottleneck",
+  "approaching_deadline",
+  "pattern",
+] as const;
+
+const RADAR_ENTITY_TYPES = ["opportunities", "companies", "leads"] as const;
+
+const SEVERITY_LEVELS = ["low", "medium", "high"] as const;
+
+export const ProjectRadarOutputSchema = z
+  .object({
+    radar_alerts: z
+      .array(
+        z
+          .object({
+            alert_type: z.enum(RADAR_ALERT_TYPES),
+            entity_type: z.enum(RADAR_ENTITY_TYPES),
+            entity_id: z.string().min(1),
+            entity_name: z.string().min(1).max(300),
+            severity: z.enum(SEVERITY_LEVELS),
+            description: z.string().min(1).max(500),
+            recommended_action: z.string().min(1).max(500),
+          })
+          .strict(),
+      )
+      .max(100),
+    pipeline_health_score: z.number().min(0).max(100),
+    summary: z.string().min(1).max(500),
+  })
+  .strict();
+export type ProjectRadarOutput = z.infer<typeof ProjectRadarOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// Agent 7 — risk_finance structured output
+// ---------------------------------------------------------------------------
+
+const RISK_LEVELS = ["low", "medium", "high", "critical"] as const;
+const IMPACT_LEVELS = ["low", "medium", "high"] as const;
+
+export const RiskFinanceOutputSchema = z
+  .object({
+    risk_score: z.number().min(0).max(100),
+    risk_level: z.enum(RISK_LEVELS),
+    risk_factors: z
+      .array(
+        z
+          .object({
+            factor: z.string().min(1).max(300),
+            impact: z.enum(IMPACT_LEVELS),
+            description: z.string().min(1).max(500),
+          })
+          .strict(),
+      )
+      .max(20),
+    mitigations: z
+      .array(
+        z
+          .object({
+            action: z.string().min(1).max(300),
+            priority: z.enum(IMPACT_LEVELS),
+          })
+          .strict(),
+      )
+      .max(20),
+    confidence: z.number().min(0).max(1),
+    disclaimer: z.string().min(1).max(500),
+  })
+  .strict();
+export type RiskFinanceOutput = z.infer<typeof RiskFinanceOutputSchema>;
+
 // Lookup used by the orchestrator to validate whichever agent ran, without a
 // switch statement scattered through the request-handling code.
 export const AGENT_OUTPUT_SCHEMAS = {
   opportunity_evaluation: OpportunityEvaluationOutputSchema,
   old_data_classifier: OldDataClassifierOutputSchema,
   smart_followup_draft: SmartFollowupDraftOutputSchema,
+  data_cleanup: DataCleanupOutputSchema,
+  contact_mapping: ContactMappingOutputSchema,
+  project_radar: ProjectRadarOutputSchema,
+  risk_finance: RiskFinanceOutputSchema,
 } as const satisfies Record<AgentKey, z.ZodType>;
 
 export const AGENT_OUTPUT_TYPES = {
   opportunity_evaluation: "recommendation",
   old_data_classifier: "staged_classification",
   smart_followup_draft: "draft",
+  data_cleanup: "staged_classification",
+  contact_mapping: "staged_classification",
+  project_radar: "recommendation",
+  risk_finance: "recommendation",
 } as const satisfies Record<AgentKey, OutputType>;
 
 // ---------------------------------------------------------------------------

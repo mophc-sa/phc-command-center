@@ -1403,38 +1403,245 @@ const handlers: Record<string, Handler> = {
   },
   async run_protenders_ingest(payload, caller) {
     if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
-    // Manual CSV/XLSX rows may be provided; the live API path is not configured.
-    const rows = (payload.rows as Record<string, unknown>[]) ?? [];
     const svc = serviceClient();
-    if (!rows.length) {
-      return notConfiguredRun(svc, "protenders_ingest", caller.userId, "ProTenders API not configured; provide manual CSV/XLSX rows to ingest.");
+    const format = (payload.format as string) ?? "csv";
+
+    // Helper: find header index by case-insensitive substring match
+    function findCol(headers: string[], ...terms: string[]): number {
+      return headers.findIndex((h) => terms.some((t) => h.toLowerCase().includes(t.toLowerCase())));
     }
+
+    let rows: Record<string, unknown>[];
+
+    if (payload.file_path) {
+      // Download file from 'imports' storage bucket
+      const { data: blob, error: dlErr } = await svc.storage
+        .from("imports")
+        .download(payload.file_path as string);
+      if (dlErr || !blob) return err(`Storage download failed: ${dlErr?.message ?? "unknown"}`, 500);
+
+      const text = await blob.text();
+      const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      if (lines.length < 2) return err("File has no data rows", 400);
+
+      // Parse CSV: headers on first line
+      const parseCSVLine = (line: string): string[] =>
+        line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+
+      const headers = parseCSVLine(lines[0]);
+      const colProjectName    = findCol(headers, "project", "مشروع");
+      const colContractor     = findCol(headers, "contractor", "مقاول");
+      const colPackage        = findCol(headers, "package", "حزمة");
+      const colStage          = findCol(headers, "stage", "مرحلة");
+      const colDate           = findCol(headers, "date", "تاريخ");
+      const colValue          = findCol(headers, "value", "قيمة");
+      const colLocation       = findCol(headers, "location", "موقع");
+
+      rows = lines.slice(1).map((line) => {
+        const cells = parseCSVLine(line);
+        return {
+          project_name:     colProjectName  >= 0 ? cells[colProjectName]  ?? null : null,
+          main_contractor:  colContractor   >= 0 ? cells[colContractor]   ?? null : null,
+          package:          colPackage      >= 0 ? cells[colPackage]      ?? null : null,
+          stage:            colStage        >= 0 ? cells[colStage]        ?? null : null,
+          source_date:      colDate         >= 0 ? cells[colDate]         ?? null : null,
+          value:            colValue        >= 0 ? cells[colValue]        ?? null : null,
+          location:         colLocation     >= 0 ? cells[colLocation]     ?? null : null,
+        };
+      });
+    } else if (Array.isArray(payload.rows) && (payload.rows as unknown[]).length > 0) {
+      rows = payload.rows as Record<string, unknown>[];
+    } else {
+      return err("Provide file_path or rows", 400);
+    }
+
+    // Insert protenders_imports record
     const { data: imp } = await svc
       .from("protenders_imports")
-      .insert({ source: "manual", format: (payload.format as string) ?? "csv", status: "parsed", row_count: rows.length, uploaded_by: caller.userId })
+      .insert({
+        source: payload.file_path ? "file_upload" : "manual",
+        format,
+        status: "parsed",
+        row_count: rows.length,
+        uploaded_by: caller.userId,
+      })
       .select("id")
       .single();
-    if (imp) {
+
+    const importId = (imp as { id: string } | null)?.id ?? null;
+
+    if (importId) {
+      // Insert one protenders_projects row per ingested row
+      // Note: protenders_projects has no location/value columns — store extras in raw
       await svc.from("protenders_projects").insert(
         rows.map((r) => ({
-          import_id: (imp as { id: string }).id,
-          project_name: (r.project_name as string) ?? null,
-          main_contractor: (r.main_contractor as string) ?? null,
-          package: (r.package as string) ?? null,
-          stage: (r.stage as string) ?? null,
-          source_date: (r.source_date as string) ?? null,
-          evidence_url: (r.evidence_url as string) ?? null,
-          evidence_text: (r.evidence_text as string) ?? null,
-          raw: r,
+          import_id:        importId,
+          project_name:     (r.project_name as string)    ?? null,
+          main_contractor:  (r.main_contractor as string) ?? null,
+          package:          (r.package as string)         ?? null,
+          stage:            (r.stage as string)           ?? null,
+          source_date:      (r.source_date as string)     ?? null,
+          evidence_url:     (r.evidence_url as string)    ?? null,
+          evidence_text:    (r.evidence_text as string)   ?? null,
+          raw:              r,
+        })),
+      );
+
+      // Auto-create leads for active/tender/open stage rows
+      const activeKeywords = ["active", "tender", "مناقصة", "open"];
+      const leadRows = rows.filter((r) => {
+        const stage = String(r.stage ?? "").toLowerCase();
+        return activeKeywords.some((kw) => stage.includes(kw));
+      });
+
+      if (leadRows.length > 0) {
+        await svc.from("leads").insert(
+          leadRows.map((r) => ({
+            project_name:        (r.project_name as string)   ?? "Unknown",
+            location:            (r.location as string)       ?? null,
+            main_contractor_guess: (r.main_contractor as string) ?? null,
+            source:              "protenders",
+            created_by:          caller.userId,
+          })),
+        );
+      }
+
+      await audit(svc, caller.userId, "ai.protenders_ingest", "protenders_import", importId, { rows: rows.length, leads_created: leadRows.length }, caller.roles);
+      return json({ ok: true, import_id: importId, ingested: rows.length, leads_created: leadRows.length });
+    }
+
+    await audit(svc, caller.userId, "ai.protenders_ingest", "protenders_import", "failed", { rows: rows.length }, caller.roles);
+    return err("Failed to create import record", 500);
+  },
+  async run_boq_extraction(payload, caller) {
+    if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
+
+    const opportunityId = (payload.opportunity_id as string) ?? "";
+    if (!opportunityId) return err("opportunity_id required", 400);
+    if (!payload.file_path && (!Array.isArray(payload.rows) || !(payload.rows as unknown[]).length)) {
+      return err("Provide file_path or rows", 400);
+    }
+
+    const svc = serviceClient();
+
+    // Helper: find column by header terms (case-insensitive substring)
+    function findCol(headers: string[], ...terms: string[]): number {
+      return headers.findIndex((h) => terms.some((t) => h.toLowerCase().includes(t.toLowerCase())));
+    }
+
+    interface BoqRow {
+      item_code: string | null;
+      description: string | null;
+      unit: string | null;
+      quantity: number;
+      unit_price: number;
+    }
+
+    let rows: BoqRow[];
+
+    if (payload.file_path) {
+      const { data: blob, error: dlErr } = await svc.storage
+        .from("imports")
+        .download(payload.file_path as string);
+      if (dlErr || !blob) return err(`Storage download failed: ${dlErr?.message ?? "unknown"}`, 500);
+
+      const text = await blob.text();
+      const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      if (lines.length < 2) return err("File has no data rows", 400);
+
+      const parseCSVLine = (line: string): string[] =>
+        line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+
+      const headers = parseCSVLine(lines[0]);
+      const colCode  = findCol(headers, "code", "item_code", "رقم", "كود");
+      const colDesc  = findCol(headers, "description", "desc", "item", "وصف", "البند");
+      const colUnit  = findCol(headers, "unit", "وحدة");
+      const colQty   = findCol(headers, "qty", "quantity", "كمية");
+      const colPrice = findCol(headers, "price", "unit_price", "سعر");
+
+      rows = lines.slice(1).map((line) => {
+        const cells = parseCSVLine(line);
+        return {
+          item_code:  colCode  >= 0 ? cells[colCode]  ?? null : null,
+          description: colDesc  >= 0 ? cells[colDesc]  ?? null : null,
+          unit:       colUnit  >= 0 ? cells[colUnit]  ?? null : null,
+          quantity:   colQty   >= 0 ? parseFloat(cells[colQty]  ?? "0") || 0 : 0,
+          unit_price: colPrice >= 0 ? parseFloat(cells[colPrice] ?? "0") || 0 : 0,
+        };
+      });
+    } else {
+      rows = (payload.rows as BoqRow[]).map((r) => ({
+        item_code:   (r.item_code  as string) ?? null,
+        description: (r.description as string) ?? null,
+        unit:        (r.unit       as string) ?? null,
+        quantity:    parseFloat(String(r.quantity  ?? 0)) || 0,
+        unit_price:  parseFloat(String(r.unit_price ?? 0)) || 0,
+      }));
+    }
+
+    // Check if a boqs record already exists for this opportunity
+    // Note: boqs uses 'related_opportunity_id'; status enum: estimated_scope | verified | partially_verified | missing
+    // title is NOT NULL so provide a default; estimated_value stores total
+    const { data: existingBoq } = await svc
+      .from("boqs")
+      .select("id")
+      .eq("related_opportunity_id", opportunityId)
+      .maybeSingle();
+
+    let boqId: string;
+
+    if (!existingBoq) {
+      const { data: newBoq, error: boqErr } = await svc
+        .from("boqs")
+        .insert({
+          related_opportunity_id: opportunityId,
+          title: "Imported BOQ",
+          status: "estimated_scope",
+          currency: "SAR",
+          source: "file_import",
+          source_confidence: "medium",
+          created_by: caller.userId,
+        })
+        .select("id")
+        .single();
+      if (boqErr || !newBoq) return err(`Failed to create BOQ: ${boqErr?.message ?? "unknown"}`, 500);
+      boqId = (newBoq as { id: string }).id;
+    } else {
+      boqId = (existingBoq as { id: string }).id;
+    }
+
+    // Clean re-import: delete existing items for this BOQ
+    await svc.from("boq_items").delete().eq("boq_id", boqId);
+
+    // Map parsed rows to boq_items schema:
+    // boq_items uses: sign_type (NOT NULL), unit_rate, quantity, unit, item_source, sort_order
+    // description → sign_type, item_code → item_source, unit_price → unit_rate
+    const totalValue = rows.reduce((sum, r) => sum + r.quantity * r.unit_price, 0);
+
+    if (rows.length > 0) {
+      await svc.from("boq_items").insert(
+        rows.map((r, idx) => ({
+          boq_id:      boqId,
+          sign_type:   r.description ?? r.item_code ?? "Unknown",
+          item_source: r.item_code   ?? null,
+          unit:        r.unit        ?? null,
+          quantity:    r.quantity,
+          unit_rate:   r.unit_price,
+          cost_estimate: r.quantity * r.unit_price,
+          sort_order:  idx + 1,
+          confidence:  "medium" as const,
         })),
       );
     }
-    await audit(svc, caller.userId, "ai.protenders_ingest", "protenders_import", (imp as { id: string })?.id ?? "manual", { rows: rows.length }, caller.roles);
-    return json({ ok: true, import_id: (imp as { id: string })?.id ?? null, ingested: rows.length });
-  },
-  async run_boq_extraction(_payload, caller) {
-    if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
-    return notConfiguredRun(serviceClient(), "boq_extraction", caller.userId, "BOQ extraction requires OCR/parse service — not configured. Uploaded files marked 'requires_manual_review'.");
+
+    // Update BOQ estimated_value and updated_at
+    await svc
+      .from("boqs")
+      .update({ estimated_value: totalValue, updated_at: new Date().toISOString() })
+      .eq("id", boqId);
+
+    await audit(svc, caller.userId, "ai.boq_extraction", "boq", boqId, { items: rows.length, total_value: totalValue }, caller.roles);
+    return json({ ok: true, boq_id: boqId, items_count: rows.length, total_value: totalValue });
   },
   async run_contact_mapping(_payload, caller) {
     if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
