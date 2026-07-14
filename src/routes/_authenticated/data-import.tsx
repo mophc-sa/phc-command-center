@@ -755,7 +755,7 @@ function HistoryTab({
           <button
             key={o.value}
             onClick={() => onFilter(o.value)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
               filter === o.value
                 ? "border-foreground bg-foreground text-background"
                 : "border-border bg-surface text-muted-foreground hover:bg-muted"

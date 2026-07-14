@@ -91,7 +91,7 @@ function AwardQueue() {
           <button
             key={f.k}
             onClick={() => setTab(f.k)}
-            className={`rounded-full border px-3 py-1 text-xs ${tab === f.k ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+            className={`rounded-full border px-3 py-1.5 text-xs ${tab === f.k ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
           >
             {f.label}
           </button>

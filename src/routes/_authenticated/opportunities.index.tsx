@@ -96,7 +96,7 @@ function OppList() {
 
       {/* Filter bar */}
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-surface/60 p-2">
-        <div className="relative min-w-[240px] flex-1 sm:max-w-sm">
+        <div className="relative min-w-0 w-full flex-1 sm:max-w-sm">
           <Search className="absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             value={search}
@@ -106,7 +106,7 @@ function OppList() {
           />
         </div>
         <Select value={stage} onValueChange={setStage}>
-          <SelectTrigger className="h-9 w-[180px] text-[12px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-9 w-full sm:w-[180px] text-[12px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("filter_all_stages")}</SelectItem>
             {STAGES.map((s) => (
@@ -115,7 +115,7 @@ function OppList() {
           </SelectContent>
         </Select>
         <Select value={tier} onValueChange={setTier}>
-          <SelectTrigger className="h-9 w-[140px] text-[12px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-9 w-full sm:w-[140px] text-[12px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("filter_all_tiers")}</SelectItem>
             {(["A", "B", "C"] as const).map((x) => (
@@ -158,7 +158,8 @@ function OppList() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
-          <div className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="overflow-x-auto">
+          <div className="min-w-[580px] grid grid-cols-[minmax(0,2fr)_auto_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <div>{lang === "ar" ? "المشروع" : "Project"}</div>
             <div>{lang === "ar" ? "الطبقة" : "Tier"}</div>
             <div>{t("score_label")}</div>
@@ -172,7 +173,7 @@ function OppList() {
                 <Link
                   to="/opportunities/$id"
                   params={{ id: o.id }}
-                  className="grid grid-cols-[minmax(0,2fr)_auto_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-t border-border/60 px-4 py-3 first:border-t-0"
+                  className="min-w-[580px] grid grid-cols-[minmax(0,2fr)_auto_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-t border-border/60 px-4 py-3 first:border-t-0"
                 >
                   <div className="min-w-0">
                     <div className="truncate text-[13px] font-medium text-foreground">{o.project_name}</div>
@@ -195,6 +196,7 @@ function OppList() {
               </li>
             ))}
           </ul>
+          </div>
         </div>
       )}
     </div>

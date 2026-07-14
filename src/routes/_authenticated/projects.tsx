@@ -113,7 +113,7 @@ function ProjectsPage() {
         <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setStageFilter("all")}
-            className={`rounded-full border px-3 py-1 text-xs ${stageFilter === "all" ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+            className={`rounded-full border px-3 py-1.5 text-xs ${stageFilter === "all" ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
           >
             {t("crm_filter_all_types")}
           </button>
@@ -121,7 +121,7 @@ function ProjectsPage() {
             <button
               key={s}
               onClick={() => setStageFilter(s)}
-              className={`rounded-full border px-3 py-1 text-xs ${stageFilter === s ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+              className={`rounded-full border px-3 py-1.5 text-xs ${stageFilter === s ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
             >
               {humanize(s)}
             </button>

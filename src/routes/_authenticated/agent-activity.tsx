@@ -166,7 +166,7 @@ function AgentActivityPage() {
               <button
                 key={s}
                 onClick={() => setStatus(s)}
-                className={`rounded-full border px-3 py-1 text-xs ${status === s ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+                className={`rounded-full border px-3 py-1.5 text-xs ${status === s ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
               >
                 {s === "all" ? "All" : s.replaceAll("_", " ")}
               </button>

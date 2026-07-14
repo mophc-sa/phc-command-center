@@ -102,7 +102,7 @@ function ApprovalsPage() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`rounded-full border px-3 py-1 transition-colors ${filter === f ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+            className={`rounded-full border px-3 py-1.5 transition-colors ${filter === f ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
           >
             {f === "pending"
               ? (lang === "ar" ? "قيد الانتظار" : "Pending")

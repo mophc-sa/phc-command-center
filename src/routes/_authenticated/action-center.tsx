@@ -260,7 +260,7 @@ function ActionCenter() {
             <button
               key={k}
               onClick={() => setTab(k)}
-              className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+              className={`rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
                 tab === k
                   ? "border-amber/40 bg-amber/10 text-amber-light"
                   : "border-border/70 bg-surface/60 text-muted-foreground hover:text-foreground"

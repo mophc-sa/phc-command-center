@@ -119,7 +119,7 @@ function AccountsPage() {
         <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setTypeFilter("all")}
-            className={`rounded-full border px-3 py-1 text-xs ${typeFilter === "all" ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+            className={`rounded-full border px-3 py-1.5 text-xs ${typeFilter === "all" ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
           >
             {t("crm_filter_all_types")}
           </button>
@@ -127,14 +127,14 @@ function AccountsPage() {
             <button
               key={ct}
               onClick={() => setTypeFilter(ct)}
-              className={`rounded-full border px-3 py-1 text-xs ${typeFilter === ct ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+              className={`rounded-full border px-3 py-1.5 text-xs ${typeFilter === ct ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
             >
               {typeLabel(ct)}
             </button>
           ))}
           <button
             onClick={() => setShowArchived((v) => !v)}
-            className={`rounded-full border px-3 py-1 text-xs ${showArchived ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
+            className={`rounded-full border px-3 py-1.5 text-xs ${showArchived ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
           >
             {t("lifecycle_include_archived")}
           </button>

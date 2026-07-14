@@ -462,6 +462,10 @@ export const strings = {
   knowledge_similarity: { en: "match", ar: "تطابق" },
   knowledge_reindexed: { en: "Reindexed", ar: "تمت الفهرسة" },
   knowledge_empty_hint: { en: "Enter a query to search past projects and knowledge.", ar: "اكتب استعلامًا للبحث في المشاريع والمعرفة السابقة." },
+  knowledge_disclaimer: { en: "Retrieved from your internal reference library. Always verify with the source document.", ar: "مستخرج من مكتبتك المرجعية الداخلية. تحقق دائمًا من المصدر الأصلي." },
+  knowledge_results_hint: { en: "Search returns evidence with a relevance score. Sources remain inspectable.", ar: "يعرض البحث نتائج مع درجة صلة. المصادر قابلة للفحص." },
+  knowledge_results_count_one: { en: "result for", ar: "نتيجة لـ" },
+  knowledge_results_count_many: { en: "results for", ar: "نتائج لـ" },
 
   // Header
   area_sales_agent: { en: "Sales Agent", ar: "وكيل المبيعات" },

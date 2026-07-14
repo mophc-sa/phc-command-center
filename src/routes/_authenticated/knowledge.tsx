@@ -87,21 +87,21 @@ function KnowledgePage() {
         </form>
         <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <ShieldCheck className="h-3 w-3" />
-          Retrieved from your internal reference library. Always verify with the source document.
+          {t("knowledge_disclaimer")}
         </div>
       </div>
 
       {results !== null && lastQuery ? (
         <div className="mt-6 mb-3 flex items-center justify-between">
           <div className="text-xs text-muted-foreground">
-            {results.length} {results.length === 1 ? "result" : "results"} for <span className="text-foreground">"{lastQuery}"</span>
+            {results.length} {t(results.length === 1 ? "knowledge_results_count_one" : "knowledge_results_count_many")} <span className="text-foreground">"{lastQuery}"</span>
           </div>
         </div>
       ) : null}
 
       <div className="mt-6">
         {results === null ? (
-          <EmptyState message={t("knowledge_empty_hint")} hint="Search returns evidence with a relevance score. Sources remain inspectable." />
+          <EmptyState message={t("knowledge_empty_hint")} hint={t("knowledge_results_hint")} />
         ) : results.length === 0 ? (
           <EmptyState message={t("knowledge_no_results")} hint="Try broader or different keywords." />
         ) : (
