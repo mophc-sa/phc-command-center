@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -2027,13 +2028,10 @@ function AiPipelineTab({
 // =============================================================================
 
 function ProTendersTab() {
-  const { supabase: sb } = useAuth() as any;
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{ ingested?: number; leads_created?: number } | null>(null);
-
-  // Fallback to the singleton client if the hook doesn't expose supabase directly
-  const client = sb ?? supabase_singleton;
+  const client = (supabase as any);
 
   async function handleImport() {
     if (!file) return;

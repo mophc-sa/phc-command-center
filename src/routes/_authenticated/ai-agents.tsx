@@ -146,14 +146,7 @@ function AiAgentsPage() {
         )}
       </Panel>
 
-      <Panel
-        title={
-          <span className="inline-flex items-center gap-2">
-            <Activity className="h-4 w-4 text-emerald-400" />
-            Project Radar
-          </span>
-        }
-      >
+      <Panel title="Project Radar">
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <RunButton
