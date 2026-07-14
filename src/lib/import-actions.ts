@@ -17,6 +17,51 @@ import { type AppRole, ROLE_GROUPS } from "@/lib/roles";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
+export type SourceKind =
+  | "client_relations"
+  | "project_reference"
+  | "sales_overview"
+  | "protenders_leads"
+  | "quotation_masterlist"
+  | "weekly_sales_update"
+  | "unknown";
+
+export type ImportSourceProfile = {
+  id: string;
+  name: string;
+  source_kind: SourceKind;
+  description: string | null;
+  expected_dataset_types: string[];
+  schema_signature: string | null;
+  known_column_aliases: Record<string, string>;
+  is_recurring: boolean;
+  owner_id: string | null;
+  last_successful_batch_id: string | null;
+  last_imported_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ImportRecordCandidate = {
+  id: string;
+  batch_id: string;
+  source_row_id: string | null;
+  entity_type: "companies" | "contacts" | "leads" | "opportunities" | "projects" | "quotations" | "follow_ups" | "account_interactions" | "quotation_updates" | "sales_actuals";
+  proposed_action: "create" | "update" | "no_change" | "needs_review" | "conflict" | "duplicate";
+  identity_key: string | null;
+  existing_record_id: string | null;
+  existing_table: string | null;
+  proposed_payload: Record<string, unknown>;
+  changed_fields: string[];
+  confidence: number | null;
+  reason: string | null;
+  review_status: "pending" | "approved" | "rejected" | "edited" | "needs_review";
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  created_at: string;
+};
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 // Derived from ROLE_GROUPS so that new executive roles are picked up automatically.
@@ -684,16 +729,59 @@ export const LEAD_TARGET_COLUMNS = [
   { value: "notes", label: "Notes" },
 ] as const;
 
+export const OPPORTUNITY_TARGET_COLUMNS = [
+  { value: "project_name", label: "Project Name", required: true },
+  { value: "client", label: "Client Company" },
+  { value: "main_contractor", label: "Main Contractor" },
+  { value: "location", label: "Location" },
+  { value: "sector", label: "Sector" },
+  { value: "estimated_value_min", label: "Min Value (SAR)" },
+  { value: "estimated_value_max", label: "Max Value (SAR)" },
+  { value: "quotation_value", label: "Quotation Value (SAR)" },
+  { value: "stage", label: "Stage" },
+  { value: "next_action", label: "Next Action" },
+  { value: "next_action_due", label: "Next Action Due" },
+  { value: "notes", label: "Notes" },
+  { value: "source", label: "Source" },
+] as const;
+
+export const PROJECT_TARGET_COLUMNS = [
+  { value: "name", label: "Project Name", required: true },
+  { value: "location", label: "Location" },
+  { value: "sector", label: "Sector" },
+  { value: "project_stage", label: "Project Stage" },
+  { value: "total_value", label: "Total Value (SAR)" },
+  { value: "completion_pct", label: "Completion %" },
+  { value: "signage_package_status", label: "Signage Package Status" },
+  { value: "expected_boq_date", label: "Expected BOQ Date" },
+  { value: "expected_signage_date", label: "Expected Signage Date" },
+  { value: "notes", label: "Notes" },
+  { value: "source", label: "Source" },
+] as const;
+
+export const BOQ_TARGET_COLUMNS = [
+  { value: "title", label: "BOQ Title", required: true },
+  { value: "status", label: "Status" },
+  { value: "estimated_value", label: "Estimated Value (SAR)" },
+  { value: "assumptions", label: "Assumptions" },
+  { value: "missing_items", label: "Missing Items" },
+  { value: "notes", label: "Notes" },
+  { value: "source", label: "Source" },
+] as const;
+
 // Sentinel: user explicitly routes a column to extra_data.
 export const EXTRA_DATA_SENTINEL = "__extra_data__";
 
 /** Returns CRM target columns for the given entity, always appending
  *  "Additional Data" and "Skip" options at the end. */
 export function getTargetColumns(entity: ImportTargetEntity) {
-  const base =
-    entity === "contacts" ? ([...CONTACT_TARGET_COLUMNS] as { value: string; label: string; required?: boolean }[]) :
-    entity === "leads"    ? ([...LEAD_TARGET_COLUMNS]    as { value: string; label: string; required?: boolean }[]) :
-                            ([...COMPANY_TARGET_COLUMNS] as { value: string; label: string; required?: boolean }[]);
+  const base: { value: string; label: string; required?: boolean }[] =
+    entity === "contacts"      ? [...CONTACT_TARGET_COLUMNS]      :
+    entity === "leads"         ? [...LEAD_TARGET_COLUMNS]          :
+    entity === "opportunities" ? [...OPPORTUNITY_TARGET_COLUMNS]   :
+    entity === "projects"      ? [...PROJECT_TARGET_COLUMNS]       :
+    entity === "boq"           ? [...BOQ_TARGET_COLUMNS]           :
+                                 [...COMPANY_TARGET_COLUMNS];      // companies (default)
   return [
     ...base,
     { value: EXTRA_DATA_SENTINEL, label: "Additional Data (preserve in record)" },
@@ -715,6 +803,35 @@ export async function runDataCleanup(batchId: string): Promise<{
   });
   if (error || !data?.ok) return { ok: false, error: error?.message ?? data?.message ?? "AI unavailable" };
   return { ok: true, ...(data.result as object) };
+}
+
+export async function listSourceProfiles(): Promise<ImportSourceProfile[]> {
+  const { data, error } = await db.from("import_source_profiles").select("*").order("name");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ImportSourceProfile[];
+}
+
+export async function listCandidates(batchId: string): Promise<ImportRecordCandidate[]> {
+  const { data, error } = await db
+    .from("import_record_candidates")
+    .select("*")
+    .eq("batch_id", batchId)
+    .order("entity_type")
+    .order("proposed_action");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ImportRecordCandidate[];
+}
+
+export async function updateCandidateReview(
+  candidateId: string,
+  review_status: "approved" | "rejected" | "needs_review",
+  review_note?: string,
+): Promise<void> {
+  const { error } = await db
+    .from("import_record_candidates")
+    .update({ review_status, review_note: review_note ?? null, reviewed_at: new Date().toISOString() })
+    .eq("id", candidateId);
+  if (error) throw new Error(error.message);
 }
 
 /** Run the contact_mapping AI agent on an import batch */

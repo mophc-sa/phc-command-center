@@ -53,6 +53,16 @@ const KNOWN_LEAD_KEYS = new Set([
   "project_name","location","main_contractor","main_contractor_guess",
   "source","created_by",
 ]);
+const KNOWN_OPPORTUNITY_KEYS = new Set([
+  "project_name","client","main_contractor","location","sector",
+  "estimated_value_min","estimated_value_max","quotation_value",
+  "stage","next_action","next_action_due","notes","source","created_by",
+]);
+const KNOWN_PROJECT_KEYS = new Set([
+  "name","location","sector","project_stage","total_value","completion_pct",
+  "signage_package_status","expected_boq_date","expected_signage_date",
+  "notes","source","created_by",
+]);
 
 // User-facing sentinels written into mapped_data by the validate step.
 const SKIP_KEY = "__skip__";
@@ -148,6 +158,55 @@ async function commitLead(svc: any, row: { id: string; mapped_data: Record<strin
   if (extra) patch.extra_data = extra;
 
   const { data: created, error } = await svc.from("leads").insert(patch).select("id").single();
+  if (error) return { action: "skipped", recordId: null, error: error.message };
+  return { action: "created", recordId: created.id };
+}
+
+// deno-lint-ignore no-explicit-any
+async function commitOpportunity(svc: any, row: { id: string; mapped_data: Record<string, unknown> | null }, actorId: string): Promise<CommitResult> {
+  const m = row.mapped_data;
+  const project_name = mv(m, "project_name");
+  if (!project_name) return { action: "skipped", recordId: null, error: "Missing required field: project_name" };
+
+  const patch: Record<string, unknown> = { project_name, created_by: actorId };
+  const client = mv(m, "client"); if (client) patch.client = client;
+  const location = mv(m, "location"); if (location) patch.location = location;
+  const sector = mv(m, "sector"); if (sector) patch.sector = sector;
+  const stage = mv(m, "stage"); if (stage) patch.stage = stage;
+  const qv = mv(m, "quotation_value"); if (qv) patch.quotation_value = parseFloat(qv) || null;
+  const evMin = mv(m, "estimated_value_min"); if (evMin) patch.estimated_value_min = parseFloat(evMin) || null;
+  const evMax = mv(m, "estimated_value_max"); if (evMax) patch.estimated_value_max = parseFloat(evMax) || null;
+  const nextAction = mv(m, "next_action"); if (nextAction) patch.next_action = nextAction;
+  const naDue = mv(m, "next_action_due"); if (naDue) patch.next_action_due = naDue;
+  const src = mv(m, "source"); if (src) patch.source = src;
+  const notes = mv(m, "notes"); if (notes) patch.notes = notes;
+  const extra = collectExtraData(m, KNOWN_OPPORTUNITY_KEYS);
+  if (extra) patch.extra_data = extra;
+
+  const { data: created, error } = await svc.from("opportunities").insert(patch).select("id").single();
+  if (error) return { action: "skipped", recordId: null, error: error.message };
+  return { action: "created", recordId: created.id };
+}
+
+// deno-lint-ignore no-explicit-any
+async function commitProject(svc: any, row: { id: string; mapped_data: Record<string, unknown> | null }, actorId: string): Promise<CommitResult> {
+  const m = row.mapped_data;
+  const name = mv(m, "name", "project_name");
+  if (!name) return { action: "skipped", recordId: null, error: "Missing required field: name" };
+
+  const patch: Record<string, unknown> = { name, created_by: actorId };
+  const location = mv(m, "location"); if (location) patch.location = location;
+  const sector = mv(m, "sector"); if (sector) patch.sector = sector;
+  const stage = mv(m, "project_stage"); if (stage) patch.project_stage = stage;
+  const tv = mv(m, "total_value"); if (tv) patch.total_value = parseFloat(tv) || null;
+  const pct = mv(m, "completion_pct"); if (pct) patch.completion_pct = parseFloat(pct) || null;
+  const sps = mv(m, "signage_package_status"); if (sps) patch.signage_package_status = sps;
+  const src = mv(m, "source"); if (src) patch.source = src;
+  const notes = mv(m, "notes"); if (notes) patch.notes = notes;
+  const extra = collectExtraData(m, KNOWN_PROJECT_KEYS);
+  if (extra) patch.extra_data = extra;
+
+  const { data: created, error } = await svc.from("projects").insert(patch).select("id").single();
   if (error) return { action: "skipped", recordId: null, error: error.message };
   return { action: "created", recordId: created.id };
 }
@@ -267,13 +326,39 @@ handlers["parse"] = async (payload, caller) => {
       const { read, utils } = await import("npm:xlsx@0.18.5");
       const ab = await fileData.arrayBuffer();
       const wb = read(new Uint8Array(ab), { type: "array" });
-      const sheetName = file.sheet_name ?? wb.SheetNames[0];
-      const ws = wb.Sheets[sheetName];
-      if (!ws) return err(`Sheet "${sheetName}" not found`);
-      const jsonData: string[][] = utils.sheet_to_json(ws, { header: 1, raw: false });
-      if (jsonData.length > 0) {
-        headers = jsonData[0].map(String);
-        rows = jsonData.slice(1);
+
+      // If sheet_name is specified, parse that sheet only. Otherwise parse the
+      // first sheet (or all sheets concatenated if multiple exist and no name).
+      const sheetNames: string[] = file.sheet_name
+        ? [file.sheet_name]
+        : wb.SheetNames.slice(0, 1); // default to first sheet for now
+
+      for (const sn of sheetNames) {
+        const ws = wb.Sheets[sn];
+        if (!ws) return err(`Sheet "${sn}" not found in workbook. Available sheets: ${wb.SheetNames.join(", ")}`);
+        const jsonData: string[][] = utils.sheet_to_json(ws, { header: 1, raw: false });
+        if (jsonData.length === 0) continue;
+
+        const sheetHeaders = jsonData[0].map(String);
+        const sheetRows = jsonData.slice(1).filter((r) =>
+          // Skip rows where every cell is empty (merged title rows)
+          r.some((v) => v != null && String(v).trim() !== "")
+        );
+
+        if (headers.length === 0) {
+          // First sheet sets the column schema
+          headers = sheetHeaders;
+          rows = sheetRows;
+        } else {
+          // Additional sheets: only append rows if headers match
+          const compatible = sheetHeaders.length === headers.length &&
+            sheetHeaders.every((h, i) => h === headers[i]);
+          if (compatible) {
+            rows = [...rows, ...sheetRows];
+          }
+          // Silently skip incompatible sheets — they'll be handled in a future PR
+          // with full multi-entity fan-out support.
+        }
       }
     } catch (e) {
       return err("Failed to parse xlsx: " + (e instanceof Error ? e.message : String(e)));
@@ -661,7 +746,7 @@ handlers["commit"] = async (payload, caller) => {
   }
 
   const entity = batch.target_entity as string;
-  const SUPPORTED = ["companies", "contacts", "leads"];
+  const SUPPORTED = ["companies", "contacts", "leads", "opportunities", "projects"];
 
   const { data: rows } = await svc
     .from("import_rows")
@@ -696,6 +781,8 @@ handlers["commit"] = async (payload, caller) => {
     try {
       if (entity === "companies") result = await commitCompany(svc, row, caller.userId);
       else if (entity === "contacts") result = await commitContact(svc, row, caller.userId);
+      else if (entity === "opportunities") result = await commitOpportunity(svc, row, caller.userId);
+      else if (entity === "projects") result = await commitProject(svc, row, caller.userId);
       else result = await commitLead(svc, row, caller.userId);
     } catch (e) {
       result = { action: "skipped", recordId: null, error: e instanceof Error ? e.message : String(e) };

@@ -47,6 +47,7 @@ import { Route as AuthenticatedOpportunitiesIndexRouteImport } from './routes/_a
 import { Route as AuthenticatedAccountsIndexRouteImport } from './routes/_authenticated/accounts.index'
 import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects.$id'
 import { Route as AuthenticatedOpportunitiesIdRouteImport } from './routes/_authenticated/opportunities.$id'
+import { Route as AuthenticatedDataImportBatchIdRouteImport } from './routes/_authenticated/data-import.$batchId'
 import { Route as AuthenticatedAccountsIdRouteImport } from './routes/_authenticated/accounts.$id'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -253,6 +254,12 @@ const AuthenticatedOpportunitiesIdRoute =
     path: '/opportunities/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDataImportBatchIdRoute =
+  AuthenticatedDataImportBatchIdRouteImport.update({
+    id: '/$batchId',
+    path: '/$batchId',
+    getParentRoute: () => AuthenticatedDataImportRoute,
+  } as any)
 const AuthenticatedAccountsIdRoute = AuthenticatedAccountsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -287,7 +294,7 @@ export interface FileRoutesByFullPath {
   '/boq': typeof AuthenticatedBoqRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
-  '/data-import': typeof AuthenticatedDataImportRoute
+  '/data-import': typeof AuthenticatedDataImportRouteWithChildren
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
@@ -307,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
+  '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts/': typeof AuthenticatedAccountsIndexRoute
@@ -328,7 +336,7 @@ export interface FileRoutesByTo {
   '/boq': typeof AuthenticatedBoqRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
-  '/data-import': typeof AuthenticatedDataImportRoute
+  '/data-import': typeof AuthenticatedDataImportRouteWithChildren
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
@@ -348,6 +356,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
+  '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts': typeof AuthenticatedAccountsIndexRoute
@@ -372,7 +381,7 @@ export interface FileRoutesById {
   '/_authenticated/boq': typeof AuthenticatedBoqRoute
   '/_authenticated/command-center': typeof AuthenticatedCommandCenterRoute
   '/_authenticated/contacts': typeof AuthenticatedContactsRoute
-  '/_authenticated/data-import': typeof AuthenticatedDataImportRoute
+  '/_authenticated/data-import': typeof AuthenticatedDataImportRouteWithChildren
   '/_authenticated/discovery': typeof AuthenticatedDiscoveryRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/_authenticated/knowledge': typeof AuthenticatedKnowledgeRoute
@@ -392,6 +401,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/accounts/$id': typeof AuthenticatedAccountsIdRoute
+  '/_authenticated/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/_authenticated/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/_authenticated/accounts/': typeof AuthenticatedAccountsIndexRoute
@@ -436,6 +446,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/accounts/$id'
+    | '/data-import/$batchId'
     | '/opportunities/$id'
     | '/projects/$id'
     | '/accounts/'
@@ -477,6 +488,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/accounts/$id'
+    | '/data-import/$batchId'
     | '/opportunities/$id'
     | '/projects/$id'
     | '/accounts'
@@ -520,6 +532,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/accounts/$id'
+    | '/_authenticated/data-import/$batchId'
     | '/_authenticated/opportunities/$id'
     | '/_authenticated/projects/$id'
     | '/_authenticated/accounts/'
@@ -806,6 +819,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOpportunitiesIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/data-import/$batchId': {
+      id: '/_authenticated/data-import/$batchId'
+      path: '/$batchId'
+      fullPath: '/data-import/$batchId'
+      preLoaderRoute: typeof AuthenticatedDataImportBatchIdRouteImport
+      parentRoute: typeof AuthenticatedDataImportRoute
+    }
     '/_authenticated/accounts/$id': {
       id: '/_authenticated/accounts/$id'
       path: '/$id'
@@ -845,6 +865,20 @@ const AuthenticatedAccountsRouteWithChildren =
     AuthenticatedAccountsRouteChildren,
   )
 
+interface AuthenticatedDataImportRouteChildren {
+  AuthenticatedDataImportBatchIdRoute: typeof AuthenticatedDataImportBatchIdRoute
+}
+
+const AuthenticatedDataImportRouteChildren: AuthenticatedDataImportRouteChildren =
+  {
+    AuthenticatedDataImportBatchIdRoute: AuthenticatedDataImportBatchIdRoute,
+  }
+
+const AuthenticatedDataImportRouteWithChildren =
+  AuthenticatedDataImportRoute._addFileChildren(
+    AuthenticatedDataImportRouteChildren,
+  )
+
 interface AuthenticatedProjectsRouteChildren {
   AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
 }
@@ -869,7 +903,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBoqRoute: typeof AuthenticatedBoqRoute
   AuthenticatedCommandCenterRoute: typeof AuthenticatedCommandCenterRoute
   AuthenticatedContactsRoute: typeof AuthenticatedContactsRoute
-  AuthenticatedDataImportRoute: typeof AuthenticatedDataImportRoute
+  AuthenticatedDataImportRoute: typeof AuthenticatedDataImportRouteWithChildren
   AuthenticatedDiscoveryRoute: typeof AuthenticatedDiscoveryRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
   AuthenticatedKnowledgeRoute: typeof AuthenticatedKnowledgeRoute
@@ -901,7 +935,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBoqRoute: AuthenticatedBoqRoute,
   AuthenticatedCommandCenterRoute: AuthenticatedCommandCenterRoute,
   AuthenticatedContactsRoute: AuthenticatedContactsRoute,
-  AuthenticatedDataImportRoute: AuthenticatedDataImportRoute,
+  AuthenticatedDataImportRoute: AuthenticatedDataImportRouteWithChildren,
   AuthenticatedDiscoveryRoute: AuthenticatedDiscoveryRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
   AuthenticatedKnowledgeRoute: AuthenticatedKnowledgeRoute,
