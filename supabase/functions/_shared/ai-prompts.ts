@@ -168,6 +168,193 @@ export function buildSmartFollowupDraftPrompt(context: string): BuiltPrompt {
 }
 
 // ---------------------------------------------------------------------------
+// Agent 4 — data_cleanup
+// ---------------------------------------------------------------------------
+
+const DATA_CLEANUP_INSTRUCTIONS = `
+AGENT: data_cleanup (${PROMPT_VERSION})
+You are a data quality specialist for a Saudi CRM import pipeline. Review the
+batch of staged import rows described in the CONTEXT block and produce a
+structured quality report — you do NOT commit any changes, update any record,
+or alter any import batch status.
+
+Standards to apply:
+- Phone numbers: normalize to E.164 format with Saudi country code (+966). Strip
+  leading zeros, spaces, and dashes. If a number cannot be normalized, flag it
+  in corrections with the reason.
+- Names: capitalize properly (title case for Latin script, leave Arabic as-is).
+  Remove excessive whitespace. Flag rows where first/last name appear reversed.
+- Dates: normalize to ISO 8601 (YYYY-MM-DD). Flag ambiguous formats (e.g. 01/02/03).
+- CR numbers (Saudi Commercial Registration): must be exactly 10 digits. Flag
+  any that are shorter, longer, or contain non-digit characters.
+- Detect duplicates WITHIN the batch (two rows that appear to represent the same
+  entity) and flag rows that likely match an EXISTING record in the DB if
+  duplicate hints are provided in the CONTEXT.
+
+Return a JSON object with exactly these fields:
+- corrections: array of { row_id, field, original, corrected, reason } — one
+  entry per proposed field-level fix; row_id must match an id present in the
+  CONTEXT batch rows
+- duplicates: array of { row_ids (array of at least 2 row ids), reason,
+  duplicate_type ("within_batch" | "existing_record"), existing_id (only when
+  duplicate_type is "existing_record") }
+- quality_score: number 0-100 reflecting overall batch data quality after
+  proposed corrections
+- quality_summary: short string (max 300 chars) describing the main quality
+  issues found and the overall assessment
+`.trim();
+
+export function buildDataCleanupPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${DATA_CLEANUP_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("import_batch", context),
+    version: PROMPT_VERSION,
+    schemaName: "data_cleanup_output",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Agent 5 — contact_mapping
+// ---------------------------------------------------------------------------
+
+const CONTACT_MAPPING_INSTRUCTIONS = `
+AGENT: contact_mapping (${PROMPT_VERSION})
+You are a CRM classifier for a Saudi signage company. Review the batch of
+staged import rows described in the CONTEXT block and classify each row as the
+most appropriate CRM entity type — you do NOT insert, update, merge, or commit
+any record.
+
+Classification rules:
+- "companies": the row clearly represents an organization (has a company name,
+  CR number, or organization-level details).
+- "contacts": the row clearly represents an individual person linked to a company.
+- "leads": the row represents an opportunity/inquiry rather than a master record.
+- "ambiguous": insufficient signal or contradictory signals; confidence < 0.7
+  must always result in "ambiguous".
+
+Contact-to-company linking:
+- If a contact row can be linked to another row in the SAME batch that is
+  classified as a company, provide the company_row_id.
+- If the contact name or email matches an EXISTING company in the DB (based on
+  any hints in the CONTEXT), provide the existing_company_id and company_name.
+- Handle both Arabic and English names/fields correctly.
+
+Return a JSON object with exactly these fields:
+- classifications: array of { row_id, entity_type, confidence (0-1), reason }
+- contact_company_links: array of { contact_row_id, company_row_id (optional,
+  within-batch match), existing_company_id (optional, DB match), company_name,
+  confidence (0-1), match_basis }
+- suggested_splits: array of { row_id, reason } — rows where a single record
+  appears to contain data for multiple entities that should be split
+`.trim();
+
+export function buildContactMappingPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${CONTACT_MAPPING_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("import_batch", context),
+    version: PROMPT_VERSION,
+    schemaName: "contact_mapping_output",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Agent 6 — project_radar
+// ---------------------------------------------------------------------------
+
+const PROJECT_RADAR_INSTRUCTIONS = `
+AGENT: project_radar (${PROMPT_VERSION})
+You are a sales pipeline analyst for PHC, a Saudi signage company. Scan the
+pipeline snapshot described in the CONTEXT block and surface actionable alerts
+for a sales manager to review — you do NOT change any stage, owner, or record.
+
+Alert types to detect:
+- "stale_opportunity": opportunity not updated in 30+ days with no scheduled
+  next action.
+- "missing_boq": opportunity in "quotation" stage with no BOQ items attached.
+- "inactive_account": company with linked opportunities that have had no
+  activity in 60+ days.
+- "stage_bottleneck": multiple opportunities stuck at the same stage, suggesting
+  a systemic block.
+- "approaching_deadline": opportunity with a next_action_due within 14 days
+  that has no quotation yet.
+- "pattern": any other structural pattern you observe across the pipeline that
+  would be worth a manager's attention.
+
+Severity:
+- "high": requires immediate attention (overdue, high-value risk).
+- "medium": needs attention within a week.
+- "low": informational, monitor and re-check.
+
+pipeline_health_score (0-100): 100 = no issues; deduct based on count and
+severity of alerts found.
+
+Return a JSON object with exactly these fields:
+- radar_alerts: array of { alert_type, entity_type, entity_id, entity_name,
+  severity, description, recommended_action } — entity_id and entity_name must
+  match records present in the CONTEXT block; never invent IDs or names
+- pipeline_health_score: number 0-100
+- summary: string max 500 chars — overall pipeline health narrative
+`.trim();
+
+export function buildProjectRadarPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${PROJECT_RADAR_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("pipeline_snapshot", context),
+    version: PROMPT_VERSION,
+    schemaName: "project_radar_output",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Agent 7 — risk_finance
+// ---------------------------------------------------------------------------
+
+const RISK_FINANCE_INSTRUCTIONS = `
+AGENT: risk_finance (${PROMPT_VERSION})
+You are a financial risk assessor for PHC, a Saudi signage company. Evaluate
+the single opportunity described in the CONTEXT block and produce a risk
+assessment for a manager to review before any commercial decision — you do NOT
+approve, reject, or modify any record.
+
+Risk factors to evaluate:
+- Client type: new clients with no prior relationship carry higher risk than
+  established accounts.
+- Opportunity value: large values relative to the company's typical deal size
+  warrant higher scrutiny.
+- Stage without documents: opportunities at quotation/tender stage with no
+  attached BOQ or quotation document.
+- Missing contacts: opportunities with no linked decision-maker or technical
+  contact on record.
+- Inactivity: no follow-up or activity logged in 30+ days for an active
+  opportunity.
+
+risk_score thresholds:
+- 0-30: "low"
+- 31-60: "medium"
+- 61-80: "high"
+- 81-100: "critical"
+
+Return a JSON object with exactly these fields:
+- risk_score: number 0-100
+- risk_level: "low" | "medium" | "high" | "critical" (must be consistent with
+  risk_score threshold above)
+- risk_factors: array of { factor, impact ("low"|"medium"|"high"), description }
+- mitigations: array of { action, priority ("low"|"medium"|"high") }
+- confidence: number 0-1, your confidence in this risk assessment
+- disclaimer: string reminding the reader this is an AI-generated assessment
+  requiring human judgment before any commercial or financial decision is made
+`.trim();
+
+export function buildRiskFinancePrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${RISK_FINANCE_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("opportunity_risk", context),
+    version: PROMPT_VERSION,
+    schemaName: "risk_finance_output",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Registry lookup — used by the agent registry so it does not need a switch.
 // ---------------------------------------------------------------------------
 
@@ -175,4 +362,8 @@ export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltP
   opportunity_evaluation: buildOpportunityEvaluationPrompt,
   old_data_classifier: buildOldDataClassifierPrompt,
   smart_followup_draft: buildSmartFollowupDraftPrompt,
+  data_cleanup: buildDataCleanupPrompt,
+  contact_mapping: buildContactMappingPrompt,
+  project_radar: buildProjectRadarPrompt,
+  risk_finance: buildRiskFinancePrompt,
 };
