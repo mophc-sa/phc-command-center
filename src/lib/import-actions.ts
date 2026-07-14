@@ -652,8 +652,13 @@ export const COMPANY_TARGET_COLUMNS = [
   { value: "website", label: "Website" },
   { value: "website_domain", label: "Website Domain" },
   { value: "regions", label: "Regions" },
+  { value: "account_status", label: "Account Status" },
   { value: "relationship_level", label: "Relationship Level" },
+  { value: "last_contact_at", label: "Last Contact Date" },
+  { value: "next_action", label: "Next Action" },
+  { value: "next_action_due", label: "Next Action Due Date" },
   { value: "internal_notes", label: "Internal Notes" },
+  { value: "upsell_notes", label: "Upsell Notes" },
   { value: "source", label: "Source" },
 ] as const;
 
@@ -662,14 +667,21 @@ export const CONTACT_TARGET_COLUMNS = [
   { value: "title", label: "Job Title" },
   { value: "phone", label: "Phone" },
   { value: "email", label: "Email" },
+  { value: "linkedin", label: "LinkedIn" },
+  { value: "location", label: "Office Location" },
+  { value: "authority", label: "Authority Level" },
+  { value: "notes", label: "Notes" },
   { value: "source", label: "Source" },
 ] as const;
 
 export const LEAD_TARGET_COLUMNS = [
   { value: "project_name", label: "Project Name", required: true },
   { value: "location", label: "Location" },
+  { value: "sector", label: "Sector" },
   { value: "main_contractor", label: "Main Contractor" },
+  { value: "total_value", label: "Total Value" },
   { value: "source", label: "Source" },
+  { value: "notes", label: "Notes" },
 ] as const;
 
 // Sentinel: user explicitly routes a column to extra_data.
