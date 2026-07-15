@@ -413,6 +413,8 @@ const FINDING_SEVERITIES = ["info", "warning", "critical"] as const;
 const CHANGE_SEVERITIES = ["info", "warning", "critical"] as const;
 
 // Agent 8 — workbook_classifier
+// Top-level uses strip (default) not strict: json_object mode lets the AI add
+// explanatory fields; stripping them is safer than failing validation.
 export const WorkbookClassifierOutputSchema = z
   .object({
     detected_source_kind: z.enum(SOURCE_KINDS),
@@ -425,12 +427,11 @@ export const WorkbookClassifierOutputSchema = z
           sheet_name: z.string().min(1).max(200),
           row_count: z.number().int().nonnegative(),
           notes: z.string().max(300),
-        }).strict(),
+        }),
       )
       .max(20),
     warnings: z.array(z.string().min(1).max(300)).max(10),
-  })
-  .strict();
+  });
 export type WorkbookClassifierOutput = z.infer<typeof WorkbookClassifierOutputSchema>;
 
 // Agent 9 — sheet_classifier
@@ -444,13 +445,12 @@ export const SheetClassifierOutputSchema = z
           confidence: z.number().min(0).max(1),
           recommended_action: z.enum(SHEET_RECOMMENDED_ACTIONS),
           rationale: z.string().min(1).max(300),
-        }).strict(),
+        }),
       )
       .max(20),
     recommended_primary_sheet: z.string().min(1).max(200),
     warnings: z.array(z.string().min(1).max(300)).max(10),
-  })
-  .strict();
+  });
 export type SheetClassifierOutput = z.infer<typeof SheetClassifierOutputSchema>;
 
 // Agent 10 — semantic_field_mapper
@@ -463,13 +463,12 @@ export const SemanticFieldMapperOutputSchema = z
           suggested_target: z.string().min(1).max(200),
           confidence: z.number().min(0).max(1),
           rationale: z.string().min(1).max(300),
-        }).strict(),
+        }),
       )
       .max(100),
     unmapped_columns: z.array(z.string().min(1).max(200)).max(100),
     warnings: z.array(z.string().min(1).max(300)).max(10),
-  })
-  .strict();
+  });
 export type SemanticFieldMapperOutput = z.infer<typeof SemanticFieldMapperOutputSchema>;
 
 // Agent 11 — entity_extractor
@@ -485,17 +484,16 @@ export const EntityExtractorOutputSchema = z
                 entity_type: z.enum(IMPORT_TARGET_ENTITIES),
                 proposed_payload: z.record(z.string(), z.unknown()),
                 role: z.string().min(1).max(100),
-              }).strict(),
+              }),
             )
             .min(2)
             .max(10),
-        }).strict(),
+        }),
       )
       .max(50),
     multi_entity_count: z.number().int().nonnegative(),
     rationale: z.string().min(1).max(500),
-  })
-  .strict();
+  });
 export type EntityExtractorOutput = z.infer<typeof EntityExtractorOutputSchema>;
 
 // Agent 12 — relationship_resolver
@@ -509,7 +507,7 @@ export const RelationshipResolverOutputSchema = z
           relationship_type: z.string().min(1).max(100),
           confidence: z.number().min(0).max(1),
           rationale: z.string().min(1).max(300),
-        }).strict(),
+        }),
       )
       .max(100),
     unresolved: z
@@ -517,11 +515,10 @@ export const RelationshipResolverOutputSchema = z
         z.object({
           entity_ref: z.string().min(1).max(200),
           reason: z.string().min(1).max(300),
-        }).strict(),
+        }),
       )
       .max(50),
-  })
-  .strict();
+  });
 export type RelationshipResolverOutput = z.infer<typeof RelationshipResolverOutputSchema>;
 
 // Agent 13 — change_interpreter
@@ -536,13 +533,12 @@ export const ChangeInterpreterOutputSchema = z
         z.object({
           description: z.string().min(1).max(300),
           severity: z.enum(CHANGE_SEVERITIES),
-        }).strict(),
+        }),
       )
       .max(20),
     confidence: z.number().min(0).max(1),
     recommended_action: z.enum(CHANGE_RECOMMENDED_ACTIONS),
-  })
-  .strict();
+  });
 export type ChangeInterpreterOutput = z.infer<typeof ChangeInterpreterOutputSchema>;
 
 // Agent 14 — import_routing_reviewer
@@ -556,12 +552,11 @@ export const ImportRoutingReviewerOutputSchema = z
           severity: z.enum(FINDING_SEVERITIES),
           title: z.string().min(1).max(100),
           description: z.string().min(1).max(300),
-        }).strict(),
+        }),
       )
       .max(20),
     requires_human_review: z.literal(true),
-  })
-  .strict();
+  });
 export type ImportRoutingReviewerOutput = z.infer<typeof ImportRoutingReviewerOutputSchema>;
 
 // Lookup used by the orchestrator to validate whichever agent ran, without a

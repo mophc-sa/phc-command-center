@@ -443,7 +443,7 @@ async function handleRequest(req: Request): Promise<Response> {
   // ---- 13. Validate structured output ---------------------------------------------------
   const validation = agentDef.outputSchema.safeParse(providerResult.data);
   if (!validation.success) {
-    return await fail("AI_OUTPUT_VALIDATION_FAILED", "The AI provider's response did not match the required format.", 502, {
+    return await fail("AI_OUTPUT_VALIDATION_FAILED", "The AI provider's response did not match the required format.", 200, {
       provider: config.provider,
       model: config.model,
       // Redacted summary only — never the raw provider text or full zod issues.
