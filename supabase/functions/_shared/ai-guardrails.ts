@@ -39,6 +39,13 @@ export const AGENT_ENTITY_ALLOWLIST: Record<AgentKey, readonly EntityType[]> = {
   project_radar: ["pipeline"],
   // Single opportunity risk assessment.
   risk_finance: ["opportunities"],
+  workbook_classifier: ["import_batches"],
+  sheet_classifier: ["import_batches"],
+  semantic_field_mapper: ["import_batches"],
+  entity_extractor: ["import_batches"],
+  relationship_resolver: ["import_batches"],
+  change_interpreter: ["import_batches"],
+  import_routing_reviewer: ["import_batches"],
 };
 
 export function isEntityAllowedForAgent(agent: AgentKey, entityType: string | null | undefined): boolean {
@@ -72,6 +79,15 @@ export const AGENT_ROLE_CHECK: Record<AgentKey, (roles: AppRole[]) => boolean> =
   contact_mapping: (roles) => canManageSalesPipeline(roles),
   project_radar: (roles) => canManageSalesPipeline(roles),
   risk_finance: (roles) => canManageSalesPipeline(roles),
+  // Import classification agents — same role gate as the real import pipeline.
+  // import_routing_reviewer is approve-role-only (it's the final gate before approval).
+  workbook_classifier: (roles) => canViewSalesAdmin(roles),
+  sheet_classifier: (roles) => canViewSalesAdmin(roles),
+  semantic_field_mapper: (roles) => canViewSalesAdmin(roles),
+  entity_extractor: (roles) => canViewSalesAdmin(roles),
+  relationship_resolver: (roles) => canViewSalesAdmin(roles),
+  change_interpreter: (roles) => canViewSalesAdmin(roles),
+  import_routing_reviewer: (roles) => canApproveCommercialAction(roles),
 };
 
 export function hasAgentRole(agent: AgentKey, roles: AppRole[]): boolean {
