@@ -361,21 +361,27 @@ export function buildRiskFinancePrompt(context: string): BuiltPrompt {
 const WORKBOOK_CLASSIFIER_INSTRUCTIONS = `
 AGENT: workbook_classifier (${PROMPT_VERSION})
 Analyze the import batch metadata and sample rows in the CONTEXT block and
-determine what kind of PHC data this file contains and which CRM entity type
-it should be imported as. You do NOT commit anything — you only classify.
+determine what kind of PHC data this file contains. You do NOT commit anything — you only classify.
 
-PHC source kinds:
-- "client_relations": contacts and companies from PHC's client list
-- "project_reference": completed projects used as references/case studies
-- "sales_overview": pipeline summary with opportunities and stages
-- "protenders_leads": tender leads sourced from ProTenders platform
-- "quotation_masterlist": quotations and BOQ items
-- "weekly_sales_update": weekly update sheets from sales reps
+PHC source kinds and their canonical data destinations:
+- "client_relations": company registry, key contacts, relationship status, last update, qualification gates
+  → primary: companies | destinations: companies, contacts, follow_ups
+- "project_reference": completed project records with clients, contractors, scope, value, status
+  → primary: projects | destinations: projects, companies
+- "sales_overview": monthly/annual sales results, historical targets and performance
+  → primary: opportunities | destinations: opportunities (aggregated — treat as reporting data)
+- "protenders_leads": early-discovery data, calls, follow-ups, RFQ receipt from ProTenders platform
+  → primary: leads | destinations: leads, tenders, companies, contacts
+- "quotation_masterlist": master quotation register with opportunities, projects, follow-ups, win/loss
+  → primary: quotations | destinations: quotations, opportunities, companies, contacts
+- "weekly_sales_update": periodic update of existing quotations/opportunities — not new independent records
+  → primary: follow_ups | destinations: follow_ups (updates quotation and opportunity timelines)
 - "unknown": none of the above
 
 Return a JSON object with exactly these fields:
 - detected_source_kind: one of the PHC source kinds above
-- detected_entity_type: "companies" | "contacts" | "leads" | "opportunities" | "projects" | "boq"
+- detected_entity_type: the PRIMARY entity type to import as (companies | contacts | leads | opportunities | projects | boq | rfqs | tenders | follow_ups | quotations)
+- destination_entities: array of all entity types this file's data should flow into (e.g. ["companies","contacts","follow_ups"])
 - confidence: number 0-1
 - rationale: string explaining the classification (max 500 chars)
 - sheet_summary: array of { sheet_name, row_count, notes } for each sheet detected

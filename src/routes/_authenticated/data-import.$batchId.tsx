@@ -27,6 +27,7 @@ import {
   getTargetColumns, EXTRA_DATA_SENTINEL,
   APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
   READINESS_ITEMS, saveReadinessChecklist, getReadinessChecklist, deriveAutoChecklist,
+  SOURCE_KIND_ROUTING,
   type ImportBatch, type ImportMapping, type ImportRow,
   type ImportTargetEntity,
   type AiAgentCallResult,
@@ -269,6 +270,22 @@ function BatchDetailPage() {
           actions={<StatusPill tone={statusTone(batch.status)}>{batch.status}</StatusPill>}
         />
       </div>
+
+      {/* Data routing banner — shown when source type is known */}
+      {batch.source_type && batch.source_type !== "unknown" && SOURCE_KIND_ROUTING[batch.source_type] && (
+        <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 flex items-center gap-3 text-xs">
+          <span className="text-muted-foreground shrink-0">Detected:</span>
+          <span className="font-medium text-emerald-300 capitalize">{batch.source_type.replace(/_/g, " ")}</span>
+          <span className="text-muted-foreground shrink-0">→ routes to:</span>
+          <div className="flex flex-wrap gap-1">
+            {SOURCE_KIND_ROUTING[batch.source_type].destinations.map((d) => (
+              <span key={d} className="rounded bg-emerald-500/10 px-2 py-0.5 text-emerald-400 font-medium capitalize">
+                {d.replace(/_/g, " ")}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Progress stepper */}
       <Stepper steps={STEPS} currentIndex={stepIndex} failed={isFailed} />

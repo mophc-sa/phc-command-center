@@ -216,9 +216,21 @@ export async function getBatch(id: string): Promise<ImportBatch | null> {
 // Alias per Phase 1.1 spec
 export const getImportBatchDetails = getBatch;
 
+// Canonical routing: which primary entity each source kind maps to,
+// and all destination entities it should flow into.
+export const SOURCE_KIND_ROUTING: Record<string, { primary: ImportTargetEntity; destinations: ImportTargetEntity[] }> = {
+  client_relations:     { primary: "companies",    destinations: ["companies", "contacts", "follow_ups"] },
+  project_reference:    { primary: "projects",     destinations: ["projects", "companies"] },
+  sales_overview:       { primary: "opportunities", destinations: ["opportunities"] },
+  protenders_leads:     { primary: "leads",        destinations: ["leads", "tenders", "companies", "contacts"] },
+  quotation_masterlist: { primary: "quotations",   destinations: ["quotations", "opportunities", "companies", "contacts"] },
+  weekly_sales_update:  { primary: "follow_ups",   destinations: ["follow_ups"] },
+  unknown:              { primary: "companies",    destinations: ["companies"] },
+};
+
 export async function updateBatch(
   id: string,
-  patch: Partial<Pick<ImportBatch, "target_entity" | "notes" | "file_name">>,
+  patch: Partial<Pick<ImportBatch, "target_entity" | "notes" | "file_name"> & { source_type: string }>,
 ): Promise<void> {
   const { error } = await db.from("import_batches").update(patch).eq("id", id);
   if (error) throw new Error(error.message);

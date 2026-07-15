@@ -180,7 +180,7 @@ export type OpportunityEvaluationOutput = z.infer<typeof OpportunityEvaluationOu
 // Matches import_batches_target_entity_check in
 // 20260708092659_..._data_import_center.sql — the only destinations the
 // import system itself recognizes.
-const IMPORT_TARGET_ENTITIES = ["companies", "contacts", "leads", "opportunities", "projects", "boq"] as const;
+const IMPORT_TARGET_ENTITIES = ["companies", "contacts", "leads", "opportunities", "projects", "boq", "rfqs", "tenders", "follow_ups", "quotations"] as const;
 const CLASSIFIER_RECOMMENDED_ACTIONS = ["stage", "needs_review", "reject"] as const;
 
 export const DuplicateCandidateSchema = z
@@ -419,6 +419,7 @@ export const WorkbookClassifierOutputSchema = z
   .object({
     detected_source_kind: z.enum(SOURCE_KINDS),
     detected_entity_type: z.enum(IMPORT_TARGET_ENTITIES),
+    destination_entities: z.array(z.enum(IMPORT_TARGET_ENTITIES)).max(10).optional(),
     confidence: z.number().min(0).max(1),
     rationale: z.string().min(1).max(500),
     sheet_summary: z

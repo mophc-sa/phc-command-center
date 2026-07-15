@@ -27,6 +27,7 @@ import {
   callImportAgent, saveMappings, validateBatch, detectDuplicates,
   saveReadinessChecklist, approveBatch, dryRunCommit, commitBatch,
   updateBatch, getTargetColumns, EXTRA_DATA_SENTINEL,
+  SOURCE_KIND_ROUTING,
   UPLOAD_ROLES, TARGET_ENTITIES,
   type ImportBatch, type ImportTargetEntity, type ImportSourceProfile,
 } from "@/lib/import-actions";
@@ -120,17 +121,21 @@ function DataImportLanding() {
       setAutoStep("Parsing file…");
       await parseFile(batch.id, fileId);
 
-      // 2. AI classification — detect entity type from file content
+      // 2. AI classification — detect source kind and primary entity from file content
       setAutoStep("Classifying file with AI…");
       const classResult = await callImportAgent(batch.id, "workbook_classifier");
       let detectedEntity: ImportTargetEntity = "companies";
       if (classResult.ok) {
-        const r = classResult.result as { detected_entity_type?: string };
+        const r = classResult.result as { detected_source_kind?: string; detected_entity_type?: string };
+        // Prefer source-kind routing; fall back to detected_entity_type
+        const routing = r.detected_source_kind ? SOURCE_KIND_ROUTING[r.detected_source_kind] : null;
         const valid = TARGET_ENTITIES.map((e) => e.value);
-        if (r.detected_entity_type && valid.includes(r.detected_entity_type as ImportTargetEntity)) {
+        if (routing) {
+          detectedEntity = routing.primary;
+        } else if (r.detected_entity_type && valid.includes(r.detected_entity_type as ImportTargetEntity)) {
           detectedEntity = r.detected_entity_type as ImportTargetEntity;
-          await updateBatch(batch.id, { target_entity: detectedEntity });
         }
+        await updateBatch(batch.id, { target_entity: detectedEntity, source_type: r.detected_source_kind ?? "unknown" });
       }
 
       // 3. AI field mapping
@@ -174,7 +179,9 @@ function DataImportLanding() {
       setNewOpen(false);
       setNewFile(null);
       qc.invalidateQueries({ queryKey: ["import-batches"] });
-      toast.success(`Import complete — data saved as ${detectedEntity}`);
+      const routing = SOURCE_KIND_ROUTING[classResult.ok ? ((classResult.result as any).detected_source_kind ?? "unknown") : "unknown"];
+      const destLabel = routing ? routing.destinations.join(", ") : detectedEntity;
+      toast.success(`Import complete → ${destLabel}`);
       navigate({ to: "/data-import/$batchId", params: { batchId: batch.id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Import failed");
