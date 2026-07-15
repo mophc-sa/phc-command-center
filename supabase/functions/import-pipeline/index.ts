@@ -314,6 +314,7 @@ handlers["parse"] = async (payload, caller) => {
 
   let headers: string[] = [];
   let rows: string[][] = [];
+  let sheetCount = 1;
 
   if (file.file_type === "csv") {
     const text = await fileData.text();
@@ -326,6 +327,7 @@ handlers["parse"] = async (payload, caller) => {
       const { read, utils } = await import("npm:xlsx@0.18.5");
       const ab = await fileData.arrayBuffer();
       const wb = read(new Uint8Array(ab), { type: "array" });
+      sheetCount = wb.SheetNames.length;
 
       // If sheet_name is specified, parse that sheet only. Otherwise parse the
       // first sheet (or all sheets concatenated if multiple exist and no name).
@@ -373,10 +375,12 @@ handlers["parse"] = async (payload, caller) => {
 
   headers = uniqueSourceColumns(headers);
 
-  // Update file with column names and row count
+  // Update file with column names, row count, and sheet count (xlsx only).
+  // sheet_count is used by the UI to enable the sheet_classifier AI button.
   await svc.from("import_files").update({
     column_names: headers,
     row_count: rows.length,
+    sheet_count: sheetCount,
   }).eq("id", fileId);
 
   // Insert parsed rows into import_rows
