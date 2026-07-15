@@ -114,7 +114,8 @@ export type ImportBatch = {
 };
 
 export type ImportTargetEntity =
-  | "companies" | "contacts" | "leads" | "opportunities" | "projects" | "boq";
+  | "companies" | "contacts" | "leads" | "opportunities" | "projects"
+  | "boq" | "rfqs" | "tenders" | "follow_ups" | "quotations";
 
 export const TARGET_ENTITIES: { value: ImportTargetEntity; label: string }[] = [
   { value: "companies",     label: "Companies" },
@@ -123,6 +124,10 @@ export const TARGET_ENTITIES: { value: ImportTargetEntity; label: string }[] = [
   { value: "opportunities", label: "Opportunities" },
   { value: "projects",      label: "Projects" },
   { value: "boq",           label: "BOQ / Estimates" },
+  { value: "rfqs",          label: "RFQs (Requests for Quotation)" },
+  { value: "tenders",       label: "Tenders" },
+  { value: "follow_ups",    label: "Follow-ups" },
+  { value: "quotations",    label: "Quotations" },
 ];
 
 export type ImportRow = {
@@ -764,12 +769,59 @@ export const PROJECT_TARGET_COLUMNS = [
 
 export const BOQ_TARGET_COLUMNS = [
   { value: "title", label: "BOQ Title", required: true },
+  { value: "opportunity_name", label: "Related Opportunity (name lookup)" },
   { value: "status", label: "Status" },
   { value: "estimated_value", label: "Estimated Value (SAR)" },
   { value: "assumptions", label: "Assumptions" },
   { value: "missing_items", label: "Missing Items" },
   { value: "notes", label: "Notes" },
   { value: "source", label: "Source" },
+] as const;
+
+export const RFQ_TARGET_COLUMNS = [
+  { value: "rfq_number", label: "RFQ Number" },
+  { value: "received_date", label: "Received Date" },
+  { value: "opportunity_name", label: "Related Opportunity (name lookup)" },
+  { value: "source_type", label: "Source Type" },
+  { value: "response_due_date", label: "Response Due Date" },
+  { value: "estimated_value", label: "Estimated Value (SAR)" },
+  { value: "status", label: "Status" },
+  { value: "notes", label: "Notes" },
+] as const;
+
+export const TENDER_TARGET_COLUMNS = [
+  { value: "tender_name", label: "Tender Name", required: true },
+  { value: "source", label: "Source" },
+  { value: "tender_stage", label: "Stage" },
+  { value: "tender_priority_classification", label: "Priority" },
+  { value: "expected_award_date", label: "Expected Award Date" },
+  { value: "estimated_project_value", label: "Estimated Value (SAR)" },
+  { value: "signage_potential", label: "Signage Potential" },
+  { value: "award_evidence", label: "Award Evidence" },
+  { value: "next_follow_up_date", label: "Next Follow-up Date" },
+  { value: "notes", label: "Notes" },
+] as const;
+
+export const FOLLOW_UP_TARGET_COLUMNS = [
+  { value: "opportunity_name", label: "Related Opportunity (name lookup)", required: true },
+  { value: "due_date", label: "Due Date", required: true },
+  { value: "channel", label: "Channel" },
+  { value: "cadence_tier", label: "Priority Tier (A/B/C)" },
+  { value: "status", label: "Status" },
+  { value: "last_contact_at", label: "Last Contact Date" },
+  { value: "notes", label: "Notes" },
+] as const;
+
+export const QUOTATION_TARGET_COLUMNS = [
+  { value: "quote_number", label: "Quote Number", required: true },
+  { value: "opportunity_name", label: "Related Opportunity (name lookup)" },
+  { value: "value", label: "Value (SAR)" },
+  { value: "currency", label: "Currency" },
+  { value: "status", label: "Status" },
+  { value: "issued_date", label: "Issued Date" },
+  { value: "valid_until", label: "Valid Until" },
+  { value: "win_loss_reason", label: "Win/Loss Reason" },
+  { value: "notes", label: "Notes" },
 ] as const;
 
 // Sentinel: user explicitly routes a column to extra_data.
@@ -784,6 +836,10 @@ export function getTargetColumns(entity: ImportTargetEntity) {
     entity === "opportunities" ? [...OPPORTUNITY_TARGET_COLUMNS]   :
     entity === "projects"      ? [...PROJECT_TARGET_COLUMNS]       :
     entity === "boq"           ? [...BOQ_TARGET_COLUMNS]           :
+    entity === "rfqs"          ? [...RFQ_TARGET_COLUMNS]           :
+    entity === "tenders"       ? [...TENDER_TARGET_COLUMNS]        :
+    entity === "follow_ups"    ? [...FOLLOW_UP_TARGET_COLUMNS]     :
+    entity === "quotations"    ? [...QUOTATION_TARGET_COLUMNS]     :
                                  [...COMPANY_TARGET_COLUMNS];      // companies (default)
   return [
     ...base,

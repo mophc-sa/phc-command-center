@@ -63,6 +63,27 @@ const KNOWN_PROJECT_KEYS = new Set([
   "signage_package_status","expected_boq_date","expected_signage_date",
   "notes","source","created_by",
 ]);
+const KNOWN_BOQ_KEYS = new Set([
+  "title","opportunity_name","status","estimated_value","assumptions",
+  "missing_items","notes","source","created_by",
+]);
+const KNOWN_RFQ_KEYS = new Set([
+  "rfq_number","received_date","opportunity_name","source_type",
+  "response_due_date","estimated_value","status","notes","created_by",
+]);
+const KNOWN_TENDER_KEYS = new Set([
+  "tender_name","source","tender_stage","tender_priority_classification",
+  "expected_award_date","estimated_project_value","signage_potential",
+  "award_evidence","next_follow_up_date","notes","created_by",
+]);
+const KNOWN_FOLLOW_UP_KEYS = new Set([
+  "opportunity_name","due_date","channel","cadence_tier","status",
+  "last_contact_at","notes","created_by",
+]);
+const KNOWN_QUOTATION_KEYS = new Set([
+  "quote_number","opportunity_name","value","currency","status",
+  "issued_date","valid_until","win_loss_reason","notes","created_by",
+]);
 
 // User-facing sentinels written into mapped_data by the validate step.
 const SKIP_KEY = "__skip__";
@@ -207,6 +228,122 @@ async function commitProject(svc: any, row: { id: string; mapped_data: Record<st
   if (extra) patch.extra_data = extra;
 
   const { data: created, error } = await svc.from("projects").insert(patch).select("id").single();
+  if (error) return { action: "skipped", recordId: null, error: error.message };
+  return { action: "created", recordId: created.id };
+}
+
+// Helper: look up an opportunity by name. Returns UUID or null.
+// deno-lint-ignore no-explicit-any
+async function findOpportunityId(svc: any, name: string | null): Promise<string | null> {
+  if (!name) return null;
+  const { data } = await svc.from("opportunities").select("id").ilike("project_name", name).limit(1).maybeSingle();
+  return data?.id ?? null;
+}
+
+// deno-lint-ignore no-explicit-any
+async function commitBoq(svc: any, row: { id: string; mapped_data: Record<string, unknown> | null }, actorId: string): Promise<CommitResult> {
+  const m = row.mapped_data;
+  const title = mv(m, "title");
+  if (!title) return { action: "skipped", recordId: null, error: "Missing required field: title" };
+  const oppId = await findOpportunityId(svc, mv(m, "opportunity_name"));
+  if (!oppId) return { action: "skipped", recordId: null, error: "Could not resolve related opportunity — provide opportunity_name matching an existing record" };
+  const patch: Record<string, unknown> = { title, related_opportunity_id: oppId, created_by: actorId };
+  const st = mv(m, "status"); if (st) patch.status = st;
+  const ev = mv(m, "estimated_value"); if (ev) patch.estimated_value = parseFloat(ev) || null;
+  const src = mv(m, "source"); if (src) patch.source = src;
+  const ass = mv(m, "assumptions"); if (ass) patch.assumptions = ass;
+  const mis = mv(m, "missing_items"); if (mis) patch.missing_items = mis;
+  const notes = mv(m, "notes"); if (notes) patch.notes = notes;
+  const extra = collectExtraData(m, KNOWN_BOQ_KEYS);
+  if (extra) patch.extra_data = extra;
+  const { data: created, error } = await svc.from("boqs").insert(patch).select("id").single();
+  if (error) return { action: "skipped", recordId: null, error: error.message };
+  return { action: "created", recordId: created.id };
+}
+
+// deno-lint-ignore no-explicit-any
+async function commitRfq(svc: any, row: { id: string; mapped_data: Record<string, unknown> | null }, actorId: string): Promise<CommitResult> {
+  const m = row.mapped_data;
+  const patch: Record<string, unknown> = { received_date: mv(m, "received_date") ?? new Date().toISOString().slice(0, 10), created_by: actorId };
+  const rfqNum = mv(m, "rfq_number"); if (rfqNum) patch.rfq_number = rfqNum;
+  const oppId = await findOpportunityId(svc, mv(m, "opportunity_name"));
+  if (oppId) patch.opportunity_id = oppId;
+  const srcType = mv(m, "source_type"); if (srcType) patch.source_type = srcType;
+  const due = mv(m, "response_due_date"); if (due) patch.response_due_date = due;
+  const ev = mv(m, "estimated_value"); if (ev) patch.estimated_value = parseFloat(ev) || null;
+  const st = mv(m, "status"); if (st) patch.status = st;
+  const notes = mv(m, "notes"); if (notes) patch.notes = notes;
+  const extra = collectExtraData(m, KNOWN_RFQ_KEYS);
+  if (extra) patch.extra_data = extra;
+  const { data: created, error } = await svc.from("rfqs").insert(patch).select("id").single();
+  if (error) return { action: "skipped", recordId: null, error: error.message };
+  return { action: "created", recordId: created.id };
+}
+
+// deno-lint-ignore no-explicit-any
+async function commitTender(svc: any, row: { id: string; mapped_data: Record<string, unknown> | null }, actorId: string): Promise<CommitResult> {
+  const m = row.mapped_data;
+  const tender_name = mv(m, "tender_name");
+  if (!tender_name) return { action: "skipped", recordId: null, error: "Missing required field: tender_name" };
+  const patch: Record<string, unknown> = { tender_name, created_by: actorId };
+  const src = mv(m, "source"); if (src) patch.source = src;
+  const stage = mv(m, "tender_stage"); if (stage) patch.tender_stage = stage;
+  const pri = mv(m, "tender_priority_classification"); if (pri) patch.tender_priority_classification = pri;
+  const award = mv(m, "expected_award_date"); if (award) patch.expected_award_date = award;
+  const epv = mv(m, "estimated_project_value"); if (epv) patch.estimated_project_value = parseFloat(epv) || null;
+  const sp = mv(m, "signage_potential"); if (sp) patch.signage_potential = sp;
+  const ae = mv(m, "award_evidence"); if (ae) patch.award_evidence = ae;
+  const nf = mv(m, "next_follow_up_date"); if (nf) patch.next_follow_up_date = nf;
+  const notes = mv(m, "notes"); if (notes) patch.notes = notes;
+  const extra = collectExtraData(m, KNOWN_TENDER_KEYS);
+  if (extra) patch.extra_data = extra;
+  const { data: existing } = await svc.from("tenders").select("id").ilike("tender_name", tender_name).maybeSingle();
+  if (existing) {
+    const { error } = await svc.from("tenders").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", existing.id);
+    if (error) return { action: "skipped", recordId: null, error: error.message };
+    return { action: "updated", recordId: existing.id };
+  }
+  const { data: created, error } = await svc.from("tenders").insert(patch).select("id").single();
+  if (error) return { action: "skipped", recordId: null, error: error.message };
+  return { action: "created", recordId: created.id };
+}
+
+// deno-lint-ignore no-explicit-any
+async function commitFollowUp(svc: any, row: { id: string; mapped_data: Record<string, unknown> | null }, actorId: string): Promise<CommitResult> {
+  const m = row.mapped_data;
+  const due_date = mv(m, "due_date");
+  if (!due_date) return { action: "skipped", recordId: null, error: "Missing required field: due_date" };
+  const oppId = await findOpportunityId(svc, mv(m, "opportunity_name"));
+  if (!oppId) return { action: "skipped", recordId: null, error: "Could not resolve related opportunity — provide opportunity_name matching an existing record" };
+  const patch: Record<string, unknown> = { opportunity_id: oppId, due_date, owner_id: actorId };
+  const ch = mv(m, "channel"); if (ch) patch.channel = ch;
+  const ct = mv(m, "cadence_tier"); if (ct) patch.cadence_tier = ct;
+  const st = mv(m, "status"); if (st) patch.status = st;
+  const lc = mv(m, "last_contact_at"); if (lc) patch.last_contact_at = lc;
+  const notes = mv(m, "notes"); if (notes) patch.notes = notes;
+  const { data: created, error } = await svc.from("follow_ups").insert(patch).select("id").single();
+  if (error) return { action: "skipped", recordId: null, error: error.message };
+  return { action: "created", recordId: created.id };
+}
+
+// deno-lint-ignore no-explicit-any
+async function commitQuotation(svc: any, row: { id: string; mapped_data: Record<string, unknown> | null }, actorId: string): Promise<CommitResult> {
+  const m = row.mapped_data;
+  const quote_number = mv(m, "quote_number");
+  if (!quote_number) return { action: "skipped", recordId: null, error: "Missing required field: quote_number" };
+  const oppId = await findOpportunityId(svc, mv(m, "opportunity_name"));
+  if (!oppId) return { action: "skipped", recordId: null, error: "Could not resolve related opportunity — provide opportunity_name matching an existing record" };
+  const patch: Record<string, unknown> = { quote_number, related_opportunity_id: oppId, created_by: actorId };
+  const val = mv(m, "value"); if (val) patch.value = parseFloat(val) || null;
+  const cur = mv(m, "currency"); if (cur) patch.currency = cur;
+  const st = mv(m, "status"); if (st) patch.status = st;
+  const id = mv(m, "issued_date"); if (id) patch.issued_date = id;
+  const vu = mv(m, "valid_until"); if (vu) patch.valid_until = vu;
+  const wl = mv(m, "win_loss_reason"); if (wl) patch.win_loss_reason = wl;
+  const notes = mv(m, "notes"); if (notes) patch.notes = notes;
+  const extra = collectExtraData(m, KNOWN_QUOTATION_KEYS);
+  if (extra) patch.extra_data = extra;
+  const { data: created, error } = await svc.from("quotations").insert(patch).select("id").single();
   if (error) return { action: "skipped", recordId: null, error: error.message };
   return { action: "created", recordId: created.id };
 }
@@ -750,7 +887,7 @@ handlers["commit"] = async (payload, caller) => {
   }
 
   const entity = batch.target_entity as string;
-  const SUPPORTED = ["companies", "contacts", "leads", "opportunities", "projects"];
+  const SUPPORTED = ["companies", "contacts", "leads", "opportunities", "projects", "boq", "rfqs", "tenders", "follow_ups", "quotations"];
 
   const { data: rows } = await svc
     .from("import_rows")
@@ -773,7 +910,7 @@ handlers["commit"] = async (payload, caller) => {
       commitErrors.push({
         batch_id: batchId, row_id: row.id, row_number: row.row_number,
         column_name: "*", error_type: "commit_unsupported",
-        message: `Entity '${entity}' is not yet supported for commit. Supported: companies, contacts, leads`,
+        message: `Entity '${entity}' is not yet supported for commit. Supported: companies, contacts, leads, opportunities, projects, boq, rfqs, tenders, follow_ups, quotations`,
         severity: "error",
       });
       await svc.from("import_rows").update({ status: "failed" }).eq("id", row.id);
@@ -783,11 +920,16 @@ handlers["commit"] = async (payload, caller) => {
 
     let result: CommitResult;
     try {
-      if (entity === "companies") result = await commitCompany(svc, row, caller.userId);
-      else if (entity === "contacts") result = await commitContact(svc, row, caller.userId);
+      if (entity === "companies")        result = await commitCompany(svc, row, caller.userId);
+      else if (entity === "contacts")    result = await commitContact(svc, row, caller.userId);
+      else if (entity === "leads")       result = await commitLead(svc, row, caller.userId);
       else if (entity === "opportunities") result = await commitOpportunity(svc, row, caller.userId);
-      else if (entity === "projects") result = await commitProject(svc, row, caller.userId);
-      else result = await commitLead(svc, row, caller.userId);
+      else if (entity === "projects")    result = await commitProject(svc, row, caller.userId);
+      else if (entity === "boq")         result = await commitBoq(svc, row, caller.userId);
+      else if (entity === "rfqs")        result = await commitRfq(svc, row, caller.userId);
+      else if (entity === "tenders")     result = await commitTender(svc, row, caller.userId);
+      else if (entity === "follow_ups")  result = await commitFollowUp(svc, row, caller.userId);
+      else                               result = await commitQuotation(svc, row, caller.userId);
     } catch (e) {
       result = { action: "skipped", recordId: null, error: e instanceof Error ? e.message : String(e) };
     }
