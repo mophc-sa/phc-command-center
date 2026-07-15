@@ -102,6 +102,7 @@ export type ImportBatch = {
   approved_by: string | null;
   approved_at: string | null;
   committed_at: string | null;
+  source_profile_id: string | null;
   notes: string | null;
   archived_at: string | null;
   archived_by: string | null;

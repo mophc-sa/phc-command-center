@@ -103,6 +103,12 @@ function BatchDetailPage() {
   const [acceptedLinkIds, setAcceptedLinkIds] = useState<Set<number>>(new Set());
   const [dismissedLinkIds, setDismissedLinkIds] = useState<Set<number>>(new Set());
 
+  // AI panels state (Task 8)
+  const [changeOutput, setChangeOutput] = useState<Record<string, unknown> | null>(null);
+  const [changeRunning, setChangeRunning] = useState(false);
+  const [reviewerOutput, setReviewerOutput] = useState<Record<string, unknown> | null>(null);
+  const [reviewerRunning, setReviewerRunning] = useState(false);
+
   const { data: splitProposals = [], refetch: refetchSplits } = useQuery<ImportSplitProposal[]>({
     queryKey: ["import-split-proposals", batchId],
     queryFn: () => getSplitProposals(batchId),
@@ -805,6 +811,74 @@ function BatchDetailPage() {
         {(dupes as any[]).length > 0 && (
           <TabsContent value="duplicates">
             <Panel title="Duplicate candidates">
+              {/* change_interpreter — only for recurring batches with a source_profile_id */}
+              {batch?.status === "duplicate_review" && batch?.source_profile_id && (
+                <div className="mb-4 rounded-lg border border-muted bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <Sparkles className="h-4 w-4" />
+                      Recurring Import Changes
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={changeRunning}
+                      onClick={async () => {
+                        setChangeRunning(true);
+                        try {
+                          const r = await callImportAgent(batchId, "change_interpreter");
+                          if (r.ok) {
+                            setChangeOutput(r.result as Record<string, unknown>);
+                            toast.success("Change summary ready");
+                          } else {
+                            toast.error(r.message);
+                          }
+                        } finally {
+                          setChangeRunning(false);
+                        }
+                      }}
+                    >
+                      {changeRunning ? (
+                        <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Interpreting…</>
+                      ) : (
+                        <><Sparkles className="mr-2 h-3 w-3" />Interpret Changes</>
+                      )}
+                    </Button>
+                  </div>
+
+                  {changeOutput && (
+                    <div className="space-y-2 text-sm">
+                      {/* Hold warning */}
+                      {changeOutput.recommended_action === "hold" && (
+                        <div className="flex items-center gap-2 rounded bg-red-500/10 border border-red-500/30 px-3 py-2 text-red-400 text-xs">
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          AI recommends holding this import — review notable changes below before proceeding.
+                        </div>
+                      )}
+
+                      <div className="text-muted-foreground text-xs">{String(changeOutput.change_summary)}</div>
+
+                      <div className="flex gap-4 text-xs">
+                        <span className="text-emerald-400">+{Number(changeOutput.new_records_count)} new</span>
+                        <span className="text-blue-400">~{Number(changeOutput.updated_records_count)} updated</span>
+                        <span className="text-muted-foreground">-{Number(changeOutput.removed_records_count)} removed</span>
+                      </div>
+
+                      {(changeOutput.notable_changes as Array<{ description: string; severity: string }>).map((c, i) => (
+                        <div key={i} className={cn(
+                          "text-xs px-2 py-1 rounded",
+                          c.severity === "critical" ? "bg-red-500/10 text-red-400" :
+                          c.severity === "warning"  ? "bg-amber-500/10 text-amber-400" :
+                                                      "bg-muted/50 text-muted-foreground",
+                        )}>
+                          {c.description}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <p className="text-xs text-muted-foreground mb-3">
                 These rows matched existing CRM records or other rows in the file.
               </p>
@@ -838,9 +912,14 @@ function BatchDetailPage() {
         <TabsContent value="approval">
           <ApprovalPanel
             batch={batch}
+            batchId={batchId}
             canApprove={canApprove}
             busy={!!busy}
             onStep={runStep}
+            reviewerOutput={reviewerOutput}
+            reviewerRunning={reviewerRunning}
+            setReviewerOutput={setReviewerOutput}
+            setReviewerRunning={setReviewerRunning}
           />
         </TabsContent>
       </Tabs>
@@ -1055,12 +1134,18 @@ function MappingPanel({
 // ---------- Approval panel ----------------------------------------------------
 
 function ApprovalPanel({
-  batch, canApprove, busy, onStep,
+  batch, batchId, canApprove, busy, onStep,
+  reviewerOutput, reviewerRunning, setReviewerOutput, setReviewerRunning,
 }: {
   batch: ImportBatch;
+  batchId: string;
   canApprove: boolean;
   busy: boolean;
   onStep: (label: string, fn: () => Promise<unknown>) => void;
+  reviewerOutput: Record<string, unknown> | null;
+  reviewerRunning: boolean;
+  setReviewerOutput: React.Dispatch<React.SetStateAction<Record<string, unknown> | null>>;
+  setReviewerRunning: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const [commitResult, setCommitResult] = useState<{ committed: number; failed: number; total: number } | null>(null);
   const [dryRunResult, setDryRunResult] = useState<{ would_create: number; would_skip_duplicates: number; would_skip_errors: number } | null>(null);
@@ -1095,6 +1180,77 @@ function ApprovalPanel({
       )}
 
       <div className="space-y-3">
+        {/* import_routing_reviewer — shown in pending_approval for approve-capable users */}
+        {batch?.status === "pending_approval" && canApprove && (
+          <div className="mb-4 rounded-lg border border-muted bg-muted/30 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <ShieldCheck className="h-4 w-4" />
+                Final AI Review
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={reviewerRunning}
+                onClick={async () => {
+                  setReviewerRunning(true);
+                  try {
+                    const r = await callImportAgent(batchId, "import_routing_reviewer");
+                    if (r.ok) {
+                      setReviewerOutput(r.result as Record<string, unknown>);
+                      toast.success("Review complete");
+                    } else {
+                      toast.error(r.message);
+                    }
+                  } finally {
+                    setReviewerRunning(false);
+                  }
+                }}
+              >
+                {reviewerRunning ? (
+                  <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Reviewing…</>
+                ) : (
+                  <><ShieldCheck className="mr-2 h-3 w-3" />Run Final Review</>
+                )}
+              </Button>
+            </div>
+
+            {reviewerOutput && (
+              <div className="space-y-2">
+                <div className={cn(
+                  "text-xs font-medium px-2 py-1 rounded inline-block",
+                  reviewerOutput.overall_recommendation === "approve" ? "bg-emerald-500/15 text-emerald-400" :
+                  reviewerOutput.overall_recommendation === "hold"    ? "bg-red-500/15 text-red-400" :
+                                                                        "bg-amber-500/15 text-amber-400",
+                )}>
+                  AI: {String(reviewerOutput.overall_recommendation).toUpperCase()}
+                  {" "}({Math.round(Number(reviewerOutput.confidence) * 100)}% confidence)
+                </div>
+
+                <div className="space-y-1">
+                  {(reviewerOutput.findings as Array<{ severity: string; title: string; description: string }>).map((f, i) => (
+                    <div key={i} className={cn(
+                      "text-xs px-2 py-1.5 rounded flex gap-2",
+                      f.severity === "critical" ? "bg-red-500/10 text-red-400" :
+                      f.severity === "warning"  ? "bg-amber-500/10 text-amber-400" :
+                                                  "bg-muted/50 text-muted-foreground",
+                    )}>
+                      <span className="font-medium shrink-0">{f.title}:</span>
+                      <span>{f.description}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {(reviewerOutput.findings as Array<{ severity: string }>).some((f) => f.severity === "critical") && (
+                  <div className="text-[10px] text-muted-foreground">
+                    Advisory only — you may still approve. Findings are for your awareness.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Step 1: Approve */}
         <div className={cn("rounded-md border px-4 py-3", isPendingApproval ? "border-emerald-500/30 bg-emerald-500/5" : "border-border opacity-60")}>
           <div className="flex items-center justify-between gap-3">
