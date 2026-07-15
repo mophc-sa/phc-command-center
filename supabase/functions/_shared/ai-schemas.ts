@@ -26,6 +26,14 @@ export const AGENT_KEYS = [
   "contact_mapping",
   "project_radar",
   "risk_finance",
+  // Import Intelligence v2 — classification pipeline
+  "workbook_classifier",
+  "sheet_classifier",
+  "semantic_field_mapper",
+  "entity_extractor",
+  "relationship_resolver",
+  "change_interpreter",
+  "import_routing_reviewer",
 ] as const;
 export type AgentKey = (typeof AGENT_KEYS)[number];
 
@@ -389,6 +397,173 @@ export const RiskFinanceOutputSchema = z
   .strict();
 export type RiskFinanceOutput = z.infer<typeof RiskFinanceOutputSchema>;
 
+// ---------------------------------------------------------------------------
+// Import Intelligence v2 — 7 classification pipeline agents
+// ---------------------------------------------------------------------------
+
+const SOURCE_KINDS = [
+  "client_relations", "project_reference", "sales_overview",
+  "protenders_leads", "quotation_masterlist", "weekly_sales_update", "unknown",
+] as const;
+
+const SHEET_RECOMMENDED_ACTIONS = ["import", "skip", "review"] as const;
+const CHANGE_RECOMMENDED_ACTIONS = ["proceed", "review", "hold"] as const;
+const ROUTING_RECOMMENDATIONS = ["approve", "review", "hold"] as const;
+const FINDING_SEVERITIES = ["info", "warning", "critical"] as const;
+const CHANGE_SEVERITIES = ["info", "warning", "critical"] as const;
+
+// Agent 8 — workbook_classifier
+export const WorkbookClassifierOutputSchema = z
+  .object({
+    detected_source_kind: z.enum(SOURCE_KINDS),
+    detected_entity_type: z.enum(IMPORT_TARGET_ENTITIES),
+    confidence: z.number().min(0).max(1),
+    rationale: z.string().min(1).max(500),
+    sheet_summary: z
+      .array(
+        z.object({
+          sheet_name: z.string().min(1).max(200),
+          row_count: z.number().int().nonnegative(),
+          notes: z.string().max(300),
+        }).strict(),
+      )
+      .max(20),
+    warnings: z.array(z.string().min(1).max(300)).max(10),
+  })
+  .strict();
+export type WorkbookClassifierOutput = z.infer<typeof WorkbookClassifierOutputSchema>;
+
+// Agent 9 — sheet_classifier
+export const SheetClassifierOutputSchema = z
+  .object({
+    sheets: z
+      .array(
+        z.object({
+          sheet_name: z.string().min(1).max(200),
+          detected_entity_type: z.enum(IMPORT_TARGET_ENTITIES),
+          confidence: z.number().min(0).max(1),
+          recommended_action: z.enum(SHEET_RECOMMENDED_ACTIONS),
+          rationale: z.string().min(1).max(300),
+        }).strict(),
+      )
+      .max(20),
+    recommended_primary_sheet: z.string().min(1).max(200),
+    warnings: z.array(z.string().min(1).max(300)).max(10),
+  })
+  .strict();
+export type SheetClassifierOutput = z.infer<typeof SheetClassifierOutputSchema>;
+
+// Agent 10 — semantic_field_mapper
+export const SemanticFieldMapperOutputSchema = z
+  .object({
+    proposals: z
+      .array(
+        z.object({
+          source_column: z.string().min(1).max(200),
+          suggested_target: z.string().min(1).max(200),
+          confidence: z.number().min(0).max(1),
+          rationale: z.string().min(1).max(300),
+        }).strict(),
+      )
+      .max(100),
+    unmapped_columns: z.array(z.string().min(1).max(200)).max(100),
+    warnings: z.array(z.string().min(1).max(300)).max(10),
+  })
+  .strict();
+export type SemanticFieldMapperOutput = z.infer<typeof SemanticFieldMapperOutputSchema>;
+
+// Agent 11 — entity_extractor
+export const EntityExtractorOutputSchema = z
+  .object({
+    split_proposals: z
+      .array(
+        z.object({
+          source_row_id: z.string().uuid(),
+          entities: z
+            .array(
+              z.object({
+                entity_type: z.enum(IMPORT_TARGET_ENTITIES),
+                proposed_payload: z.record(z.string(), z.unknown()),
+                role: z.string().min(1).max(100),
+              }).strict(),
+            )
+            .min(2)
+            .max(10),
+        }).strict(),
+      )
+      .max(50),
+    multi_entity_count: z.number().int().nonnegative(),
+    rationale: z.string().min(1).max(500),
+  })
+  .strict();
+export type EntityExtractorOutput = z.infer<typeof EntityExtractorOutputSchema>;
+
+// Agent 12 — relationship_resolver
+export const RelationshipResolverOutputSchema = z
+  .object({
+    links: z
+      .array(
+        z.object({
+          from_entity_ref: z.string().min(1).max(200),
+          to_entity_ref: z.string().min(1).max(200),
+          relationship_type: z.string().min(1).max(100),
+          confidence: z.number().min(0).max(1),
+          rationale: z.string().min(1).max(300),
+        }).strict(),
+      )
+      .max(100),
+    unresolved: z
+      .array(
+        z.object({
+          entity_ref: z.string().min(1).max(200),
+          reason: z.string().min(1).max(300),
+        }).strict(),
+      )
+      .max(50),
+  })
+  .strict();
+export type RelationshipResolverOutput = z.infer<typeof RelationshipResolverOutputSchema>;
+
+// Agent 13 — change_interpreter
+export const ChangeInterpreterOutputSchema = z
+  .object({
+    change_summary: z.string().min(1).max(500),
+    new_records_count: z.number().int().nonnegative(),
+    updated_records_count: z.number().int().nonnegative(),
+    removed_records_count: z.number().int().nonnegative(),
+    notable_changes: z
+      .array(
+        z.object({
+          description: z.string().min(1).max(300),
+          severity: z.enum(CHANGE_SEVERITIES),
+        }).strict(),
+      )
+      .max(20),
+    confidence: z.number().min(0).max(1),
+    recommended_action: z.enum(CHANGE_RECOMMENDED_ACTIONS),
+  })
+  .strict();
+export type ChangeInterpreterOutput = z.infer<typeof ChangeInterpreterOutputSchema>;
+
+// Agent 14 — import_routing_reviewer
+export const ImportRoutingReviewerOutputSchema = z
+  .object({
+    overall_recommendation: z.enum(ROUTING_RECOMMENDATIONS),
+    confidence: z.number().min(0).max(1),
+    findings: z
+      .array(
+        z.object({
+          severity: z.enum(FINDING_SEVERITIES),
+          title: z.string().min(1).max(100),
+          description: z.string().min(1).max(300),
+        }).strict(),
+      )
+      .max(20),
+    requires_human_review: z.literal(true),
+  })
+  .strict();
+export type ImportRoutingReviewerOutput = z.infer<typeof ImportRoutingReviewerOutputSchema>;
+
 // Lookup used by the orchestrator to validate whichever agent ran, without a
 // switch statement scattered through the request-handling code.
 export const AGENT_OUTPUT_SCHEMAS = {
@@ -399,6 +574,13 @@ export const AGENT_OUTPUT_SCHEMAS = {
   contact_mapping: ContactMappingOutputSchema,
   project_radar: ProjectRadarOutputSchema,
   risk_finance: RiskFinanceOutputSchema,
+  workbook_classifier: WorkbookClassifierOutputSchema,
+  sheet_classifier: SheetClassifierOutputSchema,
+  semantic_field_mapper: SemanticFieldMapperOutputSchema,
+  entity_extractor: EntityExtractorOutputSchema,
+  relationship_resolver: RelationshipResolverOutputSchema,
+  change_interpreter: ChangeInterpreterOutputSchema,
+  import_routing_reviewer: ImportRoutingReviewerOutputSchema,
 } as const satisfies Record<AgentKey, z.ZodType>;
 
 export const AGENT_OUTPUT_TYPES = {
@@ -409,6 +591,13 @@ export const AGENT_OUTPUT_TYPES = {
   contact_mapping: "staged_classification",
   project_radar: "recommendation",
   risk_finance: "recommendation",
+  workbook_classifier: "staged_classification",
+  sheet_classifier: "staged_classification",
+  semantic_field_mapper: "staged_classification",
+  entity_extractor: "staged_classification",
+  relationship_resolver: "staged_classification",
+  change_interpreter: "recommendation",
+  import_routing_reviewer: "recommendation",
 } as const satisfies Record<AgentKey, OutputType>;
 
 // ---------------------------------------------------------------------------

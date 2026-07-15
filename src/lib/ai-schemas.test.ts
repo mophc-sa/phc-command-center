@@ -1,10 +1,17 @@
 // PHC Sales OS — Sprint 10 Safe AI Orchestrator: schema tests. Run with `bun test src`.
-import { test, expect } from "bun:test";
+import { test, expect, describe, it } from "bun:test";
 import {
   OrchestratorRequestSchema,
   OpportunityEvaluationOutputSchema,
   OldDataClassifierOutputSchema,
   SmartFollowupDraftOutputSchema,
+  WorkbookClassifierOutputSchema,
+  SheetClassifierOutputSchema,
+  SemanticFieldMapperOutputSchema,
+  EntityExtractorOutputSchema,
+  RelationshipResolverOutputSchema,
+  ChangeInterpreterOutputSchema,
+  ImportRoutingReviewerOutputSchema,
 } from "../../supabase/functions/_shared/ai-schemas";
 
 const validOpportunityEval = {
@@ -150,4 +157,114 @@ test("SmartFollowupDraftOutputSchema rejects an out-of-allowlist channel", () =>
 test("SmartFollowupDraftOutputSchema rejects requires_human_review: false", () => {
   const r = SmartFollowupDraftOutputSchema.safeParse({ ...validDraft, requires_human_review: false });
   expect(r.success).toBe(false);
+});
+
+describe("workbook_classifier output", () => {
+  it("accepts valid output", () => {
+    expect(WorkbookClassifierOutputSchema.safeParse({
+      detected_source_kind: "client_relations",
+      detected_entity_type: "companies",
+      confidence: 0.9,
+      rationale: "Columns match company CRM fields.",
+      sheet_summary: [{ sheet_name: "Sheet1", row_count: 100, notes: "main data" }],
+      warnings: [],
+    }).success).toBe(true);
+  });
+  it("rejects missing confidence", () => {
+    expect(WorkbookClassifierOutputSchema.safeParse({
+      detected_source_kind: "client_relations",
+      detected_entity_type: "companies",
+      rationale: "x",
+      sheet_summary: [],
+      warnings: [],
+    }).success).toBe(false);
+  });
+});
+
+describe("sheet_classifier output", () => {
+  it("accepts valid output", () => {
+    expect(SheetClassifierOutputSchema.safeParse({
+      sheets: [{ sheet_name: "Data", detected_entity_type: "leads", confidence: 0.7, recommended_action: "import", rationale: "Lead columns found." }],
+      recommended_primary_sheet: "Data",
+      warnings: [],
+    }).success).toBe(true);
+  });
+});
+
+describe("semantic_field_mapper output", () => {
+  it("accepts valid output", () => {
+    expect(SemanticFieldMapperOutputSchema.safeParse({
+      proposals: [{ source_column: "Company Name", suggested_target: "name", confidence: 0.95, rationale: "Direct match." }],
+      unmapped_columns: ["Notes"],
+      warnings: [],
+    }).success).toBe(true);
+  });
+});
+
+describe("entity_extractor output", () => {
+  it("accepts valid output", () => {
+    expect(EntityExtractorOutputSchema.safeParse({
+      split_proposals: [{
+        source_row_id: "11111111-1111-4111-8111-111111111111",
+        entities: [
+          { entity_type: "companies", proposed_payload: { name: "Acme" }, role: "linked_company" },
+          { entity_type: "contacts", proposed_payload: { name: "John" }, role: "primary_contact" },
+        ],
+      }],
+      multi_entity_count: 1,
+      rationale: "Row contains both company and contact data.",
+    }).success).toBe(true);
+  });
+  it("rejects entity array with fewer than 2 items", () => {
+    expect(EntityExtractorOutputSchema.safeParse({
+      split_proposals: [{
+        source_row_id: "11111111-1111-4111-8111-111111111111",
+        entities: [{ entity_type: "companies", proposed_payload: {}, role: "primary" }],
+      }],
+      multi_entity_count: 1,
+      rationale: "x",
+    }).success).toBe(false);
+  });
+});
+
+describe("relationship_resolver output", () => {
+  it("accepts valid output", () => {
+    expect(RelationshipResolverOutputSchema.safeParse({
+      links: [{ from_entity_ref: "row-1", to_entity_ref: "row-2", relationship_type: "contact_of", confidence: 0.8, rationale: "Same company name." }],
+      unresolved: [],
+    }).success).toBe(true);
+  });
+});
+
+describe("change_interpreter output", () => {
+  it("accepts valid output", () => {
+    expect(ChangeInterpreterOutputSchema.safeParse({
+      change_summary: "12 new records, 3 updates.",
+      new_records_count: 12,
+      updated_records_count: 3,
+      removed_records_count: 0,
+      notable_changes: [{ description: "New region added.", severity: "info" }],
+      confidence: 0.85,
+      recommended_action: "proceed",
+    }).success).toBe(true);
+  });
+});
+
+describe("import_routing_reviewer output", () => {
+  it("accepts valid output", () => {
+    expect(ImportRoutingReviewerOutputSchema.safeParse({
+      overall_recommendation: "approve",
+      confidence: 0.9,
+      findings: [{ severity: "info", title: "All AI agents ran.", description: "No issues found." }],
+      requires_human_review: true,
+    }).success).toBe(true);
+  });
+  it("rejects requires_human_review: false", () => {
+    expect(ImportRoutingReviewerOutputSchema.safeParse({
+      overall_recommendation: "approve",
+      confidence: 0.9,
+      findings: [],
+      requires_human_review: false,
+    }).success).toBe(false);
+  });
 });
