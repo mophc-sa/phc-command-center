@@ -649,6 +649,487 @@ async function loadRiskFinanceContext(
 }
 
 // ---------------------------------------------------------------------------
+// Agents 8-14 — Import Intelligence v2 classification pipeline
+// All agents operate on import_batches — no per-record owner concept;
+// access is role-gated (matching the real import pipeline).
+// ---------------------------------------------------------------------------
+
+async function checkImportAccess(): Promise<AgentAccessResult> {
+  return { ok: true };
+}
+
+// Agent 8 — workbook_classifier
+async function loadWorkbookClassifierContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: batch, error } = await svc
+    .from("import_batches")
+    .select("id, status, source_type, target_entity, total_rows, created_at, ai_suggestions_enabled")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
+
+  const { data: file } = await svc
+    .from("import_files")
+    .select("id, file_type, column_names, row_count, sheet_count")
+    .eq("batch_id", entityId)
+    .limit(1)
+    .maybeSingle();
+
+  // Up to 5 preview rows — raw_data only, no mapped_data needed at this stage.
+  const { data: previewRows } = await svc
+    .from("import_rows")
+    .select("row_number, raw_data")
+    .eq("batch_id", entityId)
+    .order("row_number")
+    .limit(5);
+
+  const contextText = JSON.stringify(
+    {
+      batch: {
+        id: batch.id,
+        status: batch.status,
+        source_type: batch.source_type,
+        target_entity: batch.target_entity,
+        total_rows: batch.total_rows,
+        created_at: batch.created_at,
+      },
+      file: file
+        ? {
+            file_type: file.file_type,
+            column_names: (file.column_names ?? []).slice(0, 50),
+            row_count: file.row_count,
+            sheet_count: file.sheet_count ?? 1,
+          }
+        : null,
+      preview_rows: (previewRows ?? []).map((r) => ({
+        row_number: r.row_number,
+        raw_data: r.raw_data,
+      })),
+    },
+    null,
+    2,
+  );
+
+  const recordCount = 1 + (file ? 1 : 0) + (previewRows?.length ?? 0);
+  const manifest: ContextManifest = {
+    fields_loaded: ["status", "source_type", "target_entity", "total_rows", "file_type", "column_names", "raw_data"],
+    record_counts: { import_batches: 1, import_files: file ? 1 : 0, import_rows: previewRows?.length ?? 0 },
+    source_entity_types: ["import_batches", "import_files", "import_rows"],
+    redacted_identifiers: { batch_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+// Agent 9 — sheet_classifier
+async function loadSheetClassifierContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: batch, error } = await svc
+    .from("import_batches")
+    .select("id, status, target_entity")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
+
+  const { data: file } = await svc
+    .from("import_files")
+    .select("file_type, column_names, sheet_count, file_name")
+    .eq("batch_id", entityId)
+    .limit(1)
+    .maybeSingle();
+
+  if (!file || file.file_type !== "xlsx") {
+    return { ok: false, code: "AI_INPUT_INVALID", message: "sheet_classifier requires an xlsx file." };
+  }
+
+  // NOTE: individual per-sheet metadata is not stored in the DB (only the
+  // primary sheet's columns are). Context includes what we have — the file
+  // name, total sheet count, and primary sheet columns. The agent infers
+  // structure from these signals.
+  const contextText = JSON.stringify(
+    {
+      batch: { id: batch.id, target_entity: batch.target_entity },
+      workbook: {
+        file_name: file.file_name,
+        sheet_count: file.sheet_count ?? 1,
+        primary_sheet_columns: (file.column_names ?? []).slice(0, 50),
+      },
+    },
+    null,
+    2,
+  );
+
+  const recordCount = 2;
+  const manifest: ContextManifest = {
+    fields_loaded: ["file_name", "sheet_count", "column_names", "target_entity"],
+    record_counts: { import_batches: 1, import_files: 1 },
+    source_entity_types: ["import_batches", "import_files"],
+    redacted_identifiers: { batch_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+// Agent 10 — semantic_field_mapper
+const MAPPER_SAMPLE_VALUES = 3;
+const MAPPER_MAPPINGS_LIMIT = 100;
+
+async function loadSemanticFieldMapperContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: batch, error } = await svc
+    .from("import_batches")
+    .select("id, target_entity")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
+
+  const { data: file } = await svc
+    .from("import_files")
+    .select("column_names")
+    .eq("batch_id", entityId)
+    .limit(1)
+    .maybeSingle();
+
+  const columns: string[] = (file?.column_names ?? []).slice(0, 100);
+
+  // Up to 3 sample rows for value examples.
+  const { data: sampleRows } = await svc
+    .from("import_rows")
+    .select("raw_data")
+    .eq("batch_id", entityId)
+    .limit(MAPPER_SAMPLE_VALUES);
+
+  // Build per-column sample values.
+  const columnSamples: Record<string, unknown[]> = {};
+  for (const col of columns) {
+    columnSamples[col] = (sampleRows ?? [])
+      .map((r) => (r.raw_data as Record<string, unknown>)?.[col] ?? null)
+      .filter((v) => v != null && String(v).trim() !== "");
+  }
+
+  // Existing user mappings (don't suggest for these).
+  const { data: existingMappings } = await svc
+    .from("import_mappings")
+    .select("source_column, target_column, is_key")
+    .eq("batch_id", entityId)
+    .limit(MAPPER_MAPPINGS_LIMIT);
+
+  const mappedColumns = new Set((existingMappings ?? []).map((m) => m.source_column));
+  const unmappedColumns = columns.filter((c) => !mappedColumns.has(c));
+
+  const contextText = JSON.stringify(
+    {
+      batch: { id: batch.id, target_entity: batch.target_entity },
+      unmapped_columns: unmappedColumns,
+      column_samples: Object.fromEntries(
+        unmappedColumns.map((col) => [col, columnSamples[col] ?? []]),
+      ),
+      existing_mappings: (existingMappings ?? []).map((m) => ({
+        source: m.source_column,
+        target: m.target_column,
+        is_key: m.is_key,
+      })),
+    },
+    null,
+    2,
+  );
+
+  const recordCount = 1 + (sampleRows?.length ?? 0) + (existingMappings?.length ?? 0);
+  const manifest: ContextManifest = {
+    fields_loaded: ["target_entity", "column_names", "raw_data", "source_column", "target_column"],
+    record_counts: {
+      import_batches: 1,
+      import_rows: sampleRows?.length ?? 0,
+      import_mappings: existingMappings?.length ?? 0,
+    },
+    source_entity_types: ["import_batches", "import_files", "import_rows", "import_mappings"],
+    redacted_identifiers: { batch_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+// Agent 11 — entity_extractor
+const EXTRACTOR_ROWS_LIMIT = 20;
+
+async function loadEntityExtractorContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: batch, error } = await svc
+    .from("import_batches")
+    .select("id, status, target_entity, total_rows")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
+
+  const { data: rows } = await svc
+    .from("import_rows")
+    .select("id, row_number, mapped_data, status")
+    .eq("batch_id", entityId)
+    .eq("status", "valid")
+    .order("row_number")
+    .limit(EXTRACTOR_ROWS_LIMIT);
+
+  const contextText = JSON.stringify(
+    {
+      batch: { id: batch.id, target_entity: batch.target_entity, total_rows: batch.total_rows },
+      rows: (rows ?? []).map((r) => ({
+        id: r.id,
+        row_number: r.row_number,
+        mapped_data: r.mapped_data,
+      })),
+    },
+    null,
+    2,
+  );
+
+  const rowCount = rows?.length ?? 0;
+  const recordCount = 1 + rowCount;
+  const manifest: ContextManifest = {
+    fields_loaded: ["target_entity", "total_rows", "id", "row_number", "mapped_data"],
+    record_counts: { import_batches: 1, import_rows: rowCount },
+    source_entity_types: ["import_batches", "import_rows"],
+    redacted_identifiers: { batch_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+// Agent 12 — relationship_resolver
+const RESOLVER_PROPOSALS_LIMIT = 20;
+const RESOLVER_CRM_HINTS = 10;
+
+async function loadRelationshipResolverContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: batch, error } = await svc
+    .from("import_batches")
+    .select("id, target_entity")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
+
+  // Accepted split proposals for this batch.
+  const { data: proposals } = await svc
+    .from("import_split_proposals")
+    .select("id, source_row_id, entity_type, proposed_payload, role")
+    .eq("batch_id", entityId)
+    .eq("review_status", "accepted")
+    .limit(RESOLVER_PROPOSALS_LIMIT);
+
+  if (!proposals || proposals.length === 0) {
+    return {
+      ok: false,
+      code: "AI_INPUT_INVALID",
+      message: "No accepted split proposals found. Run entity_extractor and accept at least one proposal first.",
+    };
+  }
+
+  // CRM name hints for matching (name-only — no PII beyond what's in the file already).
+  const { data: crmCompanies } = await svc
+    .from("companies")
+    .select("id, name")
+    .order("name")
+    .limit(RESOLVER_CRM_HINTS);
+  const { data: crmContacts } = await svc
+    .from("contacts")
+    .select("id, name")
+    .order("name")
+    .limit(RESOLVER_CRM_HINTS);
+
+  const contextText = JSON.stringify(
+    {
+      batch: { id: batch.id, target_entity: batch.target_entity },
+      accepted_proposals: proposals.map((p) => ({
+        proposal_id: p.id,
+        source_row_id: p.source_row_id,
+        entity_type: p.entity_type,
+        proposed_payload: p.proposed_payload,
+        role: p.role,
+      })),
+      crm_hints: {
+        companies: (crmCompanies ?? []).map((c) => ({ id: c.id, name: c.name })),
+        contacts: (crmContacts ?? []).map((c) => ({ id: c.id, name: c.name })),
+      },
+    },
+    null,
+    2,
+  );
+
+  const recordCount = 1 + proposals.length + (crmCompanies?.length ?? 0) + (crmContacts?.length ?? 0);
+  const manifest: ContextManifest = {
+    fields_loaded: ["entity_type", "proposed_payload", "role", "name"],
+    record_counts: {
+      import_batches: 1,
+      import_split_proposals: proposals.length,
+      companies: crmCompanies?.length ?? 0,
+      contacts: crmContacts?.length ?? 0,
+    },
+    source_entity_types: ["import_batches", "import_split_proposals", "companies", "contacts"],
+    redacted_identifiers: { batch_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+// Agent 13 — change_interpreter
+const CHANGE_DUPES_LIMIT = 20;
+
+async function loadChangeInterpreterContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: batch, error } = await svc
+    .from("import_batches")
+    .select("id, status, source_type, target_entity, total_rows, valid_rows, error_rows, duplicate_rows, source_profile_id, created_at")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
+
+  if (!batch.source_profile_id) {
+    return {
+      ok: false,
+      code: "AI_INPUT_INVALID",
+      message: "change_interpreter requires a recurring batch (source_profile_id must be set).",
+    };
+  }
+
+  // Previous batch for the same source profile.
+  const { data: prevBatch } = await svc
+    .from("import_batches")
+    .select("id, status, total_rows, valid_rows, error_rows, duplicate_rows, created_at, committed_at")
+    .eq("source_profile_id", batch.source_profile_id)
+    .neq("id", entityId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // Sample duplicate candidates to understand what changed.
+  const { data: dupes } = await svc
+    .from("import_duplicate_candidates")
+    .select("match_type, match_scope, confidence, matched_fields, suggested_action")
+    .eq("batch_id", entityId)
+    .limit(CHANGE_DUPES_LIMIT);
+
+  const contextText = JSON.stringify(
+    {
+      current_batch: {
+        id: batch.id,
+        status: batch.status,
+        target_entity: batch.target_entity,
+        total_rows: batch.total_rows,
+        valid_rows: batch.valid_rows,
+        error_rows: batch.error_rows,
+        duplicate_rows: batch.duplicate_rows,
+        created_at: batch.created_at,
+      },
+      previous_batch: prevBatch
+        ? {
+            id: redactId(prevBatch.id),
+            total_rows: prevBatch.total_rows,
+            valid_rows: prevBatch.valid_rows,
+            error_rows: prevBatch.error_rows,
+            duplicate_rows: prevBatch.duplicate_rows,
+            created_at: prevBatch.created_at,
+            committed_at: prevBatch.committed_at,
+          }
+        : null,
+      duplicate_sample: (dupes ?? []).map((d) => ({
+        match_type: d.match_type,
+        match_scope: d.match_scope,
+        confidence: d.confidence,
+        matched_fields: d.matched_fields,
+        suggested_action: d.suggested_action,
+      })),
+    },
+    null,
+    2,
+  );
+
+  const recordCount = 1 + (prevBatch ? 1 : 0) + (dupes?.length ?? 0);
+  const manifest: ContextManifest = {
+    fields_loaded: ["status", "total_rows", "valid_rows", "error_rows", "duplicate_rows", "match_type", "confidence"],
+    record_counts: {
+      import_batches: prevBatch ? 2 : 1,
+      import_duplicate_candidates: dupes?.length ?? 0,
+    },
+    source_entity_types: ["import_batches", "import_duplicate_candidates"],
+    redacted_identifiers: { batch_id: redactId(entityId), prev_batch_id: redactId(prevBatch?.id) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+// Agent 14 — import_routing_reviewer
+const REVIEWER_OUTPUTS_LIMIT = 10;
+
+async function loadImportRoutingReviewerContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: batch, error } = await svc
+    .from("import_batches")
+    .select("id, status, source_type, target_entity, total_rows, valid_rows, error_rows, duplicate_rows, dry_run, readiness_checklist, ai_suggestions_enabled, created_at")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
+
+  // Summaries of prior agent outputs for this batch (not full payloads — just metadata).
+  const { data: priorOutputs } = await svc
+    .from("ai_agent_outputs")
+    .select("agent_key, output_type, status, created_at")
+    .eq("entity_id", entityId)
+    .eq("entity_type", "import_batches")
+    .order("created_at", { ascending: false })
+    .limit(REVIEWER_OUTPUTS_LIMIT);
+
+  const contextText = JSON.stringify(
+    {
+      batch: {
+        id: batch.id,
+        status: batch.status,
+        source_type: batch.source_type,
+        target_entity: batch.target_entity,
+        total_rows: batch.total_rows,
+        valid_rows: batch.valid_rows,
+        error_rows: batch.error_rows,
+        duplicate_rows: batch.duplicate_rows,
+        dry_run: batch.dry_run,
+        readiness_checklist: batch.readiness_checklist,
+        ai_suggestions_enabled: batch.ai_suggestions_enabled,
+        created_at: batch.created_at,
+      },
+      prior_ai_analysis: (priorOutputs ?? []).map((o) => ({
+        agent: o.agent_key,
+        output_type: o.output_type,
+        status: o.status,
+        ran_at: o.created_at,
+      })),
+    },
+    null,
+    2,
+  );
+
+  const recordCount = 1 + (priorOutputs?.length ?? 0);
+  const manifest: ContextManifest = {
+    fields_loaded: ["status", "target_entity", "total_rows", "valid_rows", "error_rows", "duplicate_rows", "readiness_checklist", "agent_key", "output_type"],
+    record_counts: { import_batches: 1, ai_agent_outputs: priorOutputs?.length ?? 0 },
+    source_entity_types: ["import_batches", "ai_agent_outputs"],
+    redacted_identifiers: { batch_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+// ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
@@ -737,4 +1218,88 @@ export const AGENT_REGISTRY: Record<AgentKey, AgentDefinition> = {
     maxContextRecords: 20,
     allowProviderFallback: true,
   },
-};
+  workbook_classifier: {
+    key: "workbook_classifier",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.workbook_classifier,
+    hasRole: AGENT_ROLE_CHECK.workbook_classifier,
+    checkAccess: checkImportAccess,
+    loadContext: loadWorkbookClassifierContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.workbook_classifier,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.workbook_classifier,
+    outputType: AGENT_OUTPUT_TYPES.workbook_classifier,
+    maxContextRecords: 10,
+    allowProviderFallback: true,
+  },
+  sheet_classifier: {
+    key: "sheet_classifier",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.sheet_classifier,
+    hasRole: AGENT_ROLE_CHECK.sheet_classifier,
+    checkAccess: checkImportAccess,
+    loadContext: loadSheetClassifierContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.sheet_classifier,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.sheet_classifier,
+    outputType: AGENT_OUTPUT_TYPES.sheet_classifier,
+    maxContextRecords: 5,
+    allowProviderFallback: true,
+  },
+  semantic_field_mapper: {
+    key: "semantic_field_mapper",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.semantic_field_mapper,
+    hasRole: AGENT_ROLE_CHECK.semantic_field_mapper,
+    checkAccess: checkImportAccess,
+    loadContext: loadSemanticFieldMapperContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.semantic_field_mapper,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.semantic_field_mapper,
+    outputType: AGENT_OUTPUT_TYPES.semantic_field_mapper,
+    maxContextRecords: 20,
+    allowProviderFallback: true,
+  },
+  entity_extractor: {
+    key: "entity_extractor",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.entity_extractor,
+    hasRole: AGENT_ROLE_CHECK.entity_extractor,
+    checkAccess: checkImportAccess,
+    loadContext: loadEntityExtractorContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.entity_extractor,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.entity_extractor,
+    outputType: AGENT_OUTPUT_TYPES.entity_extractor,
+    maxContextRecords: 25,
+    allowProviderFallback: true,
+  },
+  relationship_resolver: {
+    key: "relationship_resolver",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.relationship_resolver,
+    hasRole: AGENT_ROLE_CHECK.relationship_resolver,
+    checkAccess: checkImportAccess,
+    loadContext: loadRelationshipResolverContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.relationship_resolver,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.relationship_resolver,
+    outputType: AGENT_OUTPUT_TYPES.relationship_resolver,
+    maxContextRecords: 45,
+    allowProviderFallback: true,
+  },
+  change_interpreter: {
+    key: "change_interpreter",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.change_interpreter,
+    hasRole: AGENT_ROLE_CHECK.change_interpreter,
+    checkAccess: checkImportAccess,
+    loadContext: loadChangeInterpreterContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.change_interpreter,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.change_interpreter,
+    outputType: AGENT_OUTPUT_TYPES.change_interpreter,
+    maxContextRecords: 25,
+    allowProviderFallback: true,
+  },
+  import_routing_reviewer: {
+    key: "import_routing_reviewer",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.import_routing_reviewer,
+    hasRole: AGENT_ROLE_CHECK.import_routing_reviewer,
+    checkAccess: checkImportAccess,
+    loadContext: loadImportRoutingReviewerContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.import_routing_reviewer,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.import_routing_reviewer,
+    outputType: AGENT_OUTPUT_TYPES.import_routing_reviewer,
+    maxContextRecords: 15,
+    allowProviderFallback: true,
+  },
+} satisfies Record<AgentKey, AgentDefinition>;
