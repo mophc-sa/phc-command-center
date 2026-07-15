@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import React, { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -22,10 +22,12 @@ import {
   getImportFiles, getImportRows, validateBatch, detectDuplicates,
   approveBatch, dryRunCommit, commitBatch,
   suggestImportMappings,
+  callImportAgent,
   getTargetColumns, EXTRA_DATA_SENTINEL,
   APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
   type ImportBatch, type ImportMapping, type ImportRow,
   type ImportTargetEntity,
+  type AiAgentCallResult,
 } from "@/lib/import-actions";
 import { cn } from "@/lib/utils";
 
@@ -85,6 +87,12 @@ function BatchDetailPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [aiRunning, setAiRunning] = useState(false);
   const [aiStep, setAiStep] = useState<string>("");
+  const [mappingAiOutput, setMappingAiOutput] = useState<Record<string, unknown> | null>(null);
+  const [mappingAiAgent, setMappingAiAgent] = useState<string>("");
+  const [sheetAiOutput, setSheetAiOutput] = useState<Record<string, unknown> | null>(null);
+  const [mapperProposals, setMapperProposals] = useState<Array<{
+    source_column: string; suggested_target: string; confidence: number; rationale: string; dismissed: boolean;
+  }>>([]);
 
   const { data: batch, isLoading: batchLoading } = useQuery<ImportBatch | null>({
     queryKey: ["import-batch", batchId],
@@ -325,6 +333,157 @@ function BatchDetailPage() {
 
         {/* Mapping */}
         <TabsContent value="mapping">
+          {/* Mapping Step AI Panel — shown when batch is in mapping status */}
+          {batch?.status === "mapping" && (
+            <div className="mb-4 rounded-lg border border-muted bg-muted/30 p-4 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Sparkles className="h-4 w-4" />
+                AI Assist
+              </div>
+
+              {/* workbook_classifier */}
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={aiRunning}
+                  onClick={async () => {
+                    setAiRunning(true);
+                    setAiStep("workbook_classifier");
+                    try {
+                      const r = await callImportAgent(batchId, "workbook_classifier");
+                      if (r.ok) {
+                        setMappingAiAgent("workbook_classifier");
+                        setMappingAiOutput(r.result as Record<string, unknown>);
+                        toast.success("Workbook classified");
+                      } else {
+                        toast.error(r.message);
+                      }
+                    } finally {
+                      setAiRunning(false);
+                      setAiStep("");
+                    }
+                  }}
+                >
+                  {aiRunning && aiStep === "workbook_classifier" ? (
+                    <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Classifying…</>
+                  ) : (
+                    <><Sparkles className="mr-2 h-3 w-3" />Classify with AI</>
+                  )}
+                </Button>
+                <span className="text-xs text-muted-foreground">Auto-detect what entity type this file contains</span>
+              </div>
+
+              {/* workbook_classifier result */}
+              {mappingAiAgent === "workbook_classifier" && mappingAiOutput && (
+                <div className="rounded border border-border bg-background p-3 text-sm space-y-1">
+                  <div className="font-medium">
+                    Detected: <span className="text-primary">{String(mappingAiOutput.detected_entity_type)}</span>
+                    {" "}({String(mappingAiOutput.detected_source_kind)})
+                    <span className="ml-2 text-muted-foreground">
+                      {Math.round(Number(mappingAiOutput.confidence) * 100)}% confidence
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground text-xs">{String(mappingAiOutput.rationale)}</div>
+                  {(mappingAiOutput.warnings as string[])?.length > 0 && (
+                    <div className="mt-1 text-amber-400 text-xs">
+                      {(mappingAiOutput.warnings as string[]).join(" · ")}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* sheet_classifier — only when file has multiple sheets */}
+              {((files as any[])?.[0]?.sheet_count ?? 1) > 1 && (
+                <div className="flex items-center gap-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={aiRunning}
+                    onClick={async () => {
+                      setAiRunning(true);
+                      setAiStep("sheet_classifier");
+                      try {
+                        const r = await callImportAgent(batchId, "sheet_classifier");
+                        if (r.ok) {
+                          setSheetAiOutput(r.result as Record<string, unknown>);
+                          toast.success("Sheets classified");
+                        } else {
+                          toast.error(r.message);
+                        }
+                      } finally {
+                        setAiRunning(false);
+                        setAiStep("");
+                      }
+                    }}
+                  >
+                    {aiRunning && aiStep === "sheet_classifier" ? (
+                      <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Classifying Sheets…</>
+                    ) : (
+                      <><Sparkles className="mr-2 h-3 w-3" />Classify Sheets</>
+                    )}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">Recommend which sheet(s) to import</span>
+                </div>
+              )}
+
+              {/* sheet_classifier result */}
+              {sheetAiOutput && (
+                <div className="rounded border border-border bg-background p-3 text-sm space-y-1">
+                  <div className="font-medium mb-1">Sheet recommendations:</div>
+                  {(sheetAiOutput.sheets as Array<{ sheet_name: string; detected_entity_type: string; confidence: number; recommended_action: string; rationale: string }>).map((s) => (
+                    <div key={s.sheet_name} className="flex items-center gap-2 text-xs">
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                        s.recommended_action === "import" ? "bg-emerald-500/20 text-emerald-400" :
+                        s.recommended_action === "skip"   ? "bg-muted text-muted-foreground" :
+                                                            "bg-amber-500/20 text-amber-400",
+                      )}>
+                        {s.recommended_action}
+                      </span>
+                      <span className="font-mono">{s.sheet_name}</span>
+                      <span className="text-muted-foreground">→ {s.detected_entity_type} ({Math.round(s.confidence * 100)}%)</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* semantic_field_mapper */}
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={aiRunning}
+                  onClick={async () => {
+                    setAiRunning(true);
+                    setAiStep("semantic_field_mapper");
+                    try {
+                      const r = await callImportAgent(batchId, "semantic_field_mapper");
+                      if (r.ok) {
+                        const result = r.result as { proposals: Array<{ source_column: string; suggested_target: string; confidence: number; rationale: string }> };
+                        setMapperProposals(
+                          (result.proposals ?? []).map((p) => ({ ...p, dismissed: false })),
+                        );
+                        toast.success(`${result.proposals?.length ?? 0} mapping suggestions ready`);
+                      } else {
+                        toast.error(r.message);
+                      }
+                    } finally {
+                      setAiRunning(false);
+                      setAiStep("");
+                    }
+                  }}
+                >
+                  {aiRunning && aiStep === "semantic_field_mapper" ? (
+                    <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Suggesting…</>
+                  ) : (
+                    <><Sparkles className="mr-2 h-3 w-3" />Suggest Mappings</>
+                  )}
+                </Button>
+                <span className="text-xs text-muted-foreground">AI proposes target fields for unmapped columns</span>
+              </div>
+            </div>
+          )}
           <MappingPanel
             batchId={batchId}
             entity={batch.target_entity as ImportTargetEntity}
@@ -332,6 +491,9 @@ function BatchDetailPage() {
             files={files as any[]}
             busy={!!busy || aiRunning}
             onSaved={refresh}
+            mapperProposals={mapperProposals}
+            setMapperProposals={setMapperProposals}
+            qc={qc}
           />
         </TabsContent>
 
@@ -506,7 +668,7 @@ function Stepper({ steps, currentIndex, failed }: { steps: Step[]; currentIndex:
 // ---------- Mapping panel -----------------------------------------------------
 
 function MappingPanel({
-  batchId, entity, mappings, files, busy, onSaved,
+  batchId, entity, mappings, files, busy, onSaved, mapperProposals, setMapperProposals, qc,
 }: {
   batchId: string;
   entity: ImportTargetEntity;
@@ -514,6 +676,9 @@ function MappingPanel({
   files: { column_names?: string[] }[];
   busy: boolean;
   onSaved: () => void;
+  mapperProposals?: Array<{ source_column: string; suggested_target: string; confidence: number; rationale: string; dismissed: boolean }>;
+  setMapperProposals?: React.Dispatch<React.SetStateAction<Array<{ source_column: string; suggested_target: string; confidence: number; rationale: string; dismissed: boolean }>>>;
+  qc?: ReturnType<typeof useQueryClient>;
 }) {
   const [localMappings, setLocalMappings] = useState<Record<string, string>>(() => {
     const m: Record<string, string> = {};
@@ -562,31 +727,86 @@ function MappingPanel({
       </p>
       <div className="space-y-2">
         {sourceColumns.map((srcCol) => (
-          <div key={srcCol} className="flex items-center gap-3">
-            <span className="font-mono text-xs text-muted-foreground w-48 shrink-0 truncate" title={srcCol}>
-              {srcCol}
-            </span>
-            <span className="text-muted-foreground text-xs">→</span>
-            <Select
-              value={localMappings[srcCol] ?? "__skip__"}
-              onValueChange={(v) => setLocalMappings((prev) => ({ ...prev, [srcCol]: v }))}
-              disabled={busy || saving}
-            >
-              <SelectTrigger className="h-7 text-xs w-56">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__skip__">Skip this column</SelectItem>
-                <SelectItem value={EXTRA_DATA_SENTINEL}>Additional Data</SelectItem>
-                {targetCols
-                  .filter((c) => c.value !== EXTRA_DATA_SENTINEL)
-                  .map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label}{"required" in c && c.required ? " *" : ""}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+          <div key={srcCol} className="flex flex-col gap-1">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xs text-muted-foreground w-48 shrink-0 truncate" title={srcCol}>
+                {srcCol}
+              </span>
+              <span className="text-muted-foreground text-xs">→</span>
+              <Select
+                value={localMappings[srcCol] ?? "__skip__"}
+                onValueChange={(v) => setLocalMappings((prev) => ({ ...prev, [srcCol]: v }))}
+                disabled={busy || saving}
+              >
+                <SelectTrigger className="h-7 text-xs w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__skip__">Skip this column</SelectItem>
+                  <SelectItem value={EXTRA_DATA_SENTINEL}>Additional Data</SelectItem>
+                  {targetCols
+                    .filter((c) => c.value !== EXTRA_DATA_SENTINEL)
+                    .map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}{"required" in c && c.required ? " *" : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* AI mapping proposal chip */}
+            {(() => {
+              const proposal = mapperProposals?.find(
+                (p) => p.source_column === srcCol && !p.dismissed,
+              );
+              if (!proposal) return null;
+              return (
+                <div className="ml-52 flex items-center gap-1 text-xs">
+                  <Sparkles className="h-3 w-3 text-violet-400" />
+                  <span className="text-muted-foreground">
+                    AI suggests: <span className="text-violet-400 font-medium">{proposal.suggested_target}</span>
+                    {" "}({Math.round(proposal.confidence * 100)}%)
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-5 px-1 text-xs text-emerald-400"
+                    onClick={() => {
+                      const merged = { ...localMappings, [proposal.source_column]: proposal.suggested_target };
+                      setLocalMappings(merged);
+                      const toSave = Object.entries(merged)
+                        .filter(([, t]) => t && t !== "__skip__")
+                        .map(([source_column, target_column]) => ({
+                          source_column,
+                          target_table: entity,
+                          target_column,
+                          transform: null as string | null,
+                          is_key: false,
+                        }));
+                      saveMappings(batchId, toSave)
+                        .then(() => qc?.invalidateQueries({ queryKey: ["import-mappings", batchId] }));
+                      setMapperProposals?.((prev) =>
+                        prev.map((p) => p.source_column === proposal.source_column ? { ...p, dismissed: true } : p),
+                      );
+                    }}
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-5 px-1 text-xs text-muted-foreground"
+                    onClick={() =>
+                      setMapperProposals?.((prev) =>
+                        prev.map((p) => p.source_column === proposal.source_column ? { ...p, dismissed: true } : p),
+                      )
+                    }
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>
