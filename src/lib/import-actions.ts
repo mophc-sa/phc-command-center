@@ -132,7 +132,7 @@ export type ImportRow = {
   mapped_data: Record<string, unknown> | null;
   status: string;
   is_excluded: boolean;
-  row_status: "active" | "edited" | "excluded" | "deleted";
+  row_status: "active" | "edited" | "excluded" | "deleted" | "ai_split";
   edited_at: string | null;
   edited_by: string | null;
   edit_reason: string | null;
