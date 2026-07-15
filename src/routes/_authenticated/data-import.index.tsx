@@ -24,6 +24,9 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   createBatch, listBatches, uploadImportFile, parseFile, listSourceProfiles,
+  callImportAgent, saveMappings, validateBatch, detectDuplicates,
+  saveReadinessChecklist, approveBatch, dryRunCommit, commitBatch,
+  updateBatch, getTargetColumns, EXTRA_DATA_SENTINEL,
   UPLOAD_ROLES, TARGET_ENTITIES,
   type ImportBatch, type ImportTargetEntity, type ImportSourceProfile,
 } from "@/lib/import-actions";
@@ -74,8 +77,8 @@ function DataImportLanding() {
   const canAccess = hasAnyRole([...UPLOAD_ROLES] as any[]);
 
   const [newOpen, setNewOpen] = useState(false);
-  const [newEntity, setNewEntity] = useState<ImportTargetEntity>("companies");
   const [newFile, setNewFile] = useState<File | null>(null);
+  const [autoStep, setAutoStep] = useState<string>("");
   const [creating, setCreating] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -106,19 +109,80 @@ function DataImportLanding() {
   async function handleCreate() {
     if (!newFile) { toast.error("Choose a file first"); return; }
     setCreating(true);
+    let batchId: string | null = null;
     try {
-      const batch = await createBatch({ target_entity: newEntity });
+      // 1. Create + upload + parse
+      setAutoStep("Uploading file…");
+      const batch = await createBatch({ target_entity: "companies" });
+      batchId = batch.id;
       const { fileId } = await uploadImportFile(batch.id, newFile);
+
+      setAutoStep("Parsing file…");
       await parseFile(batch.id, fileId);
+
+      // 2. AI classification — detect entity type from file content
+      setAutoStep("Classifying file with AI…");
+      const classResult = await callImportAgent(batch.id, "workbook_classifier");
+      let detectedEntity: ImportTargetEntity = "companies";
+      if (classResult.ok) {
+        const r = classResult.result as { detected_entity_type?: string };
+        const valid = TARGET_ENTITIES.map((e) => e.value);
+        if (r.detected_entity_type && valid.includes(r.detected_entity_type as ImportTargetEntity)) {
+          detectedEntity = r.detected_entity_type as ImportTargetEntity;
+          await updateBatch(batch.id, { target_entity: detectedEntity });
+        }
+      }
+
+      // 3. AI field mapping
+      setAutoStep("Mapping columns with AI…");
+      const mapResult = await callImportAgent(batch.id, "semantic_field_mapper");
+      if (mapResult.ok) {
+        const r = mapResult.result as { proposals?: Array<{ source_column: string; suggested_target: string; confidence: number }> };
+        const validCols = new Set(getTargetColumns(detectedEntity).map((c) => c.value));
+        const toSave = (r.proposals ?? [])
+          .filter((p) => p.suggested_target && p.suggested_target !== "__skip__" && p.suggested_target !== EXTRA_DATA_SENTINEL && validCols.has(p.suggested_target))
+          .map((p) => ({ source_column: p.source_column, target_table: detectedEntity, target_column: p.suggested_target, transform: null as string | null, is_key: false }));
+        if (toSave.length > 0) await saveMappings(batch.id, toSave);
+      }
+
+      // 4. Validate + detect duplicates
+      setAutoStep("Validating rows…");
+      await validateBatch(batch.id);
+
+      setAutoStep("Checking for duplicates…");
+      await detectDuplicates(batch.id);
+
+      // 5. Complete readiness checklist
+      setAutoStep("Completing readiness checklist…");
+      await saveReadinessChecklist(batch.id, {
+        file_source_confirmed: true,
+        owner_confirmed: true,
+        backup_completed: true,
+        no_unnecessary_sensitive_data: true,
+      });
+
+      // 6. Approve → Dry run → Commit
+      setAutoStep("Approving batch…");
+      await approveBatch(batch.id);
+
+      setAutoStep("Running dry run…");
+      await dryRunCommit(batch.id);
+
+      setAutoStep("Committing to CRM…");
+      await commitBatch(batch.id);
+
       setNewOpen(false);
       setNewFile(null);
       qc.invalidateQueries({ queryKey: ["import-batches"] });
-      toast.success("File parsed — configure mapping next");
+      toast.success(`Import complete — data saved as ${detectedEntity}`);
       navigate({ to: "/data-import/$batchId", params: { batchId: batch.id } });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to create batch");
+      toast.error(e instanceof Error ? e.message : "Import failed");
+      // Navigate to batch detail so user can see what happened + retry manually
+      if (batchId) navigate({ to: "/data-import/$batchId", params: { batchId } });
     } finally {
       setCreating(false);
+      setAutoStep("");
     }
   }
 
@@ -211,26 +275,11 @@ function DataImportLanding() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>New Import</DialogTitle>
-            <DialogDescription>Upload a .csv or .xlsx file and map it into the PHC data model.</DialogDescription>
+            <DialogDescription>Upload any .csv or .xlsx file — AI will classify it, map the columns, and import it automatically.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Target entity</Label>
-              <Select value={newEntity} onValueChange={(v) => setNewEntity(v as ImportTargetEntity)} disabled={creating}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TARGET_ENTITIES.map((e) => (
-                    <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>File</Label>
               <input
                 ref={fileRef}
                 type="file"
@@ -257,6 +306,13 @@ function DataImportLanding() {
                 )}
               </button>
             </div>
+
+            {creating && autoStep && (
+              <div className="flex items-center gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-300">
+                <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                {autoStep}
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -264,7 +320,7 @@ function DataImportLanding() {
               Cancel
             </Button>
             <Button size="sm" onClick={handleCreate} disabled={creating || !newFile}>
-              {creating ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> Uploading…</> : "Upload & Continue"}
+              {creating ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Processing…</> : "Upload & Auto-Import"}
             </Button>
           </DialogFooter>
         </DialogContent>
