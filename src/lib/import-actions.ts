@@ -12,7 +12,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { type AppRole, ROLE_GROUPS } from "@/lib/roles";
 import type { AiAgentCallResult, AiAgentOutput, ImportSplitProposal } from "@/integrations/supabase/types";
-export type { AiAgentCallResult } from "@/integrations/supabase/types";
+export type { AiAgentCallResult, ImportSplitProposal } from "@/integrations/supabase/types";
 
 // Import tables are not in the auto-generated Supabase types yet.
 // Use this untyped accessor until types are regenerated.

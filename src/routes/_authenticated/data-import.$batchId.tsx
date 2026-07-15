@@ -23,11 +23,13 @@ import {
   approveBatch, dryRunCommit, commitBatch,
   suggestImportMappings,
   callImportAgent,
+  getSplitProposals, reviewSplitProposal, stageSplitProposals, acceptSplitProposalToRow,
   getTargetColumns, EXTRA_DATA_SENTINEL,
   APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
   type ImportBatch, type ImportMapping, type ImportRow,
   type ImportTargetEntity,
   type AiAgentCallResult,
+  type ImportSplitProposal,
 } from "@/lib/import-actions";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +96,21 @@ function BatchDetailPage() {
     source_column: string; suggested_target: string; confidence: number; rationale: string; dismissed: boolean;
   }>>([]);
 
+  // Extraction panel state (Task 7)
+  const [extractorRunning, setExtractorRunning] = useState(false);
+  const [resolverRunning, setResolverRunning] = useState(false);
+  const [resolverOutput, setResolverOutput] = useState<Record<string, unknown> | null>(null);
+  const [acceptedLinkIds, setAcceptedLinkIds] = useState<Set<number>>(new Set());
+  const [dismissedLinkIds, setDismissedLinkIds] = useState<Set<number>>(new Set());
+
+  const { data: splitProposals = [], refetch: refetchSplits } = useQuery<ImportSplitProposal[]>({
+    queryKey: ["import-split-proposals", batchId],
+    queryFn: () => getSplitProposals(batchId),
+    enabled: canAccess && !!batchId,
+  });
+
+  const acceptedSplits = splitProposals.filter((p) => p.review_status === "accepted");
+
   const { data: batch, isLoading: batchLoading } = useQuery<ImportBatch | null>({
     queryKey: ["import-batch", batchId],
     queryFn: () => getBatch(batchId),
@@ -139,6 +156,7 @@ function BatchDetailPage() {
     qc.invalidateQueries({ queryKey: ["import-errors", batchId] });
     qc.invalidateQueries({ queryKey: ["import-dupes", batchId] });
     qc.invalidateQueries({ queryKey: ["import-rows", batchId] });
+    qc.invalidateQueries({ queryKey: ["import-split-proposals", batchId] });
     qc.invalidateQueries({ queryKey: ["import-batches"] });
   };
 
@@ -286,6 +304,213 @@ function BatchDetailPage() {
             </Button>
           )}
         </Panel>
+      )}
+
+      {/* Extraction Panel — shown when batch is post-validate */}
+      {(batch?.status === "duplicate_review" || batch?.status === "pending_approval") && (
+        <div className="mb-4 rounded-lg border border-muted bg-muted/30 p-4 space-y-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Sparkles className="h-4 w-4" />
+            Entity Extraction
+          </div>
+
+          {/* entity_extractor button */}
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={extractorRunning || resolverRunning}
+              onClick={async () => {
+                setExtractorRunning(true);
+                try {
+                  const r = await callImportAgent(batchId, "entity_extractor");
+                  if (r.ok) {
+                    const result = r.result as { split_proposals: Array<{ source_row_id: string; entities: Array<{ entity_type: string; proposed_payload: Record<string, unknown>; role: string }> }>; multi_entity_count: number };
+                    await stageSplitProposals(batchId, r.outputId, result.split_proposals ?? []);
+                    await refetchSplits();
+                    toast.success(`${result.multi_entity_count ?? 0} multi-entity rows found`);
+                  } else {
+                    toast.error(r.message);
+                  }
+                } finally {
+                  setExtractorRunning(false);
+                }
+              }}
+            >
+              {extractorRunning ? (
+                <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Extracting…</>
+              ) : (
+                <><Sparkles className="mr-2 h-3 w-3" />Extract Entities</>
+              )}
+            </Button>
+            <span className="text-xs text-muted-foreground">Find rows containing multiple entities (e.g. company + contact)</span>
+          </div>
+
+          {/* Split proposals list */}
+          {splitProposals.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">{splitProposals.length} proposed splits</div>
+              {splitProposals.map((proposal) => (
+                <div key={proposal.id} className="rounded border border-border bg-background p-3 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-muted-foreground">
+                      {proposal.entity_type} — {proposal.role ?? ""}
+                    </span>
+                    <div className="flex gap-1">
+                      {proposal.review_status === "pending" && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs text-emerald-400"
+                            onClick={async () => {
+                              await reviewSplitProposal(proposal.id, "accepted");
+                              await refetchSplits();
+                            }}
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs text-muted-foreground"
+                            onClick={async () => {
+                              await reviewSplitProposal(proposal.id, "rejected");
+                              await refetchSplits();
+                            }}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      {proposal.review_status !== "pending" && (
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[10px] font-medium",
+                          proposal.review_status === "accepted"
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : "bg-muted text-muted-foreground",
+                        )}>
+                          {proposal.review_status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-muted-foreground font-mono text-[10px] break-all">
+                    {JSON.stringify(proposal.proposed_payload).slice(0, 200)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* relationship_resolver — enabled only when accepted splits exist */}
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={resolverRunning || extractorRunning || acceptedSplits.length === 0}
+              onClick={async () => {
+                setResolverRunning(true);
+                try {
+                  const r = await callImportAgent(batchId, "relationship_resolver");
+                  if (r.ok) {
+                    setResolverOutput(r.result as Record<string, unknown>);
+                    setAcceptedLinkIds(new Set());
+                    setDismissedLinkIds(new Set());
+                    toast.success("Relationships resolved");
+                  } else {
+                    toast.error(r.message);
+                  }
+                } finally {
+                  setResolverRunning(false);
+                }
+              }}
+            >
+              {resolverRunning ? (
+                <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Resolving…</>
+              ) : (
+                <><Sparkles className="mr-2 h-3 w-3" />Resolve Relationships</>
+              )}
+            </Button>
+            {acceptedSplits.length === 0 && (
+              <span className="text-xs text-muted-foreground">Accept at least one split proposal first</span>
+            )}
+          </div>
+
+          {/* relationship_resolver results */}
+          {resolverOutput && (
+            <div className="rounded border border-border bg-background p-3 text-sm space-y-1">
+              <div className="font-medium mb-1">Proposed relationships ({(resolverOutput.links as unknown[])?.length ?? 0}):</div>
+              {(resolverOutput.links as Array<{ from_entity_ref: string; to_entity_ref: string; relationship_type: string; confidence: number; rationale: string; source_row_id?: string }>).slice(0, 10).map((link, i) => {
+                const isAccepted = acceptedLinkIds.has(i);
+                const isDismissed = dismissedLinkIds.has(i);
+                return (
+                  <div key={i} className={cn("flex items-center gap-2 text-xs py-0.5", isDismissed && "opacity-40 line-through")}>
+                    <span className="font-mono">{link.from_entity_ref.slice(0, 8)}…</span>
+                    {" "}→ <span className="text-primary">{link.relationship_type}</span> →{" "}
+                    <span className="font-mono">{link.to_entity_ref.slice(0, 8)}…</span>
+                    <span className="ml-1 opacity-60">({Math.round(link.confidence * 100)}%)</span>
+                    {!isAccepted && !isDismissed && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 px-1.5 text-[10px] text-emerald-400 ml-auto"
+                          onClick={async () => {
+                            // Write link hint to the source import_row's extra_data
+                            if (link.source_row_id) {
+                              const db = (await import("@/integrations/supabase/client")).supabase as any;
+                              const { data: existingRow } = await db
+                                .from("import_rows")
+                                .select("id, raw_data")
+                                .eq("id", link.source_row_id)
+                                .single();
+                              if (existingRow) {
+                                const hints: unknown[] = (existingRow.raw_data as Record<string, unknown>)?.__relationship_hints as unknown[] ?? [];
+                                await db.from("import_rows").update({
+                                  raw_data: {
+                                    ...(existingRow.raw_data ?? {}),
+                                    __relationship_hints: [...hints, {
+                                      from_entity_ref: link.from_entity_ref,
+                                      to_entity_ref: link.to_entity_ref,
+                                      relationship_type: link.relationship_type,
+                                      confidence: link.confidence,
+                                      rationale: link.rationale,
+                                    }],
+                                  },
+                                }).eq("id", link.source_row_id);
+                              }
+                            }
+                            setAcceptedLinkIds((prev) => new Set([...prev, i]));
+                            toast.success("Relationship hint saved");
+                          }}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 px-1.5 text-[10px] text-muted-foreground"
+                          onClick={() => setDismissedLinkIds((prev) => new Set([...prev, i]))}
+                        >
+                          Dismiss
+                        </Button>
+                      </>
+                    )}
+                    {isAccepted && (
+                      <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/20 text-emerald-400">saved</span>
+                    )}
+                  </div>
+                );
+              })}
+              {(resolverOutput.unresolved as unknown[])?.length > 0 && (
+                <div className="text-xs text-amber-400 mt-1">
+                  {(resolverOutput.unresolved as Array<{ entity_ref: string; reason: string }>).length} unresolved
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Tabs */}
