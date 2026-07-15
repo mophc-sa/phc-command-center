@@ -365,6 +365,10 @@ function BatchDetailPage() {
                             className="h-6 px-2 text-xs text-emerald-400"
                             onClick={async () => {
                               await reviewSplitProposal(proposal.id, "accepted");
+                              const db = (await import("@/integrations/supabase/client")).supabase;
+                              const { data: maxRow } = await db.from("import_rows").select("row_number").eq("batch_id", batchId).order("row_number", { ascending: false }).limit(1).maybeSingle();
+                              const nextRowNumber = (maxRow?.row_number ?? 0) + 1;
+                              await acceptSplitProposalToRow(proposal, batchId, nextRowNumber);
                               await refetchSplits();
                             }}
                           >
@@ -457,7 +461,7 @@ function BatchDetailPage() {
                           variant="ghost"
                           className="h-5 px-1.5 text-[10px] text-emerald-400 ml-auto"
                           onClick={async () => {
-                            // Write link hint to the source import_row's extra_data
+                            // Write relationship hint to import_row.raw_data (no dedicated extra_data column exists)
                             if (link.source_row_id) {
                               const db = (await import("@/integrations/supabase/client")).supabase as any;
                               const { data: existingRow } = await db
