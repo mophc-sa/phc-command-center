@@ -71,6 +71,9 @@ export const strings = {
   tstage_awarded_to_contractor: { en: "Awarded to Contractor", ar: "تمت الترسية على المقاول" },
   tstage_converted_to_jih: { en: "Converted to JIH", ar: "تحويل إلى فرصة قائمة" },
   tstage_tender_lost_or_archived: { en: "Lost / Archived", ar: "خاسرة / مؤرشفة" },
+  tstage_tender_bafo: { en: "Tender BAFO", ar: "BAFO المناقصة" },
+  sstage_jih_bafo: { en: "JIH BAFO", ar: "BAFO الفرصة" },
+  sstage_contract_signed: { en: "Contract Signed", ar: "عقد موقّع" },
 
   // Workflow generic
   wf_new_rfq: { en: "New RFQ", ar: "طلب عرض سعر جديد" },
@@ -374,6 +377,22 @@ export const strings = {
   ws_actual_not_tracked: { en: "Actuals not tracked yet", ar: "لم يُحتسب الفعلي بعد" },
   ws_rfqs_open: { en: "open", ar: "مفتوح" },
   ws_tenders_active: { en: "active", ar: "نشطة" },
+  ws_awarded_value: { en: "Awarded Value", ar: "قيمة الترسيات" },
+  ws_achievement_pct: { en: "Achievement", ar: "نسبة الإنجاز" },
+  ws_jih_summary: { en: "JIH Pipeline", ar: "فرص قائمة" },
+  ws_urgent_quotations: { en: "Urgent Quotations", ar: "عروض أسعار عاجلة" },
+  ws_quotation_due: { en: "Submission Due", ar: "موعد تقديم العرض" },
+  ws_new_rfq: { en: "New RFQ", ar: "طلب عرض سعر" },
+  ws_rfq_step1: { en: "Company & Contact", ar: "الشركة وجهة الاتصال" },
+  ws_rfq_step2: { en: "RFQ Details", ar: "تفاصيل الطلب" },
+  ws_rfq_company: { en: "Company Name", ar: "اسم الشركة" },
+  ws_rfq_contact: { en: "Contact Name", ar: "اسم جهة الاتصال" },
+  ws_rfq_contact_phone: { en: "Phone", ar: "الجوال" },
+  ws_rfq_project: { en: "Project / Scope", ar: "المشروع / النطاق" },
+  ws_rfq_due: { en: "Response Due Date", ar: "الموعد النهائي للرد" },
+  ws_rfq_value: { en: "Estimated Value (SAR)", ar: "القيمة التقديرية (ريال)" },
+  ws_rfq_created: { en: "RFQ created and follow-up scheduled.", ar: "تم إنشاء طلب العرض وجدولة المتابعة." },
+  ws_dedup_found: { en: "Existing contact found — linked.", ar: "تم العثور على جهة الاتصال وربطها." },
 
   // Activity types
   activity_type_call: { en: "Call", ar: "مكالمة" },

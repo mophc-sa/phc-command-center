@@ -12,8 +12,8 @@ export type FlagStatus = Database["public"]["Enums"]["flag_status"];
 export type QueueActionType = Database["public"]["Enums"]["queue_action_type"];
 
 export const SALES_STAGES: SalesStage[] = [
-  "rfq_received", "jih", "under_negotiation", "verbally_awarded",
-  "contract_received", "won", "lost", "on_hold",
+  "rfq_received", "jih", "jih_bafo", "under_negotiation", "verbally_awarded",
+  "contract_received", "contract_signed", "won", "lost", "on_hold",
 ];
 export const WIN_CONFIDENCES: WinConfidence[] = ["low", "possible", "strong", "sure_win"];
 export const ACTION_TYPES: ActionType[] = [
@@ -39,13 +39,15 @@ export const TERMINAL_FLAG_STATUSES: FlagStatus[] = ["completed", "resolved", "d
 // Which stages the current sales_stage may move to (mirror of the backend map).
 const TRANSITIONS: Record<string, SalesStage[]> = {
   rfq_received: ["jih", "lost", "on_hold"],
-  jih: ["under_negotiation", "verbally_awarded", "lost", "on_hold"],
+  jih: ["jih_bafo", "under_negotiation", "verbally_awarded", "lost", "on_hold"],
+  jih_bafo: ["under_negotiation", "verbally_awarded", "lost", "on_hold"],
   under_negotiation: ["verbally_awarded", "lost", "on_hold"],
   verbally_awarded: ["contract_received", "lost", "on_hold"],
-  contract_received: ["won", "on_hold"],
+  contract_received: ["contract_signed", "won", "on_hold"],
+  contract_signed: ["won", "on_hold"],
   won: [],
   lost: [],
-  on_hold: ["jih", "under_negotiation", "verbally_awarded", "rfq_received"],
+  on_hold: ["jih", "jih_bafo", "under_negotiation", "verbally_awarded", "rfq_received"],
 };
 export function nextSalesStages(from: SalesStage | null): SalesStage[] {
   return TRANSITIONS[from ?? "jih"] ?? [];
