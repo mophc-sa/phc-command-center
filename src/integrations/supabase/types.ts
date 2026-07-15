@@ -4405,3 +4405,36 @@ export const Constants = {
     },
   },
 } as const
+
+// =============================================================================
+// Import Intelligence v2 — client-side types (not yet in auto-generated schema)
+// =============================================================================
+
+export type ImportSplitProposal = {
+  id: string;
+  batch_id: string;
+  source_row_id: string;
+  entity_type: string;
+  proposed_payload: Record<string, unknown>;
+  role: string | null;
+  ai_output_id: string | null;
+  review_status: "pending" | "accepted" | "rejected";
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+};
+
+export type AiAgentOutput = {
+  id: string;
+  agent_key: string;
+  entity_type: string;
+  entity_id: string;
+  output_type: string;
+  status: string;
+  result: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AiAgentCallResult =
+  | { ok: true; outputId: string; traceId: string; result: Record<string, unknown> }
+  | { ok: false; code: string; message: string; traceId: string | null };

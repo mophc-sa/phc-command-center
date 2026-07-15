@@ -11,6 +11,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { type AppRole, ROLE_GROUPS } from "@/lib/roles";
+import type { AiAgentCallResult, AiAgentOutput, ImportSplitProposal } from "@/integrations/supabase/types";
 
 // Import tables are not in the auto-generated Supabase types yet.
 // Use this untyped accessor until types are regenerated.
@@ -944,6 +945,145 @@ export async function suggestImportMappings(
       confidence: suggestion?.confidence ?? 0,
       isKey: suggestion?.isKey ?? false,
     };
+  });
+}
+
+// =============================================================================
+// AI agent helpers — Import Intelligence v2
+// =============================================================================
+
+/**
+ * Call the ai-orchestrator for an import-scoped agent.
+ * All import classification agents use entityType="import_batches".
+ */
+export async function callImportAgent(
+  batchId: string,
+  agent: string,
+  input: Record<string, unknown> = {},
+): Promise<AiAgentCallResult> {
+  const { data, error } = await supabase.functions.invoke("ai-orchestrator", {
+    body: {
+      agent,
+      entityType: "import_batches",
+      entityId: batchId,
+      input,
+    },
+  });
+
+  if (error) {
+    return { ok: false, code: "AI_UNKNOWN_ERROR", message: error.message, traceId: null };
+  }
+
+  return data as AiAgentCallResult;
+}
+
+/**
+ * Fetch the most recent ai_agent_outputs row for a given batch + agent.
+ * Returns null if the agent has not run yet.
+ */
+export async function getLatestAgentOutput(
+  batchId: string,
+  agent: string,
+): Promise<AiAgentOutput | null> {
+  const { data } = await db
+    .from("ai_agent_outputs")
+    .select("id, agent_key, entity_type, entity_id, output_type, status, result, created_at")
+    .eq("entity_id", batchId)
+    .eq("entity_type", "import_batches")
+    .eq("agent_key", agent)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data ?? null;
+}
+
+/**
+ * List all split proposals for a batch.
+ */
+export async function getSplitProposals(batchId: string): Promise<ImportSplitProposal[]> {
+  const { data } = await db
+    .from("import_split_proposals")
+    .select("*")
+    .eq("batch_id", batchId)
+    .order("created_at");
+
+  return (data ?? []) as ImportSplitProposal[];
+}
+
+/**
+ * Update the review_status of a split proposal (accept or reject).
+ */
+export async function reviewSplitProposal(
+  proposalId: string,
+  status: "accepted" | "rejected",
+): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  await db
+    .from("import_split_proposals")
+    .update({
+      review_status: status,
+      reviewed_by: user?.id ?? null,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", proposalId);
+}
+
+/**
+ * Stage entity_extractor AI output: parse the result and insert rows into
+ * import_split_proposals. Idempotent — existing proposals for the same
+ * ai_output_id are not re-inserted.
+ */
+export async function stageSplitProposals(
+  batchId: string,
+  aiOutputId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  splitProposals: Array<{ source_row_id: string; entities: Array<{ entity_type: string; proposed_payload: Record<string, unknown>; role: string }> }>,
+): Promise<void> {
+  // Check for existing proposals from this output to keep idempotency.
+  const { count } = await db
+    .from("import_split_proposals")
+    .select("*", { count: "exact", head: true })
+    .eq("ai_output_id", aiOutputId);
+
+  if ((count ?? 0) > 0) return; // already staged
+
+  const rows = splitProposals.flatMap((sp) =>
+    sp.entities.map((e) => ({
+      batch_id: batchId,
+      source_row_id: sp.source_row_id,
+      entity_type: e.entity_type,
+      proposed_payload: e.proposed_payload,
+      role: e.role,
+      ai_output_id: aiOutputId,
+      review_status: "pending",
+    })),
+  );
+
+  if (rows.length === 0) return;
+
+  for (let i = 0; i < rows.length; i += 100) {
+    await db.from("import_split_proposals").insert(rows.slice(i, i + 100));
+  }
+}
+
+/**
+ * Promote an accepted split proposal into a real import_row so it flows
+ * through the rest of the pipeline (validate → commit).
+ */
+export async function acceptSplitProposalToRow(
+  proposal: ImportSplitProposal,
+  batchId: string,
+  nextRowNumber: number,
+): Promise<void> {
+  await db.from("import_rows").insert({
+    batch_id: batchId,
+    file_id: null, // AI-generated row, not from file
+    row_number: nextRowNumber,
+    raw_data: proposal.proposed_payload,
+    mapped_data: proposal.proposed_payload,
+    status: "valid",
+    row_status: "ai_split",
   });
 }
 
