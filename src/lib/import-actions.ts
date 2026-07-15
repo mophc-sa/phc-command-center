@@ -1019,7 +1019,7 @@ export async function reviewSplitProposal(
   status: "accepted" | "rejected",
 ): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
-  await db
+  const { error } = await db
     .from("import_split_proposals")
     .update({
       review_status: status,
@@ -1027,6 +1027,7 @@ export async function reviewSplitProposal(
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", proposalId);
+  if (error) throw new Error(error.message);
 }
 
 /**
