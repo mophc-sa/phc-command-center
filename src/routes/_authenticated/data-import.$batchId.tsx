@@ -1155,6 +1155,10 @@ function ApprovalPanel({
   const isDryRun         = batch.status === "dry_run";
   const isCommitted      = batch.status === "committed";
 
+  const hasCritical = (reviewerOutput?.findings as Array<{ severity: string }> ?? []).some(
+    (f) => f.severity === "critical",
+  );
+
   if (isCommitted) {
     return (
       <Panel title="Committed">
@@ -1266,6 +1270,11 @@ function ApprovalPanel({
             >
               <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
               Approve
+              {hasCritical && (
+                <span className="ml-1.5 rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-medium text-red-400">
+                  ⚠ Critical
+                </span>
+              )}
             </Button>
           </div>
         </div>
