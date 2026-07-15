@@ -125,10 +125,55 @@ function WorkspacePage() {
       (await supabase.from("tenders").select("id, tender_name, tender_stage, tender_priority_classification, estimated_project_value, expected_award_date").eq("tender_owner_id", uid).not("tender_stage", "in", "(converted_to_jih,tender_lost_or_archived)").order("expected_award_date", { ascending: true })).data ?? [],
   });
 
+  const yearStart = `${new Date().getFullYear()}-01-01`;
+
+  const { data: awardedOpps = [] } = useQuery({
+    queryKey: ["ws-awarded", uid],
+    enabled: !!uid,
+    queryFn: async () =>
+      (await supabase
+        .from("opportunities")
+        .select("id, project_name, estimated_value_max, currency, sales_stage, updated_at")
+        .eq("owner_id", uid)
+        .eq("stage", "won")
+        .gte("updated_at", yearStart)
+        .order("updated_at", { ascending: false })).data ?? [],
+  });
+
+  const { data: urgentQuotations = [] } = useQuery({
+    queryKey: ["ws-urgent-quotations", uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const sevenDaysOut = new Date();
+      sevenDaysOut.setDate(sevenDaysOut.getDate() + 7);
+      return (await supabase
+        .from("quotations")
+        .select("id, related_opportunity_id, status, valid_until, total_value, currency")
+        .eq("owner_id", uid)
+        .in("status", ["approved_for_submission", "submitted", "follow_up"])
+        .lte("valid_until", sevenDaysOut.toISOString().slice(0, 10))
+        .order("valid_until", { ascending: true })).data ?? [];
+    },
+  });
+
+  const { data: jihOpps = [] } = useQuery({
+    queryKey: ["ws-jih", uid],
+    enabled: !!uid,
+    queryFn: async () =>
+      (await supabase
+        .from("opportunities")
+        .select("id, project_name, sales_stage, estimated_value_max, currency, win_confidence")
+        .eq("owner_id", uid)
+        .in("sales_stage", ["jih", "jih_bafo"])
+        .order("updated_at", { ascending: false })).data ?? [],
+  });
+
   if (isLoading || !data) return <SkeletonChart kpis={4} charts={2} />;
 
   const pipelineValue = data.opps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
   const tg = data.target;
+  const awardedValue = awardedOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
+  const achievementPct = tg?.sales_target ? Math.round((awardedValue / tg.sales_target) * 100) : null;
 
   const overdueFU = data.followups.filter((f: any) => f.status === "overdue" || (f.due_date && f.due_date < today));
   const todayFU = data.followups.filter((f: any) => f.due_date === today);
@@ -187,10 +232,20 @@ function WorkspacePage() {
 
       {/* KPI row */}
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label={t("ws_target_pipeline")} value={formatCurrency(pipelineValue, lang, "SAR")} hint={tg ? `${lang === "ar" ? "من" : "of"} ${formatCurrency(tg.pipeline_target, lang, "SAR")}` : (lang === "ar" ? "بدون هدف محدد" : "No target set")} />
+        <KpiCard
+          label={t("ws_awarded_value")}
+          value={formatCurrency(awardedValue, lang, "SAR")}
+          hint={tg?.sales_target ? `${lang === "ar" ? "من هدف" : "of target"} ${formatCurrency(tg.sales_target, lang, "SAR")}` : (lang === "ar" ? "لا هدف محدد" : "No target set")}
+          trend={achievementPct !== null ? (achievementPct >= 80 ? "up" : achievementPct >= 50 ? "flat" : "down") : undefined}
+        />
+        <KpiCard
+          label={t("ws_achievement_pct")}
+          value={achievementPct !== null ? `${achievementPct}%` : "—"}
+          hint={lang === "ar" ? "إنجاز المبيعات" : "Sales achievement"}
+          trend={achievementPct !== null ? (achievementPct >= 80 ? "up" : achievementPct >= 50 ? "flat" : "down") : undefined}
+        />
         <KpiCard label={lang === "ar" ? "متأخرات اليوم" : "Overdue today"} value={formatNumber(overdueFU.length + overdueTasks.length, lang)} hint={lang === "ar" ? "متابعات ومهام" : "Follow-ups & tasks"} trend={overdueFU.length + overdueTasks.length > 0 ? "down" : "flat"} />
         <KpiCard label={lang === "ar" ? "بانتظار قرارك" : "Awaiting your decision"} value={formatNumber(myApprovals.length, lang)} hint={t("metric_awaiting_approval")} />
-        <KpiCard label={lang === "ar" ? "حسابات نشطة" : "Active accounts"} value={formatNumber(data.accounts.length, lang)} hint={lang === "ar" ? "تحت إدارتك" : "Under your ownership"} />
       </section>
 
       {/* Pipeline snapshot row — Sales OS pilot Sprint 1 widgets */}
@@ -201,6 +256,8 @@ function WorkspacePage() {
         <KpiCard label={t("ws_my_rfqs")} value={formatNumber(myRfqs.length, lang)} hint={t("ws_rfqs_open")} />
         <KpiCard label={t("ws_my_tenders")} value={formatNumber(myTenders.length, lang)} hint={t("ws_tenders_active")} />
         <KpiCard label={t("ws_missing_data")} value={formatNumber(missingDataFlags.length, lang)} hint={lang === "ar" ? "بانتظار استكمال البيانات" : "Awaiting data completion"} trend={missingDataFlags.length > 0 ? "down" : "flat"} />
+        <KpiCard label={t("ws_jih_summary")} value={formatNumber(jihOpps.length, lang)} hint={formatCurrency(jihOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")} />
+        <KpiCard label={t("ws_urgent_quotations")} value={formatNumber(urgentQuotations.length, lang)} hint={lang === "ar" ? "تستحق هذا الأسبوع" : "Due this week"} trend={urgentQuotations.length > 0 ? "down" : "flat"} />
       </section>
 
       {/* Target snapshot — multi-dimensional target vs. tracked actuals (pipeline only for now) */}
@@ -259,6 +316,8 @@ function WorkspacePage() {
             <TabItem value="approvals" icon={<ShieldCheck className="h-3.5 w-3.5" />} label={t("nav_approvals")} count={myApprovals.length} />
             <TabItem value="rfqs" icon={<FileText className="h-3.5 w-3.5" />} label={t("ws_my_rfqs")} count={myRfqs.length} />
             <TabItem value="tenders" icon={<Award className="h-3.5 w-3.5" />} label={t("ws_my_tenders")} count={myTenders.length} />
+            <TabItem value="jih" icon={<Award className="h-3.5 w-3.5" />} label={t("ws_jih_summary")} count={jihOpps.length} />
+            <TabItem value="quotations" icon={<FileText className="h-3.5 w-3.5" />} label={t("ws_urgent_quotations")} count={urgentQuotations.length} />
           </TabsList>
 
           <TabsContent value="today" className="mt-0 grid gap-3 lg:grid-cols-2">
@@ -495,6 +554,39 @@ function WorkspacePage() {
                   tone: "muted",
                   label: tn.tender_priority_classification ?? humanize(tn.tender_stage),
                   right: formatCurrency(tn.estimated_project_value, lang, "SAR"),
+                }))}
+              />
+            </ChartFrame>
+          </TabsContent>
+
+          <TabsContent value="jih" className="mt-0">
+            <ChartFrame title={t("ws_jih_summary")} subtitle={formatCurrency(jihOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")} padded={false}>
+              <List
+                empty={t("ws_none")}
+                items={jihOpps.map((o: any) => ({
+                  key: o.id,
+                  primary: o.project_name,
+                  secondary: t(`sstage_${o.sales_stage}` as never),
+                  tone: o.win_confidence === "sure_win" ? "positive" : o.win_confidence === "strong" ? "attention" : "neutral" as any,
+                  label: t(`sstage_${o.sales_stage}` as never),
+                  right: formatCurrency(o.estimated_value_max, lang, o.currency),
+                  href: { to: "/opportunities/$id" as const, params: { id: o.id } },
+                }))}
+              />
+            </ChartFrame>
+          </TabsContent>
+
+          <TabsContent value="quotations" className="mt-0">
+            <ChartFrame title={t("ws_urgent_quotations")} subtitle={`${formatNumber(urgentQuotations.length, lang)} ${lang === "ar" ? "عرض" : "quotations"}`} padded={false}>
+              <List
+                empty={t("ws_none")}
+                items={urgentQuotations.map((q: any) => ({
+                  key: q.id,
+                  primary: q.related_opportunity_id ? oppName(q.related_opportunity_id) : "—",
+                  secondary: humanize(q.status),
+                  tone: q.valid_until && q.valid_until <= today ? "danger" : "attention" as any,
+                  label: t("ws_quotation_due"),
+                  right: q.valid_until ?? "—",
                 }))}
               />
             </ChartFrame>
