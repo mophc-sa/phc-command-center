@@ -44,6 +44,7 @@ import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticat
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedOpportunitiesIndexRouteImport } from './routes/_authenticated/opportunities.index'
+import { Route as AuthenticatedDataImportIndexRouteImport } from './routes/_authenticated/data-import.index'
 import { Route as AuthenticatedAccountsIndexRouteImport } from './routes/_authenticated/accounts.index'
 import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects.$id'
 import { Route as AuthenticatedOpportunitiesIdRouteImport } from './routes/_authenticated/opportunities.$id'
@@ -237,6 +238,12 @@ const AuthenticatedOpportunitiesIndexRoute =
     path: '/opportunities/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDataImportIndexRoute =
+  AuthenticatedDataImportIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedDataImportRoute,
+  } as any)
 const AuthenticatedAccountsIndexRoute =
   AuthenticatedAccountsIndexRouteImport.update({
     id: '/',
@@ -318,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts/': typeof AuthenticatedAccountsIndexRoute
+  '/data-import/': typeof AuthenticatedDataImportIndexRoute
   '/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -336,7 +344,6 @@ export interface FileRoutesByTo {
   '/boq': typeof AuthenticatedBoqRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
-  '/data-import': typeof AuthenticatedDataImportRouteWithChildren
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
@@ -360,6 +367,7 @@ export interface FileRoutesByTo {
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts': typeof AuthenticatedAccountsIndexRoute
+  '/data-import': typeof AuthenticatedDataImportIndexRoute
   '/opportunities': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRoutesById {
@@ -405,6 +413,7 @@ export interface FileRoutesById {
   '/_authenticated/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/_authenticated/accounts/': typeof AuthenticatedAccountsIndexRoute
+  '/_authenticated/data-import/': typeof AuthenticatedDataImportIndexRoute
   '/_authenticated/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
 }
 export interface FileRouteTypes {
@@ -450,6 +459,7 @@ export interface FileRouteTypes {
     | '/opportunities/$id'
     | '/projects/$id'
     | '/accounts/'
+    | '/data-import/'
     | '/opportunities/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -468,7 +478,6 @@ export interface FileRouteTypes {
     | '/boq'
     | '/command-center'
     | '/contacts'
-    | '/data-import'
     | '/discovery'
     | '/follow-ups'
     | '/knowledge'
@@ -492,6 +501,7 @@ export interface FileRouteTypes {
     | '/opportunities/$id'
     | '/projects/$id'
     | '/accounts'
+    | '/data-import'
     | '/opportunities'
   id:
     | '__root__'
@@ -536,6 +546,7 @@ export interface FileRouteTypes {
     | '/_authenticated/opportunities/$id'
     | '/_authenticated/projects/$id'
     | '/_authenticated/accounts/'
+    | '/_authenticated/data-import/'
     | '/_authenticated/opportunities/'
   fileRoutesById: FileRoutesById
 }
@@ -798,6 +809,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOpportunitiesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/data-import/': {
+      id: '/_authenticated/data-import/'
+      path: '/'
+      fullPath: '/data-import/'
+      preLoaderRoute: typeof AuthenticatedDataImportIndexRouteImport
+      parentRoute: typeof AuthenticatedDataImportRoute
+    }
     '/_authenticated/accounts/': {
       id: '/_authenticated/accounts/'
       path: '/'
@@ -867,11 +885,13 @@ const AuthenticatedAccountsRouteWithChildren =
 
 interface AuthenticatedDataImportRouteChildren {
   AuthenticatedDataImportBatchIdRoute: typeof AuthenticatedDataImportBatchIdRoute
+  AuthenticatedDataImportIndexRoute: typeof AuthenticatedDataImportIndexRoute
 }
 
 const AuthenticatedDataImportRouteChildren: AuthenticatedDataImportRouteChildren =
   {
     AuthenticatedDataImportBatchIdRoute: AuthenticatedDataImportBatchIdRoute,
+    AuthenticatedDataImportIndexRoute: AuthenticatedDataImportIndexRoute,
   }
 
 const AuthenticatedDataImportRouteWithChildren =
