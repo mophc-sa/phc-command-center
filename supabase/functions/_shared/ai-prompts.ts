@@ -16,7 +16,7 @@ import type { AgentKey } from "./ai-schemas.ts";
 // Bump this whenever ANY prompt's wording changes, even for one agent — it is
 // recorded in ai_agent_trace_events.metadata so a bad prompt revision can be
 // correlated with a spike in AI_OUTPUT_VALIDATION_FAILED / AI_GUARDRAIL_REJECTED.
-export const PROMPT_VERSION = "sprint10.v1";
+export const PROMPT_VERSION = "sprint10.v2";
 
 // Shared preamble every agent prompt starts with. States, in order: (1) the
 // agent never acts, only recommends: (2) untrusted-content handling; (3)
@@ -355,6 +355,229 @@ export function buildRiskFinancePrompt(context: string): BuiltPrompt {
 }
 
 // ---------------------------------------------------------------------------
+// Import Intelligence v2 — Agents 8-14
+// ---------------------------------------------------------------------------
+
+const WORKBOOK_CLASSIFIER_INSTRUCTIONS = `
+AGENT: workbook_classifier (${PROMPT_VERSION})
+Analyze the import batch metadata and sample rows in the CONTEXT block and
+determine what kind of PHC data this file contains and which CRM entity type
+it should be imported as. You do NOT commit anything — you only classify.
+
+PHC source kinds:
+- "client_relations": contacts and companies from PHC's client list
+- "project_reference": completed projects used as references/case studies
+- "sales_overview": pipeline summary with opportunities and stages
+- "protenders_leads": tender leads sourced from ProTenders platform
+- "quotation_masterlist": quotations and BOQ items
+- "weekly_sales_update": weekly update sheets from sales reps
+- "unknown": none of the above
+
+Return a JSON object with exactly these fields:
+- detected_source_kind: one of the PHC source kinds above
+- detected_entity_type: "companies" | "contacts" | "leads" | "opportunities" | "projects" | "boq"
+- confidence: number 0-1
+- rationale: string explaining the classification (max 500 chars)
+- sheet_summary: array of { sheet_name, row_count, notes } for each sheet detected
+- warnings: string[] (anything ambiguous, inconsistent, or that needs human review)
+`.trim();
+
+export function buildWorkbookClassifierPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${WORKBOOK_CLASSIFIER_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("import_batch", context),
+    version: PROMPT_VERSION,
+    schemaName: "workbook_classifier_output",
+  };
+}
+
+const SHEET_CLASSIFIER_INSTRUCTIONS = `
+AGENT: sheet_classifier (${PROMPT_VERSION})
+Analyze the multi-sheet xlsx workbook described in the CONTEXT block. For each
+sheet, determine what CRM entity type its data represents and whether it should
+be imported, skipped, or flagged for manual review. You do NOT import anything.
+
+Return a JSON object with exactly these fields:
+- sheets: array of { sheet_name, detected_entity_type, confidence, recommended_action, rationale }
+  - recommended_action: "import" (clear data, import it), "skip" (empty or irrelevant),
+    "review" (data present but ambiguous entity type or structure)
+- recommended_primary_sheet: name of the single most important sheet to import first
+- warnings: string[] (max 10, max 300 chars each)
+`.trim();
+
+export function buildSheetClassifierPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${SHEET_CLASSIFIER_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("workbook_sheets", context),
+    version: PROMPT_VERSION,
+    schemaName: "sheet_classifier_output",
+  };
+}
+
+const SEMANTIC_FIELD_MAPPER_INSTRUCTIONS = `
+AGENT: semantic_field_mapper (${PROMPT_VERSION})
+Map the source columns from the import file to PHC CRM target fields.
+You receive the batch's target entity type, the source column names, up to 3
+sample values per column, and any existing mappings already set by the user.
+Do NOT overwrite existing user mappings — only propose for unmapped columns.
+
+Valid target values per entity (use exactly these strings):
+- companies: name, company_type, cr_number, website_domain, regions, relationship_level, internal_notes, source
+- contacts: name, title, phone, email, source
+- leads: project_name, location, main_contractor_guess, source
+- opportunities: project_name, client, main_contractor, location, sector, estimated_value_min, estimated_value_max, quotation_value, stage, next_action, next_action_due, notes, source
+- projects: name, location, sector, project_stage, total_value, completion_pct, signage_package_status, notes, source
+- Use "__skip__" for columns the user should ignore.
+- Use "__extra_data__" for columns with value but no direct CRM field.
+
+Return a JSON object with exactly these fields:
+- proposals: array of { source_column, suggested_target, confidence, rationale }
+  - only include columns that do NOT already have a user mapping
+  - confidence: 0-1; omit proposals below 0.4 confidence
+- unmapped_columns: string[] — source columns you could not map confidently
+- warnings: string[] (max 10) — anything unusual about column names or values
+`.trim();
+
+export function buildSemanticFieldMapperPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${SEMANTIC_FIELD_MAPPER_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("import_columns", context),
+    version: PROMPT_VERSION,
+    schemaName: "semantic_field_mapper_output",
+  };
+}
+
+const ENTITY_EXTRACTOR_INSTRUCTIONS = `
+AGENT: entity_extractor (${PROMPT_VERSION})
+Identify rows in the import batch where a single row contains data for MULTIPLE
+distinct CRM entities (e.g. a row that has both a company name and a contact
+name, or a project name and a linked company). For each such row, propose how
+to split it into separate entity records.
+
+You do NOT create any records — you only propose splits for a human to review.
+
+Return a JSON object with exactly these fields:
+- split_proposals: array of {
+    source_row_id: UUID of the import_row (use the exact id from CONTEXT),
+    entities: array (min 2) of {
+      entity_type: one of the IMPORT_TARGET_ENTITIES,
+      proposed_payload: object with the field values for that entity,
+      role: a short descriptive label (e.g. "primary_contact", "linked_company")
+    }
+  }
+  - Only include rows that genuinely need splitting (contain >1 entity)
+  - Max 50 split proposals
+- multi_entity_count: total number of rows in this batch that contain >1 entity
+- rationale: string explaining your overall findings (max 500 chars)
+`.trim();
+
+export function buildEntityExtractorPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${ENTITY_EXTRACTOR_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("import_rows_sample", context),
+    version: PROMPT_VERSION,
+    schemaName: "entity_extractor_output",
+  };
+}
+
+const RELATIONSHIP_RESOLVER_INSTRUCTIONS = `
+AGENT: relationship_resolver (${PROMPT_VERSION})
+Given a set of entities proposed from an import split (extracted from single
+rows), determine how they relate to each other and to existing CRM records.
+Propose links between entities so that when they are committed, their
+relationships can be preserved.
+
+Relationship types to consider:
+- "contact_of": this contact belongs to this company
+- "subsidiary_of": this company is a subsidiary of another
+- "linked_opportunity": this contact or company is linked to an opportunity
+- "duplicate_of": this proposed entity appears to already exist in the CRM
+
+Return a JSON object with exactly these fields:
+- links: array of {
+    from_entity_ref: source_row_id or split_proposal_id (from CONTEXT),
+    to_entity_ref: source_row_id, split_proposal_id, or existing CRM id (from CONTEXT hints),
+    relationship_type: one of the types above,
+    confidence: 0-1,
+    rationale: string max 300 chars
+  } (max 100)
+- unresolved: array of { entity_ref, reason } for entities you could not link (max 50)
+`.trim();
+
+export function buildRelationshipResolverPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${RELATIONSHIP_RESOLVER_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("split_proposals", context),
+    version: PROMPT_VERSION,
+    schemaName: "relationship_resolver_output",
+  };
+}
+
+const CHANGE_INTERPRETER_INSTRUCTIONS = `
+AGENT: change_interpreter (${PROMPT_VERSION})
+This is a recurring import — the same file is uploaded periodically. Compare
+the current batch to the previous batch for the same source profile and produce
+a human-readable summary of what changed. You do NOT commit anything.
+
+Return a JSON object with exactly these fields:
+- change_summary: string — concise narrative of what changed (max 500 chars)
+- new_records_count: number — rows in current batch not in previous batch
+- updated_records_count: number — rows that appear to update existing records
+- removed_records_count: number — records present in previous batch but absent here
+- notable_changes: array of { description, severity } (max 20)
+  - severity: "info" (routine), "warning" (unexpected but not blocking),
+    "critical" (data quality or scope issue that should be reviewed before proceeding)
+- confidence: 0-1 — how confident you are in this comparison
+- recommended_action: "proceed" | "review" | "hold"
+  - "proceed": changes look routine, safe to continue
+  - "review": unusual changes detected, human should look before proceeding
+  - "hold": significant anomaly (massive drop in records, critical-severity changes) —
+    recommend pausing until a human confirms the file is correct
+`.trim();
+
+export function buildChangeInterpreterPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${CHANGE_INTERPRETER_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("batch_comparison", context),
+    version: PROMPT_VERSION,
+    schemaName: "change_interpreter_output",
+  };
+}
+
+const IMPORT_ROUTING_REVIEWER_INSTRUCTIONS = `
+AGENT: import_routing_reviewer (${PROMPT_VERSION})
+You are a final advisory reviewer for a data import batch that is about to be
+approved for production commit. Review the batch summary and any AI analysis
+already performed, then produce a structured findings report for the approving
+manager. This is ADVISORY ONLY — your findings do not block approval; the
+manager makes the final decision.
+
+Severity guide:
+- "info": routine observation, no action needed
+- "warning": something to be aware of, but not blocking
+- "critical": a potential data quality or process issue the manager should
+  consciously acknowledge before approving (does not prevent approval)
+
+Return a JSON object with exactly these fields:
+- overall_recommendation: "approve" | "review" | "hold"
+  - "approve": batch looks ready
+  - "review": one or more warnings worth a second look
+  - "hold": one or more critical findings that warrant pausing
+- confidence: 0-1
+- findings: array of { severity, title (max 100 chars), description (max 300 chars) } (max 20)
+- requires_human_review: must always be exactly true
+`.trim();
+
+export function buildImportRoutingReviewerPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${IMPORT_ROUTING_REVIEWER_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("import_batch_review", context),
+    version: PROMPT_VERSION,
+    schemaName: "import_routing_reviewer_output",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Registry lookup — used by the agent registry so it does not need a switch.
 // ---------------------------------------------------------------------------
 
@@ -366,4 +589,11 @@ export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltP
   contact_mapping: buildContactMappingPrompt,
   project_radar: buildProjectRadarPrompt,
   risk_finance: buildRiskFinancePrompt,
+  workbook_classifier: buildWorkbookClassifierPrompt,
+  sheet_classifier: buildSheetClassifierPrompt,
+  semantic_field_mapper: buildSemanticFieldMapperPrompt,
+  entity_extractor: buildEntityExtractorPrompt,
+  relationship_resolver: buildRelationshipResolverPrompt,
+  change_interpreter: buildChangeInterpreterPrompt,
+  import_routing_reviewer: buildImportRoutingReviewerPrompt,
 };

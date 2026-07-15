@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import React, { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -22,10 +22,14 @@ import {
   getImportFiles, getImportRows, validateBatch, detectDuplicates,
   approveBatch, dryRunCommit, commitBatch,
   suggestImportMappings,
+  callImportAgent,
+  getSplitProposals, reviewSplitProposal, stageSplitProposals, acceptSplitProposalToRow,
   getTargetColumns, EXTRA_DATA_SENTINEL,
   APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
   type ImportBatch, type ImportMapping, type ImportRow,
   type ImportTargetEntity,
+  type AiAgentCallResult,
+  type ImportSplitProposal,
 } from "@/lib/import-actions";
 import { cn } from "@/lib/utils";
 
@@ -85,6 +89,33 @@ function BatchDetailPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [aiRunning, setAiRunning] = useState(false);
   const [aiStep, setAiStep] = useState<string>("");
+  const [mappingAiOutput, setMappingAiOutput] = useState<Record<string, unknown> | null>(null);
+  const [mappingAiAgent, setMappingAiAgent] = useState<string>("");
+  const [sheetAiOutput, setSheetAiOutput] = useState<Record<string, unknown> | null>(null);
+  const [mapperProposals, setMapperProposals] = useState<Array<{
+    source_column: string; suggested_target: string; confidence: number; rationale: string; dismissed: boolean;
+  }>>([]);
+
+  // Extraction panel state (Task 7)
+  const [extractorRunning, setExtractorRunning] = useState(false);
+  const [resolverRunning, setResolverRunning] = useState(false);
+  const [resolverOutput, setResolverOutput] = useState<Record<string, unknown> | null>(null);
+  const [acceptedLinkIds, setAcceptedLinkIds] = useState<Set<number>>(new Set());
+  const [dismissedLinkIds, setDismissedLinkIds] = useState<Set<number>>(new Set());
+
+  // AI panels state (Task 8)
+  const [changeOutput, setChangeOutput] = useState<Record<string, unknown> | null>(null);
+  const [changeRunning, setChangeRunning] = useState(false);
+  const [reviewerOutput, setReviewerOutput] = useState<Record<string, unknown> | null>(null);
+  const [reviewerRunning, setReviewerRunning] = useState(false);
+
+  const { data: splitProposals = [], refetch: refetchSplits } = useQuery<ImportSplitProposal[]>({
+    queryKey: ["import-split-proposals", batchId],
+    queryFn: () => getSplitProposals(batchId),
+    enabled: canAccess && !!batchId,
+  });
+
+  const acceptedSplits = splitProposals.filter((p) => p.review_status === "accepted");
 
   const { data: batch, isLoading: batchLoading } = useQuery<ImportBatch | null>({
     queryKey: ["import-batch", batchId],
@@ -131,6 +162,7 @@ function BatchDetailPage() {
     qc.invalidateQueries({ queryKey: ["import-errors", batchId] });
     qc.invalidateQueries({ queryKey: ["import-dupes", batchId] });
     qc.invalidateQueries({ queryKey: ["import-rows", batchId] });
+    qc.invalidateQueries({ queryKey: ["import-split-proposals", batchId] });
     qc.invalidateQueries({ queryKey: ["import-batches"] });
   };
 
@@ -280,6 +312,217 @@ function BatchDetailPage() {
         </Panel>
       )}
 
+      {/* Extraction Panel — shown when batch is post-validate */}
+      {(batch?.status === "duplicate_review" || batch?.status === "pending_approval") && (
+        <div className="mb-4 rounded-lg border border-muted bg-muted/30 p-4 space-y-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Sparkles className="h-4 w-4" />
+            Entity Extraction
+          </div>
+
+          {/* entity_extractor button */}
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={extractorRunning || resolverRunning}
+              onClick={async () => {
+                setExtractorRunning(true);
+                try {
+                  const r = await callImportAgent(batchId, "entity_extractor");
+                  if (r.ok) {
+                    const result = r.result as { split_proposals: Array<{ source_row_id: string; entities: Array<{ entity_type: string; proposed_payload: Record<string, unknown>; role: string }> }>; multi_entity_count: number };
+                    await stageSplitProposals(batchId, r.outputId, result.split_proposals ?? []);
+                    await refetchSplits();
+                    toast.success(`${result.multi_entity_count ?? 0} multi-entity rows found`);
+                  } else {
+                    toast.error(r.message);
+                  }
+                } finally {
+                  setExtractorRunning(false);
+                }
+              }}
+            >
+              {extractorRunning ? (
+                <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Extracting…</>
+              ) : (
+                <><Sparkles className="mr-2 h-3 w-3" />Extract Entities</>
+              )}
+            </Button>
+            <span className="text-xs text-muted-foreground">Find rows containing multiple entities (e.g. company + contact)</span>
+          </div>
+
+          {/* Split proposals list */}
+          {splitProposals.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">{splitProposals.length} proposed splits</div>
+              {splitProposals.map((proposal) => (
+                <div key={proposal.id} className="rounded border border-border bg-background p-3 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-muted-foreground">
+                      {proposal.entity_type} — {proposal.role ?? ""}
+                    </span>
+                    <div className="flex gap-1">
+                      {proposal.review_status === "pending" && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs text-emerald-400"
+                            onClick={async () => {
+                              await reviewSplitProposal(proposal.id, "accepted");
+                              const db = (await import("@/integrations/supabase/client")).supabase;
+                              const { data: maxRow } = await db.from("import_rows").select("row_number").eq("batch_id", batchId).order("row_number", { ascending: false }).limit(1).maybeSingle();
+                              const nextRowNumber = (maxRow?.row_number ?? 0) + 1;
+                              await acceptSplitProposalToRow(proposal, batchId, nextRowNumber);
+                              await refetchSplits();
+                            }}
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs text-muted-foreground"
+                            onClick={async () => {
+                              await reviewSplitProposal(proposal.id, "rejected");
+                              await refetchSplits();
+                            }}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      {proposal.review_status !== "pending" && (
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[10px] font-medium",
+                          proposal.review_status === "accepted"
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : "bg-muted text-muted-foreground",
+                        )}>
+                          {proposal.review_status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-muted-foreground font-mono text-[10px] break-all">
+                    {JSON.stringify(proposal.proposed_payload).slice(0, 200)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* relationship_resolver — enabled only when accepted splits exist */}
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={resolverRunning || extractorRunning || acceptedSplits.length === 0}
+              onClick={async () => {
+                setResolverRunning(true);
+                try {
+                  const r = await callImportAgent(batchId, "relationship_resolver");
+                  if (r.ok) {
+                    setResolverOutput(r.result as Record<string, unknown>);
+                    setAcceptedLinkIds(new Set());
+                    setDismissedLinkIds(new Set());
+                    toast.success("Relationships resolved");
+                  } else {
+                    toast.error(r.message);
+                  }
+                } finally {
+                  setResolverRunning(false);
+                }
+              }}
+            >
+              {resolverRunning ? (
+                <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Resolving…</>
+              ) : (
+                <><Sparkles className="mr-2 h-3 w-3" />Resolve Relationships</>
+              )}
+            </Button>
+            {acceptedSplits.length === 0 && (
+              <span className="text-xs text-muted-foreground">Accept at least one split proposal first</span>
+            )}
+          </div>
+
+          {/* relationship_resolver results */}
+          {resolverOutput && (
+            <div className="rounded border border-border bg-background p-3 text-sm space-y-1">
+              <div className="font-medium mb-1">Proposed relationships ({(resolverOutput.links as unknown[])?.length ?? 0}):</div>
+              {(resolverOutput.links as Array<{ from_entity_ref: string; to_entity_ref: string; relationship_type: string; confidence: number; rationale: string; source_row_id?: string }>).slice(0, 10).map((link, i) => {
+                const isAccepted = acceptedLinkIds.has(i);
+                const isDismissed = dismissedLinkIds.has(i);
+                return (
+                  <div key={i} className={cn("flex items-center gap-2 text-xs py-0.5", isDismissed && "opacity-40 line-through")}>
+                    <span className="font-mono">{link.from_entity_ref.slice(0, 8)}…</span>
+                    {" "}→ <span className="text-primary">{link.relationship_type}</span> →{" "}
+                    <span className="font-mono">{link.to_entity_ref.slice(0, 8)}…</span>
+                    <span className="ml-1 opacity-60">({Math.round(link.confidence * 100)}%)</span>
+                    {!isAccepted && !isDismissed && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 px-1.5 text-[10px] text-emerald-400 ml-auto"
+                          onClick={async () => {
+                            // Write relationship hint to import_row.raw_data (no dedicated extra_data column exists)
+                            if (link.source_row_id) {
+                              const db = (await import("@/integrations/supabase/client")).supabase as any;
+                              const { data: existingRow } = await db
+                                .from("import_rows")
+                                .select("id, raw_data")
+                                .eq("id", link.source_row_id)
+                                .single();
+                              if (existingRow) {
+                                const hints: unknown[] = (existingRow.raw_data as Record<string, unknown>)?.__relationship_hints as unknown[] ?? [];
+                                await db.from("import_rows").update({
+                                  raw_data: {
+                                    ...(existingRow.raw_data ?? {}),
+                                    __relationship_hints: [...hints, {
+                                      from_entity_ref: link.from_entity_ref,
+                                      to_entity_ref: link.to_entity_ref,
+                                      relationship_type: link.relationship_type,
+                                      confidence: link.confidence,
+                                      rationale: link.rationale,
+                                    }],
+                                  },
+                                }).eq("id", link.source_row_id);
+                              }
+                            }
+                            setAcceptedLinkIds((prev) => new Set([...prev, i]));
+                            toast.success("Relationship hint saved");
+                          }}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-5 px-1.5 text-[10px] text-muted-foreground"
+                          onClick={() => setDismissedLinkIds((prev) => new Set([...prev, i]))}
+                        >
+                          Dismiss
+                        </Button>
+                      </>
+                    )}
+                    {isAccepted && (
+                      <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/20 text-emerald-400">saved</span>
+                    )}
+                  </div>
+                );
+              })}
+              {(resolverOutput.unresolved as unknown[])?.length > 0 && (
+                <div className="text-xs text-amber-400 mt-1">
+                  {(resolverOutput.unresolved as Array<{ entity_ref: string; reason: string }>).length} unresolved
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tabs */}
       <Tabs defaultValue={isMappingStep ? "mapping" : "summary"}>
         <TabsList className="mb-4">
@@ -325,6 +568,157 @@ function BatchDetailPage() {
 
         {/* Mapping */}
         <TabsContent value="mapping">
+          {/* Mapping Step AI Panel — shown when batch is in mapping status */}
+          {batch?.status === "mapping" && (
+            <div className="mb-4 rounded-lg border border-muted bg-muted/30 p-4 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Sparkles className="h-4 w-4" />
+                AI Assist
+              </div>
+
+              {/* workbook_classifier */}
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={aiRunning}
+                  onClick={async () => {
+                    setAiRunning(true);
+                    setAiStep("workbook_classifier");
+                    try {
+                      const r = await callImportAgent(batchId, "workbook_classifier");
+                      if (r.ok) {
+                        setMappingAiAgent("workbook_classifier");
+                        setMappingAiOutput(r.result as Record<string, unknown>);
+                        toast.success("Workbook classified");
+                      } else {
+                        toast.error(r.message);
+                      }
+                    } finally {
+                      setAiRunning(false);
+                      setAiStep("");
+                    }
+                  }}
+                >
+                  {aiRunning && aiStep === "workbook_classifier" ? (
+                    <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Classifying…</>
+                  ) : (
+                    <><Sparkles className="mr-2 h-3 w-3" />Classify with AI</>
+                  )}
+                </Button>
+                <span className="text-xs text-muted-foreground">Auto-detect what entity type this file contains</span>
+              </div>
+
+              {/* workbook_classifier result */}
+              {mappingAiAgent === "workbook_classifier" && mappingAiOutput && (
+                <div className="rounded border border-border bg-background p-3 text-sm space-y-1">
+                  <div className="font-medium">
+                    Detected: <span className="text-primary">{String(mappingAiOutput.detected_entity_type)}</span>
+                    {" "}({String(mappingAiOutput.detected_source_kind)})
+                    <span className="ml-2 text-muted-foreground">
+                      {Math.round(Number(mappingAiOutput.confidence) * 100)}% confidence
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground text-xs">{String(mappingAiOutput.rationale)}</div>
+                  {(mappingAiOutput.warnings as string[])?.length > 0 && (
+                    <div className="mt-1 text-amber-400 text-xs">
+                      {(mappingAiOutput.warnings as string[]).join(" · ")}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* sheet_classifier — only when file has multiple sheets */}
+              {((files as any[])?.[0]?.sheet_count ?? 1) > 1 && (
+                <div className="flex items-center gap-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={aiRunning}
+                    onClick={async () => {
+                      setAiRunning(true);
+                      setAiStep("sheet_classifier");
+                      try {
+                        const r = await callImportAgent(batchId, "sheet_classifier");
+                        if (r.ok) {
+                          setSheetAiOutput(r.result as Record<string, unknown>);
+                          toast.success("Sheets classified");
+                        } else {
+                          toast.error(r.message);
+                        }
+                      } finally {
+                        setAiRunning(false);
+                        setAiStep("");
+                      }
+                    }}
+                  >
+                    {aiRunning && aiStep === "sheet_classifier" ? (
+                      <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Classifying Sheets…</>
+                    ) : (
+                      <><Sparkles className="mr-2 h-3 w-3" />Classify Sheets</>
+                    )}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">Recommend which sheet(s) to import</span>
+                </div>
+              )}
+
+              {/* sheet_classifier result */}
+              {sheetAiOutput && (
+                <div className="rounded border border-border bg-background p-3 text-sm space-y-1">
+                  <div className="font-medium mb-1">Sheet recommendations:</div>
+                  {(sheetAiOutput.sheets as Array<{ sheet_name: string; detected_entity_type: string; confidence: number; recommended_action: string; rationale: string }>).map((s) => (
+                    <div key={s.sheet_name} className="flex items-center gap-2 text-xs">
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                        s.recommended_action === "import" ? "bg-emerald-500/20 text-emerald-400" :
+                        s.recommended_action === "skip"   ? "bg-muted text-muted-foreground" :
+                                                            "bg-amber-500/20 text-amber-400",
+                      )}>
+                        {s.recommended_action}
+                      </span>
+                      <span className="font-mono">{s.sheet_name}</span>
+                      <span className="text-muted-foreground">→ {s.detected_entity_type} ({Math.round(s.confidence * 100)}%)</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* semantic_field_mapper */}
+              <div className="flex items-center gap-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={aiRunning}
+                  onClick={async () => {
+                    setAiRunning(true);
+                    setAiStep("semantic_field_mapper");
+                    try {
+                      const r = await callImportAgent(batchId, "semantic_field_mapper");
+                      if (r.ok) {
+                        const result = r.result as { proposals: Array<{ source_column: string; suggested_target: string; confidence: number; rationale: string }> };
+                        setMapperProposals(
+                          (result.proposals ?? []).map((p) => ({ ...p, dismissed: false })),
+                        );
+                        toast.success(`${result.proposals?.length ?? 0} mapping suggestions ready`);
+                      } else {
+                        toast.error(r.message);
+                      }
+                    } finally {
+                      setAiRunning(false);
+                      setAiStep("");
+                    }
+                  }}
+                >
+                  {aiRunning && aiStep === "semantic_field_mapper" ? (
+                    <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Suggesting…</>
+                  ) : (
+                    <><Sparkles className="mr-2 h-3 w-3" />Suggest Mappings</>
+                  )}
+                </Button>
+                <span className="text-xs text-muted-foreground">AI proposes target fields for unmapped columns</span>
+              </div>
+            </div>
+          )}
           <MappingPanel
             batchId={batchId}
             entity={batch.target_entity as ImportTargetEntity}
@@ -332,6 +726,9 @@ function BatchDetailPage() {
             files={files as any[]}
             busy={!!busy || aiRunning}
             onSaved={refresh}
+            mapperProposals={mapperProposals}
+            setMapperProposals={setMapperProposals}
+            qc={qc}
           />
         </TabsContent>
 
@@ -414,6 +811,74 @@ function BatchDetailPage() {
         {(dupes as any[]).length > 0 && (
           <TabsContent value="duplicates">
             <Panel title="Duplicate candidates">
+              {/* change_interpreter — only for recurring batches with a source_profile_id */}
+              {batch?.status === "duplicate_review" && batch?.source_profile_id && (
+                <div className="mb-4 rounded-lg border border-muted bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <Sparkles className="h-4 w-4" />
+                      Recurring Import Changes
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={changeRunning}
+                      onClick={async () => {
+                        setChangeRunning(true);
+                        try {
+                          const r = await callImportAgent(batchId, "change_interpreter");
+                          if (r.ok) {
+                            setChangeOutput(r.result as Record<string, unknown>);
+                            toast.success("Change summary ready");
+                          } else {
+                            toast.error(r.message);
+                          }
+                        } finally {
+                          setChangeRunning(false);
+                        }
+                      }}
+                    >
+                      {changeRunning ? (
+                        <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Interpreting…</>
+                      ) : (
+                        <><Sparkles className="mr-2 h-3 w-3" />Interpret Changes</>
+                      )}
+                    </Button>
+                  </div>
+
+                  {changeOutput && (
+                    <div className="space-y-2 text-sm">
+                      {/* Hold warning */}
+                      {changeOutput.recommended_action === "hold" && (
+                        <div className="flex items-center gap-2 rounded bg-red-500/10 border border-red-500/30 px-3 py-2 text-red-400 text-xs">
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          AI recommends holding this import — review notable changes below before proceeding.
+                        </div>
+                      )}
+
+                      <div className="text-muted-foreground text-xs">{String(changeOutput.change_summary)}</div>
+
+                      <div className="flex gap-4 text-xs">
+                        <span className="text-emerald-400">+{Number(changeOutput.new_records_count)} new</span>
+                        <span className="text-blue-400">~{Number(changeOutput.updated_records_count)} updated</span>
+                        <span className="text-muted-foreground">-{Number(changeOutput.removed_records_count)} removed</span>
+                      </div>
+
+                      {(changeOutput.notable_changes as Array<{ description: string; severity: string }>).map((c, i) => (
+                        <div key={i} className={cn(
+                          "text-xs px-2 py-1 rounded",
+                          c.severity === "critical" ? "bg-red-500/10 text-red-400" :
+                          c.severity === "warning"  ? "bg-amber-500/10 text-amber-400" :
+                                                      "bg-muted/50 text-muted-foreground",
+                        )}>
+                          {c.description}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <p className="text-xs text-muted-foreground mb-3">
                 These rows matched existing CRM records or other rows in the file.
               </p>
@@ -447,9 +912,14 @@ function BatchDetailPage() {
         <TabsContent value="approval">
           <ApprovalPanel
             batch={batch}
+            batchId={batchId}
             canApprove={canApprove}
             busy={!!busy}
             onStep={runStep}
+            reviewerOutput={reviewerOutput}
+            reviewerRunning={reviewerRunning}
+            setReviewerOutput={setReviewerOutput}
+            setReviewerRunning={setReviewerRunning}
           />
         </TabsContent>
       </Tabs>
@@ -506,7 +976,7 @@ function Stepper({ steps, currentIndex, failed }: { steps: Step[]; currentIndex:
 // ---------- Mapping panel -----------------------------------------------------
 
 function MappingPanel({
-  batchId, entity, mappings, files, busy, onSaved,
+  batchId, entity, mappings, files, busy, onSaved, mapperProposals, setMapperProposals, qc,
 }: {
   batchId: string;
   entity: ImportTargetEntity;
@@ -514,6 +984,9 @@ function MappingPanel({
   files: { column_names?: string[] }[];
   busy: boolean;
   onSaved: () => void;
+  mapperProposals?: Array<{ source_column: string; suggested_target: string; confidence: number; rationale: string; dismissed: boolean }>;
+  setMapperProposals?: React.Dispatch<React.SetStateAction<Array<{ source_column: string; suggested_target: string; confidence: number; rationale: string; dismissed: boolean }>>>;
+  qc?: ReturnType<typeof useQueryClient>;
 }) {
   const [localMappings, setLocalMappings] = useState<Record<string, string>>(() => {
     const m: Record<string, string> = {};
@@ -562,31 +1035,86 @@ function MappingPanel({
       </p>
       <div className="space-y-2">
         {sourceColumns.map((srcCol) => (
-          <div key={srcCol} className="flex items-center gap-3">
-            <span className="font-mono text-xs text-muted-foreground w-48 shrink-0 truncate" title={srcCol}>
-              {srcCol}
-            </span>
-            <span className="text-muted-foreground text-xs">→</span>
-            <Select
-              value={localMappings[srcCol] ?? "__skip__"}
-              onValueChange={(v) => setLocalMappings((prev) => ({ ...prev, [srcCol]: v }))}
-              disabled={busy || saving}
-            >
-              <SelectTrigger className="h-7 text-xs w-56">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__skip__">Skip this column</SelectItem>
-                <SelectItem value={EXTRA_DATA_SENTINEL}>Additional Data</SelectItem>
-                {targetCols
-                  .filter((c) => c.value !== EXTRA_DATA_SENTINEL)
-                  .map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label}{"required" in c && c.required ? " *" : ""}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+          <div key={srcCol} className="flex flex-col gap-1">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xs text-muted-foreground w-48 shrink-0 truncate" title={srcCol}>
+                {srcCol}
+              </span>
+              <span className="text-muted-foreground text-xs">→</span>
+              <Select
+                value={localMappings[srcCol] ?? "__skip__"}
+                onValueChange={(v) => setLocalMappings((prev) => ({ ...prev, [srcCol]: v }))}
+                disabled={busy || saving}
+              >
+                <SelectTrigger className="h-7 text-xs w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__skip__">Skip this column</SelectItem>
+                  <SelectItem value={EXTRA_DATA_SENTINEL}>Additional Data</SelectItem>
+                  {targetCols
+                    .filter((c) => c.value !== EXTRA_DATA_SENTINEL)
+                    .map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}{"required" in c && c.required ? " *" : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* AI mapping proposal chip */}
+            {(() => {
+              const proposal = mapperProposals?.find(
+                (p) => p.source_column === srcCol && !p.dismissed,
+              );
+              if (!proposal) return null;
+              return (
+                <div className="ml-52 flex items-center gap-1 text-xs">
+                  <Sparkles className="h-3 w-3 text-violet-400" />
+                  <span className="text-muted-foreground">
+                    AI suggests: <span className="text-violet-400 font-medium">{proposal.suggested_target}</span>
+                    {" "}({Math.round(proposal.confidence * 100)}%)
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-5 px-1 text-xs text-emerald-400"
+                    onClick={() => {
+                      const merged = { ...localMappings, [proposal.source_column]: proposal.suggested_target };
+                      setLocalMappings(merged);
+                      const toSave = Object.entries(merged)
+                        .filter(([, t]) => t && t !== "__skip__")
+                        .map(([source_column, target_column]) => ({
+                          source_column,
+                          target_table: entity,
+                          target_column,
+                          transform: null as string | null,
+                          is_key: false,
+                        }));
+                      saveMappings(batchId, toSave)
+                        .then(() => qc?.invalidateQueries({ queryKey: ["import-mappings", batchId] }));
+                      setMapperProposals?.((prev) =>
+                        prev.map((p) => p.source_column === proposal.source_column ? { ...p, dismissed: true } : p),
+                      );
+                    }}
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-5 px-1 text-xs text-muted-foreground"
+                    onClick={() =>
+                      setMapperProposals?.((prev) =>
+                        prev.map((p) => p.source_column === proposal.source_column ? { ...p, dismissed: true } : p),
+                      )
+                    }
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>
@@ -606,12 +1134,18 @@ function MappingPanel({
 // ---------- Approval panel ----------------------------------------------------
 
 function ApprovalPanel({
-  batch, canApprove, busy, onStep,
+  batch, batchId, canApprove, busy, onStep,
+  reviewerOutput, reviewerRunning, setReviewerOutput, setReviewerRunning,
 }: {
   batch: ImportBatch;
+  batchId: string;
   canApprove: boolean;
   busy: boolean;
   onStep: (label: string, fn: () => Promise<unknown>) => void;
+  reviewerOutput: Record<string, unknown> | null;
+  reviewerRunning: boolean;
+  setReviewerOutput: React.Dispatch<React.SetStateAction<Record<string, unknown> | null>>;
+  setReviewerRunning: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const [commitResult, setCommitResult] = useState<{ committed: number; failed: number; total: number } | null>(null);
   const [dryRunResult, setDryRunResult] = useState<{ would_create: number; would_skip_duplicates: number; would_skip_errors: number } | null>(null);
@@ -620,6 +1154,10 @@ function ApprovalPanel({
   const isApproved       = batch.status === "approved";
   const isDryRun         = batch.status === "dry_run";
   const isCommitted      = batch.status === "committed";
+
+  const hasCritical = (reviewerOutput?.findings as Array<{ severity: string }> ?? []).some(
+    (f) => f.severity === "critical",
+  );
 
   if (isCommitted) {
     return (
@@ -646,6 +1184,77 @@ function ApprovalPanel({
       )}
 
       <div className="space-y-3">
+        {/* import_routing_reviewer — shown in pending_approval for approve-capable users */}
+        {batch?.status === "pending_approval" && canApprove && (
+          <div className="mb-4 rounded-lg border border-muted bg-muted/30 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <ShieldCheck className="h-4 w-4" />
+                Final AI Review
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={reviewerRunning}
+                onClick={async () => {
+                  setReviewerRunning(true);
+                  try {
+                    const r = await callImportAgent(batchId, "import_routing_reviewer");
+                    if (r.ok) {
+                      setReviewerOutput(r.result as Record<string, unknown>);
+                      toast.success("Review complete");
+                    } else {
+                      toast.error(r.message);
+                    }
+                  } finally {
+                    setReviewerRunning(false);
+                  }
+                }}
+              >
+                {reviewerRunning ? (
+                  <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Reviewing…</>
+                ) : (
+                  <><ShieldCheck className="mr-2 h-3 w-3" />Run Final Review</>
+                )}
+              </Button>
+            </div>
+
+            {reviewerOutput && (
+              <div className="space-y-2">
+                <div className={cn(
+                  "text-xs font-medium px-2 py-1 rounded inline-block",
+                  reviewerOutput.overall_recommendation === "approve" ? "bg-emerald-500/15 text-emerald-400" :
+                  reviewerOutput.overall_recommendation === "hold"    ? "bg-red-500/15 text-red-400" :
+                                                                        "bg-amber-500/15 text-amber-400",
+                )}>
+                  AI: {String(reviewerOutput.overall_recommendation).toUpperCase()}
+                  {" "}({Math.round(Number(reviewerOutput.confidence) * 100)}% confidence)
+                </div>
+
+                <div className="space-y-1">
+                  {(reviewerOutput.findings as Array<{ severity: string; title: string; description: string }>).map((f, i) => (
+                    <div key={i} className={cn(
+                      "text-xs px-2 py-1.5 rounded flex gap-2",
+                      f.severity === "critical" ? "bg-red-500/10 text-red-400" :
+                      f.severity === "warning"  ? "bg-amber-500/10 text-amber-400" :
+                                                  "bg-muted/50 text-muted-foreground",
+                    )}>
+                      <span className="font-medium shrink-0">{f.title}:</span>
+                      <span>{f.description}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {(reviewerOutput.findings as Array<{ severity: string }>).some((f) => f.severity === "critical") && (
+                  <div className="text-[10px] text-muted-foreground">
+                    Advisory only — you may still approve. Findings are for your awareness.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Step 1: Approve */}
         <div className={cn("rounded-md border px-4 py-3", isPendingApproval ? "border-emerald-500/30 bg-emerald-500/5" : "border-border opacity-60")}>
           <div className="flex items-center justify-between gap-3">
@@ -661,6 +1270,11 @@ function ApprovalPanel({
             >
               <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
               Approve
+              {hasCritical && (
+                <span className="ml-1.5 rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-medium text-red-400">
+                  ⚠ Critical
+                </span>
+              )}
             </Button>
           </div>
         </div>
