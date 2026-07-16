@@ -62,6 +62,30 @@ const STAGE_ACTION: Record<string, { en: string; ar: string }> = {
   tender_bafo: { en: "Submit Tender BAFO and monitor main contract result", ar: "تقديم BAFO المناقصة ومتابعة نتيجة العقد الرئيسي" },
 };
 
+// ─── Pipeline diagram constants ──────────────────────────────────────────────
+
+const STAGE_BOX_W = 108;
+const ARROW_W = 22;
+
+const PIPELINE_STAGES: Array<{
+  key: string;
+  label: { en: string; ar: string };
+  isGoal?: boolean;
+  note?: { en: string; ar: string };
+}> = [
+  { key: "tender",           label: { en: "Tender",                          ar: "مناقصة"                     } },
+  { key: "tender_bafo",      label: { en: "Tender BAFO",                     ar: "BAFO مناقصة"                } },
+  { key: "jih",              label: { en: "JIH",                             ar: "JIH"                        } },
+  { key: "jih_bafo",         label: { en: "JIH BAFO",                        ar: "BAFO JIH"                   },
+    note: { en: "Finalize discount & secure award confirmation", ar: "إتمام الخصم والحصول على تأكيد الترسية" } },
+  { key: "verbally_awarded", label: { en: "Verbally Awarded",                ar: "ترسية شفهية"                },
+    note: { en: "Get contractor LOA or SCA",                    ar: "الحصول على خطاب الترسية من المقاول"    } },
+  { key: "contract_received",label: { en: "Contract Received / Final Neg.",  ar: "استلام العقد / التفاوض"     },
+    note: { en: "Review, send comments & get final confirmation", ar: "مراجعة العقد وإرسال التعليقات والحصول على التأكيد النهائي" } },
+  { key: "contract_signed",  label: { en: "Contract Signed",                 ar: "توقيع العقد"                } },
+  { key: "won",              label: { en: "Awarded",                         ar: "ترسية نهائية"               }, isGoal: true },
+];
+
 // ─── Role router ─────────────────────────────────────────────────────────────
 
 function WorkspacePage() {
@@ -237,14 +261,55 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
   const inputCls = "w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
+    <div className="mx-auto max-w-7xl space-y-6">
 
-      {/* Page Header */}
-      <PageHeader
-        eyebrow={lang === "ar" ? "لوحة المبيعات" : "PHC Sales Dashboard"}
-        title={lang === "ar" ? "مركز قيادة المبيعات والتطوير" : "Sales & Business Development Command Center"}
-        description={`${lang === "ar" ? "مرحباً،" : "Welcome,"} ${displayName} · ${new Date().toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}`}
-        actions={
+      {/* ═══════════════════════════════════════════════════════════════
+          SECTION 1 — RFQ Sales Workflow Pipeline Diagram
+      ═══════════════════════════════════════════════════════════════ */}
+      <section className="rounded-xl border border-border/60 bg-surface/40 p-5">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Process Overview</div>
+            <div className="mt-0.5 text-[15px] font-semibold text-foreground">RFQ Sales Workflow</div>
+          </div>
+          <div className="flex max-w-[280px] items-start gap-2 rounded-lg border border-amber/25 bg-amber/5 px-3 py-2 text-[11px] text-amber-light/80">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-light" />
+            <span>{lang === "ar" ? "مراجعة 90 يومًا: أي مناقصة تجاوزت 90 يومًا يجب تحويلها لـ JIH أو إغلاقها أو وضع علامة خاملة." : "90-day Tender Review: tenders older than 90 days must be converted to JIH, closed, or flagged dormant."}</span>
+          </div>
+        </div>
+
+        {/* Stage boxes row + note row */}
+        <div className="overflow-x-auto pb-2">
+          <div className="flex min-w-max">
+            {PIPELINE_STAGES.map((stage, idx) => (
+              <PipelineStageBox key={stage.key} stage={stage} lang={lang} isLast={idx === PIPELINE_STAGES.length - 1} />
+            ))}
+          </div>
+          <div className="flex min-w-max mt-2">
+            {PIPELINE_STAGES.map(stage => (
+              <div key={stage.key} className="shrink-0" style={{ width: STAGE_BOX_W + ARROW_W }}>
+                {stage.note && (
+                  <div className="mr-1 rounded border border-dashed border-border/50 bg-surface-2/30 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
+                    {stage.note[lang]}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          SECTION 2 — Main Dashboard
+      ═══════════════════════════════════════════════════════════════ */}
+      <section className="space-y-4">
+
+        {/* Header: Hi [Name] + New RFQ */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "الصفحة الرئيسية" : "Main Page"} · {new Date().toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
+            <div className="text-[22px] font-bold text-foreground">{lang === "ar" ? `مرحباً، ${displayName}` : `Hi, ${displayName}`}</div>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => { setRfqOpen(true); setRfqStep(1); }}
@@ -259,275 +324,345 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
               <Sparkles className="h-3.5 w-3.5" /> {t("ws_log_activity")}
             </button>
           </div>
-        }
-      />
+        </div>
 
-      {/* §6.1 — Annual Target Card */}
-      <section>
-        <ChartFrame
-          title={lang === "ar" ? "هدف العام" : "Annual Target"}
-          subtitle={tgt ? (tgt.period_type === "annual" ? (lang === "ar" ? "هدف سنوي" : "Annual target") : (lang === "ar" ? "هدف شهري — لا يوجد هدف سنوي محدد" : "Monthly target — no annual target set")) : (lang === "ar" ? "لا يوجد هدف محدد" : "No target set")}
-        >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[140px_1fr_1fr_1fr_1fr]">
-            {/* Radial */}
-            <div className="flex flex-col items-center justify-center gap-1">
-              <div className="relative">
-                <RadialProgress pct={achievementPct ?? 0} size={128} />
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="num text-[22px] font-bold text-foreground">{achievementPct !== null ? `${achievementPct}%` : "—"}</span>
-                  <span className="text-[10px] text-muted-foreground">{lang === "ar" ? "إنجاز" : "achieved"}</span>
+        {/* Row 1: Circular gauge + Target KPIs */}
+        <div className="rounded-xl border border-border/60 bg-surface/40 p-5">
+          <div className="flex flex-wrap items-center gap-6">
+            {/* Radial gauge */}
+            <div className="relative shrink-0">
+              <RadialProgress pct={achievementPct ?? 0} size={144} />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="num text-[26px] font-bold text-foreground">{achievementPct !== null ? `${achievementPct}%` : "—"}</span>
+                <span className="text-[10px] text-muted-foreground">{lang === "ar" ? "تم الإنجاز" : "Target Reached"}</span>
+              </div>
+            </div>
+            {/* KPI boxes right of gauge */}
+            <div className="flex flex-1 flex-wrap gap-4">
+              <TargetKpiBox
+                label={lang === "ar" ? "المبلغ المستهدف" : "Target Amount"}
+                value={salesTarget > 0 ? formatCurrency(salesTarget, lang, "SAR") : "—"}
+                sub={tgt?.period_type === "annual" ? (lang === "ar" ? "هدف سنوي" : "Annual target") : (lang === "ar" ? "هدف شهري" : "Monthly target")}
+              />
+              <TargetKpiBox
+                label={lang === "ar" ? "ترسيات رسمية" : "Awarded Contracts"}
+                value={formatCurrency(awardedValue, lang, "SAR")}
+                sub={`${awardedOpps.length} ${lang === "ar" ? "مشروع" : "projects"}`}
+                tone="positive"
+              />
+              {remainingTarget !== null && (
+                <TargetKpiBox
+                  label={lang === "ar" ? "المتبقي من الهدف" : "Remaining Target"}
+                  value={formatCurrency(remainingTarget, lang, "SAR")}
+                  tone={remainingTarget < salesTarget * 0.3 ? "positive" : "attention"}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: Nav links + Summary of Leads */}
+        <div className="grid gap-4 lg:grid-cols-2">
+
+          {/* Navigation links panel */}
+          <div className="rounded-xl border border-border/60 bg-surface/40 p-4 space-y-2">
+            <StageDashLink
+              label={lang === "ar" ? "عرض الترسيات الرسمية" : "View Awarded Contracts"}
+              count={awardedOpps.length}
+              to="/opportunities"
+              tone="positive"
+            />
+            <StageDashLink
+              label={lang === "ar" ? "عرض التفاوض النهائي" : "View Final Negotiation"}
+              count={contractOpps.length}
+              to="/opportunities"
+              tone="attention"
+            />
+            <StageDashLink
+              label={lang === "ar" ? "عرض الترسيات الشفهية" : "View Verbally Awarded"}
+              count={verballyAwardedOpps.length}
+              to="/opportunities"
+              tone="neutral"
+            />
+          </div>
+
+          {/* Summary of Leads panel */}
+          <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
+            <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4">
+              {lang === "ar" ? "ملخص الفرص" : "Summary of Leads"}
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "إجمالي JIH" : "Total JIH"}</div>
+                  <div className="text-[11px] text-muted-foreground">{jihPipeline.length} {lang === "ar" ? "فرصة" : "opportunities"}</div>
+                </div>
+                <span className="num text-[18px] font-bold text-amber-light">{formatCurrency(jihValue, lang, "SAR")}</span>
+              </div>
+              <div className="h-px bg-border/30" />
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "إجمالي المناقصات" : "Total Tenders"}</div>
+                  <div className="text-[11px] text-muted-foreground">{activeTenders.length} {lang === "ar" ? "مناقصة" : "tenders"}</div>
+                </div>
+                <span className="num text-[18px] font-bold text-foreground">{formatCurrency(tenderValue, lang, "SAR")}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Row 3: Urgent Follow-ups + Urgent Quotation Submissions */}
+        <div className="grid gap-4 lg:grid-cols-2">
+
+          {/* Urgent Follow-ups table */}
+          <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
+            <div className="border-b border-border/40 px-4 py-3 flex items-center justify-between">
+              <div>
+                <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "متابعات عاجلة" : "Urgent Follow Ups"}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {(urgentFUs as any[]).filter(f => (daysUntil(f.due_date) ?? 1) <= 0).length} {lang === "ar" ? "متأخرة" : "overdue"} · {(urgentFUs as any[]).length} {lang === "ar" ? "إجمالي" : "total"}
                 </div>
               </div>
             </div>
-            {/* KPIs */}
-            <TargetKpiBox label={lang === "ar" ? "الهدف السنوي" : "Annual Target"} value={salesTarget > 0 ? formatCurrency(salesTarget, lang, "SAR") : "—"} />
-            <TargetKpiBox label={lang === "ar" ? "الترسيات الرسمية" : "Officially Awarded"} value={formatCurrency(awardedValue, lang, "SAR")} sub={`${awardedOpps.length} ${lang === "ar" ? "مشروع" : "projects"}`} tone="positive" />
-            <TargetKpiBox label={lang === "ar" ? "المتبقي من الهدف" : "Remaining Target"} value={remainingTarget !== null ? formatCurrency(remainingTarget, lang, "SAR") : "—"} tone={remainingTarget !== null && remainingTarget < salesTarget * 0.3 ? "positive" : undefined} />
-            <TargetKpiBox label={lang === "ar" ? "نسبة الإنجاز" : "Achievement %"} value={achievementPct !== null ? `${achievementPct}%` : "—"} tone={achievementPct !== null ? (achievementPct >= 80 ? "positive" : "attention") : undefined} />
-          </div>
-        </ChartFrame>
-      </section>
-
-      {/* §6.2 — Commercial Summary */}
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label={lang === "ar" ? "الهدف" : "Target"} value={salesTarget > 0 ? formatCurrency(salesTarget, lang, "SAR") : "—"} hint={tgt?.period_type === "annual" ? (lang === "ar" ? "سنوي" : "Annual") : (lang === "ar" ? "شهري" : "Monthly")} />
-        <KpiCard label={lang === "ar" ? "ترسيات رسمية" : "Awarded Contracts"} value={formatCurrency(awardedValue, lang, "SAR")} hint={`${awardedOpps.length} ${lang === "ar" ? "مشروع" : "projects"}`} trend={achievementPct !== null ? (achievementPct >= 80 ? "up" : achievementPct >= 50 ? "flat" : "down") : undefined} />
-        <KpiCard label={t("ws_jih_summary")} value={formatCurrency(jihValue, lang, "SAR")} hint={`${jihPipeline.length} ${lang === "ar" ? "فرصة" : "opportunities"}`} />
-        <KpiCard label={lang === "ar" ? "مناقصات نشطة" : "Active Tenders"} value={formatCurrency(tenderValue, lang, "SAR")} hint={`${activeTenders.length} ${lang === "ar" ? "مناقصة" : "tenders"}`} />
-      </section>
-
-      {/* §6.3 — Priority Stage Toggles */}
-      <section className="space-y-2">
-        {/* Awarded */}
-        <StageToggleRow id="awarded" label={lang === "ar" ? "الترسيات الرسمية" : "Awarded Contracts"} count={awardedOpps.length} value={awardedValue} lang={lang} tone="positive" isOpen={expandedStages.has("awarded")} onToggle={() => toggleStage("awarded")}>
-          {(awardedOpps as any[]).length === 0 ? <EmptyState message={lang === "ar" ? "لا ترسيات مسجلة هذا العام" : "No awarded contracts this year"} compact /> : (
-            <StageTable headers={[lang === "ar" ? "المشروع" : "Project", lang === "ar" ? "العميل" : "Client", lang === "ar" ? "المقاول" : "Contractor", lang === "ar" ? "القيمة" : "Value", lang === "ar" ? "تاريخ الترسية" : "Award Date"]}>
-              {(awardedOpps as any[]).map(o => (
-                <tr key={o.id} className="border-t border-border/30 hover:bg-surface-2/30">
-                  <td className="py-2 pr-4"><Link to="/opportunities/$id" params={{ id: o.id }} className="font-medium text-foreground hover:underline">{o.project_name}</Link></td>
-                  <td className="py-2 pr-4 text-muted-foreground">{o.client || "—"}</td>
-                  <td className="py-2 pr-4 text-muted-foreground">{o.main_contractor || "—"}</td>
-                  <td className="py-2 pr-4 text-right num text-emerald-200">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
-                  <td className="py-2 text-muted-foreground num">{o.updated_at?.slice(0, 10) || "—"}</td>
-                </tr>
-              ))}
-            </StageTable>
-          )}
-        </StageToggleRow>
-
-        {/* Contract Received / Final Negotiation */}
-        <StageToggleRow id="contract" label={lang === "ar" ? "استلام العقد / التفاوض النهائي" : "Contract Received / Final Negotiation"} count={contractOpps.length} value={contractOpps.reduce((s: number, o: any) => s + (o.contract_value ?? o.estimated_value_max ?? 0), 0)} lang={lang} tone="attention" isOpen={expandedStages.has("contract")} onToggle={() => toggleStage("contract")}>
-          {contractOpps.length === 0 ? <EmptyState message={lang === "ar" ? "لا عقود بانتظار المراجعة" : "No contracts pending review"} compact /> : (
-            <StageTable headers={[lang === "ar" ? "المشروع" : "Project", lang === "ar" ? "المقاول" : "Contractor", lang === "ar" ? "القيمة" : "Value", lang === "ar" ? "تاريخ الاستلام" : "Received", lang === "ar" ? "المرحلة" : "Stage", lang === "ar" ? "الإجراء التالي" : "Next Action"]}>
-              {contractOpps.map((o: any) => (
-                <tr key={o.id} className="border-t border-border/30 hover:bg-surface-2/30">
-                  <td className="py-2 pr-4"><Link to="/opportunities/$id" params={{ id: o.id }} className="font-medium text-foreground hover:underline">{o.project_name}</Link></td>
-                  <td className="py-2 pr-4 text-muted-foreground">{o.main_contractor || "—"}</td>
-                  <td className="py-2 pr-4 text-right num">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
-                  <td className="py-2 pr-4 text-muted-foreground num">{o.contract_received_date || "—"}</td>
-                  <td className="py-2 pr-4"><StatusPill tone="attention">{t(`sstage_${o.sales_stage}` as never)}</StatusPill></td>
-                  <td className="py-2 max-w-[180px] truncate text-[11px] text-muted-foreground">{STAGE_ACTION[o.sales_stage]?.[lang] ?? "—"}</td>
-                </tr>
-              ))}
-            </StageTable>
-          )}
-        </StageToggleRow>
-
-        {/* Verbally Awarded */}
-        <StageToggleRow id="verbal" label={lang === "ar" ? "ترسية شفهية" : "Verbally Awarded"} count={verballyAwardedOpps.length} value={verballyAwardedOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0)} lang={lang} tone="attention" isOpen={expandedStages.has("verbal")} onToggle={() => toggleStage("verbal")}>
-          {verballyAwardedOpps.length === 0 ? <EmptyState message={lang === "ar" ? "لا ترسيات شفهية" : "No verbal awards"} compact /> : (
-            <StageTable headers={[lang === "ar" ? "المشروع" : "Project", lang === "ar" ? "المقاول" : "Contractor", lang === "ar" ? "القيمة المؤكدة" : "Confirmed Value", lang === "ar" ? "تاريخ التأكيد" : "Verbal Date", lang === "ar" ? "أيام الانتظار" : "Days Waiting", lang === "ar" ? "المستند المتوقع" : "Expected Document"]}>
-              {verballyAwardedOpps.map((o: any) => {
-                const waitDays = daysSince(o.verbal_award_date);
-                return (
-                  <tr key={o.id} className="border-t border-border/30 hover:bg-surface-2/30">
-                    <td className="py-2 pr-4"><Link to="/opportunities/$id" params={{ id: o.id }} className="font-medium text-foreground hover:underline">{o.project_name}</Link></td>
-                    <td className="py-2 pr-4 text-muted-foreground">{o.main_contractor || "—"}</td>
-                    <td className="py-2 pr-4 num">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</td>
-                    <td className="py-2 pr-4 text-muted-foreground num">{o.verbal_award_date || "—"}</td>
-                    <td className="py-2 pr-4">
-                      {waitDays !== null ? <StatusPill tone={waitDays > 30 ? "danger" : waitDays > 14 ? "attention" : "neutral"}>{waitDays}{lang === "ar" ? " يوم" : "d"}</StatusPill> : "—"}
-                    </td>
-                    <td className="py-2 text-[11px] text-muted-foreground">{o.expected_contract_date || (lang === "ar" ? "غير محدد" : "Not set")}</td>
-                  </tr>
-                );
-              })}
-            </StageTable>
-          )}
-        </StageToggleRow>
-      </section>
-
-      {/* §6.4 — Pipeline Summary */}
-      <section>
-        <ChartFrame title={lang === "ar" ? "ملخص الفرص النشطة" : "Active Pipeline Summary"}>
-          <div className="grid gap-6 sm:grid-cols-3">
-            <div>
-              <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-amber-300/80">{lang === "ar" ? "فرص قائمة (JIH)" : "JIH Opportunities"}</div>
-              <div className="num mt-2 text-2xl font-bold text-foreground">{formatCurrency(jihValue, lang, "SAR")}</div>
-              <div className="mt-1 text-[11px] text-muted-foreground">{jihPipeline.length} {lang === "ar" ? "فرصة" : "opps"} · {jihSharePct}% {lang === "ar" ? "من الإجمالي" : "of total"}</div>
-              <Link to="/opportunities" search={{} as any} className="mt-2 inline-flex items-center gap-1 text-[11px] text-amber-light hover:underline">{lang === "ar" ? "عرض كل الفرص" : "View all JIH"} →</Link>
-            </div>
-            <div>
-              <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "مناقصات نشطة" : "Active Tenders"}</div>
-              <div className="num mt-2 text-2xl font-bold text-foreground">{formatCurrency(tenderValue, lang, "SAR")}</div>
-              <div className="mt-1 text-[11px] text-muted-foreground">{activeTenders.length} {lang === "ar" ? "مناقصة" : "tenders"} · {100 - jihSharePct}% {lang === "ar" ? "من الإجمالي" : "of total"}</div>
-              <Link to="/tenders" className="mt-2 inline-flex items-center gap-1 text-[11px] text-amber-light hover:underline">{lang === "ar" ? "عرض كل المناقصات" : "View all tenders"} →</Link>
-            </div>
-            <div>
-              <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "إجمالي الفرص النشطة" : "Total Active Pipeline"}</div>
-              <div className="num mt-2 text-2xl font-bold text-foreground">{formatCurrency(totalPipeline, lang, "SAR")}</div>
-              <div className="mt-1 text-[11px] text-muted-foreground">{jihPipeline.length + activeTenders.length} {lang === "ar" ? "إجمالي" : "total"}</div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-border/20">
-                <div className="h-full rounded-full bg-amber/60 transition-all" style={{ width: `${jihSharePct}%` }} />
+            {(urgentFUs as any[]).length === 0 ? (
+              <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا متابعات عاجلة" : "No urgent follow-ups"} compact /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-border/30">
+                      <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
+                      <th className="px-4 py-2 text-right text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "القيمة" : "Amount"}</th>
+                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(urgentFUs as any[]).slice(0, 8).map(f => {
+                      const opp = f.opportunities as any;
+                      const days = daysUntil(f.due_date);
+                      return (
+                        <tr key={f.id} className="border-t border-border/20 hover:bg-surface-2/30">
+                          <td className="px-4 py-2.5">
+                            {f.opportunity_id ? (
+                              <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="block max-w-[140px] truncate font-medium text-foreground hover:underline">{opp?.project_name ?? "—"}</Link>
+                            ) : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-right num text-muted-foreground">{opp?.estimated_value_max ? formatCurrency(opp.estimated_value_max, lang, "SAR") : "—"}</td>
+                          <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20"><CheckCheck className="h-3 w-3" /></button>
+                              <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground"><CalendarClock className="h-3 w-3" /></button>
+                              {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-40"><Sparkles className="h-3 w-3" /></button>}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <div className="mt-1 flex gap-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-amber/60 inline-block" />JIH {jihSharePct}%</span>
-                <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-border inline-block" />{lang === "ar" ? "مناقصات" : "Tender"} {100 - jihSharePct}%</span>
-              </div>
-            </div>
+            )}
           </div>
-        </ChartFrame>
+
+          {/* Urgent Quotation Submissions table */}
+          <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
+            <div className="border-b border-border/40 px-4 py-3">
+              <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "تقديمات عروض أسعار عاجلة" : "Urgent Quotation Submissions"}</div>
+              <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "خلال 7 أيام القادمة" : "Due within 7 days"}</div>
+            </div>
+            {(urgentRfqs as any[]).length === 0 ? (
+              <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا تقديمات عاجلة هذا الأسبوع" : "No urgent submissions this week"} compact /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-border/30">
+                      <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "رقم الطلب" : "Project Name"}</th>
+                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Deadline"}</th>
+                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(urgentRfqs as any[]).map(r => {
+                      const days = daysUntil(r.response_due_date);
+                      return (
+                        <tr key={r.id} className="border-t border-border/20 hover:bg-surface-2/30">
+                          <td className="px-4 py-2.5 font-medium text-foreground">{r.rfq_number || r.id.slice(0, 8)}</td>
+                          <td className="px-4 py-2.5 num text-muted-foreground">{r.response_due_date || "—"}</td>
+                          <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
-      {/* §6.5 — Urgent Follow-ups */}
-      <section>
-        <ChartFrame
-          title={lang === "ar" ? "متابعات عاجلة" : "Urgent Follow-ups"}
-          subtitle={`${(urgentFUs as any[]).filter(f => daysUntil(f.due_date) !== null && daysUntil(f.due_date)! <= 0).length} ${lang === "ar" ? "متأخرة" : "overdue"} · ${(urgentFUs as any[]).length} ${lang === "ar" ? "إجمالي" : "total"}`}
-          padded={false}
-        >
-          {(urgentFUs as any[]).length === 0 ? (
-            <div className="px-5 py-8"><EmptyState message={lang === "ar" ? "لا متابعات عاجلة" : "No urgent follow-ups"} /></div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr className="border-b border-border/40 text-left">
-                    <th className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                    <th className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المرحلة" : "Stage"}</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
-                    <th className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "آخر تحديث" : "Last Update"}</th>
-                    <th className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "موعد المتابعة" : "Due"}</th>
-                    <th className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground hidden lg:table-cell">{lang === "ar" ? "الإجراء المطلوب" : "Required Action"}</th>
-                    <th className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(urgentFUs as any[]).slice(0, 15).map(f => {
-                    const opp = f.opportunities as any;
-                    const days = daysUntil(f.due_date);
-                    const since = daysSince(opp?.last_activity_at);
-                    return (
-                      <tr key={f.id} className="border-t border-border/30 hover:bg-surface-2/30">
-                        <td className="px-4 py-2.5">
-                          {f.opportunity_id ? (
-                            <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="font-medium text-foreground hover:underline">{opp?.project_name ?? "—"}</Link>
-                          ) : <span className="text-muted-foreground">—</span>}
+      {/* ═══════════════════════════════════════════════════════════════
+          SECTION 3 — Stage Details (3 side-by-side panels)
+      ═══════════════════════════════════════════════════════════════ */}
+      <section className="space-y-4">
+        <div className="grid gap-4 lg:grid-cols-3">
+
+          {/* Panel A — Awarded Projects */}
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-emerald-500/15 px-4 py-3">
+              <div>
+                <div className="text-[13px] font-semibold text-emerald-200">{lang === "ar" ? "الترسيات الرسمية" : "Awarded Projects"}</div>
+                <div className="text-[11px] text-muted-foreground">{formatCurrency(awardedValue, lang, "SAR")}</div>
+              </div>
+              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] num text-emerald-200">{awardedOpps.length}</span>
+            </div>
+            {(awardedOpps as any[]).length === 0 ? (
+              <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا ترسيات هذا العام" : "No awarded contracts this year"} compact /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-emerald-500/10">
+                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                      <th className="px-3 py-2 text-right text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
+                      <th className="px-3 py-2 text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(awardedOpps as any[]).slice(0, 6).map(o => (
+                      <tr key={o.id} className="border-t border-emerald-500/10 hover:bg-emerald-500/5">
+                        <td className="px-3 py-2.5">
+                          <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
                         </td>
-                        <td className="px-4 py-2.5">
-                          {opp?.sales_stage ? <StatusPill tone="neutral">{t(`sstage_${opp.sales_stage}` as never)}</StatusPill> : "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-right num text-muted-foreground">{opp?.estimated_value_max ? formatCurrency(opp.estimated_value_max, lang, opp.currency || "SAR") : "—"}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{since !== null ? `${since}d ${lang === "ar" ? "مضت" : "ago"}` : "—"}</td>
-                        <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
-                        <td className="px-4 py-2.5 hidden lg:table-cell max-w-[180px] truncate text-[11px] text-muted-foreground">{STAGE_ACTION[opp?.sales_stage]?.[lang] ?? "—"}</td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20"><CheckCheck className="h-3 w-3" /></button>
-                            <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground"><CalendarClock className="h-3 w-3" /></button>
-                            {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-40"><Sparkles className="h-3 w-3" /></button>}
-                          </div>
-                        </td>
+                        <td className="px-3 py-2.5 text-right num text-[11px] text-emerald-200">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
+                        <td className="px-3 py-2.5"><StatusPill tone="positive">{lang === "ar" ? "رسمي" : "Won"}</StatusPill></td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </ChartFrame>
-      </section>
-
-      {/* §6.6 — Urgent Quotation Submissions */}
-      <section>
-        <ChartFrame
-          title={lang === "ar" ? "تقديمات عروض أسعار عاجلة" : "Urgent Quotation Submissions"}
-          subtitle={lang === "ar" ? "استناداً إلى الموعد النهائي لتقديم طلب العرض" : "Based on RFQ response due date"}
-          padded={false}
-        >
-          {(urgentRfqs as any[]).length === 0 ? (
-            <div className="px-5 py-8"><EmptyState message={lang === "ar" ? "لا تقديمات عاجلة هذا الأسبوع" : "No urgent submissions this week"} /></div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr className="border-b border-border/40 text-left">
-                    {[lang === "ar" ? "رقم الطلب" : "RFQ #", lang === "ar" ? "الموعد النهائي" : "Deadline", lang === "ar" ? "الوقت المتبقي" : "Time Left", lang === "ar" ? "القيمة التقديرية" : "Est. Value", lang === "ar" ? "الحالة" : "Status"].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{h}</th>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(urgentRfqs as any[]).map(r => {
-                    const days = daysUntil(r.response_due_date);
-                    return (
-                      <tr key={r.id} className="border-t border-border/30 hover:bg-surface-2/30">
-                        <td className="px-4 py-2.5 font-medium text-foreground">{r.rfq_number || r.id.slice(0, 8)}</td>
-                        <td className="px-4 py-2.5 num text-muted-foreground">{r.response_due_date || "—"}</td>
-                        <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
-                        <td className="px-4 py-2.5 num text-right text-muted-foreground">{r.estimated_value ? formatCurrency(r.estimated_value, lang, "SAR") : "—"}</td>
-                        <td className="px-4 py-2.5"><StatusPill tone="neutral">{humanize(r.status)}</StatusPill></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </ChartFrame>
-      </section>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
-      {/* §6.7 — Tenders Requiring Conversion Review (90-day) */}
-      {(oldTenders as any[]).length > 0 && (
-        <section>
-          <ChartFrame
-            title={lang === "ar" ? "مناقصات تستوجب المراجعة" : "Tenders Requiring Conversion Review"}
-            subtitle={`${oldTenders.length} ${lang === "ar" ? "مناقصة تجاوزت 90 يومًا دون مراجعة" : "tenders older than 90 days without review"}`}
-            padded={false}
+          {/* Panel B — Final Negotiation */}
+          <div className="rounded-xl border border-amber/20 bg-amber/5 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-amber/15 px-4 py-3">
+              <div>
+                <div className="text-[13px] font-semibold text-amber-light">{lang === "ar" ? "التفاوض النهائي" : "Final Negotiation"}</div>
+                <div className="text-[11px] text-muted-foreground">{formatCurrency(contractOpps.reduce((s: number, o: any) => s + (o.contract_value ?? o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
+              </div>
+              <span className="rounded-full bg-amber/15 px-2 py-0.5 text-[11px] num text-amber-light">{contractOpps.length}</span>
+            </div>
+            {contractOpps.length === 0 ? (
+              <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا عقود بانتظار المراجعة" : "No contracts pending"} compact /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-amber/10">
+                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                      <th className="px-3 py-2 text-right text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
+                      <th className="px-3 py-2 text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المرحلة" : "Current Status"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contractOpps.slice(0, 6).map((o: any) => (
+                      <tr key={o.id} className="border-t border-amber/10 hover:bg-amber/5">
+                        <td className="px-3 py-2.5">
+                          <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
+                        </td>
+                        <td className="px-3 py-2.5 text-right num text-[11px]">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
+                        <td className="px-3 py-2.5"><StatusPill tone="attention">{t(`sstage_${o.sales_stage}` as never)}</StatusPill></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Panel C — Verbally Awarded */}
+          <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
+              <div>
+                <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "ترسية شفهية" : "Verbally Awarded"}</div>
+                <div className="text-[11px] text-muted-foreground">{formatCurrency(verballyAwardedOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
+              </div>
+              <span className="rounded-full bg-surface-2/60 px-2 py-0.5 text-[11px] num text-foreground">{verballyAwardedOpps.length}</span>
+            </div>
+            {verballyAwardedOpps.length === 0 ? (
+              <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا ترسيات شفهية" : "No verbal awards"} compact /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-border/30">
+                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                      <th className="px-3 py-2 text-right text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
+                      <th className="px-3 py-2 text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "أيام انتظار" : "Waiting"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {verballyAwardedOpps.slice(0, 6).map((o: any) => {
+                      const waitDays = daysSince(o.verbal_award_date);
+                      return (
+                        <tr key={o.id} className="border-t border-border/20 hover:bg-surface-2/30">
+                          <td className="px-3 py-2.5">
+                            <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
+                          </td>
+                          <td className="px-3 py-2.5 text-right num text-[11px]">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</td>
+                          <td className="px-3 py-2.5">
+                            {waitDays !== null
+                              ? <StatusPill tone={waitDays > 30 ? "danger" : waitDays > 14 ? "attention" : "neutral"}>{waitDays}{lang === "ar" ? "ي" : "d"}</StatusPill>
+                              : <span className="text-muted-foreground">—</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* View All CTA buttons */}
+        <div className="flex items-center justify-center gap-3 pt-1">
+          <Link
+            to="/opportunities"
+            search={{} as any}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/5 px-5 text-[12px] font-medium text-amber-light transition-colors hover:bg-amber/10"
           >
-            <div className="mx-4 mb-4 mt-3 flex items-start gap-2 rounded-md border border-amber/30 bg-amber/5 px-4 py-3">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-light" />
-              <p className="text-[12px] text-amber-light/80">{lang === "ar" ? "هذه المناقصات تجاوزت 90 يومًا. يرجى تأكيد نتيجة المناقصة واتخاذ أحد الإجراءات: تحويل إلى JIH، وضع علامة خاملة، أو إغلاق." : "These tenders have passed the 90-day threshold. Confirm the main contract result and take action: convert to JIH, mark dormant, or close."}</p>
+            {lang === "ar" ? "عرض كل الفرص (JIH)" : "View All JIH"} <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+          <Link
+            to="/tenders"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+          >
+            {lang === "ar" ? "عرض كل المناقصات" : "View All Tenders"} <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      </section>
+
+      {/* 90-day tenders alert (conditional) */}
+      {(oldTenders as any[]).length > 0 && (
+        <section className="rounded-xl border border-amber/25 bg-amber/5 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-light" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold text-amber-light">
+                {oldTenders.length} {lang === "ar" ? "مناقصة تجاوزت 90 يومًا دون مراجعة" : "tenders older than 90 days without review"}
+              </div>
+              <p className="mt-0.5 text-[12px] text-amber-light/80">
+                {lang === "ar" ? "يرجى تأكيد نتيجة المناقصة واتخاذ أحد الإجراءات: تحويل إلى JIH، وضع علامة خاملة، أو إغلاق." : "Confirm the main contract result and take action: convert to JIH, mark dormant, or close."}
+              </p>
+              <Link to="/tenders" className="mt-2 inline-flex items-center gap-1 text-[12px] text-amber-light hover:underline">
+                {lang === "ar" ? "مراجعة المناقصات" : "Review Tenders"} <ChevronRight className="h-3 w-3" />
+              </Link>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr className="border-b border-border/40 text-left">
-                    {[lang === "ar" ? "المناقصة" : "Tender", lang === "ar" ? "المرحلة" : "Stage", lang === "ar" ? "العمر" : "Age", lang === "ar" ? "القيمة" : "Value", lang === "ar" ? "الترسية المتوقعة" : "Expected Award", lang === "ar" ? "مراجعة" : "Review"].map(h => (
-                      <th key={h} className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(oldTenders as any[]).map(tn => {
-                    const age = daysSince(tn.created_at) ?? 0;
-                    return (
-                      <tr key={tn.id} className="border-t border-border/30 hover:bg-surface-2/30">
-                        <td className="px-4 py-2.5 font-medium text-foreground">{tn.tender_name}</td>
-                        <td className="px-4 py-2.5"><StatusPill tone="attention">{t(`tstage_${tn.tender_stage}` as never)}</StatusPill></td>
-                        <td className="px-4 py-2.5"><StatusPill tone={age > 180 ? "danger" : "attention"}>{age}{lang === "ar" ? " يوم" : "d"}</StatusPill></td>
-                        <td className="px-4 py-2.5 num text-right text-muted-foreground">{tn.estimated_project_value ? formatCurrency(tn.estimated_project_value, lang, "SAR") : "—"}</td>
-                        <td className="px-4 py-2.5 num text-muted-foreground">{tn.expected_award_date || "—"}</td>
-                        <td className="px-4 py-2.5">
-                          <Link to="/tenders" className="text-[11px] text-amber-light hover:underline">{lang === "ar" ? "مراجعة" : "Review"} →</Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </ChartFrame>
+          </div>
         </section>
       )}
 
@@ -576,30 +711,42 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* RFQ Quick-Create Dialog */}
+      {/* RFQ Quick-Create Dialog — Steps 1 & 2 */}
       <Dialog open={rfqOpen} onOpenChange={v => { if (!rfqCreating) { setRfqOpen(v); if (!v) { setRfqStep(1); setRfqFoundContact(null); setRfqDedupChecked(false); } } }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{t("ws_new_rfq")} — {rfqStep === 1 ? t("ws_rfq_step1") : t("ws_rfq_step2")}</DialogTitle></DialogHeader>
-          {rfqStep === 1 && (
-            <div className="space-y-3 py-2">
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_contact_phone")}</Label>
-                <input type="tel" value={rfqForm.contactPhone} onChange={e => { setRfqForm(f => ({ ...f, contactPhone: e.target.value })); setRfqDedupChecked(false); setRfqFoundContact(null); }} onBlur={e => handleRfqPhoneBlur(e.target.value)} placeholder="+966..." className={inputCls} />
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("ws_new_rfq")}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-5 py-2">
+            {/* Step 1 — Opportunity Details */}
+            <div className="space-y-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("ws_rfq_step1")}</div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("ws_rfq_contact_phone")}</Label>
+                <input type="tel" value={rfqForm.contactPhone} onChange={e => { setRfqForm(f => ({ ...f, contactPhone: e.target.value })); setRfqDedupChecked(false); setRfqFoundContact(null); }} onBlur={e => handleRfqPhoneBlur(e.target.value)} placeholder="+966…" className={inputCls} />
                 {rfqDedupChecked && rfqFoundContact && <p className="text-[11px] text-emerald-400">✓ {t("ws_dedup_found")} {rfqFoundContact.name} ({rfqFoundContact.companyName})</p>}
                 {rfqDedupChecked && !rfqFoundContact && <p className="text-[11px] text-muted-foreground">{lang === "ar" ? "جهة اتصال جديدة" : "New contact"}</p>}
               </div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_contact")}</Label><input type="text" value={rfqForm.contactName} onChange={e => setRfqForm(f => ({ ...f, contactName: e.target.value }))} className={inputCls} /></div>
               <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_company")} *</Label><input type="text" value={rfqForm.companyName} onChange={e => setRfqForm(f => ({ ...f, companyName: e.target.value }))} className={inputCls} /></div>
-              <div className="flex justify-end gap-2 pt-2"><Button variant="outline" size="sm" onClick={() => setRfqOpen(false)}>{lang === "ar" ? "إلغاء" : "Cancel"}</Button><Button size="sm" onClick={() => setRfqStep(2)} disabled={!rfqForm.companyName}>{lang === "ar" ? "التالي" : "Next"} →</Button></div>
-            </div>
-          )}
-          {rfqStep === 2 && (
-            <div className="space-y-3 py-2">
               <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_project")} *</Label><textarea value={rfqForm.projectScope} onChange={e => setRfqForm(f => ({ ...f, projectScope: e.target.value }))} rows={2} className={inputCls} /></div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_due")} *</Label><input type="date" value={rfqForm.responseDueDate} onChange={e => setRfqForm(f => ({ ...f, responseDueDate: e.target.value }))} className={inputCls} /></div>
               <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_value")}</Label><input type="number" value={rfqForm.estimatedValue} onChange={e => setRfqForm(f => ({ ...f, estimatedValue: e.target.value }))} className={inputCls} /></div>
-              <div className="flex justify-end gap-2 pt-2"><Button variant="outline" size="sm" onClick={() => setRfqStep(1)}>← {lang === "ar" ? "السابق" : "Back"}</Button><Button size="sm" onClick={handleRfqSubmit} disabled={rfqCreating || !rfqForm.projectScope || !rfqForm.responseDueDate}>{rfqCreating ? (lang === "ar" ? "جارٍ الإنشاء…" : "Creating…") : (lang === "ar" ? "إنشاء الطلب" : "Create RFQ")}</Button></div>
             </div>
-          )}
+            {/* Step 2 — Contact Details */}
+            <div className="space-y-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("ws_rfq_step2")}</div>
+              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_contact")}</Label><input type="text" value={rfqForm.contactName} onChange={e => setRfqForm(f => ({ ...f, contactName: e.target.value }))} className={inputCls} /></div>
+              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_due")} *</Label><input type="date" value={rfqForm.responseDueDate} onChange={e => setRfqForm(f => ({ ...f, responseDueDate: e.target.value }))} className={inputCls} /></div>
+              <div className="mt-auto rounded-md border border-dashed border-border/50 bg-surface-2/30 px-3 py-2.5 text-[11px] text-muted-foreground">
+                {lang === "ar" ? "سيتم إضافة جهة الاتصال تلقائيًا إلى قاعدة بيانات جهات الاتصال." : "Contact will be automatically added to the Contacts Database."}
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => setRfqOpen(false)}>{lang === "ar" ? "إلغاء" : "Cancel"}</Button>
+                <Button size="sm" onClick={handleRfqSubmit} disabled={rfqCreating || !rfqForm.companyName || !rfqForm.projectScope || !rfqForm.responseDueDate}>
+                  {rfqCreating ? (lang === "ar" ? "جارٍ الإنشاء…" : "Creating…") : (lang === "ar" ? "إنشاء الطلب" : "Create RFQ")}
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
@@ -966,6 +1113,83 @@ function TargetMetric({ label, target, actual, lang, isCount = false }: { label:
       <div className="num mt-1.5 text-[18px] font-semibold text-foreground" data-tabular="true">{target != null ? format(target) : "—"}</div>
       <div className="mt-0.5 text-[11px] text-muted-foreground">{actual != null ? `${format(actual)} ${t("ws_of")} ${lang === "ar" ? "الهدف" : "target"}` : t("ws_actual_not_tracked")}</div>
     </div>
+  );
+}
+
+// ─── Pipeline diagram sub-components ─────────────────────────────────────────
+
+function PipelineStageBox({
+  stage,
+  lang,
+  isLast,
+}: {
+  stage: (typeof PIPELINE_STAGES)[number];
+  lang: "ar" | "en";
+  isLast: boolean;
+}) {
+  return (
+    <div className="flex shrink-0 items-center">
+      <div
+        className={`flex flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-center ${
+          stage.isGoal
+            ? "border-amber bg-amber/15 text-amber-light shadow-[0_0_14px_rgba(251,191,36,0.12)]"
+            : "border-border/60 bg-surface-2/40 text-foreground"
+        }`}
+        style={{ width: STAGE_BOX_W, minHeight: 52 }}
+      >
+        {stage.isGoal && (
+          <span className="mb-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-amber-light">
+            ★ FINAL GOAL
+          </span>
+        )}
+        <span className="text-[10px] font-semibold leading-tight">{stage.label[lang]}</span>
+      </div>
+      {!isLast && (
+        <div
+          className="flex shrink-0 items-center justify-center text-muted-foreground/40"
+          style={{ width: ARROW_W }}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StageDashLink({
+  label,
+  count,
+  to,
+  tone,
+}: {
+  label: string;
+  count: number;
+  to: string;
+  tone: "positive" | "attention" | "neutral";
+}) {
+  const borderCls =
+    tone === "positive"
+      ? "border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/5"
+      : tone === "attention"
+        ? "border-amber/20 hover:border-amber/40 hover:bg-amber/5"
+        : "border-border/30 hover:border-border-strong hover:bg-surface-2/40";
+  const countCls =
+    tone === "positive"
+      ? "bg-emerald-500/15 text-emerald-200"
+      : tone === "attention"
+        ? "bg-amber/15 text-amber-light"
+        : "bg-surface-2/60 text-foreground";
+  return (
+    <Link
+      to={to as any}
+      className={`flex items-center justify-between rounded-lg border px-4 py-3 text-[13px] font-medium text-foreground transition-colors ${borderCls}`}
+    >
+      <span>{label}</span>
+      <div className="flex items-center gap-2">
+        <span className={`rounded-full px-2 py-0.5 text-[11px] num ${countCls}`}>{count}</span>
+        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+    </Link>
   );
 }
 
