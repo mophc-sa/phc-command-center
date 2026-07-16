@@ -15,7 +15,7 @@
 -- Prerequisites:
 --   • pg_cron enabled (Dashboard → Extensions → pg_cron)
 --   • pg_net enabled (Dashboard → Extensions → pg_net)
---   • AI_PROVIDER, ANTHROPIC_API_KEY (or OpenAI equivalents)
+--   • AI_PROVIDER and the matching provider secret key
 --     set in Edge Function secrets (C1 prerequisite)
 --   • SERVICE_ROLE_KEY set as a Postgres config variable:
 --       ALTER DATABASE postgres

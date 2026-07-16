@@ -13,6 +13,9 @@ const hasAuthFile = fs.existsSync(AUTH_FILE);
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  // .e2e.ts keeps bun:test from auto-discovering these Playwright specs when
+  // running `bun test` (bun only discovers *.test.ts / *.spec.ts).
+  testMatch: "**/*.e2e.ts",
   timeout: 30_000,
   expect: { timeout: 5_000 },
   fullyParallel: true,
@@ -33,7 +36,7 @@ export default defineConfig({
       ? [
           {
             name: "chromium-authed",
-            testMatch: "**/follow-ups-actions.spec.ts",
+            testMatch: "**/follow-ups-actions.e2e.ts",
             use: {
               ...devices["Desktop Chrome"],
               viewport: { width: 1280, height: 800 },
