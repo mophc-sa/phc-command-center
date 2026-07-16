@@ -6,13 +6,14 @@ type Uuid = string;
 export type TenderStage = Database["public"]["Enums"]["tender_stage"];
 
 export const TENDER_STAGES: TenderStage[] = [
-  "tender_identified", "tender_under_process", "award_negotiation",
+  "tender_identified", "tender_under_process", "tender_bafo", "award_negotiation",
   "awarded_to_contractor", "converted_to_jih", "tender_lost_or_archived",
 ];
 
 const TENDER_TRANSITIONS: Record<string, TenderStage[]> = {
   tender_identified: ["tender_under_process", "tender_lost_or_archived"],
-  tender_under_process: ["award_negotiation", "awarded_to_contractor", "tender_lost_or_archived"],
+  tender_under_process: ["tender_bafo", "award_negotiation", "awarded_to_contractor", "tender_lost_or_archived"],
+  tender_bafo: ["award_negotiation", "awarded_to_contractor", "tender_lost_or_archived"],
   award_negotiation: ["awarded_to_contractor", "tender_lost_or_archived"],
   awarded_to_contractor: ["converted_to_jih", "tender_lost_or_archived"],
   converted_to_jih: [],

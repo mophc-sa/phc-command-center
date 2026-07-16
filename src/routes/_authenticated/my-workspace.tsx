@@ -1,8 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, ListChecks, BellRing, ShieldCheck, Sparkles, FileText, Award, CheckCheck, Clock } from "lucide-react";
+import { CalendarClock, ListChecks, BellRing, ShieldCheck, Sparkles, FileText, Award, CheckCheck, Clock, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { ChartFrame } from "@/components/phc/ChartFrame";
@@ -26,6 +26,15 @@ import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions"
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { humanize } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { createRfqWithOpportunity, findContactByPhone } from "@/lib/rfq-actions";
 
 export const Route = createFileRoute("/_authenticated/my-workspace")({
   head: () => ({ meta: [{ title: "My Day — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -43,6 +52,7 @@ function WorkspacePage() {
   const { t, lang } = useI18n();
   const { user } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const uid = user?.id ?? "";
   const [logOpen, setLogOpen] = useState(false);
   const [tab, setTab] = useState("today");
@@ -52,6 +62,15 @@ function WorkspacePage() {
   const [draftLoading, setDraftLoading] = useState(false);
   const [draftContent, setDraftContent] = useState<string>("");
   const [draftFuId, setDraftFuId] = useState<string | null>(null);
+  const [rfqOpen, setRfqOpen] = useState(false);
+  const [rfqStep, setRfqStep] = useState<1 | 2>(1);
+  const [rfqCreating, setRfqCreating] = useState(false);
+  const [rfqDedupChecked, setRfqDedupChecked] = useState(false);
+  const [rfqFoundContact, setRfqFoundContact] = useState<{ id: string; name: string; companyName: string } | null>(null);
+  const [rfqForm, setRfqForm] = useState({
+    companyName: "", contactName: "", contactPhone: "",
+    projectScope: "", responseDueDate: "", estimatedValue: "",
+  });
   const { recent } = useRecentRecords();
 
   const today = new Date().toISOString().slice(0, 10);
@@ -125,10 +144,55 @@ function WorkspacePage() {
       (await supabase.from("tenders").select("id, tender_name, tender_stage, tender_priority_classification, estimated_project_value, expected_award_date").eq("tender_owner_id", uid).not("tender_stage", "in", "(converted_to_jih,tender_lost_or_archived)").order("expected_award_date", { ascending: true })).data ?? [],
   });
 
+  const yearStart = `${new Date().getFullYear()}-01-01`;
+
+  const { data: awardedOpps = [] } = useQuery({
+    queryKey: ["ws-awarded", uid],
+    enabled: !!uid,
+    queryFn: async () =>
+      (await supabase
+        .from("opportunities")
+        .select("id, project_name, estimated_value_max, currency, sales_stage, updated_at")
+        .eq("owner_id", uid)
+        .eq("stage", "won")
+        .gte("updated_at", yearStart)
+        .order("updated_at", { ascending: false })).data ?? [],
+  });
+
+  const { data: urgentQuotations = [] } = useQuery({
+    queryKey: ["ws-urgent-quotations", uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const sevenDaysOut = new Date();
+      sevenDaysOut.setDate(sevenDaysOut.getDate() + 7);
+      return (await supabase
+        .from("quotations")
+        .select("id, related_opportunity_id, status, valid_until, total_value, currency")
+        .eq("owner_id", uid)
+        .in("status", ["approved_for_submission", "submitted", "follow_up"])
+        .lte("valid_until", sevenDaysOut.toISOString().slice(0, 10))
+        .order("valid_until", { ascending: true })).data ?? [];
+    },
+  });
+
+  const { data: jihOpps = [] } = useQuery({
+    queryKey: ["ws-jih", uid],
+    enabled: !!uid,
+    queryFn: async () =>
+      (await supabase
+        .from("opportunities")
+        .select("id, project_name, sales_stage, estimated_value_max, currency, win_confidence")
+        .eq("owner_id", uid)
+        .in("sales_stage", ["jih", "jih_bafo"])
+        .order("updated_at", { ascending: false })).data ?? [],
+  });
+
   if (isLoading || !data) return <SkeletonChart kpis={4} charts={2} />;
 
   const pipelineValue = data.opps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
   const tg = data.target;
+  const awardedValue = awardedOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
+  const achievementPct = tg?.sales_target ? Math.round((awardedValue / tg.sales_target) * 100) : null;
 
   const overdueFU = data.followups.filter((f: any) => f.status === "overdue" || (f.due_date && f.due_date < today));
   const todayFU = data.followups.filter((f: any) => f.due_date === today);
@@ -169,6 +233,51 @@ function WorkspacePage() {
     }
   };
 
+  async function handleRfqPhoneBlur(phone: string) {
+    if (!phone.trim()) return;
+    const found = await findContactByPhone(phone);
+    if (found) {
+      const compName = (found as any).companies?.name ?? "";
+      setRfqFoundContact({ id: found.id, name: found.name, companyName: compName });
+      setRfqForm((f) => ({ ...f, contactName: found.name, companyName: compName }));
+    } else {
+      setRfqFoundContact(null);
+    }
+    setRfqDedupChecked(true);
+  }
+
+  async function handleRfqSubmit() {
+    if (!rfqForm.companyName || !rfqForm.projectScope || !rfqForm.responseDueDate) {
+      toast.error(lang === "ar" ? "يرجى تعبئة الحقول المطلوبة" : "Fill required fields");
+      return;
+    }
+    setRfqCreating(true);
+    try {
+      const result = await createRfqWithOpportunity({
+        companyName: rfqForm.companyName,
+        contactName: rfqForm.contactName,
+        contactPhone: rfqForm.contactPhone,
+        existingContactId: rfqFoundContact?.id ?? null,
+        projectScope: rfqForm.projectScope,
+        responseDueDate: rfqForm.responseDueDate,
+        estimatedValue: rfqForm.estimatedValue ? Number(rfqForm.estimatedValue) : null,
+      });
+      toast.success(t("ws_rfq_created"));
+      setRfqOpen(false);
+      setRfqStep(1);
+      setRfqForm({ companyName: "", contactName: "", contactPhone: "", projectScope: "", responseDueDate: "", estimatedValue: "" });
+      setRfqFoundContact(null);
+      setRfqDedupChecked(false);
+      qc.invalidateQueries({ queryKey: ["workspace", uid] });
+      qc.invalidateQueries({ queryKey: ["ws-rfqs", uid] });
+      navigate({ to: "/opportunities/$id", params: { id: result.opportunityId } });
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    } finally {
+      setRfqCreating(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
@@ -176,21 +285,39 @@ function WorkspacePage() {
         title={t("nav_my_day")}
         description={user?.email ?? undefined}
         actions={
-          <button
-            onClick={() => setLogOpen(true)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3.5 text-[12px] font-medium text-amber-light transition-colors hover:bg-amber/20"
-          >
-            <Sparkles className="h-3.5 w-3.5" /> {t("ws_log_activity")}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setRfqOpen(true); setRfqStep(1); }}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+            >
+              <Plus className="h-3.5 w-3.5" /> {t("ws_new_rfq")}
+            </button>
+            <button
+              onClick={() => setLogOpen(true)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3.5 text-[12px] font-medium text-amber-light transition-colors hover:bg-amber/20"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> {t("ws_log_activity")}
+            </button>
+          </div>
         }
       />
 
       {/* KPI row */}
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label={t("ws_target_pipeline")} value={formatCurrency(pipelineValue, lang, "SAR")} hint={tg ? `${lang === "ar" ? "من" : "of"} ${formatCurrency(tg.pipeline_target, lang, "SAR")}` : (lang === "ar" ? "بدون هدف محدد" : "No target set")} />
+        <KpiCard
+          label={t("ws_awarded_value")}
+          value={formatCurrency(awardedValue, lang, "SAR")}
+          hint={tg?.sales_target ? `${lang === "ar" ? "من هدف" : "of target"} ${formatCurrency(tg.sales_target, lang, "SAR")}` : (lang === "ar" ? "لا هدف محدد" : "No target set")}
+          trend={achievementPct !== null ? (achievementPct >= 80 ? "up" : achievementPct >= 50 ? "flat" : "down") : undefined}
+        />
+        <KpiCard
+          label={t("ws_achievement_pct")}
+          value={achievementPct !== null ? `${achievementPct}%` : "—"}
+          hint={lang === "ar" ? "إنجاز المبيعات" : "Sales achievement"}
+          trend={achievementPct !== null ? (achievementPct >= 80 ? "up" : achievementPct >= 50 ? "flat" : "down") : undefined}
+        />
         <KpiCard label={lang === "ar" ? "متأخرات اليوم" : "Overdue today"} value={formatNumber(overdueFU.length + overdueTasks.length, lang)} hint={lang === "ar" ? "متابعات ومهام" : "Follow-ups & tasks"} trend={overdueFU.length + overdueTasks.length > 0 ? "down" : "flat"} />
         <KpiCard label={lang === "ar" ? "بانتظار قرارك" : "Awaiting your decision"} value={formatNumber(myApprovals.length, lang)} hint={t("metric_awaiting_approval")} />
-        <KpiCard label={lang === "ar" ? "حسابات نشطة" : "Active accounts"} value={formatNumber(data.accounts.length, lang)} hint={lang === "ar" ? "تحت إدارتك" : "Under your ownership"} />
       </section>
 
       {/* Pipeline snapshot row — Sales OS pilot Sprint 1 widgets */}
@@ -201,6 +328,8 @@ function WorkspacePage() {
         <KpiCard label={t("ws_my_rfqs")} value={formatNumber(myRfqs.length, lang)} hint={t("ws_rfqs_open")} />
         <KpiCard label={t("ws_my_tenders")} value={formatNumber(myTenders.length, lang)} hint={t("ws_tenders_active")} />
         <KpiCard label={t("ws_missing_data")} value={formatNumber(missingDataFlags.length, lang)} hint={lang === "ar" ? "بانتظار استكمال البيانات" : "Awaiting data completion"} trend={missingDataFlags.length > 0 ? "down" : "flat"} />
+        <KpiCard label={t("ws_jih_summary")} value={formatNumber(jihOpps.length, lang)} hint={formatCurrency(jihOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")} />
+        <KpiCard label={t("ws_urgent_quotations")} value={formatNumber(urgentQuotations.length, lang)} hint={lang === "ar" ? "تستحق هذا الأسبوع" : "Due this week"} trend={urgentQuotations.length > 0 ? "down" : "flat"} />
       </section>
 
       {/* Target snapshot — multi-dimensional target vs. tracked actuals (pipeline only for now) */}
@@ -259,6 +388,8 @@ function WorkspacePage() {
             <TabItem value="approvals" icon={<ShieldCheck className="h-3.5 w-3.5" />} label={t("nav_approvals")} count={myApprovals.length} />
             <TabItem value="rfqs" icon={<FileText className="h-3.5 w-3.5" />} label={t("ws_my_rfqs")} count={myRfqs.length} />
             <TabItem value="tenders" icon={<Award className="h-3.5 w-3.5" />} label={t("ws_my_tenders")} count={myTenders.length} />
+            <TabItem value="jih" icon={<Award className="h-3.5 w-3.5" />} label={t("ws_jih_summary")} count={jihOpps.length} />
+            <TabItem value="quotations" icon={<FileText className="h-3.5 w-3.5" />} label={t("ws_urgent_quotations")} count={urgentQuotations.length} />
           </TabsList>
 
           <TabsContent value="today" className="mt-0 grid gap-3 lg:grid-cols-2">
@@ -499,6 +630,39 @@ function WorkspacePage() {
               />
             </ChartFrame>
           </TabsContent>
+
+          <TabsContent value="jih" className="mt-0">
+            <ChartFrame title={t("ws_jih_summary")} subtitle={formatCurrency(jihOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")} padded={false}>
+              <List
+                empty={t("ws_none")}
+                items={jihOpps.map((o: any) => ({
+                  key: o.id,
+                  primary: o.project_name,
+                  secondary: t(`sstage_${o.sales_stage}` as never),
+                  tone: o.win_confidence === "sure_win" ? "positive" : o.win_confidence === "strong" ? "attention" : "neutral" as any,
+                  label: t(`sstage_${o.sales_stage}` as never),
+                  right: formatCurrency(o.estimated_value_max, lang, o.currency),
+                  href: { to: "/opportunities/$id" as const, params: { id: o.id } },
+                }))}
+              />
+            </ChartFrame>
+          </TabsContent>
+
+          <TabsContent value="quotations" className="mt-0">
+            <ChartFrame title={t("ws_urgent_quotations")} subtitle={`${formatNumber(urgentQuotations.length, lang)} ${lang === "ar" ? "عرض" : "quotations"}`} padded={false}>
+              <List
+                empty={t("ws_none")}
+                items={urgentQuotations.map((q: any) => ({
+                  key: q.id,
+                  primary: q.related_opportunity_id ? oppName(q.related_opportunity_id) : "—",
+                  secondary: humanize(q.status),
+                  tone: q.valid_until && q.valid_until <= today ? "danger" : "attention" as any,
+                  label: t("ws_quotation_due"),
+                  right: q.valid_until ?? "—",
+                }))}
+              />
+            </ChartFrame>
+          </TabsContent>
         </Tabs>
       </section>
 
@@ -615,6 +779,103 @@ function WorkspacePage() {
           }
         }}
       />
+
+      {/* RFQ Quick-Create Dialog */}
+      <Dialog open={rfqOpen} onOpenChange={(v) => { if (!rfqCreating) { setRfqOpen(v); if (!v) { setRfqStep(1); setRfqFoundContact(null); setRfqDedupChecked(false); } } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("ws_new_rfq")} — {rfqStep === 1 ? t("ws_rfq_step1") : t("ws_rfq_step2")}</DialogTitle>
+          </DialogHeader>
+
+          {rfqStep === 1 && (
+            <div className="space-y-3 py-2">
+              <div className="space-y-1">
+                <Label className="text-xs">{t("ws_rfq_contact_phone")}</Label>
+                <input
+                  type="tel"
+                  value={rfqForm.contactPhone}
+                  onChange={(e) => { setRfqForm((f) => ({ ...f, contactPhone: e.target.value })); setRfqDedupChecked(false); setRfqFoundContact(null); }}
+                  onBlur={(e) => handleRfqPhoneBlur(e.target.value)}
+                  placeholder="+966..."
+                  className="w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
+                />
+                {rfqDedupChecked && rfqFoundContact && (
+                  <p className="text-[11px] text-emerald-400">✓ {t("ws_dedup_found")} {rfqFoundContact.name} ({rfqFoundContact.companyName})</p>
+                )}
+                {rfqDedupChecked && !rfqFoundContact && (
+                  <p className="text-[11px] text-muted-foreground">{lang === "ar" ? "جهة اتصال جديدة" : "New contact"}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("ws_rfq_contact")} *</Label>
+                <input
+                  type="text"
+                  value={rfqForm.contactName}
+                  onChange={(e) => setRfqForm((f) => ({ ...f, contactName: e.target.value }))}
+                  className="w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("ws_rfq_company")} *</Label>
+                <input
+                  type="text"
+                  value={rfqForm.companyName}
+                  onChange={(e) => setRfqForm((f) => ({ ...f, companyName: e.target.value }))}
+                  className="w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => setRfqOpen(false)}>
+                  {lang === "ar" ? "إلغاء" : "Cancel"}
+                </Button>
+                <Button size="sm" onClick={() => setRfqStep(2)} disabled={!rfqForm.companyName}>
+                  {lang === "ar" ? "التالي" : "Next"} →
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {rfqStep === 2 && (
+            <div className="space-y-3 py-2">
+              <div className="space-y-1">
+                <Label className="text-xs">{t("ws_rfq_project")} *</Label>
+                <textarea
+                  value={rfqForm.projectScope}
+                  onChange={(e) => setRfqForm((f) => ({ ...f, projectScope: e.target.value }))}
+                  rows={2}
+                  className="w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("ws_rfq_due")} *</Label>
+                <input
+                  type="date"
+                  value={rfqForm.responseDueDate}
+                  onChange={(e) => setRfqForm((f) => ({ ...f, responseDueDate: e.target.value }))}
+                  className="w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("ws_rfq_value")}</Label>
+                <input
+                  type="number"
+                  value={rfqForm.estimatedValue}
+                  onChange={(e) => setRfqForm((f) => ({ ...f, estimatedValue: e.target.value }))}
+                  className="w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => setRfqStep(1)}>
+                  ← {lang === "ar" ? "السابق" : "Back"}
+                </Button>
+                <Button size="sm" onClick={handleRfqSubmit} disabled={rfqCreating || !rfqForm.projectScope || !rfqForm.responseDueDate}>
+                  {rfqCreating ? (lang === "ar" ? "جارٍ الإنشاء…" : "Creating…") : (lang === "ar" ? "إنشاء الطلب" : "Create RFQ")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
