@@ -3,12 +3,9 @@
 // isolation from data fetching. Consumed by src/routes/_authenticated/targets.tsx
 // and src/lib/sales-actions.ts.
 
-// target_period currently only defines 'monthly' | 'quarterly' in the DB enum
-// (see supabase/migrations/20260706120000_quotations_boq_targets.sql). There
-// is no 'yearly' value live today — add it here (with PERIOD_MONTHS.yearly = 12)
-// only once the enum actually gains it; adding it ahead of time would be
-// dead, untestable code against a value that can't occur.
-export type PeriodType = "monthly" | "quarterly";
+// target_period enum: 'monthly' | 'quarterly' | 'annual'.
+// The 'annual' value was added in migration 20260716100000_salesperson_dashboard.sql.
+export type PeriodType = "monthly" | "quarterly" | "annual";
 
 export type SalesTargetRow = {
   id: string;
@@ -44,7 +41,7 @@ export type RfqRow = {
 export type TenderRow = {
   id: string;
   tender_owner_id: string | null;
-  tender_stage: "tender_identified" | "tender_under_process" | "award_negotiation" | "awarded_to_contractor" | "converted_to_jih" | "tender_lost_or_archived";
+  tender_stage: "tender_identified" | "tender_under_process" | "tender_bafo" | "award_negotiation" | "awarded_to_contractor" | "converted_to_jih" | "tender_lost_or_archived";
   updated_at: string;
 };
 
@@ -81,7 +78,7 @@ const opportunityValue = (o: OpportunityRow) => o.quotation_value ?? o.estimated
 // Period windows (Required Fix 1)
 // ---------------------------------------------------------------------------
 
-const PERIOD_MONTHS: Record<PeriodType, number> = { monthly: 1, quarterly: 3 };
+const PERIOD_MONTHS: Record<PeriodType, number> = { monthly: 1, quarterly: 3, annual: 12 };
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}/;
 
 export type PeriodWindow = { periodStart: string; periodEnd: string };
