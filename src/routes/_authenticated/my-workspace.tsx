@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -313,13 +314,13 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => { setRfqOpen(true); setRfqStep(1); }}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-amber/90 px-4 text-[12px] font-semibold text-black transition-colors hover:bg-amber"
+              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-amber/90 px-4 text-[12px] font-semibold text-black transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <Plus className="h-3.5 w-3.5" /> {t("ws_new_rfq")}
             </button>
             <button
               onClick={() => setLogOpen(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border px-3.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <Sparkles className="h-3.5 w-3.5" /> {t("ws_log_activity")}
             </button>
@@ -329,33 +330,52 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         {/* Row 1: Circular gauge + Target KPIs */}
         <div className="rounded-xl border border-border/60 bg-surface/40 p-5">
           <div className="flex flex-wrap items-center gap-6">
-            {/* Radial gauge */}
-            <div className="relative shrink-0">
-              <RadialProgress pct={achievementPct ?? 0} size={144} />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="num text-[26px] font-bold text-foreground">{achievementPct !== null ? `${achievementPct}%` : "—"}</span>
-                <span className="text-[10px] text-muted-foreground">{lang === "ar" ? "تم الإنجاز" : "Target Reached"}</span>
-              </div>
-            </div>
+            {/* Donut chart */}
+            <TargetDonut
+              salesTarget={salesTarget}
+              awardedValue={awardedValue}
+              jihValue={jihValue}
+              lang={lang}
+              achievementPct={achievementPct}
+            />
             {/* KPI boxes right of gauge */}
-            <div className="flex flex-1 flex-wrap gap-4">
-              <TargetKpiBox
-                label={lang === "ar" ? "المبلغ المستهدف" : "Target Amount"}
-                value={salesTarget > 0 ? formatCurrency(salesTarget, lang, "SAR") : "—"}
-                sub={tgt?.period_type === "annual" ? (lang === "ar" ? "هدف سنوي" : "Annual target") : (lang === "ar" ? "هدف شهري" : "Monthly target")}
-              />
-              <TargetKpiBox
-                label={lang === "ar" ? "ترسيات رسمية" : "Awarded Contracts"}
-                value={formatCurrency(awardedValue, lang, "SAR")}
-                sub={`${awardedOpps.length} ${lang === "ar" ? "مشروع" : "projects"}`}
-                tone="positive"
-              />
-              {remainingTarget !== null && (
+            <div className="flex flex-1 flex-col gap-4">
+              <div className="flex flex-wrap gap-4">
                 <TargetKpiBox
-                  label={lang === "ar" ? "المتبقي من الهدف" : "Remaining Target"}
-                  value={formatCurrency(remainingTarget, lang, "SAR")}
-                  tone={remainingTarget < salesTarget * 0.3 ? "positive" : "attention"}
+                  label={lang === "ar" ? "المبلغ المستهدف" : "Target Amount"}
+                  value={salesTarget > 0 ? formatCurrency(salesTarget, lang, "SAR") : "—"}
+                  sub={tgt?.period_type === "annual" ? (lang === "ar" ? "هدف سنوي" : "Annual target") : (lang === "ar" ? "هدف شهري" : "Monthly target")}
                 />
+                <TargetKpiBox
+                  label={lang === "ar" ? "ترسيات رسمية" : "Awarded Contracts"}
+                  value={formatCurrency(awardedValue, lang, "SAR")}
+                  sub={`${awardedOpps.length} ${lang === "ar" ? "مشروع" : "projects"}`}
+                  tone="positive"
+                />
+                {remainingTarget !== null && (
+                  <TargetKpiBox
+                    label={lang === "ar" ? "المتبقي من الهدف" : "Remaining Target"}
+                    value={formatCurrency(remainingTarget, lang, "SAR")}
+                    tone={remainingTarget < salesTarget * 0.3 ? "positive" : "attention"}
+                  />
+                )}
+              </div>
+              {/* Chart legend */}
+              {salesTarget > 0 && (
+                <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-[#4ade80]" />
+                    {lang === "ar" ? "ترسيات رسمية" : "Awarded"}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-amber" />
+                    {lang === "ar" ? "JIH في الإنجاز" : "JIH Pipeline"}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-structural/60" />
+                    {lang === "ar" ? "فجوة الهدف" : "Target Gap"}
+                  </span>
+                </div>
               )}
             </div>
           </div>
@@ -452,9 +472,9 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                           <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-1">
-                              <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20"><CheckCheck className="h-3 w-3" /></button>
-                              <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground"><CalendarClock className="h-3 w-3" /></button>
-                              {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-40"><Sparkles className="h-3 w-3" /></button>}
+                              <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CheckCheck className="h-3 w-3" /></button>
+                              <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CalendarClock className="h-3 w-3" /></button>
+                              {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
                             </div>
                           </td>
                         </tr>
@@ -510,13 +530,13 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         <div className="grid gap-4 lg:grid-cols-3">
 
           {/* Panel A — Awarded Projects */}
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 overflow-hidden">
-            <div className="flex items-center justify-between border-b border-emerald-500/15 px-4 py-3">
+          <div className="rounded-xl border border-won-border bg-won-surface overflow-hidden">
+            <div className="flex items-center justify-between border-b border-won-border/60 px-4 py-3">
               <div>
-                <div className="text-[13px] font-semibold text-emerald-200">{lang === "ar" ? "الترسيات الرسمية" : "Awarded Projects"}</div>
+                <div className="text-[13px] font-semibold text-won">{lang === "ar" ? "الترسيات الرسمية" : "Awarded Projects"}</div>
                 <div className="text-[11px] text-muted-foreground">{formatCurrency(awardedValue, lang, "SAR")}</div>
               </div>
-              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] num text-emerald-200">{awardedOpps.length}</span>
+              <span className="rounded-full bg-won-surface/80 px-2 py-0.5 text-[11px] num text-won">{awardedOpps.length}</span>
             </div>
             {(awardedOpps as any[]).length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا ترسيات هذا العام" : "No awarded contracts this year"} compact /></div>
@@ -524,7 +544,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
               <div className="overflow-x-auto">
                 <table className="w-full text-[12px]">
                   <thead>
-                    <tr className="border-b border-emerald-500/10">
+                    <tr className="border-b border-won-border/40">
                       <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
                       <th className="px-3 py-2 text-right text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
                       <th className="px-3 py-2 text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
@@ -532,11 +552,11 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                   </thead>
                   <tbody>
                     {(awardedOpps as any[]).slice(0, 6).map(o => (
-                      <tr key={o.id} className="border-t border-emerald-500/10 hover:bg-emerald-500/5">
+                      <tr key={o.id} className="border-t border-won-border/40 hover:bg-won-surface">
                         <td className="px-3 py-2.5">
                           <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
                         </td>
-                        <td className="px-3 py-2.5 text-right num text-[11px] text-emerald-200">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
+                        <td className="px-3 py-2.5 text-right num text-[11px] text-won">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
                         <td className="px-3 py-2.5"><StatusPill tone="positive">{lang === "ar" ? "رسمي" : "Won"}</StatusPill></td>
                       </tr>
                     ))}
@@ -724,7 +744,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
               <div className="space-y-1">
                 <Label className="text-xs">{t("ws_rfq_contact_phone")}</Label>
                 <input type="tel" value={rfqForm.contactPhone} onChange={e => { setRfqForm(f => ({ ...f, contactPhone: e.target.value })); setRfqDedupChecked(false); setRfqFoundContact(null); }} onBlur={e => handleRfqPhoneBlur(e.target.value)} placeholder="+966…" className={inputCls} />
-                {rfqDedupChecked && rfqFoundContact && <p className="text-[11px] text-emerald-400">✓ {t("ws_dedup_found")} {rfqFoundContact.name} ({rfqFoundContact.companyName})</p>}
+                {rfqDedupChecked && rfqFoundContact && <p className="text-[11px] text-won">✓ {t("ws_dedup_found")} {rfqFoundContact.name} ({rfqFoundContact.companyName})</p>}
                 {rfqDedupChecked && !rfqFoundContact && <p className="text-[11px] text-muted-foreground">{lang === "ar" ? "جهة اتصال جديدة" : "New contact"}</p>}
               </div>
               <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_company")} *</Label><input type="text" value={rfqForm.companyName} onChange={e => setRfqForm(f => ({ ...f, companyName: e.target.value }))} className={inputCls} /></div>
@@ -1036,6 +1056,103 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
 
 // ─── Shared Sub-components ────────────────────────────────────────────────────
 
+// ─── Target Donut chart ───────────────────────────────────────────────────────
+
+function TargetDonut({
+  salesTarget,
+  awardedValue,
+  jihValue,
+  lang,
+  achievementPct,
+}: {
+  salesTarget: number;
+  awardedValue: number;
+  jihValue: number;
+  lang: "ar" | "en";
+  achievementPct: number | null;
+}) {
+  const noTarget = salesTarget <= 0;
+
+  // Clamp values so slices never exceed the total ring
+  const awarded = noTarget ? 1 : Math.min(awardedValue, salesTarget);
+  const jihSlice = noTarget ? 0 : Math.min(jihValue, Math.max(0, salesTarget - awarded));
+  const gap = noTarget ? 0 : Math.max(0, salesTarget - awarded - jihSlice);
+
+  const data = noTarget
+    ? [{ v: 1, key: "empty" }]
+    : [
+        { v: awarded,   key: "awarded" },
+        { v: jihSlice,  key: "jih" },
+        { v: gap,       key: "gap" },
+      ].filter(d => d.v > 0);
+
+  // OKLCH-derived hex approximations kept close to the design tokens
+  const COLORS: Record<string, string> = {
+    awarded: "#4ade80", // --won ≈ oklch(0.72 0.12 155)
+    jih:     "#f59e0b", // --amber
+    gap:     "rgba(255,255,255,0.07)",
+    empty:   "rgba(255,255,255,0.07)",
+  };
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat(lang === "ar" ? "ar-SA" : "en-US", {
+      notation: "compact", maximumFractionDigits: 1,
+    }).format(n);
+
+  return (
+    <div className="relative shrink-0" style={{ width: 156, height: 156 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="v"
+            cx="50%"
+            cy="50%"
+            innerRadius={52}
+            outerRadius={70}
+            startAngle={90}
+            endAngle={-270}
+            strokeWidth={0}
+            paddingAngle={data.length > 1 ? 2 : 0}
+          >
+            {data.map(d => (
+              <Cell key={d.key} fill={COLORS[d.key] ?? COLORS.gap} />
+            ))}
+          </Pie>
+          {!noTarget && (
+            <RechartsTooltip
+              content={({ payload }) => {
+                const item = payload?.[0];
+                if (!item) return null;
+                const labels: Record<string, string> = {
+                  awarded: lang === "ar" ? "ترسيات رسمية" : "Awarded",
+                  jih: lang === "ar" ? "JIH في الإنجاز" : "JIH Pipeline",
+                  gap: lang === "ar" ? "فجوة الهدف" : "Target Gap",
+                };
+                return (
+                  <div className="rounded-lg border border-border bg-surface px-3 py-2 text-[11px] shadow-elevated">
+                    <div className="font-medium text-foreground">{labels[(item.payload as any).key] ?? ""}</div>
+                    <div className="num mt-0.5 text-muted-foreground">SAR {fmt(item.value as number)}</div>
+                  </div>
+                );
+              }}
+            />
+          )}
+        </PieChart>
+      </ResponsiveContainer>
+      {/* Center label */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <span className="num text-[24px] font-bold leading-none text-foreground">
+          {achievementPct !== null ? `${achievementPct}%` : "—"}
+        </span>
+        <span className="mt-1 text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
+          {lang === "ar" ? "تم الإنجاز" : "achieved"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function RadialProgress({ pct, size = 128 }: { pct: number; size?: number }) {
   const r = (size - 20) / 2;
   const cx = size / 2; const cy = size / 2;
@@ -1169,13 +1286,13 @@ function StageDashLink({
 }) {
   const borderCls =
     tone === "positive"
-      ? "border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/5"
+      ? "border-won-border hover:border-won-border/60 hover:bg-won-surface"
       : tone === "attention"
         ? "border-amber/20 hover:border-amber/40 hover:bg-amber/5"
         : "border-border/30 hover:border-border-strong hover:bg-surface-2/40";
   const countCls =
     tone === "positive"
-      ? "bg-emerald-500/15 text-emerald-200"
+      ? "bg-won-surface/80 text-won"
       : tone === "attention"
         ? "bg-amber/15 text-amber-light"
         : "bg-surface-2/60 text-foreground";
