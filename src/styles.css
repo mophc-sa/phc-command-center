@@ -88,6 +88,11 @@
   --color-attention: var(--amber);
   --color-attention-foreground: var(--amber-foreground);
 
+  /* Won / awarded — semantic green for "officially won" state */
+  --color-won: var(--won);
+  --color-won-surface: var(--won-surface);
+  --color-won-border: var(--won-border);
+
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
@@ -169,6 +174,11 @@
   --amber-light: oklch(0.80 0.095 75);
   --amber-foreground: oklch(0.18 0.030 55);
 
+  /* Won / awarded — calm semantic green, distinct from amber attention */
+  --won: oklch(0.72 0.12 155);
+  --won-surface: oklch(0.72 0.12 155 / 0.08);
+  --won-border: oklch(0.72 0.12 155 / 0.20);
+
   /* Chart colour tokens — keep charts in sync with the design system. */
   --chart-primary:     oklch(0.97 0.004 253);
   --chart-primary-dim: oklch(0.75 0.008 253);
@@ -247,6 +257,11 @@
   html[dir="rtl"] p, html[dir="rtl"] li,
   html[lang="ar"] p, html[lang="ar"] li {
     line-height: var(--leading-arabic);
+  }
+  /* Arabic labels: reduce weight to 500 — Manifa Pro 600 is too heavy for UI labels in Arabic */
+  html[dir="rtl"] label,
+  html[lang="ar"] label {
+    font-weight: 500;
   }
 
   h1 { font-size: var(--text-3xl); line-height: var(--leading-tight); letter-spacing: var(--tracking-tight); font-weight: 600; }
