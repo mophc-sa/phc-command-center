@@ -265,43 +265,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
     <div className="mx-auto max-w-7xl space-y-6">
 
       {/* ═══════════════════════════════════════════════════════════════
-          SECTION 1 — RFQ Sales Workflow Pipeline Diagram
-      ═══════════════════════════════════════════════════════════════ */}
-      <section className="rounded-xl border border-border/60 bg-surface/40 p-5">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Process Overview</div>
-            <div className="mt-0.5 text-[15px] font-semibold text-foreground">RFQ Sales Workflow</div>
-          </div>
-          <div className="flex max-w-[280px] items-start gap-2 rounded-lg border border-amber/25 bg-amber/5 px-3 py-2 text-[11px] text-amber-light/80">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-light" />
-            <span>{lang === "ar" ? "مراجعة 90 يومًا: أي مناقصة تجاوزت 90 يومًا يجب تحويلها لـ JIH أو إغلاقها أو وضع علامة خاملة." : "90-day Tender Review: tenders older than 90 days must be converted to JIH, closed, or flagged dormant."}</span>
-          </div>
-        </div>
-
-        {/* Stage boxes row + note row */}
-        <div className="overflow-x-auto pb-2">
-          <div className="flex min-w-max">
-            {PIPELINE_STAGES.map((stage, idx) => (
-              <PipelineStageBox key={stage.key} stage={stage} lang={lang} isLast={idx === PIPELINE_STAGES.length - 1} />
-            ))}
-          </div>
-          <div className="flex min-w-max mt-2">
-            {PIPELINE_STAGES.map(stage => (
-              <div key={stage.key} className="shrink-0" style={{ width: STAGE_BOX_W + ARROW_W }}>
-                {stage.note && (
-                  <div className="mr-1 rounded border border-dashed border-border/50 bg-surface-2/30 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
-                    {stage.note[lang]}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════
-          SECTION 2 — Main Dashboard
+          SECTION 1 — Main Dashboard
       ═══════════════════════════════════════════════════════════════ */}
       <section className="space-y-4">
 
