@@ -3989,28 +3989,31 @@ export type Database = {
         | "contract_pending"
         | "approval_pending"
       sales_stage:
-        | "rfq_received"
-        | "jih"
-        | "under_negotiation"
-        | "verbally_awarded"
         | "contract_received"
-        | "won"
+        | "contract_signed"
+        | "jih"
+        | "jih_bafo"
         | "lost"
         | "on_hold"
+        | "rfq_received"
+        | "under_negotiation"
+        | "verbally_awarded"
+        | "won"
       signage_package_status:
         | "confirmed"
         | "likely"
         | "unknown"
         | "not_applicable"
         | "no_package_identified"
-      target_period: "monthly" | "quarterly"
+      target_period: "annual" | "monthly" | "quarterly"
       tender_stage:
-        | "tender_identified"
-        | "tender_under_process"
         | "award_negotiation"
         | "awarded_to_contractor"
         | "converted_to_jih"
+        | "tender_bafo"
+        | "tender_identified"
         | "tender_lost_or_archived"
+        | "tender_under_process"
       user_status: "pending_approval" | "active" | "suspended"
       verification_status: "pending_verification" | "verified" | "rejected"
       win_confidence: "low" | "possible" | "strong" | "sure_win"
@@ -4374,14 +4377,16 @@ export const Constants = {
         "approval_pending",
       ],
       sales_stage: [
-        "rfq_received",
-        "jih",
-        "under_negotiation",
-        "verbally_awarded",
         "contract_received",
-        "won",
+        "contract_signed",
+        "jih",
+        "jih_bafo",
         "lost",
         "on_hold",
+        "rfq_received",
+        "under_negotiation",
+        "verbally_awarded",
+        "won",
       ],
       signage_package_status: [
         "confirmed",
@@ -4390,14 +4395,15 @@ export const Constants = {
         "not_applicable",
         "no_package_identified",
       ],
-      target_period: ["monthly", "quarterly"],
+      target_period: ["annual", "monthly", "quarterly"],
       tender_stage: [
-        "tender_identified",
-        "tender_under_process",
         "award_negotiation",
         "awarded_to_contractor",
         "converted_to_jih",
+        "tender_bafo",
+        "tender_identified",
         "tender_lost_or_archived",
+        "tender_under_process",
       ],
       user_status: ["pending_approval", "active", "suspended"],
       verification_status: ["pending_verification", "verified", "rejected"],

@@ -26,10 +26,13 @@ import {
   getSplitProposals, reviewSplitProposal, stageSplitProposals, acceptSplitProposalToRow,
   getTargetColumns, EXTRA_DATA_SENTINEL,
   APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
+  READINESS_ITEMS, saveReadinessChecklist, getReadinessChecklist, deriveAutoChecklist,
+  SOURCE_KIND_ROUTING,
   type ImportBatch, type ImportMapping, type ImportRow,
   type ImportTargetEntity,
   type AiAgentCallResult,
   type ImportSplitProposal,
+  type ReadinessChecklist,
 } from "@/lib/import-actions";
 import { cn } from "@/lib/utils";
 
@@ -267,6 +270,22 @@ function BatchDetailPage() {
           actions={<StatusPill tone={statusTone(batch.status)}>{batch.status}</StatusPill>}
         />
       </div>
+
+      {/* Data routing banner — shown when source type is known */}
+      {batch.source_type && batch.source_type !== "unknown" && SOURCE_KIND_ROUTING[batch.source_type] && (
+        <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 flex items-center gap-3 text-xs">
+          <span className="text-muted-foreground shrink-0">Detected:</span>
+          <span className="font-medium text-emerald-300 capitalize">{batch.source_type.replace(/_/g, " ")}</span>
+          <span className="text-muted-foreground shrink-0">→ routes to:</span>
+          <div className="flex flex-wrap gap-1">
+            {SOURCE_KIND_ROUTING[batch.source_type].destinations.map((d) => (
+              <span key={d} className="rounded bg-emerald-500/10 px-2 py-0.5 text-emerald-400 font-medium capitalize">
+                {d.replace(/_/g, " ")}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Progress stepper */}
       <Stepper steps={STEPS} currentIndex={stepIndex} failed={isFailed} />
@@ -1150,10 +1169,31 @@ function ApprovalPanel({
   const [commitResult, setCommitResult] = useState<{ committed: number; failed: number; total: number } | null>(null);
   const [dryRunResult, setDryRunResult] = useState<{ would_create: number; would_skip_duplicates: number; would_skip_errors: number } | null>(null);
 
+  const [checklist, setChecklist] = useState<ReadinessChecklist>({});
+  const [checklistLoading, setChecklistLoading] = useState(true);
+  const autoChecklist = deriveAutoChecklist(batch);
+  const mergedChecklist = { ...autoChecklist, ...checklist };
+  const manualItems = READINESS_ITEMS.filter((i) => i.manual);
+  const allManualDone = manualItems.every((i) => mergedChecklist[i.key]);
+
+  React.useEffect(() => {
+    setChecklistLoading(true);
+    getReadinessChecklist(batchId).then((c) => {
+      setChecklist(c);
+      setChecklistLoading(false);
+    });
+  }, [batchId]);
+
+  async function toggleManualItem(key: string, checked: boolean) {
+    const updated = { ...checklist, [key]: checked };
+    setChecklist(updated);
+    await saveReadinessChecklist(batchId, updated);
+  }
+
   const isPendingApproval = batch.status === "pending_approval";
-  const isApproved       = batch.status === "approved";
-  const isDryRun         = batch.status === "dry_run";
-  const isCommitted      = batch.status === "committed";
+  const isApproved        = batch.status === "approved";
+  const isDryRun          = batch.status === "dry_run";
+  const isCommitted       = batch.status === "committed";
 
   const hasCritical = (reviewerOutput?.findings as Array<{ severity: string }> ?? []).some(
     (f) => f.severity === "critical",
@@ -1182,6 +1222,54 @@ function ApprovalPanel({
           You need a manager role (Managing Director, General Manager, CEO, or Sales Manager) to approve and commit imports.
         </div>
       )}
+
+      {/* Readiness checklist — required before commit */}
+      <div className="mb-4 rounded-lg border border-border bg-surface p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+          Pre-commit Readiness Checklist
+        </div>
+        <p className="text-xs text-muted-foreground">All manual items must be confirmed before committing data to the CRM.</p>
+        {checklistLoading ? (
+          <div className="text-xs text-muted-foreground">Loading…</div>
+        ) : (
+          <div className="space-y-2">
+            {READINESS_ITEMS.map((item) => {
+              const checked = !!mergedChecklist[item.key];
+              return (
+                <label
+                  key={item.key}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md border px-3 py-2 text-xs cursor-pointer transition-colors",
+                    checked
+                      ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"
+                      : "border-border bg-transparent text-muted-foreground hover:border-border/80",
+                    !item.manual && "cursor-default opacity-70",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={!item.manual || isCommitted}
+                    onChange={(e) => item.manual && toggleManualItem(item.key, e.target.checked)}
+                    className="h-3.5 w-3.5 accent-emerald-500 shrink-0"
+                  />
+                  <span className="flex-1">{item.label}</span>
+                  {!item.manual && (
+                    <span className="text-[10px] text-muted-foreground/60 shrink-0">auto</span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+        )}
+        {!allManualDone && !checklistLoading && (
+          <p className="text-xs text-amber-400 flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            Complete all manual items above before committing.
+          </p>
+        )}
+      </div>
 
       <div className="space-y-3">
         {/* import_routing_reviewer — shown in pending_approval for approve-capable users */}
