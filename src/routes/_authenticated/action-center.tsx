@@ -311,7 +311,7 @@ function ActionCenter() {
               <li key={f.id} className="border-t border-border/60 first:border-t-0">
                 <div className="grid grid-cols-[3px_minmax(0,1fr)_auto] items-stretch">
                   <div
-                    className={high ? "bg-amber/70" : f.flag_kind === "risk" ? "bg-red-500/50" : "bg-transparent"}
+                    className={high ? "bg-amber/70" : f.flag_kind === "risk" ? "bg-destructive/50" : "bg-transparent"}
                     aria-label={high ? (lang === "ar" ? "أولوية عالية" : "High priority") : f.flag_kind === "risk" ? (lang === "ar" ? "خطر" : "Risk") : undefined}
                   />
                   <div className="px-5 py-4">
@@ -330,7 +330,7 @@ function ActionCenter() {
                       <span className="text-[11px] text-muted-foreground">{t((RECORD_TYPE_KEY[f.linked_record_type] ?? "") as never) || humanize(f.linked_record_type)}</span>
                       {f.due_date ? (
                         <span
-                          className={`inline-flex items-center gap-1 num text-[11px] ${overdue ? "font-medium text-red-400" : "text-muted-foreground"}`}
+                          className={`inline-flex items-center gap-1 num text-[11px] ${overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}
                           data-tabular="true"
                         >
                           {overdue ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
@@ -378,7 +378,7 @@ function ActionCenter() {
                           onClick={() => setDialog({ kind: "complete", flag: f })}
                           aria-label={t("ac_complete")}
                           title={t("ac_complete")}
-                          className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 transition-colors hover:bg-emerald-500/20"
+                          className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-won/40 bg-won/10 text-won transition-colors duration-150 hover:bg-won/[0.16]"
                         >
                           <CheckIcon className="h-3.5 w-3.5" />
                         </button>

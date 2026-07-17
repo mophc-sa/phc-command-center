@@ -74,9 +74,9 @@ function fmtDate(iso: string) {
 }
 
 function rowStatusClass(status: string): string {
-  if (status === "valid" || status === "committed") return "bg-emerald-500/15 text-emerald-400";
-  if (status === "error" || status === "failed")    return "bg-red-500/15 text-red-400";
-  if (status === "duplicate")                        return "bg-amber-500/15 text-amber-400";
+  if (status === "valid" || status === "committed") return "bg-won/15 text-won";
+  if (status === "error" || status === "failed")    return "bg-destructive/15 text-destructive";
+  if (status === "duplicate")                        return "bg-amber/15 text-amber-light";
   return "bg-muted text-muted-foreground";
 }
 
@@ -273,13 +273,13 @@ function BatchDetailPage() {
 
       {/* Data routing banner — shown when source type is known */}
       {batch.source_type && batch.source_type !== "unknown" && SOURCE_KIND_ROUTING[batch.source_type] && (
-        <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-4 py-2.5 flex items-center gap-3 text-xs">
+        <div className="rounded-md border border-won/20 bg-won/[0.05] px-4 py-2.5 flex items-center gap-3 text-xs">
           <span className="text-muted-foreground shrink-0">Detected:</span>
-          <span className="font-medium text-emerald-300 capitalize">{batch.source_type.replace(/_/g, " ")}</span>
+          <span className="font-medium text-won capitalize">{batch.source_type.replace(/_/g, " ")}</span>
           <span className="text-muted-foreground shrink-0">→ routes to:</span>
           <div className="flex flex-wrap gap-1">
             {SOURCE_KIND_ROUTING[batch.source_type].destinations.map((d) => (
-              <span key={d} className="rounded bg-emerald-500/10 px-2 py-0.5 text-emerald-400 font-medium capitalize">
+              <span key={d} className="rounded bg-won/10 px-2 py-0.5 text-won font-medium capitalize">
                 {d.replace(/_/g, " ")}
               </span>
             ))}
@@ -322,7 +322,7 @@ function BatchDetailPage() {
               size="sm"
               onClick={runAiPipeline}
               disabled={!!busy}
-              className="border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 border"
+              className="border-won/40 bg-won/10 text-won hover:bg-won/20 border"
             >
               <Sparkles className="h-3.5 w-3.5 mr-1.5" />
               Run AI Pipeline
@@ -387,7 +387,7 @@ function BatchDetailPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 px-2 text-xs text-emerald-400"
+                            className="h-6 px-2 text-xs text-won"
                             onClick={async () => {
                               await reviewSplitProposal(proposal.id, "accepted");
                               const db = (await import("@/integrations/supabase/client")).supabase;
@@ -416,7 +416,7 @@ function BatchDetailPage() {
                         <span className={cn(
                           "px-2 py-0.5 rounded text-[10px] font-medium",
                           proposal.review_status === "accepted"
-                            ? "bg-emerald-500/20 text-emerald-400"
+                            ? "bg-won/20 text-won"
                             : "bg-muted text-muted-foreground",
                         )}>
                           {proposal.review_status}
@@ -484,7 +484,7 @@ function BatchDetailPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-5 px-1.5 text-[10px] text-emerald-400 ml-auto"
+                          className="h-5 px-1.5 text-[10px] text-won ml-auto"
                           onClick={async () => {
                             // Write relationship hint to import_row.raw_data (no dedicated extra_data column exists)
                             if (link.source_row_id) {
@@ -527,13 +527,13 @@ function BatchDetailPage() {
                       </>
                     )}
                     {isAccepted && (
-                      <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/20 text-emerald-400">saved</span>
+                      <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium bg-won/20 text-won">saved</span>
                     )}
                   </div>
                 );
               })}
               {(resolverOutput.unresolved as unknown[])?.length > 0 && (
-                <div className="text-xs text-amber-400 mt-1">
+                <div className="text-xs text-amber-light mt-1">
                   {(resolverOutput.unresolved as Array<{ entity_ref: string; reason: string }>).length} unresolved
                 </div>
               )}
@@ -640,7 +640,7 @@ function BatchDetailPage() {
                   </div>
                   <div className="text-muted-foreground text-xs">{String(mappingAiOutput.rationale)}</div>
                   {(mappingAiOutput.warnings as string[])?.length > 0 && (
-                    <div className="mt-1 text-amber-400 text-xs">
+                    <div className="mt-1 text-amber-light text-xs">
                       {(mappingAiOutput.warnings as string[]).join(" · ")}
                     </div>
                   )}
@@ -689,9 +689,9 @@ function BatchDetailPage() {
                     <div key={s.sheet_name} className="flex items-center gap-2 text-xs">
                       <span className={cn(
                         "px-1.5 py-0.5 rounded text-[10px] font-medium",
-                        s.recommended_action === "import" ? "bg-emerald-500/20 text-emerald-400" :
+                        s.recommended_action === "import" ? "bg-won/20 text-won" :
                         s.recommended_action === "skip"   ? "bg-muted text-muted-foreground" :
-                                                            "bg-amber-500/20 text-amber-400",
+                                                            "bg-amber/20 text-amber-light",
                       )}>
                         {s.recommended_action}
                       </span>
@@ -813,7 +813,7 @@ function BatchDetailPage() {
                         <td className="px-3 py-1.5 font-mono">{e.column_name}</td>
                         <td className="px-3 py-1.5 text-muted-foreground">{e.message}</td>
                         <td className="px-3 py-1.5">
-                          <span className={e.severity === "error" ? "text-red-400" : "text-amber-400"}>
+                          <span className={e.severity === "error" ? "text-destructive" : "text-amber-light"}>
                             {e.severity}
                           </span>
                         </td>
@@ -869,7 +869,7 @@ function BatchDetailPage() {
                     <div className="space-y-2 text-sm">
                       {/* Hold warning */}
                       {changeOutput.recommended_action === "hold" && (
-                        <div className="flex items-center gap-2 rounded bg-red-500/10 border border-red-500/30 px-3 py-2 text-red-400 text-xs">
+                        <div className="flex items-center gap-2 rounded bg-destructive/10 border border-destructive/30 px-3 py-2 text-destructive text-xs">
                           <AlertTriangle className="h-4 w-4 shrink-0" />
                           AI recommends holding this import — review notable changes below before proceeding.
                         </div>
@@ -878,16 +878,16 @@ function BatchDetailPage() {
                       <div className="text-muted-foreground text-xs">{String(changeOutput.change_summary)}</div>
 
                       <div className="flex gap-4 text-xs">
-                        <span className="text-emerald-400">+{Number(changeOutput.new_records_count)} new</span>
-                        <span className="text-blue-400">~{Number(changeOutput.updated_records_count)} updated</span>
+                        <span className="text-won">+{Number(changeOutput.new_records_count)} new</span>
+                        <span className="text-info">~{Number(changeOutput.updated_records_count)} updated</span>
                         <span className="text-muted-foreground">-{Number(changeOutput.removed_records_count)} removed</span>
                       </div>
 
                       {(changeOutput.notable_changes as Array<{ description: string; severity: string }>).map((c, i) => (
                         <div key={i} className={cn(
                           "text-xs px-2 py-1 rounded",
-                          c.severity === "critical" ? "bg-red-500/10 text-red-400" :
-                          c.severity === "warning"  ? "bg-amber-500/10 text-amber-400" :
+                          c.severity === "critical" ? "bg-destructive/10 text-destructive" :
+                          c.severity === "warning"  ? "bg-amber/10 text-amber-light" :
                                                       "bg-muted/50 text-muted-foreground",
                         )}>
                           {c.description}
@@ -960,9 +960,9 @@ function Stepper({ steps, currentIndex, failed }: { steps: Step[]; currentIndex:
             <div className="flex flex-col items-center gap-1 flex-1">
               <div className={cn(
                 "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 shrink-0 transition-colors",
-                done    && "border-emerald-500 bg-emerald-500/20 text-emerald-400",
-                current && !failed && "border-emerald-400 bg-emerald-400/10 text-emerald-300",
-                current && failed  && "border-red-500 bg-red-500/20 text-red-400",
+                done    && "border-won bg-won/20 text-won",
+                current && !failed && "border-won bg-won/10 text-won",
+                current && failed  && "border-destructive bg-destructive/20 text-destructive",
                 future  && "border-border bg-transparent text-muted-foreground",
               )}>
                 {done ? (
@@ -975,7 +975,7 @@ function Stepper({ steps, currentIndex, failed }: { steps: Step[]; currentIndex:
               </div>
               <span className={cn(
                 "text-[10px] font-medium text-center leading-tight hidden sm:block",
-                done           ? "text-emerald-400"  :
+                done           ? "text-won"  :
                 current && !failed ? "text-foreground" :
                                  "text-muted-foreground",
               )}>
@@ -983,7 +983,7 @@ function Stepper({ steps, currentIndex, failed }: { steps: Step[]; currentIndex:
               </span>
             </div>
             {i < steps.length - 1 && (
-              <div className={cn("h-px flex-1 mx-1 transition-colors", done ? "bg-emerald-500/40" : "bg-border")} />
+              <div className={cn("h-px flex-1 mx-1 transition-colors", done ? "bg-won/40" : "bg-border")} />
             )}
           </div>
         );
@@ -1097,7 +1097,7 @@ function MappingPanel({
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-5 px-1 text-xs text-emerald-400"
+                    className="h-5 px-1 text-xs text-won"
                     onClick={() => {
                       const merged = { ...localMappings, [proposal.source_column]: proposal.suggested_target };
                       setLocalMappings(merged);
@@ -1202,7 +1202,7 @@ function ApprovalPanel({
   if (isCommitted) {
     return (
       <Panel title="Committed">
-        <div className="flex items-center gap-2 text-emerald-400">
+        <div className="flex items-center gap-2 text-won">
           <CheckCircle2 className="h-5 w-5" />
           <p className="text-sm font-medium">This batch has been committed to the CRM.</p>
         </div>
@@ -1218,7 +1218,7 @@ function ApprovalPanel({
   return (
     <Panel title="Approval & Commit">
       {!canApprove && (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400 mb-4">
+        <div className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-xs text-amber-light mb-4">
           You need a manager role (Managing Director, General Manager, CEO, or Sales Manager) to approve and commit imports.
         </div>
       )}
@@ -1242,7 +1242,7 @@ function ApprovalPanel({
                   className={cn(
                     "flex items-center gap-3 rounded-md border px-3 py-2 text-xs cursor-pointer transition-colors",
                     checked
-                      ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-300"
+                      ? "border-won/30 bg-won/[0.05] text-won"
                       : "border-border bg-transparent text-muted-foreground hover:border-border/80",
                     !item.manual && "cursor-default opacity-70",
                   )}
@@ -1252,7 +1252,7 @@ function ApprovalPanel({
                     checked={checked}
                     disabled={!item.manual || isCommitted}
                     onChange={(e) => item.manual && toggleManualItem(item.key, e.target.checked)}
-                    className="h-3.5 w-3.5 accent-emerald-500 shrink-0"
+                    className="h-3.5 w-3.5 accent-won shrink-0"
                   />
                   <span className="flex-1">{item.label}</span>
                   {!item.manual && (
@@ -1264,7 +1264,7 @@ function ApprovalPanel({
           </div>
         )}
         {!allManualDone && !checklistLoading && (
-          <p className="text-xs text-amber-400 flex items-center gap-1.5">
+          <p className="text-xs text-amber-light flex items-center gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             Complete all manual items above before committing.
           </p>
@@ -1311,9 +1311,9 @@ function ApprovalPanel({
               <div className="space-y-2">
                 <div className={cn(
                   "text-xs font-medium px-2 py-1 rounded inline-block",
-                  reviewerOutput.overall_recommendation === "approve" ? "bg-emerald-500/15 text-emerald-400" :
-                  reviewerOutput.overall_recommendation === "hold"    ? "bg-red-500/15 text-red-400" :
-                                                                        "bg-amber-500/15 text-amber-400",
+                  reviewerOutput.overall_recommendation === "approve" ? "bg-won/15 text-won" :
+                  reviewerOutput.overall_recommendation === "hold"    ? "bg-destructive/15 text-destructive" :
+                                                                        "bg-amber/15 text-amber-light",
                 )}>
                   AI: {String(reviewerOutput.overall_recommendation).toUpperCase()}
                   {" "}({Math.round(Number(reviewerOutput.confidence) * 100)}% confidence)
@@ -1323,8 +1323,8 @@ function ApprovalPanel({
                   {(reviewerOutput.findings as Array<{ severity: string; title: string; description: string }>).map((f, i) => (
                     <div key={i} className={cn(
                       "text-xs px-2 py-1.5 rounded flex gap-2",
-                      f.severity === "critical" ? "bg-red-500/10 text-red-400" :
-                      f.severity === "warning"  ? "bg-amber-500/10 text-amber-400" :
+                      f.severity === "critical" ? "bg-destructive/10 text-destructive" :
+                      f.severity === "warning"  ? "bg-amber/10 text-amber-light" :
                                                   "bg-muted/50 text-muted-foreground",
                     )}>
                       <span className="font-medium shrink-0">{f.title}:</span>
@@ -1344,7 +1344,7 @@ function ApprovalPanel({
         )}
 
         {/* Step 1: Approve */}
-        <div className={cn("rounded-md border px-4 py-3", isPendingApproval ? "border-emerald-500/30 bg-emerald-500/5" : "border-border opacity-60")}>
+        <div className={cn("rounded-md border px-4 py-3", isPendingApproval ? "border-won/30 bg-won/[0.05]" : "border-border opacity-60")}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground">1. Approve batch</p>
@@ -1359,7 +1359,7 @@ function ApprovalPanel({
               <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
               Approve
               {hasCritical && (
-                <span className="ml-1.5 rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-medium text-red-400">
+                <span className="ml-1.5 rounded bg-destructive/20 px-1.5 py-0.5 text-[9px] font-medium text-destructive">
                   ⚠ Critical
                 </span>
               )}
@@ -1368,7 +1368,7 @@ function ApprovalPanel({
         </div>
 
         {/* Step 2: Dry run */}
-        <div className={cn("rounded-md border px-4 py-3", isApproved ? "border-amber-500/30 bg-amber-500/5" : "border-border opacity-60")}>
+        <div className={cn("rounded-md border px-4 py-3", isApproved ? "border-amber/30 bg-amber/5" : "border-border opacity-60")}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground">2. Dry run</p>
@@ -1396,7 +1396,7 @@ function ApprovalPanel({
         </div>
 
         {/* Step 3: Commit */}
-        <div className={cn("rounded-md border px-4 py-3", isDryRun ? "border-red-500/30 bg-red-500/5" : "border-border opacity-60")}>
+        <div className={cn("rounded-md border px-4 py-3", isDryRun ? "border-destructive/30 bg-destructive/5" : "border-border opacity-60")}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground">3. Commit to CRM</p>
@@ -1411,7 +1411,7 @@ function ApprovalPanel({
                 const r = await commitBatch(batch.id);
                 setCommitResult(r as any);
               })}
-              className="shrink-0 border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 border"
+              className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive/80 hover:bg-destructive/20 border"
             >
               <Database className="h-3.5 w-3.5 mr-1.5" />
               Commit

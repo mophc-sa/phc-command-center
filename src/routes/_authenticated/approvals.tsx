@@ -141,7 +141,7 @@ function ApprovalsPage() {
                     <StatusPill tone="muted">{humanize(a.approval_type)}</StatusPill>
                     {a.recommendation ? <StatusPill tone="neutral">{humanize(a.recommendation)}</StatusPill> : null}
                     {pending && age != null ? (
-                      <span className={`text-[11px] num ${urgent ? "text-red-300" : "text-muted-foreground"}`} data-tabular="true">
+                      <span className={`text-[11px] num ${urgent ? "text-destructive/80" : "text-muted-foreground"}`} data-tabular="true">
                         {age}d waiting
                       </span>
                     ) : null}
@@ -165,7 +165,7 @@ function ApprovalsPage() {
                   a.execution_status !== "executed" &&
                   canExecute ? (
                     <button
-                      className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-1.5 font-medium text-red-300 hover:bg-red-500/20"
+                      className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive/90 hover:bg-destructive/[0.16] transition-colors duration-150"
                       onClick={() => setExecuteFor({ id: a.id })}
                     >
                       {t("lifecycle_execute_delete")}
@@ -174,7 +174,7 @@ function ApprovalsPage() {
                   {pending && canDecide ? (
                     <>
                       <button
-                        className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 font-medium text-emerald-200 hover:bg-emerald-500/20"
+                        className="rounded-md border border-won/40 bg-won/10 px-3 py-1.5 font-medium text-won hover:bg-won/[0.16] transition-colors duration-150"
                         onClick={() => setDecideFor({ id: a.id, oppId: a.related_opportunity_id, kind: "approved" })}
                       >
                         {t("action_approve")}

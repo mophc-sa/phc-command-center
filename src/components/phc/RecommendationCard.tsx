@@ -64,7 +64,7 @@ export function RecommendationCard({
               </button>
             ) : null}
             {onAccept ? (
-              <button onClick={onAccept} className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-300 hover:bg-emerald-500/20">
+              <button onClick={onAccept} className="rounded-md border border-won/30 bg-won/10 px-2.5 py-1 text-xs text-won hover:bg-won/[0.15]">
                 {t("rec_accept")}
               </button>
             ) : null}

@@ -90,7 +90,7 @@ export function CommunicationActions({
       <button
         type="button"
         onClick={() => setWaOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 font-medium px-3 py-1.5 text-xs"
+        className="inline-flex items-center gap-1.5 rounded-md border border-won/40 bg-won/10 text-won hover:bg-won/[0.16] font-medium px-3 py-1.5 text-xs transition-colors duration-150"
       >
         <MessageCircle className="h-3.5 w-3.5" /> {t("wa_button")}
       </button>

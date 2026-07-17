@@ -161,7 +161,7 @@ function RfqJihBoard() {
                     <span className="truncate text-[13px] font-medium text-foreground">{r.rfq_number ?? "RFQ"}</span>
                     <button
                       onClick={() => setConvertRfq(r)}
-                      className="shrink-0 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20"
+                      className="shrink-0 rounded-md border border-won/30 bg-won/10 px-2 py-0.5 text-[10px] font-medium text-won transition-colors hover:bg-won/20"
                     >
                       {t("wf_convert_to_jih")} <ArrowRight className="ms-0.5 inline h-2.5 w-2.5" />
                     </button>

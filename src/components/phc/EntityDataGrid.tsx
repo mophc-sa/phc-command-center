@@ -72,7 +72,7 @@ export function EntityDataGrid<TData>({
       header: ({ table }) => (
         <input
           type="checkbox"
-          className="accent-emerald-500"
+          className="accent-won"
           checked={table.getIsAllPageRowsSelected()}
           onChange={table.getToggleAllPageRowsSelectedHandler()}
         />
@@ -80,7 +80,7 @@ export function EntityDataGrid<TData>({
       cell: ({ row }) => (
         <input
           type="checkbox"
-          className="accent-emerald-500"
+          className="accent-won"
           checked={row.getIsSelected()}
           onChange={row.getToggleSelectedHandler()}
           onClick={(e) => e.stopPropagation()}
@@ -164,7 +164,7 @@ export function EntityDataGrid<TData>({
               className={cn(
                 "rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors",
                 density === d
-                  ? "bg-emerald-500/20 text-emerald-300"
+                  ? "bg-won/20 text-won"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >

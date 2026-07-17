@@ -840,178 +840,403 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
 
   const inputCls = "w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none";
 
+  const jihValue = (jihOpps as any[]).reduce((s, o) => s + (o.estimated_value_max ?? 0), 0);
+  const tenderValue = (myTenders as any[]).reduce((s, t) => s + ((t as any).estimated_project_value ?? 0), 0);
+  const salesTarget = tg ? Number(tg.sales_target) : 0;
+  const remainingTarget = salesTarget > 0 ? Math.max(0, salesTarget - awardedValue) : null;
+  const displayName = user?.email?.split("@")[0] ?? "—";
+
   return (
-    <div className="mx-auto max-w-7xl">
-      <PageHeader eyebrow={lang === "ar" ? "مساحة العمل" : "Workspace"} title={t("nav_my_day")} description={user?.email ?? undefined}
-        actions={
-          <div className="flex items-center gap-2">
-            <button onClick={() => { setRfqOpen(true); setRfqStep(1); }} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"><Plus className="h-3.5 w-3.5" /> {t("ws_new_rfq")}</button>
-            <button onClick={() => setLogOpen(true)} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3.5 text-[12px] font-medium text-amber-light transition-colors hover:bg-amber/20"><Sparkles className="h-3.5 w-3.5" /> {t("ws_log_activity")}</button>
+    <div className="mx-auto max-w-7xl space-y-6">
+
+      {/* Header */}
+      <section className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-[11px] text-muted-foreground">
+            {lang === "ar" ? "الصفحة الرئيسية" : "Main Page"} · {new Date().toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", month: "long", day: "numeric" })}
           </div>
-        }
-      />
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label={t("ws_awarded_value")} value={formatCurrency(awardedValue, lang, "SAR")} hint={tg?.sales_target ? `${lang === "ar" ? "من هدف" : "of target"} ${formatCurrency(tg.sales_target, lang, "SAR")}` : (lang === "ar" ? "لا هدف محدد" : "No target set")} trend={achievementPct !== null ? (achievementPct >= 80 ? "up" : achievementPct >= 50 ? "flat" : "down") : undefined} />
-        <KpiCard label={t("ws_achievement_pct")} value={achievementPct !== null ? `${achievementPct}%` : "—"} hint={lang === "ar" ? "إنجاز المبيعات" : "Sales achievement"} trend={achievementPct !== null ? (achievementPct >= 80 ? "up" : achievementPct >= 50 ? "flat" : "down") : undefined} />
-        <KpiCard label={lang === "ar" ? "متأخرات اليوم" : "Overdue today"} value={formatNumber(overdueFU.length + overdueTasks.length, lang)} hint={lang === "ar" ? "متابعات ومهام" : "Follow-ups & tasks"} trend={overdueFU.length + overdueTasks.length > 0 ? "down" : "flat"} />
-        <KpiCard label={lang === "ar" ? "بانتظار قرارك" : "Awaiting your decision"} value={formatNumber(myApprovals.length, lang)} hint={t("metric_awaiting_approval" as never)} />
-      </section>
-      <section className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <KpiCard label={t("ws_today_followups")} value={formatNumber(todayFU.length, lang)} hint={lang === "ar" ? "مستحقة اليوم" : "Due today"} />
-        <KpiCard label={t("ws_overdue_followups")} value={formatNumber(overdueFU.length, lang)} hint={lang === "ar" ? "تحتاج متابعة فورية" : "Needs immediate follow-up"} trend={overdueFU.length > 0 ? "down" : "flat"} />
-        <KpiCard label={t("ws_tier_a_opportunities")} value={formatNumber(tierAOpps.length, lang)} hint={formatCurrency(tierAOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")} />
-        <KpiCard label={t("ws_my_rfqs")} value={formatNumber(myRfqs.length, lang)} hint={t("ws_rfqs_open")} />
-        <KpiCard label={t("ws_my_tenders")} value={formatNumber(myTenders.length, lang)} hint={t("ws_tenders_active")} />
-        <KpiCard label={t("ws_missing_data")} value={formatNumber(missingDataFlags.length, lang)} hint={lang === "ar" ? "بانتظار استكمال البيانات" : "Awaiting data completion"} trend={missingDataFlags.length > 0 ? "down" : "flat"} />
-        <KpiCard label={t("ws_jih_summary")} value={formatNumber(jihOpps.length, lang)} hint={formatCurrency((jihOpps as any[]).reduce((s, o) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")} />
-        <KpiCard label={t("ws_urgent_quotations")} value={formatNumber(urgentQuotations.length, lang)} hint={lang === "ar" ? "تستحق هذا الأسبوع" : "Due this week"} trend={urgentQuotations.length > 0 ? "down" : "flat"} />
-      </section>
-      <section className="mt-3">
-        <ChartFrame title={t("ws_target_snapshot")} subtitle={tg ? undefined : t("ws_no_target")}>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <TargetMetric label={t("ws_target_sales")} target={tg?.sales_target} actual={undefined} lang={lang} />
-            <TargetMetric label={t("ws_target_pipeline")} target={tg?.pipeline_target} actual={pipelineValue} lang={lang} />
-            <TargetMetric label={t("ws_target_quotations")} target={tg?.quotation_target} actual={undefined} lang={lang} isCount />
-            <TargetMetric label={t("ws_target_activities")} target={tg?.activity_target} actual={data.activities.length} lang={lang} isCount />
-            <TargetMetric label={t("ws_target_reactivation")} target={tg?.reactivation_target} actual={undefined} lang={lang} isCount />
+          <div className="text-[22px] font-bold text-foreground">
+            {lang === "ar" ? `مرحباً، ${displayName}` : `Hi, ${displayName}`}
           </div>
-        </ChartFrame>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setRfqOpen(true); setRfqStep(1); }}
+            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-amber/90 px-4 text-[12px] font-semibold text-black transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <Plus className="h-3.5 w-3.5" /> {t("ws_new_rfq")}
+          </button>
+          <button
+            onClick={() => setLogOpen(true)}
+            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border px-3.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <Sparkles className="h-3.5 w-3.5" /> {t("ws_log_activity")}
+          </button>
+        </div>
       </section>
-      {recs.length > 0 && (
-        <section className="mt-6">
-          <ChartFrame title={t("rec_title")} subtitle={t("rec_disclaimer")}>
-            <div className="grid gap-3 md:grid-cols-2">
-              {(recs as any[]).map(r => (
-                <RecommendationCard key={r.id} rec={r}
-                  onAccept={async () => { try { await acceptRecommendation(r); toast.success(t("rec_accept")); qc.invalidateQueries({ queryKey: ["ws-recs", uid] }); qc.invalidateQueries({ queryKey: ["approvals"] }); } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); } }}
-                  onDismiss={async () => { try { await dismissRecommendation(r.id); qc.invalidateQueries({ queryKey: ["ws-recs", uid] }); } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); } }}
+
+      {/* Target card — donut + KPIs */}
+      <section className="rounded-xl border border-border/60 bg-surface/40 p-5">
+        <div className="flex flex-wrap items-center gap-6">
+          <TargetDonut
+            salesTarget={salesTarget}
+            awardedValue={awardedValue}
+            jihValue={jihValue}
+            lang={lang}
+            achievementPct={achievementPct}
+          />
+          <div className="flex flex-1 flex-col gap-4">
+            <div className="flex flex-wrap gap-4">
+              <TargetKpiBox
+                label={lang === "ar" ? "المبلغ المستهدف" : "Target Amount"}
+                value={salesTarget > 0 ? formatCurrency(salesTarget, lang, "SAR") : "—"}
+                sub={tg?.period_type === "annual" ? (lang === "ar" ? "هدف سنوي" : "Annual target") : (lang === "ar" ? "هدف شهري" : "Monthly target")}
+              />
+              <TargetKpiBox
+                label={lang === "ar" ? "ترسيات رسمية" : "Awarded Contracts"}
+                value={formatCurrency(awardedValue, lang, "SAR")}
+                sub={`${awardedOpps.length} ${lang === "ar" ? "مشروع" : "projects"}`}
+                tone="positive"
+              />
+              {remainingTarget !== null && (
+                <TargetKpiBox
+                  label={lang === "ar" ? "المتبقي من الهدف" : "Remaining Target"}
+                  value={formatCurrency(remainingTarget, lang, "SAR")}
+                  tone={remainingTarget < salesTarget * 0.3 ? "positive" : "attention"}
                 />
-              ))}
-            </div>
-          </ChartFrame>
-        </section>
-      )}
-      <section className="mt-6">
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-4 h-auto rounded-lg border border-border/70 bg-surface/60 p-1">
-            <TabItem value="today" icon={<CalendarClock className="h-3.5 w-3.5" />} label={lang === "ar" ? "اليوم" : "Today"} count={overdueFU.length + todayFU.length + overdueTasks.length + todayTasks.length} />
-            <TabItem value="tasks" icon={<ListChecks className="h-3.5 w-3.5" />} label={lang === "ar" ? "مهامي" : "My Tasks"} count={data.tasks.length} />
-            <TabItem value="followups" icon={<CalendarClock className="h-3.5 w-3.5" />} label={t("nav_follow_ups")} count={data.followups.length} />
-            <TabItem value="action" icon={<BellRing className="h-3.5 w-3.5" />} label={t("nav_action_center")} count={flags.length} />
-            <TabItem value="approvals" icon={<ShieldCheck className="h-3.5 w-3.5" />} label={t("nav_approvals")} count={myApprovals.length} />
-            <TabItem value="rfqs" icon={<FileText className="h-3.5 w-3.5" />} label={t("ws_my_rfqs")} count={myRfqs.length} />
-            <TabItem value="tenders" icon={<Award className="h-3.5 w-3.5" />} label={t("ws_my_tenders")} count={myTenders.length} />
-            <TabItem value="jih" icon={<Award className="h-3.5 w-3.5" />} label={t("ws_jih_summary")} count={jihOpps.length} />
-            <TabItem value="quotations" icon={<FileText className="h-3.5 w-3.5" />} label={t("ws_urgent_quotations")} count={urgentQuotations.length} />
-          </TabsList>
-          <TabsContent value="today" className="mt-0 grid gap-3 lg:grid-cols-2">
-            <ChartFrame title={lang === "ar" ? "متابعات اليوم" : "Follow-ups today"} subtitle={`${formatNumber(overdueFU.length, lang)} ${lang === "ar" ? "متأخرة" : "overdue"} · ${formatNumber(todayFU.length, lang)} ${lang === "ar" ? "اليوم" : "today"}`} padded={false}>
-              {[...overdueFU, ...todayFU].length === 0 ? <div className="px-5 py-8"><EmptyState message={t("ws_none")} /></div> : (
-                <ul>{[...overdueFU, ...todayFU].slice(0, 8).map((f: any) => {
-                  const isOverdue = f.status === "overdue" || (f.due_date && f.due_date < today);
-                  return (
-                    <li key={f.id} className="border-t border-border/60 first:border-t-0">
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-5 py-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5"><StatusPill tone={isOverdue ? "attention" : "neutral"}>{isOverdue ? (lang === "ar" ? "متأخر" : "Overdue") : (lang === "ar" ? "اليوم" : "Today")}</StatusPill><span className="text-[11px] text-muted-foreground">{humanize(f.channel)}</span></div>
-                          {f.opportunity_id ? <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="mt-1 block truncate text-[13px] font-medium text-foreground hover:underline">{oppName(f.opportunity_id)}</Link> : <div className="mt-1 truncate text-[13px] font-medium text-foreground">{oppName(f.opportunity_id)}</div>}
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <span className="num text-[11px] text-muted-foreground tabular-nums">{f.due_date ?? "—"}</span>
-                          <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} className="grid h-6 w-6 place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground"><CalendarClock className="h-3 w-3" /></button>
-                          <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} className="grid h-6 w-6 place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20"><CheckCheck className="h-3 w-3" /></button>
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}</ul>
               )}
-            </ChartFrame>
-            <ChartFrame title={lang === "ar" ? "مهام اليوم" : "Tasks today"} subtitle={`${formatNumber(overdueTasks.length, lang)} ${lang === "ar" ? "متأخرة" : "overdue"} · ${formatNumber(todayTasks.length, lang)} ${lang === "ar" ? "اليوم" : "today"}`} padded={false}>
-              <List empty={t("ws_none")} items={[...overdueTasks, ...todayTasks].slice(0, 8).map((tk: any) => ({ key: tk.id, primary: tk.title, secondary: humanize(tk.status), tone: tk.due_date && tk.due_date < today ? "attention" : "neutral" as any, label: tk.due_date && tk.due_date < today ? (lang === "ar" ? "متأخر" : "Overdue") : (lang === "ar" ? "اليوم" : "Today"), right: tk.due_date ?? "—" }))} />
-            </ChartFrame>
-            <ChartFrame title={t("ws_open_opportunities")} subtitle={`${formatNumber(data.opps.length, lang)} ${lang === "ar" ? "فرصة" : "open"}`} padded={false}>
-              <List empty={t("ws_none")} items={data.opps.slice(0, 8).map((o: any) => ({ key: o.id, primary: o.project_name, secondary: humanize(o.pipeline_step ?? o.stage), tone: "muted" as any, label: humanize(o.pipeline_step ?? o.stage), right: formatCurrency(o.estimated_value_max, lang, o.currency), href: { to: "/opportunities/$id" as const, params: { id: o.id } } }))} />
-            </ChartFrame>
-            <ChartFrame title={t("ws_recent_activity")} subtitle={String(data.activities.length)} padded={false}>
-              <List empty={t("ws_none")} items={data.activities.slice(0, 8).map((a: any) => ({ key: a.id, primary: a.summary ?? "—", secondary: t(`activity_type_${a.activity_type}` as never), tone: "muted" as any, label: t(`activity_type_${a.activity_type}` as never), right: new Date(a.occurred_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" }) }))} />
-            </ChartFrame>
-            {recent.length > 0 && (
-              <ChartFrame title={lang === "ar" ? "سجلات زرتها مؤخرًا" : "Recently Visited"} subtitle={String(recent.length)} padded={false}>
-                <ul>{recent.map(r => { const Icon = RECORD_TYPE_ICONS[r.type as keyof typeof RECORD_TYPE_ICONS] ?? Clock; return (<li key={r.to} className="transition-colors hover:bg-surface-2/40"><Link to={r.to as any} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-border/60 px-5 py-3 first:border-t-0"><Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /><div className="min-w-0"><div className="truncate text-[13px] font-medium text-foreground">{r.label}</div><div className="mt-0.5 text-[11px] text-muted-foreground">{r.type}</div></div><span className="text-[11px] text-muted-foreground">{new Date(r.visitedAt).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" })}</span></Link></li>); })}</ul>
-              </ChartFrame>
+            </div>
+            {salesTarget > 0 && (
+              <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#4ade80]" />{lang === "ar" ? "ترسيات رسمية" : "Awarded"}</span>
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber" />{lang === "ar" ? "JIH في الإنجاز" : "JIH Pipeline"}</span>
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-structural/60" />{lang === "ar" ? "فجوة الهدف" : "Target Gap"}</span>
+              </div>
             )}
-          </TabsContent>
-          <TabsContent value="tasks" className="mt-0">
-            <ChartFrame title={lang === "ar" ? "كل المهام" : "All my tasks"} subtitle={formatNumber(data.tasks.length, lang)} padded={false}>
-              <List empty={t("ws_none")} items={[...overdueTasks, ...todayTasks, ...upcomingTasks].map((tk: any) => ({ key: tk.id, primary: tk.title, secondary: humanize(tk.status), tone: tk.due_date && tk.due_date < today ? "attention" : "neutral" as any, label: tk.due_date && tk.due_date < today ? (lang === "ar" ? "متأخر" : "Overdue") : humanize(tk.status), right: tk.due_date ?? "—" }))} />
-            </ChartFrame>
-          </TabsContent>
-          <TabsContent value="followups" className="mt-0">
-            <ChartFrame title={t("nav_follow_ups")} subtitle={formatNumber(data.followups.length, lang)} padded={false}>
-              {[...overdueFU, ...todayFU, ...upcomingFU].length === 0 ? <EmptyState message={t("empty_follow_ups")} /> : (
-                <ol className="divide-y divide-border/40">
-                  {[...overdueFU, ...todayFU, ...upcomingFU].map((f: any) => {
-                    const isOverdue = f.status === "overdue" || (f.due_date && f.due_date < today);
+          </div>
+        </div>
+      </section>
+
+      {/* Nav links + Summary of Leads */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-border/60 bg-surface/40 p-4 space-y-2">
+          <StageDashLink label={lang === "ar" ? "نظرة خط المبيعات" : "Pipeline Overview"} count={data.opps.length} to="/pipeline-overview" tone="neutral" />
+          <StageDashLink label={lang === "ar" ? "قرارات بانتظار الموافقة" : "Pending Approvals"} count={myApprovals.length} to="/approvals" tone="attention" />
+          <StageDashLink label={lang === "ar" ? "مناقصاتي النشطة" : "Active Tenders"} count={myTenders.length} to="/tenders" tone="neutral" />
+          <StageDashLink label={lang === "ar" ? "بنود تتطلب إجراء" : "Action Required"} count={missingDataFlags.length} to="/opportunities" tone="neutral" />
+        </div>
+        <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
+          <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4">
+            {lang === "ar" ? "ملخص الفرص" : "Summary of Leads"}
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "إجمالي JIH" : "Total JIH"}</div>
+                <div className="text-[11px] text-muted-foreground">{jihOpps.length} {lang === "ar" ? "فرصة" : "opportunities"}</div>
+              </div>
+              <span className="num text-[18px] font-bold text-amber-light">{formatCurrency(jihValue, lang, "SAR")}</span>
+            </div>
+            <div className="h-px bg-border/30" />
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "إجمالي المناقصات" : "Total Tenders"}</div>
+                <div className="text-[11px] text-muted-foreground">{myTenders.length} {lang === "ar" ? "مناقصة" : "tenders"}</div>
+              </div>
+              <span className="num text-[18px] font-bold text-foreground">{formatCurrency(tenderValue, lang, "SAR")}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Urgent Follow-ups + Urgent Quotations */}
+      <div className="grid gap-4 lg:grid-cols-2">
+
+        {/* Urgent Follow-ups */}
+        <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
+          <div className="border-b border-border/40 px-4 py-3 flex items-center justify-between">
+            <div>
+              <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "متابعات عاجلة" : "Urgent Follow Ups"}</div>
+              <div className="text-[11px] text-muted-foreground">
+                {overdueFU.length} {lang === "ar" ? "متأخرة" : "overdue"} · {[...overdueFU, ...todayFU].length} {lang === "ar" ? "إجمالي" : "total"}
+              </div>
+            </div>
+          </div>
+          {[...overdueFU, ...todayFU].length === 0 ? (
+            <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا متابعات عاجلة" : "No urgent follow-ups"} compact /></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="border-b border-border/30">
+                    <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
+                    <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                    <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...overdueFU, ...todayFU].slice(0, 8).map((f: any) => {
+                    const days = daysUntil(f.due_date);
                     return (
-                      <li key={f.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                        <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><StatusPill tone={isOverdue ? "attention" : "neutral"}>{isOverdue ? (lang === "ar" ? "متأخر" : "Overdue") : humanize(f.status)}</StatusPill><span className="truncate text-sm font-medium text-foreground">{oppName(f.opportunity_id)}</span></div><div className="mt-0.5 text-xs text-muted-foreground">{humanize(f.channel)} · {t("label_tier")} {f.cadence_tier ?? "—"}{f.notes ? ` · ${f.notes}` : ""}</div></div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="text-xs text-muted-foreground num">{f.due_date ?? "—"}</span>
-                          {f.opportunity_id && <button type="button" onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:border-border-strong hover:text-foreground disabled:opacity-50"><Sparkles className="h-3 w-3" />{lang === "ar" ? "مسودة" : "Draft"}</button>}
-                        </div>
-                      </li>
+                      <tr key={f.id} className="border-t border-border/20 hover:bg-surface-2/30">
+                        <td className="px-4 py-2.5">
+                          {f.opportunity_id ? (
+                            <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="block max-w-[160px] truncate font-medium text-foreground hover:underline">{oppName(f.opportunity_id)}</Link>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CheckCheck className="h-3 w-3" /></button>
+                            <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CalendarClock className="h-3 w-3" /></button>
+                            {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
+                          </div>
+                        </td>
+                      </tr>
                     );
                   })}
-                </ol>
-              )}
-            </ChartFrame>
-          </TabsContent>
-          <TabsContent value="action" className="mt-0">
-            <ChartFrame title={t("nav_action_center")} subtitle={`${formatNumber(flags.length, lang)} ${lang === "ar" ? "بند" : "flagged"}`} padded={false}>
-              <List empty={t("wf_no_records")} items={(flags as any[]).map(f => ({ key: f.id, primary: f.reason ?? humanize(f.action_type ?? f.flag_kind), secondary: `${humanize(f.linked_record_type)} · ${f.priority ?? ""}`, tone: f.flag_kind === "risk" ? "danger" : "attention" as any, label: humanize(f.action_type ?? f.risk_flag ?? f.flag_kind), right: f.due_date ?? "—" }))} />
-            </ChartFrame>
-          </TabsContent>
-          <TabsContent value="approvals" className="mt-0">
-            <ChartFrame title={t("nav_approvals")} subtitle={`${formatNumber(myApprovals.length, lang)} ${lang === "ar" ? "قرار" : "pending"}`} padded={false}>
-              <List empty={t("empty_approvals")} items={myApprovals.map((a: any) => ({ key: a.id, primary: oppName(a.related_opportunity_id), secondary: humanize(a.approval_type), tone: "attention" as any, label: humanize(a.status), right: new Date(a.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" }), href: a.related_opportunity_id ? { to: "/opportunities/$id" as const, params: { id: a.related_opportunity_id } } : undefined }))} />
-            </ChartFrame>
-          </TabsContent>
-          <TabsContent value="rfqs" className="mt-0">
-            <ChartFrame title={t("ws_my_rfqs")} subtitle={`${formatNumber(myRfqs.length, lang)} ${t("ws_rfqs_open")}`} padded={false}>
-              <List empty={t("ws_none")} items={(myRfqs as any[]).map(r => ({ key: r.id, primary: r.rfq_number || "—", secondary: humanize(r.status), tone: r.response_due_date && r.response_due_date < today ? "attention" : "neutral" as any, label: r.response_due_date && r.response_due_date < today ? (lang === "ar" ? "متأخر" : "Overdue") : humanize(r.status), right: formatCurrency(r.estimated_value, lang, "SAR") }))} />
-            </ChartFrame>
-          </TabsContent>
-          <TabsContent value="tenders" className="mt-0">
-            <ChartFrame title={t("ws_my_tenders")} subtitle={`${formatNumber(myTenders.length, lang)} ${t("ws_tenders_active")}`} padded={false}>
-              <List empty={t("ws_none")} items={(myTenders as any[]).map(tn => ({ key: tn.id, primary: tn.tender_name, secondary: `${t(`tstage_${tn.tender_stage}` as never)}${tn.tender_priority_classification ? ` · ${t("label_tier")} ${tn.tender_priority_classification}` : ""}`, tone: "muted" as any, label: tn.tender_priority_classification ?? humanize(tn.tender_stage), right: formatCurrency(tn.estimated_project_value, lang, "SAR") }))} />
-            </ChartFrame>
-          </TabsContent>
-          <TabsContent value="jih" className="mt-0">
-            <ChartFrame title={t("ws_jih_summary")} subtitle={formatCurrency((jihOpps as any[]).reduce((s, o) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")} padded={false}>
-              <List empty={t("ws_none")} items={(jihOpps as any[]).map(o => ({ key: o.id, primary: o.project_name, secondary: t(`sstage_${o.sales_stage}` as never), tone: o.win_confidence === "sure_win" ? "positive" : o.win_confidence === "strong" ? "attention" : "neutral" as any, label: t(`sstage_${o.sales_stage}` as never), right: formatCurrency(o.estimated_value_max, lang, o.currency), href: { to: "/opportunities/$id" as const, params: { id: o.id } } }))} />
-            </ChartFrame>
-          </TabsContent>
-          <TabsContent value="quotations" className="mt-0">
-            <ChartFrame title={t("ws_urgent_quotations")} subtitle={`${formatNumber(urgentQuotations.length, lang)} ${lang === "ar" ? "عرض" : "quotations"}`} padded={false}>
-              <List empty={t("ws_none")} items={(urgentQuotations as any[]).map(q => ({ key: q.id, primary: q.related_opportunity_id ? oppName(q.related_opportunity_id) : "—", secondary: humanize(q.status), tone: q.valid_until && q.valid_until <= today ? "danger" : "attention" as any, label: t("ws_quotation_due"), right: q.valid_until ?? "—" }))} />
-            </ChartFrame>
-          </TabsContent>
-        </Tabs>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Urgent Quotations */}
+        <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
+          <div className="border-b border-border/40 px-4 py-3">
+            <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "عروض أسعار عاجلة" : "Urgent Quotations"}</div>
+            <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "خلال 7 أيام القادمة" : "Due within 7 days"}</div>
+          </div>
+          {(urgentQuotations as any[]).length === 0 ? (
+            <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا عروض أسعار عاجلة" : "No urgent quotations this week"} compact /></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="border-b border-border/30">
+                    <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                    <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Due"}</th>
+                    <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(urgentQuotations as any[]).map((q: any) => {
+                    const days = daysUntil(q.valid_until);
+                    return (
+                      <tr key={q.id} className="border-t border-border/20 hover:bg-surface-2/30">
+                        <td className="px-4 py-2.5 font-medium text-foreground">{q.related_opportunity_id ? oppName(q.related_opportunity_id) : "—"}</td>
+                        <td className="px-4 py-2.5 num text-muted-foreground">{q.valid_until || "—"}</td>
+                        <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 3 panels: Tier A Opps | Pending Approvals | Action Required */}
+      <section className="space-y-4">
+        <div className="grid gap-4 lg:grid-cols-3">
+
+          {/* Panel A — Tier A Opportunities */}
+          <div className="rounded-xl border border-won-border bg-won-surface overflow-hidden">
+            <div className="flex items-center justify-between border-b border-won-border/60 px-4 py-3">
+              <div>
+                <div className="text-[13px] font-semibold text-won">{lang === "ar" ? "فرص الفئة A" : "Tier A Opportunities"}</div>
+                <div className="text-[11px] text-muted-foreground">{formatCurrency(tierAOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
+              </div>
+              <span className="rounded-full bg-won-surface/80 px-2 py-0.5 text-[11px] num text-won">{tierAOpps.length}</span>
+            </div>
+            {tierAOpps.length === 0 ? (
+              <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا فرص فئة A" : "No Tier A opportunities"} compact /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-won-border/40">
+                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                      <th className="px-3 py-2 text-right text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(tierAOpps as any[]).slice(0, 6).map((o: any) => (
+                      <tr key={o.id} className="border-t border-won-border/40 hover:bg-won-surface">
+                        <td className="px-3 py-2.5">
+                          <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[140px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
+                        </td>
+                        <td className="px-3 py-2.5 text-right num text-[11px] text-won">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Panel B — Pending Approvals */}
+          <div className="rounded-xl border border-amber/20 bg-amber/5 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-amber/15 px-4 py-3">
+              <div>
+                <div className="text-[13px] font-semibold text-amber-light">{lang === "ar" ? "قرارات بانتظار الموافقة" : "Pending Approvals"}</div>
+                <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "تحتاج قرارك" : "Awaiting your decision"}</div>
+              </div>
+              <span className="rounded-full bg-amber/15 px-2 py-0.5 text-[11px] num text-amber-light">{myApprovals.length}</span>
+            </div>
+            {myApprovals.length === 0 ? (
+              <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا قرارات معلقة" : "No pending approvals"} compact /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-amber/10">
+                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                      <th className="px-3 py-2 text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "النوع" : "Type"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(myApprovals as any[]).slice(0, 6).map((a: any) => (
+                      <tr key={a.id} className="border-t border-amber/10 hover:bg-amber/5">
+                        <td className="px-3 py-2.5">
+                          {a.related_opportunity_id
+                            ? <Link to="/opportunities/$id" params={{ id: a.related_opportunity_id }} className="block max-w-[140px] truncate font-medium text-foreground hover:underline">{oppName(a.related_opportunity_id)}</Link>
+                            : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5"><StatusPill tone="attention">{humanize(a.approval_type)}</StatusPill></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Panel C — Action Required */}
+          <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
+              <div>
+                <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "بنود تتطلب إجراء" : "Action Required"}</div>
+                <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "بيانات ناقصة أو مخاطر" : "Missing data or risks"}</div>
+              </div>
+              <span className="rounded-full bg-surface-2/60 px-2 py-0.5 text-[11px] num text-foreground">{missingDataFlags.length}</span>
+            </div>
+            {missingDataFlags.length === 0 ? (
+              <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا بنود تتطلب إجراء" : "No action required"} compact /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="border-b border-border/30">
+                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "السبب" : "Reason"}</th>
+                      <th className="px-3 py-2 text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "الأولوية" : "Priority"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(missingDataFlags as any[]).slice(0, 6).map((f: any) => (
+                      <tr key={f.id} className="border-t border-border/20 hover:bg-surface-2/30">
+                        <td className="px-3 py-2.5 max-w-[140px] truncate text-foreground">{f.reason ?? humanize(f.flag_kind)}</td>
+                        <td className="px-3 py-2.5"><StatusPill tone={f.flag_kind === "risk" ? "danger" : "attention"}>{humanize(f.priority ?? f.flag_kind)}</StatusPill></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* View All buttons */}
+        <div className="flex items-center justify-center gap-3 pt-1">
+          <Link to="/opportunities" search={{} as any} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-won-border bg-won-surface px-5 text-[12px] font-medium text-won transition-colors hover:bg-won-surface/80">
+            {lang === "ar" ? "عرض كل الفرص" : "View All Opportunities"} <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+          <Link to="/tenders" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
+            {lang === "ar" ? "عرض كل المناقصات" : "View All Tenders"} <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
       </section>
-      <ActionDialog open={logOpen} onOpenChange={setLogOpen} title={t("ws_log_activity")} submitLabel={t("crm_add")} fields={[{ key: "type", type: "select", label: t("crm_filter_all_types"), required: true, defaultValue: "call", options: ACTIVITY_TYPES.map(a => ({ value: a, label: t(`activity_type_${a}` as never) })) }, { key: "opportunityId", type: "select", label: t("crm_linked_opportunities"), options: [{ value: "", label: "—" }, ...(myOpps as any[]).map(o => ({ value: o.id, label: o.project_name }))] }, { key: "summary", type: "text", label: t("activity_summary") }, { key: "draftContent", type: "textarea", label: t("activity_draft_body") }]} onSubmit={async v => { try { await logActivity({ type: v.type as ActivityType, opportunityId: v.opportunityId || null, summary: v.summary || undefined, draftContent: v.draftContent || undefined }); toast.success(t("crm_saved")); qc.invalidateQueries({ queryKey: ["workspace", uid] }); } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); } }} />
-      <ActionDialog open={!!completeFor} onOpenChange={v => !v && setCompleteFor(null)} title={t("dialog_complete_title")} description={t("dialog_complete_desc")} submitLabel={t("action_complete")} fields={[{ key: "outcome", type: "textarea", label: t("field_outcome"), required: true }]} onSubmit={async v => { try { await completeFollowUp({ followUpId: completeFor!.id, opportunityId: completeFor!.oppId, outcome: v.outcome }); toast.success(t("toast_complete_ok" as never)); qc.invalidateQueries({ queryKey: ["workspace", uid] }); qc.invalidateQueries({ queryKey: ["all-followups"] }); } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); } }} />
+
+      {/* ── Dialogs ─────────────────────────────────────────────────────────── */}
+
+      <ActionDialog open={logOpen} onOpenChange={setLogOpen} title={t("ws_log_activity")} submitLabel={t("crm_add")}
+        fields={[
+          { key: "type", type: "select", label: t("crm_filter_all_types"), required: true, defaultValue: "call", options: ACTIVITY_TYPES.map(a => ({ value: a, label: t(`activity_type_${a}` as never) })) },
+          { key: "opportunityId", type: "select", label: t("crm_linked_opportunities"), options: [{ value: "", label: "—" }, ...(myOpps as any[]).map(o => ({ value: o.id, label: o.project_name }))] },
+          { key: "summary", type: "text", label: t("activity_summary") },
+          { key: "draftContent", type: "textarea", label: t("activity_draft_body") },
+        ]}
+        onSubmit={async v => {
+          try { await logActivity({ type: v.type as ActivityType, opportunityId: v.opportunityId || null, summary: v.summary || undefined, draftContent: v.draftContent || undefined }); toast.success(t("crm_saved")); qc.invalidateQueries({ queryKey: ["workspace", uid] }); }
+          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+        }}
+      />
+
+      <ActionDialog open={!!completeFor} onOpenChange={v => !v && setCompleteFor(null)} title={t("dialog_complete_title")} description={t("dialog_complete_desc")} submitLabel={t("action_complete")}
+        fields={[{ key: "outcome", type: "textarea", label: t("field_outcome"), required: true }]}
+        onSubmit={async v => {
+          try { await completeFollowUp({ followUpId: completeFor!.id, opportunityId: completeFor!.oppId, outcome: v.outcome }); toast.success(t("toast_complete_ok" as never)); qc.invalidateQueries({ queryKey: ["workspace", uid] }); qc.invalidateQueries({ queryKey: ["all-followups"] }); }
+          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+        }}
+      />
+
+      <ActionDialog open={!!rescheduleFor} onOpenChange={v => !v && setRescheduleFor(null)} title={lang === "ar" ? "إعادة جدولة المتابعة" : "Reschedule Follow-up"} submitLabel={lang === "ar" ? "إعادة الجدولة" : "Reschedule"}
+        fields={[{ key: "dueDate", type: "date", label: lang === "ar" ? "التاريخ الجديد" : "New date", required: true, defaultValue: rescheduleFor?.currentDate ?? "" }, { key: "notes", type: "textarea", label: lang === "ar" ? "ملاحظات" : "Notes (optional)" }]}
+        onSubmit={async v => {
+          try { await rescheduleFollowUp({ followUpId: rescheduleFor!.id, opportunityId: rescheduleFor!.oppId, dueDate: v.dueDate, notes: v.notes || undefined }); toast.success(lang === "ar" ? "تمت إعادة الجدولة" : "Rescheduled"); qc.invalidateQueries({ queryKey: ["workspace", uid] }); qc.invalidateQueries({ queryKey: ["all-followups"] }); }
+          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+        }}
+      />
+
       <AlertDialog open={draftOpen} onOpenChange={setDraftOpen}>
-        <AlertDialogContent className="max-w-lg"><AlertDialogHeader><AlertDialogTitle>{lang === "ar" ? "مسودة المتابعة" : "Follow-up Draft"}</AlertDialogTitle><AlertDialogDescription>{lang === "ar" ? "مسودة مقترحة من الذكاء الاصطناعي — راجعها قبل الإرسال." : "AI-suggested draft — review before sending."}</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{lang === "ar" ? "مسودة المتابعة" : "Follow-up Draft"}</AlertDialogTitle>
+            <AlertDialogDescription>{lang === "ar" ? "مسودة مقترحة من الذكاء الاصطناعي — راجعها قبل الإرسال." : "AI-suggested draft — review before sending."}</AlertDialogDescription>
+          </AlertDialogHeader>
           <textarea value={draftContent} onChange={e => setDraftContent(e.target.value)} rows={10} className="mt-2 w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none" />
-          <AlertDialogFooter><AlertDialogCancel>{lang === "ar" ? "إغلاق" : "Close"}</AlertDialogCancel><AlertDialogAction onClick={() => { if (draftContent) navigator.clipboard.writeText(draftContent).then(() => toast.success(lang === "ar" ? "تم النسخ" : "Copied to clipboard")).catch(() => {}); setDraftOpen(false); }}>{lang === "ar" ? "نسخ" : "Copy"}</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{lang === "ar" ? "إغلاق" : "Close"}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (draftContent) navigator.clipboard.writeText(draftContent).then(() => toast.success(lang === "ar" ? "تم النسخ" : "Copied")).catch(() => {}); setDraftOpen(false); }}>{lang === "ar" ? "نسخ" : "Copy"}</AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <ActionDialog open={!!rescheduleFor} onOpenChange={v => !v && setRescheduleFor(null)} title={lang === "ar" ? "إعادة جدولة المتابعة" : "Reschedule Follow-up"} description={lang === "ar" ? "اختر تاريخاً جديداً للمتابعة." : "Pick a new due date for this follow-up."} submitLabel={lang === "ar" ? "إعادة الجدولة" : "Reschedule"} fields={[{ key: "dueDate", type: "date", label: lang === "ar" ? "التاريخ الجديد" : "New date", required: true, defaultValue: rescheduleFor?.currentDate ?? "" }, { key: "notes", type: "textarea", label: lang === "ar" ? "ملاحظات (اختياري)" : "Notes (optional)" }]} onSubmit={async v => { try { await rescheduleFollowUp({ followUpId: rescheduleFor!.id, opportunityId: rescheduleFor!.oppId, dueDate: v.dueDate, notes: v.notes || undefined }); toast.success(lang === "ar" ? "تمت إعادة الجدولة." : "Follow-up rescheduled."); qc.invalidateQueries({ queryKey: ["workspace", uid] }); qc.invalidateQueries({ queryKey: ["all-followups"] }); } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); } }} />
+
+      {/* RFQ Quick-Create Dialog — 2-column layout */}
       <Dialog open={rfqOpen} onOpenChange={v => { if (!rfqCreating) { setRfqOpen(v); if (!v) { setRfqStep(1); setRfqFoundContact(null); setRfqDedupChecked(false); } } }}>
-        <DialogContent className="max-w-md"><DialogHeader><DialogTitle>{t("ws_new_rfq")} — {rfqStep === 1 ? t("ws_rfq_step1") : t("ws_rfq_step2")}</DialogTitle></DialogHeader>
-          {rfqStep === 1 && (<div className="space-y-3 py-2"><div className="space-y-1"><Label className="text-xs">{t("ws_rfq_contact_phone")}</Label><input type="tel" value={rfqForm.contactPhone} onChange={e => { setRfqForm(f => ({ ...f, contactPhone: e.target.value })); setRfqDedupChecked(false); setRfqFoundContact(null); }} onBlur={e => handleRfqPhoneBlur(e.target.value)} placeholder="+966..." className={inputCls} />{rfqDedupChecked && rfqFoundContact && <p className="text-[11px] text-emerald-400">✓ {t("ws_dedup_found")} {rfqFoundContact.name} ({rfqFoundContact.companyName})</p>}{rfqDedupChecked && !rfqFoundContact && <p className="text-[11px] text-muted-foreground">{lang === "ar" ? "جهة اتصال جديدة" : "New contact"}</p>}</div><div className="space-y-1"><Label className="text-xs">{t("ws_rfq_contact")} *</Label><input type="text" value={rfqForm.contactName} onChange={e => setRfqForm(f => ({ ...f, contactName: e.target.value }))} className={inputCls} /></div><div className="space-y-1"><Label className="text-xs">{t("ws_rfq_company")} *</Label><input type="text" value={rfqForm.companyName} onChange={e => setRfqForm(f => ({ ...f, companyName: e.target.value }))} className={inputCls} /></div><div className="flex justify-end gap-2 pt-2"><Button variant="outline" size="sm" onClick={() => setRfqOpen(false)}>{lang === "ar" ? "إلغاء" : "Cancel"}</Button><Button size="sm" onClick={() => setRfqStep(2)} disabled={!rfqForm.companyName}>{lang === "ar" ? "التالي" : "Next"} →</Button></div></div>)}
-          {rfqStep === 2 && (<div className="space-y-3 py-2"><div className="space-y-1"><Label className="text-xs">{t("ws_rfq_project")} *</Label><textarea value={rfqForm.projectScope} onChange={e => setRfqForm(f => ({ ...f, projectScope: e.target.value }))} rows={2} className={inputCls} /></div><div className="space-y-1"><Label className="text-xs">{t("ws_rfq_due")} *</Label><input type="date" value={rfqForm.responseDueDate} onChange={e => setRfqForm(f => ({ ...f, responseDueDate: e.target.value }))} className={inputCls} /></div><div className="space-y-1"><Label className="text-xs">{t("ws_rfq_value")}</Label><input type="number" value={rfqForm.estimatedValue} onChange={e => setRfqForm(f => ({ ...f, estimatedValue: e.target.value }))} className={inputCls} /></div><div className="flex justify-end gap-2 pt-2"><Button variant="outline" size="sm" onClick={() => setRfqStep(1)}>← {lang === "ar" ? "السابق" : "Back"}</Button><Button size="sm" onClick={handleRfqSubmit} disabled={rfqCreating || !rfqForm.projectScope || !rfqForm.responseDueDate}>{rfqCreating ? (lang === "ar" ? "جارٍ الإنشاء…" : "Creating…") : (lang === "ar" ? "إنشاء الطلب" : "Create RFQ")}</Button></div></div>)}
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("ws_new_rfq")}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-5 py-2">
+            <div className="space-y-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("ws_rfq_step1")}</div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("ws_rfq_contact_phone")}</Label>
+                <input type="tel" value={rfqForm.contactPhone} onChange={e => { setRfqForm(f => ({ ...f, contactPhone: e.target.value })); setRfqDedupChecked(false); setRfqFoundContact(null); }} onBlur={e => handleRfqPhoneBlur(e.target.value)} placeholder="+966…" className={inputCls} />
+                {rfqDedupChecked && rfqFoundContact && <p className="text-[11px] text-won">✓ {t("ws_dedup_found")} {rfqFoundContact.name} ({rfqFoundContact.companyName})</p>}
+                {rfqDedupChecked && !rfqFoundContact && <p className="text-[11px] text-muted-foreground">{lang === "ar" ? "جهة اتصال جديدة" : "New contact"}</p>}
+              </div>
+              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_company")} *</Label><input type="text" value={rfqForm.companyName} onChange={e => setRfqForm(f => ({ ...f, companyName: e.target.value }))} className={inputCls} /></div>
+              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_project")} *</Label><textarea value={rfqForm.projectScope} onChange={e => setRfqForm(f => ({ ...f, projectScope: e.target.value }))} rows={2} className={inputCls} /></div>
+              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_value")}</Label><input type="number" value={rfqForm.estimatedValue} onChange={e => setRfqForm(f => ({ ...f, estimatedValue: e.target.value }))} className={inputCls} /></div>
+            </div>
+            <div className="space-y-3">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("ws_rfq_step2")}</div>
+              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_contact")}</Label><input type="text" value={rfqForm.contactName} onChange={e => setRfqForm(f => ({ ...f, contactName: e.target.value }))} className={inputCls} /></div>
+              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_due")} *</Label><input type="date" value={rfqForm.responseDueDate} onChange={e => setRfqForm(f => ({ ...f, responseDueDate: e.target.value }))} className={inputCls} /></div>
+              <div className="mt-auto rounded-md border border-dashed border-border/50 bg-surface-2/30 px-3 py-2.5 text-[11px] text-muted-foreground">
+                {lang === "ar" ? "سيتم إضافة جهة الاتصال تلقائيًا إلى قاعدة بيانات جهات الاتصال." : "Contact will be automatically added to the Contacts Database."}
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => setRfqOpen(false)}>{lang === "ar" ? "إلغاء" : "Cancel"}</Button>
+                <Button size="sm" onClick={handleRfqSubmit} disabled={rfqCreating || !rfqForm.companyName || !rfqForm.projectScope || !rfqForm.responseDueDate}>
+                  {rfqCreating ? (lang === "ar" ? "جارٍ الإنشاء…" : "Creating…") : (lang === "ar" ? "إنشاء الطلب" : "Create RFQ")}
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
@@ -1133,8 +1358,8 @@ function RadialProgress({ pct, size = 128 }: { pct: number; size?: number }) {
 }
 
 function TargetKpiBox({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "positive" | "attention" }) {
-  const cls = tone === "positive" ? "border-emerald-500/20 bg-emerald-500/5" : tone === "attention" ? "border-amber/20 bg-amber/5" : "border-border/60 bg-surface-2/30";
-  const valCls = tone === "positive" ? "text-emerald-200" : tone === "attention" ? "text-amber-light" : "text-foreground";
+  const cls = tone === "positive" ? "border-won/20 bg-won/[0.05]" : tone === "attention" ? "border-amber/20 bg-amber/5" : "border-border/60 bg-surface-2/30";
+  const valCls = tone === "positive" ? "text-won" : tone === "attention" ? "text-amber-light" : "text-foreground";
   return (
     <div className={`rounded-lg border p-4 ${cls}`}>
       <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
@@ -1147,7 +1372,7 @@ function TargetKpiBox({ label, value, sub, tone }: { label: string; value: strin
 function StageToggleRow({ id, label, count, value, lang, tone, isOpen, onToggle, children }: {
   id: string; label: string; count: number; value: number; lang: Lang; tone: "positive" | "attention" | "neutral"; isOpen: boolean; onToggle: () => void; children: React.ReactNode;
 }) {
-  const border = tone === "positive" ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-200" : tone === "attention" ? "border-amber/25 bg-amber/5 text-amber-light" : "border-border/60 bg-surface-2/20 text-foreground";
+  const border = tone === "positive" ? "border-won/25 bg-won/[0.05] text-won" : tone === "attention" ? "border-amber/25 bg-amber/5 text-amber-light" : "border-border/60 bg-surface-2/20 text-foreground";
   return (
     <div className={`rounded-lg border overflow-hidden ${border}`}>
       <button onClick={onToggle} className="flex w-full items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-white/[0.03]">

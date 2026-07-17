@@ -17,9 +17,9 @@ export function StatusPill({
   const tones: Record<Tone, string> = {
     neutral: "border-border bg-surface-2/60 text-foreground/90",
     attention: "border-amber/35 bg-amber/[0.08] text-amber-light",
-    positive: "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-200",
+    positive: "border-won/25 bg-won/[0.07] text-won",
     muted: "border-border/60 bg-transparent text-muted-foreground",
-    danger: "border-red-400/30 bg-red-400/[0.07] text-red-200",
+    danger: "border-destructive/30 bg-destructive/[0.07] text-destructive/90",
   };
   return (
     <span

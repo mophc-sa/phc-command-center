@@ -93,6 +93,12 @@
   --color-won-surface: var(--won-surface);
   --color-won-border: var(--won-border);
 
+  /* Positive — general-purpose success/valid (same green as won) */
+  --color-positive: var(--won);
+
+  /* Info — neutral cool-blue for supplementary data (replaces raw text-blue-*) */
+  --color-info: var(--info);
+
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
@@ -136,13 +142,17 @@
   --tracking-wide:   0.04em;
   --tracking-caps:   0.14em;
 
+  --shadow-card:     0 1px 0 0 color-mix(in oklch, var(--foreground) 4%, transparent),
+                     0 4px 12px -6px oklch(0 0 0 / 0.40);
   --shadow-elevated: 0 1px 0 0 color-mix(in oklch, var(--foreground) 6%, transparent),
                      0 8px 24px -12px oklch(0 0 0 / 0.55);
+  --shadow-modal:    0 0 0 1px color-mix(in oklch, var(--foreground) 8%, transparent),
+                     0 24px 48px -12px oklch(0 0 0 / 0.70);
 }
 
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;           /* 12px — Apple-standard card radius */
 
   /* Brand palette — Black Pearl #101924 foundation */
   --background: oklch(0.15 0.018 253);            /* ≈ #0B1119 */
@@ -178,6 +188,9 @@
   --won: oklch(0.72 0.12 155);
   --won-surface: oklch(0.72 0.12 155 / 0.08);
   --won-border: oklch(0.72 0.12 155 / 0.20);
+
+  /* Info — cool steel-blue for neutral supplementary labels (data counts, etc.) */
+  --info: oklch(0.70 0.075 240);
 
   /* Chart colour tokens — keep charts in sync with the design system. */
   --chart-primary:     oklch(0.97 0.004 253);
@@ -328,4 +341,36 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-muted-foreground);
+}
+
+/* Apple-style action pill — used for positive/success inline actions */
+@utility pill-positive {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-won-border);
+  background-color: var(--color-won-surface);
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-won);
+  transition: background-color 150ms ease;
+  &:hover { background-color: oklch(0.72 0.12 155 / 0.14); }
+}
+
+/* Apple-style action pill — danger/destructive */
+@utility pill-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 0.5rem;
+  border: 1px solid oklch(0.58 0.190 25 / 0.28);
+  background-color: oklch(0.58 0.190 25 / 0.08);
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-destructive);
+  transition: background-color 150ms ease;
+  &:hover { background-color: oklch(0.58 0.190 25 / 0.14); }
 }

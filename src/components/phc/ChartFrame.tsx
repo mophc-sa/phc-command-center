@@ -26,7 +26,7 @@ export function ChartFrame({
   return (
     <div
       className={cn(
-        "flex flex-col rounded-xl border border-border/70 bg-surface/60",
+        "flex flex-col rounded-xl border border-border/70 bg-surface/60 transition-shadow duration-200 hover:shadow-card",
         className,
       )}
     >

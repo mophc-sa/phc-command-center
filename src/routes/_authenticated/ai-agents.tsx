@@ -156,7 +156,7 @@ function AiAgentsPage() {
               onClick={handleRunRadar}
             />
             {radarScore !== null && (
-              <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+              <span className="rounded-md border border-won/30 bg-won/10 px-3 py-1 text-xs font-medium text-won">
                 Pipeline Health: {radarScore}/100
               </span>
             )}
@@ -173,7 +173,7 @@ function AiAgentsPage() {
           )}
 
           {radarError && (
-            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive/90">
               {radarError}
             </div>
           )}
@@ -199,10 +199,10 @@ function AiAgentsPage() {
                             className={
                               "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
                               (sev === "high"
-                                ? "bg-red-500/15 text-red-400"
+                                ? "bg-destructive/15 text-destructive"
                                 : sev === "medium"
-                                ? "bg-amber-500/15 text-amber-400"
-                                : "bg-blue-500/15 text-blue-400")
+                                ? "bg-amber/15 text-amber-light"
+                                : "bg-info/15 text-info")
                             }
                           >
                             {sev}
@@ -245,7 +245,7 @@ function RunButton({ icon, label, onClick, busy, muted }: { icon: React.ReactNod
         "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition-colors disabled:opacity-50 " +
         (muted
           ? "border-border bg-surface text-muted-foreground hover:text-foreground"
-          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20")
+          : "border-won/40 bg-won/10 text-won hover:bg-won/[0.16]")
       }
     >
       {icon}

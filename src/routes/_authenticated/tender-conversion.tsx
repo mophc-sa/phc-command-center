@@ -147,7 +147,7 @@ function TenderConversionReview() {
                         try { await approveTenderConversion(tender.id, approval.id); toast.success(t("crm_saved")); refresh(); qc.invalidateQueries({ queryKey: ["opportunities"] }); }
                         catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-won/40 bg-won/10 px-3 py-1.5 text-xs font-medium text-won hover:bg-won/20"
                     >
                       <GitMerge className="h-3.5 w-3.5" />
                       {t("tc_approve")}
@@ -167,7 +167,7 @@ function EvidenceRow({ ok, label, value }: { ok: boolean; label: string; value?:
   return (
     <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2">
       <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-        {ok ? <CheckCircle2 className="h-3 w-3 text-emerald-300" /> : <XCircle className="h-3 w-3 text-red-300" />}
+        {ok ? <CheckCircle2 className="h-3 w-3 text-won" /> : <XCircle className="h-3 w-3 text-destructive/80" />}
         {label}
       </div>
       <div className="mt-0.5 truncate text-xs text-foreground">{value || "—"}</div>
