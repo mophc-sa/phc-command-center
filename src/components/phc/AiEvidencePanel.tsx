@@ -57,7 +57,7 @@ export function AiEvidencePanel({
         {isLoading ? (
           <div className="text-xs text-muted-foreground">Loading evidence…</div>
         ) : evidence.length === 0 ? (
-          <div className="text-xs text-red-300">No evidence recorded — recommendation withheld.</div>
+          <div className="text-xs text-destructive/80">No evidence recorded — recommendation withheld.</div>
         ) : (
           <ul className="space-y-1.5">
             {evidence.map((e) => (
@@ -99,7 +99,7 @@ export function AiEvidencePanel({
             <ShieldAlert className="h-3.5 w-3.5" /> Create approval
           </button>
         ) : (
-          <button disabled={busy} onClick={() => onAction("accept")} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50">
+          <button disabled={busy} onClick={() => onAction("accept")} className="inline-flex items-center gap-1.5 rounded-md border border-won/40 bg-won/10 px-3 py-1.5 text-xs font-medium text-won hover:bg-won/[0.16] disabled:opacity-50">
             <CheckCircle2 className="h-3.5 w-3.5" /> Accept
           </button>
         )}

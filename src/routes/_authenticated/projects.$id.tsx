@@ -91,7 +91,7 @@ function ProjectDetail() {
                   try { await updateProject(p.id, { verification_status: "verified" }); toast.success(t("crm_saved")); qc.invalidateQueries({ queryKey: ["project", id] }); }
                   catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
                 }}
-                className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/20"
+                className="rounded-md border border-won/30 bg-won/10 px-3 py-1.5 text-xs text-won hover:bg-won/20"
               >
                 {t("crm_verified")}
               </button>

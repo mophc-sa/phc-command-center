@@ -52,8 +52,8 @@ const QUOTE_ORDER = [
 const CHART = {
   primary: "oklch(0.97 0.004 253)",
   amber: "oklch(0.70 0.115 65)",
-  emerald: "oklch(0.70 0.14 155)",
-  red: "oklch(0.62 0.20 25)",
+  emerald: "oklch(0.72 0.12 155)",
+  red: "oklch(0.58 0.190 25)",
   muted: "oklch(0.50 0.010 253)",
   grid: "oklch(0.40 0.015 253 / 0.35)",
 };
@@ -247,7 +247,7 @@ function ReportsPage() {
               <ul className="space-y-2">
                 {lostReasons.map((r, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-red-300/70" />
+                    <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-destructive/70" />
                     <span className="text-foreground/90">{r}</span>
                   </li>
                 ))}

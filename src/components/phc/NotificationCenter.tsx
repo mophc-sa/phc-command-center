@@ -105,8 +105,8 @@ function NotifRow({
   onClick: () => void;
 }) {
   const Icon = n.kind === "approval" ? ShieldCheck : AlertTriangle;
-  const iconColor = n.tone === "danger" ? "text-red-400" : "text-amber-light";
-  const borderColor = n.tone === "danger" ? "border-s-red-400/60" : "border-s-amber/50";
+  const iconColor = n.tone === "danger" ? "text-destructive" : "text-amber-light";
+  const borderColor = n.tone === "danger" ? "border-s-destructive/60" : "border-s-amber/50";
   const date = new Date(n.createdAt).toLocaleDateString(
     lang === "ar" ? "ar-SA" : "en-US",
     { month: "short", day: "numeric" },

@@ -298,11 +298,11 @@ function DataImportLanding() {
                 type="button"
                 disabled={creating}
                 onClick={() => fileRef.current?.click()}
-                className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-6 text-xs text-muted-foreground hover:border-emerald-500/40 hover:text-emerald-300 transition-colors"
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-border px-4 py-6 text-xs text-muted-foreground hover:border-won/40 hover:text-won transition-colors"
               >
                 {newFile ? (
                   <>
-                    <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
+                    <FileSpreadsheet className="h-4 w-4 text-won" />
                     {newFile.name} ({(newFile.size / 1024).toFixed(0)} KB)
                   </>
                 ) : (
@@ -315,7 +315,7 @@ function DataImportLanding() {
             </div>
 
             {creating && autoStep && (
-              <div className="flex items-center gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-300">
+              <div className="flex items-center gap-2 rounded-md border border-won/20 bg-won/[0.05] px-3 py-2 text-xs text-won">
                 <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
                 {autoStep}
               </div>
@@ -346,9 +346,9 @@ function BatchCard({ batch }: { batch: ImportBatch }) {
     <Link
       to="/data-import/$batchId"
       params={{ batchId: batch.id }}
-      className="flex items-center gap-4 rounded-lg border border-border bg-surface px-4 py-3 hover:border-emerald-500/30 transition-colors group"
+      className="flex items-center gap-4 rounded-lg border border-border bg-surface px-4 py-3 hover:border-won/30 transition-colors group"
     >
-      <FileSpreadsheet className="h-5 w-5 shrink-0 text-muted-foreground group-hover:text-emerald-400 transition-colors" />
+      <FileSpreadsheet className="h-5 w-5 shrink-0 text-muted-foreground group-hover:text-won transition-colors" />
 
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{batch.file_name ?? "Unnamed batch"}</p>
@@ -379,7 +379,7 @@ function ProfileCard({ profile }: { profile: ImportSourceProfile }) {
           {profile.last_imported_at ? ` · last imported ${fmtDate(profile.last_imported_at)}` : ""}
         </p>
       </div>
-      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${profile.is_recurring ? "bg-emerald-500/15 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${profile.is_recurring ? "bg-won/15 text-won" : "bg-muted text-muted-foreground"}`}>
         {profile.is_recurring ? "recurring" : "one-time"}
       </span>
     </div>

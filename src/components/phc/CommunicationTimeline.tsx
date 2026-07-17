@@ -74,7 +74,7 @@ export function CommunicationTimeline({ filter, limit }: { filter: ActivityTimel
                 <button
                   type="button"
                   onClick={() => handleMarkSent(a.id)}
-                  className="ms-auto inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/20"
+                  className="ms-auto inline-flex items-center gap-1 rounded-md border border-won/40 bg-won/10 px-2 py-1 text-[11px] font-medium text-won hover:bg-won/[0.16] transition-colors duration-150"
                 >
                   <Check className="h-3 w-3" /> {t("comm_mark_sent")}
                 </button>

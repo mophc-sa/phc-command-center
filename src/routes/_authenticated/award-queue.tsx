@@ -130,7 +130,7 @@ function AwardQueue() {
                     <td className="px-4 py-2.5"><StatusPill tone={toneForStage(o.sales_stage)}>{o.sales_stage.replaceAll("_", " ")}</StatusPill></td>
                     <td className="px-4 py-2.5 text-muted-foreground">{o.handover_status ? o.handover_status.replaceAll("_", " ") : "—"}</td>
                     <td className="px-4 py-2.5 text-right text-foreground num" data-tabular="true">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency)}</td>
-                    <td className={`px-4 py-2.5 text-right num ${isOverdue ? "text-red-300" : "text-muted-foreground"}`} data-tabular="true">
+                    <td className={`px-4 py-2.5 text-right num ${isOverdue ? "text-destructive/80" : "text-muted-foreground"}`} data-tabular="true">
                       {tis == null ? "—" : `${tis}d`}
                     </td>
                   </tr>

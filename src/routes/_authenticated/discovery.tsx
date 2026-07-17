@@ -202,14 +202,14 @@ function LeadIntakePage() {
                             try { await convertLeadToOpportunity(l); toast.success(t("lead_convert")); refresh(); qc.invalidateQueries({ queryKey: ["opportunities"] }); }
                             catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
                           }}
-                          className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-200 hover:bg-emerald-500/20"
+                          className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won hover:bg-won/20"
                         >
                           {t("lead_convert")}
                         </button>
                       ) : null}
                       <button
                         onClick={() => setRejectFor(l.id)}
-                        className="rounded-md border border-red-500/30 px-2.5 py-1 text-xs text-red-300 hover:bg-red-500/10"
+                        className="rounded-md border border-destructive/30 px-2.5 py-1 text-xs text-destructive/80 hover:bg-destructive/10"
                       >
                         {t("lead_reject")}
                       </button>

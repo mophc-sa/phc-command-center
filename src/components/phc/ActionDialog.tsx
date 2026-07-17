@@ -163,7 +163,7 @@ export function ActionDialog({
                       }
                     }}
                   />
-                  {values[f.key] ? <span className="text-xs text-emerald-300" aria-hidden="true">✓</span> : null}
+                  {values[f.key] ? <span className="text-xs text-won" aria-hidden="true">✓</span> : null}
                 </div>
               ) : f.type === "select" ? (
                 <Select

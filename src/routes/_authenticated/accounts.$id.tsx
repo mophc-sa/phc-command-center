@@ -103,7 +103,7 @@ function AccountDetail() {
                   try { await updateCompany(c.id, { account_status: "active" }); toast.success(t("crm_saved")); qc.invalidateQueries({ queryKey: ["company", id] }); }
                   catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
                 }}
-                className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/20"
+                className="rounded-md border border-won/30 bg-won/10 px-3 py-1.5 text-xs text-won hover:bg-won/[0.15] transition-colors duration-150"
               >
                 {t("crm_mark_active")}
               </button>

@@ -25,9 +25,9 @@ export function KpiCard({
 }) {
   const trendColor =
     trend === "up"
-      ? "text-emerald-200"
+      ? "text-won"
       : trend === "down"
-        ? "text-red-200"
+        ? "text-destructive/80"
         : "text-muted-foreground";
   const TrendIcon =
     trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : Minus;
@@ -35,7 +35,7 @@ export function KpiCard({
   return (
     <div
       className={cn(
-        "group relative flex flex-col rounded-xl border border-border/70 bg-surface/60 p-5 transition-colors duration-200 hover:border-border-strong/70 hover:bg-surface",
+        "group relative flex flex-col rounded-xl border border-border/70 bg-surface/60 p-5 transition-all duration-200 hover:border-border-strong/70 hover:bg-surface hover:shadow-card",
         className,
       )}
     >

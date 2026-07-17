@@ -62,7 +62,7 @@ function newIntakeFields(t: (k: string) => string, teamMembers: any[]): DialogFi
 
 function DuplicateWarning({ checking, candidates, t }: { checking: boolean; candidates: DuplicateCandidate[]; t: (k: string) => string }) {
   if (checking) return <span className="text-amber-light">{t("ibx_checking_duplicates")}</span>;
-  if (candidates.length === 0) return <span className="text-emerald-300">{t("ibx_no_duplicates")}</span>;
+  if (candidates.length === 0) return <span className="text-won">{t("ibx_no_duplicates")}</span>;
   return (
     <div className="text-amber-light">
       <div className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5" /> {t("ibx_duplicates_found")}</div>
@@ -227,7 +227,7 @@ function LeadTenderInbox() {
                     {t("ibx_classify")}
                   </button>
                   {x.classification !== "unclassified" && x.classification !== "signal_watchlist" && x.classification !== "duplicate" && x.classification !== "incomplete" ? (
-                    <button onClick={() => openConvert(x)} className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/20">
+                    <button onClick={() => openConvert(x)} className="rounded border border-won/30 bg-won/10 px-1.5 py-0.5 text-[10px] text-won hover:bg-won/20">
                       {t("ibx_convert")}
                     </button>
                   ) : null}

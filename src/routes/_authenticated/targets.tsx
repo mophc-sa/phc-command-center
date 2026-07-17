@@ -85,7 +85,7 @@ function ProgressRow({
       </div>
       <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
         <div
-          className={cn("h-full rounded-full transition-all", pct >= 100 ? "bg-emerald-400/80" : "bg-amber/80")}
+          className={cn("h-full rounded-full transition-all", pct >= 100 ? "bg-won/80" : "bg-amber/80")}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -284,7 +284,7 @@ function TargetsPage() {
                   className={cn(
                     "num rounded-full border px-2 py-0.5 text-[11px] font-medium",
                     myMetrics.achievement >= 100
-                      ? "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-200"
+                      ? "border-won/25 bg-won/[0.07] text-won"
                       : myMetrics.achievement >= 60
                         ? "border-amber/35 bg-amber/[0.08] text-amber-light"
                         : "border-border/60 text-muted-foreground",
@@ -374,7 +374,7 @@ function TargetsPage() {
                         className={cn(
                           "num rounded-full border px-2 py-0.5 text-[11px] font-medium",
                           m.achievement >= 100
-                            ? "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-200"
+                            ? "border-won/25 bg-won/[0.07] text-won"
                             : m.achievement >= 60
                               ? "border-amber/35 bg-amber/[0.08] text-amber-light"
                               : "border-border/60 text-muted-foreground",

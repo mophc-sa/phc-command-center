@@ -101,7 +101,7 @@ export function RecordLifecycleMenu({
             <DropdownMenuItem onSelect={() => setDuplicateOpen(true)}>{t("lifecycle_mark_duplicate")}</DropdownMenuItem>
           ) : null}
           {canRequestThisDelete ? (
-            <DropdownMenuItem className="text-red-400" onSelect={() => setDeleteOpen(true)}>
+            <DropdownMenuItem className="text-destructive" onSelect={() => setDeleteOpen(true)}>
               {t("lifecycle_request_delete")}
             </DropdownMenuItem>
           ) : null}

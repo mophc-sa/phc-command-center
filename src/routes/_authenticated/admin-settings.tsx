@@ -277,7 +277,7 @@ function AdminSettingsPage() {
                       <button
                         disabled={busy}
                         onClick={() => handleApprove(p)}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-won/30 bg-won/10 px-2.5 py-1.5 text-xs font-medium text-won transition-colors hover:bg-won/[0.15] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <UserCheck className="h-3.5 w-3.5" />
                         {t("admin_pending_approve")}
@@ -286,7 +286,7 @@ function AdminSettingsPage() {
                       <button
                         disabled={busy}
                         onClick={() => handleReject(p)}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <UserX className="h-3.5 w-3.5" />
                         {t("admin_pending_reject")}
@@ -323,7 +323,7 @@ function AdminSettingsPage() {
                     return (
                       <td key={r} className="px-2 py-2.5 text-center">
                         {allowed ? (
-                          <Check className="mx-auto h-4 w-4 text-emerald-400" aria-label="allowed" />
+                          <Check className="mx-auto h-4 w-4 text-won" aria-label="allowed" />
                         ) : (
                           <Minus className="mx-auto h-4 w-4 text-muted-foreground/50" aria-label="not allowed" />
                         )}
@@ -461,7 +461,7 @@ function AdminSettingsPage() {
                             <button
                               type="button"
                               onClick={() => handleSuspend(m)}
-                              className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-red-400/30 hover:bg-red-400/10 hover:text-red-400"
+                              className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                             >
                               <ShieldOff className="h-3 w-3" />
                               {t("admin_user_suspend")}
@@ -470,7 +470,7 @@ function AdminSettingsPage() {
                             <button
                               type="button"
                               onClick={() => handleActivate(m)}
-                              className="inline-flex items-center gap-1 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[11px] text-emerald-400 transition-colors hover:bg-emerald-400/20"
+                              className="inline-flex items-center gap-1 rounded-md border border-won/30 bg-won/10 px-2 py-1 text-[11px] text-won transition-colors hover:bg-won/[0.15]"
                             >
                               <ShieldCheck className="h-3 w-3" />
                               {t("admin_user_activate")}
