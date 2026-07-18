@@ -28,6 +28,7 @@ jobs:
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
       SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
       SUPABASE_URL: ${{ vars.SUPABASE_URL }}
       VITE_SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
@@ -35,6 +36,7 @@ jobs:
       SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
       VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
       WORKER_NAME: mophc-sa-phc-command-center
+      DNS_RECORD_NAME: agent.phc-sa.com
       WRANGLER_VERSION: 4.112.0
 
     steps:
@@ -48,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN SUPABASE_PROJECT_ID SUPABASE_URL SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_PUBLISHABLE_KEY; do
+          for name in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN CLOUDFLARE_ZONE_ID SUPABASE_PROJECT_ID SUPABASE_URL SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_PUBLISHABLE_KEY; do
             if [ -z "${!name:-}" ]; then
               echo "Missing required production-cloudflare value: $name" >&2
               exit 1
@@ -95,6 +97,33 @@ jobs:
           fi
           curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "${canary_url}/auth" >/dev/null
           echo "Canary health check passed: ${canary_url}/auth"
+
+      - name: Snapshot production DNS for rollback
+        if: inputs.target == 'production'
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/dns_records?name=${DNS_RECORD_NAME}")"
+          jq -e '.success == true' <<<"$response" >/dev/null
+          record_count="$(jq '.result | length' <<<"$response")"
+          if [ "$record_count" -lt 1 ]; then
+            echo "No existing DNS record found for ${DNS_RECORD_NAME}; refusing production cutover" >&2
+            exit 1
+          fi
+          jq '[.result[] | {id, type, name, content, proxied, ttl}]' <<<"$response" \
+            >"${RUNNER_TEMP}/agent-dns-before.json"
+          echo "Captured ${record_count} pre-cutover DNS record(s) for ${DNS_RECORD_NAME}."
+
+      - name: Preserve production DNS rollback snapshot
+        if: inputs.target == 'production'
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-dns-before-${{ github.run_id }}
+          path: ${{ runner.temp }}/agent-dns-before.json
+          retention-days: 90
+          if-no-files-found: error
 
       - name: Deploy production custom domain
         if: inputs.target == 'production'
