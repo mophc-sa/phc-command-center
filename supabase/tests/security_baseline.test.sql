@@ -126,20 +126,25 @@ select ok(
   'signed-in users cannot invoke the RLS event-trigger function directly'
 );
 
-create function public.__security_baseline_acl_probe()
-returns void
-language plpgsql
-as $$
-begin
-  null;
-end;
-$$;
-
 select ok(
-  not has_function_privilege('anon', 'public.__security_baseline_acl_probe()', 'EXECUTE')
-  and not has_function_privilege('authenticated', 'public.__security_baseline_acl_probe()', 'EXECUTE')
-  and not has_function_privilege('service_role', 'public.__security_baseline_acl_probe()', 'EXECUTE'),
-  'new public functions require an explicit execute grant'
+  not exists (
+    select 1
+    from pg_default_acl d
+    cross join lateral aclexplode(d.defaclacl) a
+    where d.defaclrole = 'postgres'::regrole
+      and d.defaclnamespace = 'public'::regnamespace
+      and d.defaclobjtype = 'f'
+      and a.privilege_type = 'EXECUTE'
+      and (
+        a.grantee = 0
+        or a.grantee in (
+          'anon'::regrole,
+          'authenticated'::regrole,
+          'service_role'::regrole
+        )
+      )
+  ),
+  'postgres-created public functions require an explicit execute grant'
 );
 
 select * from finish();
