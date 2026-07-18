@@ -93,7 +93,7 @@ jobs:
             echo "Wrangler did not return a canary URL" >&2
             exit 1
           fi
-          curl --fail --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "${canary_url}/auth" >/dev/null
+          curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "${canary_url}/auth" >/dev/null
           echo "Canary health check passed: ${canary_url}/auth"
 
       - name: Deploy production custom domain
@@ -107,5 +107,5 @@ jobs:
             --domain agent.phc-sa.com \
             --keep-vars \
             --message "Production ${GITHUB_SHA}"
-          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 https://agent.phc-sa.com/auth >/dev/null
+          curl --fail --location --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 https://agent.phc-sa.com/auth >/dev/null
           echo "Production health check passed: https://agent.phc-sa.com/auth"
