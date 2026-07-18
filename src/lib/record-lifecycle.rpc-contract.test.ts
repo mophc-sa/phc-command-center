@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "../../supabase/migrations");
-const edgeFunctionPath = join(here, "../../supabase/functions/sales-os-api/index.ts");
+const edgeFunctionPath = join(here, "../../supabase/functions/sales-os-api/handlers/lifecycle.ts");
 
 function migrationText(): string {
   const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
@@ -27,14 +27,14 @@ function migrationText(): string {
 // elsewhere in this large file.
 function executeDeleteHandlerBody(): string {
   const src = readFileSync(edgeFunctionPath, "utf8");
-  const start = src.indexOf("async execute_delete(");
-  expect(start, "execute_delete handler not found in sales-os-api/index.ts").toBeGreaterThan(-1);
-  // Next handler starts with "\n  async " at the same indentation, or the
-  // handlers object closes with "\n};".
+  const start = src.indexOf("async function execute_delete(");
+  expect(start, "execute_delete handler not found in lifecycle module").toBeGreaterThan(-1);
+  // Next handler starts at module scope, or the manifest export begins.
   const rest = src.slice(start);
-  const nextHandler = rest.indexOf("\n  async ", 1);
-  const objectClose = rest.indexOf("\n};");
-  const end = nextHandler === -1 ? objectClose : Math.min(nextHandler, objectClose === -1 ? Infinity : objectClose);
+  const nextHandler = rest.indexOf("\nasync function ", 1);
+  const manifest = rest.indexOf("\nexport const lifecycleModule");
+  const end =
+    nextHandler === -1 ? manifest : Math.min(nextHandler, manifest === -1 ? Infinity : manifest);
   expect(end, "could not find the end of the execute_delete handler").toBeGreaterThan(-1);
   return rest.slice(0, end);
 }
@@ -47,18 +47,26 @@ test("the atomic execute_approved_record_delete RPC is defined in the Sprint 8 m
 
 test("the RPC is scoped to service_role only, not to authenticated/anon", () => {
   const sql = migrationText();
-  expect(sql).toMatch(/REVOKE EXECUTE ON FUNCTION public\.execute_approved_record_delete\(uuid, uuid\) FROM PUBLIC, anon, authenticated/);
-  expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION public\.execute_approved_record_delete\(uuid, uuid\) TO service_role/);
+  expect(sql).toMatch(
+    /REVOKE EXECUTE ON FUNCTION public\.execute_approved_record_delete\(uuid, uuid\) FROM PUBLIC, anon, authenticated/,
+  );
+  expect(sql).toMatch(
+    /GRANT EXECUTE ON FUNCTION public\.execute_approved_record_delete\(uuid, uuid\) TO service_role/,
+  );
 });
 
 test("the RPC's own hard-delete allowlist inside the SQL matches the final conservative list", () => {
   const sql = migrationText();
-  expect(sql).toMatch(/_allowed_tables text\[\] := ARRAY\['follow_ups', 'activities', 'inbox_items', 'boqs'\]/);
+  expect(sql).toMatch(
+    /_allowed_tables text\[\] := ARRAY\['follow_ups', 'activities', 'inbox_items', 'boqs'\]/,
+  );
 });
 
 test("the RPC locks the approval row (FOR UPDATE) before checking it, to guard against concurrent execution", () => {
   const sql = migrationText();
-  expect(sql).toMatch(/SELECT \* INTO _appr FROM public\.approvals WHERE id = _approval_id FOR UPDATE/);
+  expect(sql).toMatch(
+    /SELECT \* INTO _appr FROM public\.approvals WHERE id = _approval_id FOR UPDATE/,
+  );
 });
 
 test("the RPC verifies the delete affected exactly one row before marking the approval executed", () => {
@@ -69,7 +77,9 @@ test("the RPC verifies the delete affected exactly one row before marking the ap
 
 test("the RPC is hardened against a hijacked search_path (public, pg_temp only)", () => {
   const sql = migrationText();
-  expect(sql).toMatch(/CREATE OR REPLACE FUNCTION public\.execute_approved_record_delete[\s\S]*?SET search_path = public, pg_temp/);
+  expect(sql).toMatch(
+    /CREATE OR REPLACE FUNCTION public\.execute_approved_record_delete[\s\S]*?SET search_path = public, pg_temp/,
+  );
 });
 
 test("a partial unique index prevents a second active delete request for the same record", () => {
@@ -81,7 +91,9 @@ test("a partial unique index prevents a second active delete request for the sam
 
 test("the partial unique index uses the NULL-safe IS DISTINCT FROM 'executed', not a bare <> comparison", () => {
   const sql = migrationText();
-  const indexStart = sql.indexOf("CREATE UNIQUE INDEX IF NOT EXISTS one_active_delete_request_per_record");
+  const indexStart = sql.indexOf(
+    "CREATE UNIQUE INDEX IF NOT EXISTS one_active_delete_request_per_record",
+  );
   expect(indexStart, "index definition not found").toBeGreaterThan(-1);
   const indexStatement = sql.slice(indexStart, sql.indexOf(";", indexStart) + 1);
   expect(indexStatement).toMatch(/execution_status IS DISTINCT FROM 'executed'/);
@@ -106,5 +118,5 @@ test("the execute_delete edge-function handler performs NO direct delete call", 
 test("the execute_delete edge-function handler performs NO direct approvals status update or audit() call — the RPC owns both", () => {
   const body = executeDeleteHandlerBody();
   expect(body).not.toMatch(/\.from\(\s*["']approvals["']\s*\)\s*\.update\(/);
-  expect(body).not.toMatch(/\baudit\(svc/);
+  expect(body).not.toMatch(/\bauditLog\(svc/);
 });

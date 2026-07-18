@@ -20,9 +20,14 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - run: bun install --frozen-lockfile
       - name: TypeScript check
         run: bun run typecheck
+      - name: Supabase Edge Function check
+        run: deno check --import-map supabase/functions/import_map.json supabase/functions/sales-os-api/index.ts
       - name: Unit and contract tests
         run: bun run test
       - name: Production build
