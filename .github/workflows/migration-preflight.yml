@@ -17,7 +17,7 @@ jobs:
       EXPECTED_PROJECT_REF: lrfdtoexyeghrzynapyn
     steps:
       - uses: actions/checkout@v5
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: latest
       - name: Validate target project
