@@ -45,12 +45,24 @@ for (const role of ALL_ROLES) {
         if (!creds) return;
         await signInWithCachedSession(page, creds.email, creds.password);
         await page.goto(route);
-        // Either redirected away from the target, or an access-denied surface is rendered.
-        const url = page.url();
-        const body = await page.locator("body").innerText();
-        const denied =
-          !url.includes(route) || /access denied|not authorized|forbidden|permission/i.test(body);
-        expect(denied, `role ${role} should not fully access ${route}`).toBe(true);
+        // Client-side route guards resolve asynchronously after page.goto().
+        // Wait for either a redirect or an explicit access-denied surface.
+        await expect
+          .poll(
+            async () => {
+              const pathname = new URL(page.url()).pathname;
+              const body = await page.locator("body").innerText();
+              return (
+                pathname !== route ||
+                /access denied|not authorized|forbidden|permission/i.test(body)
+              );
+            },
+            {
+              message: `role ${role} should not fully access ${route}`,
+              timeout: 10_000,
+            },
+          )
+          .toBe(true);
       });
     }
 
