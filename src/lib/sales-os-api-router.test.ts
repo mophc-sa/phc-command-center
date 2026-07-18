@@ -34,6 +34,9 @@ function makeRouter(handler?: SalesOsHandler) {
 
 test("router preserves pre-auth method, size, JSON, and unknown-action guards", async () => {
   const { route, authCalls } = makeRouter();
+  const options = await route(new Request("https://example.test", { method: "OPTIONS" }));
+  expect(options.status).toBe(200);
+  expect(options.headers.get("Access-Control-Allow-Origin")).toBe("https://agent.phc-sa.com");
   expect((await route(new Request("https://example.test", { method: "GET" }))).status).toBe(405);
   expect(
     (
@@ -113,6 +116,13 @@ test("router preserves authorization and handler error responses", async () => {
   const response = await failing(request());
   expect(response.status).toBe(500);
   expect(await response.json()).toEqual({ error: "handler failed" });
+
+  const nonErrorFailure = makeRouter(async () => {
+    throw "non-error failure";
+  }).route;
+  const fallbackResponse = await nonErrorFailure(request());
+  expect(fallbackResponse.status).toBe(500);
+  expect(await fallbackResponse.json()).toEqual({ error: "Internal error" });
 });
 
 test("service client creation stays lazy and is cached per request context", () => {
