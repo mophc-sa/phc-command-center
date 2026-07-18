@@ -51,5 +51,15 @@ BEGIN
 END;
 $$;
 
-COMMENT ON EXTENSION pg_cron IS
-  'Required for ai-weekly-report scheduled job (Sunday 03:00 UTC = 06:00 GST).';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_extension WHERE extname = 'pg_cron'
+  ) THEN
+    EXECUTE $comment$
+      COMMENT ON EXTENSION pg_cron IS
+        'Required for ai-weekly-report scheduled job (Sunday 03:00 UTC = 06:00 GST).'
+    $comment$;
+  END IF;
+END;
+$$;

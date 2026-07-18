@@ -53,4 +53,14 @@ describe("phase 1 security baseline", () => {
       "skipping admin role cleanup (safe on dev/CI)",
     );
   });
+
+  test("optional pg_cron metadata is guarded on a clean CI database", () => {
+    const source = readFileSync(
+      join(root, "supabase/migrations/20260713170000_ai_weekly_report_cron.sql"),
+      "utf8",
+    );
+    expect(source).not.toMatch(/\nCOMMENT ON EXTENSION pg_cron/);
+    expect(source).toContain("WHERE extname = 'pg_cron'");
+    expect(source).toContain("EXECUTE $comment$");
+  });
 });
