@@ -26,12 +26,21 @@ jobs:
           actual_ref="$(sed -n 's/^project_id = "\([^"]*\)"/\1/p' supabase/config.toml)"
           test "$actual_ref" = "$EXPECTED_PROJECT_REF"
       - name: Link runner to the approved project
+        id: link
         run: supabase link --project-ref "$EXPECTED_PROJECT_REF"
       - name: List local and remote migration state
-        run: supabase migration list --linked | tee migration-state.txt
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list --linked 2>&1 | tee migration-state.txt
       - name: Lint linked schema without mutation
-        run: supabase db lint --linked --level warning | tee database-lint.txt
+        if: always() && steps.link.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db lint --linked --level warning 2>&1 | tee database-lint.txt
       - name: Upload preflight evidence
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: production-migration-preflight
