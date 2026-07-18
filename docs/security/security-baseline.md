@@ -24,9 +24,27 @@ This document defines the minimum merge and release gates for PHC Command Center
 - `system_admin` has technical authority but no implicit commercial approval authority.
 - Browser code uses only a publishable Supabase key.
 - Service clients are server-only and every privileged use case performs explicit authorization and audit logging.
+- Every Data API RPC requires an explicit role grant in its defining migration;
+  new public functions are not executable by application roles by default.
 - AI never sends communications, deletes records, commits imports, or mutates live CRM entities directly.
 - Hard delete requires prior commercial approval and atomic server-side execution.
 - Production CORS is restricted to `CORS_ALLOWED_ORIGIN`; local and preview environments must set their own explicit origin.
+
+## Tracked database-advisor exceptions
+
+- `public.vendors_public` is intentionally a `security_definer` view for the
+  current release. It exposes a reviewed, non-sensitive vendor projection to
+  signed-in sales users while the base `vendors` table remains manager-only.
+  Changing it to `security_invoker` without redesigning the storage boundary
+  would either break the sales workflow or expose sensitive base-table
+  columns. Replace it with a dedicated safe projection table or an equivalent
+  least-privilege boundary before removing this exception.
+- Authenticated `security_definer` authorization helpers used inside RLS are
+  intentional for now. Moving them to a private schema is a separate migration
+  that must preserve every policy dependency and pass the complete role matrix.
+- Performance advisor findings for per-row auth evaluation and overlapping
+  permissive policies are tracked as performance work; they must be fixed in
+  reviewed batches, not mixed into an access-control migration.
 
 ## Required GitHub configuration
 
