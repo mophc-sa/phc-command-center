@@ -63,4 +63,19 @@ describe("phase 1 security baseline", () => {
     expect(source).toContain("WHERE extname = 'pg_cron'");
     expect(source).toContain("EXECUTE $comment$");
   });
+
+  test("sales actuals uses a valid expression-based unique index", () => {
+    const source = readFileSync(
+      join(root, "supabase/migrations/20260714210000_business_destinations.sql"),
+      "utf8",
+    );
+    expect(source).toContain(
+      "CREATE UNIQUE INDEX IF NOT EXISTS sales_actuals_unique_metric_idx",
+    );
+    const tableDefinition = source.slice(
+      source.indexOf("CREATE TABLE IF NOT EXISTS public.sales_actuals_monthly"),
+      source.indexOf("CREATE UNIQUE INDEX IF NOT EXISTS sales_actuals_unique_metric_idx"),
+    );
+    expect(tableDefinition).not.toContain("COALESCE(");
+  });
 });

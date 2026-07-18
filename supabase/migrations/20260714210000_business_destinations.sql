@@ -209,17 +209,19 @@ CREATE TABLE IF NOT EXISTS public.sales_actuals_monthly (
   notes                 text,
   created_by            uuid        REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at            timestamptz NOT NULL DEFAULT now(),
-  updated_at            timestamptz NOT NULL DEFAULT now(),
-  -- One row per (year, month, owner-or-team, metric, profile)
-  -- COALESCE sentinels make the UNIQUE work with NULLs
-  UNIQUE (
+  updated_at            timestamptz NOT NULL DEFAULT now()
+);
+
+-- One row per (year, month, owner-or-team, metric, profile). Expressions are
+-- valid in a unique index, not in a table-level UNIQUE constraint.
+CREATE UNIQUE INDEX IF NOT EXISTS sales_actuals_unique_metric_idx
+  ON public.sales_actuals_monthly (
     year,
     month,
-    COALESCE(owner_id,        '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE(owner_id, '00000000-0000-0000-0000-000000000000'::uuid),
     metric_type,
     COALESCE(source_profile_id, '00000000-0000-0000-0000-000000000000'::uuid)
-  )
-);
+  );
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.sales_actuals_monthly TO authenticated;
 GRANT ALL ON public.sales_actuals_monthly TO service_role;
