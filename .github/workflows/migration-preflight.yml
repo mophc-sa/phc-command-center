@@ -17,9 +17,9 @@ jobs:
       EXPECTED_PROJECT_REF: lrfdtoexyeghrzynapyn
     steps:
       - uses: actions/checkout@v5
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: 2.101.0
       - name: Validate target project and IPv4 session pooler
         id: target
         shell: bash

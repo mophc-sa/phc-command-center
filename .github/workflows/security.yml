@@ -52,9 +52,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: 2.101.0
       - name: Start isolated local Supabase
         run: supabase start -x studio,imgproxy,logflare,vector,supavisor
       - name: Lint database schema
