@@ -45,7 +45,7 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      - name: Normalize and verify Cloudflare API token
+      - name: Normalize and verify Cloudflare deployment access
         shell: bash
         env:
           RAW_CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -64,21 +64,31 @@ jobs:
             echo "Missing required production-cloudflare value: CLOUDFLARE_API_TOKEN" >&2
             exit 1
           fi
+          if [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "Missing required production-cloudflare value: CLOUDFLARE_ACCOUNT_ID" >&2
+            exit 1
+          fi
 
           echo "::add-mask::$token"
           printf 'CLOUDFLARE_API_TOKEN=%s\n' "$token" >>"$GITHUB_ENV"
 
-          if ! verification="$(curl --fail --silent --show-error \
+          if ! bindings="$(curl --fail --silent --show-error \
             --header "Authorization: Bearer ${token}" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/tokens/verify")"; then
-            echo "Cloudflare API token verification failed. Update CLOUDFLARE_API_TOKEN in the production-cloudflare environment." >&2
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${WORKER_NAME}/secrets")"; then
+            echo "Cloudflare API token cannot read the production Worker secrets. Verify the token value, account scope, and Workers Scripts Write permission." >&2
             exit 1
           fi
-          jq -e '.success == true and .result.status == "active"' <<<"$verification" >/dev/null || {
-            echo "Cloudflare API token is not active." >&2
+          jq -e '.success == true and (.result | type == "array")' <<<"$bindings" >/dev/null || {
+            echo "Cloudflare returned an unexpected Worker secrets response." >&2
             exit 1
           }
-          echo "Cloudflare API token is active."
+          for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY; do
+            jq -e --arg name "$name" 'any(.result[]; .name == $name)' <<<"$bindings" >/dev/null || {
+              echo "Missing required Worker secret binding: $name" >&2
+              exit 1
+            }
+          done
+          echo "Cloudflare deployment access and Worker secret bindings verified."
 
       - name: Validate deployment configuration
         shell: bash
@@ -99,18 +109,6 @@ jobs:
 
       - name: Verify source
         run: bun run verify
-
-      - name: Confirm privileged Worker bindings exist
-        shell: bash
-        run: |
-          set -euo pipefail
-          bindings="$(bunx wrangler@${WRANGLER_VERSION} secret list --name "$WORKER_NAME")"
-          for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY; do
-            grep -q "\"name\": \"$name\"" <<<"$bindings" || {
-              echo "Missing required Worker secret binding: $name" >&2
-              exit 1
-            }
-          done
 
       - name: Upload canary version
         if: inputs.target == 'canary'
