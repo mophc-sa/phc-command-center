@@ -16,7 +16,7 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       EXPECTED_PROJECT_REF: lrfdtoexyeghrzynapyn
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: supabase/setup-cli@v1
         with:
           version: latest
@@ -32,7 +32,7 @@ jobs:
       - name: Lint linked schema without mutation
         run: supabase db lint --linked --level warning | tee database-lint.txt
       - name: Upload preflight evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: production-migration-preflight
           path: |
