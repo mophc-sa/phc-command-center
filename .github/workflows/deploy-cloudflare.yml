@@ -70,7 +70,7 @@ jobs:
 
           if ! verification="$(curl --fail --silent --show-error \
             --header "Authorization: Bearer ${token}" \
-            https://api.cloudflare.com/client/v4/user/tokens/verify)"; then
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/tokens/verify")"; then
             echo "Cloudflare API token verification failed. Update CLOUDFLARE_API_TOKEN in the production-cloudflare environment." >&2
             exit 1
           fi
