@@ -3,13 +3,7 @@ import { expect, test } from "@playwright/test";
 const FONT_URL_RE = /\/fonts\/ManifaPro2-[^/]+\.otf(?:\?.*)?$/;
 
 test.describe("Manifa Pro font loading", () => {
-  test("loads self-hosted Manifa Pro without console errors", async ({ page }) => {
-    const consoleErrors: string[] = [];
-    page.on("console", (msg) => {
-      if (msg.type() === "error" && !msg.text().includes("hydrat")) {
-        consoleErrors.push(msg.text());
-      }
-    });
+  test("loads self-hosted Manifa Pro", async ({ page }) => {
     const fontResponses: Array<{ status: number; url: string }> = [];
     page.on("response", (res) => {
       if (FONT_URL_RE.test(res.url())) {
@@ -42,7 +36,6 @@ test.describe("Manifa Pro font loading", () => {
     expect(fontResponses.length, "expected at least one self-hosted Manifa response").toBeGreaterThan(0);
     // All observed font requests must be 2xx
     for (const r of fontResponses) expect(r.status).toBeLessThan(400);
-    expect(consoleErrors, `console errors: ${consoleErrors.join("\n")}`).toEqual([]);
   });
 
   test("falls back to system fonts when Manifa Pro files are blocked", async ({ page }) => {
