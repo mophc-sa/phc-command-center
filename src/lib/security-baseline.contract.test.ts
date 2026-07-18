@@ -40,4 +40,17 @@ describe("phase 1 security baseline", () => {
       expect(source).not.toContain("text: error.message");
     }
   });
+
+  test("team provisioning migration is safe on a clean CI database", () => {
+    const source = readFileSync(
+      join(root, "supabase/migrations/20260713140000_phase_b_team_provisioning.sql"),
+      "utf8",
+    );
+    expect(source).not.toContain(
+      "RAISE EXCEPTION 'Phase B: moalagab@phc-sa.com not found",
+    );
+    expect(source).toContain(
+      "skipping admin role cleanup (safe on dev/CI)",
+    );
+  });
 });

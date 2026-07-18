@@ -173,38 +173,41 @@ BEGIN
   SELECT id INTO _mo_id FROM public.profiles WHERE email = 'moalagab@phc-sa.com' LIMIT 1;
 
   IF _mo_id IS NULL THEN
-    RAISE EXCEPTION 'Phase B: moalagab@phc-sa.com not found — cannot continue.';
-  END IF;
-
-  INSERT INTO public.user_roles (user_id, role)
-    VALUES (_mo_id, 'system_admin')
-    ON CONFLICT (user_id, role) DO NOTHING;
-
-  RAISE NOTICE 'Phase B: moalagab system_admin confirmed.';
-
-  -- ── Step 3: Remove Mohammed's legacy commercial roles ─────────────────────
-  --
-  -- safe because step 1 already inserted Bassem (managing_director) and Omar
-  -- (sales_manager) — protect_last_manager will find ≥1 holder of each role.
-  -- sales_manager was already removed in Sprint 1E (migration 20260713130000).
-  --
-  -- Roles to clean up: ceo, bd_manager, viewer (whichever exist).
-
-  DELETE FROM public.user_roles
-    WHERE user_id = _mo_id
-      AND role IN ('ceo', 'bd_manager', 'viewer');
-
-  -- Audit the cleanup if any rows were actually deleted
-  IF FOUND THEN
-    INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
-      VALUES (NULL, 'system', 'role.revoked', 'user_role', _mo_id::text,
-              jsonb_build_object(
-                'roles_removed', ARRAY['ceo','bd_manager','viewer'],
-                'reason', 'Phase B — legacy commercial roles removed; moalagab retains system_admin only'
-              ));
-    RAISE NOTICE 'Phase B: legacy roles (ceo/bd_manager/viewer) removed from moalagab.';
+    -- A clean development/CI database has no production identities. Provisioning
+    -- must therefore be repeatable without making the migration chain depend on
+    -- pre-existing auth data.
+    RAISE NOTICE 'Phase B: moalagab@phc-sa.com not found — skipping admin role cleanup (safe on dev/CI).';
   ELSE
-    RAISE NOTICE 'Phase B: no legacy roles to remove from moalagab (already clean).';
+    INSERT INTO public.user_roles (user_id, role)
+      VALUES (_mo_id, 'system_admin')
+      ON CONFLICT (user_id, role) DO NOTHING;
+
+    RAISE NOTICE 'Phase B: moalagab system_admin confirmed.';
+
+    -- ── Step 3: Remove Mohammed's legacy commercial roles ───────────────────
+    --
+    -- safe because step 1 already inserted Bassem (managing_director) and Omar
+    -- (sales_manager) — protect_last_manager will find ≥1 holder of each role.
+    -- sales_manager was already removed in Sprint 1E (migration 20260713130000).
+    --
+    -- Roles to clean up: ceo, bd_manager, viewer (whichever exist).
+
+    DELETE FROM public.user_roles
+      WHERE user_id = _mo_id
+        AND role IN ('ceo', 'bd_manager', 'viewer');
+
+    -- Audit the cleanup if any rows were actually deleted
+    IF FOUND THEN
+      INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
+        VALUES (NULL, 'system', 'role.revoked', 'user_role', _mo_id::text,
+                jsonb_build_object(
+                  'roles_removed', ARRAY['ceo','bd_manager','viewer'],
+                  'reason', 'Phase B — legacy commercial roles removed; moalagab retains system_admin only'
+                ));
+      RAISE NOTICE 'Phase B: legacy roles (ceo/bd_manager/viewer) removed from moalagab.';
+    ELSE
+      RAISE NOTICE 'Phase B: no legacy roles to remove from moalagab (already clean).';
+    END IF;
   END IF;
 
 END $$;
