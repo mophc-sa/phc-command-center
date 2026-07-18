@@ -1,18 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
+import { signInWithCachedSession } from "./fixtures/auth";
 import { getRoleCredentials, type RoleName } from "./fixtures/roles";
-
-async function signIn(page: Page, email: string, password: string) {
-  await page.goto("/auth");
-  await page.getByLabel(/email/i).first().fill(email);
-  await page.getByLabel(/password/i).first().fill(password);
-  await page.getByRole("button", { name: /sign in|log in/i }).first().click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/auth"), { timeout: 15_000 });
-}
 
 async function openImportCenter(page: Page, role: RoleName) {
   const creds = getRoleCredentials(role);
   if (!creds) return null;
-  await signIn(page, creds.email, creds.password);
+  await signInWithCachedSession(page, creds.email, creds.password);
   const response = await page.goto("/data-import");
   expect(response?.status()).toBeLessThan(400);
   return creds;
