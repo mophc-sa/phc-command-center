@@ -1,0 +1,111 @@
+name: Deploy Cloudflare Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target
+        required: true
+        default: canary
+        type: choice
+        options:
+          - canary
+          - production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.target }}
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production-cloudflare
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      VITE_SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
+      VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      WORKER_NAME: mophc-sa-phc-command-center
+      WRANGLER_VERSION: 4.112.0
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN SUPABASE_PROJECT_ID SUPABASE_URL SUPABASE_PUBLISHABLE_KEY VITE_SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required production-cloudflare value: $name" >&2
+              exit 1
+            fi
+          done
+          case "$SUPABASE_URL" in
+            https://lrfdtoexyeghrzynapyn.supabase.co) ;;
+            *) echo "Refusing to deploy with an unexpected Supabase project URL" >&2; exit 1 ;;
+          esac
+
+      - run: bun install --frozen-lockfile
+
+      - name: Verify source
+        run: bun run verify
+
+      - name: Confirm privileged Worker bindings exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          bindings="$(bunx wrangler@${WRANGLER_VERSION} secret list --name "$WORKER_NAME")"
+          for name in SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY; do
+            grep -q "\"name\": \"$name\"" <<<"$bindings" || {
+              echo "Missing required Worker secret binding: $name" >&2
+              exit 1
+            }
+          done
+
+      - name: Upload canary version
+        if: inputs.target == 'canary'
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(bunx wrangler@${WRANGLER_VERSION} versions upload \
+            --config .output/server/wrangler.json \
+            --name "$WORKER_NAME" \
+            --preview-alias phc-canary \
+            --keep-vars \
+            --message "Canary ${GITHUB_SHA}")"
+          printf '%s\n' "$output"
+          canary_url="$(grep -Eo 'https://[^[:space:]]+\.workers\.dev' <<<"$output" | tail -1)"
+          if [ -z "$canary_url" ]; then
+            echo "Wrangler did not return a canary URL" >&2
+            exit 1
+          fi
+          curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "${canary_url}/auth" >/dev/null
+          echo "Canary health check passed: ${canary_url}/auth"
+
+      - name: Deploy production custom domain
+        if: inputs.target == 'production'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bunx wrangler@${WRANGLER_VERSION} deploy \
+            --config .output/server/wrangler.json \
+            --name "$WORKER_NAME" \
+            --domain agent.phc-sa.com \
+            --keep-vars \
+            --message "Production ${GITHUB_SHA}"
+          curl --fail --location --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 https://agent.phc-sa.com/auth >/dev/null
+          echo "Production health check passed: https://agent.phc-sa.com/auth"

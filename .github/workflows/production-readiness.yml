@@ -2,6 +2,15 @@ name: Production Readiness
 
 on:
   workflow_dispatch:
+    inputs:
+      app_url:
+        description: Approved PHC deployment URL to test
+        required: true
+        default: https://agent.phc-sa.com
+        type: choice
+        options:
+          - https://agent.phc-sa.com
+          - https://phc-canary-mophc-sa-phc-command-center.phc-sa.workers.dev
 
 permissions:
   contents: read
@@ -12,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production-readiness
     env:
-      TEST_APP_URL: ${{ secrets.TEST_APP_URL }}
+      TEST_APP_URL: ${{ inputs.app_url }}
       TEST_SYSTEM_ADMIN_EMAIL: ${{ secrets.TEST_SYSTEM_ADMIN_EMAIL }}
       TEST_SYSTEM_ADMIN_PASSWORD: ${{ secrets.TEST_SYSTEM_ADMIN_PASSWORD }}
       TEST_MANAGING_DIRECTOR_EMAIL: ${{ secrets.TEST_MANAGING_DIRECTOR_EMAIL }}
