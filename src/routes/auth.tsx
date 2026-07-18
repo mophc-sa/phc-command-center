@@ -38,7 +38,8 @@ function AuthPage() {
       if (next) {
         window.location.replace(next);
       } else {
-        nav({ to: "/command-center", replace: true });
+        // Let the root landing route resolve the user's role-specific home.
+        nav({ to: "/", replace: true });
       }
     }
   }, [loading, user, nav, next]);

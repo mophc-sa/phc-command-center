@@ -23,8 +23,10 @@ for (const role of ALL_ROLES) {
       await signIn(page, creds.email, creds.password);
 
       // Exact landing path per Sprint 1D role landing contract.
-      const landingRe = new RegExp(matrix.landing.replace("/", "\\/"));
-      await expect(page).toHaveURL(landingRe, { timeout: 10_000 });
+      await expect(page).toHaveURL(
+        (url) => url.pathname === matrix.landing,
+        { timeout: 10_000 },
+      );
 
       // No console/runtime errors on the landing page.
       const errors: string[] = [];
@@ -42,6 +44,10 @@ for (const role of ALL_ROLES) {
         await signIn(page, creds.email, creds.password);
         const resp = await page.goto(route);
         expect(resp?.status(), `expected 2xx for ${route}`).toBeLessThan(400);
+        await expect(page).toHaveURL((url) => url.pathname === route);
+        await expect(page.locator("body")).not.toContainText(
+          /access denied|not authorized|forbidden|permission/i,
+        );
       });
     }
 
@@ -63,10 +69,9 @@ for (const role of ALL_ROLES) {
     test("Arabic mode renders RTL", async ({ page }) => {
       if (!creds) return;
       await signIn(page, creds.email, creds.password);
-      await page.evaluate(() => localStorage.setItem("phc.lang", "ar"));
+      await page.evaluate(() => localStorage.setItem("phc-lang", "ar"));
       await page.reload();
-      const dir = await page.evaluate(() => document.documentElement.dir);
-      expect(["rtl", "ltr"]).toContain(dir); // present, non-empty
+      await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
     });
   });
 }

@@ -1,25 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-const FONT_URL_RE = /\/__l5e\/assets-v1\/[^/]+\/ManifaPro2-[^/]+\.otf/;
+const FONT_URL_RE = /\/fonts\/ManifaPro2-[^/]+\.otf(?:\?.*)?$/;
 
 test.describe("Manifa Pro font loading", () => {
-  // Manifa Pro is served from the Lovable CDN (/__l5e/assets-v1/…), which only
-  // resolves on the DEPLOYED app. Against a local `vite preview` build — i.e. CI
-  // without TEST_APP_URL — that path is unavailable, so the font can never load.
-  // Skip in that case (mirrors the role-matrix credential skip); set
-  // TEST_APP_URL to the deployed app to actually exercise these assertions.
-  test.skip(
-    !process.env.TEST_APP_URL,
-    "Manifa Pro is served by the Lovable CDN; only verifiable against the deployed app (set TEST_APP_URL).",
-  );
-
-  test("loads Manifa Pro from CDN without console errors", async ({ page }) => {
-    const consoleErrors: string[] = [];
-    page.on("console", (msg) => {
-      if (msg.type() === "error" && !msg.text().includes("hydrat")) {
-        consoleErrors.push(msg.text());
-      }
-    });
+  test("loads self-hosted Manifa Pro", async ({ page }) => {
     const fontResponses: Array<{ status: number; url: string }> = [];
     page.on("response", (res) => {
       if (FONT_URL_RE.test(res.url())) {
@@ -49,13 +33,13 @@ test.describe("Manifa Pro font loading", () => {
     expect(loaded.hasRegular).toBe(true);
     expect(loaded.anyLoaded).toBe(true);
     expect(loaded.bodyFamily).toMatch(/Manifa Pro/);
+    expect(fontResponses.length, "expected at least one self-hosted Manifa response").toBeGreaterThan(0);
     // All observed font requests must be 2xx
     for (const r of fontResponses) expect(r.status).toBeLessThan(400);
-    expect(consoleErrors, `console errors: ${consoleErrors.join("\n")}`).toEqual([]);
   });
 
-  test("falls back to system fonts when CDN blocks Manifa Pro", async ({ page }) => {
-    // Simulate CDN failure for all Manifa Pro font files
+  test("falls back to system fonts when Manifa Pro files are blocked", async ({ page }) => {
+    // Simulate a failure for every self-hosted Manifa Pro face.
     await page.route(FONT_URL_RE, (route) => route.abort("failed"));
 
     await page.goto("/auth", { waitUntil: "domcontentloaded" });

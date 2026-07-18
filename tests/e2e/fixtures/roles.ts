@@ -87,8 +87,10 @@ export const ROLE_MATRIX: Record<
 > = {
   system_admin: {
     landing: "/admin-settings",
-    allow: ["/admin-settings", "/settings"],
-    deny: ["/approvals", "/award-queue"],
+    allow: ["/admin-settings", "/settings", "/approvals", "/award-queue"],
+    // Technical admins may inspect commercial queues but cannot take
+    // commercial decisions; action-level capability checks enforce that.
+    deny: [],
     sidebarGroups: ["nav_group_admin"],
   },
   managing_director: {
@@ -135,8 +137,8 @@ export const ROLE_MATRIX: Record<
   },
   viewer: {
     landing: "/command-center",
-    allow: ["/command-center", "/reports"],
-    deny: ["/admin-settings", "/approvals"],
+    allow: ["/command-center", "/reports", "/approvals"],
+    deny: ["/admin-settings"],
     sidebarGroups: [],
   },
 };

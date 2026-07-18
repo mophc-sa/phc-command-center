@@ -312,6 +312,9 @@ function DataImportLanding() {
                   </>
                 )}
               </button>
+              <p className="text-[11px] text-muted-foreground">
+                Max 10 MB · Max 10,000 rows
+              </p>
             </div>
 
             {creating && autoStep && (

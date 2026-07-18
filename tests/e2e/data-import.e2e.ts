@@ -9,159 +9,99 @@ async function signIn(page: Page, email: string, password: string) {
   await page.waitForURL((url) => !url.pathname.startsWith("/auth"), { timeout: 15_000 });
 }
 
-// -- Upload + parse preview (sales_manager) -----------------------------------
-test.describe("Data Import: sales_manager", () => {
-  const creds = getRoleCredentials("sales_manager");
-  test.skip(!creds, "TEST_SALES_MANAGER_EMAIL/PASSWORD not set");
+async function openImportCenter(page: Page, role: RoleName) {
+  const creds = getRoleCredentials(role);
+  if (!creds) return null;
+  await signIn(page, creds.email, creds.password);
+  const response = await page.goto("/data-import");
+  expect(response?.status()).toBeLessThan(400);
+  return creds;
+}
 
-  test("can access /data-import and see upload tab", async ({ page }) => {
-    if (!creds) return;
-    await signIn(page, creds.email, creds.password);
-    const resp = await page.goto("/data-import");
-    expect(resp?.status()).toBeLessThan(400);
-    await expect(page.getByText(/Data Import|استيراد البيانات/i)).toBeVisible();
-    await expect(page.getByText(/Upload|الرفع/i)).toBeVisible();
+async function invokeImportPipelineAsSignedInUser(page: Page, action: string) {
+  const auth = await page.evaluate(() => {
+    const entry = Object.entries(localStorage).find(([key]) =>
+      /^sb-[a-z0-9]+-auth-token$/.test(key),
+    );
+    if (!entry) return null;
+    const projectRef = entry[0].slice(3, -"-auth-token".length);
+    const session = JSON.parse(entry[1]) as { access_token?: string };
+    if (!session.access_token) return null;
+    return {
+      token: session.access_token,
+      url: `https://${projectRef}.supabase.co/functions/v1/import-pipeline`,
+    };
+  });
+  expect(auth, "expected a persisted Supabase session after sign-in").not.toBeNull();
+
+  return page.request.post(auth!.url, {
+    headers: {
+      Authorization: `Bearer ${auth!.token}`,
+    },
+    data: { action, batch_id: crypto.randomUUID() },
+  });
+}
+
+test.describe("Data Import: authorised roles", () => {
+  for (const role of ["sales_manager", "managing_director", "system_admin"] as const) {
+    const creds = getRoleCredentials(role);
+    test.skip(!creds, `TEST_${role.toUpperCase()}_EMAIL/PASSWORD not set`);
+
+    test(`${role} can access the current Import Center`, async ({ page }) => {
+      if (!(await openImportCenter(page, role))) return;
+      await expect(page.getByRole("heading", { name: "Import Center" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "New Import" }).first()).toBeVisible();
+    });
+  }
+
+  const salesManager = getRoleCredentials("sales_manager");
+  test.skip(!salesManager, "TEST_SALES_MANAGER_EMAIL/PASSWORD not set");
+
+  test("new-import dialog exposes accepted formats and enforced limits", async ({ page }) => {
+    if (!(await openImportCenter(page, "sales_manager"))) return;
+    await page.getByRole("button", { name: "New Import" }).first().click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "New Import" })).toBeVisible();
+    await expect(dialog.getByText(/Max 10 MB.*Max 10,000 rows/i)).toBeVisible();
+    await expect(dialog.locator('input[type="file"]')).toHaveAttribute("accept", ".csv,.xlsx");
   });
 
-  test("upload tab shows drop zone and file limit", async ({ page }) => {
-    if (!creds) return;
-    await signIn(page, creds.email, creds.password);
-    await page.goto("/data-import");
-    await page.getByText(/Upload|الرفع/i).first().click();
-    await expect(page.getByText(/10 MB|10,000/i)).toBeVisible();
-  });
-});
-
-// -- Mapping save/reload (sales_manager) --------------------------------------
-test.describe("Data Import: mapping", () => {
-  const creds = getRoleCredentials("sales_manager");
-  test.skip(!creds, "TEST_SALES_MANAGER_EMAIL/PASSWORD not set");
-
-  test("mapping tab is accessible", async ({ page }) => {
-    if (!creds) return;
-    await signIn(page, creds.email, creds.password);
-    await page.goto("/data-import");
-    await page.getByText(/Mapping|الربط/i).first().click();
-    // Tab should render without errors
+  test("current batch lifecycle tabs render without runtime errors", async ({ page }) => {
     const errors: string[] = [];
-    page.on("pageerror", (err) => errors.push(err.message));
-    await page.waitForLoadState("networkidle").catch(() => undefined);
+    page.on("pageerror", (error) => errors.push(error.message));
+    if (!(await openImportCenter(page, "sales_manager"))) return;
+
+    for (const tabName of ["Active", "Recurring", "Processed"]) {
+      const tab = page.getByRole("tab", { name: new RegExp(`^${tabName}\\b`, "i") });
+      await expect(tab).toBeVisible();
+      await tab.click();
+    }
     expect(errors).toEqual([]);
   });
-});
 
-// -- Validation report/downloads (sales_manager) ------------------------------
-test.describe("Data Import: validation", () => {
-  const creds = getRoleCredentials("sales_manager");
-  test.skip(!creds, "TEST_SALES_MANAGER_EMAIL/PASSWORD not set");
-
-  test("validation tab shows KPI cards", async ({ page }) => {
-    if (!creds) return;
-    await signIn(page, creds.email, creds.password);
-    await page.goto("/data-import");
-    await page.getByText(/Validation|التحقق/i).first().click();
-    // Tab should render without runtime errors
-    const errors: string[] = [];
-    page.on("pageerror", (err) => errors.push(err.message));
-    await page.waitForLoadState("networkidle").catch(() => undefined);
-    expect(errors).toEqual([]);
+  test("system_admin is rejected at the approve and commit trust boundary", async ({ page }) => {
+    if (!(await openImportCenter(page, "system_admin"))) return;
+    for (const action of ["approve", "dry_run_commit"]) {
+      const response = await invokeImportPipelineAsSignedInUser(page, action);
+      expect(response.status()).toBe(403);
+      const body = await response.json();
+      expect(body.error).toMatch(/system_admin cannot (approve|commit) imports/i);
+    }
   });
 });
 
-// -- Duplicate review ---------------------------------------------------------
-test.describe("Data Import: duplicates", () => {
-  const creds = getRoleCredentials("sales_manager");
-  test.skip(!creds, "TEST_SALES_MANAGER_EMAIL/PASSWORD not set");
+for (const role of ["salesperson", "viewer"] as const) {
+  test.describe(`Data Import: ${role} blocked`, () => {
+    const creds = getRoleCredentials(role);
+    test.skip(!creds, `TEST_${role.toUpperCase()}_EMAIL/PASSWORD not set`);
 
-  test("duplicates tab renders without errors", async ({ page }) => {
-    if (!creds) return;
-    await signIn(page, creds.email, creds.password);
-    await page.goto("/data-import");
-    await page.getByText(/Duplicates|التكرارات/i).first().click();
-    const errors: string[] = [];
-    page.on("pageerror", (err) => errors.push(err.message));
-    await page.waitForLoadState("networkidle").catch(() => undefined);
-    expect(errors).toEqual([]);
+    test("shows the access-denied surface", async ({ page }) => {
+      if (!(await openImportCenter(page, role))) return;
+      await expect(
+        page.getByText(/do not have permission to access the import centre/i),
+      ).toBeVisible();
+      await expect(page.getByRole("button", { name: "New Import" })).toHaveCount(0);
+    });
   });
-});
-
-// -- managing_director approval + dry-run commit ------------------------------
-test.describe("Data Import: managing_director approval", () => {
-  const creds = getRoleCredentials("managing_director");
-  test.skip(!creds, "TEST_MANAGING_DIRECTOR_EMAIL/PASSWORD not set");
-
-  test("can access approval tab", async ({ page }) => {
-    if (!creds) return;
-    await signIn(page, creds.email, creds.password);
-    await page.goto("/data-import");
-    await page.getByText(/Approval|الاعتماد/i).first().click();
-    const errors: string[] = [];
-    page.on("pageerror", (err) => errors.push(err.message));
-    await page.waitForLoadState("networkidle").catch(() => undefined);
-    expect(errors).toEqual([]);
-  });
-});
-
-// -- system_admin blocked from approve/commit ---------------------------------
-test.describe("Data Import: system_admin restrictions", () => {
-  const creds = getRoleCredentials("system_admin");
-  test.skip(!creds, "TEST_SYSTEM_ADMIN_EMAIL/PASSWORD not set");
-
-  test("can access /data-import but sees no-approve notice", async ({ page }) => {
-    if (!creds) return;
-    await signIn(page, creds.email, creds.password);
-    await page.goto("/data-import");
-    // Should see the import page (not blocked)
-    await expect(page.getByText(/Data Import|استيراد البيانات/i)).toBeVisible();
-    // Should see the restriction notice
-    await expect(page.getByText(/cannot approve|لا يسمح/i)).toBeVisible();
-  });
-});
-
-// -- salesperson blocked ------------------------------------------------------
-test.describe("Data Import: salesperson blocked", () => {
-  const creds = getRoleCredentials("salesperson");
-  test.skip(!creds, "TEST_SALESPERSON_EMAIL/PASSWORD not set");
-
-  test("sees access denied on /data-import", async ({ page }) => {
-    if (!creds) return;
-    await signIn(page, creds.email, creds.password);
-    await page.goto("/data-import");
-    // Should see blocked message or redirect
-    const body = await page.locator("body").innerText();
-    const blocked = /do not have access|ليس لديك صلاحية|access denied/i.test(body)
-      || !page.url().includes("/data-import");
-    expect(blocked).toBe(true);
-  });
-});
-
-// -- viewer blocked -----------------------------------------------------------
-test.describe("Data Import: viewer blocked", () => {
-  const creds = getRoleCredentials("viewer");
-  test.skip(!creds, "TEST_VIEWER_EMAIL/PASSWORD not set");
-
-  test("sees access denied on /data-import", async ({ page }) => {
-    if (!creds) return;
-    await signIn(page, creds.email, creds.password);
-    await page.goto("/data-import");
-    const body = await page.locator("body").innerText();
-    const blocked = /do not have access|ليس لديك صلاحية|access denied/i.test(body)
-      || !page.url().includes("/data-import");
-    expect(blocked).toBe(true);
-  });
-});
-
-// -- File cap rejection -------------------------------------------------------
-test.describe("Data Import: file caps", () => {
-  const creds = getRoleCredentials("sales_manager");
-  test.skip(!creds, "TEST_SALES_MANAGER_EMAIL/PASSWORD not set");
-
-  test("upload tab displays file size and row limits", async ({ page }) => {
-    if (!creds) return;
-    await signIn(page, creds.email, creds.password);
-    await page.goto("/data-import");
-    await page.getByText(/Upload|الرفع/i).first().click();
-    await expect(page.getByText(/10 MB/)).toBeVisible();
-    await expect(page.getByText(/10,000/)).toBeVisible();
-  });
-});
+}
