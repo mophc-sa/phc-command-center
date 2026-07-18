@@ -24,11 +24,17 @@ export default defineTool({
     const sb = supabaseForUser(ctx);
     const { data, error } = await sb
       .from("opportunities")
-      .select("*")
+      .select(
+        "id, project_name, client, stage, sales_stage, tier, owner_id, next_action, next_action_due, created_at, updated_at",
+      )
       .eq("status", "pending_approval")
       .order("created_at", { ascending: false })
       .limit(limit);
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    if (error)
+      return {
+        content: [{ type: "text", text: "Unable to list pending approvals" }],
+        isError: true,
+      };
     return {
       content: [{ type: "text", text: JSON.stringify(data) }],
       structuredContent: { approvals: data ?? [] },

@@ -24,10 +24,13 @@ export default defineTool({
     const sb = supabaseForUser(ctx);
     const { data, error } = await sb
       .from("agent_runs")
-      .select("*")
+      .select(
+        "id, agent_name, loop_name, status, started_at, completed_at, records_processed, records_created, records_updated, summary",
+      )
       .order("started_at", { ascending: false })
       .limit(limit);
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    if (error)
+      return { content: [{ type: "text", text: "Unable to list agent runs" }], isError: true };
     return {
       content: [{ type: "text", text: JSON.stringify(data) }],
       structuredContent: { runs: data ?? [] },

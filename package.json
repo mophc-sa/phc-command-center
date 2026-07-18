@@ -8,8 +8,16 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "bunx wrangler@4 dev -c .output/server/wrangler.json",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:e2e": "playwright test",
+    "test:e2e:readiness": "bun scripts/verify-e2e-env.ts && playwright test",
+    "test:db": "supabase test db",
+    "audit:deps": "bun audit --audit-level=high",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "bun run typecheck && bun run lint && bun run test && bun run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
