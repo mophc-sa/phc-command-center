@@ -16,31 +16,27 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 test("run_automations no longer passes a non-UUID string literal as entity_id", () => {
   const src = readFileSync(
-    join(here, "../../supabase/functions/sales-os-api/index.ts"),
+    join(here, "../../supabase/functions/sales-os-api/handlers/automation.ts"),
     "utf8",
   );
-  const match = src.match(/audit\(svc, caller\.userId, "automations\.run", "system", ([^,]+),/);
+  const match = src.match(/auditLog\(svc, caller\.userId, "automations\.run", "system", ([^,]+),/);
   expect(match, "automations.run audit() call not found").not.toBeNull();
   expect(match![1].trim()).toBe("null");
 });
 
 test("audit() checks and logs the insert error instead of discarding it", () => {
-  const src = readFileSync(
-    join(here, "../../supabase/functions/_shared/supabase.ts"),
-    "utf8",
-  );
+  const src = readFileSync(join(here, "../../supabase/functions/_shared/supabase.ts"), "utf8");
   const fnMatch = src.match(/export async function audit\([\s\S]*?\n\}/);
   expect(fnMatch, "audit() function not found").not.toBeNull();
   const body = fnMatch![0];
   expect(body.includes("const { error }"), "audit() must capture the insert error").toBe(true);
   expect(body.includes("console.error"), "audit() must log a captured error").toBe(true);
-  expect(body.includes("return { error }"), "audit() must return the error to the caller").toBe(true);
+  expect(body.includes("return { error }"), "audit() must return the error to the caller").toBe(
+    true,
+  );
 });
 
 test("audit() entityId parameter accepts null (nullable audit_log.entity_id)", () => {
-  const src = readFileSync(
-    join(here, "../../supabase/functions/_shared/supabase.ts"),
-    "utf8",
-  );
+  const src = readFileSync(join(here, "../../supabase/functions/_shared/supabase.ts"), "utf8");
   expect(src.includes("entityId: string | null")).toBe(true);
 });
