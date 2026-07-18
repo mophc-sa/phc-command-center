@@ -1,0 +1,41 @@
+name: Production Migration Preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Read-only production schema preflight
+    runs-on: ubuntu-latest
+    environment: production-preflight
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      EXPECTED_PROJECT_REF: lrfdtoexyeghrzynapyn
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Validate target project
+        shell: bash
+        run: |
+          actual_ref="$(sed -n 's/^project_id = "\([^"]*\)"/\1/p' supabase/config.toml)"
+          test "$actual_ref" = "$EXPECTED_PROJECT_REF"
+      - name: Link runner to the approved project
+        run: supabase link --project-ref "$EXPECTED_PROJECT_REF"
+      - name: List local and remote migration state
+        run: supabase migration list --linked | tee migration-state.txt
+      - name: Lint linked schema without mutation
+        run: supabase db lint --linked --level warning | tee database-lint.txt
+      - name: Upload preflight evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-migration-preflight
+          path: |
+            migration-state.txt
+            database-lint.txt
+          retention-days: 30

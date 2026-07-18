@@ -23,10 +23,17 @@ export default defineTool({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
     const sb = supabaseForUser(ctx);
-    let q = sb.from("opportunities").select("*").order("created_at", { ascending: false }).limit(limit);
+    let q = sb
+      .from("opportunities")
+      .select(
+        "id, project_name, client, stage, sales_stage, tier, owner_id, next_action, next_action_due, estimated_value_min, estimated_value_max, created_at, updated_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(limit);
     if (status) q = q.eq("status", status);
     const { data, error } = await q;
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    if (error)
+      return { content: [{ type: "text", text: "Unable to list opportunities" }], isError: true };
     return {
       content: [{ type: "text", text: JSON.stringify(data) }],
       structuredContent: { opportunities: data ?? [] },

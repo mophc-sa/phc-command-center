@@ -24,10 +24,17 @@ export default defineTool({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
     const sb = supabaseForUser(ctx);
-    let q = sb.from("recommendations").select("*").order("created_at", { ascending: false }).limit(limit);
+    let q = sb
+      .from("recommendations")
+      .select(
+        "id, agent_module, confidence_score, recommendation, reason, status, related_company_id, related_lead_id, related_opportunity_id, required_approval_type, created_at, updated_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(limit);
     if (status) q = q.eq("status", status);
     const { data, error } = await q;
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    if (error)
+      return { content: [{ type: "text", text: "Unable to list recommendations" }], isError: true };
     return {
       content: [{ type: "text", text: JSON.stringify(data) }],
       structuredContent: { recommendations: data ?? [] },
