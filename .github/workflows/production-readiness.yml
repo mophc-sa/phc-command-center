@@ -52,4 +52,6 @@ jobs:
       - name: Run readiness suite without credential skips
         env:
           PLAYWRIGHT_BASE_URL: ${{ env.TEST_APP_URL }}
-        run: bun run test:e2e:readiness
+        # One worker lets the E2E session cache reuse each role's Supabase
+        # session and stays below the 30 sign-ins / 5 minutes auth limit.
+        run: bun run test:e2e:readiness -- --workers=1

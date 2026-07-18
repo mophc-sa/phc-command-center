@@ -19,10 +19,10 @@
  */
 
 import { test, expect, type Page } from "@playwright/test";
+import { signInWithCachedSession } from "./fixtures/auth";
 
 const email = process.env.TEST_SALESPERSON_EMAIL ?? process.env.TEST_SALES_MANAGER_EMAIL;
-const password =
-  process.env.TEST_SALESPERSON_PASSWORD ?? process.env.TEST_SALES_MANAGER_PASSWORD;
+const password = process.env.TEST_SALESPERSON_PASSWORD ?? process.env.TEST_SALES_MANAGER_PASSWORD;
 
 // Ready if env creds exist OR if the chromium-authed project pre-loaded a session
 const HAS_CREDS = Boolean(email && password);
@@ -31,11 +31,7 @@ const CAN_RUN = HAS_CREDS || USE_STORED;
 
 async function signIn(page: Page) {
   if (USE_STORED) return; // storage state already loaded by the project
-  await page.goto("/auth");
-  await page.getByLabel(/email/i).first().fill(email!);
-  await page.getByLabel(/password/i).first().fill(password!);
-  await page.getByRole("button", { name: /sign in|log in/i }).first().click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/auth"), { timeout: 20_000 });
+  await signInWithCachedSession(page, email!, password!);
 }
 
 // ─── /follow-ups ──────────────────────────────────────────────────────────────
@@ -47,10 +43,15 @@ test.describe("follow-ups page", () => {
     await signIn(page);
     await page.goto("/follow-ups");
     // Wait for either the list or the empty state
-    await page.waitForSelector("ul li, [data-testid='empty-state'], .empty-state, p:has-text('No follow')", {
-      timeout: 15_000,
-      state: "attached",
-    }).catch(() => undefined); // empty state might render differently
+    await page
+      .waitForSelector(
+        "ul li, [data-testid='empty-state'], .empty-state, p:has-text('No follow')",
+        {
+          timeout: 15_000,
+          state: "attached",
+        },
+      )
+      .catch(() => undefined); // empty state might render differently
     await page.waitForLoadState("networkidle");
   });
 
@@ -111,15 +112,16 @@ test.describe("follow-ups page", () => {
       return;
     }
 
-    const completeBtn = page
-      .locator("button[title='Mark complete'], button[title='تمت']")
-      .first();
+    const completeBtn = page.locator("button[title='Mark complete'], button[title='تمت']").first();
     await expect(completeBtn).toBeVisible();
   });
 
   test("Reschedule button opens dialog with date field", async ({ page }) => {
     const rows = page.locator("ul li");
-    if ((await rows.count()) === 0) { test.skip(); return; }
+    if ((await rows.count()) === 0) {
+      test.skip();
+      return;
+    }
 
     const rescheduleBtn = page
       .locator("button[title='Reschedule'], button[title='إعادة الجدولة']")
@@ -138,12 +140,12 @@ test.describe("follow-ups page", () => {
 
   test("Reschedule dialog can be dismissed with Escape", async ({ page }) => {
     const rows = page.locator("ul li");
-    if ((await rows.count()) === 0) { test.skip(); return; }
+    if ((await rows.count()) === 0) {
+      test.skip();
+      return;
+    }
 
-    await page
-      .locator("button[title='Reschedule'], button[title='إعادة الجدولة']")
-      .first()
-      .click();
+    await page.locator("button[title='Reschedule'], button[title='إعادة الجدولة']").first().click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
 
     await page.keyboard.press("Escape");
@@ -152,11 +154,12 @@ test.describe("follow-ups page", () => {
 
   test("Mark Complete button opens dialog with outcome textarea", async ({ page }) => {
     const rows = page.locator("ul li");
-    if ((await rows.count()) === 0) { test.skip(); return; }
+    if ((await rows.count()) === 0) {
+      test.skip();
+      return;
+    }
 
-    const completeBtn = page
-      .locator("button[title='Mark complete'], button[title='تمت']")
-      .first();
+    const completeBtn = page.locator("button[title='Mark complete'], button[title='تمت']").first();
     await completeBtn.click();
 
     const dialog = page.getByRole("dialog");
@@ -168,12 +171,12 @@ test.describe("follow-ups page", () => {
 
   test("Mark Complete dialog can be dismissed with Escape", async ({ page }) => {
     const rows = page.locator("ul li");
-    if ((await rows.count()) === 0) { test.skip(); return; }
+    if ((await rows.count()) === 0) {
+      test.skip();
+      return;
+    }
 
-    await page
-      .locator("button[title='Mark complete'], button[title='تمت']")
-      .first()
-      .click();
+    await page.locator("button[title='Mark complete'], button[title='تمت']").first().click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
 
     await page.keyboard.press("Escape");
@@ -182,17 +185,17 @@ test.describe("follow-ups page", () => {
 
   test("Reschedule dialog pre-fills date from the row's due_date", async ({ page }) => {
     const rows = page.locator("ul li");
-    if ((await rows.count()) === 0) { test.skip(); return; }
+    if ((await rows.count()) === 0) {
+      test.skip();
+      return;
+    }
 
     // Grab first row's date: the .tabular-nums div inside the actions column
     const firstRow = rows.first();
     const dateDiv = firstRow.locator(".tabular-nums").first();
     const dateText = (await dateDiv.textContent())?.trim();
 
-    await page
-      .locator("button[title='Reschedule'], button[title='إعادة الجدولة']")
-      .first()
-      .click();
+    await page.locator("button[title='Reschedule'], button[title='إعادة الجدولة']").first().click();
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -247,9 +250,7 @@ test.describe("My Day — Today tab inline actions", () => {
   });
 
   test("Reschedule button is visible on Today tab follow-up rows", async ({ page }) => {
-    const followUpRows = page.locator(
-      "button[title='Reschedule'], button[title='إعادة الجدولة']",
-    );
+    const followUpRows = page.locator("button[title='Reschedule'], button[title='إعادة الجدولة']");
     const count = await followUpRows.count();
     // If no follow-ups today, this is fine — skip
     if (count === 0) {
@@ -260,19 +261,21 @@ test.describe("My Day — Today tab inline actions", () => {
   });
 
   test("Mark Complete button is visible on Today tab follow-up rows", async ({ page }) => {
-    const completeBtns = page.locator(
-      "button[title='Mark complete'], button[title='تمت']",
-    );
+    const completeBtns = page.locator("button[title='Mark complete'], button[title='تمت']");
     const count = await completeBtns.count();
-    if (count === 0) { test.skip(); return; }
+    if (count === 0) {
+      test.skip();
+      return;
+    }
     await expect(completeBtns.first()).toBeVisible();
   });
 
   test("Clicking Reschedule on Today tab opens dialog", async ({ page }) => {
-    const btn = page
-      .locator("button[title='Reschedule'], button[title='إعادة الجدولة']")
-      .first();
-    if ((await btn.count()) === 0) { test.skip(); return; }
+    const btn = page.locator("button[title='Reschedule'], button[title='إعادة الجدولة']").first();
+    if ((await btn.count()) === 0) {
+      test.skip();
+      return;
+    }
 
     await btn.click();
     await expect(
@@ -284,7 +287,10 @@ test.describe("My Day — Today tab inline actions", () => {
 
   test("Clicking Mark Complete on Today tab opens dialog", async ({ page }) => {
     const btn = page.locator("button[title='Mark complete'], button[title='تمت']").first();
-    if ((await btn.count()) === 0) { test.skip(); return; }
+    if ((await btn.count()) === 0) {
+      test.skip();
+      return;
+    }
 
     await btn.click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
