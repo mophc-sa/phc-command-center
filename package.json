@@ -17,7 +17,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "bun run typecheck && bun run lint && bun run test && bun run build"
+    "verify": "bun run typecheck && bun run lint && bun run test && bun run build",
+    "deploy": "bun run build && bunx wrangler@4.112.0 deploy --config .output/server/wrangler.json --name mophc-sa-phc-command-center --domain agent.phc-sa.com --keep-vars"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
