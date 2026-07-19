@@ -30,7 +30,7 @@ function VendorsPage() {
   const [scope, setScope] = useState<string>("all");
 
   const isManager = canManageSalesPipeline(roles);
-  const source = isManager ? "vendors" : "vendors_public";
+  const source = isManager ? "vendors_full" : "vendors";
 
   const { data: vendors = [], isLoading } = useQuery({
     queryKey: ["vendors", source],
