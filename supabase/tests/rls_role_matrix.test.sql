@@ -2,7 +2,7 @@
 --
 -- Role capability model:
 --   viewer        read-only on most tables; no writes
---   salesperson   read all; INSERT on core CRM; no UPDATE/DELETE
+--   salesperson   read all; INSERT on core CRM; UPDATE own records only; no DELETE
 --   bd_manager    pipeline operator — INSERT + UPDATE; no DELETE
 --   sales_manager commercial manager + platform admin — full access; DELETE via API only
 --   system_admin  platform admin only — audit/user visibility; NOT commercial manager
@@ -79,9 +79,14 @@ insert into public.opportunities (id, project_name, owner_id, created_by) values
   ('f0000000-0000-0000-0000-000000000002', 'fixture-opp-delete',
    '20000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000004');
 
+-- fixture-lead: owned by salesperson (tests B1–B3 + salesperson-can-edit-own).
+-- fixture-lead-other: owned by bd_manager (tests B4 denial — salesperson cannot
+-- update another person's lead, since they are not a pipeline_operator).
 insert into public.leads (id, project_name, owner_id, created_by) values
   ('f0000000-0000-0000-0000-000000000003', 'fixture-lead',
-   '20000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002');
+   '20000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002'),
+  ('f0000000-0000-0000-0000-000000000006', 'fixture-lead-other',
+   '20000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000003');
 
 -- Two tenders: one for read/write tests, one for the DELETE test.
 insert into public.tenders (id, tender_name, tender_owner_id) values
@@ -169,21 +174,24 @@ select lives_ok(
             '20000000-0000-0000-0000-000000000002')$$,
   'B3: salesperson can insert a lead');
 
--- UPDATE policy requires bd_manager+; salesperson UPDATE is silently denied.
-update public.leads set project_name = 'salesperson-hacked-lead'
-  where project_name = 'fixture-lead';
+-- UPDATE policy (after rbac_record_lifecycle_hardening): owner OR pipeline_operator.
+-- Salesperson is the owner of fixture-lead but NOT a pipeline_operator,
+-- so they can edit their own lead but cannot touch another person's lead.
+update public.leads set project_name = 'salesperson-hacked-other-lead'
+  where project_name = 'fixture-lead-other';
 select is(
-  (select count(*)::integer from public.leads where project_name = 'fixture-lead'),
-  1, 'B4: salesperson UPDATE on a lead is silently denied (row unchanged)');
+  (select count(*)::integer from public.leads where project_name = 'fixture-lead-other'),
+  1, 'B4: salesperson cannot UPDATE a lead they do not own (row unchanged)');
 
 select set_config('request.jwt.claims',
   '{"sub":"20000000-0000-0000-0000-000000000003","role":"authenticated"}', true);
 
+-- bd_manager is a pipeline_operator — can update any lead regardless of owner.
 update public.leads set project_name = 'bd-updated-lead'
-  where project_name = 'fixture-lead';
+  where project_name = 'fixture-lead-other';
 select is(
   (select count(*)::integer from public.leads where project_name = 'bd-updated-lead'),
-  1, 'B5: bd_manager can update a lead');
+  1, 'B5: bd_manager (pipeline_operator) can update any lead');
 
 -- ════════════════════ C: tenders ══════════════════════════════════════════════
 
@@ -275,22 +283,24 @@ select ok(
   'E3: sales_manager can read audit_log (platform_admin)');
 
 -- ════════════════════ F: user_roles ═══════════════════════════════════════════
--- Policy: is_platform_admin for SELECT/INSERT/DELETE. viewer and salesperson
--- cannot see any rows.
+-- user_roles SELECT policies:
+--   1. "Users can view their own roles"  — user_id = auth.uid()   (every user)
+--   2. "Platform admins can view all roles" — is_platform_admin()  (managers + system_admin)
+-- viewer and salesperson each see exactly 1 row: their own seeded role.
 
 select set_config('request.jwt.claims',
   '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
 
 select is(
   (select count(*)::integer from public.user_roles),
-  0, 'F1: viewer sees no user_roles rows (platform_admin required)');
+  1, 'F1: viewer sees only their own user_roles row (own-role policy)');
 
 select set_config('request.jwt.claims',
   '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
 
 select is(
   (select count(*)::integer from public.user_roles),
-  0, 'F2: salesperson sees no user_roles rows');
+  1, 'F2: salesperson sees only their own user_roles row (own-role policy)');
 
 select set_config('request.jwt.claims',
   '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated"}', true);
