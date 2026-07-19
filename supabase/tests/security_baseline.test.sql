@@ -60,29 +60,23 @@ select ok(
 );
 
 select ok(
-  not has_table_privilege('anon', 'public.vendors_public', 'SELECT'),
-  'anonymous users cannot read the signed-in vendor projection'
+  to_regclass('public.vendors_public') is null,
+  'vendors_public security-definer view has been dropped'
 );
 
 select ok(
-  has_table_privilege('authenticated', 'public.vendors_public', 'SELECT'),
-  'signed-in users retain access to the safe vendor projection'
+  has_table_privilege('authenticated', 'public.vendors', 'SELECT'),
+  'signed-in users can read the safe vendors table directly'
 );
 
-select is(
-  (
-    select array_agg(a.attname::text order by a.attnum)
-    from pg_attribute a
-    where a.attrelid = 'public.vendors_public'::regclass
-      and a.attnum > 0
-      and not a.attisdropped
+select ok(
+  not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'vendors'
+      and column_name in ('reference_prices', 'internal_rating', 'internal_notes')
   ),
-  array[
-    'id', 'name', 'scope', 'materials', 'city', 'contact_name',
-    'contact_phone', 'contact_email', 'lead_time', 'quality_level',
-    'previous_projects', 'portal_url', 'created_at', 'updated_at'
-  ]::text[],
-  'vendor projection exposes only the reviewed safe columns'
+  'sensitive vendor columns have been moved out of public vendors table'
 );
 
 select ok(
