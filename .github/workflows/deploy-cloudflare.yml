@@ -1,6 +1,11 @@
 name: Deploy Cloudflare Worker
 
 on:
+  # Auto-deploy to production on every merge to main.
+  push:
+    branches: [main]
+  # Manual dispatch: choose canary (version upload, no traffic cut) or
+  # production (full cutover to agent.phc-sa.com).
   workflow_dispatch:
     inputs:
       target:
@@ -16,16 +21,20 @@ permissions:
   contents: read
 
 concurrency:
-  group: cloudflare-${{ inputs.target }}
+  # One deployment per target at a time. Push-triggered runs use
+  # 'production'; manual canary runs are separate.
+  group: cloudflare-${{ github.event_name == 'push' && 'production' || inputs.target }}
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy ${{ inputs.target }}
+    name: Deploy ${{ github.event_name == 'push' && 'production (auto)' || inputs.target }}
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production-cloudflare
     env:
+      # Push → always production. Manual dispatch → use the chosen target.
+      DEPLOY_TARGET: ${{ github.event_name == 'push' && 'production' || inputs.target }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
       SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
@@ -111,7 +120,7 @@ jobs:
         run: bun run verify
 
       - name: Upload canary version
-        if: inputs.target == 'canary'
+        if: env.DEPLOY_TARGET == 'canary'
         shell: bash
         run: |
           set -euo pipefail
@@ -131,7 +140,7 @@ jobs:
           echo "Canary health check passed: ${canary_url}/auth"
 
       - name: Snapshot production DNS for rollback
-        if: inputs.target == 'production'
+        if: env.DEPLOY_TARGET == 'production'
         shell: bash
         run: |
           set -euo pipefail
@@ -149,7 +158,7 @@ jobs:
           echo "Captured ${record_count} pre-cutover DNS record(s) for ${DNS_RECORD_NAME}."
 
       - name: Preserve production DNS rollback snapshot
-        if: inputs.target == 'production'
+        if: env.DEPLOY_TARGET == 'production'
         uses: actions/upload-artifact@v6
         with:
           name: agent-dns-before-${{ github.run_id }}
@@ -158,7 +167,7 @@ jobs:
           if-no-files-found: error
 
       - name: Deploy production custom domain
-        if: inputs.target == 'production'
+        if: env.DEPLOY_TARGET == 'production'
         shell: bash
         run: |
           set -euo pipefail
