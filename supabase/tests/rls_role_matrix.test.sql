@@ -4,7 +4,7 @@
 --   viewer        read-only on most tables; no writes
 --   salesperson   read all; INSERT on core CRM; no UPDATE/DELETE
 --   bd_manager    pipeline operator — INSERT + UPDATE; no DELETE
---   sales_manager commercial manager + platform admin — full access incl. DELETE
+--   sales_manager commercial manager + platform admin — full access; DELETE via API only
 --   system_admin  platform admin only — audit/user visibility; NOT commercial manager
 --
 -- 28 assertions across 7 table groups:
@@ -129,19 +129,22 @@ select lives_ok(
             '20000000-0000-0000-0000-000000000002')$$,
   'A3: salesperson can insert an opportunity');
 
--- RLS silently blocks DELETE (USING clause does not match); row must survive.
-delete from public.opportunities where project_name = 'fixture-opp';
-select is(
-  (select count(*)::integer from public.opportunities where project_name = 'fixture-opp'),
-  1, 'A4: salesperson DELETE is silently denied (row unchanged)');
+-- DELETE grant was revoked from the authenticated role by migration
+-- 20260711160000_rbac_record_lifecycle_hardening.sql; all direct DELETE
+-- attempts raise 42501 regardless of RLS policy.  Deletes must go through
+-- the sales-os-api lifecycle handler (service_role).
+select throws_ok(
+  $$delete from public.opportunities where project_name = 'fixture-opp'$$,
+  '42501', null,
+  'A4: DELETE on opportunities is rejected (grant revoked from authenticated; use sales-os-api)');
 
 select set_config('request.jwt.claims',
   '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated"}', true);
 
-delete from public.opportunities where project_name = 'fixture-opp-delete';
-select is(
-  (select count(*)::integer from public.opportunities where project_name = 'fixture-opp-delete'),
-  0, 'A5: sales_manager can delete an opportunity');
+select throws_ok(
+  $$delete from public.opportunities where project_name = 'fixture-opp-delete'$$,
+  '42501', null,
+  'A5: DELETE is API-only — sales_manager direct SQL is also rejected (grant revoked)');
 
 -- ════════════════════ B: leads ════════════════════════════════════════════════
 
@@ -206,10 +209,11 @@ select lives_ok(
 select set_config('request.jwt.claims',
   '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated"}', true);
 
-delete from public.tenders where tender_name = 'fixture-tender-delete';
-select is(
-  (select count(*)::integer from public.tenders where tender_name = 'fixture-tender-delete'),
-  0, 'C4: sales_manager can delete a tender');
+-- Same as A4/A5: DELETE grant revoked from authenticated on tenders.
+select throws_ok(
+  $$delete from public.tenders where tender_name = 'fixture-tender-delete'$$,
+  '42501', null,
+  'C4: DELETE on tenders is API-only — direct SQL rejected for all authenticated');
 
 -- ════════════════════ D: approvals ════════════════════════════════════════════
 -- Policies: "Approvals readable" (all authenticated), "Approvals requestable by
