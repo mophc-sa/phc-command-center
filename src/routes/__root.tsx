@@ -84,7 +84,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "PHC Wayfinding Signs — internal bilingual command center for the Sales Agent: pipeline decisions, follow-ups, approvals, and evidence.",
       },
-      { name: "theme-color", content: "#0E0F10" },
+      { name: "theme-color", content: "#F4F4F3" },
       { property: "og:title", content: "PHC Command Center" },
       { property: "og:description", content: "Internal sales decision system for PHC Wayfinding Signs." },
       { property: "og:type", content: "website" },

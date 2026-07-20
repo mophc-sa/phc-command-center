@@ -119,7 +119,7 @@ function AuthPage() {
             <img
               src={phcLogo.url}
               alt="PHC"
-              className="h-8 w-auto object-contain object-start"
+              className="h-8 w-auto object-contain object-start brightness-0"
             />
             <div className="mt-6 text-[10px] font-semibold uppercase tracking-[var(--tracking-caps)] text-muted-foreground">
               {lang === "ar" ? "بي إتش سي · مركز القيادة" : "PHC · Command Center"}
@@ -156,7 +156,7 @@ function AuthPage() {
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-start justify-between gap-4">
             <div>
-              <img src={phcLogo.url} alt="PHC" className="mb-4 h-7 w-auto object-contain object-start md:hidden" />
+              <img src={phcLogo.url} alt="PHC" className="mb-4 h-7 w-auto object-contain object-start brightness-0 md:hidden" />
               <div className="text-[10px] font-semibold uppercase tracking-[var(--tracking-caps)] text-muted-foreground">PHC</div>
               <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{t("sign_in_title")}</h1>
               <p className="mt-1.5 text-sm text-muted-foreground">{t("sign_in_sub")}</p>

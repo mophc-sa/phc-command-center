@@ -319,7 +319,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <img
             src={phcLogo.url}
             alt="PHC Wayfinding Signs"
-            className="h-7 min-w-0 flex-1 object-contain object-left"
+            className="h-7 min-w-0 flex-1 object-contain object-left brightness-0"
           />
         </Link>
       </div>

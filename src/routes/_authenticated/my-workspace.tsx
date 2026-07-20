@@ -328,7 +328,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
               {salesTarget > 0 && (
                 <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-[#4ade80]" />
+                    <span className="h-2 w-2 rounded-full bg-won" />
                     {lang === "ar" ? "ترسيات رسمية" : "Awarded"}
                   </span>
                   <span className="flex items-center gap-1.5">
@@ -908,7 +908,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
             </div>
             {salesTarget > 0 && (
               <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#4ade80]" />{lang === "ar" ? "ترسيات رسمية" : "Awarded"}</span>
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-won" />{lang === "ar" ? "ترسيات رسمية" : "Awarded"}</span>
                 <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber" />{lang === "ar" ? "JIH في الإنجاز" : "JIH Pipeline"}</span>
                 <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-structural/60" />{lang === "ar" ? "فجوة الهدف" : "Target Gap"}</span>
               </div>
@@ -1275,12 +1275,13 @@ function TargetDonut({
         { v: gap,       key: "gap" },
       ].filter(d => d.v > 0);
 
-  // OKLCH-derived hex approximations kept close to the design tokens
+  // Resolved directly from the design tokens so this chart never drifts
+  // from styles.css when the palette changes.
   const COLORS: Record<string, string> = {
-    awarded: "#4ade80", // --won ≈ oklch(0.72 0.12 155)
-    jih:     "#f59e0b", // --amber
-    gap:     "rgba(255,255,255,0.07)",
-    empty:   "rgba(255,255,255,0.07)",
+    awarded: "var(--color-won)",
+    jih:     "var(--color-amber)",
+    gap:     "var(--color-muted)",
+    empty:   "var(--color-muted)",
   };
 
   const fmt = (n: number) =>
@@ -1348,10 +1349,10 @@ function RadialProgress({ pct, size = 128 }: { pct: number; size?: number }) {
   const circumference = 2 * Math.PI * r;
   const clamped = Math.min(100, Math.max(0, pct));
   const offset = circumference * (1 - clamped / 100);
-  const color = clamped >= 80 ? "#34d399" : clamped >= 50 ? "#f59e0b" : "#f87171";
+  const color = clamped >= 80 ? "var(--color-won)" : clamped >= 50 ? "var(--color-amber)" : "var(--color-destructive)";
   return (
     <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={10} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-muted)" strokeWidth={10} />
       <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={10} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" style={{ transition: "stroke-dashoffset 0.4s ease" }} />
     </svg>
   );
@@ -1375,10 +1376,10 @@ function StageToggleRow({ id, label, count, value, lang, tone, isOpen, onToggle,
   const border = tone === "positive" ? "border-won/25 bg-won/[0.05] text-won" : tone === "attention" ? "border-amber/25 bg-amber/5 text-amber-light" : "border-border/60 bg-surface-2/20 text-foreground";
   return (
     <div className={`rounded-lg border overflow-hidden ${border}`}>
-      <button onClick={onToggle} className="flex w-full items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-white/[0.03]">
+      <button onClick={onToggle} className="flex w-full items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-foreground/[0.03]">
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-[13px] font-semibold">{label}</span>
-          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] num">{count}</span>
+          <span className="rounded-full bg-foreground/10 px-2 py-0.5 text-[11px] num">{count}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <span className="num text-[13px] font-medium">{formatCurrency(value, lang, "SAR")}</span>
