@@ -391,6 +391,16 @@ export async function detectDuplicates(batchId: string) {
   return callPipeline("detect_duplicates", { batch_id: batchId });
 }
 
+/**
+ * Stage a per-row create/update/duplicate decision into
+ * import_record_candidates for review, using the batch's already-mapped
+ * data and duplicate-detection results. Re-runnable — clears and
+ * regenerates this batch's candidates each time.
+ */
+export async function generateCandidates(batchId: string) {
+  return callPipeline("generate_candidates", { batch_id: batchId }) as Promise<{ candidates: number }>;
+}
+
 export async function approveBatch(batchId: string) {
   return callPipeline("approve", { batch_id: batchId });
 }
