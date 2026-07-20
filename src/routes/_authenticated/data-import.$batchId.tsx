@@ -20,7 +20,7 @@ import {
 import {
   getBatch, getMappings, saveMappings, getImportErrors, getDuplicateCandidates,
   getImportFiles, getImportRows, validateBatch, detectDuplicates,
-  approveBatch, dryRunCommit, commitBatch,
+  approveBatch, dryRunCommit,
   suggestImportMappings,
   callImportAgent,
   getSplitProposals, reviewSplitProposal, stageSplitProposals, acceptSplitProposalToRow,
@@ -1395,23 +1395,22 @@ function ApprovalPanel({
           )}
         </div>
 
-        {/* Step 3: Commit */}
+        {/* Step 3: Commit — Phase 1.1 safety gate: controlled CRM commit is not
+            enabled yet (Phase 2). The edge function has no "commit" handler,
+            so this button stays disabled rather than calling it. */}
         <div className={cn("rounded-md border px-4 py-3", isDryRun ? "border-destructive/30 bg-destructive/5" : "border-border opacity-60")}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground">3. Commit to CRM</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Permanently writes validated rows to live CRM tables. This cannot be undone.
+                Controlled CRM commit is not enabled yet — available in Phase 2. Dry-run above is the final step for now.
               </p>
             </div>
             <Button
               size="sm"
-              disabled={!isDryRun || !canApprove || busy}
-              onClick={() => onStep("Commit", async () => {
-                const r = await commitBatch(batch.id);
-                setCommitResult(r as any);
-              })}
-              className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive/80 hover:bg-destructive/20 border"
+              disabled
+              title="Controlled CRM commit is not enabled yet — available in Phase 2"
+              className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive/80 border"
             >
               <Database className="h-3.5 w-3.5 mr-1.5" />
               Commit

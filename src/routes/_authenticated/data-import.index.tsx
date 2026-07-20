@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import {
   createBatch, listBatches, uploadImportFile, parseFile, listSourceProfiles,
   callImportAgent, saveMappings, validateBatch, detectDuplicates,
-  saveReadinessChecklist, approveBatch, dryRunCommit, commitBatch,
+  saveReadinessChecklist, approveBatch, dryRunCommit,
   updateBatch, getTargetColumns, EXTRA_DATA_SENTINEL,
   SOURCE_KIND_ROUTING,
   UPLOAD_ROLES, TARGET_ENTITIES,
@@ -166,22 +166,21 @@ function DataImportLanding() {
         no_unnecessary_sensitive_data: true,
       });
 
-      // 6. Approve → Dry run → Commit
+      // 6. Approve → Dry run. Commit-to-CRM is a Phase 1.1 safety gate: the
+      // edge function has no "commit" handler yet (reserved for Phase 2), so
+      // the automated flow stops at dry-run rather than calling it.
       setAutoStep("Approving batch…");
       await approveBatch(batch.id);
 
       setAutoStep("Running dry run…");
       await dryRunCommit(batch.id);
 
-      setAutoStep("Committing to CRM…");
-      await commitBatch(batch.id);
-
       setNewOpen(false);
       setNewFile(null);
       qc.invalidateQueries({ queryKey: ["import-batches"] });
       const routing = SOURCE_KIND_ROUTING[classResult.ok ? ((classResult.result as any).detected_source_kind ?? "unknown") : "unknown"];
       const destLabel = routing ? routing.destinations.join(", ") : detectedEntity;
-      toast.success(`Import complete → ${destLabel}`);
+      toast.success(`Dry run complete → ${destLabel}. Commit to CRM is not enabled yet (Phase 2).`);
       navigate({ to: "/data-import/$batchId", params: { batchId: batch.id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Import failed");
