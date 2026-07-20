@@ -28,10 +28,12 @@ import {
   APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
   READINESS_ITEMS, saveReadinessChecklist, getReadinessChecklist, deriveAutoChecklist,
   SOURCE_KIND_ROUTING,
+  generateCandidates, listCandidates, updateCandidateReview,
   type ImportBatch, type ImportMapping, type ImportRow,
   type ImportTargetEntity,
   type AiAgentCallResult,
   type ImportSplitProposal,
+  type ImportRecordCandidate,
   type ReadinessChecklist,
 } from "@/lib/import-actions";
 import { cn } from "@/lib/utils";
@@ -81,6 +83,41 @@ function rowStatusClass(status: string): string {
   return "bg-muted text-muted-foreground";
 }
 
+function humanizeEntity(entityType: string): string {
+  return entityType.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function groupByEntity<T extends { entity_type: string }>(items: T[]): Record<string, T[]> {
+  const groups: Record<string, T[]> = {};
+  for (const item of items) {
+    (groups[item.entity_type] ??= []).push(item);
+  }
+  return groups;
+}
+
+// Short, best-effort preview of a candidate's payload — first couple of
+// non-empty values, not a full field dump (payload shape varies by entity).
+function previewPayload(payload: Record<string, unknown>): string {
+  const parts = Object.entries(payload)
+    .filter(([, v]) => v != null && String(v).trim() !== "")
+    .slice(0, 2)
+    .map(([, v]) => String(v));
+  return parts.length > 0 ? parts.join(" · ") : "—";
+}
+
+function candidateActionClass(action: string): string {
+  if (action === "create") return "bg-won-surface text-won";
+  if (action === "update") return "bg-info/10 text-info";
+  if (action === "duplicate") return "bg-muted text-muted-foreground";
+  return "bg-amber/10 text-amber-light"; // needs_review, conflict
+}
+
+function candidateStatusClass(status: string): string {
+  if (status === "approved") return "text-won";
+  if (status === "rejected") return "text-destructive";
+  return "text-muted-foreground";
+}
+
 // ---------- page --------------------------------------------------------------
 
 function BatchDetailPage() {
@@ -91,6 +128,7 @@ function BatchDetailPage() {
   const canApprove = hasAnyRole([...APPROVE_COMMIT_ROLES] as any[]);
 
   const [busy, setBusy] = useState<string | null>(null);
+  const [reviewingCandidateId, setReviewingCandidateId] = useState<string | null>(null);
   const [aiRunning, setAiRunning] = useState(false);
   const [aiStep, setAiStep] = useState<string>("");
   const [mappingAiOutput, setMappingAiOutput] = useState<Record<string, unknown> | null>(null);
@@ -148,6 +186,13 @@ function BatchDetailPage() {
       ["duplicate_review", "pending_approval", "approved"].includes(batch.status),
   });
 
+  const { data: candidates = [] } = useQuery<ImportRecordCandidate[]>({
+    queryKey: ["import-candidates", batchId],
+    queryFn: () => listCandidates(batchId),
+    enabled: canAccess && !!batchId && !!batch &&
+      ["pending_approval", "approved", "dry_run", "committed"].includes(batch.status),
+  });
+
   const { data: files = [] } = useQuery({
     queryKey: ["import-files", batchId],
     queryFn: () => getImportFiles(batchId),
@@ -165,6 +210,7 @@ function BatchDetailPage() {
     qc.invalidateQueries({ queryKey: ["import-mappings", batchId] });
     qc.invalidateQueries({ queryKey: ["import-errors", batchId] });
     qc.invalidateQueries({ queryKey: ["import-dupes", batchId] });
+    qc.invalidateQueries({ queryKey: ["import-candidates", batchId] });
     qc.invalidateQueries({ queryKey: ["import-rows", batchId] });
     qc.invalidateQueries({ queryKey: ["import-split-proposals", batchId] });
     qc.invalidateQueries({ queryKey: ["import-batches"] });
@@ -559,6 +605,9 @@ function BatchDetailPage() {
           {(dupes as any[]).length > 0 && (
             <TabsTrigger value="duplicates">Duplicates ({(dupes as any[]).length})</TabsTrigger>
           )}
+          {["pending_approval", "approved", "dry_run", "committed"].includes(batch?.status ?? "") && (
+            <TabsTrigger value="candidates">Candidates {candidates.length > 0 && `(${candidates.length})`}</TabsTrigger>
+          )}
           <TabsTrigger value="approval">Approval</TabsTrigger>
         </TabsList>
 
@@ -927,6 +976,124 @@ function BatchDetailPage() {
             </Panel>
           </TabsContent>
         )}
+
+        {/* Commit candidates — staged per-row create/update/duplicate decisions,
+            grouped by the entity type they'll land in. Nothing here is a live
+            CRM write; this is the review step before that (Part 3). */}
+        <TabsContent value="candidates">
+          <Panel
+            title="Commit candidates"
+            action={
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy !== null}
+                onClick={() => runStep("Analyze & Distribute", () => generateCandidates(batchId))}
+              >
+                {busy === "Analyze & Distribute" ? (
+                  <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Analyzing…</>
+                ) : (
+                  <><Sparkles className="mr-2 h-3 w-3" />Analyze & Distribute</>
+                )}
+              </Button>
+            }
+          >
+            <p className="text-xs text-muted-foreground mb-3">
+              Each row is staged as create / update / duplicate / needs review, grouped by
+              where it will land in the system. Nothing is written to live records yet —
+              review and approve or reject here first.
+            </p>
+            {candidates.length === 0 ? (
+              <EmptyState message="No candidates yet — click Analyze & Distribute above." />
+            ) : (
+              <div className="space-y-5">
+                {Object.entries(groupByEntity(candidates)).map(([entityType, group]) => (
+                  <div key={entityType}>
+                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      {humanizeEntity(entityType)}
+                      <span className="text-muted-foreground/60">({group.length})</span>
+                    </div>
+                    <div className="overflow-auto rounded border border-border">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/20">
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Action</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Preview</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Reason</th>
+                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Status</th>
+                            <th className="px-3 py-2 text-right text-muted-foreground font-medium">Review</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.map((c) => (
+                            <tr key={c.id} className="border-b border-border/50">
+                              <td className="px-3 py-1.5">
+                                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", candidateActionClass(c.proposed_action))}>
+                                  {c.proposed_action}
+                                </span>
+                              </td>
+                              <td className="px-3 py-1.5 text-foreground">{previewPayload(c.proposed_payload)}</td>
+                              <td className="px-3 py-1.5 text-muted-foreground">{c.reason ?? "—"}</td>
+                              <td className="px-3 py-1.5">
+                                <span className={cn("text-[10px]", candidateStatusClass(c.review_status))}>
+                                  {c.review_status}
+                                </span>
+                              </td>
+                              <td className="px-3 py-1.5 text-right">
+                                {(c.review_status === "pending" || c.review_status === "needs_review") && (
+                                  <div className="inline-flex gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-2 text-[10px]"
+                                      disabled={reviewingCandidateId === c.id}
+                                      onClick={async () => {
+                                        setReviewingCandidateId(c.id);
+                                        try {
+                                          await updateCandidateReview(c.id, "approved");
+                                          qc.invalidateQueries({ queryKey: ["import-candidates", batchId] });
+                                        } catch (e) {
+                                          toast.error(e instanceof Error ? e.message : "Failed to approve");
+                                        } finally {
+                                          setReviewingCandidateId(null);
+                                        }
+                                      }}
+                                    >
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-2 text-[10px] text-destructive hover:text-destructive"
+                                      disabled={reviewingCandidateId === c.id}
+                                      onClick={async () => {
+                                        setReviewingCandidateId(c.id);
+                                        try {
+                                          await updateCandidateReview(c.id, "rejected");
+                                          qc.invalidateQueries({ queryKey: ["import-candidates", batchId] });
+                                        } catch (e) {
+                                          toast.error(e instanceof Error ? e.message : "Failed to reject");
+                                        } finally {
+                                          setReviewingCandidateId(null);
+                                        }
+                                      }}
+                                    >
+                                      Reject
+                                    </Button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Panel>
+        </TabsContent>
 
         {/* Approval */}
         <TabsContent value="approval">
