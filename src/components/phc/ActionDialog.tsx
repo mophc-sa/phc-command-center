@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
 import { uploadAttachment } from "@/lib/storage-actions";
+import { cn } from "@/lib/utils";
 
 export type DialogField =
   | {
@@ -111,16 +112,22 @@ export function ActionDialog({
     }
   }
 
+  // Long forms (e.g. the intake form's ~19 fields) get a wider dialog and a
+  // 2-column grid so the dialog scrolls a handful of rows deep instead of a
+  // single towering column; short forms (most callers — a single "reason"
+  // textarea, 2-3 fields) are untouched.
+  const isWide = fields.length > 6;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent dir={dir} className="sm:max-w-md">
+      <DialogContent dir={dir} className={cn("flex flex-col", isWide ? "sm:max-w-2xl" : "sm:max-w-md")}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
-        <div className="grid gap-4 py-2">
+        <div className={cn("grid gap-4 overflow-y-auto py-2", isWide && "sm:grid-cols-2 max-h-[55vh] pe-1")}>
           {fields.map((f) => (
-            <div key={f.key} className="grid gap-1.5">
+            <div key={f.key} className={cn("grid gap-1.5", isWide && (f.type === "textarea" || f.type === "file") && "sm:col-span-2")}>
               <Label htmlFor={f.key} className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                 {f.label}
                 {f.required ? <span aria-hidden="true"> *</span> : ""}
