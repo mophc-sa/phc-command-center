@@ -54,12 +54,14 @@ function getCssVar(name: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 const CHART_COLORS = {
-  get primary() { return getCssVar("--chart-primary") || "oklch(0.97 0.004 253)"; },
-  get primaryDim() { return getCssVar("--chart-primary-dim") || "oklch(0.75 0.008 253)"; },
-  get amber() { return getCssVar("--chart-amber") || "oklch(0.70 0.115 65)"; },
-  get amberDim() { return getCssVar("--chart-amber-dim") || "oklch(0.55 0.09 65)"; },
-  get muted() { return getCssVar("--chart-muted") || "oklch(0.50 0.010 253)"; },
-  get grid() { return getCssVar("--chart-grid") || "oklch(0.40 0.015 253 / 0.35)"; },
+  get primary() { return getCssVar("--chart-primary") || "oklch(0.20 0.010 253)"; },
+  get primaryDim() { return getCssVar("--chart-primary-dim") || "oklch(0.55 0.010 253)"; },
+  get amber() { return getCssVar("--chart-amber") || "oklch(0.62 0.135 65)"; },
+  get amberDim() { return getCssVar("--chart-amber-dim") || "oklch(0.75 0.09 65)"; },
+  get muted() { return getCssVar("--chart-muted") || "oklch(0.90 0.006 90)"; },
+  get grid() { return getCssVar("--chart-grid") || "oklch(0.60 0.010 253 / 0.14)"; },
+  get surface() { return getCssVar("--color-surface") || "oklch(1 0 0)"; },
+  get border() { return getCssVar("--color-border") || "oklch(0.20 0.010 253 / 0.09)"; },
 };
 
 const CHART_H = "h-[240px]";
@@ -285,9 +287,9 @@ function CommandCenter() {
                     tickFormatter={(v: number) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${Math.round(v / 1_000)}k` : String(v))}
                   />
                   <Tooltip
-                    contentStyle={{ background: "oklch(0.20 0.020 253)", border: "1px solid oklch(0.36 0.015 253 / 0.55)", borderRadius: 8, fontSize: 12, color: CHART_COLORS.primary }}
+                    contentStyle={{ background: CHART_COLORS.surface, border: `1px solid ${CHART_COLORS.border}`, borderRadius: 8, fontSize: 12, color: CHART_COLORS.primary }}
                     formatter={(v: number, name) => name === "value" ? formatCurrency(v, lang) : formatNumber(v, lang)}
-                    cursor={{ fill: "oklch(0.24 0.020 253 / 0.35)" }}
+                    cursor={{ fill: CHART_COLORS.muted }}
                   />
                   <Bar dataKey="value" fill={CHART_COLORS.primary} radius={[4, 4, 0, 0]} maxBarSize={44} />
                 </BarChart>
@@ -310,7 +312,7 @@ function CommandCenter() {
                   <XAxis dataKey="label" tick={{ fill: CHART_COLORS.primaryDim, fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
                   <YAxis tick={{ fill: CHART_COLORS.primaryDim, fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
                   <Tooltip
-                    contentStyle={{ background: "oklch(0.20 0.020 253)", border: "1px solid oklch(0.36 0.015 253 / 0.55)", borderRadius: 8, fontSize: 12, color: CHART_COLORS.primary }}
+                    contentStyle={{ background: CHART_COLORS.surface, border: `1px solid ${CHART_COLORS.border}`, borderRadius: 8, fontSize: 12, color: CHART_COLORS.primary }}
                     cursor={{ stroke: CHART_COLORS.grid }}
                   />
                   <Line type="monotone" dataKey="count" stroke={CHART_COLORS.primary} strokeWidth={1.75} dot={false} activeDot={{ r: 3 }} />

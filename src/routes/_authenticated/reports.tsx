@@ -50,12 +50,12 @@ const QUOTE_ORDER = [
 ] as const;
 
 const CHART = {
-  primary: "oklch(0.97 0.004 253)",
-  amber: "oklch(0.70 0.115 65)",
-  emerald: "oklch(0.72 0.12 155)",
-  red: "oklch(0.58 0.190 25)",
-  muted: "oklch(0.50 0.010 253)",
-  grid: "oklch(0.40 0.015 253 / 0.35)",
+  primary: "var(--chart-primary)",
+  amber: "var(--color-amber)",
+  emerald: "var(--color-won)",
+  red: "var(--color-destructive)",
+  muted: "var(--color-muted-foreground)",
+  grid: "var(--chart-grid)",
 };
 
 function humanize(s: string) {
@@ -145,11 +145,11 @@ function ReportsPage() {
   const hasData = stageRows.length > 0 || quoteRows.length > 0;
 
   const tooltipStyle = {
-    background: "oklch(0.15 0.010 253)",
-    border: "1px solid oklch(0.35 0.015 253 / 0.5)",
+    background: "var(--color-surface)",
+    border: "1px solid var(--color-border)",
     borderRadius: 8,
     fontSize: 11,
-    color: "oklch(0.97 0.004 253)",
+    color: "var(--color-foreground)",
   } as const;
 
   return (
@@ -197,7 +197,7 @@ function ReportsPage() {
                       <YAxis tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} width={48} />
                       <Tooltip
                         contentStyle={tooltipStyle}
-                        cursor={{ fill: "oklch(0.40 0.015 253 / 0.18)" }}
+                        cursor={{ fill: "var(--color-muted)" }}
                         formatter={(v: any, _n, p: any) => [formatCurrency(Number(v), lang), p?.payload?.label]}
                       />
                       <Bar dataKey="value" radius={[4, 4, 0, 0]}>
@@ -227,7 +227,7 @@ function ReportsPage() {
                       <YAxis tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} width={36} />
                       <Tooltip
                         contentStyle={tooltipStyle}
-                        cursor={{ fill: "oklch(0.40 0.015 253 / 0.18)" }}
+                        cursor={{ fill: "var(--color-muted)" }}
                         formatter={(v: any, _n, p: any) => [`${formatNumber(Number(v), lang)} · ${formatCurrency(p?.payload?.value ?? 0, lang)}`, p?.payload?.label]}
                       />
                       <Bar dataKey="count" radius={[4, 4, 0, 0]}>

@@ -128,14 +128,14 @@ function AgentActivityPage() {
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trend} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.40 0.015 253 / 0.35)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "oklch(0.50 0.010 253)", fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fill: "oklch(0.50 0.010 253)", fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }} tickLine={false} axisLine={false} />
                   <Tooltip
-                    cursor={{ fill: "oklch(0.24 0.020 253 / 0.4)" }}
-                    contentStyle={{ background: "oklch(0.20 0.020 253)", border: "1px solid oklch(0.30 0.015 253)", borderRadius: 8, fontSize: 12 }}
+                    cursor={{ fill: "var(--color-muted)" }}
+                    contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }}
                   />
-                  <Bar dataKey="count" fill="oklch(0.70 0.115 65)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" fill="var(--color-amber)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
