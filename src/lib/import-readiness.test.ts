@@ -20,7 +20,8 @@ function batch(over: Partial<ImportBatch> = {}): ImportBatch {
     id: "b1", created_by: "u1", status: "uploading", source_type: "file", file_name: "x.csv",
     target_entity: "companies", total_rows: 10, valid_rows: 0, error_rows: 0, duplicate_rows: 0,
     dry_run: true, ai_suggestions_enabled: false, approved_by: null, approved_at: null,
-    committed_at: null, notes: null, archived_at: null, archived_by: null, deleted_at: null,
+    committed_at: null, rolled_back_at: null, rolled_back_by: null, notes: null,
+    archived_at: null, archived_by: null, deleted_at: null,
     deleted_by: null, delete_reason: null, created_at: "", updated_at: "",
     ...over,
   } as ImportBatch;
@@ -76,4 +77,13 @@ test("Commit-to-CRM UI button is disabled with a 'not enabled yet' message", () 
   expect(uiSrc).toMatch(/Controlled CRM commit is not enabled yet/i);
   // The commit button carries the `disabled` attribute (which precedes its label).
   expect(uiSrc).toMatch(/disabled[\s\S]{0,300}?Commit to CRM/);
+});
+
+// ---- Rollback: DELETE-only exception to the no-live-writes guard -----------
+test("rollback handler exists and is the only exception to the no-insert/upsert guard", () => {
+  expect(edgeSrc).toContain('handlers["rollback"]');
+  // Still no live CREATE/UPDATE path — rollback only ever deletes what this
+  // pipeline itself previously created (see the guard above, which already
+  // covers insert/upsert across every live CRM table including this one's).
+  expect(edgeSrc).not.toContain('handlers["commit"]');
 });

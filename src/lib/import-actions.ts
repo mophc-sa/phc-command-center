@@ -84,7 +84,7 @@ export const BLOCKED_ROLES = ["salesperson", "viewer"] as const;
 
 export type ImportBatchStatus =
   | "uploading" | "parsing" | "mapping" | "validating" | "duplicate_review"
-  | "pending_approval" | "approved" | "dry_run" | "committed" | "failed" | "cancelled";
+  | "pending_approval" | "approved" | "dry_run" | "committed" | "rolled_back" | "failed" | "cancelled";
 
 export type ImportBatch = {
   id: string;
@@ -102,6 +102,8 @@ export type ImportBatch = {
   approved_by: string | null;
   approved_at: string | null;
   committed_at: string | null;
+  rolled_back_at: string | null;
+  rolled_back_by: string | null;
   source_profile_id: string | null;
   notes: string | null;
   archived_at: string | null;
@@ -400,6 +402,18 @@ export async function dryRunCommit(batchId: string) {
 export async function commitBatch(batchId: string) {
   if (!batchId) throw new Error("Missing batch");
   return callPipeline("commit", { batch_id: batchId }) as Promise<{ committed: number; failed: number; total: number }>;
+}
+
+/**
+ * Reverse a committed batch's CRM writes. Only reachable once commit itself
+ * is enabled (Phase 2) — there is no live path today that can put a batch
+ * into "committed" status.
+ */
+export async function rollbackBatch(batchId: string) {
+  if (!batchId) throw new Error("Missing batch");
+  return callPipeline("rollback", { batch_id: batchId }) as Promise<{
+    rolled_back: number; still_referenced: number; manual_review_required: number; total: number;
+  }>;
 }
 
 export type ReportType = "validation_errors" | "duplicate_candidates" | "import_summary";

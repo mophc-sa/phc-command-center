@@ -34,6 +34,10 @@ const SKIP_KEY = "__skip__";
 // "commit" action handler live in _commit-phase2.ts. They are NOT imported
 // here because Phase 1.1 exposes only a dry-run preview, never live CRM
 // writes. Wire them in when Phase 2 is approved.
+//
+// "rollback" (below) is the exception: it only ever DELETEs a row this
+// pipeline previously created, tracked via import_record_links. It exists
+// ahead of Phase 2 so the undo path is in place before commit is approved.
 
 // Build the dedup signal set from a row's mapped data (best-effort field names).
 function signalsFromMapped(m: Record<string, string | null> | null): DedupSignals {
@@ -544,6 +548,80 @@ handlers["dry_run_commit"] = async (payload, caller) => {
   return json(summary);
 };
 
+// ROLLBACK: reverse a committed batch's CRM writes, using the audit trail
+// import_record_links left behind at commit time. This only ever DELETEs a
+// row this pipeline itself created — it never INSERTs/UPSERTs, so it does
+// not reopen the live-write path that Phase 2 approval still gates (see
+// import-readiness.test.ts's "never INSERTs/UPSERTs into live CRM tables"
+// guard, which this handler does not touch).
+//
+// "updated" links can't be reversed: commit never captured the pre-update
+// value, so there is nothing to restore. Those are reported as needing
+// manual review rather than silently skipped or force-reverted. A delete
+// that fails (most likely a foreign-key violation because something else —
+// an opportunity, a follow-up, a contact — now references the record) is
+// left in place rather than cascaded, and counted separately.
+const ROLLBACK_TABLES = new Set(["companies", "contacts", "leads"]);
+
+handlers["rollback"] = async (payload, caller) => {
+  const batchId = payload.batch_id as string;
+  if (!batchId) return err("batch_id required");
+
+  if (hasAny(caller.roles, ["system_admin" as AppRole]) && !hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
+    return err("system_admin cannot roll back imports", 403);
+  }
+  if (!hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
+    return err("Insufficient role for rollback", 403);
+  }
+
+  const svc = serviceClient();
+
+  const { data: batch } = await svc.from("import_batches").select("status").eq("id", batchId).single();
+  if (!batch) return err("Batch not found", 404);
+  if (batch.status !== "committed") return err("Only a committed batch can be rolled back");
+
+  const { data: links } = await svc
+    .from("import_record_links")
+    .select("id, target_table, target_id, action")
+    .eq("batch_id", batchId);
+
+  const allLinks = (links ?? []) as { id: string; target_table: string; target_id: string; action: string }[];
+
+  let rolledBack = 0;
+  let stillReferenced = 0;
+  let manualReview = 0;
+
+  for (const link of allLinks) {
+    if (link.action !== "created" || !ROLLBACK_TABLES.has(link.target_table)) {
+      manualReview++;
+      continue;
+    }
+    const { error } = await svc.from(link.target_table).delete().eq("id", link.target_id);
+    if (error) {
+      stillReferenced++;
+      continue;
+    }
+    rolledBack++;
+  }
+
+  await svc.from("import_batches").update({
+    status: "rolled_back",
+    rolled_back_at: new Date().toISOString(),
+    rolled_back_by: caller.userId,
+  }).eq("id", batchId);
+
+  const summary = {
+    rolled_back: rolledBack,
+    still_referenced: stillReferenced,
+    manual_review_required: manualReview,
+    total: allLinks.length,
+  };
+
+  await audit(svc, caller.userId, "import_rollback", "import_batches", batchId, summary);
+
+  return json(summary);
+};
+
 // GENERATE_REPORT: downloadable dry-run reports in CSV (default) or JSON.
 handlers["generate_report"] = async (payload, caller) => {
   const batchId = payload.batch_id as string;
@@ -698,7 +776,7 @@ Deno.serve(async (req: Request) => {
     const action = body.action as string;
 
     if (!action || !handlers[action]) {
-      return err("Unknown action. Available: parse, validate, detect_duplicates, approve, dry_run_commit, commit, generate_report, purge_batch");
+      return err(`Unknown action. Available: ${Object.keys(handlers).join(", ")}`);
     }
 
     return await handlers[action](body, caller);

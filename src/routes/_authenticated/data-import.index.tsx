@@ -43,6 +43,7 @@ type StatusTone = "positive" | "attention" | "danger" | "muted" | "neutral";
 
 function statusTone(s: string): StatusTone {
   if (s === "committed") return "positive";
+  if (s === "rolled_back") return "attention";
   if (s === "approved" || s === "dry_run") return "attention";
   if (s === "failed" || s === "cancelled") return "danger";
   if (s === "pending_approval" || s === "duplicate_review") return "attention";
@@ -55,14 +56,14 @@ function stepLabel(status: string): string {
     needs_mapping: "Map Columns", mapping: "Map Columns",
     validating: "Validating", duplicate_review: "Review Duplicates",
     pending_approval: "Needs Approval", approved: "Approved",
-    dry_run: "Dry Run", committed: "Committed",
+    dry_run: "Dry Run", committed: "Committed", rolled_back: "Rolled Back",
     failed: "Failed", cancelled: "Cancelled",
   };
   return map[status] ?? status;
 }
 
 function isActive(b: ImportBatch) {
-  return !["committed", "failed", "cancelled", "archived", "deleted"].includes(b.status);
+  return !["committed", "rolled_back", "failed", "cancelled", "archived", "deleted"].includes(b.status);
 }
 
 function fmtDate(iso: string) {
