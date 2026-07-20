@@ -23,19 +23,19 @@ export function KpiCard({
   footer?: ReactNode;
   className?: string;
 }) {
-  const trendColor =
+  const pillColor =
     trend === "up"
-      ? "text-won"
+      ? "bg-won-surface text-won"
       : trend === "down"
-        ? "text-destructive/80"
-        : "text-muted-foreground";
+        ? "bg-destructive/10 text-destructive"
+        : "bg-muted text-muted-foreground";
   const TrendIcon =
     trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : Minus;
 
   return (
     <div
       className={cn(
-        "group relative flex flex-col rounded-xl border border-border/70 bg-surface/60 p-5 transition-all duration-200 hover:border-border-strong/70 hover:bg-surface hover:shadow-card",
+        "group relative flex flex-col rounded-xl border border-border bg-surface p-5 shadow-card transition-all duration-200 hover:shadow-elevated",
         className,
       )}
     >
@@ -43,17 +43,21 @@ export function KpiCard({
         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
           {label}
         </span>
-        {icon ? <span className="text-muted-foreground/80">{icon}</span> : null}
+        {icon ? (
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+            {icon}
+          </span>
+        ) : null}
       </div>
-      <div className="mt-3 flex items-baseline gap-2">
+      <div className="mt-3 flex items-center gap-2.5">
         <span
-          className="text-[28px] font-semibold tracking-[-0.02em] text-foreground num"
+          className="text-[40px] font-semibold leading-none tracking-[-0.03em] text-foreground num"
           data-tabular="true"
         >
           {value}
         </span>
         {delta ? (
-          <span className={cn("inline-flex items-center gap-0.5 text-[11px] font-medium", trendColor)}>
+          <span className={cn("inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-[11px] font-medium", pillColor)}>
             <TrendIcon className="h-3 w-3" strokeWidth={2.25} />
             {delta}
           </span>
@@ -62,7 +66,7 @@ export function KpiCard({
       {hint ? (
         <div className="mt-1.5 text-[12px] text-muted-foreground">{hint}</div>
       ) : null}
-      {footer ? <div className="mt-4 border-t border-border/60 pt-3">{footer}</div> : null}
+      {footer ? <div className="mt-4 border-t border-border pt-3">{footer}</div> : null}
     </div>
   );
 }

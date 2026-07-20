@@ -19,12 +19,12 @@ export function Panel({
   return (
     <section
       className={cn(
-        "rounded-xl border bg-surface transition-shadow duration-200 hover:shadow-card",
-        tone === "attention" ? "border-amber/30" : "border-border/80",
+        "rounded-xl border bg-surface shadow-card transition-shadow duration-200 hover:shadow-elevated",
+        tone === "attention" ? "border-amber/30" : "border-border",
         className,
       )}
     >
-      <header className="flex items-start justify-between gap-4 border-b border-border/50 px-5 py-4">
+      <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div className="min-w-0">
           <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             {title}

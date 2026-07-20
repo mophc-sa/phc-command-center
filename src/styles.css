@@ -49,10 +49,10 @@
 
 
 /*
- * PHC Sales Agent — Executive dark-first design system.
- * Brand palette: Ghost White #F5F7FC, Cool Gray #73787C, Black Pearl #101924.
- * Derived tonal scale: #E4E8F0 · #C7CBD2 · #9CA1A8 · #3A424E · #1B2531 · #0B1119.
- * Apple-inspired: hairline borders, calm surfaces, restrained accent, no gradients.
+ * PHC Sales Agent — Executive light-first design system.
+ * Warm-neutral page background, pure-white elevated cards, near-black text
+ * and primary actions, soft diffused shadows instead of hairline emphasis.
+ * Restrained accent, no gradients — calm surfaces that let data lead.
  */
 
 @theme inline {
@@ -142,92 +142,88 @@
   --tracking-wide:   0.04em;
   --tracking-caps:   0.14em;
 
-  --shadow-card:     0 1px 0 0 color-mix(in oklch, var(--foreground) 4%, transparent),
-                     0 4px 12px -6px oklch(0 0 0 / 0.40);
-  --shadow-elevated: 0 1px 0 0 color-mix(in oklch, var(--foreground) 6%, transparent),
-                     0 8px 24px -12px oklch(0 0 0 / 0.55);
-  --shadow-modal:    0 0 0 1px color-mix(in oklch, var(--foreground) 8%, transparent),
-                     0 24px 48px -12px oklch(0 0 0 / 0.70);
+  --shadow-card:     0 1px 2px 0 oklch(0.20 0.02 253 / 0.04),
+                     0 4px 16px -6px oklch(0.20 0.02 253 / 0.10);
+  --shadow-elevated: 0 2px 4px 0 oklch(0.20 0.02 253 / 0.05),
+                     0 12px 28px -10px oklch(0.20 0.02 253 / 0.16);
+  --shadow-modal:    0 0 0 1px oklch(0.20 0.02 253 / 0.04),
+                     0 24px 48px -12px oklch(0.20 0.02 253 / 0.28);
 }
 
 
 :root {
-  --radius: 0.75rem;           /* 12px — Apple-standard card radius */
+  --radius: 1.125rem;          /* 18px — soft, generous card radius */
 
-  /* Brand palette — Black Pearl #101924 foundation */
-  --background: oklch(0.15 0.018 253);            /* ≈ #0B1119 */
-  --surface: oklch(0.20 0.020 253);               /* ≈ #101924 Black Pearl */
-  --surface-2: oklch(0.24 0.020 253);             /* ≈ #1B2531 */
-  --surface-elevated: oklch(0.28 0.018 253);      /* between surface-2 and structural */
-  --structural: oklch(0.36 0.015 253);            /* ≈ #3A424E */
-  --muted: oklch(0.24 0.020 253);
-  --muted-foreground: oklch(0.68 0.008 253);      /* ≈ #9CA1A8 */
-  --warm: oklch(0.90 0.008 253);
+  /* Brand palette — warm-neutral light foundation */
+  --background: oklch(0.965 0.003 90);            /* ≈ #F4F4F3 warm light gray */
+  --surface: oklch(1 0 0);                        /* pure white cards */
+  --surface-2: oklch(0.98 0.003 90);               /* subtle off-white */
+  --surface-elevated: oklch(1 0 0);                /* white, distinguished by shadow */
+  --structural: oklch(0.55 0.008 253);             /* mid-gray for icon strokes */
+  --muted: oklch(0.945 0.004 90);
+  --muted-foreground: oklch(0.50 0.010 253);       /* readable secondary text */
+  --warm: oklch(0.30 0.010 253);
 
-  --foreground: oklch(0.97 0.004 253);            /* ≈ #F5F7FC Ghost White */
+  --foreground: oklch(0.20 0.010 253);             /* soft charcoal, not pure black */
 
   --card: var(--surface);
   --card-foreground: var(--foreground);
   --popover: var(--surface);
   --popover-foreground: var(--foreground);
 
-  /* Primary = Ghost White on Black Pearl — Apple-like restrained primary */
-  --primary: oklch(0.97 0.004 253);
-  --primary-foreground: oklch(0.20 0.020 253);
-  --secondary: var(--surface-2);
+  /* Primary = near-black solid pill on white — the "Create" button look */
+  --primary: oklch(0.20 0.010 253);
+  --primary-foreground: oklch(0.99 0.002 90);
+  --secondary: var(--muted);
   --secondary-foreground: var(--foreground);
-  --accent: var(--surface-2);
+  --accent: var(--muted);
   --accent-foreground: var(--foreground);
 
   /* Amber = attention/status only. Muted, warm, never decorative. */
-  --amber: oklch(0.70 0.115 65);                  /* refined signal amber */
-  --amber-light: oklch(0.80 0.095 75);
-  --amber-foreground: oklch(0.18 0.030 55);
+  --amber: oklch(0.62 0.135 65);
+  --amber-light: oklch(0.55 0.12 65);
+  --amber-foreground: oklch(0.99 0.002 90);
 
-  /* Won / awarded — calm semantic green, distinct from amber attention */
-  --won: oklch(0.72 0.12 155);
-  --won-surface: oklch(0.72 0.12 155 / 0.08);
-  --won-border: oklch(0.72 0.12 155 / 0.20);
+  /* Won / awarded — fresh semantic green, distinct from amber attention */
+  --won: oklch(0.60 0.135 155);
+  --won-surface: oklch(0.60 0.135 155 / 0.10);
+  --won-border: oklch(0.60 0.135 155 / 0.22);
 
   /* Info — cool steel-blue for neutral supplementary labels (data counts, etc.) */
-  --info: oklch(0.70 0.075 240);
+  --info: oklch(0.55 0.11 240);
 
   /* Chart colour tokens — keep charts in sync with the design system. */
-  --chart-primary:     oklch(0.97 0.004 253);
-  --chart-primary-dim: oklch(0.75 0.008 253);
-  --chart-amber:       oklch(0.70 0.115 65);
-  --chart-amber-dim:   oklch(0.55 0.09  65);
-  --chart-muted:       oklch(0.50 0.010 253);
-  --chart-grid:        oklch(0.40 0.015 253 / 0.35);
+  --chart-primary:     oklch(0.20 0.010 253);
+  --chart-primary-dim: oklch(0.55 0.010 253);
+  --chart-amber:       oklch(0.62 0.135 65);
+  --chart-amber-dim:   oklch(0.75 0.09  65);
+  --chart-muted:       oklch(0.90 0.006 90);
+  --chart-grid:        oklch(0.60 0.010 253 / 0.14);
 
-  --destructive: oklch(0.58 0.190 25);
-  --destructive-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.60 0.195 25);
+  --destructive-foreground: oklch(0.99 0.002 90);
 
-  /* Hairline borders — 1px, low contrast */
-  --border: oklch(0.36 0.015 253 / 0.55);
-  --border-strong: oklch(0.36 0.015 253 / 0.85);
-  --input: oklch(0.36 0.015 253 / 0.55);
-  /* Raised from 0.35 opacity to full opacity L=0.80 — meets WCAG 2.2 AA 3:1 minimum */
-  --ring: oklch(0.80 0.008 253);
+  /* Hairline borders — 1px, low contrast on white */
+  --border: oklch(0.20 0.010 253 / 0.09);
+  --border-strong: oklch(0.20 0.010 253 / 0.16);
+  --input: oklch(0.20 0.010 253 / 0.12);
+  /* Dark-enough neutral for 3:1 focus-ring contrast against a white surface */
+  --ring: oklch(0.30 0.02 253);
 
-  /* Sidebar shell — deepest surface, quiet */
-  --sidebar: oklch(0.13 0.018 253);               /* deeper than background */
-  --sidebar-foreground: oklch(0.88 0.005 253);
-  --sidebar-primary: var(--foreground);
-  --sidebar-primary-foreground: var(--surface);
-  --sidebar-accent: oklch(0.22 0.020 253);
+  /* Sidebar shell — blends into the page background, no boxed-in feel */
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(1 0 0);                  /* white active-item pill */
   --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: oklch(0.28 0.018 253 / 0.7);
+  --sidebar-border: oklch(0.20 0.010 253 / 0.07);
   --sidebar-ring: var(--ring);
-}
-
-.dark {
-  color-scheme: dark;
 }
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
     background-color: var(--color-background);
     /* User-controlled a11y font scale — bound to <html data-font-scale=...> */
     font-size: calc(16px * var(--font-scale, 1));
@@ -356,7 +352,7 @@
   font-weight: 500;
   color: var(--color-won);
   transition: background-color 150ms ease;
-  &:hover { background-color: oklch(0.72 0.12 155 / 0.14); }
+  &:hover { background-color: oklch(0.60 0.135 155 / 0.16); }
 }
 
 /* Apple-style action pill — danger/destructive */
@@ -365,12 +361,12 @@
   align-items: center;
   gap: 0.375rem;
   border-radius: 0.5rem;
-  border: 1px solid oklch(0.58 0.190 25 / 0.28);
-  background-color: oklch(0.58 0.190 25 / 0.08);
+  border: 1px solid oklch(0.60 0.195 25 / 0.24);
+  background-color: oklch(0.60 0.195 25 / 0.08);
   padding: 0.375rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--color-destructive);
   transition: background-color 150ms ease;
-  &:hover { background-color: oklch(0.58 0.190 25 / 0.14); }
+  &:hover { background-color: oklch(0.60 0.195 25 / 0.16); }
 }
