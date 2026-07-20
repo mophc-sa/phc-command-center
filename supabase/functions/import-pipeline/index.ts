@@ -465,6 +465,101 @@ handlers["detect_duplicates"] = async (payload, caller) => {
   return json({ duplicates: flaggedRowIds.size, candidates: dupes.length });
 };
 
+// GENERATE_CANDIDATES: stage a per-row create/update/duplicate decision into
+// import_record_candidates, ready for human review before commit.
+//
+// Deterministic, not an AI call: by this point in the pipeline every row
+// already has mapped_data (from column mapping) and, if applicable, a
+// duplicate_candidates entry (from detect_duplicates) with a resolution.
+// This step just turns "what we already know about this row" into one
+// candidate record — no required-field validation, whatever was mapped is
+// staged as-is (real data varies row to row; commit is where partial rows
+// get a chance to fail gracefully, not here).
+//
+// Re-runnable: clears this batch's prior candidates first, so re-running
+// after a mapping tweak or a duplicate-resolution change reflects the
+// current state, not a stale snapshot.
+handlers["generate_candidates"] = async (payload, caller) => {
+  const batchId = payload.batch_id as string;
+  if (!batchId) return err("batch_id required");
+
+  const svc = serviceClient();
+
+  const { data: batch } = await svc.from("import_batches").select("id, target_entity").eq("id", batchId).single();
+  if (!batch) return err("Batch not found", 404);
+
+  const { data: rows } = await svc.from("import_rows")
+    .select("id, mapped_data, is_excluded, row_status")
+    .eq("batch_id", batchId)
+    .eq("status", "valid")
+    .order("row_number");
+  const liveRows = (rows ?? []).filter((r) => !r.is_excluded && r.row_status !== "deleted" && r.row_status !== "excluded");
+
+  const { data: dupeRows } = await svc.from("import_duplicate_candidates")
+    .select("row_id, existing_record_id, existing_table, resolution, confidence, match_type")
+    .eq("batch_id", batchId);
+  const dupeByRow = new Map((dupeRows ?? []).map((d) => [d.row_id as string, d]));
+
+  await svc.from("import_record_candidates").delete().eq("batch_id", batchId);
+
+  const entityType = batch.target_entity as string;
+  const candidates = liveRows.map((row) => {
+    const dupe = dupeByRow.get(row.id as string);
+    let proposedAction: string;
+    let existingRecordId: string | null = null;
+    let existingTable: string | null = null;
+    let confidence: number | null = null;
+    let reason: string;
+
+    if (!dupe) {
+      proposedAction = "create";
+      reason = "No matching record found";
+    } else {
+      confidence = dupe.confidence != null ? Number(dupe.confidence) / 100 : null;
+      existingRecordId = dupe.existing_record_id as string;
+      existingTable = dupe.existing_table as string;
+      if (dupe.resolution === "skip") {
+        proposedAction = "duplicate";
+        reason = `Matched an existing ${existingTable} record (${dupe.match_type}) — marked to skip`;
+      } else if (dupe.resolution === "merge") {
+        proposedAction = "update";
+        reason = `Matched an existing ${existingTable} record (${dupe.match_type}) — will update`;
+      } else if (dupe.resolution === "create_new") {
+        proposedAction = "create";
+        existingRecordId = null;
+        existingTable = null;
+        reason = "Possible duplicate, reviewer chose to create a new record anyway";
+      } else {
+        proposedAction = "needs_review";
+        reason = `Possible duplicate (${dupe.match_type}) — needs a decision before commit`;
+      }
+    }
+
+    return {
+      batch_id: batchId,
+      source_row_id: row.id,
+      entity_type: entityType,
+      proposed_action: proposedAction,
+      existing_record_id: existingRecordId,
+      existing_table: existingTable,
+      proposed_payload: row.mapped_data ?? {},
+      confidence,
+      reason,
+      review_status: "pending",
+    };
+  });
+
+  for (let i = 0; i < candidates.length; i += 500) {
+    if (candidates.length) await svc.from("import_record_candidates").insert(candidates.slice(i, i + 500));
+  }
+
+  await audit(svc, caller.userId, "import_generate_candidates", "import_batches", batchId, {
+    candidates: candidates.length,
+  });
+
+  return json({ candidates: candidates.length });
+};
+
 // APPROVE: manager approves the batch for dry-run commit
 handlers["approve"] = async (payload, caller) => {
   const batchId = payload.batch_id as string;
