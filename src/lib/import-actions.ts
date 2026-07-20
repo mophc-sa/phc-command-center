@@ -409,9 +409,14 @@ export async function dryRunCommit(batchId: string) {
   return callPipeline("dry_run_commit", { batch_id: batchId });
 }
 
+/**
+ * Write every approved import_record_candidates row for this batch to its
+ * real CRM table. Only candidates a human has already approved (via the
+ * Candidates tab) are ever written — this never touches unreviewed rows.
+ */
 export async function commitBatch(batchId: string) {
   if (!batchId) throw new Error("Missing batch");
-  return callPipeline("commit", { batch_id: batchId }) as Promise<{ committed: number; failed: number; total: number }>;
+  return callPipeline("commit_candidates", { batch_id: batchId }) as Promise<{ committed: number; failed: number; total: number }>;
 }
 
 /**
