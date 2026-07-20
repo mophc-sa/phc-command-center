@@ -27,7 +27,7 @@ export function PageHeader({
             {eyebrow}
           </div>
         ) : null}
-        <h1 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground md:text-[30px]">
+        <h1 className="text-[30px] font-bold tracking-[-0.02em] text-foreground md:text-[36px]">
           {title}
         </h1>
         {description ? (

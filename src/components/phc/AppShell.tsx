@@ -289,20 +289,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         to={n.to}
         onClick={() => setMobileOpen(false)}
         className={cn(
-          "group relative flex items-center gap-3 rounded-lg px-3 py-[7px] text-[13px] transition-all duration-150",
+          "group relative flex items-center gap-3 rounded-full px-3 py-[7px] text-[13px] transition-all duration-150",
           active
             ? "bg-sidebar-accent text-foreground shadow-sm"
-            : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-foreground",
+            : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
         )}
       >
-        {active && (
-          <span
-            className={cn(
-              "absolute top-1.5 bottom-1.5 w-[2px] rounded-full bg-foreground",
-              dir === "rtl" ? "right-0" : "left-0",
-            )}
-          />
-        )}
         <n.icon
           className={cn(
             "h-[15px] w-[15px] shrink-0 transition-colors",
@@ -338,7 +330,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="px-3 pt-3 pb-1">
         <button
           onClick={() => { setPaletteOpen(true); setMobileOpen(false); }}
-          className="flex w-full items-center gap-2 rounded-lg border border-border/45 bg-surface/35 px-3 py-1.5 text-left text-[12px] text-muted-foreground/80 transition-all duration-150 hover:bg-surface/70 hover:border-border/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex w-full items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-left text-[12px] text-muted-foreground/80 shadow-card transition-all duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           aria-label={t("cmd_placeholder")}
         >
           <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -533,7 +525,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex h-12 items-center gap-3 px-4 md:px-8">
             {/* Mobile hamburger */}
             <button
-              className="grid h-9 w-9 place-items-center rounded-lg border border-border/70 bg-surface/80 text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:hidden"
+              className="grid h-9 w-9 place-items-center rounded-full border border-border bg-surface shadow-card text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label={lang === "ar" ? "فتح القائمة" : "Open navigation"}
             >
@@ -561,7 +553,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {/* Language toggle */}
               <button
                 onClick={() => setLang(lang === "en" ? "ar" : "en")}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/70 bg-surface/80 px-2.5 text-[11px] font-medium text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface shadow-card px-2.5 text-[11px] font-medium text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 aria-label={t("language")}
               >
                 <Globe className="h-3.5 w-3.5" />
@@ -572,7 +564,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="grid h-8 w-8 place-items-center rounded-lg border border-border/70 bg-surface/80 text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="grid h-8 w-8 place-items-center rounded-full border border-border bg-surface shadow-card text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     aria-label={t("nav_quick_actions")}
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -604,7 +596,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               {/* Notification bell */}
               <button
-                className="relative grid h-8 w-8 place-items-center rounded-lg border border-border/70 bg-surface/80 text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="relative grid h-8 w-8 place-items-center rounded-full border border-border bg-surface shadow-card text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 onClick={() => setNotifOpen(true)}
                 aria-label={`${t("notif_title")}${notifCount > 0 ? ` (${notifCount})` : ""}`}
               >
