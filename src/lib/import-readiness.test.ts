@@ -13,7 +13,7 @@ import {
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const edgeSrc = readFileSync(join(repoRoot, "supabase/functions/import-pipeline/index.ts"), "utf8");
-const uiSrc = readFileSync(join(repoRoot, "src/routes/_authenticated/data-import.tsx"), "utf8");
+const uiSrc = readFileSync(join(repoRoot, "src/routes/_authenticated/data-import.$batchId.tsx"), "utf8");
 
 function batch(over: Partial<ImportBatch> = {}): ImportBatch {
   return {
@@ -56,34 +56,63 @@ test("excluded and soft-deleted rows are not processable; active/restored are", 
   expect(isRowProcessable({ is_excluded: false, row_status: "deleted" })).toBe(false);
 });
 
-// ---- SAFETY GUARDS: no live CRM writes in Phase 1.1 -------------------------
-test("import-pipeline never INSERTs/UPSERTs into live CRM tables", () => {
+// ---- SAFETY GUARDS: live CRM writes exist, but only through one reviewed,
+// approved-candidate path (Phase 2, approved) ---------------------------------
+//
+// Isolates the commit_candidates handler's own source (from its declaration
+// to the next top-level `handlers[...] =`) so writes can be required *inside*
+// it and forbidden *everywhere else* in the same file — rather than either
+// banning live writes outright (no longer true) or only checking they exist
+// somewhere (too weak: would pass even if approve/validate/etc. also wrote).
+function extractHandlerSource(name: string): string {
+  const start = edgeSrc.indexOf(`handlers["${name}"]`);
+  if (start === -1) throw new Error(`handlers["${name}"] not found in import-pipeline/index.ts`);
+  const nextHandler = edgeSrc.indexOf('handlers["', start + 1);
+  return edgeSrc.slice(start, nextHandler === -1 ? undefined : nextHandler);
+}
+
+const commitCandidatesSrc = extractHandlerSource("commit_candidates");
+const edgeSrcOutsideCommit = edgeSrc.replace(commitCandidatesSrc, "");
+
+test("only commit_candidates writes to live CRM tables — no other handler does", () => {
   const liveTables = ["companies", "contacts", "opportunities", "tenders", "rfqs", "projects", "quotations", "leads"];
   for (const tbl of liveTables) {
-    // Match `.from("companies") ... .insert(` / `.upsert(` on the same statement.
-    const insertRe = new RegExp(`from\\(["'\`]${tbl}["'\`]\\)[\\s\\S]{0,120}?\\.(insert|upsert)\\(`, "g");
-    const hits = edgeSrc.match(insertRe) ?? [];
-    expect(hits, `edge writes to live table ${tbl}: ${hits.join(" | ")}`).toEqual([]);
+    // Match `.from("companies") ... .insert(` / `.upsert(` / `.update(` on the same statement.
+    const writeRe = new RegExp(`from\\(["'\`]${tbl}["'\`]\\)[\\s\\S]{0,120}?\\.(insert|upsert|update)\\(`, "g");
+    const hits = edgeSrcOutsideCommit.match(writeRe) ?? [];
+    expect(hits, `a handler other than commit_candidates writes to live table ${tbl}: ${hits.join(" | ")}`).toEqual([]);
   }
+  // commit_candidates resolves its target table through ENTITY_TABLE_MAP
+  // (a variable), not a literal table name, so it's checked structurally
+  // instead: it must actually perform a generic insert/update, and it must
+  // gate on review_status = 'approved' before ever reading a candidate.
+  expect(commitCandidatesSrc).toMatch(/\.from\(table\)\.insert\(/);
+  expect(commitCandidatesSrc).toMatch(/\.from\(table\)\.update\(/);
+  expect(commitCandidatesSrc).toMatch(/review_status.*approved/);
 });
 
-test("import-pipeline exposes only a dry-run commit, not a real commit", () => {
+test("import-pipeline never exposes the old unreviewed bare 'commit' action", () => {
   expect(edgeSrc).toContain('handlers["dry_run_commit"]');
+  expect(edgeSrc).toContain('handlers["commit_candidates"]');
+  // The pre-Phase-2 bare name (a per-batch blanket commit with no review
+  // step) must never come back under its old name.
   expect(edgeSrc).not.toContain('handlers["commit"]');
   expect(edgeSrc).not.toContain('handlers["commit_to_crm"]');
 });
 
-test("Commit-to-CRM UI button is disabled with a 'not enabled yet' message", () => {
-  expect(uiSrc).toMatch(/Controlled CRM commit is not enabled yet/i);
-  // The commit button carries the `disabled` attribute (which precedes its label).
-  expect(uiSrc).toMatch(/disabled[\s\S]{0,300}?Commit to CRM/);
+test("commit_candidates is role-gated the same as approve/dry_run_commit", () => {
+  expect(commitCandidatesSrc).toMatch(/system_admin cannot commit imports/);
+  expect(commitCandidatesSrc).toMatch(/Insufficient role for commit/);
 });
 
-// ---- Rollback: DELETE-only exception to the no-live-writes guard -----------
-test("rollback handler exists and is the only exception to the no-insert/upsert guard", () => {
+test("Commit-to-CRM UI button is conditionally gated on having an approved candidate", () => {
+  expect(uiSrc).toMatch(/approvedCandidateCount === 0/);
+  expect(uiSrc).toMatch(/commitBatch\(/);
+});
+
+// ---- Rollback: DELETE-only, reverses exactly what commit_candidates wrote --
+test("rollback only ever deletes — it has no insert/upsert path of its own", () => {
   expect(edgeSrc).toContain('handlers["rollback"]');
-  // Still no live CREATE/UPDATE path — rollback only ever deletes what this
-  // pipeline itself previously created (see the guard above, which already
-  // covers insert/upsert across every live CRM table including this one's).
-  expect(edgeSrc).not.toContain('handlers["commit"]');
+  const rollbackSrc = extractHandlerSource("rollback");
+  expect(rollbackSrc).not.toMatch(/\.(insert|upsert)\(/);
 });

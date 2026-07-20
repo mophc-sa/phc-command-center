@@ -20,7 +20,7 @@ import {
 import {
   getBatch, getMappings, saveMappings, getImportErrors, getDuplicateCandidates,
   getImportFiles, getImportRows, validateBatch, detectDuplicates,
-  approveBatch, dryRunCommit, rollbackBatch,
+  approveBatch, dryRunCommit, commitBatch, rollbackBatch,
   suggestImportMappings,
   callImportAgent,
   getSplitProposals, reviewSplitProposal, stageSplitProposals, acceptSplitProposalToRow,
@@ -1107,6 +1107,7 @@ function BatchDetailPage() {
             reviewerRunning={reviewerRunning}
             setReviewerOutput={setReviewerOutput}
             setReviewerRunning={setReviewerRunning}
+            approvedCandidateCount={candidates.filter((c) => c.review_status === "approved").length}
           />
         </TabsContent>
       </Tabs>
@@ -1323,6 +1324,7 @@ function MappingPanel({
 function ApprovalPanel({
   batch, batchId, canApprove, busy, onStep,
   reviewerOutput, reviewerRunning, setReviewerOutput, setReviewerRunning,
+  approvedCandidateCount,
 }: {
   batch: ImportBatch;
   batchId: string;
@@ -1333,6 +1335,7 @@ function ApprovalPanel({
   reviewerRunning: boolean;
   setReviewerOutput: React.Dispatch<React.SetStateAction<Record<string, unknown> | null>>;
   setReviewerRunning: React.Dispatch<React.SetStateAction<boolean>>;
+  approvedCandidateCount: number;
 }) {
   const [commitResult, setCommitResult] = useState<{ committed: number; failed: number; total: number } | null>(null);
   const [dryRunResult, setDryRunResult] = useState<{ would_create: number; would_skip_duplicates: number; would_skip_errors: number } | null>(null);
@@ -1606,22 +1609,27 @@ function ApprovalPanel({
           )}
         </div>
 
-        {/* Step 3: Commit — Phase 1.1 safety gate: controlled CRM commit is not
-            enabled yet (Phase 2). The edge function has no "commit" handler,
-            so this button stays disabled rather than calling it. */}
+        {/* Step 3: Commit — writes every approved candidate from the
+            Candidates tab to its real CRM table. Requires at least one
+            approved candidate; nothing unreviewed is ever written. */}
         <div className={cn("rounded-md border px-4 py-3", isDryRun ? "border-destructive/30 bg-destructive/5" : "border-border opacity-60")}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground">3. Commit to CRM</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Controlled CRM commit is not enabled yet — available in Phase 2. Dry-run above is the final step for now.
+                {approvedCandidateCount > 0
+                  ? `Writes ${approvedCandidateCount} approved candidate${approvedCandidateCount === 1 ? "" : "s"} to live CRM tables. This cannot be undone (Roll Back is available after).`
+                  : "Approve at least one candidate in the Candidates tab before committing."}
               </p>
             </div>
             <Button
               size="sm"
-              disabled
-              title="Controlled CRM commit is not enabled yet — available in Phase 2"
-              className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive/80 border"
+              disabled={!isDryRun || !canApprove || busy || approvedCandidateCount === 0}
+              onClick={() => onStep("Commit", async () => {
+                const r = await commitBatch(batch.id);
+                setCommitResult(r);
+              })}
+              className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive/80 hover:bg-destructive/20 border"
             >
               <Database className="h-3.5 w-3.5 mr-1.5" />
               Commit

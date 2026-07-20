@@ -30,14 +30,17 @@ import { compareSignals, type DedupSignals } from "../_shared/import-dedup.ts";
 // columns the user explicitly excluded from import.
 const SKIP_KEY = "__skip__";
 
-// Phase 2: CRM commit helpers (commitCompany, commitContact, …) and the
-// "commit" action handler live in _commit-phase2.ts. They are NOT imported
-// here because Phase 1.1 exposes only a dry-run preview, never live CRM
-// writes. Wire them in when Phase 2 is approved.
+// Phase 2 (approved): "commit_candidates" is the one live-CRM-write path in
+// this pipeline. It writes only import_record_candidates rows a human has
+// already set review_status = 'approved' on (see the "Candidates" tab) —
+// never a blanket per-batch commit, and never a required-field validator:
+// whatever was mapped is written as-is, and a row that the target table's
+// own NOT NULL constraints reject simply fails that one row (see
+// import-readiness.test.ts's guard, updated alongside this to describe the
+// new invariant instead of "no live writes at all").
 //
-// "rollback" (below) is the exception: it only ever DELETEs a row this
-// pipeline previously created, tracked via import_record_links. It exists
-// ahead of Phase 2 so the undo path is in place before commit is approved.
+// "rollback" (below) reverses it: it only ever DELETEs a row this pipeline
+// created, tracked via import_record_links.
 
 // Build the dedup signal set from a row's mapped data (best-effort field names).
 function signalsFromMapped(m: Record<string, string | null> | null): DedupSignals {
@@ -643,12 +646,154 @@ handlers["dry_run_commit"] = async (payload, caller) => {
   return json(summary);
 };
 
+// Candidate entity_type -> real table name. Most match 1:1, but a few of the
+// ImportTargetEntity values predate (or were never given) a same-named
+// table: 'boq' is actually public.boqs, 'sales_actuals' is actually
+// public.sales_actuals_monthly. Getting this wrong would mean silently
+// writing to (or deleting from) the wrong table, so both commit_candidates
+// and rollback resolve every table name through this single map rather than
+// assuming entity_type === table name anywhere.
+const ENTITY_TABLE_MAP: Record<string, string> = {
+  companies: "companies",
+  contacts: "contacts",
+  leads: "leads",
+  opportunities: "opportunities",
+  projects: "projects",
+  quotations: "quotations",
+  follow_ups: "follow_ups",
+  account_interactions: "account_interactions",
+  quotation_updates: "quotation_updates",
+  sales_actuals: "sales_actuals_monthly",
+  boq: "boqs",
+  rfqs: "rfqs",
+  tenders: "tenders",
+};
+
+// COMMIT_CANDIDATES: write approved import_record_candidates to their real
+// target tables. This is the one live-CRM-write path in this pipeline —
+// reachable only for candidates a human has already set
+// review_status = 'approved' on (the "Candidates" tab), never a blanket
+// per-batch commit.
+//
+// No required-field validation: proposed_payload is written as-is (minus
+// empty/null values), matching "our data varies row to row — don't gate on
+// required fields." The target table's own NOT NULL/CHECK constraints are
+// the real backstop; a row that trips one simply fails and is reported,
+// without blocking the rest of the batch.
+handlers["commit_candidates"] = async (payload, caller) => {
+  const batchId = payload.batch_id as string;
+  if (!batchId) return err("batch_id required");
+
+  if (hasAny(caller.roles, ["system_admin" as AppRole]) && !hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
+    return err("system_admin cannot commit imports", 403);
+  }
+  if (!hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
+    return err("Insufficient role for commit", 403);
+  }
+
+  const svc = serviceClient();
+
+  const { data: batch } = await svc.from("import_batches").select("*").eq("id", batchId).single();
+  if (!batch) return err("Batch not found", 404);
+  if (batch.status !== "dry_run") return err("Batch must be in dry_run status before commit");
+
+  // Same manual readiness gate the pre-Phase-1.1 commit draft had.
+  const MANUAL_KEYS = ["file_source_confirmed", "owner_confirmed", "backup_completed", "no_unnecessary_sensitive_data"];
+  const checklist = (batch.readiness_checklist ?? {}) as Record<string, boolean>;
+  const incomplete = MANUAL_KEYS.filter((k) => !checklist[k]);
+  if (incomplete.length > 0) return err(`Readiness checklist incomplete. Unchecked items: ${incomplete.join(", ")}`);
+
+  const { data: approved } = await svc
+    .from("import_record_candidates")
+    .select("id, source_row_id, entity_type, proposed_action, existing_record_id, proposed_payload")
+    .eq("batch_id", batchId)
+    .eq("review_status", "approved");
+
+  const candidates = (approved ?? []) as {
+    id: string; source_row_id: string; entity_type: string; proposed_action: string;
+    existing_record_id: string | null; proposed_payload: Record<string, unknown>;
+  }[];
+  if (candidates.length === 0) return err("No approved candidates to commit");
+
+  let committed = 0;
+  let failed = 0;
+  const links: Array<{ batch_id: string; row_id: string; target_table: string; target_id: string; action: string }> = [];
+  const commitErrors: Array<{
+    batch_id: string; row_id: string; row_number: number;
+    column_name: string; error_type: string; message: string; severity: string;
+  }> = [];
+
+  for (const cand of candidates) {
+    const table = ENTITY_TABLE_MAP[cand.entity_type];
+    // Only create/update ever perform a write. A candidate reviewed and
+    // approved as anything else (duplicate/needs_review/conflict) — or one
+    // whose entity_type has no known table — is skipped, not force-written.
+    if (!table || (cand.proposed_action !== "create" && cand.proposed_action !== "update")) {
+      failed++;
+      commitErrors.push({
+        batch_id: batchId, row_id: cand.source_row_id, row_number: 0,
+        column_name: "*", error_type: "commit_skipped",
+        message: !table
+          ? `Unknown entity_type '${cand.entity_type}' — no target table mapped`
+          : `Approved candidate has proposed_action '${cand.proposed_action}', not create/update — skipped`,
+        severity: "error",
+      });
+      continue;
+    }
+
+    // Best-effort payload: drop empty/null values rather than writing them
+    // over column defaults, but otherwise write whatever was mapped.
+    const payload = Object.fromEntries(
+      Object.entries(cand.proposed_payload).filter(([, v]) => v != null && String(v).trim() !== ""),
+    );
+
+    try {
+      if (cand.proposed_action === "create") {
+        const { data: created, error } = await svc.from(table).insert(payload).select("id").single();
+        if (error) throw error;
+        links.push({ batch_id: batchId, row_id: cand.source_row_id, target_table: table, target_id: created.id, action: "created" });
+      } else {
+        if (!cand.existing_record_id) throw new Error("Missing existing_record_id for an update action");
+        const { error } = await svc.from(table).update(payload).eq("id", cand.existing_record_id);
+        if (error) throw error;
+        links.push({ batch_id: batchId, row_id: cand.source_row_id, target_table: table, target_id: cand.existing_record_id, action: "updated" });
+      }
+      committed++;
+    } catch (e) {
+      failed++;
+      commitErrors.push({
+        batch_id: batchId, row_id: cand.source_row_id, row_number: 0,
+        column_name: "*", error_type: "commit_error",
+        message: e instanceof Error ? e.message : String(e),
+        severity: "error",
+      });
+    }
+  }
+
+  for (let i = 0; i < commitErrors.length; i += 500) {
+    await svc.from("import_errors").insert(commitErrors.slice(i, i + 500));
+  }
+  for (let i = 0; i < links.length; i += 500) {
+    await svc.from("import_record_links").insert(links.slice(i, i + 500));
+  }
+
+  await svc.from("import_batches").update({
+    status: "committed",
+    committed_at: new Date().toISOString(),
+  }).eq("id", batchId);
+
+  const summary = { committed, failed, total: candidates.length };
+  await audit(svc, caller.userId, "import_commit_candidates", "import_batches", batchId, summary);
+
+  return json(summary);
+};
+
 // ROLLBACK: reverse a committed batch's CRM writes, using the audit trail
 // import_record_links left behind at commit time. This only ever DELETEs a
-// row this pipeline itself created — it never INSERTs/UPSERTs, so it does
-// not reopen the live-write path that Phase 2 approval still gates (see
-// import-readiness.test.ts's "never INSERTs/UPSERTs into live CRM tables"
-// guard, which this handler does not touch).
+// row this pipeline itself created — it never INSERTs/UPSERTs, matching
+// commit_candidates' own action set (see import-readiness.test.ts, updated
+// alongside this to describe the new invariant: live CRM writes exist, but
+// only through the reviewed-candidate commit path).
 //
 // "updated" links can't be reversed: commit never captured the pre-update
 // value, so there is nothing to restore. Those are reported as needing
@@ -656,7 +801,7 @@ handlers["dry_run_commit"] = async (payload, caller) => {
 // that fails (most likely a foreign-key violation because something else —
 // an opportunity, a follow-up, a contact — now references the record) is
 // left in place rather than cascaded, and counted separately.
-const ROLLBACK_TABLES = new Set(["companies", "contacts", "leads"]);
+const ROLLBACK_TABLES = new Set(Object.values(ENTITY_TABLE_MAP));
 
 handlers["rollback"] = async (payload, caller) => {
   const batchId = payload.batch_id as string;
