@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft, Loader2, CheckCircle2, AlertTriangle, Eye,
-  Database, ShieldCheck, Sparkles,
+  Database, ShieldCheck, Sparkles, Undo2,
 } from "lucide-react";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
@@ -20,7 +20,7 @@ import {
 import {
   getBatch, getMappings, saveMappings, getImportErrors, getDuplicateCandidates,
   getImportFiles, getImportRows, validateBatch, detectDuplicates,
-  approveBatch, dryRunCommit,
+  approveBatch, dryRunCommit, rollbackBatch,
   suggestImportMappings,
   callImportAgent,
   getSplitProposals, reviewSplitProposal, stageSplitProposals, acceptSplitProposalToRow,
@@ -47,6 +47,7 @@ type StatusTone = "positive" | "attention" | "danger" | "muted" | "neutral";
 
 function statusTone(s: string): StatusTone {
   if (s === "committed") return "positive";
+  if (s === "rolled_back") return "attention";
   if (s === "approved" || s === "dry_run") return "attention";
   if (s === "failed" || s === "cancelled") return "danger";
   if (s === "pending_approval" || s === "duplicate_review") return "attention";
@@ -61,7 +62,7 @@ const STEPS: Step[] = [
   { key: "validate", label: "Validated", statuses: ["duplicate_review"] },
   { key: "review",   label: "Reviewed",  statuses: ["pending_approval"] },
   { key: "approve",  label: "Approved",  statuses: ["approved", "dry_run"] },
-  { key: "commit",   label: "Committed", statuses: ["committed"] },
+  { key: "commit",   label: "Committed", statuses: ["committed", "rolled_back"] },
 ];
 
 function currentStepIndex(status: string): number {
@@ -1168,6 +1169,7 @@ function ApprovalPanel({
 }) {
   const [commitResult, setCommitResult] = useState<{ committed: number; failed: number; total: number } | null>(null);
   const [dryRunResult, setDryRunResult] = useState<{ would_create: number; would_skip_duplicates: number; would_skip_errors: number } | null>(null);
+  const [rollbackResult, setRollbackResult] = useState<{ rolled_back: number; still_referenced: number; manual_review_required: number; total: number } | null>(null);
 
   const [checklist, setChecklist] = useState<ReadinessChecklist>({});
   const [checklistLoading, setChecklistLoading] = useState(true);
@@ -1194,6 +1196,7 @@ function ApprovalPanel({
   const isApproved        = batch.status === "approved";
   const isDryRun          = batch.status === "dry_run";
   const isCommitted       = batch.status === "committed";
+  const isRolledBack      = batch.status === "rolled_back";
 
   const hasCritical = (reviewerOutput?.findings as Array<{ severity: string }> ?? []).some(
     (f) => f.severity === "critical",
@@ -1209,6 +1212,47 @@ function ApprovalPanel({
         {commitResult && (
           <p className="mt-2 text-xs text-muted-foreground">
             {commitResult.committed} created · {commitResult.failed} failed · {commitResult.total} total
+          </p>
+        )}
+
+        <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Roll back this batch</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Deletes records this batch created. Records it updated, or that are now
+                referenced elsewhere, can't be auto-reverted and need manual review.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              disabled={!canApprove || busy}
+              onClick={() => onStep("Roll back", async () => {
+                const r = await rollbackBatch(batch.id);
+                setRollbackResult(r);
+              })}
+              className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive/80 hover:bg-destructive/20 border"
+            >
+              <Undo2 className="h-3.5 w-3.5 mr-1.5" />
+              Roll Back
+            </Button>
+          </div>
+        </div>
+      </Panel>
+    );
+  }
+
+  if (isRolledBack) {
+    return (
+      <Panel title="Rolled back">
+        <div className="flex items-center gap-2 text-amber-light">
+          <Undo2 className="h-5 w-5" />
+          <p className="text-sm font-medium">This batch's CRM writes have been rolled back.</p>
+        </div>
+        {rollbackResult && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {rollbackResult.rolled_back} reverted · {rollbackResult.still_referenced} still referenced (kept) ·{" "}
+            {rollbackResult.manual_review_required} need manual review · {rollbackResult.total} total
           </p>
         )}
       </Panel>
