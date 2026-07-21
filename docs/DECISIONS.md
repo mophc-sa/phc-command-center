@@ -1,0 +1,30 @@
+# DECISIONS — سجل قرارات PHC Command Center
+
+> الأحدث في الأعلى. لا تحذف قرارًا — إن تغيّر، أضِف قرارًا جديدًا يشير إليه.
+> القرارات أدناه مستخلَصة من الحالة القائمة للمستودع (يوليو 2026) — راجعها وصحّح أي تفصيل.
+
+---
+
+## 2026-07 — النشر مبوّب بموافقة بشرية
+**القرار:** لا نشر تلقائي لموارد Supabase أو Cloudflare عند دمج `main`؛ النشر عبر GitHub Actions dispatch يدوي داخل بيئة `production-cloudflare` المحمية.
+**السبب:** حماية بيانات CRM الحية ومنع نشر غير مقصود. المرجع: `docs/deployment-governance.md`.
+
+## 2026-07 — بوابة AI واحدة (ai-orchestrator)
+**القرار:** كل وكلاء AI خلف Edge Function واحدة backend-only. ممنوع الاستدعاء المباشر من الـ frontend أو إضافة Edge Function لكل وكيل.
+**السبب:** توحيد الحُرّاس (guardrails)، منع تسريب المفاتيح، ونقطة تحكم واحدة. المرجع: `docs/ai-orchestrator.md`.
+
+## 2026-07 — عزل مشروعَي Supabase
+**القرار:** الإنتاج على `lrfdtoexyeghrzynapyn` فقط؛ المشروع القديم `xpoduufwoklvsbuhywsv` لا يُعدَّل إطلاقًا.
+**السبب:** فصل صارم يمنع الكتابة على بيانات قديمة/حساسة.
+
+## 2026-07 — Cloudflare Workers مع إبقاء Lovable fallback
+**القرار:** الإنتاج على Cloudflare Worker `mophc-sa-phc-command-center`؛ يبقى `lovable-fallback` واستضافة Lovable متاحين حتى تنجح إصدارتان إنتاجيتان متتاليتان في Production Readiness.
+**السبب:** انتقال آمن دون انقطاع.
+
+## 2026-07 — Bun كمدير حزم/تشغيل
+**القرار:** Bun 1.3.14 (`bun.lock`, `bunfig.toml`) بدل npm/pnpm.
+**السبب:** سرعة وتوحيد بيئة التطوير والاختبار.
+
+---
+
+<!-- انسخ كتلة قرار جديدة أعلى هذا السطر -->
