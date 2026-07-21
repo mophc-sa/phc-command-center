@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Layers } from "lucide-react";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { Plus, Search, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -11,7 +11,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
-import { createProject, type ProjectStage } from "@/lib/crm-actions";
+import { createProject, type ProjectStage, type ProjectRow, type SourceConfidence } from "@/lib/crm-actions";
 
 export const Route = createFileRoute("/_authenticated/projects")({
   head: () => ({ meta: [{ title: "Projects — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -22,6 +22,12 @@ const PROJECT_STAGES: ProjectStage[] = [
   "early_planning", "design_development", "tender", "awarded",
   "under_construction", "near_handover", "completed", "unknown",
 ];
+
+const SOURCE_CONFIDENCE_LEVELS: SourceConfidence[] = ["high", "medium", "low"];
+
+const PAGE_SIZE = 20;
+
+type ProjectListRow = ProjectRow & { main_contractor: { id: string; name: string } | null };
 
 function humanize(s: string | null | undefined) {
   if (!s) return "—";
@@ -34,48 +40,77 @@ function stageTone(pct: number | null): "positive" | "attention" | "neutral" {
   return "neutral";
 }
 
+// PostgREST .or() uses "," to separate conditions — strip it (and parens,
+// used for grouping) from user input so a stray character can't break the
+// filter syntax or smuggle in an unintended condition.
+function sanitizeForOrFilter(q: string) {
+  return q.replace(/[(),]/g, "");
+}
+
 function ProjectsPage() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<ProjectStage | "all">("all");
+  const [page, setPage] = useState(0);
 
-  const { data: projects = [], isLoading } = useQuery({
-    queryKey: ["projects"],
-    queryFn: async () =>
-      (
-        await supabase
-          .from("projects")
-          .select("*, main_contractor:companies!projects_main_contractor_id_fkey(id, name)")
-          .order("updated_at", { ascending: false })
-      ).data ?? [],
+  // Debounce the search box so we don't fire a query per keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // A filter change should always land back on page 1.
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedQuery, stageFilter]);
+
+  const { data: listResult, isLoading } = useQuery({
+    queryKey: ["projects", { page, debouncedQuery, stageFilter }],
+    queryFn: async () => {
+      let q = supabase
+        .from("projects")
+        .select("*, main_contractor:companies!projects_main_contractor_id_fkey(id, name)", { count: "exact" })
+        .order("updated_at", { ascending: false })
+        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+
+      if (stageFilter !== "all") q = q.eq("project_stage", stageFilter);
+      const cleaned = sanitizeForOrFilter(debouncedQuery);
+      if (cleaned) q = q.or(`name.ilike.%${cleaned}%,location.ilike.%${cleaned}%`);
+
+      const { data, count, error } = await q;
+      if (error) throw error;
+      return { rows: (data ?? []) as ProjectListRow[], count: count ?? 0 };
+    },
+    placeholderData: keepPreviousData,
   });
+
+  const projects = listResult?.rows ?? [];
+  const totalCount = listResult?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const { data: contractors = [] } = useQuery({
     queryKey: ["companies-contractors"],
     queryFn: async () => (await supabase.from("companies").select("id, name").order("name")).data ?? [],
   });
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return projects
-      .filter((p: any) => stageFilter === "all" || p.project_stage === stageFilter)
-      .filter(
-        (p: any) =>
-          !q ||
-          (p.name && p.name.toLowerCase().includes(q)) ||
-          (p.location && p.location.toLowerCase().includes(q)) ||
-          (p.main_contractor?.name && p.main_contractor.name.toLowerCase().includes(q)),
-      );
-  }, [projects, query, stageFilter]);
+  // Global counts/totals must reflect every project, not just the current
+  // page — a lightweight, joinless query keeps that cheap even though the
+  // list above is now paginated.
+  const { data: kpiRows = [] } = useQuery({
+    queryKey: ["projects-kpi"],
+    queryFn: async () =>
+      (await supabase.from("projects").select("project_stage, total_value")).data ?? [],
+  });
 
   const kpis = useMemo(() => {
-    const uc = projects.filter((p: any) => p.project_stage === "under_construction").length;
-    const near = projects.filter((p: any) => p.project_stage === "near_handover").length;
-    const totalValue = projects.reduce((s: number, p: any) => s + (p.total_value ?? 0), 0);
-    return { total: projects.length, uc, near, totalValue };
-  }, [projects]);
+    const uc = kpiRows.filter((p) => p.project_stage === "under_construction").length;
+    const near = kpiRows.filter((p) => p.project_stage === "near_handover").length;
+    const totalValue = kpiRows.reduce((s, p) => s + (p.total_value ?? 0), 0);
+    return { total: kpiRows.length, uc, near, totalValue };
+  }, [kpiRows]);
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -129,44 +164,70 @@ function ProjectsPage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoading && !listResult ? (
         <SkeletonTable rows={6} />
-      ) : filtered.length === 0 ? (
+      ) : projects.length === 0 ? (
         <EmptyState message={t("crm_no_projects")} />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {filtered.map((p: any) => (
-            <Link
-              key={p.id}
-              to="/projects/$id"
-              params={{ id: p.id }}
-              className="rounded-xl border border-border/70 bg-surface/60 px-5 py-4 transition-colors hover:border-border-strong/70 hover:bg-surface"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-foreground">{p.name}</div>
-                  <div className="mt-1 truncate text-xs text-muted-foreground">
-                    {p.main_contractor?.name ?? "—"}{p.location ? ` · ${p.location}` : ""}
+        <>
+          <div className="grid gap-3 md:grid-cols-2">
+            {projects.map((p) => (
+              <Link
+                key={p.id}
+                to="/projects/$id"
+                params={{ id: p.id }}
+                className="rounded-xl border border-border/70 bg-surface/60 px-5 py-4 transition-colors hover:border-border-strong/70 hover:bg-surface"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-foreground">{p.name}</div>
+                    <div className="mt-1 truncate text-xs text-muted-foreground">
+                      {p.main_contractor?.name ?? "—"}{p.location ? ` · ${p.location}` : ""}
+                    </div>
                   </div>
+                  <StatusPill tone={stageTone(p.completion_pct)}>{humanize(p.project_stage)}</StatusPill>
                 </div>
-                <StatusPill tone={stageTone(p.completion_pct)}>{humanize(p.project_stage)}</StatusPill>
-              </div>
-              <div className="mt-3 flex items-center gap-4 text-[11px] text-muted-foreground">
+                <div className="mt-3 flex items-center gap-4 text-[11px] text-muted-foreground">
+                  {p.completion_pct != null ? (
+                    <span className="num" data-tabular="true">{t("crm_completion")}: {p.completion_pct}%</span>
+                  ) : null}
+                  {p.total_value != null ? (
+                    <span className="num" data-tabular="true">{formatCurrency(p.total_value, lang, p.currency)}</span>
+                  ) : null}
+                </div>
                 {p.completion_pct != null ? (
-                  <span className="num" data-tabular="true">{t("crm_completion")}: {p.completion_pct}%</span>
+                  <div className="mt-3 h-1 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-amber/70" style={{ width: `${Math.max(0, Math.min(100, p.completion_pct))}%` }} />
+                  </div>
                 ) : null}
-                {p.total_value != null ? (
-                  <span className="num" data-tabular="true">{formatCurrency(p.total_value, lang, p.currency)}</span>
-                ) : null}
+              </Link>
+            ))}
+          </div>
+
+          {totalPages > 1 ? (
+            <div className="mt-5 flex items-center justify-between text-xs text-muted-foreground">
+              <span className="num" data-tabular="true">
+                {t("crm_page_of")} {page + 1} / {totalPages} · {totalCount}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 disabled:opacity-40 hover:text-foreground disabled:hover:text-muted-foreground"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 disabled:opacity-40 hover:text-foreground disabled:hover:text-muted-foreground"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
               </div>
-              {p.completion_pct != null ? (
-                <div className="mt-3 h-1 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-amber/70" style={{ width: `${Math.max(0, Math.min(100, p.completion_pct))}%` }} />
-                </div>
-              ) : null}
-            </Link>
-          ))}
-        </div>
+            </div>
+          ) : null}
+        </>
       )}
 
       <ActionDialog
@@ -184,6 +245,8 @@ function ProjectsPage() {
           { key: "completionPct", type: "text", label: t("crm_completion") },
           { key: "totalValue", type: "text", label: t("crm_total_value") },
           { key: "expectedBoqDate", type: "date", label: t("crm_expected_boq") },
+          { key: "expectedSignageDate", type: "date", label: t("crm_expected_signage") },
+          { key: "sourceConfidence", type: "select", label: t("crm_source_confidence"), defaultValue: "low", options: SOURCE_CONFIDENCE_LEVELS.map((c) => ({ value: c, label: humanize(c) })) },
         ]}
         onSubmit={async (v) => {
           try {
@@ -196,9 +259,12 @@ function ProjectsPage() {
               completionPct: v.completionPct ? Number(v.completionPct) : null,
               totalValue: v.totalValue ? Number(v.totalValue) : null,
               expectedBoqDate: v.expectedBoqDate || null,
+              expectedSignageDate: v.expectedSignageDate || null,
+              sourceConfidence: (v.sourceConfidence as SourceConfidence) || undefined,
             });
             toast.success(t("crm_saved"));
             qc.invalidateQueries({ queryKey: ["projects"] });
+            qc.invalidateQueries({ queryKey: ["projects-kpi"] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
           }

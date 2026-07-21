@@ -13,7 +13,7 @@ import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { updateProject, type ProjectStage } from "@/lib/crm-actions";
+import { updateProject, verifyProject, type ProjectStage, type ProjectRow, type SourceConfidence } from "@/lib/crm-actions";
 import { canApproveCommercialAction } from "@/lib/roles";
 import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 
@@ -26,6 +26,20 @@ const PROJECT_STAGES: ProjectStage[] = [
   "early_planning", "design_development", "tender", "awarded",
   "under_construction", "near_handover", "completed", "unknown",
 ];
+
+const SOURCE_CONFIDENCE_LEVELS: SourceConfidence[] = ["high", "medium", "low"];
+
+type CompanyRef = { id: string; name: string } | null;
+type OpportunityRef = {
+  id: string; project_name: string; stage: string;
+  estimated_value_max: number | null; currency: string;
+};
+type ProjectDetailRow = ProjectRow & {
+  main_contractor: CompanyRef;
+  owner_company: CompanyRef;
+  consultant: CompanyRef;
+  opportunities: OpportunityRef[];
+};
 
 function humanize(s: string | null | undefined) {
   if (!s) return "—";
@@ -51,15 +65,15 @@ function ProjectDetail() {
           )
           .eq("id", id)
           .single()
-      ).data,
+      ).data as ProjectDetailRow | null,
   });
 
   if (isLoading) return <SkeletonForm />;
   if (!project) return <EmptyState message={t("crm_no_projects")} />;
-  const p: any = project;
+  const p = project;
   const oppCount = p.opportunities?.length ?? 0;
   const oppValue = (p.opportunities ?? []).reduce(
-    (s: number, o: any) => s + (o.estimated_value_max ?? 0),
+    (s, o) => s + (o.estimated_value_max ?? 0),
     0,
   );
 
@@ -88,7 +102,7 @@ function ProjectDetail() {
             {isManager && p.verification_status !== "verified" ? (
               <button
                 onClick={async () => {
-                  try { await updateProject(p.id, { verification_status: "verified" }); toast.success(t("crm_saved")); qc.invalidateQueries({ queryKey: ["project", id] }); }
+                  try { await verifyProject(p.id); toast.success(t("crm_saved")); qc.invalidateQueries({ queryKey: ["project", id] }); }
                   catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
                 }}
                 className="rounded-md border border-won/30 bg-won/10 px-3 py-1.5 text-xs text-won hover:bg-won/20"
@@ -146,6 +160,12 @@ function ProjectDetail() {
             {p.expected_boq_date ?? "—"}
           </div>
         </div>
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_expected_signage")}</div>
+          <div className="mt-2 num text-sm font-medium text-foreground" data-tabular="true">
+            {p.expected_signage_date ?? "—"}
+          </div>
+        </div>
       </div>
 
       <Panel title={t("nav_projects")}>
@@ -156,6 +176,7 @@ function ProjectDetail() {
           <DataField label={t("company_type_owner")} value={p.owner_company?.name} />
           <DataField label={t("company_type_consultant")} value={p.consultant?.name} />
           <DataField label={t("crm_signage_package")} value={humanize(p.signage_package_status)} />
+          <DataField label={t("crm_source_confidence")} value={humanize(p.source_confidence)} />
         </div>
       </Panel>
 
@@ -164,7 +185,7 @@ function ProjectDetail() {
           <div className="text-xs text-muted-foreground">—</div>
         ) : (
           <ul className="divide-y divide-border/60">
-            {p.opportunities.map((o: any) => (
+            {p.opportunities.map((o) => (
               <li key={o.id} className="flex items-center justify-between gap-2 py-2.5">
                 <Link to="/opportunities/$id" params={{ id: o.id }} className="truncate text-sm text-foreground hover:underline">{o.project_name}</Link>
                 <div className="flex items-center gap-2">
@@ -190,6 +211,8 @@ function ProjectDetail() {
           { key: "completionPct", type: "text", label: t("crm_completion"), defaultValue: p.completion_pct != null ? String(p.completion_pct) : "" },
           { key: "totalValue", type: "text", label: t("crm_total_value"), defaultValue: p.total_value != null ? String(p.total_value) : "" },
           { key: "expectedBoqDate", type: "date", label: t("crm_expected_boq"), defaultValue: p.expected_boq_date ?? "" },
+          { key: "expectedSignageDate", type: "date", label: t("crm_expected_signage"), defaultValue: p.expected_signage_date ?? "" },
+          { key: "sourceConfidence", type: "select", label: t("crm_source_confidence"), defaultValue: p.source_confidence, options: SOURCE_CONFIDENCE_LEVELS.map((c) => ({ value: c, label: humanize(c) })) },
         ]}
         onSubmit={async (v) => {
           try {
@@ -201,6 +224,8 @@ function ProjectDetail() {
               completion_pct: v.completionPct ? Number(v.completionPct) : null,
               total_value: v.totalValue ? Number(v.totalValue) : null,
               expected_boq_date: v.expectedBoqDate || null,
+              expected_signage_date: v.expectedSignageDate || null,
+              source_confidence: v.sourceConfidence as SourceConfidence,
             });
             toast.success(t("crm_saved"));
             qc.invalidateQueries({ queryKey: ["project", id] });

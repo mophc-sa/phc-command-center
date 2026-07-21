@@ -8,6 +8,8 @@ export type AccountStatus = Database["public"]["Enums"]["account_status"];
 export type ContactAuthority = Database["public"]["Enums"]["contact_authority"];
 export type ContactLocation = Database["public"]["Enums"]["contact_location"];
 export type ProjectStage = Database["public"]["Enums"]["project_stage"];
+export type SourceConfidence = Database["public"]["Enums"]["confidence_level"];
+export type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
 
 async function currentUserId(): Promise<Uuid | null> {
   const { data } = await supabase.auth.getUser();
@@ -161,6 +163,8 @@ export async function createProject(input: {
   projectStage?: ProjectStage;
   completionPct?: number | null;
   expectedBoqDate?: string | null;
+  expectedSignageDate?: string | null;
+  sourceConfidence?: SourceConfidence;
   source?: string;
 }) {
   const uid = await currentUserId();
@@ -177,6 +181,8 @@ export async function createProject(input: {
       project_stage: input.projectStage ?? "unknown",
       completion_pct: input.completionPct ?? null,
       expected_boq_date: input.expectedBoqDate ?? null,
+      expected_signage_date: input.expectedSignageDate ?? null,
+      source_confidence: input.sourceConfidence ?? "low",
       source: input.source ?? null,
       verification_status: "pending_verification",
       created_by: uid,
@@ -185,6 +191,23 @@ export async function createProject(input: {
     .single();
   if (error) throw error;
   await audit("project.created", "project", data.id, null, data);
+  return data;
+}
+
+/**
+ * Mark a project verified. Distinct from a plain updateProject() call so the
+ * audit_log entry records specifically that this was a verification action,
+ * not a generic field edit.
+ */
+export async function verifyProject(id: Uuid) {
+  const { data, error } = await supabase
+    .from("projects")
+    .update({ verification_status: "verified" })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  await audit("project.verified", "project", id, null, data);
   return data;
 }
 
