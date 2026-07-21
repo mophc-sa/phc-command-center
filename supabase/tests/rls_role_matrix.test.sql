@@ -24,7 +24,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(28);
+select plan(30);
 
 -- ── 1. Seed test users ───────────────────────────────────────────────────────
 
@@ -107,6 +107,17 @@ insert into public.sales_targets
 values
   ('20000000-0000-0000-0000-000000000004', 'monthly', '2026-07-01',
    500000, 1000000, 5, 20, 2);
+
+-- One ai_agent_outputs row for RLS test: requested_by viewer (…001) so system_admin
+-- reader below is not the requester — this isolates the is_platform_admin branch.
+insert into public.ai_agent_outputs
+  (id, trace_id, agent_key, output_type, entity_type, entity_id,
+   requested_by, status, structured_output, summary)
+values
+  ('f0000000-0000-0000-0000-000000000007', gen_random_uuid(), 'risk_finance',
+   'recommendation', 'opportunities', 'f0000000-0000-0000-0000-000000000001',
+   '20000000-0000-0000-0000-000000000001', 'pending_review', '{}'::jsonb,
+   'fixture output for RLS test');
 
 -- ── 3. RLS assertions ────────────────────────────────────────────────────────
 set local role authenticated;
@@ -350,6 +361,27 @@ select throws_ok(
             400000, 800000, 4, 15, 1)$$,
   '42501', null,
   'G3: system_admin cannot insert a sales_target (platform_admin ≠ commercial_manager)');
+
+-- ════════════════════ H: ai_agent_outputs ═════════════════════════════════════
+-- SELECT policy: requester OR is_platform_admin (system_admin + commercial
+-- managers). Fixture row is requested_by viewer (…001) so neither reader
+-- below is the requester — this isolates the is_platform_admin branch.
+
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
+
+select is(
+  (select count(*)::integer from public.ai_agent_outputs
+     where id = 'f0000000-0000-0000-0000-000000000007'),
+  1, 'H1: system_admin can read an ai_agent_outputs row it did not request');
+
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+
+select is(
+  (select count(*)::integer from public.ai_agent_outputs
+     where id = 'f0000000-0000-0000-0000-000000000007'),
+  0, 'H2: salesperson cannot read another user''s ai_agent_outputs row');
 
 select * from finish();
 
