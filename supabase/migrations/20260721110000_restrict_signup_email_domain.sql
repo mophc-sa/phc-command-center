@@ -19,6 +19,12 @@
 -- provisioned by 20260713150000_playwright_test_accounts.sql. Blocking
 -- that domain would break CI's ability to (re)create test accounts.
 --
+-- @phc-local.test is also allowlisted: it's the fixture domain used by
+-- supabase/tests/rls_role_matrix.test.sql (pgTAP), which inserts five
+-- synthetic auth.users rows directly to exercise the RLS role matrix.
+-- Blocking it fails that suite's setup outright (28/28 subtests never
+-- run) — confirmed by running it against this trigger.
+--
 -- Note: Supabase's GoTrue layer may surface a generic
 -- "Database error saving new user" (or "...updating user") to the
 -- client rather than this function's exact message — the write is
@@ -43,7 +49,8 @@ AS $$
 BEGIN
   IF NEW.email IS NOT NULL
      AND NEW.email !~* '@phc-sa\.com$'
-     AND NEW.email !~* '@phc-playwright\.test$' THEN
+     AND NEW.email !~* '@phc-playwright\.test$'
+     AND NEW.email !~* '@phc-local\.test$' THEN
     RAISE EXCEPTION 'Account email must be an @phc-sa.com address'
       USING ERRCODE = 'check_violation';
   END IF;
