@@ -15,3 +15,16 @@ Every AI agent in the system is fronted by a single backend-only Edge Function (
 - **backlog → current فقط:** لا تبدأ تنفيذ أي بند من [tasks/backlog.md](tasks/backlog.md) قبل نقله إلى [tasks/current.md](tasks/current.md).
 - **لا حذف:** المهام تُنقل إلى `completed.md`، لا تُمحى.
 - Prompts جاهزة في [prompts/](prompts/): `implement` · `review` · `debug` · `release`.
+
+## gstack (recommended)
+
+This project uses [gstack](https://github.com/garrytan/gstack) for AI-assisted workflows.
+Install it for the best experience:
+
+```bash
+git clone --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack
+cd ~/.claude/skills/gstack && ./setup --team
+```
+
+Skills like /qa, /ship, /review, /investigate, and /browse become available after install.
+Use /browse for all web browsing. Use ~/.claude/skills/gstack/... for gstack file paths.
