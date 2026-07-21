@@ -98,6 +98,13 @@ export const canViewSalesAdmin = (r: RoleInput) =>
 export const canManageTeam = (r: RoleInput) =>
   inGroup(r, [...ROLE_GROUPS.systemAdmin, ...COMMERCIAL_MANAGERS]);
 
+// AI output review authority — system_admin (platform oversight) plus
+// commercial managers (the people the outputs are actually for). Same role
+// set as canViewSalesAdmin/canManageTeam, kept as its own named helper for
+// call-site clarity, matching this file's existing pattern.
+export const canReviewAiOutput = (r: RoleInput) =>
+  inGroup(r, [...ROLE_GROUPS.systemAdmin, ...COMMERCIAL_MANAGERS]);
+
 // Sales pipeline operations (qualify leads, drive tenders, author recommendations).
 // BD / Sales Ops and above — not system_admin, not viewers.
 export const canManageSalesPipeline = (r: RoleInput) => inGroup(r, PIPELINE_OPERATORS);
