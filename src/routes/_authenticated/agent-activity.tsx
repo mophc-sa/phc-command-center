@@ -124,6 +124,7 @@ function AgentActivityPage() {
       qc.invalidateQueries({ queryKey: ["ai-agent-outputs"] });
     } catch (e) {
       toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+      qc.invalidateQueries({ queryKey: ["ai-agent-outputs"] });
     }
   }
 
@@ -306,6 +307,7 @@ function AgentActivityPage() {
             qc.invalidateQueries({ queryKey: ["ai-agent-outputs"] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+            qc.invalidateQueries({ queryKey: ["ai-agent-outputs"] });
           }
         }}
       />

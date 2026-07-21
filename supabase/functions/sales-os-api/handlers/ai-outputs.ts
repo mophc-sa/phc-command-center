@@ -3,6 +3,19 @@ import { json, err, canReviewAiOutput } from "../shared.ts";
 
 const VALID_DECISIONS = new Set(["accepted", "rejected"]);
 
+// Mirrors REVIEWABLE_AGENT_KEYS in src/lib/ai-review-actions.ts (frontend-only,
+// unimportable from this Deno Edge Function — same duplication pattern as the
+// role-capability lists in src/lib/roles.ts and _shared/roles.ts). The UI only
+// renders Accept/Reject for these 4 agents; enforce that scope boundary here
+// too so an out-of-scope agent_key can't be accepted/rejected via a direct
+// API call.
+const REVIEWABLE_AGENT_KEYS = new Set([
+  "opportunity_evaluation",
+  "smart_followup_draft",
+  "project_radar",
+  "risk_finance",
+]);
+
 // Records a human decision on an ai_agent_outputs row. Pure audit trail —
 // no side effect on any other table. Accept/reject only, and only once:
 // the .eq("status", "pending_review") guard means a second call on an
@@ -33,6 +46,7 @@ async function review_ai_agent_output(
     })
     .eq("id", outputId)
     .eq("status", "pending_review")
+    .in("agent_key", Array.from(REVIEWABLE_AGENT_KEYS))
     .select()
     .single();
 
