@@ -1,0 +1,15 @@
+node_modules
+.bun-cache
+dist
+dist-ssr
+.output
+.vinxi
+.tanstack
+.nitro
+.wrangler
+.dev.vars
+.env
+.env.*
+!.env.example
+.git
+*.log
