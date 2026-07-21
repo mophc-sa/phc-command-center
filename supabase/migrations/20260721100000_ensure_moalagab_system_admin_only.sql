@@ -20,7 +20,7 @@
 DO $$
 DECLARE
   _user_id uuid;
-  _removed public.app_role[] := ARRAY[]::public.app_role[];
+  _removed public.app_role[];
 BEGIN
   SELECT id INTO _user_id
   FROM public.profiles
@@ -32,20 +32,20 @@ BEGIN
     RETURN;
   END IF;
 
-  IF EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = 'general_manager') THEN
-    _removed := array_append(_removed, 'general_manager'::public.app_role);
-  END IF;
-  IF EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = 'sales_manager') THEN
-    _removed := array_append(_removed, 'sales_manager'::public.app_role);
-  END IF;
-
   -- Bypass the "last manager" guardrail — this account intentionally
   -- holds no commercial-manager roles going forward.
   ALTER TABLE public.user_roles DISABLE TRIGGER trg_protect_last_manager;
 
-  DELETE FROM public.user_roles
-  WHERE user_id = _user_id
-    AND role IN ('general_manager', 'sales_manager');
+  -- Single statement: delete and capture what was actually removed
+  -- (array_agg over zero rows yields NULL, not an empty array — the
+  -- array_length check below treats NULL the same as "nothing removed").
+  WITH deleted AS (
+    DELETE FROM public.user_roles
+    WHERE user_id = _user_id
+      AND role IN ('general_manager', 'sales_manager')
+    RETURNING role
+  )
+  SELECT array_agg(role) INTO _removed FROM deleted;
 
   ALTER TABLE public.user_roles ENABLE TRIGGER trg_protect_last_manager;
 
