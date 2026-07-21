@@ -522,6 +522,8 @@ export const strings = {
   // Actions (fixed vocabulary)
   action_review: { en: "Review", ar: "مراجعة" },
   action_approve: { en: "Approve", ar: "اعتماد" },
+  action_accept: { en: "Accept", ar: "قبول" },
+  action_reject: { en: "Reject", ar: "رفض" },
   action_return: { en: "Return for Revision", ar: "إعادة للتعديل" },
   action_assign: { en: "Assign Owner", ar: "تعيين المسؤول" },
   action_schedule: { en: "Schedule Follow-up", ar: "جدولة متابعة" },
@@ -717,6 +719,8 @@ export const strings = {
 
   toast_review_ok: { en: "Sent for review", ar: "تم الإرسال للمراجعة" },
   toast_approve_ok: { en: "Approved", ar: "تم الاعتماد" },
+  toast_ai_output_accepted: { en: "Output accepted", ar: "تم قبول المخرج" },
+  toast_ai_output_rejected: { en: "Output rejected", ar: "تم رفض المخرج" },
   toast_return_ok: { en: "Returned for revision", ar: "أعيد للتعديل" },
   toast_schedule_ok: { en: "Follow-up scheduled", ar: "تمت جدولة المتابعة" },
   toast_assign_ok: { en: "Owner assigned", ar: "تم تعيين المسؤول" },
@@ -1125,6 +1129,11 @@ export const strings = {
 
   // Phase 0 UX — ActionDialog inline validation
   dialog_field_required: { en: "This field is required", ar: "هذا الحقل مطلوب" },
+  dialog_reject_ai_output_title: { en: "Reject AI output", ar: "رفض مخرج الذكاء الاصطناعي" },
+  dialog_reject_ai_output_desc: {
+    en: "This marks the output as rejected. It has no effect on any other record.",
+    ar: "هذا يسجّل رفض المخرج فقط، ولا يؤثر على أي بيانات أخرى.",
+  },
 
   // Phase 0 UX — urgency labels for color-only fixes
   urgency_overdue: { en: "Overdue", ar: "متأخر" },
