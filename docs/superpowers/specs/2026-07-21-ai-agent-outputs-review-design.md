@@ -83,5 +83,6 @@ No new agent-facing Edge Function — this is a state transition, not a provider
 
 ## 6. Testing
 
-- pgTAP: extend `supabase/tests/rls_role_matrix.test.sql` (or a new focused file) — `system_admin` can now `SELECT` an output it didn't request; `salesperson`/`viewer` still cannot; `review_ai_agent_output()` succeeds for `sales_manager`/`system_admin`, fails for `salesperson`, fails on a non-`pending_review` row.
-- Component test: Accept/Reject buttons render only for the 4 target agents at `pending_review`; absent for import-agent cards and for already-decided cards.
+- pgTAP: extend `supabase/tests/rls_role_matrix.test.sql` — `system_admin` (already seeded in that file's fixtures) can now `SELECT` an `ai_agent_outputs` row it didn't request; `salesperson`/`viewer` still cannot.
+- Unit test: `canReviewAiOutput` in `src/lib/roles.capabilities.test.ts`, mirroring the existing `canManageTeam`/`canViewSalesAdmin` test cases in that file.
+- No new component-test or e2e coverage: this repo has no React component-testing setup at all (no `@testing-library/react`, no `.test.tsx` files, no jsdom config anywhere), and the closest analog page (`approvals.tsx`, same accept/reject-by-role shape) has no Playwright coverage either. Introducing a new test framework for one feature would be scope creep beyond this spec. Verification for the handler and UI wiring is manual (documented steps in the implementation plan), consistent with how `approvals.tsx` itself is verified today.
