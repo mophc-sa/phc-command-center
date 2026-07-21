@@ -55,7 +55,7 @@ BEGIN
 
   IF array_length(_removed, 1) > 0 THEN
     INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
-      VALUES (NULL, 'system', 'role.revoked', 'user_role', _user_id::text,
+      VALUES (NULL, 'system', 'role.revoked', 'user_role', _user_id,
               jsonb_build_object(
                 'roles_removed', to_jsonb(_removed),
                 'reason', 'Re-assertion: moalagab@phc-sa.com holds system_admin only (closes the gap left by 20260714140000 misfiring against the wrong email)'
