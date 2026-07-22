@@ -12,44 +12,33 @@ jobs:
     runs-on: ubuntu-latest
     environment: production-preflight
     env:
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_DB_POOLER_HOST: ${{ vars.SUPABASE_DB_POOLER_HOST }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       EXPECTED_PROJECT_REF: lrfdtoexyeghrzynapyn
     steps:
       - uses: actions/checkout@v5
       - uses: supabase/setup-cli@v3
         with:
           version: 2.109.1
-      - name: Validate target project and IPv4 session pooler
+      - name: Validate target project and link via access token
         id: target
         shell: bash
         run: |
           set -euo pipefail
           actual_ref="$(sed -n 's/^project_id = "\([^"]*\)"/\1/p' supabase/config.toml)"
           test "$actual_ref" = "$EXPECTED_PROJECT_REF"
-          node <<'NODE'
-          const host = process.env.SUPABASE_DB_POOLER_HOST ?? "";
-          const password = process.env.SUPABASE_DB_PASSWORD ?? "";
-          if (!/^[a-z0-9-]+\.pooler\.supabase\.com$/.test(host) || password.length === 0) {
-            throw new Error("Configure the approved IPv4 Session pooler host and database password");
-          }
-          NODE
-          encoded_password="$(node -p 'encodeURIComponent(process.env.SUPABASE_DB_PASSWORD)')"
-          db_url="postgresql://postgres.${EXPECTED_PROJECT_REF}:${encoded_password}@${SUPABASE_DB_POOLER_HOST}:5432/postgres"
-          echo "::add-mask::$encoded_password"
-          echo "::add-mask::$db_url"
-          printf 'SUPABASE_DB_URL=%s\n' "$db_url" >>"$GITHUB_ENV"
+          test -n "${SUPABASE_ACCESS_TOKEN:-}"
+          supabase link --project-ref "$EXPECTED_PROJECT_REF"
       - name: List local and remote migration state
         shell: bash
         run: |
           set -euo pipefail
-          supabase migration list --db-url "$SUPABASE_DB_URL" 2>&1 | tee migration-state.txt
+          supabase migration list --linked 2>&1 | tee migration-state.txt
       - name: Lint linked schema without mutation
         if: always() && steps.target.outcome == 'success'
         shell: bash
         run: |
           set -euo pipefail
-          supabase db lint --db-url "$SUPABASE_DB_URL" --level warning 2>&1 | tee database-lint.txt
+          supabase db lint --linked --level warning 2>&1 | tee database-lint.txt
       - name: Upload preflight evidence
         if: always()
         uses: actions/upload-artifact@v6
