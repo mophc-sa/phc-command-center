@@ -41,7 +41,7 @@ jobs:
           supabase db lint --linked --level warning 2>&1 | tee database-lint.txt
       - name: Upload preflight evidence
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: production-migration-preflight
           path: |

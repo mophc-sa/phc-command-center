@@ -159,7 +159,7 @@ jobs:
 
       - name: Preserve production DNS rollback snapshot
         if: env.DEPLOY_TARGET == 'production'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: agent-dns-before-${{ github.run_id }}
           path: ${{ runner.temp }}/agent-dns-before.json
