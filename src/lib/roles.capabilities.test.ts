@@ -14,6 +14,7 @@ import {
   canRunSensitiveSalesAction,
   canViewSalesAdmin,
   canManageTeam,
+  canReviewAiOutput,
   canManageSalesPipeline,
   canCreateSalesRecords,
   canExecuteDelete,
@@ -92,5 +93,14 @@ test("canExecuteDelete is system_admin only — no commercial manager, no pipeli
     "managing_director", "general_manager", "ceo", "sales_manager", "bd_manager", "sales_ops", "salesperson", "viewer",
   ] as AppRole[]) {
     expect(canExecuteDelete(role), role).toBe(false);
+  }
+});
+
+test("system_admin and commercial managers can review AI outputs; nobody else can", () => {
+  for (const role of ["system_admin", "managing_director", "general_manager", "ceo", "sales_manager"] as AppRole[]) {
+    expect(canReviewAiOutput(role), role).toBe(true);
+  }
+  for (const role of ["bd_manager", "sales_ops", "salesperson", "viewer"] as AppRole[]) {
+    expect(canReviewAiOutput(role), role).toBe(false);
   }
 });

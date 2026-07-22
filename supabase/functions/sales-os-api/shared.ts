@@ -8,6 +8,7 @@ import {
   canCreateSalesRecords,
   canExecuteDelete,
   canManageSalesPipeline,
+  canReviewAiOutput,
   canRunSensitiveSalesAction,
 } from "../_shared/roles.ts";
 import {
@@ -34,6 +35,7 @@ export {
   canCreateSalesRecords,
   canExecuteDelete,
   canManageSalesPipeline,
+  canReviewAiOutput,
   canRunSensitiveSalesAction,
   isActiveDeleteRequestStatus,
   validateArchiveTarget,

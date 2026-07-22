@@ -3,6 +3,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { err } from "../_shared/respond.ts";
 import { audit, resolveCaller, serviceClient } from "../_shared/supabase.ts";
 import { createHandlerRegistry, createSalesOsContext } from "./contracts.ts";
+import { aiOutputsModule } from "./handlers/ai-outputs.ts";
 import { approvalsModule } from "./handlers/approvals.ts";
 import { automationModule } from "./handlers/automation.ts";
 import { intelligenceModule } from "./handlers/intelligence.ts";
@@ -16,6 +17,7 @@ const registry = createHandlerRegistry([
   intelligenceModule,
   automationModule,
   lifecycleModule,
+  aiOutputsModule,
 ]);
 
 export const salesOsActions = registry.actions;

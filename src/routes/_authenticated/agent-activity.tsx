@@ -12,6 +12,12 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useI18n } from "@/lib/i18n";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { ActionDialog } from "@/components/phc/ActionDialog";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canReviewAiOutput } from "@/lib/roles";
+import { reviewAgentOutput, REVIEWABLE_AGENT_KEYS } from "@/lib/ai-review-actions";
 
 export const Route = createFileRoute("/_authenticated/agent-activity")({
   head: () => ({ meta: [{ title: "Agent Activity — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -37,6 +43,10 @@ function fmtTime(iso: string | null, lang: string) {
 
 function AgentActivityPage() {
   const { t, lang } = useI18n();
+  const { roles } = useAuth();
+  const canReview = canReviewAiOutput(roles);
+  const qc = useQueryClient();
+  const [rejectFor, setRejectFor] = useState<{ id: string } | null>(null);
   const [status, setStatus] = useState<Status>("all");
   const [agent, setAgent] = useState<string>("all");
   const [query, setQuery] = useState("");
@@ -106,6 +116,17 @@ function AgentActivityPage() {
   }, [rows, lang]);
 
   const hasTrendData = trend.some((d) => d.count > 0);
+
+  async function acceptOutput(id: string) {
+    try {
+      await reviewAgentOutput({ outputId: id, decision: "accepted" });
+      toast.success(t("toast_ai_output_accepted"));
+      qc.invalidateQueries({ queryKey: ["ai-agent-outputs"] });
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+      qc.invalidateQueries({ queryKey: ["ai-agent-outputs"] });
+    }
+  }
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -242,9 +263,27 @@ function AgentActivityPage() {
                         </div>
                       ) : null}
                     </div>
-                    <span className="shrink-0 text-xs text-muted-foreground num" data-tabular="true">
-                      {fmtTime(o.created_at, lang)}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {canReview && o.status === "pending_review" && (REVIEWABLE_AGENT_KEYS as readonly string[]).includes(o.agent_key) ? (
+                        <>
+                          <button
+                            className="rounded-md border border-won/40 bg-won/10 px-3 py-1.5 text-xs font-medium text-won hover:bg-won/[0.16] transition-colors duration-150"
+                            onClick={() => acceptOutput(o.id)}
+                          >
+                            {t("action_accept")}
+                          </button>
+                          <button
+                            className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive/90 hover:bg-destructive/[0.16] transition-colors duration-150"
+                            onClick={() => setRejectFor({ id: o.id })}
+                          >
+                            {t("action_reject")}
+                          </button>
+                        </>
+                      ) : null}
+                      <span className="text-xs text-muted-foreground num" data-tabular="true">
+                        {fmtTime(o.created_at, lang)}
+                      </span>
+                    </div>
                   </div>
                 </li>
               ))}
@@ -252,6 +291,26 @@ function AgentActivityPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <ActionDialog
+        open={!!rejectFor}
+        onOpenChange={(v) => !v && setRejectFor(null)}
+        title={t("dialog_reject_ai_output_title")}
+        description={t("dialog_reject_ai_output_desc")}
+        submitLabel={t("action_reject")}
+        destructive
+        fields={[]}
+        onSubmit={async () => {
+          try {
+            await reviewAgentOutput({ outputId: rejectFor!.id, decision: "rejected" });
+            toast.success(t("toast_ai_output_rejected"));
+            qc.invalidateQueries({ queryKey: ["ai-agent-outputs"] });
+          } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+            qc.invalidateQueries({ queryKey: ["ai-agent-outputs"] });
+          }
+        }}
+      />
     </div>
   );
 }
