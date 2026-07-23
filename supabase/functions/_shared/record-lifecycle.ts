@@ -19,12 +19,22 @@ export type ArchivableTable = (typeof ARCHIVABLE_TABLES)[number];
 
 // Hard-delete allowlist — reviewed conservatively. A table stays here only if
 // deleting a row destroys nothing beyond that row's own life story:
-//   follow_ups   — no incoming FK from any other table.
-//   activities   — no incoming FK from any other table.
-//   inbox_items  — pre-conversion capture only; nothing downstream depends on it.
-//   boqs         — boq_items references it ON DELETE CASCADE, but those are
-//                  the BOQ's own line items (nothing else's history);
-//                  quotations.boq_id is ON DELETE SET NULL (unlinked, not destroyed).
+//   follow_ups     — no incoming FK from any other table.
+//   activities     — no incoming FK from any other table.
+//   inbox_items    — pre-conversion capture only; nothing downstream depends on it.
+//   boqs           — boq_items references it ON DELETE CASCADE, but those are
+//                    the BOQ's own line items (nothing else's history);
+//                    quotations.boq_id is ON DELETE SET NULL (unlinked, not destroyed).
+//   import_batches — every import_* child table (import_files, import_rows,
+//                    import_mappings, import_errors, import_duplicate_candidates,
+//                    import_record_candidates, import_record_links,
+//                    import_approval_queue, import_split_proposals) already
+//                    references it ON DELETE CASCADE, so the DB side needs no
+//                    manual per-table deletes — deleting the batch row atomically
+//                    cascades all of them. The one thing SQL can't reach —
+//                    the batch's uploaded files in Supabase Storage — is cleaned
+//                    up separately by the sales-os-api execute_delete handler
+//                    (see lifecycle.ts), after the DB delete commits.
 //
 // Everything else that could previously be hard-deleted moves to archive-only
 // (leads, contacts, companies, rfqs, tenders — real archive columns exist) or,
@@ -33,7 +43,7 @@ export type ArchivableTable = (typeof ARCHIVABLE_TABLES)[number];
 // here). Opportunities is permanently excluded — stage='archived' only, and
 // its cascade (stakeholders, tasks, boqs, quotations, its own
 // approvals/audit trail) is exactly why this list is conservative.
-export const DELETABLE_TABLES = ["follow_ups", "activities", "inbox_items", "boqs"] as const;
+export const DELETABLE_TABLES = ["follow_ups", "activities", "inbox_items", "boqs", "import_batches"] as const;
 export type DeletableTable = (typeof DELETABLE_TABLES)[number];
 
 // Documentation/UI-gating constant — every table that used to be
