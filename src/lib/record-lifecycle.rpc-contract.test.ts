@@ -76,6 +76,24 @@ test("the RPC's own hard-delete allowlist inside the SQL matches the final conse
   );
 });
 
+test("the import_batches branch refuses to delete a batch with committed record links, before touching anything", () => {
+  const sql = extendedMigrationText();
+  const branchStart = sql.indexOf("WHEN 'import_batches' THEN\n");
+  expect(branchStart, "import_batches delete branch not found").toBeGreaterThan(-1);
+  const branchEnd = sql.indexOf("DELETE FROM public.import_batches", branchStart);
+  expect(branchEnd, "DELETE FROM public.import_batches not found after the branch start").toBeGreaterThan(-1);
+  const guardText = sql.slice(branchStart, branchEnd);
+  // The guard (checking import_record_links and RAISEing) must appear
+  // BEFORE the DELETE — mirrors the old purge_batch handler's safety check
+  // (refuse to purge a batch with committed record links), now enforced
+  // inside the atomic transaction itself rather than at the old ad-hoc
+  // Edge Function layer. A future edit that moves or drops this guard
+  // would silently reintroduce the provenance-loss regression this test
+  // exists to catch.
+  expect(guardText).toMatch(/EXISTS\s*\(\s*SELECT 1 FROM public\.import_record_links WHERE batch_id = _appr\.linked_record_id\s*\)/);
+  expect(guardText).toMatch(/RAISE EXCEPTION 'Batch has committed record links/);
+});
+
 test("all three independent delete allowlists (SQL, edge guard, browser client) stay in sync", () => {
   const sql = extendedMigrationText();
   const sqlMatch = sql.match(/_allowed_tables text\[\] := ARRAY\[([^\]]+)\]/);
