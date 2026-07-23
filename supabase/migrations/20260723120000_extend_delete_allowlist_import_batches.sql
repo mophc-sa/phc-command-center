@@ -100,7 +100,20 @@ BEGIN
     -- import_rows, import_files, import_record_candidates (and its
     -- own dependents) automatically via their existing
     -- ON DELETE CASCADE foreign keys — no manual per-table deletes.
-    WHEN 'import_batches' THEN DELETE FROM public.import_batches WHERE id = _appr.linked_record_id;
+    --
+    -- Preserves the old purge_batch handler's one safety check: refuse to
+    -- purge a batch that has committed record links (rows the import
+    -- pipeline actually wrote into the live CRM). Deleting the batch would
+    -- otherwise cascade-delete import_record_links too, destroying the
+    -- provenance trail linking those live records back to their import
+    -- origin, without touching the live records themselves — silently
+    -- losing traceability rather than losing data, but still not something
+    -- this function should do without a human resolving it first.
+    WHEN 'import_batches' THEN
+      IF EXISTS (SELECT 1 FROM public.import_record_links WHERE batch_id = _appr.linked_record_id) THEN
+        RAISE EXCEPTION 'Batch has committed record links; purge blocked until they are resolved' USING ERRCODE = '22023';
+      END IF;
+      DELETE FROM public.import_batches WHERE id = _appr.linked_record_id;
   END CASE;
   GET DIAGNOSTICS _deleted_count = ROW_COUNT;
   IF _deleted_count <> 1 THEN
