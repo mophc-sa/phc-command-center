@@ -106,8 +106,14 @@ async function run_protenders_ingest(
       return activeKeywords.some((kw) => stage.includes(kw));
     });
 
-    if (leadRows.length > 0) {
-      for (const r of leadRows) {
+    // Best-effort per-row: one bad row must not lose the leads already
+    // created, nor skip the batch audit/response below (mirrors
+    // import-pipeline's commit_candidates loop, which has the same
+    // continue-on-error shape for the same reason).
+    let leadsCreated = 0;
+    let leadsFailed = 0;
+    for (const r of leadRows) {
+      try {
         await insertLeadServerSide(
           svc,
           {
@@ -119,6 +125,10 @@ async function run_protenders_ingest(
           "protenders",
           caller.roles,
         );
+        leadsCreated++;
+      } catch (e) {
+        leadsFailed++;
+        console.error(`[run_protenders_ingest] lead insert failed for row "${(r.project_name as string) ?? "Unknown"}":`, e);
       }
     }
 
@@ -128,14 +138,15 @@ async function run_protenders_ingest(
       "ai.protenders_ingest",
       "protenders_import",
       importId,
-      { rows: rows.length, leads_created: leadRows.length },
+      { rows: rows.length, leads_created: leadsCreated, leads_failed: leadsFailed },
       caller.roles,
     );
     return json({
       ok: true,
       import_id: importId,
       ingested: rows.length,
-      leads_created: leadRows.length,
+      leads_created: leadsCreated,
+      leads_failed: leadsFailed,
     });
   }
 
