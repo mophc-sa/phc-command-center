@@ -11,6 +11,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { type AppRole, ROLE_GROUPS } from "@/lib/roles";
+import { requestDelete } from "@/lib/record-lifecycle-actions";
 import type { AiAgentCallResult, AiAgentOutput, ImportSplitProposal } from "@/integrations/supabase/types";
 export type { AiAgentCallResult, ImportSplitProposal } from "@/integrations/supabase/types";
 
@@ -286,12 +287,16 @@ export async function restoreImportBatch(id: string): Promise<void> {
 }
 
 /**
- * Permanently delete batch, storage file, and every import_* child row.
- * system_admin only (enforced by edge function + DB policy).
- * Requires typed confirmation string 'DELETE'.
+ * Request permanent deletion of a batch (storage file + every import_* child
+ * row, cascaded atomically by the DB). Requires approval by a commercial
+ * manager and execution by system_admin — the same governed flow as every
+ * other hard-deletable entity type. No longer immediate: this opens an
+ * approval request, it does not delete anything itself.
  */
-export async function purgeImportBatch(id: string, confirm: string): Promise<void> {
-  await callPipeline("purge_batch", { batch_id: id, confirm });
+export async function purgeImportBatch(id: string, reason?: string): Promise<void> {
+  // requestDelete's `reason` is required (string, not string | undefined) —
+  // coalesce here rather than widening that shared type for this one caller.
+  await requestDelete({ entityType: "import_batches", entityId: id, reason: reason ?? "" });
 }
 
 // -- File upload ---------------------------------------------------------------
