@@ -25,6 +25,7 @@ import {
   type AppRole,
 } from "../_shared/supabase.ts";
 import { compareSignals, type DedupSignals } from "../_shared/import-dedup.ts";
+import { insertLeadServerSide } from "../_shared/leads.ts";
 
 // User-facing sentinel written into mapped_data by the validate step to mark
 // columns the user explicitly excluded from import.
@@ -749,8 +750,20 @@ handlers["commit_candidates"] = async (payload, caller) => {
 
     try {
       if (cand.proposed_action === "create") {
-        const { data: created, error } = await svc.from(table).insert(payload).select("id").single();
-        if (error) throw error;
+        let created: { id: string };
+        if (table === "leads") {
+          created = await insertLeadServerSide(
+            svc,
+            { project_name: (payload.project_name as string) ?? "Unknown", ...payload },
+            caller.userId,
+            "import",
+            caller.roles,
+          );
+        } else {
+          const { data, error } = await svc.from(table).insert(payload).select("id").single();
+          if (error) throw error;
+          created = data;
+        }
         links.push({ batch_id: batchId, row_id: cand.source_row_id, target_table: table, target_id: created.id, action: "created" });
       } else {
         if (!cand.existing_record_id) throw new Error("Missing existing_record_id for an update action");
