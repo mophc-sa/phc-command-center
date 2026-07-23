@@ -10,6 +10,7 @@ import { test, expect } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DELETABLE_ENTITY_TYPES } from "./record-lifecycle-actions";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "../../supabase/migrations");
@@ -19,6 +20,19 @@ function migrationText(): string {
   const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
   const target = files.find((f) => f.includes("rbac_record_lifecycle_hardening"));
   if (!target) throw new Error("Sprint 8 RBAC/record-lifecycle migration file not found");
+  return readFileSync(join(migrationsDir, target), "utf8");
+}
+
+// The Sprint 8 migration's CREATE OR REPLACE is superseded (not deleted —
+// migrations are append-only history) by this later, additive migration,
+// which is now the authoritative source for execute_approved_record_delete's
+// current body (Pathfinder D5 — routes import-batch purge through the
+// governed delete flow). Tests asserting on the function's *current*
+// behavior must read this file, not the Sprint 8 one.
+function extendedMigrationText(): string {
+  const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
+  const target = files.find((f) => f.includes("extend_delete_allowlist_import_batches"));
+  if (!target) throw new Error("extend_delete_allowlist_import_batches migration file not found");
   return readFileSync(join(migrationsDir, target), "utf8");
 }
 
@@ -55,11 +69,47 @@ test("the RPC is scoped to service_role only, not to authenticated/anon", () => 
   );
 });
 
-test("the RPC's own hard-delete allowlist inside the SQL matches the final conservative list", () => {
-  const sql = migrationText();
+test("the RPC's own hard-delete allowlist inside the SQL matches the final conservative list, now including import_batches", () => {
+  const sql = extendedMigrationText();
   expect(sql).toMatch(
-    /_allowed_tables text\[\] := ARRAY\['follow_ups', 'activities', 'inbox_items', 'boqs'\]/,
+    /_allowed_tables text\[\] := ARRAY\['follow_ups', 'activities', 'inbox_items', 'boqs', 'import_batches'\]/,
   );
+});
+
+test("the import_batches branch refuses to delete a batch with committed record links, before touching anything", () => {
+  const sql = extendedMigrationText();
+  const branchStart = sql.indexOf("WHEN 'import_batches' THEN\n");
+  expect(branchStart, "import_batches delete branch not found").toBeGreaterThan(-1);
+  const branchEnd = sql.indexOf("DELETE FROM public.import_batches", branchStart);
+  expect(branchEnd, "DELETE FROM public.import_batches not found after the branch start").toBeGreaterThan(-1);
+  const guardText = sql.slice(branchStart, branchEnd);
+  // The guard (checking import_record_links and RAISEing) must appear
+  // BEFORE the DELETE — mirrors the old purge_batch handler's safety check
+  // (refuse to purge a batch with committed record links), now enforced
+  // inside the atomic transaction itself rather than at the old ad-hoc
+  // Edge Function layer. A future edit that moves or drops this guard
+  // would silently reintroduce the provenance-loss regression this test
+  // exists to catch.
+  expect(guardText).toMatch(/EXISTS\s*\(\s*SELECT 1 FROM public\.import_record_links WHERE batch_id = _appr\.linked_record_id\s*\)/);
+  expect(guardText).toMatch(/RAISE EXCEPTION 'Batch has committed record links/);
+});
+
+test("all three independent delete allowlists (SQL, edge guard, browser client) stay in sync", () => {
+  const sql = extendedMigrationText();
+  const sqlMatch = sql.match(/_allowed_tables text\[\] := ARRAY\[([^\]]+)\]/);
+  expect(sqlMatch, "could not find _allowed_tables array in the migration").not.toBeNull();
+  const sqlTables = sqlMatch![1].split(",").map((s) => s.trim().replace(/'/g, "")).sort();
+
+  const edgeGuardPath = join(here, "../../supabase/functions/_shared/record-lifecycle.ts");
+  const edgeGuardSrc = readFileSync(edgeGuardPath, "utf8");
+  const edgeMatch = edgeGuardSrc.match(/export const DELETABLE_TABLES = \[([^\]]+)\]/);
+  expect(edgeMatch, "could not find DELETABLE_TABLES in _shared/record-lifecycle.ts").not.toBeNull();
+  const edgeTables = edgeMatch![1].split(",").map((s) => s.trim().replace(/"/g, "")).sort();
+
+  const browserTables = [...DELETABLE_ENTITY_TYPES].sort();
+
+  expect(edgeTables).toEqual(sqlTables);
+  expect(browserTables).toEqual(sqlTables);
 });
 
 test("the RPC locks the approval row (FOR UPDATE) before checking it, to guard against concurrent execution", () => {

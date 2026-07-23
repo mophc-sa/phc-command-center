@@ -32,7 +32,6 @@ import {
   ShieldCheck,
   LineChart,
   Activity,
-  Users2,
   Settings,
   Menu,
   Globe,
@@ -163,7 +162,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { kind: "link", to: "/ai-agents",       key: "nav_ai_agents",       icon: Bot },
       { kind: "link", to: "/agent-activity",  key: "nav_agent_activity",  icon: Activity },
-      { kind: "link", to: "/team",            key: "nav_team",            icon: Users2 },
       { kind: "link", to: "/data-import",     key: "nav_data_import",     icon: DatabaseZap, requireAdmin: true },
       { kind: "link", to: "/admin-settings",  key: "nav_admin_settings",  icon: ShieldAlert, requireAdmin: true },
       { kind: "link", to: "/settings",        key: "nav_settings",        icon: Settings },
@@ -173,7 +171,7 @@ const NAV_GROUPS: NavGroup[] = [
 
 // Admin routes — used to auto-open the admin group when the user is on one
 const ADMIN_ROUTE_PREFIXES = [
-  "/ai-agents", "/agent-activity", "/team", "/data-import", "/admin-settings", "/settings",
+  "/ai-agents", "/agent-activity", "/data-import", "/admin-settings", "/settings",
 ];
 
 // Record type → to-path segment mapping (for auto-tracking recents)

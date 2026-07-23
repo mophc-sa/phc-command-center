@@ -16,16 +16,20 @@ export const ARCHIVABLE_ENTITY_TYPES: readonly ArchivableEntityType[] = [
 // Hard-delete allowlist — reviewed conservatively (Sprint 8 review). A table
 // is only here if deleting a row destroys nothing beyond that row's own life
 // story: no other table has a business-history FK into it, or (boqs) the
-// only cascade is onto rows that belong exclusively to it.
+// only cascade is onto rows that belong exclusively to it. import_batches is
+// included too — every import_* child table cascades via FK ON DELETE
+// CASCADE (nothing but the batch's own life story), and the one non-DB piece
+// (the batch's uploaded files in Supabase Storage) is cleaned up separately
+// by the sales-os-api execute_delete handler after the DB delete commits.
 //
 // Everything that used to be hard-deletable and isn't anymore — leads,
 // contacts, companies, rfqs, tenders (archive-only, real archive columns
 // exist), quotations, projects (no destructive/hiding action at all yet —
 // a known gap, not solved here), and opportunities (stage='archived' only,
 // never hard-deletable at all) — is intentionally absent.
-export type DeletableEntityType = "follow_ups" | "activities" | "inbox_items" | "boqs";
+export type DeletableEntityType = "follow_ups" | "activities" | "inbox_items" | "boqs" | "import_batches";
 export const DELETABLE_ENTITY_TYPES: readonly DeletableEntityType[] = [
-  "follow_ups", "activities", "inbox_items", "boqs",
+  "follow_ups", "activities", "inbox_items", "boqs", "import_batches",
 ];
 
 // Duplicate-flagging is narrower than the full record set — only primary
