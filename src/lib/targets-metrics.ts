@@ -3,6 +3,8 @@
 // isolation from data fetching. Consumed by src/routes/_authenticated/targets.tsx
 // and src/lib/sales-actions.ts.
 
+import { computeQuotationWinRatePct } from "@/lib/dashboard-helpers";
+
 // target_period enum: 'monthly' | 'quarterly' | 'annual'.
 // The 'annual' value was added in migration 20260716100000_salesperson_dashboard.sql.
 export type PeriodType = "monthly" | "quarterly" | "annual";
@@ -69,7 +71,6 @@ export type ActionFlagRow = {
 
 const OPEN_PIPELINE_STAGES = new Set(["discovery", "qualification", "preparation", "quotation", "follow_up"]);
 const SENT_QUOTATION_STATUSES = new Set(["submitted", "follow_up", "negotiation", "revised", "won", "lost"]);
-const CLOSED_QUOTATION_STATUSES = new Set(["won", "lost"]);
 const OPEN_ACTION_STATUSES = new Set<ActionFlagRow["status"]>(["open", "in_progress", "escalated", "blocked"]);
 
 const opportunityValue = (o: OpportunityRow) => o.quotation_value ?? o.estimated_value_max ?? 0;
@@ -348,9 +349,7 @@ export function computeManagerMetrics(
       ? Math.round((closedTenders.filter((tt) => tt.tender_stage === "converted_to_jih").length / closedTenders.length) * 100)
       : 0;
 
-  const closedQuotes = data.quotations.filter((q) => CLOSED_QUOTATION_STATUSES.has(q.status));
-  const quotationWinRatePct =
-    closedQuotes.length > 0 ? Math.round((closedQuotes.filter((q) => q.status === "won").length / closedQuotes.length) * 100) : 0;
+  const quotationWinRatePct = computeQuotationWinRatePct(data.quotations, 0) ?? 0;
 
   return {
     teamTarget,
