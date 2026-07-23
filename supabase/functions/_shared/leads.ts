@@ -61,14 +61,14 @@ export async function insertLeadServerSide(
   svc: SupabaseClient,
   payload: LeadInsertPayload,
   actorId: string,
-  source: "import" | "protenders_ingest",
+  source: "import" | "protenders",
   roles?: AppRole[],
 ): Promise<Lead> {
   const { data, error } = await svc
     .from("leads")
     .insert({
       // Spread first, then force the fields below — spread order matters so
-      // these three always win over anything a mapped/passed payload set.
+      // these two always win over anything a mapped/passed payload set.
       ...payload,
       // The entire point of this helper: no mapped/passed value may ever
       // override these two.
@@ -76,8 +76,9 @@ export async function insertLeadServerSide(
       created_by: actorId,
       // source is the one field that's "as-is if provided, else caller's
       // default" rather than always-forced — an explicit mapped source wins,
-      // otherwise fall back to the caller's literal ("import" /
-      // "protenders_ingest").
+      // otherwise fall back to the caller's literal ("import" / "protenders",
+      // matching this table's pre-existing documented source vocabulary:
+      // supabase/migrations/20260707100030_leads.sql:24).
       source: (payload as Record<string, unknown>).source ?? source,
     })
     .select()

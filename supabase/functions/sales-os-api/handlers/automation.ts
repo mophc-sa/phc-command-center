@@ -116,7 +116,7 @@ async function run_protenders_ingest(
             main_contractor_guess: (r.main_contractor as string) ?? null,
           },
           caller.userId,
-          "protenders_ingest",
+          "protenders",
           caller.roles,
         );
       }
