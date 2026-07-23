@@ -7,13 +7,14 @@ import {
   notConfiguredRun,
   missing,
 } from "../shared.ts";
+import { insertLeadServerSide, canCreateLead } from "../../_shared/leads.ts";
 
 async function run_protenders_ingest(
   payload: Record<string, unknown>,
   ctx: SalesOsContext,
 ): Promise<Response> {
   const { caller, audit: auditLog } = ctx;
-  if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
+  if (!canCreateLead(caller.roles)) return err("Sales pipeline role required", 403);
   const svc = ctx.svc;
   const format = (payload.format as string) ?? "csv";
 
@@ -106,15 +107,19 @@ async function run_protenders_ingest(
     });
 
     if (leadRows.length > 0) {
-      await svc.from("leads").insert(
-        leadRows.map((r) => ({
-          project_name: (r.project_name as string) ?? "Unknown",
-          location: (r.location as string) ?? null,
-          main_contractor_guess: (r.main_contractor as string) ?? null,
-          source: "protenders",
-          created_by: caller.userId,
-        })),
-      );
+      for (const r of leadRows) {
+        await insertLeadServerSide(
+          svc,
+          {
+            project_name: (r.project_name as string) ?? "Unknown",
+            location: (r.location as string) ?? null,
+            main_contractor_guess: (r.main_contractor as string) ?? null,
+          },
+          caller.userId,
+          "protenders_ingest",
+          caller.roles,
+        );
+      }
     }
 
     await auditLog(
