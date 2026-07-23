@@ -11,7 +11,6 @@
 
 import { normalizeCompanyName } from "./company-normalize.ts";
 
-
 export function normalizeDomain(v: string | null | undefined): string {
   if (!v) return "";
   let s = String(v).toLowerCase().trim().replace(/^https?:\/\//, "").replace(/^www\./, "");

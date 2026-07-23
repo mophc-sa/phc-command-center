@@ -6,7 +6,7 @@
 // =============================================================================
 
 // Arabic entries are stored in their POST-normalizeArabic form, because
-// normalizeName() normalizes each token before checking membership here.
+// normalizeCompanyName() normalizes each token before checking membership here.
 const COMPANY_STOPWORDS = new Set([
   "co", "company", "llc", "ltd", "limited", "est", "establishment", "corp",
   "corporation", "trading", "contracting", "contractors", "group", "and", "the", "for",
@@ -14,7 +14,7 @@ const COMPANY_STOPWORDS = new Set([
 ]);
 
 // Strip Arabic diacritics/tatweel and unify letter forms so "شركة الراجحي"
-// variants collapse to a common key. Also folds Latin case/punctuation.
+// variants collapse to a common key.
 export function normalizeArabic(v: string): string {
   return v
     .replace(/[ؐ-ًؚ-ٰٟۖ-ۭ]/g, "") // tashkeel
