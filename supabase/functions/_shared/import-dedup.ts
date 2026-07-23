@@ -9,36 +9,8 @@
 // suggested action. Nothing here mutates data or auto-merges.
 // =============================================================================
 
-// Arabic entries are stored in their POST-normalizeArabic form, because
-// normalizeName() normalizes each token before checking membership here.
-const COMPANY_STOPWORDS = new Set([
-  "co", "company", "llc", "ltd", "limited", "est", "establishment", "corp",
-  "corporation", "trading", "contracting", "contractors", "group", "and", "the", "for",
-  "شركه", "موسسه", "مقاولات", "التجاريه", "المحدوده", "القابضه", "مجموعه",
-]);
+import { normalizeCompanyName } from "./company-normalize.ts";
 
-// Strip Arabic diacritics/tatweel and unify letter forms so "شركة الراجحي"
-// variants collapse to a common key. Also folds Latin case/punctuation.
-export function normalizeArabic(v: string): string {
-  return v
-    .replace(/[ؐ-ًؚ-ٰٟۖ-ۭ]/g, "") // tashkeel
-    .replace(/ـ/g, "") // tatweel
-    .replace(/[آأإٱ]/g, "ا") // alef variants -> ا
-    .replace(/ى/g, "ي") // alef maqsura -> ي
-    .replace(/ة/g, "ه") // taa marbuta -> ه
-    .replace(/ؤ/g, "و") // waw hamza -> و
-    .replace(/[ءئ]/g, ""); // stray hamza
-}
-
-export function normalizeName(v: string | null | undefined): string {
-  if (!v) return "";
-  return normalizeArabic(String(v).toLowerCase())
-    .replace(/[^a-z0-9؀-ۿ\s]/g, " ")
-    .split(/\s+/)
-    .filter((w) => w && !COMPANY_STOPWORDS.has(w))
-    .join(" ")
-    .trim();
-}
 
 export function normalizeDomain(v: string | null | undefined): string {
   if (!v) return "";
@@ -119,7 +91,7 @@ export function compareSignals(a: DedupSignals, b: DedupSignals): DuplicateHit |
   if (emA && emA === emB) {
     return { match_type: "exact", matched_fields: ["email"], confidence: 0.9, reason_code: "same_email", suggested_action: "link_to_existing" };
   }
-  const tA = normalizeName(a.tender_ref), tB = normalizeName(b.tender_ref);
+  const tA = normalizeCompanyName(a.tender_ref), tB = normalizeCompanyName(b.tender_ref);
   if (tA && tA === tB) {
     return { match_type: "exact", matched_fields: ["tender_ref"], confidence: 0.9, reason_code: "same_tender_ref", suggested_action: "needs_manual_review" };
   }
@@ -127,7 +99,7 @@ export function compareSignals(a: DedupSignals, b: DedupSignals): DuplicateHit |
   if (phA && phA === phB) {
     return { match_type: "exact", matched_fields: ["phone"], confidence: 0.8, reason_code: "same_phone", suggested_action: "needs_manual_review" };
   }
-  const nA = normalizeName(a.company_name), nB = normalizeName(b.company_name);
+  const nA = normalizeCompanyName(a.company_name), nB = normalizeCompanyName(b.company_name);
   if (nA && nA === nB) {
     return { match_type: "name", matched_fields: ["company_name"], confidence: 0.78, reason_code: "same_normalized_name", suggested_action: "needs_manual_review" };
   }
@@ -137,7 +109,7 @@ export function compareSignals(a: DedupSignals, b: DedupSignals): DuplicateHit |
       return { match_type: "fuzzy", matched_fields: ["company_name"], confidence: Math.round(sim * 100) / 100, reason_code: "similar_company_name", suggested_action: "needs_manual_review" };
     }
   }
-  const pA = normalizeName(a.project_name), pB = normalizeName(b.project_name);
+  const pA = normalizeCompanyName(a.project_name), pB = normalizeCompanyName(b.project_name);
   if (pA && pA === pB) {
     return { match_type: "name", matched_fields: ["project_name"], confidence: 0.7, reason_code: "same_project_name", suggested_action: "needs_manual_review" };
   }
