@@ -20,7 +20,6 @@ export const strings = {
   nav_targets: { en: "Targets & Performance", ar: "الأهداف والأداء" },
   nav_reports: { en: "Reports", ar: "التقارير" },
   nav_agent_activity: { en: "Agent Activity", ar: "نشاط الوكيل" },
-  nav_team: { en: "Team & Permissions", ar: "الفريق والصلاحيات" },
   nav_settings: { en: "Settings", ar: "الإعدادات" },
   nav_admin_settings: { en: "Admin Settings", ar: "إعدادات المسؤول" },
   nav_workspace: { en: "My Workspace", ar: "مساحتي" },
@@ -730,17 +729,7 @@ export const strings = {
   toast_success: { en: "Success", ar: "تم بنجاح" },
 
   // Team & Permissions
-  team_intro: {
-    en: "Grant and revoke roles for your team. Managers (CEO, Sales Manager) can change roles.",
-    ar: "منح وسحب الأدوار لأعضاء الفريق. يمكن للمديرين (الرئيس التنفيذي، مدير المبيعات) تعديل الأدوار.",
-  },
-  team_forbidden: {
-    en: "You do not have permission to manage team roles.",
-    ar: "لا تملك صلاحية إدارة أدوار الفريق.",
-  },
   team_col_member: { en: "Member", ar: "العضو" },
-  team_col_roles: { en: "Roles", ar: "الأدوار" },
-  team_col_manage: { en: "Manage", ar: "إدارة" },
   role_system_admin: { en: "System Admin", ar: "مدير النظام" },
   role_managing_director: { en: "Managing Director", ar: "العضو المنتدب" },
   role_general_manager: { en: "General Manager", ar: "المدير العام" },
