@@ -33,14 +33,13 @@ export interface Lead {
   created_by: string | null;
 }
 
-export interface LeadInsertPayload {
-  project_name: string;
-  source_url?: string | null;
-  location?: string | null;
-  main_contractor_guess?: string | null;
-  estimated_value?: number | null;
-  owner_id?: string | null;
-}
+// Only project_name is strongly typed (required for the TS signature and the
+// "Unknown" fallback pattern both callers use) — every other column is
+// forwarded through as-is, matching import-pipeline's "whatever was mapped is
+// written as-is" invariant (see import-pipeline/index.ts's header comment).
+// Do not add more named optional fields here: it would silently re-narrow
+// the allowlist this type was widened to get away from.
+export type LeadInsertPayload = { project_name: string } & Record<string, unknown>;
 
 // sales-os-api's handlers exclusively use boolean predicate functions
 // (canManageSalesPipeline, canApproveCommercialAction, etc. from
@@ -68,15 +67,18 @@ export async function insertLeadServerSide(
   const { data, error } = await svc
     .from("leads")
     .insert({
-      project_name: payload.project_name,
-      source,
-      source_url: payload.source_url ?? null,
-      location: payload.location ?? null,
-      main_contractor_guess: payload.main_contractor_guess ?? null,
-      estimated_value: payload.estimated_value ?? null,
+      // Spread first, then force the fields below — spread order matters so
+      // these three always win over anything a mapped/passed payload set.
+      ...payload,
+      // The entire point of this helper: no mapped/passed value may ever
+      // override these two.
       lead_stage: "detected",
-      owner_id: payload.owner_id ?? null,
       created_by: actorId,
+      // source is the one field that's "as-is if provided, else caller's
+      // default" rather than always-forced — an explicit mapped source wins,
+      // otherwise fall back to the caller's literal ("import" /
+      // "protenders_ingest").
+      source: (payload as Record<string, unknown>).source ?? source,
     })
     .select()
     .single();
