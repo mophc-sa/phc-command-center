@@ -10,13 +10,29 @@
 -- Function's bespoke purge_batch handler (deleted in a follow-up
 -- code change, not this migration).
 --
--- Every table that references import_batches already declares
--- ON DELETE CASCADE (import_record_links, import_approval_queue,
--- import_duplicate_candidates, import_errors, import_mappings,
--- import_rows, import_files, import_record_candidates and its own
--- dependents) — a single DELETE on import_batches cascades all of
--- them atomically. This function does NOT re-implement that
--- cascade manually; Postgres already does it.
+-- Every table that references import_batches already declares an FK
+-- that keeps the DELETE from ever being blocked: most (import_record_links,
+-- import_approval_queue, import_duplicate_candidates, import_errors,
+-- import_mappings, import_rows, import_files, import_record_candidates
+-- and its own dependents) are ON DELETE CASCADE, so a single DELETE on
+-- import_batches removes them atomically — this function does NOT
+-- re-implement that cascade manually, Postgres already does it. A
+-- smaller set (import_source_profiles.last_successful_batch_id,
+-- account_interactions.source_batch_id, quotation_updates.source_batch_id,
+-- sales_actuals_monthly.source_batch_id — all added in
+-- 20260714200000_import_intelligence_v2.sql /
+-- 20260714210000_business_destinations.sql) are ON DELETE SET NULL
+-- instead: purging a batch would unlink its provenance pointer from
+-- those tables rather than cascade-deleting the live business rows,
+-- which is the correct behavior for columns on real CRM records. As of
+-- this migration no application code writes to any of those four
+-- source_batch_id/last_successful_batch_id columns (confirmed by
+-- repo-wide search) — they are unused schema laid down ahead of a
+-- feature that doesn't exist yet, so the committed-links guard below
+-- (which only checks import_record_links) has nothing to miss today.
+-- If a future feature starts populating any of those four columns
+-- outside of an import_record_links-tracked commit, revisit whether
+-- the guard needs to also check them.
 --
 -- Storage cleanup (the batch's uploaded file objects) cannot happen
 -- here — PL/pgSQL cannot call the Storage API. That step lives in
