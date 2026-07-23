@@ -19,6 +19,7 @@ import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonChart } from "@/components/phc/Skeleton";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
+import { computeQuotationWinRatePct } from "@/lib/dashboard-helpers";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Reports — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -131,7 +132,7 @@ function ReportsPage() {
   const wonQuotes = quotes.filter((q: any) => q.status === "won");
   const lostQuotes = quotes.filter((q: any) => q.status === "lost");
   const closed = wonQuotes.length + lostQuotes.length;
-  const winRate = closed > 0 ? Math.round((wonQuotes.length / closed) * 100) : null;
+  const winRate = computeQuotationWinRatePct(quotes, null);
   const wonValue = wonQuotes.reduce((s: number, q: any) => s + (q.value ?? 0), 0);
   const openQuotesValue = quotes
     .filter((q: any) => !["won", "lost", "expired"].includes(q.status))
