@@ -15,6 +15,7 @@ import {
   submissionUrgencyCategory,
   targetAchievementPct,
   remainingTarget,
+  computeQuotationWinRatePct,
   type OpportunityStageRow,
   type TenderPipelineRow,
 } from "./dashboard-helpers";
@@ -467,6 +468,33 @@ describe("remainingTarget — Spec test case 7", () => {
     const awarded2 = computeAwardedTotal([opp({ id: "b", stage: "won", estimated_value_max: 60000 })]);
     expect(remainingTarget(awarded1, 100000)).toBe(60000);
     expect(remainingTarget(awarded2, 100000)).toBe(40000);
+  });
+});
+
+describe("computeQuotationWinRatePct", () => {
+  test("computes won / (won + lost) as a rounded percentage", () => {
+    expect(computeQuotationWinRatePct([{ status: "won" }, { status: "lost" }], null)).toBe(50);
+    expect(computeQuotationWinRatePct(
+      [{ status: "won" }, { status: "won" }, { status: "lost" }],
+      null,
+    )).toBe(67);
+  });
+
+  test("ignores statuses other than won/lost", () => {
+    expect(computeQuotationWinRatePct(
+      [{ status: "won" }, { status: "lost" }, { status: "draft" }, { status: "submitted" }],
+      null,
+    )).toBe(50);
+  });
+
+  // The two call sites (reports.tsx, targets-metrics.ts) deliberately disagree
+  // on what "no closed quotations yet" should display as — this is the whole
+  // reason emptyValue is a parameter rather than a hardcoded choice.
+  test("returns the caller's emptyValue, not a hardcoded default, when there are no closed quotations", () => {
+    expect(computeQuotationWinRatePct([], null)).toBeNull();
+    expect(computeQuotationWinRatePct([], 0)).toBe(0);
+    expect(computeQuotationWinRatePct([{ status: "draft" }], null)).toBeNull();
+    expect(computeQuotationWinRatePct([{ status: "draft" }], 0)).toBe(0);
   });
 });
 

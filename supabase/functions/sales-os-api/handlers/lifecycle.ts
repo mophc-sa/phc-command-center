@@ -156,14 +156,23 @@ async function request_delete(
 
 // The ONLY path that actually deletes a row. system_admin only, and only
 // once a commercial manager has approved the linked delete_request
-// approval — two separate steps by two different roles. Delegates
-// entirely to the atomic public.execute_approved_record_delete(...)
-// Postgres function (see the Sprint 8 migration): loading the
-// before-snapshot, deleting, verifying the rowcount, marking the approval
-// executed, and writing the audit row all happen in ONE transaction there.
-// This handler performs NO direct delete/update/audit calls of its own —
-// if the RPC call fails for any reason, nothing changed.
-
+// approval — two separate steps by two different roles. Delegates the
+// database delete entirely to the atomic public.execute_approved_record_delete(...)
+// Postgres function: loading the before-snapshot, deleting (cascading via FK
+// for any entity type with dependent rows), verifying the rowcount, marking
+// the approval executed, and writing the audit row all happen in ONE
+// transaction there. This handler performs no direct DATABASE
+// delete/update/audit call of its own — if the RPC call fails, nothing in
+// the database changed.
+//
+// One disclosed exception: Storage objects cannot be reached from SQL, so
+// for entityType === "import_batches" specifically, this handler removes
+// the batch's uploaded files from the "imports" bucket AFTER the RPC has
+// already committed the DB delete. This ordering is deliberate: if storage
+// removal fails, the result is orphaned files (a cleanup/cost issue,
+// recoverable later) rather than a DB row surviving with its files already
+// gone. A storage-removal failure does not roll back or fail this request —
+// the DB deletion already succeeded and is authoritative.
 async function execute_delete(
   payload: Record<string, unknown>,
   ctx: SalesOsContext,
@@ -179,6 +188,19 @@ async function execute_delete(
     _actor_id: caller.userId,
   });
   if (error) return err(error.message, 409);
+
+  const deleted = (data as { deleted?: { entityType?: string; entityId?: string } } | null)?.deleted;
+  if (deleted?.entityType === "import_batches" && deleted.entityId) {
+    const { data: storageObjs } = await svc.storage.from("imports").list(deleted.entityId, { limit: 1000 });
+    if (storageObjs && storageObjs.length > 0) {
+      const paths = storageObjs.map((o) => `${deleted.entityId}/${o.name}`);
+      const { error: rmError } = await svc.storage.from("imports").remove(paths);
+      if (rmError) {
+        console.error(`[execute_delete] storage cleanup failed for import_batches/${deleted.entityId}:`, rmError);
+      }
+    }
+  }
+
   return json(data);
 }
 

@@ -6,6 +6,8 @@
 // it never merges automatically.
 // =============================================================================
 
+import { normalizeCompanyName } from "./company-normalize.ts";
+
 export type DupRecord = {
   id: string;
   name?: string | null;
@@ -24,22 +26,6 @@ export type DuplicateGroup = {
   confidence: number; // 0..1
   members: { entity_id: string; display_label: string }[];
 };
-
-const COMPANY_STOPWORDS = new Set([
-  "co", "company", "llc", "ltd", "limited", "est", "establishment", "corp",
-  "corporation", "trading", "contracting", "contractors", "group", "and", "the", "for",
-]);
-
-export function normalizeName(v: string | null | undefined): string {
-  if (!v) return "";
-  return String(v)
-    .toLowerCase()
-    .replace(/[^a-z0-9؀-ۿ\s]/g, " ") // keep latin + arabic + digits
-    .split(/\s+/)
-    .filter((w) => w && !COMPANY_STOPWORDS.has(w))
-    .join(" ")
-    .trim();
-}
 
 export function normalizeDomain(v: string | null | undefined): string {
   if (!v) return "";
@@ -85,13 +71,13 @@ function signalsOf(r: DupRecord): Signal[] {
   const push = (field: string, value: string) => {
     if (value) out.push({ field, value });
   };
-  push("name", normalizeName(r.name));
+  push("name", normalizeCompanyName(r.name));
   push("website_domain", normalizeDomain(r.website_domain));
   push("cr_number", normalizeCr(r.cr_number));
   push("phone", normalizePhone(r.phone));
   push("email", normalizeEmail(r.email));
-  push("project_name", normalizeName(r.project_name));
-  push("contractor_name", normalizeName(r.contractor_name));
+  push("project_name", normalizeCompanyName(r.project_name));
+  push("contractor_name", normalizeCompanyName(r.contractor_name));
   return out;
 }
 

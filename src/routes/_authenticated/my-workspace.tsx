@@ -35,7 +35,11 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createRfqWithOpportunity, findContactByPhone } from "@/lib/rfq-actions";
-import { daysUntil, daysSince, urgencyTone, urgencyLabel } from "@/lib/dashboard-helpers";
+import {
+  daysUntil, daysSince, urgencyTone, urgencyLabel,
+  computeAwardedTotal, computeJihPipelineTotal, computeTenderPipelineTotal,
+  targetAchievementPct, remainingTarget as computeRemainingTarget,
+} from "@/lib/dashboard-helpers";
 
 export const Route = createFileRoute("/_authenticated/my-workspace")({
   head: () => ({ meta: [{ title: "PHC Sales Dashboard — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -149,7 +153,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   const { data: awardedOpps = [], isLoading: loadingAwarded } = useQuery({
     queryKey: ["ws-awarded-full", uid], enabled: !!uid,
-    queryFn: async () => (await supabase.from("opportunities").select("id, project_name, client, main_contractor, estimated_value_max, contract_value, currency, updated_at, sales_stage").eq("owner_id", uid).eq("stage", "won").gte("updated_at", yearStart()).order("updated_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("opportunities").select("id, project_name, client, main_contractor, estimated_value_max, contract_value, currency, updated_at, sales_stage, stage").eq("owner_id", uid).eq("stage", "won").gte("updated_at", yearStart()).order("updated_at", { ascending: false })).data ?? [],
   });
 
   const { data: stageOpps = [] } = useQuery({
@@ -198,11 +202,11 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
   const displayName = (profile as any)?.full_name ?? user?.email?.split("@")[0] ?? "—";
   const tgt = annualTarget;
   const salesTarget = tgt ? Number(tgt.sales_target) : 0;
-  const awardedValue = (awardedOpps as any[]).reduce((s, o) => s + (Number(o.contract_value ?? o.estimated_value_max) || 0), 0);
-  const achievementPct = salesTarget > 0 ? Math.round((awardedValue / salesTarget) * 100) : null;
-  const remainingTarget = salesTarget > 0 ? Math.max(0, salesTarget - awardedValue) : null;
-  const jihValue = (jihPipeline as any[]).reduce((s, o) => s + (o.estimated_value_max || 0), 0);
-  const tenderValue = (activeTenders as any[]).reduce((s, t) => s + (t.estimated_project_value || 0), 0);
+  const awardedValue = computeAwardedTotal(awardedOpps as any[]);
+  const achievementPct = targetAchievementPct(awardedValue, salesTarget);
+  const remainingTarget = computeRemainingTarget(awardedValue, salesTarget);
+  const jihValue = computeJihPipelineTotal(jihPipeline as any[]);
+  const tenderValue = computeTenderPipelineTotal(activeTenders as any[]);
   const totalPipeline = jihValue + tenderValue;
   const jihSharePct = totalPipeline > 0 ? Math.round((jihValue / totalPipeline) * 100) : 0;
   const verballyAwardedOpps = (stageOpps as any[]).filter(o => o.sales_stage === "verbally_awarded");
@@ -782,19 +786,20 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
   const { data: flags = [] } = useQuery({ queryKey: ["ws-flags", uid, myOppIds.length], enabled: !!uid && myOppIds.length > 0, queryFn: async () => (await supabase.from("opportunity_flags").select("*").in("status", ACTIVE_FLAG_STATUSES).eq("linked_record_type", "opportunity").in("linked_record_id", myOppIds).order("created_at", { ascending: false })).data ?? [] });
   const { data: myRfqs = [] } = useQuery({ queryKey: ["ws-rfqs", uid], enabled: !!uid, queryFn: async () => (await supabase.from("rfqs").select("id, rfq_number, status, estimated_value, response_due_date").eq("sales_owner_id", uid).eq("status", "open").order("response_due_date", { ascending: true })).data ?? [] });
   const { data: myTenders = [] } = useQuery({ queryKey: ["ws-tenders", uid], enabled: !!uid, queryFn: async () => (await supabase.from("tenders").select("id, tender_name, tender_stage, tender_priority_classification, estimated_project_value, expected_award_date").eq("tender_owner_id", uid).not("tender_stage", "in", "(converted_to_jih,tender_lost_or_archived)").order("expected_award_date", { ascending: true })).data ?? [] });
-  const { data: awardedOpps = [] } = useQuery({ queryKey: ["ws-awarded", uid], enabled: !!uid, queryFn: async () => (await supabase.from("opportunities").select("id, project_name, estimated_value_max, currency, sales_stage, updated_at").eq("owner_id", uid).eq("stage", "won").gte("updated_at", yearStart()).order("updated_at", { ascending: false })).data ?? [] });
+  const { data: awardedOpps = [] } = useQuery({ queryKey: ["ws-awarded", uid], enabled: !!uid, queryFn: async () => (await supabase.from("opportunities").select("id, project_name, estimated_value_max, contract_value, currency, sales_stage, stage, updated_at").eq("owner_id", uid).eq("stage", "won").gte("updated_at", yearStart()).order("updated_at", { ascending: false })).data ?? [] });
   const { data: urgentQuotations = [] } = useQuery({
     queryKey: ["ws-urgent-quotations", uid], enabled: !!uid,
     queryFn: async () => { const sevenDaysOut = new Date(); sevenDaysOut.setDate(sevenDaysOut.getDate() + 7); return (await supabase.from("quotations").select("id, related_opportunity_id, status, valid_until, total_value, currency").eq("owner_id", uid).in("status", ["approved_for_submission", "submitted", "follow_up"]).lte("valid_until", sevenDaysOut.toISOString().slice(0, 10)).order("valid_until", { ascending: true })).data ?? []; },
   });
-  const { data: jihOpps = [] } = useQuery({ queryKey: ["ws-jih", uid], enabled: !!uid, queryFn: async () => (await supabase.from("opportunities").select("id, project_name, sales_stage, estimated_value_max, currency, win_confidence").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo"]).order("updated_at", { ascending: false })).data ?? [] });
+  const { data: jihOpps = [] } = useQuery({ queryKey: ["ws-jih", uid], enabled: !!uid, queryFn: async () => (await supabase.from("opportunities").select("id, project_name, sales_stage, estimated_value_max, currency, win_confidence").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [] });
 
   if (isLoading || !data) return <SkeletonChart kpis={4} charts={2} />;
 
   const pipelineValue = data.opps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
   const tg = data.target;
-  const awardedValue = (awardedOpps as any[]).reduce((s, o) => s + (o.estimated_value_max ?? 0), 0);
-  const achievementPct = tg?.sales_target ? Math.round((awardedValue / tg.sales_target) * 100) : null;
+  const salesTargetValue = tg?.sales_target ? Number(tg.sales_target) : 0;
+  const awardedValue = computeAwardedTotal(awardedOpps as any[]);
+  const achievementPct = targetAchievementPct(awardedValue, salesTargetValue);
   const overdueFU = data.followups.filter((f: any) => f.status === "overdue" || (f.due_date && f.due_date < today));
   const todayFU = data.followups.filter((f: any) => f.due_date === today);
   const upcomingFU = data.followups.filter((f: any) => f.due_date && f.due_date > today);
@@ -840,10 +845,10 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
 
   const inputCls = "w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none";
 
-  const jihValue = (jihOpps as any[]).reduce((s, o) => s + (o.estimated_value_max ?? 0), 0);
-  const tenderValue = (myTenders as any[]).reduce((s, t) => s + ((t as any).estimated_project_value ?? 0), 0);
-  const salesTarget = tg ? Number(tg.sales_target) : 0;
-  const remainingTarget = salesTarget > 0 ? Math.max(0, salesTarget - awardedValue) : null;
+  const jihValue = computeJihPipelineTotal(jihOpps as any[]);
+  const tenderValue = computeTenderPipelineTotal(myTenders as any[]);
+  const salesTarget = salesTargetValue;
+  const remainingTarget = computeRemainingTarget(awardedValue, salesTarget);
   const displayName = user?.email?.split("@")[0] ?? "—";
 
   return (
