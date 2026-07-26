@@ -25,12 +25,12 @@ export const Route = createFileRoute("/_authenticated/agent-activity")({
   component: AgentActivityPage,
 });
 
-type Status = "all" | "running" | "completed" | "needs_review" | "paused" | "error";
+type Status = "all" | "running" | "completed" | "failed" | "not_configured";
 
 function statusTone(s: string): "positive" | "attention" | "danger" | "muted" | "neutral" {
   if (s === "completed") return "positive";
-  if (s === "needs_review") return "attention";
-  if (s === "error") return "danger";
+  if (s === "not_configured") return "attention";
+  if (s === "failed" || s === "error") return "danger";
   if (s === "paused") return "muted";
   return "neutral";
 }
@@ -62,9 +62,9 @@ function AgentActivityPage() {
   const [mainTab, setMainTab] = useState<"runs" | "outputs">("runs");
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["agent-runs-all"],
+    queryKey: ["ai-agent-runs-all"],
     queryFn: async () =>
-      (await supabase.from("agent_runs").select("*").order("started_at", { ascending: false }).limit(200)).data ?? [],
+      (await supabase.from("ai_agent_runs").select("*").order("started_at", { ascending: false }).limit(200)).data ?? [],
     staleTime: 30_000,
   });
 
@@ -82,15 +82,15 @@ function AgentActivityPage() {
     enabled: mainTab === "outputs",
   });
 
-  const agents = useMemo(() => Array.from(new Set(rows.map((r: any) => r.agent_name).filter(Boolean))), [rows]);
+  const agents = useMemo(() => Array.from(new Set(rows.map((r: any) => r.agent_key).filter(Boolean))), [rows]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((r: any) => {
       if (status !== "all" && r.status !== status) return false;
-      if (agent !== "all" && r.agent_name !== agent) return false;
+      if (agent !== "all" && r.agent_key !== agent) return false;
       if (q) {
-        const hay = `${r.agent_name ?? ""} ${r.loop_name ?? ""} ${r.summary ?? ""}`.toLowerCase();
+        const hay = `${r.agent_key ?? ""} ${r.summary ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -99,10 +99,10 @@ function AgentActivityPage() {
 
   const kpis = useMemo(() => {
     const total = rows.length;
-    const errors = rows.filter((r: any) => r.status === "error").length;
-    const needsReview = rows.filter((r: any) => r.status === "needs_review").length;
+    const errors = rows.filter((r: any) => r.status === "failed").length;
+    const notConfigured = rows.filter((r: any) => r.status === "not_configured").length;
     const completed = rows.filter((r: any) => r.status === "completed").length;
-    return { total, errors, needsReview, completed };
+    return { total, errors, notConfigured, completed };
   }, [rows]);
 
   const trend = useMemo(() => {
@@ -254,7 +254,7 @@ function AgentActivityPage() {
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Runs (recent 200)" value={kpis.total} icon={<Activity className="h-3.5 w-3.5" />} />
         <KpiCard label="Completed" value={kpis.completed} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
-        <KpiCard label="Needs review" value={kpis.needsReview} icon={<PauseCircle className="h-3.5 w-3.5" />} />
+        <KpiCard label="Not configured" value={kpis.notConfigured} icon={<PauseCircle className="h-3.5 w-3.5" />} />
         <KpiCard label="Errors" value={kpis.errors} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
       </div>
 
@@ -285,7 +285,7 @@ function AgentActivityPage() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search agent, loop, summary"
+          placeholder="Search agent, summary"
           className="w-full max-w-xs rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
         />
         <div className="flex flex-wrap items-center gap-2">
@@ -298,7 +298,7 @@ function AgentActivityPage() {
             {agents.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
           <div className="flex flex-wrap gap-1">
-            {(["all", "running", "completed", "needs_review", "paused", "error"] as const).map((s) => (
+            {(["all", "running", "completed", "failed", "not_configured"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setStatus(s)}
@@ -330,15 +330,13 @@ function AgentActivityPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <StatusPill tone={statusTone(r.status)}>{r.status?.replaceAll("_", " ") ?? "—"}</StatusPill>
-                        <span className="truncate text-sm font-medium text-foreground">{r.loop_name ?? r.agent_name}</span>
-                        <StatusPill tone="muted">{r.agent_name}</StatusPill>
+                        <span className="truncate text-sm font-medium text-foreground">{r.agent_key}</span>
                       </div>
                       {r.summary ? <div className="mt-1 text-xs text-muted-foreground">{r.summary}</div> : null}
-                      {(r.records_processed != null || r.records_created != null || r.records_updated != null) ? (
+                      {(r.records_scanned != null || r.recommendations_created != null) ? (
                         <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-                          {r.records_processed != null ? <span className="num" data-tabular="true">{r.records_processed} processed</span> : null}
-                          {r.records_created != null ? <span className="num" data-tabular="true">{r.records_created} created</span> : null}
-                          {r.records_updated != null ? <span className="num" data-tabular="true">{r.records_updated} updated</span> : null}
+                          {r.records_scanned != null ? <span className="num" data-tabular="true">{r.records_scanned} scanned</span> : null}
+                          {r.recommendations_created != null ? <span className="num" data-tabular="true">{r.recommendations_created} recommendations</span> : null}
                         </div>
                       ) : null}
                     </div>

@@ -46,7 +46,10 @@ import { newIntakeFields } from "@/routes/_authenticated/lead-tender-inbox";
 import { createLead } from "@/lib/lead-actions";
 import { createRfq } from "@/lib/rfq-actions";
 import { createQuotation, createBoq, type BoqStatus } from "@/lib/sales-actions";
-import type { DialogField } from "@/components/phc/ActionDialog";
+import { createCompany, createProject } from "@/lib/crm-actions";
+import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
+
+type CreateResolver = ((result: { value: string; label: string } | null) => void) | null;
 
 type EntryType = "intake" | "lead" | "rfq" | "quotation" | "boq";
 
@@ -70,11 +73,27 @@ function leadFields(t: (k: string) => string): DialogField[] {
   ];
 }
 
-function rfqFields(t: (k: string) => string, companies: any[], projects: any[]): DialogField[] {
+function rfqFields(
+  t: (k: string) => string,
+  companies: any[],
+  projects: any[],
+  setCreatingCompanyFor: (resolver: CreateResolver) => void,
+  setCreatingProjectFor: (resolver: CreateResolver) => void,
+): DialogField[] {
   return [
     { key: "rfqNumber", type: "text", label: "RFQ #" },
-    { key: "companyId", type: "select", label: t("crm_company"), options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
-    { key: "projectId", type: "select", label: t("nav_projects"), options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
+    {
+      key: "companyId", type: "select", label: t("crm_company"),
+      options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))],
+      createLabel: t("wf_add_new_company"),
+      onCreateNew: () => new Promise((resolve) => setCreatingCompanyFor(() => resolve)),
+    },
+    {
+      key: "projectId", type: "select", label: t("nav_projects"),
+      options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))],
+      createLabel: t("wf_add_new_project"),
+      onCreateNew: () => new Promise((resolve) => setCreatingProjectFor(() => resolve)),
+    },
     { key: "estimatedValue", type: "text", label: t("crm_total_value") },
     { key: "responseDueDate", type: "date", label: t("wf_expected_contract") },
   ];
@@ -115,6 +134,10 @@ export function NewEntryDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [extraOptions, setExtraOptions] = useState<Record<string, { value: string; label: string }[]>>({});
+  const [creating, setCreating] = useState<string | null>(null);
+  const [creatingCompanyFor, setCreatingCompanyFor] = useState<CreateResolver>(null);
+  const [creatingProjectFor, setCreatingProjectFor] = useState<CreateResolver>(null);
 
   const { data: teamMembers = [] } = useQuery({ queryKey: ["team-members-min"], queryFn: listTeamMembers, enabled: open });
   const { data: companies = [] } = useQuery({
@@ -137,7 +160,7 @@ export function NewEntryDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const fields: DialogField[] =
     entryType === "intake" ? newIntakeFields(tt, teamMembers)
     : entryType === "lead" ? leadFields(tt)
-    : entryType === "rfq" ? rfqFields(tt, companies, projects)
+    : entryType === "rfq" ? rfqFields(tt, companies, projects, setCreatingCompanyFor, setCreatingProjectFor)
     : entryType === "quotation" ? quotationFields(tt, opps)
     : boqFields(tt, opps);
 
@@ -147,6 +170,7 @@ export function NewEntryDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     for (const f of fields) seed[f.key] = "defaultValue" in f ? (f.defaultValue ?? "") : "";
     setValues(seed);
     setErrors({});
+    setExtraOptions({});
     // Re-seed whenever the record type changes so a field left over from
     // the previous type never leaks into the next type's submission.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -257,6 +281,7 @@ export function NewEntryDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent dir={dir} className="flex flex-col sm:max-w-2xl">
         <DialogHeader>
@@ -294,13 +319,33 @@ export function NewEntryDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               ) : f.type === "select" ? (
                 <Select
                   value={values[f.key] ? values[f.key] : "__none__"}
-                  onValueChange={(v) => { setValues((prev) => ({ ...prev, [f.key]: v === "__none__" ? "" : v })); clearFieldError(f.key); }}
+                  onValueChange={async (v) => {
+                    if (v === "__create__") {
+                      if (!f.onCreateNew) return;
+                      setCreating(f.key);
+                      try {
+                        const created = await f.onCreateNew();
+                        if (created) {
+                          setExtraOptions((prev) => ({ ...prev, [f.key]: [...(prev[f.key] ?? []), created] }));
+                          setValues((prev) => ({ ...prev, [f.key]: created.value }));
+                          clearFieldError(f.key);
+                        }
+                      } finally {
+                        setCreating(null);
+                      }
+                      return;
+                    }
+                    setValues((prev) => ({ ...prev, [f.key]: v === "__none__" ? "" : v })); clearFieldError(f.key);
+                  }}
                 >
-                  <SelectTrigger id={f.key}>
+                  <SelectTrigger id={f.key} disabled={creating === f.key}>
                     <SelectValue placeholder="—" />
                   </SelectTrigger>
                   <SelectContent>
-                    {f.options.map((o) => (
+                    {f.onCreateNew ? (
+                      <SelectItem value="__create__">{f.createLabel ?? t("dialog_create_new")}</SelectItem>
+                    ) : null}
+                    {[...f.options, ...(extraOptions[f.key] ?? [])].map((o) => (
                       <SelectItem key={o.value === "" ? "__none__" : o.value} value={o.value === "" ? "__none__" : o.value}>
                         {o.label}
                       </SelectItem>
@@ -329,5 +374,48 @@ export function NewEntryDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Inline "add new company" from the RFQ company picker */}
+    <ActionDialog
+        open={!!creatingCompanyFor}
+        onOpenChange={(o) => { if (!o) { creatingCompanyFor?.(null); setCreatingCompanyFor(null); } }}
+        title={t("wf_add_new_company")}
+        submitLabel={t("crm_add")}
+        fields={[{ key: "name", type: "text", label: t("crm_company"), required: true }]}
+        onSubmit={async (v) => {
+          try {
+            const company = await createCompany({ name: v.name, companyType: "target_account", claimOwner: true });
+            creatingCompanyFor?.({ value: company.id, label: company.name });
+            setCreatingCompanyFor(null);
+          } catch (e) {
+            // Resolve with null so the select doesn't stay stuck disabled
+            // waiting on a promise that would otherwise never settle.
+            creatingCompanyFor?.(null);
+            setCreatingCompanyFor(null);
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
+
+      {/* Inline "add new project" from the RFQ project picker */}
+      <ActionDialog
+        open={!!creatingProjectFor}
+        onOpenChange={(o) => { if (!o) { creatingProjectFor?.(null); setCreatingProjectFor(null); } }}
+        title={t("wf_add_new_project")}
+        submitLabel={t("crm_add")}
+        fields={[{ key: "name", type: "text", label: t("nav_projects"), required: true }]}
+        onSubmit={async (v) => {
+          try {
+            const project = await createProject({ name: v.name });
+            creatingProjectFor?.({ value: project.id, label: project.name });
+            setCreatingProjectFor(null);
+          } catch (e) {
+            creatingProjectFor?.(null);
+            setCreatingProjectFor(null);
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
+    </>
   );
 }

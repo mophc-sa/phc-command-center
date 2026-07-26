@@ -129,10 +129,10 @@ function ReferenceLibraryPage() {
                 </div>
               ) : null}
               <div className="mt-3 grid grid-cols-2 gap-3">
-                <DataField label={t("ref_scope")} value={r.phc_scope} />
-                <DataField label={t("ref_sign_types")} value={r.sign_types} />
-                <DataField label={t("crm_main_contractor")} value={r.client_or_contractor} />
-                <DataField label={t("crm_total_value")} value={formatCurrency(r.project_value, lang, r.currency)} mono />
+                {r.phc_scope ? <DataField label={t("ref_scope")} value={r.phc_scope} className="col-span-2" /> : null}
+                {r.client_or_contractor ? <DataField label={t("crm_main_contractor")} value={r.client_or_contractor} /> : null}
+                {r.sign_types ? <DataField label={t("ref_sign_types")} value={r.sign_types} /> : null}
+                {r.project_value != null ? <DataField label={t("crm_total_value")} value={formatCurrency(r.project_value, lang, r.currency)} mono /> : null}
               </div>
             </div>
           ))}

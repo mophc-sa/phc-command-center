@@ -16,6 +16,7 @@ import {
   targetAchievementPct,
   remainingTarget,
   computeQuotationWinRatePct,
+  normalizeFollowUpChannel,
   type OpportunityStageRow,
   type TenderPipelineRow,
 } from "./dashboard-helpers";
@@ -495,6 +496,28 @@ describe("computeQuotationWinRatePct", () => {
     expect(computeQuotationWinRatePct([], 0)).toBe(0);
     expect(computeQuotationWinRatePct([{ status: "draft" }], null)).toBeNull();
     expect(computeQuotationWinRatePct([{ status: "draft" }], 0)).toBe(0);
+  });
+});
+
+describe("normalizeFollowUpChannel", () => {
+  test("passes through channels the AI agent accepts", () => {
+    expect(normalizeFollowUpChannel("email")).toBe("email");
+    expect(normalizeFollowUpChannel("whatsapp")).toBe("whatsapp");
+    expect(normalizeFollowUpChannel("internal_note")).toBe("internal_note");
+  });
+
+  // follow_ups.channel also allows call/meeting/site_visit, which the
+  // smart_followup_draft agent's FOLLOWUP_CHANNELS allowlist rejects with
+  // AI_INPUT_INVALID (HTTP 400) — this is the exact bug this function fixes.
+  test("maps unsupported channels to internal_note", () => {
+    expect(normalizeFollowUpChannel("call")).toBe("internal_note");
+    expect(normalizeFollowUpChannel("meeting")).toBe("internal_note");
+    expect(normalizeFollowUpChannel("site_visit")).toBe("internal_note");
+  });
+
+  test("maps null/undefined to internal_note", () => {
+    expect(normalizeFollowUpChannel(null)).toBe("internal_note");
+    expect(normalizeFollowUpChannel(undefined)).toBe("internal_note");
   });
 });
 

@@ -39,6 +39,7 @@ import {
   daysUntil, daysSince, urgencyTone, urgencyLabel,
   computeAwardedTotal, computeJihPipelineTotal, computeTenderPipelineTotal,
   targetAchievementPct, remainingTarget as computeRemainingTarget,
+  normalizeFollowUpChannel,
 } from "@/lib/dashboard-helpers";
 
 export const Route = createFileRoute("/_authenticated/my-workspace")({
@@ -250,7 +251,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
   async function handleDraftFollowUp(followUpId: string, opportunityId: string, channel: string | null) {
     setDraftFuId(followUpId); setDraftLoading(true);
     try {
-      const res = await supabase.functions.invoke("ai-orchestrator", { body: { agentKey: "smart_followup_draft", entityType: "opportunity", entityId: opportunityId, input: { follow_up_id: followUpId, channel: channel ?? "email" } } });
+      const res = await supabase.functions.invoke("ai-orchestrator", { body: { agentKey: "smart_followup_draft", entityType: "opportunity", entityId: opportunityId, input: { follow_up_id: followUpId, channel: normalizeFollowUpChannel(channel) } } });
       if (res.error) throw new Error(String(res.error));
       const draft = res.data?.result?.draft_text ?? res.data?.result?.body ?? JSON.stringify(res.data?.result ?? {}, null, 2);
       setDraftContent(typeof draft === "string" ? draft : JSON.stringify(draft, null, 2));
@@ -814,7 +815,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
   const handleDraftFollowUp = async (followUpId: string, opportunityId: string, channel: string | null) => {
     setDraftFuId(followUpId); setDraftLoading(true);
     try {
-      const res = await supabase.functions.invoke("ai-orchestrator", { body: { agentKey: "smart_followup_draft", entityType: "opportunity", entityId: opportunityId, input: { follow_up_id: followUpId, channel: channel ?? "email" } } });
+      const res = await supabase.functions.invoke("ai-orchestrator", { body: { agentKey: "smart_followup_draft", entityType: "opportunity", entityId: opportunityId, input: { follow_up_id: followUpId, channel: normalizeFollowUpChannel(channel) } } });
       if (res.error) throw new Error(String(res.error));
       const draft = res.data?.result?.draft_text ?? res.data?.result?.body ?? JSON.stringify(res.data?.result ?? {}, null, 2);
       setDraftContent(typeof draft === "string" ? draft : JSON.stringify(draft, null, 2));

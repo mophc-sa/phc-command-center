@@ -185,14 +185,25 @@ function ProjectsPage() {
                       {p.main_contractor?.name ?? "—"}{p.location ? ` · ${p.location}` : ""}
                     </div>
                   </div>
-                  <StatusPill tone={stageTone(p.completion_pct)}>{humanize(p.project_stage)}</StatusPill>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <StatusPill tone={stageTone(p.completion_pct)}>{humanize(p.project_stage)}</StatusPill>
+                    <StatusPill tone={p.verification_status === "verified" ? "positive" : "attention"}>
+                      {p.verification_status === "verified" ? t("crm_verified") : t("crm_pending_verification")}
+                    </StatusPill>
+                  </div>
                 </div>
-                <div className="mt-3 flex items-center gap-4 text-[11px] text-muted-foreground">
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
                   {p.completion_pct != null ? (
                     <span className="num" data-tabular="true">{t("crm_completion")}: {p.completion_pct}%</span>
                   ) : null}
                   {p.total_value != null ? (
                     <span className="num" data-tabular="true">{formatCurrency(p.total_value, lang, p.currency)}</span>
+                  ) : null}
+                  {p.signage_package_status ? (
+                    <span>{t("crm_signage_package")}: {humanize(p.signage_package_status)}</span>
+                  ) : null}
+                  {p.source_confidence ? (
+                    <span>{t("crm_source_confidence")}: {humanize(p.source_confidence)}</span>
                   ) : null}
                 </div>
                 {p.completion_pct != null ? (
