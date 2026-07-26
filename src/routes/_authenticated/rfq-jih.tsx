@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, ArrowRight, History } from "lucide-react";
+import { Plus, ArrowRight, History, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -85,6 +85,7 @@ function RfqJihBoard() {
   const [advance, setAdvance] = useState<{ opp: any; toStage: SalesStage } | null>(null);
   const [historyRfq, setHistoryRfq] = useState<{ id: string; label: string } | null>(null);
   const [creatingProjectFor, setCreatingProjectFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
+  const [detailsRfq, setDetailsRfq] = useState<any | null>(null);
   const sstageLabel = (s: string) => t(`sstage_${s}` as never);
 
   const { data: rfqs = [] } = useQuery({
@@ -174,6 +175,14 @@ function RfqJihBoard() {
                       {formatCurrency(r.estimated_value, lang, "SAR")}
                     </span>
                     <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setDetailsRfq(r)}
+                        title={t("wf_view_details")}
+                        className="grid h-6 w-6 place-items-center rounded-md border border-border/70 text-muted-foreground hover:text-foreground"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => setHistoryRfq({ id: r.id, label: r.rfq_number ?? "RFQ" })}
@@ -399,6 +408,27 @@ function RfqJihBoard() {
             <DialogTitle>{historyRfq ? `${t("comm_history")} — ${historyRfq.label}` : t("comm_history")}</DialogTitle>
           </DialogHeader>
           {historyRfq ? <CommunicationTimeline filter={{ rfqId: historyRfq.id }} /> : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!detailsRfq} onOpenChange={(o) => !o && setDetailsRfq(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{detailsRfq?.rfq_number ?? "RFQ"}</DialogTitle>
+          </DialogHeader>
+          {detailsRfq ? (
+            <div className="grid gap-2 text-sm">
+              <div><span className="text-muted-foreground">{t("crm_company")}: </span>{companies.find((c: any) => c.id === detailsRfq.company_id)?.name ?? "—"}</div>
+              <div><span className="text-muted-foreground">{t("nav_projects")}: </span>{projects.find((p: any) => p.id === detailsRfq.project_id)?.name ?? "—"}</div>
+              <div><span className="text-muted-foreground">{t("crm_total_value")}: </span>{formatCurrency(detailsRfq.estimated_value, lang, "SAR")}</div>
+              <div><span className="text-muted-foreground">{t("wf_expected_contract")}: </span>{detailsRfq.response_due_date ?? "—"}</div>
+              {detailsRfq.document_url ? (
+                <a href={detailsRfq.document_url} target="_blank" rel="noreferrer" className="text-primary underline">
+                  {t("wf_evidence")}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
