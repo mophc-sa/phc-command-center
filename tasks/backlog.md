@@ -15,7 +15,7 @@
 - [x] ~~تأكيد منتج: leads.source/owner_id (D2)~~ — قُرِّر ووُثِّق 2026-07-26. انظر docs/DECISIONS.md.
 - [x] ~~حذف ملفات .handoff/rbac-hardening-sprint8-*~~ — حُذفت 2026-07-26.
 - [ ] **افتح PR لفرع `fix/phase1-quick-ux-fixes`** (9 مهام مُنفَّذة + إصلاح vendors.tsx جانبي) وراجعه وادمجه.
-- [ ] Phase 2 (طلب العميل الشامل): دمج نماذج Intake/RFQ/Quotation/BOQ/Discovery الخمسة في نموذج واحد بمصنِّف نوع، وإلغاء صفحتَي RFQ & JIH Board وBOQ Center (الإبقاء على Quotations فقط) — يحتاج `superpowers:brainstorming` مستقلة قبل البدء. التفاصيل والخيارات في `docs/superpowers/specs/2026-07-26-phase1-quick-fixes-design.md`.
+- [x] ~~Phase 2: دمج النماذج + توحيد صفحات الـ pipeline~~ — نُفِّذ 2026-07-26 (تنفيذ مباشر بموافقة المستخدم، بدون توقف للمراجعة). حوار New Entry موحَّد (Intake/Lead/RFQ/Quotation/BOQ) + إلغاء RFQ & JIH Board وBOQ Center كصفحتين (redirect لـ Quotations بتبويبات). Discovery/leads لم يُدمَج ضمن النموذج الموحَّد بعد — نوع "lead" في NewEntryDialog يغطي إنشاء lead جديد، لكن صفحة `/discovery` نفسها لم تُلغَ (بند متبقٍ إن أراد المستخدم إلغاءها أيضًا).
 - [ ] Phase 3 (طلب العميل): لوحتا Sales وManagement منفصلتان — تستخدم بنية `sales_targets`/`computeSalespersonMetrics`/`computeManagerMetrics` الموجودة أصلًا في `targets-metrics.ts`.
 - [ ] Phase 4 (طلب العميل، ميزة جديدة بالكامل): Evidence checklist (RFQ Recvd/Quotation Sent/Meeting w Management/BAFO/Discount/Final Negotiation/Received Contract كـ checkboxes) + حقل Technical Notes على صفحة الفرصة — لا يوجد حاليًا أي شيء مشابه في الكود، يحتاج تصميم بيانات من الصفر.
 - [ ] Phase 5 (طلب العميل، نقاش تصميم مفتوح): كيف يراقب النظام BOQ/package متغيّر حسب كل مقاول ومرحلة مشروع لكل tender مرفوع — سؤال معماري، ليس إصلاحًا.
