@@ -2,14 +2,14 @@
 import { test, expect } from "bun:test";
 import {
   findDuplicateGroups,
-  normalizeName,
   normalizeDomain,
   normalizePhone,
   type DupRecord,
 } from "../../supabase/functions/_shared/duplicates";
+import { normalizeCompanyName } from "../../supabase/functions/_shared/company-normalize";
 
 test("normalizers strip noise", () => {
-  expect(normalizeName("Al-Rajhi Contracting Co. LLC")).toBe("al rajhi");
+  expect(normalizeCompanyName("Al-Rajhi Contracting Co. LLC")).toBe("al rajhi");
   expect(normalizeDomain("https://www.phc-sa.com/about")).toBe("phc-sa.com");
   expect(normalizeDomain("sales@phc-sa.com")).toBe("phc-sa.com");
   expect(normalizePhone("+966 50 123 4567")).toBe("501234567");
@@ -55,4 +55,18 @@ test("name-only matches are flagged with lower confidence than CR matches", () =
   ]);
   expect(nameOnly.length).toBe(1);
   expect(nameOnly[0].confidence).toBeLessThan(0.9);
+});
+
+test("findDuplicateGroups now matches Arabic company names via shared normalization (previously missed)", () => {
+  const recs: DupRecord[] = [
+    { id: "a", name: "شركة الراجحي للمقاولات" }, // taa marbuta (ة)
+    { id: "b", name: "شركه الراجحي للمقاولات" }, // already-normalized taa (ه) — a real-world data-entry variant
+  ];
+  const groups = findDuplicateGroups(recs, "company");
+  expect(groups.length).toBe(1);
+  expect(groups[0].matched_fields).toContain("name");
+  expect(new Set(groups[0].members.map((m) => m.entity_id))).toEqual(new Set(["a", "b"]));
+  // Confirms the specific normalization: both collapse to the same signal.
+  expect(normalizeCompanyName(recs[0].name)).toBe("الراجحي للمقاولات");
+  expect(normalizeCompanyName(recs[1].name)).toBe("الراجحي للمقاولات");
 });

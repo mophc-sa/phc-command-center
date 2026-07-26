@@ -219,3 +219,21 @@ export function remainingTarget(
   if (salesTarget <= 0) return null;
   return Math.max(0, salesTarget - awardedValue);
 }
+
+// ─── Quotation win rate ───────────────────────────────────────────────────────
+
+/**
+ * Computes the percentage of closed quotations (won or lost) that were won.
+ * `emptyValue` is returned when there are no closed quotations yet — callers
+ * disagree on whether that should display as "—" (pass null) or "0%" (pass 0),
+ * so this is a parameter, not a hardcoded choice.
+ */
+export function computeQuotationWinRatePct(
+  quotes: Array<{ status: string }>,
+  emptyValue: number | null,
+): number | null {
+  const won = quotes.filter(q => q.status === "won").length;
+  const lost = quotes.filter(q => q.status === "lost").length;
+  const closed = won + lost;
+  return closed > 0 ? Math.round((won / closed) * 100) : emptyValue;
+}

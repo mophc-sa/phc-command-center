@@ -50,7 +50,7 @@ test("archivable tables are exactly leads/contacts/companies/rfqs/tenders", () =
 });
 
 test("hard-delete allowlist is the conservative Sprint 8 review list, exactly", () => {
-  expect([...DELETABLE_TABLES].sort()).toEqual(["activities", "boqs", "follow_ups", "inbox_items"]);
+  expect([...DELETABLE_TABLES].sort()).toEqual(["activities", "boqs", "follow_ups", "import_batches", "inbox_items"]);
 });
 
 test("archive-only tables (formerly hard-deletable) are all excluded from the delete allowlist", () => {

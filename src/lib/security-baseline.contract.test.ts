@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "../..");
@@ -77,5 +77,33 @@ describe("phase 1 security baseline", () => {
       source.indexOf("CREATE UNIQUE INDEX IF NOT EXISTS sales_actuals_unique_metric_idx"),
     );
     expect(tableDefinition).not.toContain("COALESCE(");
+  });
+
+  // Pathfinder D4 (2026-07-23): src/routes/_authenticated/team.tsx used to
+  // render the full org roster (name/email for every active user) with no
+  // beforeLoad role check at all — any authenticated user could navigate
+  // there directly. It was deleted; admin-settings.tsx (which has the
+  // equivalent functionality AND a beforeLoad guard) is now the sole entry
+  // point. This test exists so that resurrecting team.tsx, or weakening
+  // admin-settings.tsx's guard, fails CI instead of silently reopening the gap.
+  test("the unguarded /team route stays deleted, and admin-settings.tsx keeps its role guard", () => {
+    expect(existsSync(join(root, "src/routes/_authenticated/team.tsx"))).toBe(false);
+
+    const adminSettingsSrc = readFileSync(
+      join(root, "src/routes/_authenticated/admin-settings.tsx"),
+      "utf8",
+    );
+    expect(adminSettingsSrc).toContain("beforeLoad: async () => {");
+    expect(adminSettingsSrc).toContain("if (!canManageTeam(roles)) {");
+    expect(adminSettingsSrc).toContain('throw redirect({ to: "/command-center" });');
+
+    // Neither remaining nav surface should link to the deleted route.
+    const appShellSrc = readFileSync(join(root, "src/components/phc/AppShell.tsx"), "utf8");
+    expect(appShellSrc).not.toContain('"/team"');
+    const commandPaletteSrc = readFileSync(
+      join(root, "src/components/phc/CommandPalette.tsx"),
+      "utf8",
+    );
+    expect(commandPaletteSrc).not.toContain('"/team"');
   });
 });
