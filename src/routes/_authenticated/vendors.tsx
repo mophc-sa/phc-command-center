@@ -13,7 +13,7 @@ import { DataField } from "@/components/phc/DataField";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { createVendor } from "@/lib/vendor-actions";
+import { createVendor, upsertVendorPrivateData } from "@/lib/vendor-actions";
 import { canManageSalesPipeline } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/vendors")({
@@ -180,12 +180,16 @@ function VendorsPage() {
           { key: "contactName", type: "text", label: t("vendor_contact") },
           { key: "contactPhone", type: "text", label: t("crm_phone") },
           { key: "portalUrl", type: "text", label: t("vendor_portal") },
-          { key: "referencePrices", type: "textarea", label: t("vendor_ref_prices") },
-          { key: "internalRating", type: "text", label: t("vendor_rating") },
+          ...(isManager
+            ? ([
+                { key: "referencePrices", type: "textarea", label: t("vendor_ref_prices") },
+                { key: "internalRating", type: "text", label: t("vendor_rating") },
+              ] as const)
+            : []),
         ]}
         onSubmit={async (v) => {
           try {
-            await createVendor({
+            const vendor = await createVendor({
               name: v.name,
               scope: v.scope || null,
               materials: v.materials || null,
@@ -195,9 +199,13 @@ function VendorsPage() {
               contact_name: v.contactName || null,
               contact_phone: v.contactPhone || null,
               portal_url: v.portalUrl || null,
-              reference_prices: v.referencePrices || null,
-              internal_rating: v.internalRating ? Number(v.internalRating) : null,
             });
+            if (isManager && (v.referencePrices || v.internalRating)) {
+              await upsertVendorPrivateData(vendor.id, {
+                reference_prices: v.referencePrices || null,
+                internal_rating: v.internalRating ? Number(v.internalRating) : null,
+              });
+            }
             toast.success(t("crm_saved"));
             qc.invalidateQueries({ queryKey: ["vendors", source] });
           } catch (e) {

@@ -19,6 +19,7 @@ import {
   convertInboxToRfq, convertInboxToTender, convertInboxToOpportunityCandidate,
   sendInboxToMissingData, markInboxDuplicate, archiveInboxItem,
   INBOX_SOURCE_TYPES, INBOX_CLASSIFICATIONS,
+  INBOX_CLIENT_TYPES, INBOX_PROJECT_TYPES, INBOX_RFQ_FROM, INBOX_SCOPES, INBOX_LOCATIONS,
   type InboxClassification, type DuplicateCandidate,
 } from "@/lib/inbox-actions";
 import { humanize } from "@/lib/utils";
@@ -40,16 +41,21 @@ function newIntakeFields(t: (k: string) => string, teamMembers: any[]): DialogFi
   return [
     { key: "sourceType", type: "select", label: t("ibx_source_type"), required: true, options: INBOX_SOURCE_TYPES.map((s) => ({ value: s, label: t(`src_${s}`) })) },
     { key: "sourceName", type: "text", label: t("ibx_source_name") },
+    { key: "dateReceived", type: "date", label: t("ibx_date_received"), defaultValue: new Date().toISOString().slice(0, 10) },
     { key: "companyName", type: "text", label: t("ibx_company_name") },
     { key: "contactName", type: "text", label: t("ibx_contact_name") },
     { key: "phone", type: "text", label: t("label_phone") },
     { key: "email", type: "text", label: t("email") },
+    { key: "clientType", type: "select", label: t("ibx_client_type"), options: [{ value: "", label: "—" }, ...INBOX_CLIENT_TYPES.map((c) => ({ value: c, label: t(`ibx_client_type_${c}`) }))] },
+    { key: "projectType", type: "select", label: t("ibx_project_type"), options: [{ value: "", label: "—" }, ...INBOX_PROJECT_TYPES.map((p) => ({ value: p, label: t(`ibx_project_type_${p}`) }))] },
     { key: "projectName", type: "text", label: t("label_project") },
+    { key: "projectNumber", type: "text", label: t("ibx_project_number") },
+    { key: "rfqFrom", type: "select", label: t("ibx_rfq_from"), options: [{ value: "", label: "—" }, ...INBOX_RFQ_FROM.map((r) => ({ value: r, label: t(`ibx_rfq_from_${r}`) }))] },
     { key: "clientOwner", type: "text", label: t("ibx_client_owner") },
     { key: "mainContractor", type: "text", label: t("label_contractor") },
     { key: "consultant", type: "text", label: t("ibx_consultant") },
-    { key: "scope", type: "textarea", label: t("ibx_scope") },
-    { key: "location", type: "text", label: t("label_location") },
+    { key: "scopeType", type: "select", label: t("ibx_scope_type"), options: [{ value: "", label: "—" }, ...INBOX_SCOPES.map((s) => ({ value: s, label: t(`ibx_scope_${s}`) }))] },
+    { key: "locationCity", type: "select", label: t("ibx_location_city"), options: [{ value: "", label: "—" }, ...INBOX_LOCATIONS.map((l) => ({ value: l, label: t(`ibx_location_${l}`) }))] },
     { key: "estimatedValue", type: "text", label: t("ibx_estimated_value") },
     { key: "deadline", type: "date", label: t("ibx_deadline") },
     { key: "notes", type: "textarea", label: t("wf_notes") },
@@ -259,16 +265,21 @@ function LeadTenderInbox() {
             await createInboxItem({
               sourceType: v.sourceType as never,
               sourceName: v.sourceName || undefined,
+              dateReceived: v.dateReceived || undefined,
               companyName: v.companyName || undefined,
               contactName: v.contactName || undefined,
               phone: v.phone || undefined,
               email: v.email || undefined,
+              clientType: v.clientType ? (v.clientType as never) : undefined,
+              projectType: v.projectType ? (v.projectType as never) : undefined,
               projectName: v.projectName || undefined,
+              projectNumber: v.projectNumber || undefined,
+              rfqFrom: v.rfqFrom ? (v.rfqFrom as never) : undefined,
               clientOwner: v.clientOwner || undefined,
               mainContractor: v.mainContractor || undefined,
               consultant: v.consultant || undefined,
-              scope: v.scope || undefined,
-              location: v.location || undefined,
+              scopeType: v.scopeType ? (v.scopeType as never) : undefined,
+              locationCity: v.locationCity ? (v.locationCity as never) : undefined,
               estimatedValue: v.estimatedValue ? Number(v.estimatedValue) : null,
               deadline: v.deadline || null,
               notes: v.notes || undefined,
@@ -277,7 +288,7 @@ function LeadTenderInbox() {
               nextAction: v.nextAction || undefined,
               followUpDate: v.followUpDate || null,
             });
-            toast.success(t("crm_saved"));
+            toast.success(t("intake_created_location_hint"));
             refresh();
           } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
         }}

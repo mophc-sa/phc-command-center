@@ -41,6 +41,24 @@ export async function updateVendor(id: Uuid, patch: Database["public"]["Tables"]
   return data;
 }
 
+// reference_prices/internal_rating live in vendors_private, not vendors, as
+// of 20260719120000_vendors_split_sensitive_columns.sql — RLS on that table
+// restricts all operations to pipeline operators (managers), so callers
+// should only invoke this when the current user is a manager.
+export async function upsertVendorPrivateData(
+  vendorId: Uuid,
+  patch: Omit<Database["public"]["Tables"]["vendors_private"]["Insert"], "vendor_id">,
+) {
+  const { data, error } = await supabase
+    .from("vendors_private")
+    .upsert({ ...patch, vendor_id: vendorId }, { onConflict: "vendor_id" })
+    .select()
+    .single();
+  if (error) throw error;
+  await audit("vendor.private_data_updated", "vendor", vendorId, patch);
+  return data;
+}
+
 /* ---------------- Reference Projects ---------------- */
 
 export async function createReferenceProject(

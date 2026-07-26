@@ -7,6 +7,7 @@ export type CompanyType = Database["public"]["Enums"]["company_type"];
 export type AccountStatus = Database["public"]["Enums"]["account_status"];
 export type ContactAuthority = Database["public"]["Enums"]["contact_authority"];
 export type ContactLocation = Database["public"]["Enums"]["contact_location"];
+export type ContactConfidenceLevel = Database["public"]["Enums"]["contact_confidence_level"];
 export type ProjectStage = Database["public"]["Enums"]["project_stage"];
 export type SourceConfidence = Database["public"]["Enums"]["confidence_level"];
 export type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
@@ -107,7 +108,7 @@ export async function createContact(input: {
   location?: ContactLocation;
   authority?: ContactAuthority;
   source?: string;
-  confidenceScore?: number | null;
+  confidenceLevel?: ContactConfidenceLevel | null;
   claimOwner?: boolean;
 }) {
   const uid = await currentUserId();
@@ -123,7 +124,7 @@ export async function createContact(input: {
       location: input.location ?? "unknown",
       authority: input.authority ?? "unknown_authority",
       source: input.source ?? null,
-      confidence_score: input.confidenceScore ?? null,
+      confidence_level: input.confidenceLevel ?? null,
       verification_status: "pending_verification",
       owner_id: input.claimOwner ? uid : null,
       created_by: uid,

@@ -76,6 +76,10 @@ export const strings = {
 
   // Workflow generic
   wf_new_rfq: { en: "New RFQ", ar: "طلب عرض سعر جديد" },
+  wf_add_new_project: { en: "+ Add new project", ar: "+ إضافة مشروع جديد" },
+  wf_view_details: { en: "View Details", ar: "عرض التفاصيل" },
+  rfq_created_location_hint: { en: "RFQ created — find it under RFQ & JIH Board → RFQ Received.", ar: "تم إنشاء طلب عرض السعر — تجده ضمن RFQ & JIH Board ← RFQ المستلمة." },
+  intake_created_location_hint: { en: "Saved to Intake — convert it to an RFQ, Tender, or Lead when ready.", ar: "تم الحفظ في Intake — حوّله إلى RFQ أو منافسة أو Lead عند الجاهزية." },
   wf_new_tender: { en: "New Tender", ar: "مناقصة جديدة" },
   wf_convert_to_jih: { en: "Convert to JIH", ar: "تحويل لفرصة قائمة" },
   wf_advance_stage: { en: "Advance Stage", ar: "تقديم المرحلة" },
@@ -271,6 +275,9 @@ export const strings = {
   crm_title: { en: "Job Title", ar: "المسمى الوظيفي" },
   crm_authority: { en: "Authority", ar: "مستوى القرار" },
   crm_confidence: { en: "Confidence", ar: "مستوى الثقة" },
+  confidence_high: { en: "High", ar: "عالية" },
+  confidence_medium: { en: "Medium", ar: "متوسطة" },
+  confidence_low: { en: "Low", ar: "منخفضة" },
   crm_phone: { en: "Phone", ar: "الجوال" },
   crm_email: { en: "Email", ar: "البريد" },
   crm_website: { en: "Website", ar: "الموقع الإلكتروني" },
@@ -352,6 +359,47 @@ export const strings = {
   location_site_office: { en: "Site Office", ar: "مكتب الموقع" },
   location_head_office: { en: "Head Office", ar: "المكتب الرئيسي" },
   location_unknown: { en: "Unknown", ar: "غير معروف" },
+
+  // Intake — client type / project type / RFQ from
+  ibx_client_type: { en: "Client Type", ar: "نوع العميل" },
+  ibx_client_type_main_client: { en: "Main Client", ar: "العميل الرئيسي" },
+  ibx_client_type_contractor_jih: { en: "Contractor (JIH)", ar: "مقاول (JIH)" },
+  ibx_client_type_contractor_tender: { en: "Contractor (Tender)", ar: "مقاول (منافسة)" },
+  ibx_client_type_consultant: { en: "Consultant", ar: "استشاري" },
+  ibx_project_type: { en: "Project Type", ar: "نوع المشروع" },
+  ibx_project_type_jih: { en: "JIH", ar: "JIH" },
+  ibx_project_type_tender: { en: "Tender", ar: "منافسة" },
+  ibx_project_number: { en: "Project Number", ar: "رقم المشروع" },
+  ibx_rfq_from: { en: "RFQ From", ar: "طلب عرض السعر من" },
+  ibx_rfq_from_owner_developer: { en: "Owner / Developer", ar: "المالك / المطوّر" },
+  ibx_rfq_from_main_contractor: { en: "Main Contractor", ar: "المقاول الرئيسي" },
+  ibx_rfq_from_consultant: { en: "Consultant", ar: "استشاري" },
+  ibx_date_received: { en: "Date Received", ar: "تاريخ الاستلام" },
+  // Intake — scope (fixed vocabulary, replaces free-text scope textarea)
+  ibx_scope_type: { en: "Scope", ar: "نطاق العمل" },
+  ibx_scope_supply_and_installation: { en: "Supply and Installation of Signage", ar: "توريد وتركيب اللوحات" },
+  ibx_scope_supply_only_signage: { en: "Supply Only - Signage", ar: "توريد فقط - لوحات" },
+  ibx_scope_supply_installation_others: { en: "Supply of Installation (Others)", ar: "توريد التركيب (أخرى)" },
+  ibx_scope_supply_only_others: { en: "Supply Only (Others)", ar: "توريد فقط (أخرى)" },
+  ibx_scope_mockup_sample_request: { en: "Mock-up Sample Request", ar: "طلب عينة نموذجية" },
+  ibx_scope_installation_only: { en: "Installation Only", ar: "تركيب فقط" },
+  // Intake — location (fixed vocabulary, replaces free-text location input)
+  ibx_location_city: { en: "Project Location", ar: "موقع المشروع" },
+  ibx_location_riyadh: { en: "Riyadh", ar: "الرياض" },
+  ibx_location_jeddah: { en: "Jeddah", ar: "جدة" },
+  ibx_location_makkah: { en: "Makkah", ar: "مكة المكرمة" },
+  ibx_location_madinah: { en: "Madinah", ar: "المدينة المنورة" },
+  ibx_location_dammam: { en: "Dammam", ar: "الدمام" },
+  ibx_location_al_khobar: { en: "Al Khobar", ar: "الخبر" },
+  ibx_location_dhahran: { en: "Dhahran", ar: "الظهران" },
+  ibx_location_jubail: { en: "Jubail", ar: "الجبيل" },
+  ibx_location_taif: { en: "Taif", ar: "الطائف" },
+  ibx_location_tabuk: { en: "Tabuk", ar: "تبوك" },
+  ibx_location_abha: { en: "Abha", ar: "أبها" },
+  ibx_location_yanbu: { en: "Yanbu", ar: "ينبع" },
+  ibx_location_jazan: { en: "Jazan", ar: "جازان" },
+  ibx_location_buraydah: { en: "Buraydah", ar: "بريدة" },
+  ibx_location_hail: { en: "Hail", ar: "حائل" },
 
   // My Workspace
   ws_title: { en: "My Workspace", ar: "مساحة عملي" },
@@ -1118,6 +1166,7 @@ export const strings = {
 
   // Phase 0 UX — ActionDialog inline validation
   dialog_field_required: { en: "This field is required", ar: "هذا الحقل مطلوب" },
+  dialog_create_new: { en: "+ Add new", ar: "+ إضافة جديد" },
   dialog_reject_ai_output_title: { en: "Reject AI output", ar: "رفض مخرج الذكاء الاصطناعي" },
   dialog_reject_ai_output_desc: {
     en: "This marks the output as rejected. It has no effect on any other record.",
