@@ -9,6 +9,7 @@ import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { NotificationCenter } from "@/components/phc/NotificationCenter";
+import { NewEntryDialog } from "@/components/phc/NewEntryDialog";
 import { FontSizeControl } from "@/components/phc/FontSizeControl";
 import { StatusPill } from "@/components/phc/StatusPill";
 import {
@@ -39,7 +40,6 @@ import {
   Bell,
   ShieldAlert,
   FileText,
-  ClipboardList,
   Target,
   Building2,
   Contact2,
@@ -49,7 +49,6 @@ import {
   Library,
   Bot,
   BookOpen,
-  ClipboardCheck,
   Gavel,
   GitMerge,
   Award,
@@ -111,7 +110,6 @@ const NAV_GROUPS: NavGroup[] = [
       { kind: "link", to: "/command-center",    key: "nav_pipeline_overview", icon: LayoutDashboard },
       { kind: "link", to: "/lead-tender-inbox", key: "nav_intake",            icon: Mailbox },
       { kind: "link", to: "/opportunities",     key: "nav_opportunities",     icon: FolderKanban },
-      { kind: "link", to: "/rfq-jih",           key: "nav_rfq_jih",           icon: ClipboardCheck },
       { kind: "link", to: "/tenders",           key: "nav_tenders",           icon: Gavel },
     ],
   },
@@ -122,7 +120,6 @@ const NAV_GROUPS: NavGroup[] = [
       { kind: "link", to: "/approvals",         key: "nav_approvals",         icon: ShieldCheck },
       { kind: "link", to: "/follow-ups",        key: "nav_follow_ups",        icon: CalendarClock },
       { kind: "link", to: "/quotations",        key: "nav_quotations",        icon: FileText },
-      { kind: "link", to: "/boq",               key: "nav_boq",               icon: ClipboardList },
       { kind: "link", to: "/award-queue",       key: "nav_awards",            icon: Award },
       { kind: "link", to: "/tender-conversion", key: "nav_conversion_queue",  icon: GitMerge },
     ],
@@ -196,6 +193,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [newEntryOpen, setNewEntryOpen] = useState(false);
 
   const { data: notifItems = [] } = useNotifications();
   const notifCount = notifItems.length;
@@ -547,13 +545,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {t("nav_quick_actions")}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setNewEntryOpen(true)}>
+                    <Mailbox className="h-3.5 w-3.5" />
+                    {t("qa_new_entry")}
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => nav_({ to: "/my-workspace" })}>
                     <Activity className="h-3.5 w-3.5" />
                     {t("qa_log_activity")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => nav_({ to: "/lead-tender-inbox" })}>
-                    <Mailbox className="h-3.5 w-3.5" />
-                    {t("qa_new_lead")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => nav_({ to: "/follow-ups" })}>
                     <CalendarClock className="h-3.5 w-3.5" />
@@ -592,6 +590,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Global overlays — mounted once at shell level */}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <NotificationCenter open={notifOpen} onOpenChange={setNotifOpen} />
+      <NewEntryDialog open={newEntryOpen} onOpenChange={setNewEntryOpen} />
     </div>
   );
 }

@@ -1208,9 +1208,16 @@ export const strings = {
   // Quick Actions menu
   nav_quick_actions: { en: "Quick Actions", ar: "الإجراءات السريعة" },
   qa_log_activity: { en: "Log Activity", ar: "تسجيل نشاط" },
-  qa_new_lead: { en: "New Lead", ar: "عميل محتمل جديد" },
   qa_new_follow_up: { en: "New Follow-up", ar: "متابعة جديدة" },
   qa_new_opportunity: { en: "New Opportunity", ar: "فرصة جديدة" },
+  qa_new_entry: { en: "New Entry", ar: "إدخال جديد" },
+  new_entry_title: { en: "New Entry", ar: "إدخال جديد" },
+  new_entry_type: { en: "Record Type", ar: "نوع السجل" },
+  new_entry_type_intake: { en: "Intake", ar: "استقبال أولي (Intake)" },
+  new_entry_type_lead: { en: "Lead", ar: "عميل محتمل" },
+  new_entry_type_rfq: { en: "RFQ", ar: "طلب عرض سعر (RFQ)" },
+  new_entry_type_quotation: { en: "Quotation", ar: "عرض سعر" },
+  new_entry_type_boq: { en: "BOQ", ar: "جدول كميات (BOQ)" },
 
   // Pinned records
   pin_add: { en: "Pin to sidebar", ar: "تثبيت في الشريط" },

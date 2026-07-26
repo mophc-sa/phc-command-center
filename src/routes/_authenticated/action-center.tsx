@@ -59,7 +59,7 @@ type FlagRow = {
 
 const RELATED_ROUTE: Record<string, string> = {
   opportunity: "/opportunities",
-  rfq: "/rfq-jih",
+  rfq: "/quotations",
   tender: "/tenders",
   approval: "/approvals",
   quotation: "/quotations",

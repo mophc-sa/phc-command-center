@@ -37,7 +37,7 @@ function statusTone(s: string): "positive" | "attention" | "danger" | "muted" | 
   return "neutral";
 }
 
-function newIntakeFields(t: (k: string) => string, teamMembers: any[]): DialogField[] {
+export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): DialogField[] {
   return [
     { key: "sourceType", type: "select", label: t("ibx_source_type"), required: true, options: INBOX_SOURCE_TYPES.map((s) => ({ value: s, label: t(`src_${s}`) })) },
     { key: "sourceName", type: "text", label: t("ibx_source_name") },
