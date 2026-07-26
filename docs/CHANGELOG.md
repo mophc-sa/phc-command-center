@@ -13,6 +13,17 @@
 
 ---
 
+## 2026-07-26 — Phase 4: قائمة مراحل الصفقة (Milestone Checklist) + ملاحظات فنية
+تنفيذ مباشر. ميزة جديدة بالكامل (لا يوجد مكافئ سابق في الكود، تأكَّد أثناء Phase 1's brainstorming).
+### Added
+- جدول `opportunity_milestones` (migration `20260726130000`): 7 عناصر ثابتة (RFQ Recvd، Quotation Sent، Meeting w Management، BAFO Request، Discount Sent، Final Negotiation، Received Contract)، كل عنصر يُعلَّم مستقلًا بغضّ النظر عن `sales_stage` الحالي أو حالة العناصر الأخرى. RLS بنفس نمط stakeholders/evidence_sources (سياسة واحدة موحَّدة، ليست 4 منفصلة).
+- عمود `opportunities.technical_notes` (نص حر).
+- لوحتان جديدتان في صفحة تفاصيل الفرصة: "Milestone Checklist" (بجانب Evidence)، و"Technical Notes" (ضمن تبويب Assignment).
+### Verified
+- `bun run verify` نظيف، `bun run test:db` 45/45، `supabase db lint --local` بلا أخطاء.
+
+---
+
 ## 2026-07-26 — Phase 3: لوحات منفصلة للمبيعات والإدارة
 تنفيذ مباشر بموافقة المستخدم. اتضح أن أغلب البنية التحتية موجودة أصلًا (`sales_targets`, my-workspace.tsx الشخصية) — الفجوة الفعلية كانت في التوجيه فقط.
 ### Fixed

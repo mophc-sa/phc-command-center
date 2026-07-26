@@ -2903,6 +2903,7 @@ export type Database = {
           source_confidence: Database["public"]["Enums"]["confidence_level"]
           stage: Database["public"]["Enums"]["opportunity_stage"]
           strategic_value: string | null
+          technical_notes: string | null
           tier: Database["public"]["Enums"]["priority_tier"]
           updated_at: string
           verbal_award_contact_name: string | null
@@ -2982,6 +2983,7 @@ export type Database = {
           source_confidence?: Database["public"]["Enums"]["confidence_level"]
           stage?: Database["public"]["Enums"]["opportunity_stage"]
           strategic_value?: string | null
+          technical_notes?: string | null
           tier?: Database["public"]["Enums"]["priority_tier"]
           updated_at?: string
           verbal_award_contact_name?: string | null
@@ -3061,6 +3063,7 @@ export type Database = {
           source_confidence?: Database["public"]["Enums"]["confidence_level"]
           stage?: Database["public"]["Enums"]["opportunity_stage"]
           strategic_value?: string | null
+          technical_notes?: string | null
           tier?: Database["public"]["Enums"]["priority_tier"]
           updated_at?: string
           verbal_award_contact_name?: string | null
@@ -3165,6 +3168,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      opportunity_milestones: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          id: string
+          milestone: Database["public"]["Enums"]["opportunity_milestone"]
+          opportunity_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          milestone: Database["public"]["Enums"]["opportunity_milestone"]
+          opportunity_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          id?: string
+          milestone?: Database["public"]["Enums"]["opportunity_milestone"]
+          opportunity_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_milestones_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -4737,6 +4775,14 @@ export type Database = {
         | "human_review"
         | "converted"
         | "rejected"
+      opportunity_milestone:
+        | "rfq_received"
+        | "quotation_sent"
+        | "meeting_with_management"
+        | "bafo_request"
+        | "discount_sent"
+        | "final_negotiation"
+        | "received_contract"
       opportunity_score_tier: "A" | "B" | "C" | "not_qualified"
       opportunity_stage:
         | "discovery"
@@ -5152,6 +5198,15 @@ export const Constants = {
         "human_review",
         "converted",
         "rejected",
+      ],
+      opportunity_milestone: [
+        "rfq_received",
+        "quotation_sent",
+        "meeting_with_management",
+        "bafo_request",
+        "discount_sent",
+        "final_negotiation",
+        "received_contract",
       ],
       opportunity_score_tier: ["A", "B", "C", "not_qualified"],
       opportunity_stage: [
