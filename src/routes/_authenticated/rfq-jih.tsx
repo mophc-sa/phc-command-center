@@ -294,7 +294,7 @@ function RfqJihBoard() {
               documentUrl: v.documentUrl || null,
               claimOwner: true,
             });
-            toast.success(t("crm_saved"));
+            toast.success(t("rfq_created_location_hint"));
             refresh();
           } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
         }}

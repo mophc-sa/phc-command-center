@@ -288,7 +288,7 @@ function LeadTenderInbox() {
               nextAction: v.nextAction || undefined,
               followUpDate: v.followUpDate || null,
             });
-            toast.success(t("crm_saved"));
+            toast.success(t("intake_created_location_hint"));
             refresh();
           } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
         }}
