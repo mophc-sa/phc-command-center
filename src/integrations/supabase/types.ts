@@ -1217,6 +1217,9 @@ export type Database = {
           archived_by: string | null
           authority: Database["public"]["Enums"]["contact_authority"]
           company_id: string | null
+          confidence_level:
+            | Database["public"]["Enums"]["contact_confidence_level"]
+            | null
           confidence_score: number | null
           created_at: string
           created_by: string | null
@@ -1241,6 +1244,9 @@ export type Database = {
           archived_by?: string | null
           authority?: Database["public"]["Enums"]["contact_authority"]
           company_id?: string | null
+          confidence_level?:
+            | Database["public"]["Enums"]["contact_confidence_level"]
+            | null
           confidence_score?: number | null
           created_at?: string
           created_by?: string | null
@@ -1265,6 +1271,9 @@ export type Database = {
           archived_by?: string | null
           authority?: Database["public"]["Enums"]["contact_authority"]
           company_id?: string | null
+          confidence_level?:
+            | Database["public"]["Enums"]["contact_confidence_level"]
+            | null
           confidence_score?: number | null
           created_at?: string
           created_by?: string | null
@@ -4632,6 +4641,7 @@ export type Database = {
         | "influencer"
         | "technical_contact"
         | "unknown_authority"
+      contact_confidence_level: "high" | "medium" | "low"
       contact_location: "site_office" | "head_office" | "unknown"
       exclusion_reason:
         | "no_signage_package"
@@ -5037,6 +5047,7 @@ export const Constants = {
         "technical_contact",
         "unknown_authority",
       ],
+      contact_confidence_level: ["high", "medium", "low"],
       contact_location: ["site_office", "head_office", "unknown"],
       exclusion_reason: [
         "no_signage_package",
