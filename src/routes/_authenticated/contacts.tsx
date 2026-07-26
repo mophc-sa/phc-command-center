@@ -11,7 +11,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
-import { createContact, type ContactAuthority, type ContactLocation } from "@/lib/crm-actions";
+import { createContact, type ContactAuthority, type ContactLocation, type ContactConfidenceLevel } from "@/lib/crm-actions";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
 
@@ -24,11 +24,18 @@ const AUTHORITIES: ContactAuthority[] = [
   "decision_maker", "influencer", "technical_contact", "unknown_authority",
 ];
 const LOCATIONS: ContactLocation[] = ["site_office", "head_office", "unknown"];
+const CONFIDENCE_LEVELS: ContactConfidenceLevel[] = ["high", "medium", "low"];
 
 function authorityTone(a: ContactAuthority): "positive" | "neutral" | "muted" {
   if (a === "decision_maker") return "positive";
   if (a === "unknown_authority") return "muted";
   return "neutral";
+}
+
+function confidenceTone(c: ContactConfidenceLevel | null): "positive" | "attention" | "muted" {
+  if (c === "high") return "positive";
+  if (c === "medium") return "attention";
+  return "muted";
 }
 
 function ContactsPage() {
@@ -57,6 +64,7 @@ function ContactsPage() {
 
   const authorityLabel = (a: ContactAuthority) => t(`authority_${a}` as never);
   const locationLabel = (l: ContactLocation) => t(`location_${l}` as never);
+  const confidenceLevelLabel = (c: ContactConfidenceLevel) => t(`confidence_${c}` as never);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -198,8 +206,8 @@ function ContactsPage() {
                     <StatusPill tone={authorityTone(c.authority)}>{authorityLabel(c.authority)}</StatusPill>
                   </td>
                   <td className="px-5 py-3 text-muted-foreground">{locationLabel(c.location)}</td>
-                  <td className="num px-5 py-3 text-end text-muted-foreground" data-tabular="true">
-                    {c.confidence_score != null ? `${c.confidence_score}%` : "—"}
+                  <td className="px-5 py-3 text-end">
+                    {c.confidence_level ? <StatusPill tone={confidenceTone(c.confidence_level)}>{confidenceLevelLabel(c.confidence_level)}</StatusPill> : "—"}
                   </td>
                   <td className="px-5 py-3 text-end">
                     <CommunicationActions
@@ -240,7 +248,7 @@ function ContactsPage() {
           { key: "phone", type: "text", label: t("crm_phone") },
           { key: "email", type: "text", label: t("crm_email") },
           { key: "linkedin", type: "text", label: "LinkedIn" },
-          { key: "confidenceScore", type: "text", label: t("crm_confidence") },
+          { key: "confidenceLevel", type: "select", label: t("crm_confidence"), options: [{ value: "", label: "—" }, ...CONFIDENCE_LEVELS.map((c) => ({ value: c, label: confidenceLevelLabel(c) }))] },
         ]}
         onSubmit={async (v) => {
           try {
@@ -253,7 +261,7 @@ function ContactsPage() {
               phone: v.phone || undefined,
               email: v.email || undefined,
               linkedin: v.linkedin || undefined,
-              confidenceScore: v.confidenceScore ? Number(v.confidenceScore) : null,
+              confidenceLevel: v.confidenceLevel ? (v.confidenceLevel as ContactConfidenceLevel) : null,
               claimOwner: true,
             });
             toast.success(t("crm_saved"));
