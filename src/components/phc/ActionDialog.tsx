@@ -39,6 +39,8 @@ export type DialogField =
       required?: boolean;
       defaultValue?: string;
       options: { value: string; label: string }[];
+      onCreateNew?: () => Promise<{ value: string; label: string } | null>;
+      createLabel?: string;
     }
   | {
       key: string;
@@ -73,6 +75,8 @@ export function ActionDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [extraOptions, setExtraOptions] = useState<Record<string, { value: string; label: string }[]>>({});
+  const [creating, setCreating] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -175,7 +179,22 @@ export function ActionDialog({
               ) : f.type === "select" ? (
                 <Select
                   value={values[f.key] ? values[f.key] : "__none__"}
-                  onValueChange={(v) => {
+                  onValueChange={async (v) => {
+                    if (v === "__create__") {
+                      if (!f.onCreateNew) return;
+                      setCreating(f.key);
+                      try {
+                        const created = await f.onCreateNew();
+                        if (created) {
+                          setExtraOptions((prev) => ({ ...prev, [f.key]: [...(prev[f.key] ?? []), created] }));
+                          setValues((prev) => ({ ...prev, [f.key]: created.value }));
+                          clearFieldError(f.key);
+                        }
+                      } finally {
+                        setCreating(null);
+                      }
+                      return;
+                    }
                     setValues((prev) => ({ ...prev, [f.key]: v === "__none__" ? "" : v }));
                     clearFieldError(f.key);
                   }}
@@ -185,11 +204,15 @@ export function ActionDialog({
                     aria-required={f.required ?? undefined}
                     aria-invalid={errors[f.key] ? true : undefined}
                     aria-describedby={errors[f.key] ? `${f.key}-err` : undefined}
+                    disabled={creating === f.key}
                   >
                     <SelectValue placeholder="—" />
                   </SelectTrigger>
                   <SelectContent>
-                    {f.options.map((o) => (
+                    {f.onCreateNew ? (
+                      <SelectItem value="__create__">{f.createLabel ?? t("dialog_create_new")}</SelectItem>
+                    ) : null}
+                    {[...f.options, ...(extraOptions[f.key] ?? [])].map((o) => (
                       <SelectItem key={o.value === "" ? "__none__" : o.value} value={o.value === "" ? "__none__" : o.value}>
                         {o.label}
                       </SelectItem>

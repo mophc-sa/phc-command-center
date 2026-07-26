@@ -1162,6 +1162,7 @@ export const strings = {
 
   // Phase 0 UX — ActionDialog inline validation
   dialog_field_required: { en: "This field is required", ar: "هذا الحقل مطلوب" },
+  dialog_create_new: { en: "+ Add new", ar: "+ إضافة جديد" },
   dialog_reject_ai_output_title: { en: "Reject AI output", ar: "رفض مخرج الذكاء الاصطناعي" },
   dialog_reject_ai_output_desc: {
     en: "This marks the output as rejected. It has no effect on any other record.",
