@@ -60,7 +60,6 @@ import {
   Plus,
   ChevronDown,
   Pin,
-  Clock,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -210,7 +209,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [isOnAdminRoute]);
 
   // Recents & pins
-  const { recent, trackRecent } = useRecentRecords();
+  const { trackRecent } = useRecentRecords();
   const { pinned } = usePinnedRecords();
 
   // Auto-track $id page visits from the path
@@ -367,33 +366,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        {/* Recent records */}
-        {recent.length > 0 && (
-          <div className="mb-4">
-            <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
-              {t("cmd_recent")}
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {recent.slice(0, 3).map((r) => {
-                const Icon = RECORD_TYPE_ICONS[r.type] ?? Clock;
-                return (
-                  <Link
-                    key={r.to}
-                    to={r.to as never}
-                    onClick={() => setMobileOpen(false)}
-                    className="group flex items-center gap-3 rounded-md px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
-                  >
-                    <Icon className="h-[14px] w-[14px] shrink-0 text-muted-foreground/50" strokeWidth={1.75} aria-hidden="true" />
-                    <span className="truncate">{r.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Divider if recent/pinned present */}
-        {(pinned.length > 0 || recent.length > 0) && (
+        {/* Divider if pinned present */}
+        {pinned.length > 0 && (
           <div className="mx-3 mb-4 h-px bg-border/50" />
         )}
 
