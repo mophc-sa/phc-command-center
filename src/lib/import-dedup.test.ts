@@ -1,13 +1,15 @@
 // Data Import Center — duplicate detection. Run with `bun test src`.
 import { test, expect } from "bun:test";
 import {
-  normalizeArabic,
-  normalizeName,
   compareSignals,
   findWithinFileDuplicates,
   similarity,
   type DedupSignals,
 } from "../../supabase/functions/_shared/import-dedup";
+import {
+  normalizeArabic,
+  normalizeCompanyName,
+} from "../../supabase/functions/_shared/company-normalize";
 
 test("Arabic normalization unifies alef / taa-marbuta / diacritics / tatweel", () => {
   expect(normalizeArabic("شَرِكَة")).toBe("شركه");
@@ -16,9 +18,9 @@ test("Arabic normalization unifies alef / taa-marbuta / diacritics / tatweel", (
 });
 
 test("company-name normalization drops AR + EN stopwords", () => {
-  expect(normalizeName("Al Rajhi Contracting Co. LLC")).toBe("al rajhi");
+  expect(normalizeCompanyName("Al Rajhi Contracting Co. LLC")).toBe("al rajhi");
   // "شركة" -> normalized "شركه" is a stopword; the "لل" prefix is left as-is.
-  expect(normalizeName("شركة الراجحي للمقاولات")).toBe("الراجحي للمقاولات");
+  expect(normalizeCompanyName("شركة الراجحي للمقاولات")).toBe("الراجحي للمقاولات");
 });
 
 test("CR number match is highest confidence + link suggestion", () => {

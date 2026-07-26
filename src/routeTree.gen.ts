@@ -17,7 +17,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedVendorsRouteImport } from './routes/_authenticated/vendors'
 import { Route as AuthenticatedTendersRouteImport } from './routes/_authenticated/tenders'
 import { Route as AuthenticatedTenderConversionRouteImport } from './routes/_authenticated/tender-conversion'
-import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedTargetsRouteImport } from './routes/_authenticated/targets'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedRfqJihRouteImport } from './routes/_authenticated/rfq-jih'
@@ -93,11 +92,6 @@ const AuthenticatedTenderConversionRoute =
     path: '/tender-conversion',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedTargetsRoute = AuthenticatedTargetsRouteImport.update({
   id: '/targets',
   path: '/targets',
@@ -314,7 +308,6 @@ export interface FileRoutesByFullPath {
   '/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/targets': typeof AuthenticatedTargetsRoute
-  '/team': typeof AuthenticatedTeamRoute
   '/tender-conversion': typeof AuthenticatedTenderConversionRoute
   '/tenders': typeof AuthenticatedTendersRoute
   '/vendors': typeof AuthenticatedVendorsRoute
@@ -356,7 +349,6 @@ export interface FileRoutesByTo {
   '/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/targets': typeof AuthenticatedTargetsRoute
-  '/team': typeof AuthenticatedTeamRoute
   '/tender-conversion': typeof AuthenticatedTenderConversionRoute
   '/tenders': typeof AuthenticatedTendersRoute
   '/vendors': typeof AuthenticatedVendorsRoute
@@ -402,7 +394,6 @@ export interface FileRoutesById {
   '/_authenticated/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/targets': typeof AuthenticatedTargetsRoute
-  '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/tender-conversion': typeof AuthenticatedTenderConversionRoute
   '/_authenticated/tenders': typeof AuthenticatedTendersRoute
   '/_authenticated/vendors': typeof AuthenticatedVendorsRoute
@@ -448,7 +439,6 @@ export interface FileRouteTypes {
     | '/rfq-jih'
     | '/settings'
     | '/targets'
-    | '/team'
     | '/tender-conversion'
     | '/tenders'
     | '/vendors'
@@ -490,7 +480,6 @@ export interface FileRouteTypes {
     | '/rfq-jih'
     | '/settings'
     | '/targets'
-    | '/team'
     | '/tender-conversion'
     | '/tenders'
     | '/vendors'
@@ -535,7 +524,6 @@ export interface FileRouteTypes {
     | '/_authenticated/rfq-jih'
     | '/_authenticated/settings'
     | '/_authenticated/targets'
-    | '/_authenticated/team'
     | '/_authenticated/tender-conversion'
     | '/_authenticated/tenders'
     | '/_authenticated/vendors'
@@ -618,13 +606,6 @@ declare module '@tanstack/react-router' {
       path: '/tender-conversion'
       fullPath: '/tender-conversion'
       preLoaderRoute: typeof AuthenticatedTenderConversionRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/team': {
-      id: '/_authenticated/team'
-      path: '/team'
-      fullPath: '/team'
-      preLoaderRoute: typeof AuthenticatedTeamRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/targets': {
@@ -936,7 +917,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRfqJihRoute: typeof AuthenticatedRfqJihRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTargetsRoute: typeof AuthenticatedTargetsRoute
-  AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedTenderConversionRoute: typeof AuthenticatedTenderConversionRoute
   AuthenticatedTendersRoute: typeof AuthenticatedTendersRoute
   AuthenticatedVendorsRoute: typeof AuthenticatedVendorsRoute
@@ -968,7 +948,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRfqJihRoute: AuthenticatedRfqJihRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTargetsRoute: AuthenticatedTargetsRoute,
-  AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedTenderConversionRoute: AuthenticatedTenderConversionRoute,
   AuthenticatedTendersRoute: AuthenticatedTendersRoute,
   AuthenticatedVendorsRoute: AuthenticatedVendorsRoute,

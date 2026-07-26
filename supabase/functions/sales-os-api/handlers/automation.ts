@@ -7,13 +7,14 @@ import {
   notConfiguredRun,
   missing,
 } from "../shared.ts";
+import { insertLeadServerSide, canCreateLead } from "../../_shared/leads.ts";
 
 async function run_protenders_ingest(
   payload: Record<string, unknown>,
   ctx: SalesOsContext,
 ): Promise<Response> {
   const { caller, audit: auditLog } = ctx;
-  if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
+  if (!canCreateLead(caller.roles)) return err("Sales pipeline role required", 403);
   const svc = ctx.svc;
   const format = (payload.format as string) ?? "csv";
 
@@ -105,16 +106,30 @@ async function run_protenders_ingest(
       return activeKeywords.some((kw) => stage.includes(kw));
     });
 
-    if (leadRows.length > 0) {
-      await svc.from("leads").insert(
-        leadRows.map((r) => ({
-          project_name: (r.project_name as string) ?? "Unknown",
-          location: (r.location as string) ?? null,
-          main_contractor_guess: (r.main_contractor as string) ?? null,
-          source: "protenders",
-          created_by: caller.userId,
-        })),
-      );
+    // Best-effort per-row: one bad row must not lose the leads already
+    // created, nor skip the batch audit/response below (mirrors
+    // import-pipeline's commit_candidates loop, which has the same
+    // continue-on-error shape for the same reason).
+    let leadsCreated = 0;
+    let leadsFailed = 0;
+    for (const r of leadRows) {
+      try {
+        await insertLeadServerSide(
+          svc,
+          {
+            project_name: (r.project_name as string) ?? "Unknown",
+            location: (r.location as string) ?? null,
+            main_contractor_guess: (r.main_contractor as string) ?? null,
+          },
+          caller.userId,
+          "protenders",
+          caller.roles,
+        );
+        leadsCreated++;
+      } catch (e) {
+        leadsFailed++;
+        console.error(`[run_protenders_ingest] lead insert failed for row "${(r.project_name as string) ?? "Unknown"}":`, e);
+      }
     }
 
     await auditLog(
@@ -123,14 +138,15 @@ async function run_protenders_ingest(
       "ai.protenders_ingest",
       "protenders_import",
       importId,
-      { rows: rows.length, leads_created: leadRows.length },
+      { rows: rows.length, leads_created: leadsCreated, leads_failed: leadsFailed },
       caller.roles,
     );
     return json({
       ok: true,
       import_id: importId,
       ingested: rows.length,
-      leads_created: leadRows.length,
+      leads_created: leadsCreated,
+      leads_failed: leadsFailed,
     });
   }
 
