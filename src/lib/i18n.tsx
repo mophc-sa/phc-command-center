@@ -76,6 +76,7 @@ export const strings = {
 
   // Workflow generic
   wf_new_rfq: { en: "New RFQ", ar: "طلب عرض سعر جديد" },
+  wf_add_new_project: { en: "+ Add new project", ar: "+ إضافة مشروع جديد" },
   wf_new_tender: { en: "New Tender", ar: "مناقصة جديدة" },
   wf_convert_to_jih: { en: "Convert to JIH", ar: "تحويل لفرصة قائمة" },
   wf_advance_stage: { en: "Advance Stage", ar: "تقديم المرحلة" },

@@ -12,6 +12,8 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { createRfq, convertRfqToJih } from "@/lib/rfq-actions";
+import { createProject } from "@/lib/crm-actions";
+import { INBOX_LOCATIONS } from "@/lib/inbox-actions";
 import {
   advanceSalesStage, nextSalesStages, SALES_STAGES, type SalesStage,
 } from "@/lib/workflow-actions";
@@ -82,6 +84,7 @@ function RfqJihBoard() {
   const [convertRfq, setConvertRfq] = useState<any | null>(null);
   const [advance, setAdvance] = useState<{ opp: any; toStage: SalesStage } | null>(null);
   const [historyRfq, setHistoryRfq] = useState<{ id: string; label: string } | null>(null);
+  const [creatingProjectFor, setCreatingProjectFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
   const sstageLabel = (s: string) => t(`sstage_${s}` as never);
 
   const { data: rfqs = [] } = useQuery({
@@ -270,7 +273,12 @@ function RfqJihBoard() {
         fields={[
           { key: "rfqNumber", type: "text", label: "RFQ #" },
           { key: "companyId", type: "select", label: t("crm_company"), options: [{ value: "__none__", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
-          { key: "projectId", type: "select", label: t("nav_projects"), options: [{ value: "__none__", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
+          {
+            key: "projectId", type: "select", label: t("nav_projects"),
+            options: [{ value: "__none__", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))],
+            createLabel: t("wf_add_new_project"),
+            onCreateNew: () => new Promise((resolve) => setCreatingProjectFor(() => resolve)),
+          },
           { key: "estimatedValue", type: "text", label: t("crm_total_value") },
           { key: "responseDueDate", type: "date", label: t("wf_expected_contract") },
           { key: "documentUrl", type: "file", label: t("wf_evidence"), folder: "rfq" },
@@ -289,6 +297,24 @@ function RfqJihBoard() {
             toast.success(t("crm_saved"));
             refresh();
           } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+        }}
+      />
+
+      {/* Inline "add new project" from the RFQ project picker */}
+      <ActionDialog
+        open={!!creatingProjectFor}
+        onOpenChange={(o) => { if (!o) { creatingProjectFor?.(null); setCreatingProjectFor(null); } }}
+        title={t("wf_add_new_project")}
+        submitLabel={t("crm_add")}
+        fields={[
+          { key: "name", type: "text", label: t("label_project"), required: true },
+          { key: "location", type: "select", label: t("ibx_location_city"), options: [{ value: "", label: "—" }, ...INBOX_LOCATIONS.map((l) => ({ value: l, label: t(`ibx_location_${l}`) }))] },
+        ]}
+        onSubmit={async (v) => {
+          const project = await createProject({ name: v.name, location: v.location || undefined });
+          creatingProjectFor?.({ value: project.id, label: project.name });
+          setCreatingProjectFor(null);
+          refresh();
         }}
       />
 
