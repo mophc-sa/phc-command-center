@@ -9,6 +9,7 @@ import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { NotificationCenter } from "@/components/phc/NotificationCenter";
+import { NewEntryDialog } from "@/components/phc/NewEntryDialog";
 import { FontSizeControl } from "@/components/phc/FontSizeControl";
 import { StatusPill } from "@/components/phc/StatusPill";
 import {
@@ -196,6 +197,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [newEntryOpen, setNewEntryOpen] = useState(false);
 
   const { data: notifItems = [] } = useNotifications();
   const notifCount = notifItems.length;
@@ -547,13 +549,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {t("nav_quick_actions")}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setNewEntryOpen(true)}>
+                    <Mailbox className="h-3.5 w-3.5" />
+                    {t("qa_new_entry")}
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => nav_({ to: "/my-workspace" })}>
                     <Activity className="h-3.5 w-3.5" />
                     {t("qa_log_activity")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => nav_({ to: "/lead-tender-inbox" })}>
-                    <Mailbox className="h-3.5 w-3.5" />
-                    {t("qa_new_lead")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => nav_({ to: "/follow-ups" })}>
                     <CalendarClock className="h-3.5 w-3.5" />
@@ -592,6 +594,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Global overlays — mounted once at shell level */}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <NotificationCenter open={notifOpen} onOpenChange={setNotifOpen} />
+      <NewEntryDialog open={newEntryOpen} onOpenChange={setNewEntryOpen} />
     </div>
   );
 }
