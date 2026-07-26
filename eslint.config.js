@@ -29,7 +29,17 @@ export default tseslint.config(
       "react-refresh": reactRefresh,
     },
     rules: {
-      ...reactHooks.configs.recommended.rules,
+      // eslint-plugin-react-hooks 7.x's "recommended" config (bumped from
+      // 5.x as part of the eslint 10 upgrade — see docs/KNOWN_ISSUES.md,
+      // brace-expansion CVE fix) bundles a much larger "React Compiler
+      // readiness" rule set (purity, set-state-in-effect, immutability,
+      // refs, etc.) as errors across the whole codebase. Adopting that is a
+      // separate, much larger initiative than the dependency bump that
+      // motivated this upgrade, so only the same two rules this repo has
+      // always enforced are kept here; the rest is a deliberate future
+      // decision, not an oversight.
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
       "no-restricted-imports": [
         "error",
         {

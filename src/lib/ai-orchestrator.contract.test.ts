@@ -103,7 +103,7 @@ test("provider API key env var names only appear under supabase/functions or doc
     ...readAllRecursive(join(repoRoot, "supabase/migrations"), ".sql"),
   ];
   const docsIndex = join(repoRoot, "docs");
-  let docsFiles: { path: string; content: string }[] = [];
+  let docsFiles: { path: string; content: string }[];
   try {
     docsFiles = readAllRecursive(docsIndex, ".md");
   } catch {

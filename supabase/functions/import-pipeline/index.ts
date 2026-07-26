@@ -884,8 +884,8 @@ handlers["generate_report"] = async (payload, caller) => {
 
   const svc = serviceClient();
 
-  let columns: string[] = [];
-  let records: Record<string, unknown>[] = [];
+  let columns: string[];
+  let records: Record<string, unknown>[];
 
   if (reportType === "validation_errors") {
     const { data } = await svc.from("import_errors")
