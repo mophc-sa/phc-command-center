@@ -3,17 +3,23 @@
 > **أهم ملف بعد CLAUDE.md.** يُحدَّث في نهاية كل جلسة. اقرأه أولًا عند بداية أي جلسة/حساب جديد.
 
 ## Date
-2026-07-26  *(محدَّثة — فحص شامل للنظام + معالجة كل الفجوات المفتوحة القابلة للتنفيذ الفوري)*
+2026-07-26  *(محدَّثة — Phase 1 من طلب تعديلات UX شامل من العميل: مُصمَّمة ومنفَّذة بالكامل، جاهزة لفتح PR)*
 
 ## Current Branch
-`main` — التزامات مباشرة (لا PR بعد، انظر "Files Modified" أدناه لما هو غير مُدفوع). worktree `d1-normalize-company-name` أُزيل نهائيًا (كان مدموجًا بالكامل، بلا عمل فريد).
+`fix/phase1-quick-ux-fixes` — 9 commits تنفيذية + commit إصلاح جانبي (vendors) + spec/plan، فوق `main`. لم تُدفَع بعد. `main` نفسه محلي متزامن مع origin (PR #125 وPR #126 مدموجان — انظر الدفعة السابقة أدناه).
 
 ## Last Commit
-`471f488` — fix(dashboard): unify KPI computation across dashboards (Pathfinder D6) (#121) · مدمج على main
-(ترتيب الدمج الفعلي: #116→#117→#118→#119→#120→#121، كل واحد بعد `update-branch` ضد main المحدَّث وتحقّق CI أخضر قبل الدمج؛ لا تعارضات ولو أن #119 وَ#120 يعدّلان نفس الملف import-pipeline/index.ts. ثم PR #122 لتحديث هذا الملف نفسه.)
+`a309579` — feat(nav): remove sidebar Recent section — على فرع `fix/phase1-quick-ux-fixes`.
 
 ## Current Goal
-**لا يوجد هدف Sprint محدَّد بعد** — ابدأ الجلسة القادمة بتحديد هدف واحد في `tasks/current.md`. المتبقي من دورة Pathfinder: فحوصات دخانية وظيفية (smoke tests) + UAT (انظر "تقرير النشر" أدناه) — **قرار 2026-07-23 (`docs/DECISIONS.md`): غير عاجلة، مؤجَّلة عمدًا لوقت لاحق مناسب**، وليست حاجزًا أمام أي عمل آخر. لا تُعامَل كبند حرج معلّق في الجلسات القادمة.
+**Phase 1 (إصلاحات UX سريعة ومنخفضة المخاطر) اكتملت تنفيذًا — التالي: فتح PR ثم مراجعتها ودمجها.** هذه أول مرحلة من 5 مراحل قُرِّر تقسيم طلب العميل الشامل إليها بعد brainstorming (انظر `docs/superpowers/specs/2026-07-26-phase1-quick-fixes-design.md`). المراحل المتبقية (غير مبدوءة): Phase 2 (دمج 5 نماذج Intake/RFQ/Quotation/BOQ/Discovery في نموذج واحد + إلغاء صفحتي RFQ & JIH Board وBOQ Center، الإبقاء على Quotations فقط)، Phase 3 (لوحات Sales/Management منفصلة، تستخدم بنية `sales_targets` الموجودة أصلًا)، Phase 4 (ميزة جديدة بالكامل: Evidence checklist + Technical Notes على صفحة الفرصة)، Phase 5 (نقاش تصميم مفتوح: مراقبة BOQ/tender متغيّر حسب كل مقاول/مرحلة).
+
+## Completed (2026-07-26) — Phase 1: إصلاحات UX سريعة (spec → plan → تنفيذ)
+طُلبت تعديلات شاملة من العميل (لقطات شاشة معلَّقة + نص عربي)، عولجت عبر `superpowers:brainstorming` (اكتشفت تناقضًا بين النص واللقطات حُلّ بسؤال المستخدم، واكتُشف أن نظامي Intake منفصلين — `lead-tender-inbox`/`discovery` — موجودان أصلًا) ثم `superpowers:writing-plans` (خطة من 10 مهام). التنفيذ بدأ بـ subagent-driven-development لكن **الـ subagent الأول توقف بسبب "monthly spend limit"** — المستخدم اختار إكمال التنفيذ مباشرة (بدون subagents) لبقية المهام.
+- **9 مهام مُنفَّذة ومُلتزَمة** (commits `5a50f04`..`a309579` على `fix/phase1-quick-ux-fixes`): حقول Intake جديدة (Client Type/Project Type/Project Number/RFQ From/Date Received + Scope/Location كقوائم منسدلة)، `contacts.confidence_level` (High/Medium/Low يحل محل رقم مئوي)، قدرة "creatable select" جديدة في `ActionDialog` + تفعيلها في منتقي مشروع RFQ، رسائل توضيحية بعد الإنشاء، لوحة View Details على بطاقات RFQ، حذف قسم Recent من الشريط الجانبي.
+- **⚠️ اكتشاف جانبي أثناء العمل (غير مرتبط بـ Phase 1، أُصلح بموافقة المستخدم في commit منفصل `052024a`):** صفحة Vendors كانت تكتب `reference_prices`/`internal_rating` مباشرة في `vendors` رغم أن migration من أسبوع (`20260719120000`) نقلتهما إلى `vendors_private` — كان سيفشل حفظ أي مورّد جديد بقيمة في أحدهما. اكتُشف فقط لأن `types.ts` الملتزم كان قديمًا (لم يُعاد توليده منذ ذلك الـ migration). أُصلح بـ `upsertVendorPrivateData()` جديدة + قصر الحقلين على المديرين في النموذج.
+- **تحقّق كامل:** `bun run verify` نظيف، `bun run test:db` 45/45 pgTAP، `supabase db lint --local` بلا أخطاء. لم تُنشَر أي migration للإنتاج (توثيقية/إضافية بحتة، بانتظار البوابة المعتادة).
+- **درسان تقنيان مهمان لهذه الجلسة:** (1) `supabase gen types typescript --local` يطبع سطر "Connecting to db 5432" على stdout — يجب فلترته (`grep -v "^Connecting to db"`) قبل الحفظ في `types.ts` وإلا يفسد الملف. (2) `types.ts` يحتوي كتلة أنواع مُضافة يدويًا آخر الملف (`ImportSplitProposal`/`AiAgentOutput`/`AiAgentCallResult`، معلَّمة "not yet in auto-generated schema") — أي إعادة توليد كاملة يجب أن تُبقي هذه الكتلة (خذها من git history إن أُعيد التوليد لاحقًا).
 
 ## Completed (2026-07-26) — فحص شامل للنظام + معالجة الفجوات المفتوحة
 طُلب فحص شامل ("ما ينقص النظام؟")، ثم معالجة كل ما ظهر بالترتيب حسب الأهمية. القرارات الحقيقية (D1/D2 أدناه، ملفات Docker، دمج dependabot) طُلبت من المستخدم صراحة عبر أسئلة موجَّهة قبل التنفيذ — لم تُفترَض.
@@ -75,26 +81,26 @@
 - **Pathfinder** (مسح معماري كامل، 2026-07-22): كل البنود الستة (D1–D6) الآن مُنفَّذة عبر PRs مفتوحة، ومراجَعة مستقلة مرتين. التفاصيل الأصلية في `PATHFINDER-2026-07-22/`.
 
 ## In Progress
-- ⚠️ التزامات اليوم (2026-07-26) لا تزال محلية على `main` — لم تُدفَع بعد. راجع "Files Modified" أدناه، ثم افتح PR (لا تدفع مباشرة لـ main) قبل أي شيء آخر.
-- متبقٍ (غير عاجل — قرار 2026-07-23): فحوصات وظيفية + UAT على الإنتاج (قسمان 3 و6 من قائمة التحقق) — لم تُنفَّذ عمدًا لأنها تكتب بيانات إلى CRM حي، والمستخدم قرّر تأجيلها لوقت مناسب لاحقًا (انظر `docs/DECISIONS.md`). القائمة في Obsidian: `1. PROJECTS/PHC/PHC Command Center — Post-Deploy Checklist (Jul 23 2026).md`.
+- ⚠️ فرع `fix/phase1-quick-ux-fixes` (9 مهام + إصلاح vendors + spec/plan) لم يُدفَع بعد ولم يُفتح له PR — افعل ذلك أولًا في الجلسة القادمة.
+- Phase 2-5 (دمج النماذج، لوحات الأدوار، Evidence checklist، مراقبة BOQ المتغيّر) لم تبدأ بعد — تحتاج برينستورمنغ منفصلة لكل واحدة عند البدء.
 - ⚠️ push إلى GitHub يحتاج حساب `gh` النشط = `mophc-sa` (وليس `moalagab`) — تم التبديل عبر `gh auth switch --user mophc-sa`، يبقى نشطًا ما لم يُبدَّل.
-- ✅ (مُصلَح) Chrome browser extension كان يبدو غير متصل داخل جلسات background job — التشخيص الأول كان خاطئًا (اعتُقد أنه قيد جسر لا يمكن تجاوزه). الإصلاح الفعلي: نداء `list_connected_browsers` ثم `select_browser(deviceId)` صراحةً قبل أي استخدام آخر — يعمل فورًا بعده. استُخدم بنجاح في فحوصات D3 وD6 اليدوية.
+- متبقٍ (غير عاجل — قرار 2026-07-23): فحوصات وظيفية + UAT على الإنتاج — انظر `docs/DECISIONS.md`.
+- **(أولوية عالية، لم تُصلَح بعد)** ثغرة `brace-expansion` الحقيقية المخفية وراء bug `bun audit` (تحتاج ترقية eslint 10.x major — انظر `docs/KNOWN_ISSUES.md`). postcss نفس المشكلة أُصلحت (PR #126).
 
 ## Next Task
-- افتح PR لالتزامات 2026-07-26 (D1 dedup fix، D2 migration، ai-orchestrator test fix، تنظيف)، ثم راجعه وادمجه.
-- **(أولوية عالية)** إصلاح ثغرتي `brace-expansion`/`postcss` الحقيقيتين المخفيتين وراء bug `bun audit` — انظر `docs/KNOWN_ISSUES.md` و`tasks/backlog.md`.
-- نشر migration `20260726100000_document_leads_source_owner_id.sql` بعد موافقة (توثيقية بحتة، بلا مخاطرة سكيما).
-- بند غير عاجل في الخلفية: الفحوصات الوظيفية + UAT على الإنتاج (يدويًا، بموافقة صريحة إضافية لكتابة بيانات اختبار في CRM حي) — راجع قسمَي 3 و6 في قائمة التحقق المحفوظة بـ Obsidian، متى ما ناسب الوقت.
-- طبيعي: اختر بند جديد من `tasks/backlog.md` وانقله إلى `tasks/current.md` عند بدء الجلسة القادمة.
+- ادفع فرع `fix/phase1-quick-ux-fixes` وافتح PR له، ثم راجعه وادمجه (بعد تأكد CI أخضر).
+- نشر migration `20260726100000_document_leads_source_owner_id.sql` بعد موافقة (توثيقية بحتة، بلا مخاطرة سكيما) — لا تزال معلَّقة من الجلسة السابقة.
+- بعد دمج Phase 1: ابدأ Phase 2 (دمج 5 نماذج/إلغاء صفحتين) عبر `superpowers:brainstorming` من جديد — نطاق أكبر يستحق تصميمًا مستقلاً.
+- **(أولوية عالية)** إصلاح ثغرة `brace-expansion` (يحتاج ترقية eslint 10.x — مهمة مخطَّطة منفصلة، راجع `docs/KNOWN_ISSUES.md`).
 
 ## Files Modified (شجرة العمل الآن)
-- ملتزَمة على main محليًا (2026-07-26، غير مدفوعة بعد): D1 dedup fix (`import-dedup.ts`+test)، D2 migration + `leads.ts` comments، إصلاح 4 ملفات ai-orchestrator contract test، حذف `.handoff/rbac-hardening-sprint8-*`، تصحيح `docs/ROADMAP.md`، تحديثات `docs/DECISIONS.md`/`docs/KNOWN_ISSUES.md`/`tasks/backlog.md`/هذا الملف.
+- فرع `fix/phase1-quick-ux-fixes` (فوق main، غير مدفوع): `docs/superpowers/specs/2026-07-26-phase1-quick-fixes-design.md`، `docs/superpowers/plans/2026-07-26-phase1-quick-ux-fixes.md`، migrations جديدتان (`20260726110000_inbox_items_intake_fields.sql`، `20260726120000_contacts_confidence_level.sql`)، وكل تغييرات Phase 1 المذكورة أعلاه + إصلاح vendors.tsx/vendor-actions.ts.
 - `.claude/` (untracked)
 - `PATHFINDER-2026-07-22/` (untracked — نتائج المسح المعماري)
 - `docs/superpowers/plans/2026-07-22-company-name-normalization-unification.md`، `2026-07-22-scan-pipeline-relocation.md`، `2026-07-23-remove-team-page.md`، `2026-07-23-shared-lead-insert-helper.md`، `2026-07-23-import-batch-delete-unification.md`، `2026-07-23-dashboard-kpi-consistency.md` (untracked)
 
 ## Pending Decisions
-- لا يوجد حاليًا — D1/D2/Docker/rbac-hardening كلها قُرِّرت ونُفِّذت 2026-07-26 (انظر `docs/DECISIONS.md`).
+- لا يوجد حاليًا لـ Phase 1 — كل الغموض حُسم عبر أسئلة للمستخدم أثناء البرينستورمنغ (انظر spec). القرارات المعلَّقة من الجلسات السابقة (D1/D2/Docker/rbac-hardening) كلها محسومة.
 
 ## Risks
 - بيانات CRM حية: أي التزام/نشر يمرّ ببوابة موافقة (انظر deployment-governance.md).
