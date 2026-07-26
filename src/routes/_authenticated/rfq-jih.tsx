@@ -320,10 +320,20 @@ function RfqJihBoard() {
           { key: "location", type: "select", label: t("ibx_location_city"), options: [{ value: "", label: "—" }, ...INBOX_LOCATIONS.map((l) => ({ value: l, label: t(`ibx_location_${l}`) }))] },
         ]}
         onSubmit={async (v) => {
-          const project = await createProject({ name: v.name, location: v.location || undefined });
-          creatingProjectFor?.({ value: project.id, label: project.name });
-          setCreatingProjectFor(null);
-          refresh();
+          try {
+            const project = await createProject({ name: v.name, location: v.location || undefined });
+            creatingProjectFor?.({ value: project.id, label: project.name });
+            setCreatingProjectFor(null);
+            refresh();
+          } catch (e) {
+            // Resolve with null so the RFQ dialog's project select doesn't get
+            // stuck disabled forever waiting on a promise that will never
+            // settle otherwise (ActionDialog's onCreateNew only clears its
+            // "creating" state once this promise resolves).
+            creatingProjectFor?.(null);
+            setCreatingProjectFor(null);
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
         }}
       />
 
