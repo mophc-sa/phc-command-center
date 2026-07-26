@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
+  Target,
   Wallet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -94,6 +95,29 @@ function CommandCenter() {
         agentRuns: agentRuns.data ?? [],
         activities: activities.data ?? [],
         rfqs: rfqs.data ?? [],
+      };
+    },
+  });
+
+  // Phase 3 (system-redesign request): managers land here and should see the
+  // team's aggregated target, not just their own — mirrors my-workspace.tsx's
+  // per-user annual-then-monthly-fallback pattern, summed across every rep
+  // instead of scoped to one user_id.
+  const { data: teamTarget } = useQuery({
+    queryKey: ["cc-team-target"],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const annYear = `${new Date().getFullYear()}-01-01`;
+      const monthStart = `${new Date().toISOString().slice(0, 7)}-01`;
+      const [annual, monthly] = await Promise.all([
+        supabase.from("sales_targets").select("sales_target").eq("period_type", "annual").eq("period_start", annYear),
+        supabase.from("sales_targets").select("sales_target").eq("period_type", "monthly").eq("period_start", monthStart),
+      ]);
+      const annualSum = (annual.data ?? []).reduce((s, r) => s + Number(r.sales_target ?? 0), 0);
+      const monthlySum = (monthly.data ?? []).reduce((s, r) => s + Number(r.sales_target ?? 0), 0);
+      return {
+        total: annualSum > 0 ? annualSum : monthlySum,
+        periodType: annualSum > 0 ? ("annual" as const) : ("monthly" as const),
       };
     },
   });
@@ -238,7 +262,17 @@ function CommandCenter() {
       />
 
       {/* KPI row */}
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <KpiCard
+          label={lang === "ar" ? "الهدف الإجمالي للفريق" : "Team Target"}
+          value={teamTarget && teamTarget.total > 0 ? formatCurrency(teamTarget.total, lang, "SAR") : "—"}
+          hint={
+            teamTarget?.periodType === "annual"
+              ? (lang === "ar" ? "هدف سنوي" : "Annual target")
+              : (lang === "ar" ? "هدف شهري" : "Monthly target")
+          }
+          icon={<Target className="h-4 w-4" strokeWidth={1.75} />}
+        />
         <KpiCard
           label={t("metric_pipeline_value")}
           value={formatCurrency(openPipelineValue, lang)}
