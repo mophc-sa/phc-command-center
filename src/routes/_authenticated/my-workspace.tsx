@@ -706,7 +706,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
           <DialogHeader>
             <DialogTitle>{t("ws_new_rfq")}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-5 py-2">
+          <div className="grid grid-cols-1 gap-5 py-2 sm:grid-cols-2">
             {/* Step 1 — Opportunity Details */}
             <div className="space-y-3">
               <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("ws_rfq_step1")}</div>
@@ -1215,7 +1215,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
           <DialogHeader>
             <DialogTitle>{t("ws_new_rfq")}</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-5 py-2">
+          <div className="grid grid-cols-1 gap-5 py-2 sm:grid-cols-2">
             <div className="space-y-3">
               <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("ws_rfq_step1")}</div>
               <div className="space-y-1">

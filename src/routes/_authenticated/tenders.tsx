@@ -314,7 +314,7 @@ function TenderMonitor() {
           })}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
+        <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
           <table className="w-full text-left text-xs">
             <thead className="border-b border-border/70 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
               <tr>

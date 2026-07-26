@@ -294,7 +294,7 @@ function TargetsPage() {
                   {myMetrics.achievement}%
                 </span>
               </div>
-              <div className="mb-5 grid grid-cols-2 gap-3">
+              <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <KpiCard label={t("target_won")} value={formatCurrency(myMetrics.wonValue, lang)} icon={<TargetIcon className="h-3.5 w-3.5" />} />
                 <KpiCard label={t("target_remaining")} value={formatCurrency(myMetrics.remaining, lang)} />
               </div>
