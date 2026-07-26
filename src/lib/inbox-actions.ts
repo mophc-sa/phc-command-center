@@ -22,10 +22,27 @@ type Uuid = string;
 export type InboxSourceType = Database["public"]["Enums"]["inbox_source_type"];
 export type InboxClassification = Database["public"]["Enums"]["inbox_classification"];
 export type InboxStatus = Database["public"]["Enums"]["inbox_status"];
+export type InboxClientType = Database["public"]["Enums"]["inbox_client_type"];
+export type InboxProjectType = Database["public"]["Enums"]["inbox_project_type"];
+export type InboxRfqFrom = Database["public"]["Enums"]["inbox_rfq_from"];
+export type InboxScope = Database["public"]["Enums"]["inbox_scope"];
+export type InboxLocation = Database["public"]["Enums"]["inbox_location"];
 
 export const INBOX_SOURCE_TYPES: InboxSourceType[] = [
   "manual_lead", "manual_tender", "manual_rfq", "old_data_candidate",
   "referral", "market_signal", "email_placeholder", "whatsapp_placeholder",
+];
+
+export const INBOX_CLIENT_TYPES: InboxClientType[] = ["main_client", "contractor_jih", "contractor_tender", "consultant"];
+export const INBOX_PROJECT_TYPES: InboxProjectType[] = ["jih", "tender"];
+export const INBOX_RFQ_FROM: InboxRfqFrom[] = ["owner_developer", "main_contractor", "consultant"];
+export const INBOX_SCOPES: InboxScope[] = [
+  "supply_and_installation", "supply_only_signage", "supply_installation_others",
+  "supply_only_others", "mockup_sample_request", "installation_only",
+];
+export const INBOX_LOCATIONS: InboxLocation[] = [
+  "riyadh", "jeddah", "makkah", "madinah", "dammam", "al_khobar", "dhahran",
+  "jubail", "taif", "tabuk", "abha", "yanbu", "jazan", "buraydah", "hail",
 ];
 
 export const INBOX_CLASSIFICATIONS: InboxClassification[] = [
@@ -52,12 +69,19 @@ export type InboxItemInput = {
   contactName?: string;
   phone?: string;
   email?: string;
+  clientType?: InboxClientType;
+  projectType?: InboxProjectType;
   projectName?: string;
+  projectNumber?: string;
+  rfqFrom?: InboxRfqFrom;
+  dateReceived?: string;
   clientOwner?: string;
   mainContractor?: string;
   consultant?: string;
   scope?: string;
   location?: string;
+  scopeType?: InboxScope;
+  locationCity?: InboxLocation;
   estimatedValue?: number | null;
   deadline?: string | null;
   notes?: string;
@@ -78,12 +102,19 @@ export async function createInboxItem(input: InboxItemInput) {
       contact_name: input.contactName ?? null,
       phone: input.phone ?? null,
       email: input.email ?? null,
+      client_type: input.clientType ?? null,
+      project_type: input.projectType ?? null,
       project_name: input.projectName ?? null,
+      project_number: input.projectNumber ?? null,
+      rfq_from: input.rfqFrom ?? null,
+      date_received: input.dateReceived ?? undefined,
       client_owner: input.clientOwner ?? null,
       main_contractor: input.mainContractor ?? null,
       consultant: input.consultant ?? null,
       scope: input.scope ?? null,
       location: input.location ?? null,
+      scope_type: input.scopeType ?? null,
+      location_city: input.locationCity ?? null,
       estimated_value: input.estimatedValue ?? null,
       deadline: input.deadline ?? null,
       notes: input.notes ?? null,
