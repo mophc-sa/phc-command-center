@@ -176,10 +176,12 @@ test("index.ts's only RPC call is the request-claim function — no other server
 });
 
 test("the migration's authenticated grants exclude INSERT/UPDATE/DELETE on both AI tables", () => {
-  const migrationsDir = join(repoRoot, "supabase/migrations");
-  const migrationFile = readdirSync(migrationsDir).find((f) => f.includes("ai_orchestrator"));
-  expect(migrationFile).toBeDefined();
-  const sql = readFileSync(join(migrationsDir, migrationFile!), "utf8");
+  // Hardcoded rather than readdirSync().find("ai_orchestrator") — that
+  // substring also matches the later privilege_hardening and
+  // idempotency_fingerprint migrations, and directory listing order is not
+  // guaranteed, so .find() could silently pick the wrong file.
+  const migrationPath = join(repoRoot, "supabase/migrations/20260711180000_ai_orchestrator.sql");
+  const sql = readFileSync(migrationPath, "utf8");
   expect(sql).toMatch(/GRANT SELECT ON public\.ai_agent_trace_events TO authenticated/);
   expect(sql).toMatch(/GRANT SELECT ON public\.ai_agent_outputs TO authenticated/);
   expect(sql).not.toMatch(/GRANT (INSERT|UPDATE|DELETE|ALL) ON public\.ai_agent_(trace_events|outputs) TO authenticated/);

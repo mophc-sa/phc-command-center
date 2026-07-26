@@ -3,17 +3,26 @@
 > **أهم ملف بعد CLAUDE.md.** يُحدَّث في نهاية كل جلسة. اقرأه أولًا عند بداية أي جلسة/حساب جديد.
 
 ## Date
-2026-07-23  *(محدَّثة — D1 حتى D6 نُفِّذت، رُوجعت مرتين، دُمجت كل الـ 6 PRs (#116-#121)، ثم **نُشرت migration D5 وEdge Functions المتأثرة فعليًا إلى الإنتاج**)*
+2026-07-26  *(محدَّثة — فحص شامل للنظام + معالجة كل الفجوات المفتوحة القابلة للتنفيذ الفوري)*
 
 ## Current Branch
-`main` — **كل الـ 6 PRs دُمجت، والنشر إلى الإنتاج مكتمل** (كود + قاعدة بيانات). الـ worktrees الستة لا تزال موجودة محليًا لكن فروعها البعيدة دُمجت بالفعل (لم تُحذف من remote، حسب عرف المستودع).
+`main` — التزامات مباشرة (لا PR بعد، انظر "Files Modified" أدناه لما هو غير مُدفوع). worktree `d1-normalize-company-name` أُزيل نهائيًا (كان مدموجًا بالكامل، بلا عمل فريد).
 
 ## Last Commit
 `471f488` — fix(dashboard): unify KPI computation across dashboards (Pathfinder D6) (#121) · مدمج على main
 (ترتيب الدمج الفعلي: #116→#117→#118→#119→#120→#121، كل واحد بعد `update-branch` ضد main المحدَّث وتحقّق CI أخضر قبل الدمج؛ لا تعارضات ولو أن #119 وَ#120 يعدّلان نفس الملف import-pipeline/index.ts. ثم PR #122 لتحديث هذا الملف نفسه.)
 
 ## Current Goal
-**لا يوجد — دورة Pathfinder D1-D6 مكتملة بالكامل: منفَّذة، مراجَعة، مدموجة، ومنشورة على الإنتاج.** المتبقي: فحوصات دخانية وظيفية (smoke tests) + UAT (انظر "تقرير النشر" أدناه) — **قرار 2026-07-23 (`docs/DECISIONS.md`): غير عاجلة، مؤجَّلة عمدًا لوقت لاحق مناسب**، وليست حاجزًا أمام أي عمل آخر. لا تُعامَل كبند حرج معلّق في الجلسات القادمة.
+**لا يوجد هدف Sprint محدَّد بعد** — ابدأ الجلسة القادمة بتحديد هدف واحد في `tasks/current.md`. المتبقي من دورة Pathfinder: فحوصات دخانية وظيفية (smoke tests) + UAT (انظر "تقرير النشر" أدناه) — **قرار 2026-07-23 (`docs/DECISIONS.md`): غير عاجلة، مؤجَّلة عمدًا لوقت لاحق مناسب**، وليست حاجزًا أمام أي عمل آخر. لا تُعامَل كبند حرج معلّق في الجلسات القادمة.
+
+## Completed (2026-07-26) — فحص شامل للنظام + معالجة الفجوات المفتوحة
+طُلب فحص شامل ("ما ينقص النظام؟")، ثم معالجة كل ما ظهر بالترتيب حسب الأهمية. القرارات الحقيقية (D1/D2 أدناه، ملفات Docker، دمج dependabot) طُلبت من المستخدم صراحة عبر أسئلة موجَّهة قبل التنفيذ — لم تُفترَض.
+- **بق مُصلَح:** 4 ملفات contract test فاشلة (`ai-orchestrator.contract.test.ts`, `ai-orchestrator-hardening.contract.test.ts`, وملفان آخران متأثران بنفس الجذر) — السبب: `readdirSync(migrationsDir).find(f => f.includes("ai_orchestrator"))` يطابق 3 ملفات migration مختلفة، وترتيب `readdirSync` غير مضمون فيختار الملف الخطأ. أُصلح باستبدال المسار الصريح الكامل (نفس نمط `ai-orchestrator-idempotency-fingerprint.contract.test.ts` الصحيح أصلًا). `bun test src`: 438/438 ناجحة. `bun run verify`: نظيف بالكامل.
+- **D1 (قرار مستخدم):** توسيع مطابقة التكرار العربية في `import-dedup.ts::compareSignals()` لتقارن `main_contractor` أيضًا (كانت معرَّفة في `DedupSignals` وممرَّرة من `import-pipeline/index.ts` لكن غير مقارَنة أبدًا — فجوة صامتة). اختبار جديد مضاف. التفاصيل والسبب في `docs/DECISIONS.md` (2026-07-26).
+- **D2 (قرار مستخدم):** `leads.source = 'import'` قيمة رسمية الآن، وترك `owner_id` فارغًا عند إنشاء leads من الخادم مقصود — موثَّق في تعليقات `_shared/leads.ts` وmigration جديدة توثيقية بحتة (`20260726100000_document_leads_source_owner_id.sql`، `COMMENT ON COLUMN` فقط) **لم تُنشَر بعد** (بانتظار بوابة الموافقة المعتادة — لا تنشرها بدون موافقة صريحة منفصلة).
+- **تنظيف:** حُذفت `.handoff/rbac-hardening-sprint8-*` (قديمة، مؤكَّدة غير منطبقة سابقًا). أُزيل worktree `d1-normalize-company-name` المحلي بعد تأكيد أنه مدموج بالكامل وملفاته غير المتتبَّعة مطابقة حرفيًا لنسخة main. صُحِّحت ملاحظة قديمة خاطئة في `docs/ROADMAP.md` (ملفات Docker كانت مُلتزَمة بالفعل منذ PR #113، وليست فجوة).
+- **Dependabot:** دُمجت 3 PRs آمنة (#72 upload-artifact، #73 gitleaks-action، #74 checkout) بعد `gh pr update-branch` + CI أخضر بالكامل. PR #75/#76 (dependency bumps) **لم تُدمَجا** — `bun install --frozen-lockfile` يفشل عليهما (lockfile الذي أنشأه dependabot لا يطابق ما يحسبه bun)، ولا تُصلحان الاكتشاف التالي أصلًا.
+- **⚠️ اكتشاف جديد أثناء الفحص (غير مُصلَح — أولوية عالية):** `bun audit` يطبع gzip خامًا غير مقروء بدل تقرير (bug في bun 1.3.14 نفسه، محليًا وفي CI)، مما أخفى ثغرتين **high** حقيقيتين موجودتين على main حاليًا: `brace-expansion` (عبر eslint) وpostcss (عبر vite) — كلاهما devDependency انتقالية لا تُشحَن للإنتاج، لكن فحص "Dependency audit" في CI أحمر على main نفسه بسببهما الآن. تفاصيل كاملة + خطة إصلاح مقترحة في `docs/KNOWN_ISSUES.md`.
 
 ## 🚀 تقرير النشر إلى الإنتاج — 2026-07-23 ~13:35 UTC
 نُفِّذ بعد موافقة صريحة من المستخدم وتحقّق نظيف من الـ migration preflight (GitHub Actions run [30011068082](https://github.com/mophc-sa/phc-command-center/actions/runs/30011068082) — ناجح، migration واحدة معلّقة فقط، لا أخطاء schema).
@@ -66,34 +75,31 @@
 - **Pathfinder** (مسح معماري كامل، 2026-07-22): كل البنود الستة (D1–D6) الآن مُنفَّذة عبر PRs مفتوحة، ومراجَعة مستقلة مرتين. التفاصيل الأصلية في `PATHFINDER-2026-07-22/`.
 
 ## In Progress
-- ~~RBAC Hardening (Sprint 8) patch~~ — تحقّقنا: قديم ولا ينطبق، مُنجز أصلًا عبر مسار آخر. يمكن حذف `.handoff/rbac-hardening-sprint8-*` بأمان.
-- ~~PR #116-#121 بانتظار دمج~~ — **دُمجت جميعها** (2026-07-23، الساعة ~12:49–13:05 UTC) بالترتيب المطلوب: #116→#117→#118→#119→#120→#121.
-- ~~D5 migration لم تُنشر بعد~~ — **نُشرت** (2026-07-23 ~13:35 UTC). التفاصيل الكاملة في "تقرير النشر" أعلاه.
+- ⚠️ التزامات اليوم (2026-07-26) لا تزال محلية على `main` — لم تُدفَع بعد. راجع "Files Modified" أدناه، ثم افتح PR (لا تدفع مباشرة لـ main) قبل أي شيء آخر.
 - متبقٍ (غير عاجل — قرار 2026-07-23): فحوصات وظيفية + UAT على الإنتاج (قسمان 3 و6 من قائمة التحقق) — لم تُنفَّذ عمدًا لأنها تكتب بيانات إلى CRM حي، والمستخدم قرّر تأجيلها لوقت مناسب لاحقًا (انظر `docs/DECISIONS.md`). القائمة في Obsidian: `1. PROJECTS/PHC/PHC Command Center — Post-Deploy Checklist (Jul 23 2026).md`.
-- الـ worktrees الستة المحلية (`d1`-`d6`) — 5 منها (`d2`-`d6`) أُزيلت بالفعل بعد تأكيد المستخدم؛ `d1` باقٍ فقط لأنه المجلد الذي تعمل فيه هذه الجلسة نفسها (يحتاج إزالة يدوية بعد انتهاء الجلسة).
 - ⚠️ push إلى GitHub يحتاج حساب `gh` النشط = `mophc-sa` (وليس `moalagab`) — تم التبديل عبر `gh auth switch --user mophc-sa`، يبقى نشطًا ما لم يُبدَّل.
 - ✅ (مُصلَح) Chrome browser extension كان يبدو غير متصل داخل جلسات background job — التشخيص الأول كان خاطئًا (اعتُقد أنه قيد جسر لا يمكن تجاوزه). الإصلاح الفعلي: نداء `list_connected_browsers` ثم `select_browser(deviceId)` صراحةً قبل أي استخدام آخر — يعمل فورًا بعده. استُخدم بنجاح في فحوصات D3 وD6 اليدوية.
 
 ## Next Task
-- **دورة Pathfinder (D1-D6) مكتملة بالكامل: منفَّذة، مراجَعة، مدموجة، ومنشورة.** لا عمل هندسي متبقٍ من نطاقها، ولا بند حرج معلّق.
+- افتح PR لالتزامات 2026-07-26 (D1 dedup fix، D2 migration، ai-orchestrator test fix، تنظيف)، ثم راجعه وادمجه.
+- **(أولوية عالية)** إصلاح ثغرتي `brace-expansion`/`postcss` الحقيقيتين المخفيتين وراء bug `bun audit` — انظر `docs/KNOWN_ISSUES.md` و`tasks/backlog.md`.
+- نشر migration `20260726100000_document_leads_source_owner_id.sql` بعد موافقة (توثيقية بحتة، بلا مخاطرة سكيما).
 - بند غير عاجل في الخلفية: الفحوصات الوظيفية + UAT على الإنتاج (يدويًا، بموافقة صريحة إضافية لكتابة بيانات اختبار في CRM حي) — راجع قسمَي 3 و6 في قائمة التحقق المحفوظة بـ Obsidian، متى ما ناسب الوقت.
-- 🩹 bug غير متعلق (اكتُشف أثناء D1): `src/lib/ai-orchestrator*.contract.test.ts` يفشل (7 اختبارات) بسبب `readdirSync().find()` يختار ملف migration خاطئ عند تعدد التطابقات. يستحق issue/فرع منفصل — لم يُلمَس ضمن نطاق Pathfinder.
 - طبيعي: اختر بند جديد من `tasks/backlog.md` وانقله إلى `tasks/current.md` عند بدء الجلسة القادمة.
 
-## Files Modified (شجرة العمل الآن — غير متتبَّعة)
+## Files Modified (شجرة العمل الآن)
+- ملتزَمة على main محليًا (2026-07-26، غير مدفوعة بعد): D1 dedup fix (`import-dedup.ts`+test)، D2 migration + `leads.ts` comments، إصلاح 4 ملفات ai-orchestrator contract test، حذف `.handoff/rbac-hardening-sprint8-*`، تصحيح `docs/ROADMAP.md`، تحديثات `docs/DECISIONS.md`/`docs/KNOWN_ISSUES.md`/`tasks/backlog.md`/هذا الملف.
 - `.claude/` (untracked)
 - `PATHFINDER-2026-07-22/` (untracked — نتائج المسح المعماري)
 - `docs/superpowers/plans/2026-07-22-company-name-normalization-unification.md`، `2026-07-22-scan-pipeline-relocation.md`، `2026-07-23-remove-team-page.md`، `2026-07-23-shared-lead-insert-helper.md`، `2026-07-23-import-batch-delete-unification.md`، `2026-07-23-dashboard-kpi-consistency.md` (untracked)
 
 ## Pending Decisions
-- هل تُحذف ملفات `.handoff/rbac-hardening-sprint8-*` بما أنها باتت قديمة؟
-- هل يُفتح issue منفصل لـ bug اختبارات ai-orchestrator (مذكور أعلاه)؟
-- D1: هل توسّع مطابقة الأسماء العربية لتشمل project_name/contractor_name مقصودة أم فقط اسم الشركة؟ (ملاحظة من مراجعة PR #116)
-- D2: قيمة `source: "import"` خارج المفردات الموثّقة لعمود leads.source، وserver-created leads لا تضع owner_id — كلاهما يحتاج تأكيد منتج (ملاحظات من مراجعة PR #119، لم تُغيَّر بدون تأكيد)
+- لا يوجد حاليًا — D1/D2/Docker/rbac-hardening كلها قُرِّرت ونُفِّذت 2026-07-26 (انظر `docs/DECISIONS.md`).
 
 ## Risks
 - بيانات CRM حية: أي التزام/نشر يمرّ ببوابة موافقة (انظر deployment-governance.md).
 - المشروع مربوط بـ Lovable — لا تُعِد كتابة تاريخ Git المدفوع (force-push/rebase/amend).
+- فحص "Dependency audit" في CI أحمر على main حاليًا (انظر `docs/KNOWN_ISSUES.md`) — لا تفترض أنه أخضر عند فتح PR جديد.
 
 ## Commands
 ```bash

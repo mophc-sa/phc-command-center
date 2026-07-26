@@ -8,7 +8,6 @@
 
 ## Current / Next
 - [[حدّد هدف الـ Sprint الحالي هنا]]
-- تثبيت مسار الحاويات (Docker) — ملفات `Dockerfile` / `docker-compose.yml` غير متتبَّعة في Git بعد (انظر AI_HANDOFF).
 
 ## Future
 - [[بنود مستقبلية غير مجدولة]]

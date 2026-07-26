@@ -13,6 +13,22 @@
 
 ---
 
+## 2026-07-26 — إصلاحات متابعة بعد فحص شامل للنظام
+### Added
+- كشف تكرار في `import-pipeline` (`compareSignals()`) يقارن الآن `main_contractor` أيضًا (بجانب company_name وproject_name)، مستخدمًا نفس `normalizeCompanyName()` الموحَّدة — كانت `DedupSignals.main_contractor` معرَّفة وممرَّرة لكن غير مقارَنة فعليًا (فجوة صامتة من D1). قرار موثَّق في `docs/DECISIONS.md`.
+- Migration توثيقية بحتة (`20260726100000_document_leads_source_owner_id.sql`، `COMMENT ON COLUMN` فقط) تُثبِّت `leads.source = 'import'` كقيمة رسمية وتوثِّق أن ترك `owner_id` فارغًا عند إنشاء leads من الخادم مقصود — لم تُنشَر بعد (بانتظار بوابة الموافقة المعتادة).
+### Fixed
+- 4 ملفات contract test فاشلة لـ `ai-orchestrator`/`service-key-resolver` بسبب `readdirSync(migrationsDir).find(f => f.includes("ai_orchestrator"))` يختار ملف migration خاطئ (ترتيب القراءة غير مضمون عبر 3 ملفات تطابق نفس الاستبدال الجزئي) — استُبدل بمسار صريح لكل ملف، مطابقًا للنمط المستخدم أصلًا في اختبار idempotency-fingerprint.
+### Changed
+- دُمجت 3 PRs من dependabot (`actions/upload-artifact` #72، `gitleaks-action` #73، `actions/checkout` #74) بعد تحقّق CI أخضر.
+- حُذفت ملفات `.handoff/rbac-hardening-sprint8-*` (قديمة، منجزة عبر مسار آخر) وworktree `d1-normalize-company-name` المحلي (مدموج بالكامل، لا عمل فريد فيه).
+- صُحِّحت ملاحظة قديمة/غير دقيقة في `docs/ROADMAP.md` تدّعي أن ملفات Docker غير متتبَّعة — كانت مُلتزَمة بالفعل منذ PR #113.
+### Discovered (غير مُصلَح بعد — انظر `docs/KNOWN_ISSUES.md`)
+- `bun audit` (v1.3.14) يطبع gzip خامًا غير مقروء بدل تقرير، مما أخفى ثغرتين **high** حقيقيتين على main: `brace-expansion` (عبر eslint) وpostcss (عبر vite) — كلاهما devDependency انتقالية غير مشحونة للإنتاج. فحص "Dependency audit" في CI أحمر على main حاليًا لهذا السبب.
+- PRs dependabot #75/#76 (dependency bumps) معطوبتان بشكل منفصل (`bun install --frozen-lockfile` يفشل) ولا تُصلحان الثغرتين أعلاه إطلاقًا — لم تُدمَجا.
+
+---
+
 ## 2026-07-23 — Pathfinder D1–D6: توحيد التكرار المعماري (6 PRs مدموجة)
 مسح معماري كامل (Pathfinder، 2026-07-22) كشف 6 حالات تكرار/مخاطر عبر الكود، نُفِّذت كل واحدة في worktree منفصل، رُوجعت مرتين (بناء + مراجعة fresh-eyes مستقلة بعد فتح الـ PR)، ودُمجت جميعها إلى main بالترتيب #116→#117→#118→#119→#120→#121.
 ### Added

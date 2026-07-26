@@ -45,6 +45,16 @@ test("fuzzy name similarity flags likely duplicates for review", () => {
   expect(similarity("al rajhi", "al rajih")).toBeGreaterThan(0.7);
 });
 
+test("main_contractor match is detected (D1 expansion: company + project + contractor)", () => {
+  const hit = compareSignals(
+    { company_name: "Alpha", main_contractor: "شركة الراجحي للمقاولات" },
+    { company_name: "Beta", main_contractor: "الراجحي للمقاولات" }, // same contractor, "شركة" stopword dropped
+  );
+  expect(hit?.reason_code).toBe("same_main_contractor");
+  expect(hit?.matched_fields).toEqual(["main_contractor"]);
+  expect(hit?.suggested_action).toBe("needs_manual_review");
+});
+
 test("distinct records produce no hit", () => {
   expect(compareSignals({ company_name: "Alpha", cr_number: "1" }, { company_name: "Beta", cr_number: "2" })).toBeNull();
 });
