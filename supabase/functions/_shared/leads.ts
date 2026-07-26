@@ -76,15 +76,20 @@ export async function insertLeadServerSide(
       created_by: actorId,
       // source is the one field that's "as-is if provided, else caller's
       // default" rather than always-forced — an explicit mapped source wins,
-      // otherwise fall back to the caller's literal ("import" / "protenders",
-      // matching this table's pre-existing documented source vocabulary:
-      // supabase/migrations/20260707100030_leads.sql:24).
+      // otherwise fall back to the caller's literal ("import" / "protenders").
+      // Confirmed vocabulary (docs/DECISIONS.md, 2026-07-26): 'import' is an
+      // official value alongside the original protenders | external | manual
+      // set from supabase/migrations/20260707100030_leads.sql — see the
+      // column comment added in 20260726100000_document_leads_source_owner_id.sql.
       source: (payload as Record<string, unknown>).source ?? source,
     })
     .select()
     .single();
   if (error) throw error;
 
+  // owner_id is intentionally left unset here (docs/DECISIONS.md, 2026-07-26):
+  // server-created leads have no default owner — a human claims/assigns the
+  // lead later. Do not add an owner_id default to this insert.
   await audit(svc, actorId, "lead.created", "lead", data.id, data, roles);
 
   return data as Lead;

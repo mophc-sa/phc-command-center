@@ -112,6 +112,10 @@ export function compareSignals(a: DedupSignals, b: DedupSignals): DuplicateHit |
   if (pA && pA === pB) {
     return { match_type: "name", matched_fields: ["project_name"], confidence: 0.7, reason_code: "same_project_name", suggested_action: "needs_manual_review" };
   }
+  const mcA = normalizeCompanyName(a.main_contractor), mcB = normalizeCompanyName(b.main_contractor);
+  if (mcA && mcA === mcB) {
+    return { match_type: "name", matched_fields: ["main_contractor"], confidence: 0.65, reason_code: "same_main_contractor", suggested_action: "needs_manual_review" };
+  }
   return null;
 }
 

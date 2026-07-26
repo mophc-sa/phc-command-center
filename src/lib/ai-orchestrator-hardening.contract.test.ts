@@ -10,16 +10,18 @@
 // wire up what Fix 1/2/3/4/5 require," which a live DB can't tell you if the
 // SQL itself is wrong. Run with `bun test src`.
 import { test, expect } from "bun:test";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "../..");
-const migrationsDir = join(repoRoot, "supabase/migrations");
-const migrationFile = readdirSync(migrationsDir).find((f) => f.includes("ai_orchestrator"));
-if (!migrationFile) throw new Error("ai_orchestrator migration not found");
-const migrationSql = readFileSync(join(migrationsDir, migrationFile), "utf8");
+// Hardcoded rather than readdirSync().find("ai_orchestrator") — that substring
+// also matches the later privilege_hardening and idempotency_fingerprint
+// migrations, and directory listing order is not guaranteed, so .find() could
+// silently pick the wrong file.
+const migrationPath = join(repoRoot, "supabase/migrations/20260711180000_ai_orchestrator.sql");
+const migrationSql = readFileSync(migrationPath, "utf8");
 const orchestratorIndex = readFileSync(join(repoRoot, "supabase/functions/ai-orchestrator/index.ts"), "utf8");
 const registrySource = readFileSync(join(repoRoot, "supabase/functions/_shared/ai-agent-registry.ts"), "utf8");
 const guardrailsSource = readFileSync(join(repoRoot, "supabase/functions/_shared/ai-guardrails.ts"), "utf8");
