@@ -3,16 +3,25 @@
 > **أهم ملف بعد CLAUDE.md.** يُحدَّث في نهاية كل جلسة. اقرأه أولًا عند بداية أي جلسة/حساب جديد.
 
 ## Date
-2026-07-26  *(محدَّثة — Phase 1 من طلب تعديلات UX شامل من العميل: مُصمَّمة ومنفَّذة بالكامل، جاهزة لفتح PR)*
+2026-07-26  *(محدَّثة — كل الـ 5 مراحل من طلب تعديلات النظام الشامل من العميل مُصمَّمة، منفَّذة، ومدموجة على main)*
 
 ## Current Branch
-`fix/phase1-quick-ux-fixes` — 9 commits تنفيذية + commit إصلاح جانبي (vendors) + spec/plan، فوق `main`. لم تُدفَع بعد. `main` نفسه محلي متزامن مع origin (PR #125 وPR #126 مدموجان — انظر الدفعة السابقة أدناه).
+`main` — كل شيء مدموج. لا فرع عمل نشط حاليًا.
 
 ## Last Commit
-`a309579` — feat(nav): remove sidebar Recent section — على فرع `fix/phase1-quick-ux-fixes`.
+`e6905a9` — feat(phase5): surface per-contractor package/BOQ status on the project detail page (#131) — مدمج على main.
 
 ## Current Goal
-**Phase 1 (إصلاحات UX سريعة ومنخفضة المخاطر) اكتملت تنفيذًا — التالي: فتح PR ثم مراجعتها ودمجها.** هذه أول مرحلة من 5 مراحل قُرِّر تقسيم طلب العميل الشامل إليها بعد brainstorming (انظر `docs/superpowers/specs/2026-07-26-phase1-quick-fixes-design.md`). المراحل المتبقية (غير مبدوءة): Phase 2 (دمج 5 نماذج Intake/RFQ/Quotation/BOQ/Discovery في نموذج واحد + إلغاء صفحتي RFQ & JIH Board وBOQ Center، الإبقاء على Quotations فقط)، Phase 3 (لوحات Sales/Management منفصلة، تستخدم بنية `sales_targets` الموجودة أصلًا)، Phase 4 (ميزة جديدة بالكامل: Evidence checklist + Technical Notes على صفحة الفرصة)، Phase 5 (نقاش تصميم مفتوح: مراقبة BOQ/tender متغيّر حسب كل مقاول/مرحلة).
+**لا يوجد — دورة الـ 5 مراحل (Phase 1-5) من طلب العميل الشامل مكتملة بالكامل: مصمَّمة، منفَّذة، مراجَعة، مدموجة.** ابدأ الجلسة القادمة بتحديد هدف جديد في `tasks/current.md`. ملخص المراحل الخمس (كل التفاصيل في `docs/CHANGELOG.md` وPRs #127-#131):
+- **Phase 1** (PR #127): إصلاحات UX سريعة — حقول Intake جديدة، `contacts.confidence_level`، creatable-select، رسائل توضيحية، حذف Recent من الشريط الجانبي.
+- **Phase 2** (PR #128): حوار "New Entry" موحَّد (5 نماذج → واحد بمصنِّف نوع) + إلغاء صفحتي RFQ & JIH Board وBOQ Center (أصبحتا تبويبين داخل Quotations، والروابط القديمة redirect لا حذف).
+- **Phase 3** (PR #129): مندوبو المبيعات يهبطون على `/my-workspace` (لوحتهم الشخصية، كانت موجودة أصلًا) بدل `/command-center`؛ بطاقة "Team Target" مجمَّعة جديدة للإدارة.
+- **Phase 4** (PR #130): ميزة جديدة بالكامل — جدول `opportunity_milestones` (7 عناصر ثابتة) + `opportunities.technical_notes`، بلوحتين جديدتين في صفحة الفرصة.
+- **Phase 5** (PR #131): اكتُشف أن نموذج البيانات يدعم أصلًا عدّة مقاولين/فرص على نفس المشروع (`opportunities.project_id` + `main_contractor_id` منفصلان) — أُضيف عرض اسم المقاول + حالة الباكج + حالة BOQ لكل فرصة مرتبطة في صفحة تفاصيل المشروع.
+
+**تنفيذ بلا subagents:** الـ subagent الأول في Phase 1 توقف بسبب "monthly spend limit" — المستخدم طلب إكمال كل شيء (Phase 1 تكملةً، ثم Phase 2-5 بالكامل) تنفيذًا مباشرًا بدون subagents وبدون توقف للمراجعة بين الخطوات ("لا ترجع لي في كل مرة... نفذ الان"). كل مرحلة: commit على فرع منفصل → push → PR → انتظار CI → مراجعة ذاتية للـ diff الكامل → دمج → المرحلة التالية.
+
+**فحوصات وظيفية/QA تفاعلي:** مؤجَّلة لكل المراحل الخمس — لا توجد أداة متصفح في هذه الجلسة. Migrations الجديدة (Phase 4) لم تُنشَر للإنتاج بعد (بانتظار البوابة المعتادة).
 
 ## Completed (2026-07-26) — Phase 1: إصلاحات UX سريعة (spec → plan → تنفيذ)
 طُلبت تعديلات شاملة من العميل (لقطات شاشة معلَّقة + نص عربي)، عولجت عبر `superpowers:brainstorming` (اكتشفت تناقضًا بين النص واللقطات حُلّ بسؤال المستخدم، واكتُشف أن نظامي Intake منفصلين — `lead-tender-inbox`/`discovery` — موجودان أصلًا) ثم `superpowers:writing-plans` (خطة من 10 مهام). التنفيذ بدأ بـ subagent-driven-development لكن **الـ subagent الأول توقف بسبب "monthly spend limit"** — المستخدم اختار إكمال التنفيذ مباشرة (بدون subagents) لبقية المهام.
@@ -81,26 +90,27 @@
 - **Pathfinder** (مسح معماري كامل، 2026-07-22): كل البنود الستة (D1–D6) الآن مُنفَّذة عبر PRs مفتوحة، ومراجَعة مستقلة مرتين. التفاصيل الأصلية في `PATHFINDER-2026-07-22/`.
 
 ## In Progress
-- ⚠️ فرع `fix/phase1-quick-ux-fixes` (9 مهام + إصلاح vendors + spec/plan) لم يُدفَع بعد ولم يُفتح له PR — افعل ذلك أولًا في الجلسة القادمة.
-- Phase 2-5 (دمج النماذج، لوحات الأدوار، Evidence checklist، مراقبة BOQ المتغيّر) لم تبدأ بعد — تحتاج برينستورمنغ منفصلة لكل واحدة عند البدء.
 - ⚠️ push إلى GitHub يحتاج حساب `gh` النشط = `mophc-sa` (وليس `moalagab`) — تم التبديل عبر `gh auth switch --user mophc-sa`، يبقى نشطًا ما لم يُبدَّل.
 - متبقٍ (غير عاجل — قرار 2026-07-23): فحوصات وظيفية + UAT على الإنتاج — انظر `docs/DECISIONS.md`.
 - **(أولوية عالية، لم تُصلَح بعد)** ثغرة `brace-expansion` الحقيقية المخفية وراء bug `bun audit` (تحتاج ترقية eslint 10.x major — انظر `docs/KNOWN_ISSUES.md`). postcss نفس المشكلة أُصلحت (PR #126).
+- فحوصات وظيفية/QA تفاعلي يدوي لكل من Phase 1-5 (لا توجد أداة متصفح في الجلسات الأخيرة) — يستحق جلسة QA مخصَّصة قبل أي إعلان "جاهز للإنتاج" كامل.
 
 ## Next Task
-- ادفع فرع `fix/phase1-quick-ux-fixes` وافتح PR له، ثم راجعه وادمجه (بعد تأكد CI أخضر).
-- نشر migration `20260726100000_document_leads_source_owner_id.sql` بعد موافقة (توثيقية بحتة، بلا مخاطرة سكيما) — لا تزال معلَّقة من الجلسة السابقة.
-- بعد دمج Phase 1: ابدأ Phase 2 (دمج 5 نماذج/إلغاء صفحتين) عبر `superpowers:brainstorming` من جديد — نطاق أكبر يستحق تصميمًا مستقلاً.
+- نشر migration `20260726100000_document_leads_source_owner_id.sql` (D2، من جلسة سابقة) بعد موافقة — توثيقية بحتة.
+- نشر migration `20260726130000_opportunity_milestone_checklist.sql` (Phase 4) بعد موافقة — تغيير سكيما فعلي هذه المرة (جدول جديد + عمود جديد)، وليس توثيقيًا فقط.
+- QA تفاعلي يدوي شامل لكل الميزات الجديدة (Phase 1-5) قبل الاعتماد النهائي عليها في الإنتاج.
 - **(أولوية عالية)** إصلاح ثغرة `brace-expansion` (يحتاج ترقية eslint 10.x — مهمة مخطَّطة منفصلة، راجع `docs/KNOWN_ISSUES.md`).
+- طبيعي: اختر بند جديد من `tasks/backlog.md` وانقله إلى `tasks/current.md` عند بدء الجلسة القادمة.
 
 ## Files Modified (شجرة العمل الآن)
-- فرع `fix/phase1-quick-ux-fixes` (فوق main، غير مدفوع): `docs/superpowers/specs/2026-07-26-phase1-quick-fixes-design.md`، `docs/superpowers/plans/2026-07-26-phase1-quick-ux-fixes.md`، migrations جديدتان (`20260726110000_inbox_items_intake_fields.sql`، `20260726120000_contacts_confidence_level.sql`)، وكل تغييرات Phase 1 المذكورة أعلاه + إصلاح vendors.tsx/vendor-actions.ts.
+- لا شيء غير مدموج — كل فروع Phase 1-5 دُمجت ({fix/phase1-quick-ux-fixes, feat/phase2-unified-entry-point, feat/phase3-role-dashboards, feat/phase4-milestone-checklist, feat/phase5-multi-contractor-monitoring} حُذفت بعد الدمج).
 - `.claude/` (untracked)
 - `PATHFINDER-2026-07-22/` (untracked — نتائج المسح المعماري)
-- `docs/superpowers/plans/2026-07-22-company-name-normalization-unification.md`، `2026-07-22-scan-pipeline-relocation.md`، `2026-07-23-remove-team-page.md`، `2026-07-23-shared-lead-insert-helper.md`، `2026-07-23-import-batch-delete-unification.md`، `2026-07-23-dashboard-kpi-consistency.md` (untracked)
+- `docs/superpowers/plans/2026-07-22-company-name-normalization-unification.md`، `2026-07-22-scan-pipeline-relocation.md`، `2026-07-23-remove-team-page.md`، `2026-07-23-shared-lead-insert-helper.md`، `2026-07-23-import-batch-delete-unification.md`، `2026-07-23-dashboard-kpi-consistency.md` (untracked — من قبل جلسة Phase 1، لا تزال غير مُلتزَمة)
 
 ## Pending Decisions
-- لا يوجد حاليًا لـ Phase 1 — كل الغموض حُسم عبر أسئلة للمستخدم أثناء البرينستورمنغ (انظر spec). القرارات المعلَّقة من الجلسات السابقة (D1/D2/Docker/rbac-hardening) كلها محسومة.
+- لا يوجد حاليًا — كل غموض Phase 1-5 حُسم عبر أسئلة للمستخدم أثناء البرينستورمنغ (انظر spec) أو بقرار تنفيذ مباشر صريح من المستخدم. القرارات المعلَّقة من الجلسات السابقة (D1/D2/Docker/rbac-hardening) كلها محسومة.
+- بيانات: تعيين أهداف فعلية لـ Faisal وAbdelrahman (10M لكل منهم) في `sales_targets` — لم تُنفَّذ، تحتاج تأكيد هوية المستخدمين الفعليين أولًا (انظر `tasks/backlog.md`).
 
 ## Risks
 - بيانات CRM حية: أي التزام/نشر يمرّ ببوابة موافقة (انظر deployment-governance.md).
