@@ -1,0 +1,24 @@
+-- =========================================================
+-- Corrects a mistake in 20260727100000_ai_agent_runs_read_policy.sql.
+--
+-- That migration was written on the (incorrect) assumption that
+-- ai_agent_runs had no SELECT policy at all. In fact it already had one —
+-- created as `ai_agent_runs_readable` (USING (true)) by
+-- 20260708130050_ai_foundation.sql, then hardened to
+-- USING (is_active_user(auth.uid())) by 20260713100000_user_status_
+-- quarantine.sql's dynamic sweep of every USING (true) SELECT policy in
+-- the public schema. That hardening is exactly why real users initially
+-- appeared to get zero rows in some ad-hoc checks — but it was never the
+-- actual bug; the actual bug (fixed correctly) was the frontend/MCP tool
+-- querying the wrong table name (`agent_runs` instead of `ai_agent_runs`).
+--
+-- 20260727100000 added a second, more permissive policy
+-- ("AI agent runs readable", USING (true)) alongside the existing one.
+-- Postgres OR's multiple permissive policies together, so this
+-- accidentally let ANY authenticated user — including suspended/pending
+-- ones the is_active_user() check exists to block — read ai_agent_runs.
+-- This migration removes that redundant, overly-permissive policy, leaving
+-- only the original is_active_user()-gated one in place.
+-- =========================================================
+
+DROP POLICY IF EXISTS "AI agent runs readable" ON public.ai_agent_runs;
