@@ -3,7 +3,41 @@
 > **أهم ملف بعد CLAUDE.md.** يُحدَّث في نهاية كل جلسة. اقرأه أولًا عند بداية أي جلسة/حساب جديد.
 
 ## Date
-2026-07-26  *(محدَّثة — كل الـ 5 مراحل من طلب تعديلات النظام الشامل من العميل مُصمَّمة، منفَّذة، ومدموجة على main)*
+2026-07-26  *(محدَّثة — Phase 1-5 مدموجة **ومنشورة للإنتاج بالكامل**: الواجهة تلقائيًا عبر auto-deploy، و4 migrations بموافقة صريحة)*
+
+## 🚀 تقرير النشر إلى الإنتاج — 2026-07-26 ~20:15 UTC
+نُفِّذ بعد طلب صريح من المستخدم ("انشر و deploy جميع التغييرات اللي تمت").
+
+**اكتشاف مهم قبل البدء:** `deploy-cloudflare.yml` يحتوي `on: push: branches: [main]` — الواجهة الأمامية (Cloudflare Worker) **تُنشَر تلقائيًا عند كل merge إلى main**، وهذا لا يخالف `docs/deployment-governance.md` (الذي يمنع auto-deploy لـ migrations/Edge Functions/secrets فقط، وليس الواجهة). تأكَّد عبر `gh run list --workflow=deploy-cloudflare.yml`: كل الدمجات الستة اليوم (Phase 1-5 + تحديث التوثيق) نُشرت تلقائيًا بنجاح فور الدمج — **الواجهة كانت منشورة بالفعل قبل هذا الطلب**.
+
+**المتبقي فعليًا: 4 migrations معلَّقة** (migrations لا تُنشَر تلقائيًا حسب نفس الحوكمة). نُفِّذت بالترتيب الكامل من `docs/deployment-governance.md`:
+1. Migration preflight (GitHub Actions run [30218558200](https://github.com/mophc-sa/phc-command-center/actions/runs/30218558200)) — ناجح، 4 migrations معلّقة فقط، `db lint --linked` نظيف قبل التطبيق.
+2. `supabase db push --linked --dry-run` — تأكيد القائمة المتوقَّعة بالضبط (4 ملفات، لا شيء إضافي).
+3. `supabase db push --linked` — تطبيق فعلي، نجاح كامل.
+
+**Migrations المطبَّقة على `lrfdtoexyeghrzynapyn`:**
+| Migration | المحتوى | المخاطرة |
+|---|---|---|
+| `20260726100000_document_leads_source_owner_id.sql` | توثيقية بحتة (`COMMENT ON COLUMN`) | صفر |
+| `20260726110000_inbox_items_intake_fields.sql` | 5 أنواع ENUM + 7 أعمدة جديدة قابلة للـ NULL على `inbox_items` | إضافية بحتة |
+| `20260726120000_contacts_confidence_level.sql` | نوع ENUM جديد + عمود جديد + تعبئة تلقائية (backfill) من `confidence_score` | إضافية، `UPDATE` وحيد على عمود جديد فقط |
+| `20260726130000_opportunity_milestone_checklist.sql` | جدول جديد `opportunity_milestones` + عمود `opportunities.technical_notes` | إضافية بحتة |
+
+**تحقّق ما بعد التطبيق:**
+- `supabase migration list --linked`: تطابق Local/Remote كامل لكل الـ 78 migration.
+- `supabase db lint --linked --level warning`: نظيف، بلا أخطاء.
+- تحقّق مباشر (قراءة فقط) عبر `supabase db query --linked`: الجدول والأعمدة الجديدة موجودة فعليًا؛ توزيع `confidence_level` على جهات الاتصال الثلاثين الحالية = NULL بالكامل (متوقَّع ومنطقي — لا أحد منهم كان له `confidence_score` أصلًا).
+- فحص صحة الموقع المباشر: `https://agent.phc-sa.com/auth` → 307 (سليم)، `https://agent.phc-sa.com/` → 200 (سليم).
+- **لا Edge Functions تأثرت** — لا شيء في `supabase/functions/` تغيّر خلال Phase 1-5، فلا حاجة لإعادة نشرها.
+
+**مسار التراجع (Rollback):** لا يوجد down-migration جاهزة (سياسة هذا المستودع). التراجع اليدوي إن لزم:
+- `20260726100000`: `COMMENT ON COLUMN public.leads.source IS NULL; COMMENT ON COLUMN public.leads.owner_id IS NULL;` (استعادة الحالة السابقة، بلا مخاطرة).
+- `20260726110000`: `ALTER TABLE public.inbox_items DROP COLUMN client_type, DROP COLUMN project_type, ...` (كل الأعمدة السبعة) ثم `DROP TYPE` للأنواع الخمسة — آمن لأن لا كود حاليًا (بعد هذا النشر) يعتمد على غيابها إلا الواجهة الجديدة نفسها (ستفشل الكتابة لهذه الحقول فقط، لا كسر عام).
+- `20260726120000`: `ALTER TABLE public.contacts DROP COLUMN confidence_level;` ثم `DROP TYPE public.contact_confidence_level;` — `confidence_score` الأصلي لم يُمَس، صفر فقدان بيانات.
+- `20260726130000`: `DROP TABLE public.opportunity_milestones;` (يُسقط كل الـ CASCADE من `opportunities` تلقائيًا لأن العلاقة بالاتجاه الصحيح)، ثم `ALTER TABLE public.opportunities DROP COLUMN technical_notes;` ثم `DROP TYPE public.opportunity_milestone;`.
+- **لا تُنفَّذ أي من عمليات التراجع أعلاه إلا بموافقة صريحة منفصلة** — كلها آمنة نظريًا لكنها تدميرية (DROP)، ولا داعي لها ما لم يظهر عطل فعلي.
+
+---
 
 ## Current Branch
 `main` — كل شيء مدموج. لا فرع عمل نشط حاليًا.
@@ -93,13 +127,13 @@
 - ⚠️ push إلى GitHub يحتاج حساب `gh` النشط = `mophc-sa` (وليس `moalagab`) — تم التبديل عبر `gh auth switch --user mophc-sa`، يبقى نشطًا ما لم يُبدَّل.
 - متبقٍ (غير عاجل — قرار 2026-07-23): فحوصات وظيفية + UAT على الإنتاج — انظر `docs/DECISIONS.md`.
 - **(أولوية عالية، لم تُصلَح بعد)** ثغرة `brace-expansion` الحقيقية المخفية وراء bug `bun audit` (تحتاج ترقية eslint 10.x major — انظر `docs/KNOWN_ISSUES.md`). postcss نفس المشكلة أُصلحت (PR #126).
-- فحوصات وظيفية/QA تفاعلي يدوي لكل من Phase 1-5 (لا توجد أداة متصفح في الجلسات الأخيرة) — يستحق جلسة QA مخصَّصة قبل أي إعلان "جاهز للإنتاج" كامل.
+- ✅ (مكتمل 2026-07-26 ~20:15 UTC) الواجهة منشورة تلقائيًا (auto-deploy)، و4 migrations المعلَّقة (D2 + Phase 1×2 + Phase 4) طُبِّقت على الإنتاج بنجاح — انظر تقرير النشر أعلاه.
+- فحوصات وظيفية/QA تفاعلي يدوي لكل من Phase 1-5 (لا توجد أداة متصفح في الجلسات الأخيرة) — يستحق جلسة QA مخصَّصة قبل أي إعلان "جاهز للإنتاج" كامل بمعنى تفاعلي، رغم أن الكود والسكيما منشوران فعليًا الآن.
 
 ## Next Task
-- نشر migration `20260726100000_document_leads_source_owner_id.sql` (D2، من جلسة سابقة) بعد موافقة — توثيقية بحتة.
-- نشر migration `20260726130000_opportunity_milestone_checklist.sql` (Phase 4) بعد موافقة — تغيير سكيما فعلي هذه المرة (جدول جديد + عمود جديد)، وليس توثيقيًا فقط.
-- QA تفاعلي يدوي شامل لكل الميزات الجديدة (Phase 1-5) قبل الاعتماد النهائي عليها في الإنتاج.
+- QA تفاعلي يدوي شامل لكل الميزات الجديدة (Phase 1-5) على الإنتاج الحي — لم يُنفَّذ بعد رغم أن كل شيء منشور، لا توجد أداة متصفح متاحة حتى الآن.
 - **(أولوية عالية)** إصلاح ثغرة `brace-expansion` (يحتاج ترقية eslint 10.x — مهمة مخطَّطة منفصلة، راجع `docs/KNOWN_ISSUES.md`).
+- بيانات: تعيين أهداف فعلية لـ Faisal وAbdelrahman (10M لكل) في `sales_targets` — لم تُنفَّذ، تحتاج تأكيد هوية المستخدمين الفعليين أولًا.
 - طبيعي: اختر بند جديد من `tasks/backlog.md` وانقله إلى `tasks/current.md` عند بدء الجلسة القادمة.
 
 ## Files Modified (شجرة العمل الآن)
