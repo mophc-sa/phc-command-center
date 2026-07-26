@@ -17,7 +17,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { createRfq, convertRfqToJih } from "@/lib/rfq-actions";
-import { createProject } from "@/lib/crm-actions";
+import { createProject, createCompany } from "@/lib/crm-actions";
 import { INBOX_LOCATIONS } from "@/lib/inbox-actions";
 import {
   advanceSalesStage, nextSalesStages, SALES_STAGES, type SalesStage,
@@ -85,6 +85,7 @@ export function RfqJihPanel() {
   const [advance, setAdvance] = useState<{ opp: any; toStage: SalesStage } | null>(null);
   const [historyRfq, setHistoryRfq] = useState<{ id: string; label: string } | null>(null);
   const [creatingProjectFor, setCreatingProjectFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
+  const [creatingCompanyFor, setCreatingCompanyFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
   const [detailsRfq, setDetailsRfq] = useState<any | null>(null);
   const sstageLabel = (s: string) => t(`sstage_${s}` as never);
 
@@ -281,7 +282,12 @@ export function RfqJihPanel() {
         submitLabel={t("crm_add")}
         fields={[
           { key: "rfqNumber", type: "text", label: "RFQ #" },
-          { key: "companyId", type: "select", label: t("crm_company"), options: [{ value: "__none__", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
+          {
+            key: "companyId", type: "select", label: t("crm_company"),
+            options: [{ value: "__none__", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))],
+            createLabel: t("wf_add_new_company"),
+            onCreateNew: () => new Promise((resolve) => setCreatingCompanyFor(() => resolve)),
+          },
           {
             key: "projectId", type: "select", label: t("nav_projects"),
             options: [{ value: "__none__", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))],
@@ -332,6 +338,31 @@ export function RfqJihPanel() {
             // "creating" state once this promise resolves).
             creatingProjectFor?.(null);
             setCreatingProjectFor(null);
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
+
+      {/* Inline "add new company" from the RFQ company picker */}
+      <ActionDialog
+        open={!!creatingCompanyFor}
+        onOpenChange={(o) => { if (!o) { creatingCompanyFor?.(null); setCreatingCompanyFor(null); } }}
+        title={t("wf_add_new_company")}
+        submitLabel={t("crm_add")}
+        fields={[{ key: "name", type: "text", label: t("crm_company"), required: true }]}
+        onSubmit={async (v) => {
+          try {
+            const company = await createCompany({ name: v.name, companyType: "target_account", claimOwner: true });
+            creatingCompanyFor?.({ value: company.id, label: company.name });
+            setCreatingCompanyFor(null);
+            refresh();
+          } catch (e) {
+            // Resolve with null so the RFQ dialog's company select doesn't get
+            // stuck disabled forever waiting on a promise that will never
+            // settle otherwise (ActionDialog's onCreateNew only clears its
+            // "creating" state once this promise resolves).
+            creatingCompanyFor?.(null);
+            setCreatingCompanyFor(null);
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
           }
         }}

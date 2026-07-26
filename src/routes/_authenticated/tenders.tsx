@@ -15,6 +15,7 @@ import {
   createTender, advanceTenderStage, requestTenderConversion, nextTenderStages,
   TENDER_STAGES, type TenderStage,
 } from "@/lib/tender-actions";
+import { createProject } from "@/lib/crm-actions";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
@@ -121,6 +122,7 @@ function TenderMonitor() {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"board" | "table">("board");
   const [historyTender, setHistoryTender] = useState<{ id: string; label: string } | null>(null);
+  const [creatingProjectFor, setCreatingProjectFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
   const tstageLabel = (s: string) => t(`tstage_${s}` as never);
 
   const { data: tenders = [], isLoading } = useQuery({
@@ -312,7 +314,7 @@ function TenderMonitor() {
           })}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
+        <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
           <table className="w-full text-left text-xs">
             <thead className="border-b border-border/70 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
               <tr>
@@ -360,7 +362,12 @@ function TenderMonitor() {
         fields={[
           { key: "tenderName", type: "text", label: t("nav_tenders"), required: true },
           { key: "source", type: "text", label: t("wf_source") },
-          { key: "projectId", type: "select", label: t("nav_projects"), options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
+          {
+            key: "projectId", type: "select", label: t("nav_projects"),
+            options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))],
+            createLabel: t("wf_add_new_project"),
+            onCreateNew: () => new Promise((resolve) => setCreatingProjectFor(() => resolve)),
+          },
           { key: "classification", type: "select", label: t("wf_classification"), options: [{ value: "", label: "—" }, { value: "A", label: "A" }, { value: "B", label: "B" }, { value: "C", label: "C" }] },
           { key: "expectedAwardDate", type: "date", label: t("wf_expected_award") },
           { key: "estimatedProjectValue", type: "text", label: t("crm_total_value") },
@@ -436,6 +443,29 @@ function TenderMonitor() {
           {historyTender ? <CommunicationTimeline filter={{ tenderId: historyTender.id }} /> : null}
         </DialogContent>
       </Dialog>
+
+      {/* Inline "add new project" from the new-tender project picker */}
+      <ActionDialog
+        open={!!creatingProjectFor}
+        onOpenChange={(o) => { if (!o) { creatingProjectFor?.(null); setCreatingProjectFor(null); } }}
+        title={t("wf_add_new_project")}
+        submitLabel={t("crm_add")}
+        fields={[{ key: "name", type: "text", label: t("nav_projects"), required: true }]}
+        onSubmit={async (v) => {
+          try {
+            const project = await createProject({ name: v.name });
+            creatingProjectFor?.({ value: project.id, label: project.name });
+            setCreatingProjectFor(null);
+            refresh();
+          } catch (e) {
+            // Resolve with null so the select doesn't stay stuck disabled
+            // waiting on a promise that would otherwise never settle.
+            creatingProjectFor?.(null);
+            setCreatingProjectFor(null);
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
     </div>
   );
 }

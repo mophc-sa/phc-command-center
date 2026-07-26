@@ -220,6 +220,26 @@ export function remainingTarget(
   return Math.max(0, salesTarget - awardedValue);
 }
 
+// ─── AI follow-up draft channel ───────────────────────────────────────────────
+
+// Must match FOLLOWUP_CHANNELS in the AI orchestrator's schema module —
+// the smart_followup_draft agent rejects anything outside this set with
+// AI_INPUT_INVALID (HTTP 400). follow_ups.channel is a free-text column
+// that also allows call/meeting/site_visit, none of which the agent
+// understands, so those map to "internal_note" (an AI-prep note rather than
+// an outbound message draft).
+const AI_FOLLOWUP_CHANNELS = new Set(["email", "whatsapp", "internal_note"]);
+
+/**
+ * Maps a follow_ups.channel value to one the smart_followup_draft AI agent
+ * accepts. Unknown/unsupported channels (call, meeting, site_visit, null)
+ * fall back to "internal_note".
+ */
+export function normalizeFollowUpChannel(channel: string | null | undefined): "email" | "whatsapp" | "internal_note" {
+  if (channel && AI_FOLLOWUP_CHANNELS.has(channel)) return channel as "email" | "whatsapp" | "internal_note";
+  return "internal_note";
+}
+
 // ─── Quotation win rate ───────────────────────────────────────────────────────
 
 /**

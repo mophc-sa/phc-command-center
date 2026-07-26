@@ -11,7 +11,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
-import { createContact, type ContactAuthority, type ContactLocation, type ContactConfidenceLevel } from "@/lib/crm-actions";
+import { createContact, createCompany, type ContactAuthority, type ContactLocation, type ContactConfidenceLevel } from "@/lib/crm-actions";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
 
@@ -42,6 +42,7 @@ function ContactsPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [creatingCompanyFor, setCreatingCompanyFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
   const [query, setQuery] = useState("");
   const [authFilter, setAuthFilter] = useState<ContactAuthority | "all">("all");
   const [showArchived, setShowArchived] = useState(false);
@@ -241,7 +242,12 @@ function ContactsPage() {
         submitLabel={t("crm_add")}
         fields={[
           { key: "name", type: "text", label: t("crm_new_contact"), required: true },
-          { key: "companyId", type: "select", label: t("crm_company"), options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
+          {
+            key: "companyId", type: "select", label: t("crm_company"),
+            options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))],
+            createLabel: t("wf_add_new_company"),
+            onCreateNew: () => new Promise((resolve) => setCreatingCompanyFor(() => resolve)),
+          },
           { key: "title", type: "text", label: t("crm_title") },
           { key: "authority", type: "select", label: t("crm_authority"), defaultValue: "unknown_authority", options: AUTHORITIES.map((a) => ({ value: a, label: authorityLabel(a) })) },
           { key: "location", type: "select", label: t("crm_location"), defaultValue: "unknown", options: LOCATIONS.map((l) => ({ value: l, label: locationLabel(l) })) },
@@ -267,6 +273,29 @@ function ContactsPage() {
             toast.success(t("crm_saved"));
             qc.invalidateQueries({ queryKey: ["contacts"] });
           } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
+
+      {/* Inline "add new company" from the new-contact company picker */}
+      <ActionDialog
+        open={!!creatingCompanyFor}
+        onOpenChange={(o) => { if (!o) { creatingCompanyFor?.(null); setCreatingCompanyFor(null); } }}
+        title={t("wf_add_new_company")}
+        submitLabel={t("crm_add")}
+        fields={[{ key: "name", type: "text", label: t("crm_company"), required: true }]}
+        onSubmit={async (v) => {
+          try {
+            const company = await createCompany({ name: v.name, companyType: "target_account", claimOwner: true });
+            creatingCompanyFor?.({ value: company.id, label: company.name });
+            setCreatingCompanyFor(null);
+            qc.invalidateQueries({ queryKey: ["companies-min"] });
+          } catch (e) {
+            // Resolve with null so the select doesn't stay stuck disabled
+            // waiting on a promise that would otherwise never settle.
+            creatingCompanyFor?.(null);
+            setCreatingCompanyFor(null);
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
           }
         }}

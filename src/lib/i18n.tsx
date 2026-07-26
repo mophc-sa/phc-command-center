@@ -77,6 +77,7 @@ export const strings = {
   // Workflow generic
   wf_new_rfq: { en: "New RFQ", ar: "طلب عرض سعر جديد" },
   wf_add_new_project: { en: "+ Add new project", ar: "+ إضافة مشروع جديد" },
+  wf_add_new_company: { en: "+ Add new company", ar: "+ إضافة شركة جديدة" },
   wf_view_details: { en: "View Details", ar: "عرض التفاصيل" },
   rfq_created_location_hint: { en: "RFQ created — find it under RFQ & JIH Board → RFQ Received.", ar: "تم إنشاء طلب عرض السعر — تجده ضمن RFQ & JIH Board ← RFQ المستلمة." },
   intake_created_location_hint: { en: "Saved to Intake — convert it to an RFQ, Tender, or Lead when ready.", ar: "تم الحفظ في Intake — حوّله إلى RFQ أو منافسة أو Lead عند الجاهزية." },

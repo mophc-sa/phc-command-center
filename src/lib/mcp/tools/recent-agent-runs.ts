@@ -23,9 +23,9 @@ export default defineTool({
     }
     const sb = supabaseForUser(ctx);
     const { data, error } = await sb
-      .from("agent_runs")
+      .from("ai_agent_runs")
       .select(
-        "id, agent_name, loop_name, status, started_at, completed_at, records_processed, records_created, records_updated, summary",
+        "id, agent_key, status, started_at, completed_at, records_scanned, recommendations_created, summary",
       )
       .order("started_at", { ascending: false })
       .limit(limit);

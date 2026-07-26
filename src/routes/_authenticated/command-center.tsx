@@ -84,7 +84,7 @@ function CommandCenter() {
         supabase.from("opportunities").select("id, project_name, stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor").order("last_activity_at", { ascending: false, nullsFirst: false }).limit(200),
         supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, owner_id").neq("status", "completed").order("due_date", { ascending: true }).limit(100),
         supabase.from("approvals").select("*").eq("status", "pending"),
-        supabase.from("agent_runs").select("*").order("started_at", { ascending: false }).limit(6),
+        supabase.from("ai_agent_runs").select("*").order("started_at", { ascending: false }).limit(6),
         supabase.from("activities").select("id, occurred_at").gte("occurred_at", sinceIso),
         supabase.from("rfqs").select("id, status, estimated_value").limit(200),
       ]);
@@ -494,7 +494,7 @@ function CommandCenter() {
               {agentRuns.map((r: any) => (
                 <li key={r.id} className="flex items-start gap-3 border-t border-border/60 px-5 py-3 first:border-t-0">
                   <div className="mt-0.5">
-                    {r.status === "error" ? (
+                    {r.status === "failed" || r.status === "error" ? (
                       <Activity className="h-3.5 w-3.5 text-amber" />
                     ) : (
                       <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -502,7 +502,7 @@ function CommandCenter() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="truncate text-[12px] text-foreground">{r.loop_name ?? r.agent_name}</div>
+                      <div className="truncate text-[12px] text-foreground">{r.agent_key}</div>
                       <span className="num shrink-0 text-[10px] text-muted-foreground" data-tabular="true">
                         {new Date(r.started_at).toLocaleTimeString(lang === "ar" ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" })}
                       </span>
