@@ -22,6 +22,10 @@ import {
   updateOpportunityStage,
   recomputeOpportunityScore,
   overrideOpportunityScore,
+  setOpportunityMilestone,
+  updateOpportunityTechnicalNotes,
+  OPPORTUNITY_MILESTONES,
+  type OpportunityMilestone,
 } from "@/lib/opportunity-actions";
 import { ArrowLeft, ArrowRight, ExternalLink, FileText, RefreshCw } from "lucide-react";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
@@ -121,10 +125,40 @@ function OpportunityDetail() {
     qc.invalidateQueries({ queryKey: ["opp", id] });
     qc.invalidateQueries({ queryKey: ["opp-fu", id] });
     qc.invalidateQueries({ queryKey: ["opp-app", id] });
+    qc.invalidateQueries({ queryKey: ["opp-milestones", id] });
     qc.invalidateQueries({ queryKey: ["cc-metrics"] });
     qc.invalidateQueries({ queryKey: ["all-followups"] });
     qc.invalidateQueries({ queryKey: ["approvals"] });
   };
+
+  const [savingMilestone, setSavingMilestone] = useState<OpportunityMilestone | null>(null);
+  async function toggleMilestone(milestone: OpportunityMilestone, completed: boolean) {
+    setSavingMilestone(milestone);
+    try {
+      await setOpportunityMilestone({ opportunityId: id, milestone, completed });
+      qc.invalidateQueries({ queryKey: ["opp-milestones", id] });
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    } finally {
+      setSavingMilestone(null);
+    }
+  }
+
+  const [technicalNotesDraft, setTechnicalNotesDraft] = useState<string | null>(null);
+  const [savingNotes, setSavingNotes] = useState(false);
+  async function saveTechnicalNotes() {
+    if (technicalNotesDraft === null) return;
+    setSavingNotes(true);
+    try {
+      await updateOpportunityTechnicalNotes(id, technicalNotesDraft);
+      toast.success(t("crm_saved"));
+      qc.invalidateQueries({ queryKey: ["opp", id] });
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    } finally {
+      setSavingNotes(false);
+    }
+  }
 
   const runSafe = async (fn: () => Promise<unknown>, okKey: Parameters<typeof t>[0]) => {
     try {
@@ -173,6 +207,17 @@ function OpportunityDetail() {
         .select("*")
         .eq("related_opportunity_id", id)
         .order("source_date", { ascending: false, nullsFirst: false });
+      return data ?? [];
+    },
+  });
+
+  const milestonesQ = useQuery({
+    queryKey: ["opp-milestones", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("opportunity_milestones")
+        .select("*")
+        .eq("opportunity_id", id);
       return data ?? [];
     },
   });
@@ -420,6 +465,57 @@ function OpportunityDetail() {
         ) : (
           <EmptyState message="—" />
         )}
+      </Panel>
+      )}
+
+      {/* 3.1. TECHNICAL NOTES — Phase 4 (system-redesign request), same tab
+          as Stakeholders. Distinct from evidence_sources and the milestone
+          checklist — a single free-form field. */}
+      {show("assignment") && (
+      <Panel title={t("section_technical_notes")}>
+        <textarea
+          value={technicalNotesDraft ?? o.technical_notes ?? ""}
+          onChange={(e) => setTechnicalNotesDraft(e.target.value)}
+          onBlur={saveTechnicalNotes}
+          disabled={savingNotes}
+          rows={4}
+          className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          placeholder={t("section_technical_notes")}
+        />
+      </Panel>
+      )}
+
+      {/* 3.5. MILESTONE CHECKLIST — Phase 4 (system-redesign request): a
+          fixed 7-item evidence checklist, independent of sales_stage. Each
+          item can be checked/unchecked regardless of the others or of the
+          opportunity's current stage — see opportunity-actions.ts's
+          setOpportunityMilestone() and the migration's header comment. */}
+      {show("evidence") && (
+      <Panel title={t("section_milestone_checklist")}>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {OPPORTUNITY_MILESTONES.map((m) => {
+            const row = milestonesQ.data?.find((r: any) => r.milestone === m);
+            const checked = !!row?.completed_at;
+            return (
+              <label
+                key={m}
+                className="flex cursor-pointer items-center gap-2.5 rounded-md border border-border/60 px-3 py-2 text-sm hover:bg-muted/40"
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={savingMilestone === m}
+                  onChange={(e) => toggleMilestone(m, e.target.checked)}
+                  className="h-4 w-4 rounded border-border accent-won"
+                />
+                <span className="flex-1 text-foreground">{t(`milestone_${m}` as never)}</span>
+                {checked && row?.completed_at ? (
+                  <span className="text-[11px] text-muted-foreground">{fmtDate(row.completed_at, lang)}</span>
+                ) : null}
+              </label>
+            );
+          })}
+        </div>
       </Panel>
       )}
 

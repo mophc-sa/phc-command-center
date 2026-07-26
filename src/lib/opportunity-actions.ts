@@ -357,3 +357,56 @@ export async function listTeamMembers() {
   if (error) throw error;
   return data ?? [];
 }
+
+/* ---------------- Milestone checklist (Phase 4) ---------------- */
+// A fixed 7-item evidence checklist, independent of sales_stage — see
+// 20260726130000_opportunity_milestone_checklist.sql's header comment for
+// why this is not a stage replacement.
+
+export type OpportunityMilestone =
+  | "rfq_received" | "quotation_sent" | "meeting_with_management"
+  | "bafo_request" | "discount_sent" | "final_negotiation" | "received_contract";
+
+export const OPPORTUNITY_MILESTONES: OpportunityMilestone[] = [
+  "rfq_received", "quotation_sent", "meeting_with_management",
+  "bafo_request", "discount_sent", "final_negotiation", "received_contract",
+];
+
+export async function setOpportunityMilestone(input: {
+  opportunityId: Uuid;
+  milestone: OpportunityMilestone;
+  completed: boolean;
+}) {
+  const uid = await currentUserId();
+  const { data, error } = await supabase
+    .from("opportunity_milestones")
+    .upsert(
+      {
+        opportunity_id: input.opportunityId,
+        milestone: input.milestone,
+        completed_at: input.completed ? new Date().toISOString() : null,
+        completed_by: input.completed ? uid : null,
+      },
+      { onConflict: "opportunity_id,milestone" },
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  await audit("opportunity.milestone_set", "opportunity", input.opportunityId, null, {
+    milestone: input.milestone,
+    completed: input.completed,
+  });
+  return data;
+}
+
+export async function updateOpportunityTechnicalNotes(opportunityId: Uuid, notes: string) {
+  const { data, error } = await supabase
+    .from("opportunities")
+    .update({ technical_notes: notes || null })
+    .eq("id", opportunityId)
+    .select()
+    .single();
+  if (error) throw error;
+  await audit("opportunity.technical_notes_updated", "opportunity", opportunityId, null, { technical_notes: notes });
+  return data;
+}
