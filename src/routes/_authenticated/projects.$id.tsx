@@ -33,6 +33,14 @@ type CompanyRef = { id: string; name: string } | null;
 type OpportunityRef = {
   id: string; project_name: string; stage: string;
   estimated_value_max: number | null; currency: string;
+  // Phase 5 (system-redesign request): a project can have several
+  // opportunities — one per competing contractor — each with its own
+  // package/BOQ tracking, independent of the others. Surfaced here so this
+  // page answers "how do we monitor variable package/BOQ per contractor for
+  // this project" without opening every linked opportunity individually.
+  main_contractor: CompanyRef;
+  signage_package_status: string | null;
+  boqs: { status: string }[];
 };
 type ProjectDetailRow = ProjectRow & {
   main_contractor: CompanyRef;
@@ -61,7 +69,7 @@ function ProjectDetail() {
         await supabase
           .from("projects")
           .select(
-            "*, main_contractor:companies!projects_main_contractor_id_fkey(id, name), owner_company:companies!projects_owner_company_id_fkey(id, name), consultant:companies!projects_consultant_id_fkey(id, name), opportunities:opportunities!opportunities_project_id_fkey(id, project_name, stage, estimated_value_max, currency)",
+            "*, main_contractor:companies!projects_main_contractor_id_fkey(id, name), owner_company:companies!projects_owner_company_id_fkey(id, name), consultant:companies!projects_consultant_id_fkey(id, name), opportunities:opportunities!opportunities_project_id_fkey(id, project_name, stage, estimated_value_max, currency, signage_package_status, main_contractor:companies!opportunities_main_contractor_id_fkey(id, name), boqs(status))",
           )
           .eq("id", id)
           .single()
@@ -184,17 +192,43 @@ function ProjectDetail() {
         {(p.opportunities ?? []).length === 0 ? (
           <div className="text-xs text-muted-foreground">—</div>
         ) : (
+          <>
+          {oppCount > 1 ? (
+            <p className="mb-3 text-xs text-muted-foreground">{t("crm_multi_contractor_hint")}</p>
+          ) : null}
           <ul className="divide-y divide-border/60">
-            {p.opportunities.map((o) => (
-              <li key={o.id} className="flex items-center justify-between gap-2 py-2.5">
-                <Link to="/opportunities/$id" params={{ id: o.id }} className="truncate text-sm text-foreground hover:underline">{o.project_name}</Link>
-                <div className="flex items-center gap-2">
-                  <StatusPill tone="muted">{humanize(o.stage)}</StatusPill>
-                  <span className="num text-xs text-muted-foreground" data-tabular="true">{formatCurrency(o.estimated_value_max, lang, o.currency)}</span>
-                </div>
-              </li>
-            ))}
+            {p.opportunities.map((o) => {
+              const boq = o.boqs?.[0];
+              return (
+                <li key={o.id} className="py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <Link to="/opportunities/$id" params={{ id: o.id }} className="truncate text-sm text-foreground hover:underline">{o.project_name}</Link>
+                    <div className="flex items-center gap-2">
+                      <StatusPill tone="muted">{humanize(o.stage)}</StatusPill>
+                      <span className="num text-xs text-muted-foreground" data-tabular="true">{formatCurrency(o.estimated_value_max, lang, o.currency)}</span>
+                    </div>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <span>{o.main_contractor?.name ?? t("crm_no_contractor")}</span>
+                    <span>·</span>
+                    <StatusPill
+                      tone={
+                        o.signage_package_status === "confirmed" ? "positive"
+                        : o.signage_package_status === "no_package_identified" ? "danger"
+                        : "muted"
+                      }
+                    >
+                      {t("crm_package")}: {humanize(o.signage_package_status)}
+                    </StatusPill>
+                    <StatusPill tone={boq?.status === "verified" ? "positive" : boq?.status === "missing" || !boq ? "danger" : "attention"}>
+                      {t("crm_boq")}: {boq ? humanize(boq.status) : t("boq_status_missing" as never)}
+                    </StatusPill>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
+          </>
         )}
       </Panel>
 

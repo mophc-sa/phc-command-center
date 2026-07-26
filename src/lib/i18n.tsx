@@ -303,6 +303,10 @@ export const strings = {
   crm_linked_projects: { en: "Linked Projects", ar: "المشاريع المرتبطة" },
   crm_linked_contacts: { en: "Contacts", ar: "جهات الاتصال" },
   crm_linked_opportunities: { en: "Opportunities", ar: "الفرص" },
+  crm_multi_contractor_hint: { en: "Multiple contractors are competing on this project — each opportunity below tracks its own stage, package status, and BOQ independently.", ar: "عدّة مقاولين يتنافسون على هذا المشروع — كل فرصة أدناه تتبّع مرحلتها وحالة الباكج والـ BOQ الخاصة بها بشكل مستقل." },
+  crm_no_contractor: { en: "No contractor", ar: "بلا مقاول" },
+  crm_package: { en: "Package", ar: "الباكج" },
+  crm_boq: { en: "BOQ", ar: "BOQ" },
   crm_saved: { en: "Saved", ar: "تم الحفظ" },
   crm_filter_all_types: { en: "All Types", ar: "كل الأنواع" },
 
