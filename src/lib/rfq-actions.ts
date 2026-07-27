@@ -8,15 +8,25 @@ async function currentUserId(): Promise<Uuid | null> {
   return data.user?.id ?? null;
 }
 
+export type RfqClassification = "jih" | "tender" | "other";
+
 export async function createRfq(input: {
   rfqNumber?: string;
   sourceType?: string;
   projectId?: Uuid | null;
   companyId?: Uuid | null;
   contactId?: Uuid | null;
+  city?: string | null;
+  classification?: RfqClassification | null;
+  classificationOther?: string | null;
+  receivedDate?: string | null;
   responseDueDate?: string | null;
   estimatedValue?: number | null;
   documentUrl?: string | null;
+  // Explicit assignment (managers only — enforced by the frontend only
+  // showing this picker to canManageSalesPipeline roles). Falls back to
+  // claimOwner (self-assign) for a salesperson creating their own RFQ.
+  salesOwnerId?: Uuid | null;
   claimOwner?: boolean;
 }) {
   const uid = await currentUserId();
@@ -28,10 +38,16 @@ export async function createRfq(input: {
       project_id: input.projectId ?? null,
       company_id: input.companyId ?? null,
       contact_id: input.contactId ?? null,
+      city: input.city ?? null,
+      classification: input.classification ?? null,
+      classification_other: input.classification === "other" ? (input.classificationOther ?? null) : null,
+      // received_date is NOT NULL with a DEFAULT CURRENT_DATE — pass
+      // undefined (not null) when unset so the DB default applies.
+      received_date: input.receivedDate ?? undefined,
       response_due_date: input.responseDueDate ?? null,
       estimated_value: input.estimatedValue ?? null,
       document_url: input.documentUrl ?? null,
-      sales_owner_id: input.claimOwner ? uid : null,
+      sales_owner_id: input.salesOwnerId ?? (input.claimOwner ? uid : null),
       status: "open",
       created_by: uid,
     })

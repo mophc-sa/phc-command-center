@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -36,8 +36,38 @@ import { PriorityItem } from "@/components/phc/PriorityItem";
 import { StatusPill } from "@/components/phc/StatusPill";
 import type { OpportunityRow } from "@/components/phc/OpportunityCard";
 import { humanize } from "@/lib/utils";
+import { isSalesperson, canManageSalesPipeline, isSystemAdmin, isFinanceManager, type AppRole } from "@/lib/roles";
 
+// ── Route guard ───────────────────────────────────────────────────────────────
+// This is an aggregate, all-reps management view. Client spec (2026-07-27):
+// a salesperson must only ever see their own personal dashboard — this
+// guard catches direct URL navigation, since the RLS-level isolation
+// (opportunities/RFQs/etc. filtered to owner_id) alone wouldn't stop them
+// from *landing* on the management page, just from seeing much data on it.
+// Scoped to salesperson specifically (not a broader "not a manager" check)
+// so it doesn't disturb the existing "viewer" landing contract in
+// src/routes/index.tsx, which deliberately sends viewer here too.
 export const Route = createFileRoute("/_authenticated/command-center")({
+  beforeLoad: async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return; // parent _authenticated guard handles the redirect
+
+    const { data: rolesRows } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id);
+
+    const roles = (rolesRows ?? []).map((r) => r.role as AppRole);
+    // Roles are additive (a user may hold several) — only redirect a
+    // salesperson who holds no elevated role at all, not e.g. a manager
+    // who also happens to carry the salesperson role.
+    const hasElevatedRole = canManageSalesPipeline(roles) || isSystemAdmin(roles) || isFinanceManager(roles);
+    if (isSalesperson(roles) && !hasElevatedRole) {
+      throw redirect({ to: "/my-workspace" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Command Center — PHC Sales Agent" },

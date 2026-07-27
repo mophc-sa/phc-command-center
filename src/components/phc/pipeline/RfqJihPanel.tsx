@@ -16,12 +16,23 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
-import { createRfq, convertRfqToJih } from "@/lib/rfq-actions";
+import { createRfq, convertRfqToJih, type RfqClassification } from "@/lib/rfq-actions";
 import { createProject, createCompany } from "@/lib/crm-actions";
 import { INBOX_LOCATIONS } from "@/lib/inbox-actions";
+import { listTeamMembers } from "@/lib/opportunity-actions";
 import {
   advanceSalesStage, nextSalesStages, SALES_STAGES, type SalesStage,
 } from "@/lib/workflow-actions";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canManageSalesPipeline, canEditTotalValue, canEditRfqNumber } from "@/lib/roles";
+
+function rfqClassifications(t: (k: string) => string): { value: RfqClassification; label: string }[] {
+  return [
+    { value: "jih", label: t("rfq_classification_jih") },
+    { value: "tender", label: t("rfq_classification_tender") },
+    { value: "other", label: t("rfq_classification_other_label") },
+  ];
+}
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import {
@@ -79,6 +90,10 @@ function fieldsForStage(t: string, tt: (k: string) => string): DialogField[] {
 
 export function RfqJihPanel() {
   const { t, lang } = useI18n();
+  const { roles } = useAuth();
+  const canAssignOwner = canManageSalesPipeline(roles);
+  const canEditValue = canEditTotalValue(roles);
+  const canEditNumber = canEditRfqNumber(roles);
   const qc = useQueryClient();
   const [newRfq, setNewRfq] = useState(false);
   const [convertRfq, setConvertRfq] = useState<any | null>(null);
@@ -110,6 +125,11 @@ export function RfqJihPanel() {
   const { data: projects = [] } = useQuery({
     queryKey: ["projects-min"],
     queryFn: async () => (await supabase.from("projects").select("id, name").order("name")).data ?? [],
+  });
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ["team-members-min"],
+    queryFn: listTeamMembers,
+    enabled: canAssignOwner,
   });
 
   const refresh = () => {
@@ -281,7 +301,9 @@ export function RfqJihPanel() {
         title={t("wf_new_rfq")}
         submitLabel={t("crm_add")}
         fields={[
-          { key: "rfqNumber", type: "text", label: "RFQ #" },
+          // Auto-generated unless the caller holds edit authority (server
+          // enforces this too — see generate_rfq_number() trigger).
+          ...(canEditNumber ? [{ key: "rfqNumber", type: "text" as const, label: "RFQ #" }] : []),
           {
             key: "companyId", type: "select", label: t("crm_company"),
             options: [{ value: "__none__", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))],
@@ -294,8 +316,23 @@ export function RfqJihPanel() {
             createLabel: t("wf_add_new_project"),
             onCreateNew: () => new Promise((resolve) => setCreatingProjectFor(() => resolve)),
           },
-          { key: "estimatedValue", type: "text", label: t("crm_total_value") },
+          { key: "city", type: "text", label: t("crm_location") },
+          {
+            key: "classification", type: "select", label: t("rfq_classification"),
+            options: [{ value: "__none__", label: "—" }, ...rfqClassifications((k) => t(k as never))],
+          },
+          { key: "classificationOther", type: "text", label: t("rfq_classification_other") },
+          { key: "receivedDate", type: "date", label: t("rfq_received_date") },
           { key: "responseDueDate", type: "date", label: t("wf_expected_contract") },
+          // Assigning to someone else is a manager action; a salesperson's
+          // own RFQ always self-assigns (claimOwner below).
+          ...(canAssignOwner ? [{
+            key: "salesOwnerId", type: "select" as const, label: t("rfq_assigned_salesperson"),
+            options: [{ value: "__none__", label: "—" }, ...teamMembers.map((m: any) => ({ value: m.id, label: m.full_name || m.email }))],
+          }] : []),
+          // Total Value is Finance Manager / BD Manager / System Admin only —
+          // enforced server-side too (protect_rfq_estimated_value trigger).
+          ...(canEditValue ? [{ key: "estimatedValue", type: "text" as const, label: t("crm_total_value") }] : []),
           { key: "documentUrl", type: "file", label: t("wf_evidence"), folder: "rfq" },
         ]}
         onSubmit={async (v) => {
@@ -304,9 +341,14 @@ export function RfqJihPanel() {
               rfqNumber: v.rfqNumber || undefined,
               companyId: v.companyId && v.companyId !== "__none__" ? v.companyId : null,
               projectId: v.projectId && v.projectId !== "__none__" ? v.projectId : null,
+              city: v.city || null,
+              classification: (v.classification && v.classification !== "__none__" ? v.classification : null) as RfqClassification | null,
+              classificationOther: v.classificationOther || null,
+              receivedDate: v.receivedDate || null,
               estimatedValue: v.estimatedValue ? Number(v.estimatedValue) : null,
               responseDueDate: v.responseDueDate || null,
               documentUrl: v.documentUrl || null,
+              salesOwnerId: v.salesOwnerId && v.salesOwnerId !== "__none__" ? v.salesOwnerId : null,
               claimOwner: true,
             });
             toast.success(t("rfq_created_location_hint"));

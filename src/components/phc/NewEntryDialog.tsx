@@ -44,12 +44,21 @@ import { listTeamMembers } from "@/lib/opportunity-actions";
 import { createInboxItem, INBOX_SOURCE_TYPES } from "@/lib/inbox-actions";
 import { newIntakeFields } from "@/routes/_authenticated/lead-tender-inbox";
 import { createLead } from "@/lib/lead-actions";
-import { createRfq } from "@/lib/rfq-actions";
+import { createRfq, type RfqClassification } from "@/lib/rfq-actions";
 import { createQuotation, createBoq, type BoqStatus } from "@/lib/sales-actions";
 import { createCompany, createProject } from "@/lib/crm-actions";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
+import { canManageSalesPipeline, canEditTotalValue, canEditRfqNumber } from "@/lib/roles";
 
 type CreateResolver = ((result: { value: string; label: string } | null) => void) | null;
+
+function rfqClassifications(t: (k: string) => string): { value: RfqClassification; label: string }[] {
+  return [
+    { value: "jih", label: t("rfq_classification_jih") },
+    { value: "tender", label: t("rfq_classification_tender") },
+    { value: "other", label: t("rfq_classification_other_label") },
+  ];
+}
 
 type EntryType = "intake" | "lead" | "rfq" | "quotation" | "boq";
 
@@ -77,11 +86,18 @@ function rfqFields(
   t: (k: string) => string,
   companies: any[],
   projects: any[],
+  teamMembers: any[],
+  roles: import("@/lib/roles").AppRole[],
   setCreatingCompanyFor: (resolver: CreateResolver) => void,
   setCreatingProjectFor: (resolver: CreateResolver) => void,
 ): DialogField[] {
+  const canAssignOwner = canManageSalesPipeline(roles);
+  const canEditValue = canEditTotalValue(roles);
+  const canEditNumber = canEditRfqNumber(roles);
   return [
-    { key: "rfqNumber", type: "text", label: "RFQ #" },
+    // Auto-generated unless the caller holds edit authority (server
+    // enforces this too — see generate_rfq_number() trigger).
+    ...(canEditNumber ? [{ key: "rfqNumber", type: "text" as const, label: "RFQ #" }] : []),
     {
       key: "companyId", type: "select", label: t("crm_company"),
       options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))],
@@ -94,8 +110,21 @@ function rfqFields(
       createLabel: t("wf_add_new_project"),
       onCreateNew: () => new Promise((resolve) => setCreatingProjectFor(() => resolve)),
     },
-    { key: "estimatedValue", type: "text", label: t("crm_total_value") },
+    { key: "city", type: "text", label: t("crm_location") },
+    {
+      key: "classification", type: "select", label: t("rfq_classification"),
+      options: [{ value: "", label: "—" }, ...rfqClassifications(t)],
+    },
+    { key: "classificationOther", type: "text", label: t("rfq_classification_other") },
+    { key: "receivedDate", type: "date", label: t("rfq_received_date") },
     { key: "responseDueDate", type: "date", label: t("wf_expected_contract") },
+    ...(canAssignOwner ? [{
+      key: "salesOwnerId", type: "select" as const, label: t("rfq_assigned_salesperson"),
+      options: [{ value: "", label: "—" }, ...teamMembers.map((m: any) => ({ value: m.id, label: m.full_name || m.email }))],
+    }] : []),
+    // Total Value is Finance Manager / BD Manager / System Admin only —
+    // enforced server-side too (protect_rfq_estimated_value trigger).
+    ...(canEditValue ? [{ key: "estimatedValue", type: "text" as const, label: t("crm_total_value") }] : []),
   ];
 }
 
@@ -128,7 +157,7 @@ function boqFields(t: (k: string) => string, opps: any[]): DialogField[] {
 export function NewEntryDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { t, dir } = useI18n();
   const qc = useQueryClient();
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
   const uid = user?.id ?? "";
   const [entryType, setEntryType] = useState<EntryType>("intake");
   const [values, setValues] = useState<Record<string, string>>({});
@@ -160,7 +189,7 @@ export function NewEntryDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const fields: DialogField[] =
     entryType === "intake" ? newIntakeFields(tt, teamMembers)
     : entryType === "lead" ? leadFields(tt)
-    : entryType === "rfq" ? rfqFields(tt, companies, projects, setCreatingCompanyFor, setCreatingProjectFor)
+    : entryType === "rfq" ? rfqFields(tt, companies, projects, teamMembers, roles, setCreatingCompanyFor, setCreatingProjectFor)
     : entryType === "quotation" ? quotationFields(tt, opps)
     : boqFields(tt, opps);
 
@@ -242,8 +271,13 @@ export function NewEntryDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           rfqNumber: values.rfqNumber || undefined,
           companyId: values.companyId || null,
           projectId: values.projectId || null,
+          city: values.city || null,
+          classification: (values.classification || null) as RfqClassification | null,
+          classificationOther: values.classificationOther || null,
+          receivedDate: values.receivedDate || null,
           estimatedValue: values.estimatedValue ? Number(values.estimatedValue) : null,
           responseDueDate: values.responseDueDate || null,
+          salesOwnerId: values.salesOwnerId || null,
           claimOwner: true,
         });
         toast.success(t("rfq_created_location_hint"));

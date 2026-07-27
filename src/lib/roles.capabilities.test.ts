@@ -6,6 +6,7 @@ import {
   isExecutive,
   isSalesManager,
   isBdOrSalesOps,
+  isFinanceManager,
   isSalesperson,
   isViewer,
   canApproveCommercialAction,
@@ -27,6 +28,7 @@ test("group predicates partition every role into exactly one group", () => {
     isExecutive,
     isSalesManager,
     isBdOrSalesOps,
+    isFinanceManager,
     isSalesperson,
     isViewer,
   ];

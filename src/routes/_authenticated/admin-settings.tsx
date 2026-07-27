@@ -18,6 +18,8 @@ import {
   rejectUser,
   suspendUser,
   activateUser,
+  deleteUserAccount,
+  countOwnedActiveRecords,
   grantRole,
   listPendingUsers,
   listTeam,
@@ -26,6 +28,7 @@ import {
   type PendingUser,
   type TeamMember,
 } from "@/lib/team-actions";
+import { ActionDialog } from "@/components/phc/ActionDialog";
 import {
   canApproveCommercialAction,
   canAssignOwner,
@@ -109,6 +112,13 @@ function AdminSettingsPage() {
   const [approveRoles, setApproveRoles] = useState<Record<string, AppRole>>({});
   const [pendingBusy, setPendingBusy] = useState<Record<string, boolean>>({});
 
+  // Suspend/Delete confirm dialogs — two distinct actions per client spec
+  // (2026-07-27): Suspend is reversible and available to any platform
+  // admin; Delete is a separate, system_admin-only, soft-delete action.
+  const [suspendTarget, setSuspendTarget] = useState<TeamMember | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
+  const [deleteOwnedCount, setDeleteOwnedCount] = useState<number | null>(null);
+
   const {
     data: pending = [],
     isLoading: pendingLoading,
@@ -174,6 +184,26 @@ function AdminSettingsPage() {
     try {
       await activateUser(member.id);
       toast.success(t("toast_user_activated"));
+      invalidateAll();
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    }
+  }
+
+  async function openDeleteConfirm(member: TeamMember) {
+    setDeleteTarget(member);
+    setDeleteOwnedCount(null);
+    try {
+      setDeleteOwnedCount(await countOwnedActiveRecords(member.id));
+    } catch {
+      // Informational only — the dialog still works without this count.
+    }
+  }
+
+  async function handleDelete(member: TeamMember) {
+    try {
+      await deleteUserAccount(member.id);
+      toast.success(t("toast_user_deleted"));
       invalidateAll();
     } catch (e) {
       toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
@@ -464,27 +494,46 @@ function AdminSettingsPage() {
                       })}
                       {canManage && (
                         <td className="px-2 py-2 text-center">
-                          {isSelf ? (
-                            <span className="text-[11px] text-muted-foreground/50">—</span>
-                          ) : m.status === "active" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleSuspend(m)}
-                              className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              <ShieldOff className="h-3 w-3" />
-                              {t("admin_user_suspend")}
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleActivate(m)}
-                              className="inline-flex items-center gap-1 rounded-md border border-won/30 bg-won/10 px-2 py-1 text-[11px] text-won transition-colors hover:bg-won/[0.15]"
-                            >
-                              <ShieldCheck className="h-3 w-3" />
-                              {t("admin_user_activate")}
-                            </button>
-                          )}
+                          <div className="flex items-center justify-center gap-1.5">
+                            {isSelf ? (
+                              <span className="text-[11px] text-muted-foreground/50">—</span>
+                            ) : m.status === "deleted" ? (
+                              <span className="text-[11px] text-muted-foreground/50">{t("admin_user_deleted")}</span>
+                            ) : (
+                              <>
+                                {m.status === "active" ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSuspendTarget(m)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                                  >
+                                    <ShieldOff className="h-3 w-3" />
+                                    {t("admin_user_suspend")}
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleActivate(m)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-won/30 bg-won/10 px-2 py-1 text-[11px] text-won transition-colors hover:bg-won/[0.15]"
+                                  >
+                                    <ShieldCheck className="h-3 w-3" />
+                                    {t("admin_user_activate")}
+                                  </button>
+                                )}
+                                {isSystemAdmin(roles) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openDeleteConfirm(m)}
+                                    title={t("admin_user_delete")}
+                                    aria-label={t("admin_user_delete")}
+                                    className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-[11px] text-destructive/90 transition-colors hover:bg-destructive/15"
+                                  >
+                                    <UserX className="h-3 w-3" />
+                                  </button>
+                                ) : null}
+                              </>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -495,6 +544,44 @@ function AdminSettingsPage() {
           </div>
         )}
       </Panel>
+
+      <ActionDialog
+        open={!!suspendTarget}
+        onOpenChange={(o) => { if (!o) setSuspendTarget(null); }}
+        title={t("admin_confirm_suspend_title")}
+        description={suspendTarget ? `${t("admin_confirm_suspend_desc")} ${suspendTarget.full_name || suspendTarget.email}` : undefined}
+        submitLabel={t("admin_user_suspend")}
+        destructive
+        fields={[]}
+        onSubmit={async () => {
+          if (!suspendTarget) return;
+          await handleSuspend(suspendTarget);
+          setSuspendTarget(null);
+        }}
+      />
+
+      <ActionDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => { if (!o) { setDeleteTarget(null); setDeleteOwnedCount(null); } }}
+        title={t("admin_confirm_delete_title")}
+        description={
+          deleteTarget
+            ? `${t("admin_confirm_delete_desc")} ${deleteTarget.full_name || deleteTarget.email}` +
+              (deleteOwnedCount != null && deleteOwnedCount > 0
+                ? ` — ${t("admin_confirm_delete_owned_warning")} (${deleteOwnedCount})`
+                : "")
+            : undefined
+        }
+        submitLabel={t("admin_user_delete")}
+        destructive
+        fields={[]}
+        onSubmit={async () => {
+          if (!deleteTarget) return;
+          await handleDelete(deleteTarget);
+          setDeleteTarget(null);
+          setDeleteOwnedCount(null);
+        }}
+      />
     </div>
   );
 }

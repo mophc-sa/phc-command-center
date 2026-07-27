@@ -1,0 +1,16 @@
+-- =========================================================
+-- Add the `deleted` user_status value — client spec (2026-07-27):
+-- Suspend and Delete must be two distinct, separately-gated actions.
+-- Suspend (existing) blocks login, keeps all data, reversible.
+-- Delete (this migration) is a separate, system_admin-only, soft-delete:
+-- sets status = 'deleted' (blocks login exactly like 'suspended' — see
+-- is_active_user()'s status = 'active' check and the accompanying
+-- route.tsx change — but is a visibly distinct, one-way-in-the-UI action)
+-- rather than physically removing the profile row or any of the CRM
+-- records it owns, preserving financial/administrative history per the
+-- spec's explicit preference for soft-delete over hard delete.
+--
+-- Kept in its OWN migration (same enum-add-value transaction rule as
+-- 20260727160000_add_finance_manager_role.sql).
+-- =========================================================
+ALTER TYPE public.user_status ADD VALUE IF NOT EXISTS 'deleted';
