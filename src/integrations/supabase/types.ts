@@ -871,6 +871,117 @@ export type Database = {
         }
         Relationships: []
       }
+      bafo_requests: {
+        Row: {
+          commercial_review_at: string | null
+          commercial_review_by: string | null
+          commercial_review_notes: string | null
+          commercial_review_status: string
+          cost_approval_at: string | null
+          cost_approval_by: string | null
+          cost_approval_notes: string | null
+          cost_approval_status: string
+          created_at: string
+          final_approval_at: string | null
+          final_approval_by: string | null
+          final_approval_notes: string | null
+          final_approval_status: string
+          finance_review_at: string | null
+          finance_review_by: string | null
+          finance_review_notes: string | null
+          finance_review_status: string
+          id: string
+          justification: string
+          opportunity_id: string
+          proposed_discount_pct: number | null
+          proposed_payment_terms: string | null
+          proposed_value: number | null
+          quotation_id: string | null
+          requested_by: string
+          sent_to_client_at: string | null
+          sent_to_client_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          commercial_review_at?: string | null
+          commercial_review_by?: string | null
+          commercial_review_notes?: string | null
+          commercial_review_status?: string
+          cost_approval_at?: string | null
+          cost_approval_by?: string | null
+          cost_approval_notes?: string | null
+          cost_approval_status?: string
+          created_at?: string
+          final_approval_at?: string | null
+          final_approval_by?: string | null
+          final_approval_notes?: string | null
+          final_approval_status?: string
+          finance_review_at?: string | null
+          finance_review_by?: string | null
+          finance_review_notes?: string | null
+          finance_review_status?: string
+          id?: string
+          justification: string
+          opportunity_id: string
+          proposed_discount_pct?: number | null
+          proposed_payment_terms?: string | null
+          proposed_value?: number | null
+          quotation_id?: string | null
+          requested_by: string
+          sent_to_client_at?: string | null
+          sent_to_client_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          commercial_review_at?: string | null
+          commercial_review_by?: string | null
+          commercial_review_notes?: string | null
+          commercial_review_status?: string
+          cost_approval_at?: string | null
+          cost_approval_by?: string | null
+          cost_approval_notes?: string | null
+          cost_approval_status?: string
+          created_at?: string
+          final_approval_at?: string | null
+          final_approval_by?: string | null
+          final_approval_notes?: string | null
+          final_approval_status?: string
+          finance_review_at?: string | null
+          finance_review_by?: string | null
+          finance_review_notes?: string | null
+          finance_review_status?: string
+          id?: string
+          justification?: string
+          opportunity_id?: string
+          proposed_discount_pct?: number | null
+          proposed_payment_terms?: string | null
+          proposed_value?: number | null
+          quotation_id?: string | null
+          requested_by?: string
+          sent_to_client_at?: string | null
+          sent_to_client_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bafo_requests_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bafo_requests_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boq_extractions: {
         Row: {
           created_at: string
@@ -4683,6 +4794,7 @@ export type Database = {
         | "general_manager"
         | "sales_ops"
         | "finance_manager"
+        | "estimation_manager"
       approval_recommendation: "proceed" | "management_review" | "do_not_quote"
       approval_status: "pending" | "approved" | "returned" | "escalated"
       artifact_status: "draft" | "awaiting_review" | "approved" | "rejected"
@@ -5093,6 +5205,7 @@ export const Constants = {
         "general_manager",
         "sales_ops",
         "finance_manager",
+        "estimation_manager",
       ],
       approval_recommendation: ["proceed", "management_review", "do_not_quote"],
       approval_status: ["pending", "approved", "returned", "escalated"],

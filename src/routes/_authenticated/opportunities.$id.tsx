@@ -31,6 +31,7 @@ import { ArrowLeft, ArrowRight, ExternalLink, FileText, RefreshCw } from "lucide
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
+import { BafoPanel } from "@/components/phc/BafoPanel";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline } from "@/lib/roles";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
@@ -814,6 +815,9 @@ function OpportunityDetail() {
         )}
       </Panel>
       )}
+
+      {/* 7d. BAFO / COMMERCIAL DISCOUNT APPROVAL CHAIN */}
+      {show("decision") && <BafoPanel opportunityId={o.id} />}
 
       {/* 7c. RISK ASSESSMENT */}
       {(riskError || riskResult) && (
