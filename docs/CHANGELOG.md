@@ -20,7 +20,7 @@
 - Agent Activity كان يقرأ من جدول `agent_runs` المهجور دائمًا الفراغ — أُعيد توجيهه إلى `ai_agent_runs` (البيانات الحقيقية).
 - حقول "إضافة جديد" (شركة/مشروع) مفقودة في NewEntryDialog وفورمي المناقصات وجهات الاتصال — أُضيفت.
 - بطاقات Projects/Reference Library كانت تُظهر تفاصيل قليلة رغم توفّر بيانات إنتاج حقيقية (verification_status، signage_package_status، source_confidence) — أُبرزت.
-- قفل RBAC متكرر (منح sales_manager لحساب المدير الأعلى يمنع تصحيحه ذاتيًا) — migration تصحيحية ثالثة بنفس النمط المُثبَت.
+- قفل RBAC متكرر (منح sales_manager لحساب المدير الأعلى يمنع تصحيحه ذاتيًا) — migration تصحيحية ثالثة بنفس النمط المُثبَت، ثم **إصلاح جذري** لاحق (الحادثة الرابعة): `protect_last_manager()` كانت تمنع self-revoke لأي دور تجاري (sales_manager/executive) وليس فقط system_admin؛ ضُيِّق النطاق إلى system_admin فقط، مما يُغلق الحادثة نهائيًا دون الحاجة لـ migration يدوية مستقبلًا.
 - فجوات توافق الجوال في صفحات أُنشئت بعد فحص 2026-07-14 (جداول overflow-hidden، شبكة عمودين ثابتة داخل dialog، صف KPI غير متسق).
 - ثغرة brace-expansion (GHSA-mh99-v99m-4gvg) — أُصلحت فعليًا عبر ترقية eslint 10.x بعد فشل محاولة override سابقة.
 ### Security
