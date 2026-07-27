@@ -27,6 +27,7 @@ export type AppRole =
   | "bd_manager"
   | "sales_ops"
   | "finance_manager"
+  | "estimation_manager"
   | "salesperson"
   | "viewer";
 
@@ -40,6 +41,7 @@ export const ALL_ROLES: AppRole[] = [
   "bd_manager",
   "sales_ops",
   "finance_manager",
+  "estimation_manager",
   "salesperson",
   "viewer",
 ];
@@ -54,6 +56,7 @@ export const ROLE_GROUPS = {
   salesManager: ["sales_manager"] as AppRole[],
   bdSalesOps: ["bd_manager", "sales_ops"] as AppRole[],
   financeManager: ["finance_manager"] as AppRole[],
+  estimationManager: ["estimation_manager"] as AppRole[],
   salesperson: ["salesperson"] as AppRole[],
   viewer: ["viewer"] as AppRole[],
 } as const;
@@ -76,6 +79,7 @@ export const isExecutive = (r: RoleInput) => inGroup(r, ROLE_GROUPS.executive);
 export const isSalesManager = (r: RoleInput) => inGroup(r, ROLE_GROUPS.salesManager);
 export const isBdOrSalesOps = (r: RoleInput) => inGroup(r, ROLE_GROUPS.bdSalesOps);
 export const isFinanceManager = (r: RoleInput) => inGroup(r, ROLE_GROUPS.financeManager);
+export const isEstimationManager = (r: RoleInput) => inGroup(r, ROLE_GROUPS.estimationManager);
 export const isSalesperson = (r: RoleInput) => inGroup(r, ROLE_GROUPS.salesperson);
 export const isViewer = (r: RoleInput) => inGroup(r, ROLE_GROUPS.viewer);
 
@@ -149,3 +153,18 @@ export const canEditRfqNumber = (r: RoleInput) =>
 // specifically — only salesperson is meant to lose visibility here.
 export const canViewAllSalesData = (r: RoleInput) =>
   inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.systemAdmin, ...ROLE_GROUPS.financeManager, ...ROLE_GROUPS.viewer]);
+
+// ---- BAFO / commercial-discount approval chain ------------------------------
+// Client spec (2026-07-27), section 12's proposed 4-step approval chain
+// (a salesperson/BD rep negotiates and requests; these four decide, in
+// order). Each mirrors a same-named DB helper used by bafo_requests'
+// step-gating trigger — see 20260727220000_bafo_approval_chain.sql.
+export const canRequestBafo = (r: RoleInput) => canCreateSalesRecords(r);
+export const canReviewBafoCommercial = (r: RoleInput) =>
+  inGroup(r, ["bd_manager", "sales_manager", "system_admin"]);
+export const canApproveBafoCost = (r: RoleInput) =>
+  inGroup(r, ["estimation_manager", "system_admin"]);
+export const canApproveBafoFinance = (r: RoleInput) =>
+  inGroup(r, ["finance_manager", "system_admin"]);
+export const canApproveBafoFinal = (r: RoleInput) =>
+  inGroup(r, [...ROLE_GROUPS.executive, ...ROLE_GROUPS.systemAdmin]);

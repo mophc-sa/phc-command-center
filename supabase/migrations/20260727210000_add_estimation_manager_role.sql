@@ -1,0 +1,20 @@
+-- =========================================================
+-- Add the `estimation_manager` app role.
+--
+-- Per client spec (2026-07-27, "دور مدير تطوير الأعمال داخل النظام"),
+-- section 12's proposed BAFO/commercial-discount approval chain names 5
+-- steps: salesperson (requester) → BD/sales manager (commercial review) →
+-- "مدير التقدير" (cost approval) → finance (margin review) → general
+-- manager (final approval). No "estimation manager" role existed —
+-- following the same precedent as finance_manager (20260727160000):
+-- add it as a new role rather than overload an existing one.
+--
+-- Kept in its OWN migration (same enum-add-value transaction rule as
+-- every other role addition in this repo).
+--
+-- Canonical role set after this migration (11 roles):
+--   system_admin, managing_director, general_manager, ceo (legacy),
+--   sales_manager, bd_manager, sales_ops, finance_manager,
+--   estimation_manager, salesperson, viewer
+-- =========================================================
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'estimation_manager';
