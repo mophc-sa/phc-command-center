@@ -3,7 +3,31 @@
 > **أهم ملف بعد CLAUDE.md.** يُحدَّث في نهاية كل جلسة. اقرأه أولًا عند بداية أي جلسة/حساب جديد.
 
 ## Date
-2026-07-27  *(محدَّثة — دفعة إصلاحات شاملة منشورة بالكامل: PR #134/#136/#138 + 4 migrations، بما فيها إصلاح جذري لحادثة RBAC المتكرِّرة)*
+2026-07-27  *(محدَّثة — دفعة Data Import منشورة: PR #140/#141 + 2 migrations + إعادة نشر import-pipeline Edge Function v33)*
+
+## 📥 إصلاح Data Import — فقدان صامت للبيانات + صلاحيات system_admin (PR #140/#141) — 2026-07-27
+طلب المستخدم مراجعة شاملة لصفحة استيراد البيانات وإصلاح كل مشاكلها، مع التركيز على معالجة كل البيانات المرفوعة حتى بلا أعمدة مطابِقة مسبقًا، بالإضافة لخطأ محدَّد: `Edge Function returned a non-2xx status code: system_admin cannot commit imports`.
+
+**PR #140 — صلاحيات commit للـ system_admin:** الخطأ لم يكن عطلاً بل نفس مبدأ فصل السلطة الذي طبّقناه للتو في RBAC، لكنه تعارض مباشرة مع كون حساب المستخدم أصبح system_admin+salesperson فقط. سألت المستخدم: سمح صراحة لـ system_admin بعمل commit/approve/rollback للاستيراد أيضًا (بدل اضطراره لمنح نفسه دورًا تجاريًا كل مرة). `APPROVE_COMMIT_ROLES` (في كل من الـ Edge Function والواجهة) أصبحت تشمل system_admin، وحُذف الفحص الميت "system_admin ممنوع صراحة".
+
+**PR #141 — فحص شامل + إصلاح فقدان البيانات (الطلب الأساسي):** تحقيق كامل (subagent بحثي + قراءة مباشرة) كشف: أي عمود في ملف الاستيراد لا يُطابِق حقلًا معروفًا كان **يُفقَد صمتًا بالكامل** — (أ) التدفّق التلقائي (Upload & Auto-Import) كان يستبعد اقتراح AI بحفظه كـ"Additional Data" صراحةً قبل الحفظ؛ (ب) حتى الاختيار اليدوي لـ"Additional Data" كان يُكتب بمفتاح `__extra::{عمود}` لا يُفكِّكه أي كود لاحقًا (تعليق يشير لدالة `collectExtraData()` **غير موجودة إطلاقًا**)، فيفشل إدراج الصف كاملًا عند `commit_candidates`؛ (ج) 3 جداول فقط من أصل 10 كيانات قابلة للاستيراد لديها عمود `extra_data` أصلًا لاستقبال هذه البيانات.
+
+**الإصلاح الكامل:**
+1. `commit_candidates` يُفكِّك مفاتيح `__extra::` إلى كائن `extra_data` متداخل بدل تركها أعمدة مسطَّحة مكسورة.
+2. Migration `20260727140000`: عمود `extra_data jsonb` + GIN index لكل الجداول العشرة (أضيف لـ 7: opportunities, projects, quotations, follow_ups, boqs, rfqs, tenders).
+3. التدفّق التلقائي لم يعد يستبعد اقتراحات extra_data؛ + احتياط دفاعي مزدوج (عمود لم يقترح له AI شيئًا → extra_data تلقائيًا؛ فشل استدعاء AI بالكامل → كل الأعمدة → extra_data) — لا يمكن لأي عمود أن يُفقَد صمتًا بعد الآن.
+4. Migration `20260727150000`: إصلاح ثغرة كامنة منفصلة — `import_batches_target_entity_check` كان يسمح بـ6 من أصل 10 أنواع فقط (rfqs/tenders/follow_ups/quotations مفقودة) — أي دفعة تستهدف أحدها كانت تفشل عند الإنشاء مباشرة.
+5. تحسين سلاسة التدفّق التلقائي: يستدعي الآن `generate_candidates` تلقائيًا بعد dry-run فيهبط المستخدم مباشرة على تبويب Candidates جاهزًا للمراجعة، بدل الحاجة لضغطة "Analyze & Distribute" يدوية.
+6. `docs/ai-orchestrator.md` كان يوثِّق 3 من أصل 14 وكيل AI فقط — أُضيف جدول مرجعي للـ11 الباقين، مع تنبيه أن وكيلين (`data_cleanup`, `contact_mapping`) مبنيّان ومُختبَران بالكامل لكن بلا أي واجهة تستدعيهما — فرصة مستقبلية موثَّقة، وليست تجاهلًا صامتًا.
+
+**نشر إلى الإنتاج:**
+- Migrations: preflight → dry-run → push، تحقّق كامل (`extra_data` موجود على 10 جداول، CHECK constraint يشمل 10 أنواع، lint نظيف).
+- **Edge Function**: `import-pipeline` أُعيد نشرها صراحةً (`supabase functions deploy import-pipeline --project-ref lrfdtoexyeghrzynapyn`) — v33، `lrfdtoexyeghrzynapyn`، من commit `3e90dee`. (Edge Functions لا تُنشَر تلقائيًا عند merge حسب `docs/deployment-governance.md`.)
+- فحص صحة: `agent.phc-sa.com/auth` → 307، `/` → 200، `/data-import` → 200.
+
+**متبقٍّ (فرصة مستقبلية موثَّقة، ليست عطلًا):** ربط `data_cleanup`/`contact_mapping` بواجهة مستخدم؛ توحيد مخرجات `relationship_resolver` مع جدول `import_candidate_links` بدل `raw_data.__relationship_hints`. راجع `tasks/backlog.md`.
+
+---
 
 ## 🔒 إصلاح جذري لحادثة self-revoke المتكرِّرة (PR #138) — 2026-07-27
 المستخدم أبلغ أنه عند اختيار دور مدير المبيعات أو المدير العام أو التنفيذي (بعد أن جرّبها بنفسه للاستكشاف) ثم محاولة سحبه من نفسه، يظهر "لا يمكن سحب الدور منك" — **الحادثة الرابعة** لنفس المشكلة (بعد 20260713130000، 20260721100000، 20260727110000 اليوم نفسه). فحص `user_roles` كشف الحساب يحمل حينها `ceo`+`sales_manager`+`general_manager`+`system_admin`+`salesperson` معًا.
