@@ -100,9 +100,11 @@ test("import-pipeline never exposes the old unreviewed bare 'commit' action", ()
   expect(edgeSrc).not.toContain('handlers["commit_to_crm"]');
 });
 
-test("commit_candidates is role-gated the same as approve/dry_run_commit", () => {
-  expect(commitCandidatesSrc).toMatch(/system_admin cannot commit imports/);
+test("commit_candidates is role-gated, and system_admin is an allowed committer", () => {
   expect(commitCandidatesSrc).toMatch(/Insufficient role for commit/);
+  const rolesBlockStart = edgeSrc.indexOf("const APPROVE_COMMIT_ROLES: AppRole[] = [");
+  const rolesBlockEnd = edgeSrc.indexOf("];", rolesBlockStart);
+  expect(edgeSrc.slice(rolesBlockStart, rolesBlockEnd)).toMatch(/"system_admin"/);
 });
 
 test("Commit-to-CRM UI button is conditionally gated on having an approved candidate", () => {

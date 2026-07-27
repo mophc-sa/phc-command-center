@@ -1433,7 +1433,7 @@ function ApprovalPanel({
     <Panel title="Approval & Commit">
       {!canApprove && (
         <div className="rounded-md border border-amber/30 bg-amber/10 px-3 py-2 text-xs text-amber-light mb-4">
-          You need a manager role (Managing Director, General Manager, CEO, or Sales Manager) to approve and commit imports.
+          You need a manager role (System Admin, Managing Director, General Manager, CEO, or Sales Manager) to approve and commit imports.
         </div>
       )}
 

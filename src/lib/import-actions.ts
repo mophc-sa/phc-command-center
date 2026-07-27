@@ -72,9 +72,13 @@ export const IMPORT_CAPABLE_ROLES: AppRole[] = [
   ...ROLE_GROUPS.systemAdmin, ...ROLE_GROUPS.executive, ...ROLE_GROUPS.salesManager,
 ];
 
-// Commercial sign-off authority — system_admin intentionally excluded (per roles.ts design rule).
+// Approve/dry-run/commit/rollback authority for imports. system_admin is
+// included here (unlike most other commercial-approval gates in this repo —
+// see roles.ts) by explicit product decision: a system_admin with no
+// commercial-manager role must still be able to operate the import pipeline
+// end to end rather than depend on another account.
 export const APPROVE_COMMIT_ROLES: AppRole[] = [
-  ...ROLE_GROUPS.executive, ...ROLE_GROUPS.salesManager,
+  ...ROLE_GROUPS.systemAdmin, ...ROLE_GROUPS.executive, ...ROLE_GROUPS.salesManager,
 ];
 
 export const UPLOAD_ROLES: AppRole[] = [
