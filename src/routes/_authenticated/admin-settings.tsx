@@ -34,6 +34,7 @@ import {
   canViewSalesAdmin,
   isExecutive,
   isSalesManager,
+  isSystemAdmin,
   isBdOrSalesOps,
 } from "@/lib/roles";
 
@@ -424,8 +425,16 @@ function AdminSettingsPage() {
                       </td>
                       {ALL_ROLES.map((role) => {
                         const has = m.roles.includes(role);
-                        const isManagerRole = isExecutive(role) || isSalesManager(role);
-                        const guardSelf = isSelf && has && isManagerRole;
+                        // Only system_admin is self-revoke-guarded (genuine
+                        // admin-lockout prevention — see protect_last_manager()
+                        // in 20260727130000_allow_self_revoke_commercial_roles.sql).
+                        // Commercial-manager roles (executive/sales_manager) are
+                        // deliberately NOT guarded here: revoking your own
+                        // commercial authority is a legitimate self-service
+                        // action, and blocking it caused a recurring incident
+                        // where an admin who granted themselves a commercial
+                        // role for testing could never remove it again.
+                        const guardSelf = isSelf && has && isSystemAdmin(role);
                         const disabled = !canManage || guardSelf;
                         return (
                           <td key={role} className="px-2 py-2 text-center">
@@ -436,8 +445,8 @@ function AdminSettingsPage() {
                               title={
                                 guardSelf
                                   ? lang === "ar"
-                                    ? "لا يمكنك سحب دور الإدارة الخاص بك"
-                                    : "You cannot revoke your own manager role"
+                                    ? "لا يمكنك سحب دور مدير النظام الخاص بك"
+                                    : "You cannot revoke your own system_admin role"
                                   : undefined
                               }
                               className={
