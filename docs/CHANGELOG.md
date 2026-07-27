@@ -13,6 +13,22 @@
 
 ---
 
+## 2026-07-27 — Data Import: إصلاح فقدان البيانات الصامت + صلاحيات system_admin
+تنفيذ مباشر بعد طلب المستخدم مراجعة شاملة لصفحة الاستيراد. تفاصيل كاملة في `docs/AI_HANDOFF.md`.
+### Fixed
+- عمود مستورَد لا يُطابِق حقلًا معروفًا كان يُفقَد صمتًا بالكامل (فُلتِر في التدفّق التلقائي، ومفتاح `__extra::` لم يكن يُفكَّك أبدًا، وأغلب الجداول لم يكن لديها `extra_data` أصلًا). أُصلح على مستوى Edge Function + migration (10 جداول) + التدفّق التلقائي (فلتر محذوف + احتياطان دفاعيّان).
+- `import_batches_target_entity_check` كان يمنع 4 من أصل 10 أنواع كيانات قابلة للاستيراد (rfqs/tenders/follow_ups/quotations) من الإنشاء أصلًا.
+- `system_admin cannot commit imports` — سُمح لـ system_admin بعمل approve/commit/rollback للاستيراد بقرار صريح من المستخدم.
+### Changed
+- التدفّق التلقائي (Auto-Import) يستدعي `generate_candidates` تلقائيًا بعد dry-run.
+- `docs/ai-orchestrator.md` وثَّق 11 وكيل AI إضافي لم يكونوا موثَّقين (من أصل 14).
+### Verified
+- `bun run verify` نظيف (510/510 اختبار). Migrations مُطبَّقة ومُتحقَّق منها على الإنتاج. `import-pipeline` Edge Function أُعيد نشرها صراحةً (v33).
+### Blocked / Future
+- وكيلا AI `data_cleanup`/`contact_mapping` مبنيّان بلا واجهة مستخدم؛ `relationship_resolver` لا يزال يكتب لـ `raw_data` بدل `import_candidate_links`.
+
+---
+
 ## 2026-07-27 — دفعة إصلاحات شاملة (9 مشاكل مُبلَّغة + الأشياء المؤجَّلة)
 تنفيذ مباشر بموافقة شاملة مسبقة. تفاصيل كاملة في `docs/AI_HANDOFF.md`.
 ### Fixed
