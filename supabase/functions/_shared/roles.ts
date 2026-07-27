@@ -114,4 +114,4 @@ export const canEditRfqNumber = (r: RoleInput) =>
 // Sees every rep's sales pipeline data, not just their own — mirrors
 // public.can_view_all_sales_data(uuid) used in RLS SELECT policies.
 export const canViewAllSalesData = (r: RoleInput) =>
-  inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.systemAdmin, ...ROLE_GROUPS.financeManager]);
+  inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.systemAdmin, ...ROLE_GROUPS.financeManager, ...ROLE_GROUPS.viewer]);

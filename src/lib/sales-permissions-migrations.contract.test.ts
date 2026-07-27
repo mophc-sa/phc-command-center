@@ -24,10 +24,16 @@ test("finance_manager role is added in its own migration (enum-add-value transac
 });
 
 describe("sales data isolation", () => {
-  test("can_view_all_sales_data includes every manager-tier role the client spec names, plus finance_manager and sales_ops for their own job functions", () => {
-    for (const role of ["system_admin", "managing_director", "general_manager", "ceo", "sales_manager", "bd_manager", "sales_ops", "finance_manager"]) {
+  test("can_view_all_sales_data includes every manager-tier role the client spec names, plus finance_manager/sales_ops for their own job functions, plus viewer (pre-existing full read access, unrestricted by this spec)", () => {
+    for (const role of ["system_admin", "managing_director", "general_manager", "ceo", "sales_manager", "bd_manager", "sales_ops", "finance_manager", "viewer"]) {
       expect(isolation).toMatch(new RegExp(`'${role}'`));
     }
+  });
+
+  test("salesperson is NOT in can_view_all_sales_data — it is the one role this migration actually restricts", () => {
+    const fnStart = isolation.indexOf("CREATE OR REPLACE FUNCTION public.can_view_all_sales_data");
+    const fnEnd = isolation.indexOf("$$;", fnStart);
+    expect(isolation.slice(fnStart, fnEnd)).not.toMatch(/'salesperson'/);
   });
 
   test("opportunities/rfqs/tenders/quotations/follow_ups SELECT policies are owner-or-manager scoped", () => {

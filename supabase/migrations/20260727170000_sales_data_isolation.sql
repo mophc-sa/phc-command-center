@@ -25,13 +25,20 @@
 -- the very capability this same request grants them).
 -- =========================================================
 
+-- 'viewer' is included here (not a "manager" role) because it already had
+-- full read access to opportunities/rfqs/tenders/etc. before this
+-- migration (the blanket USING (is_active_user(...)) policies), and
+-- nothing in the client spec asks to restrict viewer specifically — it's
+-- a read-only oversight role. Only 'salesperson' is actually meant to
+-- lose visibility here, matching command-center.tsx's route guard, which
+-- for the same reason only redirects salesperson, not viewer.
 CREATE OR REPLACE FUNCTION public.can_view_all_sales_data(_user_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT public.has_any_role(
     _user_id,
     ARRAY[
       'system_admin', 'managing_director', 'general_manager', 'ceo',
-      'sales_manager', 'bd_manager', 'sales_ops', 'finance_manager'
+      'sales_manager', 'bd_manager', 'sales_ops', 'finance_manager', 'viewer'
     ]::public.app_role[]
   );
 $$;

@@ -142,9 +142,10 @@ export const canEditRfqNumber = (r: RoleInput) =>
 // quotations/follow-ups), not just their own — mirrors the DB helper
 // public.can_view_all_sales_data(uuid) used in RLS SELECT policies.
 // finance_manager is included so Finance can actually reach the records
-// whose Total Value they're permitted to set (canEditTotalValue above),
-// even though it isn't one of the roles the client spec names for the
-// separate "management dashboard" concern in canViewAllSalesData's
-// dashboard-facing counterpart, canManageTeam.
+// whose Total Value they're permitted to set (canEditTotalValue above).
+// viewer is included because it already had full read access to this data
+// before the sales-data-isolation change (the old blanket SELECT
+// policies) and nothing in the client spec asks to restrict viewer
+// specifically — only salesperson is meant to lose visibility here.
 export const canViewAllSalesData = (r: RoleInput) =>
-  inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.systemAdmin, ...ROLE_GROUPS.financeManager]);
+  inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.systemAdmin, ...ROLE_GROUPS.financeManager, ...ROLE_GROUPS.viewer]);
