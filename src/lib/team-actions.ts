@@ -3,7 +3,7 @@ import { type AppRole, ALL_ROLES } from "@/lib/roles";
 
 export { type AppRole, ALL_ROLES };
 
-export type UserStatus = "pending_approval" | "active" | "suspended";
+export type UserStatus = "pending_approval" | "active" | "suspended" | "deleted";
 
 export type TeamMember = {
   id: string;
@@ -114,6 +114,34 @@ export async function activateUser(userId: string): Promise<void> {
     .eq("id", userId);
   if (error) throw error;
   await audit("user.activated", userId, { status: "active" });
+}
+
+// Distinct from suspend: a separate, system_admin-only action (enforced
+// server-side too — see protect_delete_user_status() trigger). Soft-delete
+// only (sets status = 'deleted', same login-blocking effect as suspended —
+// see is_active_user() and route.tsx) — no CRM record the account owns is
+// touched or reassigned, preserving financial/administrative history per
+// the client spec's explicit preference for soft-delete over hard delete.
+export async function deleteUserAccount(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ status: "deleted" })
+    .eq("id", userId);
+  if (error) throw error;
+  await audit("user.deleted", userId, { status: "deleted" });
+}
+
+// Informational count only (not a block) shown in the delete confirm
+// dialog, so an admin knows how many active records this account owns
+// before deciding whether to reassign them first.
+export async function countOwnedActiveRecords(userId: string): Promise<number> {
+  const [companies, opportunities, rfqs, tenders] = await Promise.all([
+    supabase.from("companies").select("id", { count: "exact", head: true }).eq("account_owner_id", userId),
+    supabase.from("opportunities").select("id", { count: "exact", head: true }).eq("owner_id", userId),
+    supabase.from("rfqs").select("id", { count: "exact", head: true }).eq("sales_owner_id", userId).is("archived_at", null),
+    supabase.from("tenders").select("id", { count: "exact", head: true }).eq("tender_owner_id", userId).is("archived_at", null),
+  ]);
+  return (companies.count ?? 0) + (opportunities.count ?? 0) + (rfqs.count ?? 0) + (tenders.count ?? 0);
 }
 
 export async function grantRole(userId: string, role: AppRole) {

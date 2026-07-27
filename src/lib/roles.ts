@@ -26,6 +26,7 @@ export type AppRole =
   | "sales_manager"
   | "bd_manager"
   | "sales_ops"
+  | "finance_manager"
   | "salesperson"
   | "viewer";
 
@@ -38,6 +39,7 @@ export const ALL_ROLES: AppRole[] = [
   "sales_manager",
   "bd_manager",
   "sales_ops",
+  "finance_manager",
   "salesperson",
   "viewer",
 ];
@@ -51,6 +53,7 @@ export const ROLE_GROUPS = {
   executive: ["managing_director", "general_manager", "ceo"] as AppRole[],
   salesManager: ["sales_manager"] as AppRole[],
   bdSalesOps: ["bd_manager", "sales_ops"] as AppRole[],
+  financeManager: ["finance_manager"] as AppRole[],
   salesperson: ["salesperson"] as AppRole[],
   viewer: ["viewer"] as AppRole[],
 } as const;
@@ -72,6 +75,7 @@ export const isSystemAdmin = (r: RoleInput) => inGroup(r, ROLE_GROUPS.systemAdmi
 export const isExecutive = (r: RoleInput) => inGroup(r, ROLE_GROUPS.executive);
 export const isSalesManager = (r: RoleInput) => inGroup(r, ROLE_GROUPS.salesManager);
 export const isBdOrSalesOps = (r: RoleInput) => inGroup(r, ROLE_GROUPS.bdSalesOps);
+export const isFinanceManager = (r: RoleInput) => inGroup(r, ROLE_GROUPS.financeManager);
 export const isSalesperson = (r: RoleInput) => inGroup(r, ROLE_GROUPS.salesperson);
 export const isViewer = (r: RoleInput) => inGroup(r, ROLE_GROUPS.viewer);
 
@@ -118,3 +122,30 @@ export const canCreateSalesRecords = (r: RoleInput) =>
 // Final delete execution — system_admin only, and only after a commercial
 // manager has approved the underlying delete request via decide_approval.
 export const canExecuteDelete = (r: RoleInput) => isSystemAdmin(r);
+
+// Total Value (RFQ/opportunity) edit authority — per client spec
+// (2026-07-27): Finance Manager, BD Manager, System Admin only. Deliberately
+// NOT the general COMMERCIAL_MANAGERS set (sales_manager/executives are
+// excluded here even though they hold broader commercial authority
+// elsewhere) — this is a narrower, spec-specific grant.
+export const canEditTotalValue = (r: RoleInput) =>
+  inGroup(r, ["finance_manager", "bd_manager", "system_admin"]);
+
+// Manual RFQ-number entry/edit authority — per client spec (2026-07-27):
+// "Account Manager" (this codebase's existing term for the role is
+// sales_manager — see account_owner_id/changeAccountOwner), BD Manager,
+// System Admin. Mirrors the DB helper public.can_edit_rfq_number(uuid).
+export const canEditRfqNumber = (r: RoleInput) =>
+  inGroup(r, ["sales_manager", "bd_manager", "system_admin"]);
+
+// Sees every rep's sales pipeline data (opportunities/RFQs/tenders/
+// quotations/follow-ups), not just their own — mirrors the DB helper
+// public.can_view_all_sales_data(uuid) used in RLS SELECT policies.
+// finance_manager is included so Finance can actually reach the records
+// whose Total Value they're permitted to set (canEditTotalValue above).
+// viewer is included because it already had full read access to this data
+// before the sales-data-isolation change (the old blanket SELECT
+// policies) and nothing in the client spec asks to restrict viewer
+// specifically — only salesperson is meant to lose visibility here.
+export const canViewAllSalesData = (r: RoleInput) =>
+  inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.systemAdmin, ...ROLE_GROUPS.financeManager, ...ROLE_GROUPS.viewer]);

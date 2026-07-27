@@ -1,0 +1,19 @@
+-- =========================================================
+-- Add the `finance_manager` app role.
+--
+-- Per client spec (2026-07-27, "متطلبات الصلاحيات وعزل بيانات المبيعات"):
+-- editing an RFQ/opportunity's Total Value must be restricted to
+-- Finance Manager, BD Manager, and System Admin — but no "finance manager"
+-- role existed anywhere in the system. Adding it as a new role rather than
+-- overloading an existing one, per explicit product decision.
+--
+-- Kept in its OWN migration because Postgres forbids using a newly-added
+-- enum value in the same transaction that adds it (same reason
+-- 20260708130000_add_sales_ops_role.sql is standalone).
+--
+-- Canonical role set after this migration (10 roles), matching
+-- src/lib/roles.ts and supabase/functions/_shared/roles.ts:
+--   system_admin, managing_director, general_manager, ceo (legacy),
+--   sales_manager, bd_manager, sales_ops, finance_manager, salesperson, viewer
+-- =========================================================
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'finance_manager';

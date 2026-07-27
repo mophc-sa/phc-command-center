@@ -18,6 +18,7 @@ export type AppRole =
   | "sales_manager"
   | "bd_manager"
   | "sales_ops"
+  | "finance_manager"
   | "salesperson"
   | "viewer";
 
@@ -30,6 +31,7 @@ export const ALL_ROLES: AppRole[] = [
   "sales_manager",
   "bd_manager",
   "sales_ops",
+  "finance_manager",
   "salesperson",
   "viewer",
 ];
@@ -39,6 +41,7 @@ export const ROLE_GROUPS = {
   executive: ["managing_director", "general_manager", "ceo"] as AppRole[],
   salesManager: ["sales_manager"] as AppRole[],
   bdSalesOps: ["bd_manager", "sales_ops"] as AppRole[],
+  financeManager: ["finance_manager"] as AppRole[],
   salesperson: ["salesperson"] as AppRole[],
   viewer: ["viewer"] as AppRole[],
 } as const;
@@ -59,6 +62,7 @@ export const isSystemAdmin = (r: RoleInput) => inGroup(r, ROLE_GROUPS.systemAdmi
 export const isExecutive = (r: RoleInput) => inGroup(r, ROLE_GROUPS.executive);
 export const isSalesManager = (r: RoleInput) => inGroup(r, ROLE_GROUPS.salesManager);
 export const isBdOrSalesOps = (r: RoleInput) => inGroup(r, ROLE_GROUPS.bdSalesOps);
+export const isFinanceManager = (r: RoleInput) => inGroup(r, ROLE_GROUPS.financeManager);
 export const isSalesperson = (r: RoleInput) => inGroup(r, ROLE_GROUPS.salesperson);
 export const isViewer = (r: RoleInput) => inGroup(r, ROLE_GROUPS.viewer);
 
@@ -97,3 +101,17 @@ export const canCreateSalesRecords = (r: RoleInput) =>
 // Final delete execution — system_admin only, and only after a commercial
 // manager has approved the underlying delete request via decide_approval.
 export const canExecuteDelete = (r: RoleInput) => isSystemAdmin(r);
+
+// Total Value (RFQ/opportunity) edit authority — per client spec
+// (2026-07-27): Finance Manager, BD Manager, System Admin only.
+export const canEditTotalValue = (r: RoleInput) =>
+  inGroup(r, ["finance_manager", "bd_manager", "system_admin"]);
+
+// Mirrors public.can_edit_rfq_number(uuid).
+export const canEditRfqNumber = (r: RoleInput) =>
+  inGroup(r, ["sales_manager", "bd_manager", "system_admin"]);
+
+// Sees every rep's sales pipeline data, not just their own — mirrors
+// public.can_view_all_sales_data(uuid) used in RLS SELECT policies.
+export const canViewAllSalesData = (r: RoleInput) =>
+  inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.systemAdmin, ...ROLE_GROUPS.financeManager, ...ROLE_GROUPS.viewer]);

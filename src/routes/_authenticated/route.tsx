@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated")({
     if (!profile || profile.status === "pending_approval") {
       throw redirect({ to: "/pending-approval" });
     }
-    if (profile.status === "suspended") {
+    if (profile.status === "suspended" || profile.status === "deleted") {
       await supabase.auth.signOut();
       throw redirect({ to: "/auth", search: { next: "" } as never });
     }

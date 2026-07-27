@@ -987,6 +987,7 @@ export type Database = {
           created_by: string | null
           currency: string
           estimated_value: number | null
+          extra_data: Json | null
           file_url: string | null
           id: string
           missing_items: string | null
@@ -1004,6 +1005,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           estimated_value?: number | null
+          extra_data?: Json | null
           file_url?: string | null
           id?: string
           missing_items?: string | null
@@ -1021,6 +1023,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           estimated_value?: number | null
+          extra_data?: Json | null
           file_url?: string | null
           id?: string
           missing_items?: string | null
@@ -1475,6 +1478,7 @@ export type Database = {
           channel: string | null
           created_at: string
           due_date: string
+          extra_data: Json | null
           id: string
           last_contact_at: string | null
           notes: string | null
@@ -1488,6 +1492,7 @@ export type Database = {
           channel?: string | null
           created_at?: string
           due_date: string
+          extra_data?: Json | null
           id?: string
           last_contact_at?: string | null
           notes?: string | null
@@ -1501,6 +1506,7 @@ export type Database = {
           channel?: string | null
           created_at?: string
           due_date?: string
+          extra_data?: Json | null
           id?: string
           last_contact_at?: string | null
           notes?: string | null
@@ -2858,6 +2864,7 @@ export type Database = {
             | Database["public"]["Enums"]["exclusion_reason"]
             | null
           expected_contract_date: string | null
+          extra_data: Json | null
           flow_type: Database["public"]["Enums"]["flow_type"]
           handover_status: Database["public"]["Enums"]["handover_status"] | null
           hold_reason: string | null
@@ -2936,6 +2943,7 @@ export type Database = {
             | Database["public"]["Enums"]["exclusion_reason"]
             | null
           expected_contract_date?: string | null
+          extra_data?: Json | null
           flow_type?: Database["public"]["Enums"]["flow_type"]
           handover_status?:
             | Database["public"]["Enums"]["handover_status"]
@@ -3016,6 +3024,7 @@ export type Database = {
             | Database["public"]["Enums"]["exclusion_reason"]
             | null
           expected_contract_date?: string | null
+          extra_data?: Json | null
           flow_type?: Database["public"]["Enums"]["flow_type"]
           handover_status?:
             | Database["public"]["Enums"]["handover_status"]
@@ -3246,6 +3255,7 @@ export type Database = {
           currency: string
           expected_boq_date: string | null
           expected_signage_date: string | null
+          extra_data: Json | null
           id: string
           location: string | null
           main_contractor_id: string | null
@@ -3269,6 +3279,7 @@ export type Database = {
           currency?: string
           expected_boq_date?: string | null
           expected_signage_date?: string | null
+          extra_data?: Json | null
           id?: string
           location?: string | null
           main_contractor_id?: string | null
@@ -3292,6 +3303,7 @@ export type Database = {
           currency?: string
           expected_boq_date?: string | null
           expected_signage_date?: string | null
+          extra_data?: Json | null
           id?: string
           location?: string | null
           main_contractor_id?: string | null
@@ -3503,6 +3515,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           currency: string
+          extra_data: Json | null
           id: string
           issued_date: string | null
           last_follow_up_at: string | null
@@ -3523,6 +3536,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string
+          extra_data?: Json | null
           id?: string
           issued_date?: string | null
           last_follow_up_at?: string | null
@@ -3543,6 +3557,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string
+          extra_data?: Json | null
           id?: string
           issued_date?: string | null
           last_follow_up_at?: string | null
@@ -3732,6 +3747,9 @@ export type Database = {
           archived_at: string | null
           archived_by: string | null
           below_300k_exception_approval_id: string | null
+          city: string | null
+          classification: string | null
+          classification_other: string | null
           company_id: string | null
           contact_id: string | null
           contact_plan_ready: boolean
@@ -3741,6 +3759,7 @@ export type Database = {
           document_url: string | null
           estimated_signage_value: number | null
           estimated_value: number | null
+          extra_data: Json | null
           id: string
           main_contractor_confirmed: boolean
           notes: string | null
@@ -3763,6 +3782,9 @@ export type Database = {
           archived_at?: string | null
           archived_by?: string | null
           below_300k_exception_approval_id?: string | null
+          city?: string | null
+          classification?: string | null
+          classification_other?: string | null
           company_id?: string | null
           contact_id?: string | null
           contact_plan_ready?: boolean
@@ -3772,6 +3794,7 @@ export type Database = {
           document_url?: string | null
           estimated_signage_value?: number | null
           estimated_value?: number | null
+          extra_data?: Json | null
           id?: string
           main_contractor_confirmed?: boolean
           notes?: string | null
@@ -3794,6 +3817,9 @@ export type Database = {
           archived_at?: string | null
           archived_by?: string | null
           below_300k_exception_approval_id?: string | null
+          city?: string | null
+          classification?: string | null
+          classification_other?: string | null
           company_id?: string | null
           contact_id?: string | null
           contact_plan_ready?: boolean
@@ -3803,6 +3829,7 @@ export type Database = {
           document_url?: string | null
           estimated_signage_value?: number | null
           estimated_value?: number | null
+          extra_data?: Json | null
           id?: string
           main_contractor_confirmed?: boolean
           notes?: string | null
@@ -4277,6 +4304,7 @@ export type Database = {
           estimated_project_value: number | null
           estimated_signage_value: number | null
           expected_award_date: string | null
+          extra_data: Json | null
           id: string
           is_watchlisted: boolean
           main_contractor_confirmed: boolean
@@ -4312,6 +4340,7 @@ export type Database = {
           estimated_project_value?: number | null
           estimated_signage_value?: number | null
           expected_award_date?: string | null
+          extra_data?: Json | null
           id?: string
           is_watchlisted?: boolean
           main_contractor_confirmed?: boolean
@@ -4347,6 +4376,7 @@ export type Database = {
           estimated_project_value?: number | null
           estimated_signage_value?: number | null
           expected_award_date?: string | null
+          extra_data?: Json | null
           id?: string
           is_watchlisted?: boolean
           main_contractor_confirmed?: boolean
@@ -4551,6 +4581,9 @@ export type Database = {
         Args: { _batch_uuid: string }
         Returns: boolean
       }
+      can_edit_rfq_number: { Args: { _user_id: string }; Returns: boolean }
+      can_edit_total_value: { Args: { _user_id: string }; Returns: boolean }
+      can_view_all_sales_data: { Args: { _user_id: string }; Returns: boolean }
       claim_ai_agent_request: {
         Args: {
           _agent_key: string
@@ -4649,6 +4682,7 @@ export type Database = {
         | "managing_director"
         | "general_manager"
         | "sales_ops"
+        | "finance_manager"
       approval_recommendation: "proceed" | "management_review" | "do_not_quote"
       approval_status: "pending" | "approved" | "returned" | "escalated"
       artifact_status: "draft" | "awaiting_review" | "approved" | "rejected"
@@ -4883,7 +4917,7 @@ export type Database = {
         | "awarded_to_contractor"
         | "converted_to_jih"
         | "tender_lost_or_archived"
-      user_status: "pending_approval" | "active" | "suspended"
+      user_status: "pending_approval" | "active" | "suspended" | "deleted"
       verification_status: "pending_verification" | "verified" | "rejected"
       win_confidence: "low" | "possible" | "strong" | "sure_win"
     }
@@ -5058,6 +5092,7 @@ export const Constants = {
         "managing_director",
         "general_manager",
         "sales_ops",
+        "finance_manager",
       ],
       approval_recommendation: ["proceed", "management_review", "do_not_quote"],
       approval_status: ["pending", "approved", "returned", "escalated"],
@@ -5317,15 +5352,13 @@ export const Constants = {
         "converted_to_jih",
         "tender_lost_or_archived",
       ],
-      user_status: ["pending_approval", "active", "suspended"],
+      user_status: ["pending_approval", "active", "suspended", "deleted"],
       verification_status: ["pending_verification", "verified", "rejected"],
       win_confidence: ["low", "possible", "strong", "sure_win"],
     },
   },
 } as const
 
-
-// =============================================================================
 // Import Intelligence v2 — client-side types (not yet in auto-generated schema)
 // =============================================================================
 
