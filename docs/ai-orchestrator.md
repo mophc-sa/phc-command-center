@@ -131,6 +131,34 @@ its human counterpart — a real access inconsistency. `canViewSalesAdmin`
 existing `IMPORT_ROLES`' commercial members, so it was reused rather than
 hardcoded again.
 
+### Later agents (added in subsequent sprints, not yet given the full matrix treatment above)
+
+`AGENT_REGISTRY` grew to 14 total agents; the table above only covers the
+original 3. The remaining 11, quick reference only (see
+`ai-agent-registry.ts` for the full definition of each):
+
+| Agent | Purpose | Wired into a UI? |
+|---|---|---|
+| `data_cleanup` | Suggests field corrections + duplicate groupings for an import batch, with a data-quality score | **No** — `runDataCleanup()` exists in `src/lib/import-actions.ts` but has zero call sites in any route. Dead wiring as of 2026-07-27. |
+| `contact_mapping` | Classifies import rows by entity type and proposes contact↔company links within a batch | **No** — same situation as `data_cleanup`; `runContactMapping()` is unused. |
+| `project_radar` | Pipeline-wide health scan (risk alerts across all open opportunities) | Yes — `agent-activity.tsx`'s "Scan Pipeline" button. |
+| `risk_finance` | Per-opportunity financial/risk assessment | Yes — `opportunities.$id.tsx`. |
+| `workbook_classifier` | Detects the uploaded file's source kind and primary target entity | Yes — drives the one-click auto-import flow in `data-import.index.tsx`. |
+| `sheet_classifier` | Classifies an individual sheet within a multi-sheet workbook | Yes — AI Assist panel, `data-import.$batchId.tsx`. |
+| `semantic_field_mapper` | Suggests source-column → CRM-field mappings from column names + sample values | Yes — auto-import flow and the manual AI Assist panel. |
+| `entity_extractor` | Proposes splitting one imported row into multiple target entities (e.g. a row that is both a company and a contact) | Yes — "Extract Entities" panel, `data-import.$batchId.tsx`. |
+| `relationship_resolver` | Proposes relationships (e.g. contact_of, opportunity_of) between entities accepted from a split proposal | Yes, but writes its accepted output into `import_rows.raw_data.__relationship_hints` rather than the dedicated `import_candidate_links` table added for this in `20260714200000_import_intelligence_v2.sql` — a known architecture inconsistency, not yet reconciled. |
+| `change_interpreter` | Interprets a re-uploaded/updated source file's differences against a previously-committed batch | Yes — "Recurring Import Changes" panel. |
+| `import_routing_reviewer` | Final AI sanity check of a batch's routing/candidates before commit | Yes — "Final AI Review" panel. |
+
+**Known gaps as of 2026-07-27** (see `docs/KNOWN_ISSUES.md` for the data-loss
+bug this was found alongside): `data_cleanup` and `contact_mapping` are
+fully built and tested at the agent level but have no UI entry point at
+all — wiring them in is a real opportunity to use more of what's already
+built, not new agent development. `relationship_resolver`'s output not
+landing in `import_candidate_links` is a smaller loose end from the same
+audit.
+
 ### Entity/context loaders
 
 Each agent's `loadContext` fetches only the fields listed below — never a

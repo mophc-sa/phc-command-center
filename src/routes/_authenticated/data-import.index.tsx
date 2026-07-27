@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import {
   createBatch, listBatches, uploadImportFile, parseFile, listSourceProfiles,
   callImportAgent, saveMappings, validateBatch, detectDuplicates,
-  saveReadinessChecklist, approveBatch, dryRunCommit,
+  saveReadinessChecklist, approveBatch, dryRunCommit, generateCandidates,
   updateBatch, getTargetColumns, EXTRA_DATA_SENTINEL,
   SOURCE_KIND_ROUTING,
   UPLOAD_ROLES, TARGET_ENTITIES,
@@ -120,7 +120,7 @@ function DataImportLanding() {
       const { fileId } = await uploadImportFile(batch.id, newFile);
 
       setAutoStep("Parsing file…");
-      await parseFile(batch.id, fileId);
+      const { headers: sourceColumns } = await parseFile(batch.id, fileId);
 
       // 2. AI classification — detect source kind and primary entity from file content
       setAutoStep("Classifying file with AI…");
@@ -145,10 +145,37 @@ function DataImportLanding() {
       if (mapResult.ok) {
         const r = mapResult.result as { proposals?: Array<{ source_column: string; suggested_target: string; confidence: number }> };
         const validCols = new Set(getTargetColumns(detectedEntity).map((c) => c.value));
+        // A column the AI couldn't confidently map to a known field still
+        // gets saved — as EXTRA_DATA_SENTINEL, routing it into extra_data at
+        // commit time (see commit_candidates in import-pipeline) — rather
+        // than silently dropped. Uploaded data matters even when it has no
+        // pre-existing column in the system.
         const toSave = (r.proposals ?? [])
-          .filter((p) => p.suggested_target && p.suggested_target !== "__skip__" && p.suggested_target !== EXTRA_DATA_SENTINEL && validCols.has(p.suggested_target))
+          .filter((p) => p.suggested_target && p.suggested_target !== "__skip__" && (p.suggested_target === EXTRA_DATA_SENTINEL || validCols.has(p.suggested_target)))
           .map((p) => ({ source_column: p.source_column, target_table: detectedEntity, target_column: p.suggested_target, transform: null as string | null, is_key: false }));
+
+        // Defensive fallback: any parsed source column the AI didn't propose
+        // anything for at all (not even a skip) still gets an extra_data
+        // mapping, so a gap in the AI's response can never silently lose a
+        // column the way an un-mapped column used to.
+        const covered = new Set(toSave.map((m) => m.source_column));
+        for (const col of sourceColumns) {
+          if (!covered.has(col)) {
+            toSave.push({ source_column: col, target_table: detectedEntity, target_column: EXTRA_DATA_SENTINEL, transform: null, is_key: false });
+          }
+        }
+
         if (toSave.length > 0) await saveMappings(batch.id, toSave);
+      } else if (sourceColumns.length > 0) {
+        // AI mapping failed outright (provider error, timeout, etc.) — fall
+        // back to routing every column into extra_data rather than leaving
+        // the batch with zero mappings (which would abort the whole import
+        // with nothing captured at all). The user can re-map properly from
+        // the batch detail page; this just guarantees no data is lost.
+        await saveMappings(batch.id, sourceColumns.map((col) => ({
+          source_column: col, target_table: detectedEntity, target_column: EXTRA_DATA_SENTINEL,
+          transform: null as string | null, is_key: false,
+        })));
       }
 
       // 4. Validate + detect duplicates
@@ -167,21 +194,26 @@ function DataImportLanding() {
         no_unnecessary_sensitive_data: true,
       });
 
-      // 6. Approve → Dry run. Commit-to-CRM is a Phase 1.1 safety gate: the
-      // edge function has no "commit" handler yet (reserved for Phase 2), so
-      // the automated flow stops at dry-run rather than calling it.
+      // 6. Approve → dry run → generate candidates. Committing to the live
+      // CRM always requires a human to review the generated candidates on
+      // the batch detail page and approve them individually — that review
+      // step is a deliberate safety gate for live commercial data, not a
+      // missing feature, so the automated flow stops one step before it.
       setAutoStep("Approving batch…");
       await approveBatch(batch.id);
 
       setAutoStep("Running dry run…");
       await dryRunCommit(batch.id);
 
+      setAutoStep("Preparing records for review…");
+      await generateCandidates(batch.id);
+
       setNewOpen(false);
       setNewFile(null);
       qc.invalidateQueries({ queryKey: ["import-batches"] });
       const routing = SOURCE_KIND_ROUTING[classResult.ok ? ((classResult.result as any).detected_source_kind ?? "unknown") : "unknown"];
       const destLabel = routing ? routing.destinations.join(", ") : detectedEntity;
-      toast.success(`Dry run complete → ${destLabel}. Commit to CRM is not enabled yet (Phase 2).`);
+      toast.success(`Ready for review → ${destLabel}. Review the Candidates tab, then approve and commit.`);
       navigate({ to: "/data-import/$batchId", params: { batchId: batch.id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Import failed");

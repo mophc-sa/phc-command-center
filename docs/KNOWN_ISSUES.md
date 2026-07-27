@@ -30,4 +30,17 @@
 
 ---
 
+### Data Import: بيانات غير مُطابَقة لعمود كانت تُفقَد بصمت (مُصلَح 2026-07-27)
+- **Symptom:** أي عمود في ملف الاستيراد لا يُطابِق حقلًا معروفًا في CRM كان يُفقَد كليًا: (أ) في التدفّق التلقائي (Upload & Auto-Import)، اقتراح AI بتوجيه العمود إلى "Additional Data" كان يُستبعَد صراحةً قبل الحفظ (`data-import.index.tsx`، فلتر `!== EXTRA_DATA_SENTINEL`)؛ (ب) حتى عند اختيار المستخدم يدويًا "Additional Data"، كانت القيمة تُكتب بمفتاح حرفي `__extra::{اسم العمود}` في `mapped_data` دون وجود أي كود يُفكِّك هذا المفتاح لاحقًا (تعليق يشير لدالة `collectExtraData()` غير موجودة إطلاقًا في الكود) — فيصل هذا المفتاح كعمود مباشر غير موجود في جدول الهدف عند `commit_candidates`، فيفشل إدراج الصف بالكامل. أعمدة الهدف (`extra_data jsonb`) كانت موجودة فقط على 3 جداول (companies/contacts/leads) من أصل 10 أنواع كيانات قابلة للاستيراد فعليًا.
+- **الإصلاح:**
+  1. `commit_candidates` الآن يُفكِّك مفاتيح `__extra::` من `proposed_payload` ويُعيد تجميعها في كائن `extra_data` متداخل بدل تركها كأعمدة حرفية مسطَّحة (`supabase/functions/import-pipeline/index.ts`).
+  2. Migration `20260727140000` أضافت عمود `extra_data jsonb` (+ GIN index) لكل الجداول العشرة القابلة للاستيراد (كانت مفقودة على: opportunities, projects, quotations, follow_ups, boqs, rfqs, tenders).
+  3. التدفّق التلقائي (`data-import.index.tsx`) لم يعد يستبعد اقتراحات `EXTRA_DATA_SENTINEL`، وأُضيف احتياط دفاعي: أي عمود مصدر لم يقترح له AI أي شيء إطلاقًا (ولا حتى تخطّي) يُعيَّن تلقائيًا لـ `extra_data`؛ وإن فشلت مكالمة AI للتخطيط بالكامل، كل الأعمدة تُوجَّه لـ `extra_data` بدل إفشال الدفعة بالكامل بصفر أعمدة محفوظة.
+  4. Migration `20260727150000` أصلحت أيضًا `import_batches_target_entity_check` — كان يسمح بـ 6 من أصل 10 أنواع كيانات فقط (`rfqs`/`tenders`/`follow_ups`/`quotations` مفقودة) — أي دفعة استيراد تستهدف أحد هذه الأربعة كانت تفشل عند الإنشاء مباشرة، قبل أن يبدأ أي شيء.
+- **تحقّق:** اختبارات contract جديدة (`import-extra-data.contract.test.ts`) تغطي كل النقاط أعلاه. `bun run verify` نظيف بالكامل.
+- **متبقٍّ (فرصة مستقبلية، ليست عطلًا):** وكيلا AI `data_cleanup` وَ`contact_mapping` مبنيّان ومُختبَران بالكامل على مستوى الـ backend لكن بلا أي واجهة مستخدم تستدعيهما (`runDataCleanup`/`runContactMapping` في `import-actions.ts` بلا أي نقطة استدعاء) — فرصة حقيقية لاستخدام أدوات AI جاهزة، لا تطوير وكيل جديد. `relationship_resolver` يكتب مخرجاته في `import_rows.raw_data.__relationship_hints` بدل جدول `import_candidate_links` المُخصَّص لذلك أصلًا — تناقض معماري صغير غير مُصلَح بعد. راجع `docs/ai-orchestrator.md`، قسم "Later agents".
+- **Status:** الفقدان الصامت للبيانات مُصلَح بالكامل 2026-07-27. الفرص المذكورة أعلاه متبقية لجلسة مستقبلية مخصَّصة.
+
+---
+
 <!-- انسخ كتلة مشكلة جديدة أعلى هذا السطر -->
