@@ -385,7 +385,11 @@ async function callPipeline(action: string, payload: Record<string, unknown>) {
 
 export async function parseFile(batchId: string, fileId: string) {
   if (!batchId || !fileId) throw new Error("Missing batch or file");
-  return callPipeline("parse", { batch_id: batchId, file_id: fileId });
+  return callPipeline("parse", { batch_id: batchId, file_id: fileId }) as Promise<{
+    headers: string[];
+    row_count: number;
+    preview: Record<string, unknown>[];
+  }>;
 }
 
 export async function validateBatch(batchId: string) {
@@ -429,9 +433,8 @@ export async function commitBatch(batchId: string) {
 }
 
 /**
- * Reverse a committed batch's CRM writes. Only reachable once commit itself
- * is enabled (Phase 2) — there is no live path today that can put a batch
- * into "committed" status.
+ * Reverse a committed batch's CRM writes, deleting only the records this
+ * pipeline itself created via commitBatch (never a blanket delete).
  */
 export async function rollbackBatch(batchId: string) {
   if (!batchId) throw new Error("Missing batch");

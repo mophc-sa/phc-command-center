@@ -5,9 +5,7 @@
 // commit → generate reports.
 //
 // Role enforcement:
-//   system_admin: upload, parse, map, validate, troubleshoot, view, download
-//                 CANNOT approve or commit (403)
-//   managing_director, general_manager, sales_manager, ceo: full access
+//   system_admin, managing_director, general_manager, sales_manager, ceo: full access
 //   bd_manager: own batches only, no approve/commit
 //   salesperson, viewer: blocked (403)
 //
@@ -30,6 +28,14 @@ import { insertLeadServerSide } from "../_shared/leads.ts";
 // User-facing sentinel written into mapped_data by the validate step to mark
 // columns the user explicitly excluded from import.
 const SKIP_KEY = "__skip__";
+
+// Mapping target that routes a source column into extra_data instead of a
+// known field (matches EXTRA_DATA_SENTINEL in src/lib/import-actions.ts).
+const EXTRA_DATA_TARGET = "__extra_data__";
+// Prefix validate() writes onto mapped_data keys for such columns, so the
+// original source column name survives (and can't collide with a real
+// mapped field's key) until commit_candidates unpacks it into extra_data.
+const EXTRA_DATA_KEY_PREFIX = "__extra::";
 
 // Phase 2 (approved): "commit_candidates" is the one live-CRM-write path in
 // this pipeline. It writes only import_record_candidates rows a human has
@@ -300,11 +306,13 @@ handlers["validate"] = async (payload, caller) => {
       // __skip__ → user explicitly excluded this column; omit from mapped_data.
       if (m.target_column === SKIP_KEY) continue;
 
-      // __extra_data__ → user wants this column stored in extra_data.
-      // Write it under "__extra::{source_column}" so that collectExtraData()
-      // can recover the original column name without key collisions.
-      if (m.target_column === "__extra_data__") {
-        mapped[`__extra::${m.source_column}`] = strVal || null;
+      // __extra_data__ → user (or an AI mapping suggestion) wants this
+      // column preserved even though it has no matching CRM field. Write it
+      // under the EXTRA_DATA_KEY_PREFIX so commit_candidates can recover the
+      // original column name (without colliding with a real mapped field's
+      // key) and nest it into the target row's extra_data column.
+      if (m.target_column === EXTRA_DATA_TARGET) {
+        mapped[`${EXTRA_DATA_KEY_PREFIX}${m.source_column}`] = strVal || null;
         continue;
       }
 
@@ -733,9 +741,24 @@ handlers["commit_candidates"] = async (payload, caller) => {
 
     // Best-effort payload: drop empty/null values rather than writing them
     // over column defaults, but otherwise write whatever was mapped.
-    const payload = Object.fromEntries(
-      Object.entries(cand.proposed_payload).filter(([, v]) => v != null && String(v).trim() !== ""),
-    );
+    // Keys prefixed EXTRA_DATA_KEY_PREFIX never map to a real column — they
+    // hold source data the user (or an AI mapping suggestion) explicitly
+    // chose to preserve anyway — so nest them into extra_data (a jsonb
+    // column on every import target table, see
+    // 20260727140000_extra_data_all_import_targets.sql) instead of leaving
+    // them as literal top-level keys, which previously made the insert
+    // itself fail outright for any row with an unmapped column.
+    const extraData: Record<string, unknown> = {};
+    const payload: Record<string, unknown> = {};
+    for (const [key, v] of Object.entries(cand.proposed_payload)) {
+      if (v == null || String(v).trim() === "") continue;
+      if (key.startsWith(EXTRA_DATA_KEY_PREFIX)) {
+        extraData[key.slice(EXTRA_DATA_KEY_PREFIX.length)] = v;
+      } else {
+        payload[key] = v;
+      }
+    }
+    if (Object.keys(extraData).length > 0) payload.extra_data = extraData;
 
     try {
       if (cand.proposed_action === "create") {
