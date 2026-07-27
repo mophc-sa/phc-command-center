@@ -63,7 +63,7 @@ const IMPORT_ROLES: AppRole[] = [
   "system_admin", "managing_director", "general_manager", "ceo", "sales_manager",
 ];
 const APPROVE_COMMIT_ROLES: AppRole[] = [
-  "managing_director", "general_manager", "ceo", "sales_manager",
+  "system_admin", "managing_director", "general_manager", "ceo", "sales_manager",
 ];
 const BD_ROLE: AppRole = "bd_manager";
 
@@ -569,10 +569,6 @@ handlers["approve"] = async (payload, caller) => {
   const batchId = payload.batch_id as string;
   if (!batchId) return err("batch_id required");
 
-  // system_admin explicitly blocked from approve
-  if (hasAny(caller.roles, ["system_admin" as AppRole]) && !hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
-    return err("system_admin cannot approve imports", 403);
-  }
   if (!hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
     return err("Insufficient role for approval", 403);
   }
@@ -608,10 +604,6 @@ handlers["dry_run_commit"] = async (payload, caller) => {
   const batchId = payload.batch_id as string;
   if (!batchId) return err("batch_id required");
 
-  // system_admin explicitly blocked from commit
-  if (hasAny(caller.roles, ["system_admin" as AppRole]) && !hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
-    return err("system_admin cannot commit imports", 403);
-  }
   if (!hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
     return err("Insufficient role for commit", 403);
   }
@@ -685,9 +677,6 @@ handlers["commit_candidates"] = async (payload, caller) => {
   const batchId = payload.batch_id as string;
   if (!batchId) return err("batch_id required");
 
-  if (hasAny(caller.roles, ["system_admin" as AppRole]) && !hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
-    return err("system_admin cannot commit imports", 403);
-  }
   if (!hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
     return err("Insufficient role for commit", 403);
   }
@@ -820,9 +809,6 @@ handlers["rollback"] = async (payload, caller) => {
   const batchId = payload.batch_id as string;
   if (!batchId) return err("batch_id required");
 
-  if (hasAny(caller.roles, ["system_admin" as AppRole]) && !hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
-    return err("system_admin cannot roll back imports", 403);
-  }
   if (!hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
     return err("Insufficient role for rollback", 403);
   }
