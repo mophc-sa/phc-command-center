@@ -1,0 +1,6 @@
+# CI/CD workflows and deployment governance require review from the repo
+# owner before merge — these files can grant themselves secrets access,
+# add unpinned third-party actions, or change what auto-deploys on push.
+/.github/                  @mophc-sa
+/docs/deployment-governance.md @mophc-sa
+/docs/security/            @mophc-sa

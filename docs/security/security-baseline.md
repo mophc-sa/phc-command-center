@@ -32,13 +32,15 @@ This document defines the minimum merge and release gates for PHC Command Center
 
 ## Tracked database-advisor exceptions
 
-- `public.vendors_public` is intentionally a `security_definer` view for the
-  current release. It exposes a reviewed, non-sensitive vendor projection to
-  signed-in sales users while the base `vendors` table remains manager-only.
-  Changing it to `security_invoker` without redesigning the storage boundary
-  would either break the sales workflow or expose sensitive base-table
-  columns. Replace it with a dedicated safe projection table or an equivalent
-  least-privilege boundary before removing this exception.
+- ~~`public.vendors_public` security-definer view~~ — resolved 2026-07-19
+  (`20260719120000_vendors_split_sensitive_columns.sql`). Sensitive columns
+  (`reference_prices`, `internal_rating`, `internal_notes`) moved to a
+  separate `vendors_private` table with pipeline-operator-only RLS; the base
+  `vendors` table now holds only non-sensitive columns and is safe for
+  `USING (true)` SELECT by any authenticated user. `vendors_full` (a plain
+  `security_invoker = true` view joining both tables) replaced the old
+  security-definer `vendors_public` view for the manager query path. No
+  outstanding exception here.
 - Authenticated `security_definer` authorization helpers used inside RLS are
   intentional for now. Moving them to a private schema is a separate migration
   that must preserve every policy dependency and pass the complete role matrix.
