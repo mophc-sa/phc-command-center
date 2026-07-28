@@ -1179,6 +1179,113 @@ export async function stageSplitProposals(
   }
 }
 
+// import_candidate_links.relationship_type CHECK constraint
+// (20260714200000_import_intelligence_v2.sql) — narrower than the
+// relationship_resolver prompt's own vocabulary ("subsidiary_of",
+// "linked_opportunity", "duplicate_of"). "linked_opportunity" has an
+// unambiguous direct equivalent here; the other two do not, and forcing
+// them in would misrepresent the relationship, so they fall through to
+// the note-only path below instead.
+const CANDIDATE_LINK_TYPES = new Set([
+  "contact_of", "project_of", "opportunity_of", "quotation_of",
+  "rfq_of", "follow_up_of", "interaction_of", "update_of", "child_of",
+]);
+function normalizeCandidateLinkType(relationshipType: string): string {
+  return relationshipType === "linked_opportunity" ? "opportunity_of" : relationshipType;
+}
+
+/**
+ * Accept a proposed relationship link (from relationship_resolver or
+ * contact_mapping's contact_company_links) — the dedicated structural
+ * home is import_candidate_links, but it only accepts links between two
+ * rows that already have their own import_record_candidates row (i.e.
+ * generate_candidates has already run for both), and only for its fixed
+ * relationship_type vocabulary. A split-derived entity has no candidate
+ * until its split proposal is separately accepted AND generate_candidates
+ * re-run — and acceptSplitProposalToRow doesn't record a split_proposal→
+ * import_row mapping at all, so a split_proposal_id ref can never resolve
+ * today. Rather than silently drop those (or the previous behavior, which
+ * silently no-op'd because it read a `source_row_id` field the AI's
+ * schema never actually returns), fall back to a note on the source row
+ * and say so — honest about what could and couldn't be structured.
+ */
+export async function acceptResolvedLink(input: {
+  batchId: string;
+  fromRef: string;
+  toRef: string;
+  relationshipType: string;
+  confidence?: number | null;
+  rationale?: string | null;
+}): Promise<{ ok: boolean; structured: boolean; message?: string }> {
+  const normalizedType = normalizeCandidateLinkType(input.relationshipType);
+
+  async function resolveCandidateId(ref: string): Promise<string | null> {
+    const { data } = await db
+      .from("import_record_candidates")
+      .select("id")
+      .eq("batch_id", input.batchId)
+      .eq("source_row_id", ref)
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
+  }
+
+  if (CANDIDATE_LINK_TYPES.has(normalizedType)) {
+    const [sourceCandidateId, targetCandidateId] = await Promise.all([
+      resolveCandidateId(input.fromRef),
+      resolveCandidateId(input.toRef),
+    ]);
+    if (sourceCandidateId && targetCandidateId) {
+      const { error } = await db.from("import_candidate_links").upsert(
+        {
+          batch_id: input.batchId,
+          source_candidate_id: sourceCandidateId,
+          target_candidate_id: targetCandidateId,
+          relationship_type: normalizedType,
+          confidence: input.confidence ?? null,
+          reason: input.rationale ?? null,
+        },
+        { onConflict: "source_candidate_id,target_candidate_id,relationship_type" },
+      );
+      if (error) throw new Error(error.message);
+      return { ok: true, structured: true };
+    }
+  }
+
+  // Fallback: record it as a note on the source row instead of discarding
+  // it. Only possible when fromRef is itself an import_rows id.
+  const { data: existingRow } = await db
+    .from("import_rows")
+    .select("id, raw_data")
+    .eq("id", input.fromRef)
+    .maybeSingle();
+  if (!existingRow) {
+    return { ok: false, structured: false, message: "Could not resolve either side of this link to a batch record — not saved." };
+  }
+  const hints: unknown[] = (existingRow.raw_data as Record<string, unknown>)?.__relationship_hints as unknown[] ?? [];
+  const { error } = await db.from("import_rows").update({
+    raw_data: {
+      ...(existingRow.raw_data ?? {}),
+      __relationship_hints: [
+        ...hints,
+        {
+          from_entity_ref: input.fromRef,
+          to_entity_ref: input.toRef,
+          relationship_type: input.relationshipType,
+          confidence: input.confidence ?? null,
+          rationale: input.rationale ?? null,
+        },
+      ],
+    },
+  }).eq("id", input.fromRef);
+  if (error) throw new Error(error.message);
+  return {
+    ok: true,
+    structured: false,
+    message: "Saved as a note only — the target isn't a batch candidate yet, or this relationship type isn't structured.",
+  };
+}
+
 /**
  * Promote an accepted split proposal into a real import_row so it flows
  * through the rest of the pipeline (validate → commit).

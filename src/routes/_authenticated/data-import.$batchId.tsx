@@ -24,6 +24,7 @@ import {
   suggestImportMappings,
   callImportAgent,
   getSplitProposals, reviewSplitProposal, stageSplitProposals, acceptSplitProposalToRow,
+  acceptResolvedLink, runDataCleanup, runContactMapping,
   getTargetColumns, EXTRA_DATA_SENTINEL,
   APPROVE_COMMIT_ROLES, UPLOAD_ROLES,
   READINESS_ITEMS, saveReadinessChecklist, getReadinessChecklist, deriveAutoChecklist,
@@ -142,7 +143,9 @@ function BatchDetailPage() {
   const [extractorRunning, setExtractorRunning] = useState(false);
   const [resolverRunning, setResolverRunning] = useState(false);
   const [resolverOutput, setResolverOutput] = useState<Record<string, unknown> | null>(null);
-  const [acceptedLinkIds, setAcceptedLinkIds] = useState<Set<number>>(new Set());
+  // value = whether it landed in the structured import_candidate_links
+  // table vs. fell back to a raw_data note (see acceptResolvedLink).
+  const [acceptedLinkIds, setAcceptedLinkIds] = useState<Map<number, boolean>>(new Map());
   const [dismissedLinkIds, setDismissedLinkIds] = useState<Set<number>>(new Set());
 
   // AI panels state (Task 8)
@@ -150,6 +153,18 @@ function BatchDetailPage() {
   const [changeRunning, setChangeRunning] = useState(false);
   const [reviewerOutput, setReviewerOutput] = useState<Record<string, unknown> | null>(null);
   const [reviewerRunning, setReviewerRunning] = useState(false);
+
+  // data_cleanup / contact_mapping — previously built and tested at the
+  // agent level with zero UI call sites (see docs/ai-orchestrator.md,
+  // "Later agents" section).
+  const [cleanupRunning, setCleanupRunning] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<Awaited<ReturnType<typeof runDataCleanup>> | null>(null);
+  const [appliedCorrectionIds, setAppliedCorrectionIds] = useState<Set<number>>(new Set());
+  const [flaggedDuplicateRowIds, setFlaggedDuplicateRowIds] = useState<Set<string>>(new Set());
+
+  const [mappingRunning, setMappingRunning] = useState(false);
+  const [mappingResult, setMappingResult] = useState<Awaited<ReturnType<typeof runContactMapping>> | null>(null);
+  const [acceptedContactLinkIds, setAcceptedContactLinkIds] = useState<Map<number, boolean>>(new Map());
 
   const { data: splitProposals = [], refetch: refetchSplits } = useQuery<ImportSplitProposal[]>({
     queryKey: ["import-split-proposals", batchId],
@@ -491,7 +506,7 @@ function BatchDetailPage() {
                   const r = await callImportAgent(batchId, "relationship_resolver");
                   if (r.ok) {
                     setResolverOutput(r.result as Record<string, unknown>);
-                    setAcceptedLinkIds(new Set());
+                    setAcceptedLinkIds(new Map());
                     setDismissedLinkIds(new Set());
                     toast.success("Relationships resolved");
                   } else {
@@ -519,6 +534,7 @@ function BatchDetailPage() {
               <div className="font-medium mb-1">Proposed relationships ({(resolverOutput.links as unknown[])?.length ?? 0}):</div>
               {(resolverOutput.links as Array<{ from_entity_ref: string; to_entity_ref: string; relationship_type: string; confidence: number; rationale: string; source_row_id?: string }>).slice(0, 10).map((link, i) => {
                 const isAccepted = acceptedLinkIds.has(i);
+                const acceptedStructured = acceptedLinkIds.get(i);
                 const isDismissed = dismissedLinkIds.has(i);
                 return (
                   <div key={i} className={cn("flex items-center gap-2 text-xs py-0.5", isDismissed && "opacity-40 line-through")}>
@@ -533,32 +549,20 @@ function BatchDetailPage() {
                           variant="ghost"
                           className="h-5 px-1.5 text-[10px] text-won ml-auto"
                           onClick={async () => {
-                            // Write relationship hint to import_row.raw_data (no dedicated extra_data column exists)
-                            if (link.source_row_id) {
-                              const db = (await import("@/integrations/supabase/client")).supabase as any;
-                              const { data: existingRow } = await db
-                                .from("import_rows")
-                                .select("id, raw_data")
-                                .eq("id", link.source_row_id)
-                                .single();
-                              if (existingRow) {
-                                const hints: unknown[] = (existingRow.raw_data as Record<string, unknown>)?.__relationship_hints as unknown[] ?? [];
-                                await db.from("import_rows").update({
-                                  raw_data: {
-                                    ...(existingRow.raw_data ?? {}),
-                                    __relationship_hints: [...hints, {
-                                      from_entity_ref: link.from_entity_ref,
-                                      to_entity_ref: link.to_entity_ref,
-                                      relationship_type: link.relationship_type,
-                                      confidence: link.confidence,
-                                      rationale: link.rationale,
-                                    }],
-                                  },
-                                }).eq("id", link.source_row_id);
-                              }
+                            try {
+                              const result = await acceptResolvedLink({
+                                batchId,
+                                fromRef: link.from_entity_ref,
+                                toRef: link.to_entity_ref,
+                                relationshipType: link.relationship_type,
+                                confidence: link.confidence,
+                                rationale: link.rationale,
+                              });
+                              setAcceptedLinkIds((prev) => new Map(prev).set(i, result.structured));
+                              toast.success(result.structured ? "Relationship saved" : (result.message ?? "Saved as a note"));
+                            } catch (e) {
+                              toast.error(e instanceof Error ? e.message : "Failed to save relationship");
                             }
-                            setAcceptedLinkIds((prev) => new Set([...prev, i]));
-                            toast.success("Relationship hint saved");
                           }}
                         >
                           Accept
@@ -574,7 +578,12 @@ function BatchDetailPage() {
                       </>
                     )}
                     {isAccepted && (
-                      <span className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium bg-won/20 text-won">saved</span>
+                      <span className={cn(
+                        "ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium",
+                        acceptedStructured ? "bg-won/20 text-won" : "bg-amber/20 text-amber-light",
+                      )}>
+                        {acceptedStructured ? "saved" : "note only"}
+                      </span>
                     )}
                   </div>
                 );
@@ -582,6 +591,247 @@ function BatchDetailPage() {
               {(resolverOutput.unresolved as unknown[])?.length > 0 && (
                 <div className="text-xs text-amber-light mt-1">
                   {(resolverOutput.unresolved as Array<{ entity_ref: string; reason: string }>).length} unresolved
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Data Cleanup + Contact Mapping — same gate as Entity Extraction above */}
+      {(batch?.status === "duplicate_review" || batch?.status === "pending_approval") && (
+        <div className="mb-4 rounded-lg border border-muted bg-muted/30 p-4 space-y-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Sparkles className="h-4 w-4" />
+            Data Quality &amp; Contact Mapping
+          </div>
+
+          {/* data_cleanup */}
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={cleanupRunning}
+              onClick={async () => {
+                setCleanupRunning(true);
+                try {
+                  const r = await runDataCleanup(batchId);
+                  if (r.ok) {
+                    setCleanupResult(r);
+                    setAppliedCorrectionIds(new Set());
+                    setFlaggedDuplicateRowIds(new Set());
+                    toast.success("Data cleanup complete");
+                  } else {
+                    toast.error(r.error ?? "Data cleanup failed");
+                  }
+                } finally {
+                  setCleanupRunning(false);
+                }
+              }}
+            >
+              {cleanupRunning ? (
+                <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Analyzing…</>
+              ) : (
+                <><Sparkles className="mr-2 h-3 w-3" />Clean Up Data</>
+              )}
+            </Button>
+          </div>
+
+          {cleanupResult?.ok && (
+            <div className="rounded border border-border bg-background p-3 text-sm space-y-3">
+              {cleanupResult.quality_score != null && (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Quality score: {cleanupResult.quality_score}/100</span>
+                  {cleanupResult.quality_summary && (
+                    <span className="text-xs text-muted-foreground">{cleanupResult.quality_summary}</span>
+                  )}
+                </div>
+              )}
+
+              {cleanupResult.corrections && cleanupResult.corrections.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-muted-foreground">Corrections ({cleanupResult.corrections.length})</div>
+                  {cleanupResult.corrections.slice(0, 15).map((c, i) => {
+                    const applied = appliedCorrectionIds.has(i);
+                    return (
+                      <div key={i} className={cn("flex flex-wrap items-center gap-2 text-xs py-0.5", applied && "opacity-50")}>
+                        <span className="text-muted-foreground">{c.field}:</span>
+                        <span className="line-through opacity-70">{c.original}</span>
+                        {"→"}
+                        <span className="text-won">{c.corrected}</span>
+                        <span className="opacity-60">({c.reason})</span>
+                        {!applied ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 px-1.5 text-[10px] text-won ms-auto"
+                            onClick={async () => {
+                              try {
+                                const { data: existingRow } = await (await import("@/integrations/supabase/client")).supabase
+                                  .from("import_rows").select("id, raw_data").eq("id", c.row_id).single();
+                                if (existingRow) {
+                                  await (await import("@/integrations/supabase/client")).supabase
+                                    .from("import_rows")
+                                    .update({ raw_data: { ...(existingRow.raw_data as object), [c.field]: c.corrected } })
+                                    .eq("id", c.row_id);
+                                }
+                                setAppliedCorrectionIds((prev) => new Set([...prev, i]));
+                                toast.success("Correction applied");
+                              } catch {
+                                toast.error("Failed to apply correction");
+                              }
+                            }}
+                          >
+                            Apply
+                          </Button>
+                        ) : (
+                          <span className="ms-auto rounded bg-won/20 px-1.5 py-0.5 text-[10px] font-medium text-won">applied</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {cleanupResult.duplicates && cleanupResult.duplicates.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-muted-foreground">Possible duplicates ({cleanupResult.duplicates.length})</div>
+                  {cleanupResult.duplicates.slice(0, 15).map((d, i) => (
+                    <div key={i} className="space-y-1 text-xs">
+                      <div className="opacity-70">{d.duplicate_type} — {d.reason}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {d.row_ids.map((rowId) => {
+                          const flagged = flaggedDuplicateRowIds.has(rowId);
+                          return (
+                            <Button
+                              key={rowId}
+                              size="sm"
+                              variant="ghost"
+                              disabled={flagged}
+                              className="h-5 px-1.5 text-[10px]"
+                              onClick={async () => {
+                                try {
+                                  await (await import("@/integrations/supabase/client")).supabase
+                                    .from("import_rows").update({ status: "duplicate" }).eq("id", rowId);
+                                  setFlaggedDuplicateRowIds((prev) => new Set([...prev, rowId]));
+                                  toast.success("Row flagged as duplicate");
+                                } catch {
+                                  toast.error("Failed to flag row");
+                                }
+                              }}
+                            >
+                              {flagged ? "flagged" : `mark ${rowId.slice(0, 8)}… duplicate`}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* contact_mapping */}
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={mappingRunning}
+              onClick={async () => {
+                setMappingRunning(true);
+                try {
+                  const r = await runContactMapping(batchId);
+                  if (r.ok) {
+                    setMappingResult(r);
+                    setAcceptedContactLinkIds(new Map());
+                    toast.success("Contact mapping complete");
+                  } else {
+                    toast.error(r.error ?? "Contact mapping failed");
+                  }
+                } finally {
+                  setMappingRunning(false);
+                }
+              }}
+            >
+              {mappingRunning ? (
+                <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Mapping…</>
+              ) : (
+                <><Sparkles className="mr-2 h-3 w-3" />Map Contacts to Companies</>
+              )}
+            </Button>
+          </div>
+
+          {mappingResult?.ok && (
+            <div className="rounded border border-border bg-background p-3 text-sm space-y-3">
+              {mappingResult.classifications && mappingResult.classifications.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-muted-foreground">Row classifications ({mappingResult.classifications.length})</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {mappingResult.classifications.slice(0, 20).map((c, i) => (
+                      <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-[10px]" title={c.reason}>
+                        {c.row_id.slice(0, 8)}… → {c.entity_type} ({Math.round(c.confidence * 100)}%)
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {mappingResult.contact_company_links && mappingResult.contact_company_links.length > 0 && (
+                <div className="space-y-1">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Proposed contact ↔ company links ({mappingResult.contact_company_links.length})
+                  </div>
+                  {mappingResult.contact_company_links.slice(0, 15).map((link, i) => {
+                    const accepted = acceptedContactLinkIds.has(i);
+                    const structured = acceptedContactLinkIds.get(i);
+                    return (
+                      <div key={i} className="flex flex-wrap items-center gap-2 text-xs py-0.5">
+                        <span className="font-mono">{link.contact_row_id.slice(0, 8)}…</span>
+                        {" → "}
+                        <span className="text-primary">{link.company_name}</span>
+                        <span className="opacity-60">({Math.round(link.confidence * 100)}% · {link.match_basis})</span>
+                        {!accepted ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 px-1.5 text-[10px] text-won ms-auto"
+                            onClick={async () => {
+                              try {
+                                const result = await acceptResolvedLink({
+                                  batchId,
+                                  fromRef: link.contact_row_id,
+                                  toRef: link.company_row_id ?? link.company_name,
+                                  relationshipType: "contact_of",
+                                  confidence: link.confidence,
+                                  rationale: link.match_basis,
+                                });
+                                setAcceptedContactLinkIds((prev) => new Map(prev).set(i, result.structured));
+                                toast.success(result.structured ? "Link saved" : (result.message ?? "Saved as a note"));
+                              } catch (e) {
+                                toast.error(e instanceof Error ? e.message : "Failed to save link");
+                              }
+                            }}
+                          >
+                            Accept
+                          </Button>
+                        ) : (
+                          <span className={cn(
+                            "ms-auto rounded px-1.5 py-0.5 text-[10px] font-medium",
+                            structured ? "bg-won/20 text-won" : "bg-amber/20 text-amber-light",
+                          )}>
+                            {structured ? "saved" : "note only"}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {mappingResult.suggested_splits && mappingResult.suggested_splits.length > 0 && (
+                <div className="text-xs text-amber-light">
+                  {mappingResult.suggested_splits.length} row(s) may contain more than one entity — use Entity Extraction above to split them.
                 </div>
               )}
             </div>
