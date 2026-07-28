@@ -465,7 +465,13 @@ function AdminSettingsPage() {
                         // where an admin who granted themselves a commercial
                         // role for testing could never remove it again.
                         const guardSelf = isSelf && has && isSystemAdmin(role);
-                        const disabled = !canManage || guardSelf;
+                        // deleted is a terminal state (no reactivate path —
+                        // see the static label rendered below instead of an
+                        // Activate button); role edits on a soft-deleted
+                        // account would be a dead action, now reachable for
+                        // the first time now that listTeam() surfaces
+                        // deleted/suspended rows instead of hiding them.
+                        const disabled = !canManage || guardSelf || m.status === "deleted";
                         return (
                           <td key={role} className="px-2 py-2 text-center">
                             <button
