@@ -32,8 +32,9 @@ import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 import { BafoPanel } from "@/components/phc/BafoPanel";
+import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canManageSalesPipeline } from "@/lib/roles";
+import { canManageSalesPipeline, canReviewAiOutput } from "@/lib/roles";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
@@ -82,6 +83,55 @@ function recToTone(r: string | null | undefined): "attention" | "positive" | "da
 type ActionKind = "review" | "approve" | "schedule" | "assign" | "escalate" | null;
 type TimelineFilter = "all" | "alert" | "evidence" | "decision" | "assignment" | "follow_up" | "outcome";
 
+// Shared review-status bar for an AI agent's persisted output — used by both
+// the Risk Assessment and Opportunity Evaluation panels. Reviewing (accept/
+// reject) goes through the same governed sales-os-api action used by
+// agent-activity.tsx's global "AI Outputs" tab (src/lib/ai-review-actions.ts)
+// — this only adds an in-context view/action next to the run that produced it.
+function AiOutputReviewBar({
+  output,
+  canReview,
+  busy,
+  onDecide,
+}: {
+  output: AiAgentOutputRow | null | undefined;
+  canReview: boolean;
+  busy: boolean;
+  onDecide: (output: AiAgentOutputRow, decision: "accepted" | "rejected") => void;
+}) {
+  if (!output) return null;
+  const tone = output.status === "accepted" ? "positive" : output.status === "rejected" ? "danger" : "attention";
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3 text-xs">
+      <StatusPill tone={tone}>{humanize(output.status)}</StatusPill>
+      {output.status === "pending_review" && canReview ? (
+        <>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onDecide(output, "accepted")}
+            className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-[11px] font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+          >
+            Accept
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onDecide(output, "rejected")}
+            className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+          >
+            Reject
+          </button>
+        </>
+      ) : output.reviewed_at ? (
+        <span className="text-muted-foreground">
+          Reviewed {new Date(output.reviewed_at).toLocaleDateString()}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function OpportunityDetail() {
   const { id } = Route.useParams();
   const { t, lang, dir } = useI18n();
@@ -99,10 +149,28 @@ function OpportunityDetail() {
   const [overrideOpen, setOverrideOpen] = useState(false);
   const { user, roles } = useAuth();
   const canScore = canManageSalesPipeline(roles);
+  const canReview = canReviewAiOutput(roles);
 
   const [riskResult, setRiskResult] = useState<any | null>(null);
   const [riskRunning, setRiskRunning] = useState(false);
   const [riskError, setRiskError] = useState<string | null>(null);
+
+  const [evalResult, setEvalResult] = useState<any | null>(null);
+  const [evalRunning, setEvalRunning] = useState(false);
+  const [evalError, setEvalError] = useState<string | null>(null);
+
+  // Latest persisted ai_agent_outputs row per agent, so a previous run's
+  // review status (pending_review/accepted/rejected) survives navigation —
+  // reviewing itself happens on this same page now, not only via the
+  // separate global "AI Outputs" tab in agent-activity.tsx.
+  const riskOutputQ = useQuery({
+    queryKey: ["ai-output", id, "risk_finance"],
+    queryFn: () => getLatestAgentOutput("opportunities", id, "risk_finance"),
+  });
+  const evalOutputQ = useQuery({
+    queryKey: ["ai-output", id, "opportunity_evaluation"],
+    queryFn: () => getLatestAgentOutput("opportunities", id, "opportunity_evaluation"),
+  });
 
   async function handleRiskAssessment() {
     setRiskRunning(true);
@@ -113,10 +181,42 @@ function OpportunityDetail() {
       });
       if (error || !data?.ok) throw new Error(data?.message ?? error?.message ?? "Failed");
       setRiskResult(data.result);
+      qc.invalidateQueries({ queryKey: ["ai-output", id, "risk_finance"] });
     } catch (e: any) {
       setRiskError(e.message);
     } finally {
       setRiskRunning(false);
+    }
+  }
+
+  async function handleOpportunityEvaluation() {
+    setEvalRunning(true);
+    setEvalError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-orchestrator", {
+        body: { agent: "opportunity_evaluation", entityType: "opportunities", entityId: id },
+      });
+      if (error || !data?.ok) throw new Error(data?.message ?? error?.message ?? "Failed");
+      setEvalResult(data.result);
+      qc.invalidateQueries({ queryKey: ["ai-output", id, "opportunity_evaluation"] });
+    } catch (e: any) {
+      setEvalError(e.message);
+    } finally {
+      setEvalRunning(false);
+    }
+  }
+
+  const [reviewingOutputId, setReviewingOutputId] = useState<string | null>(null);
+  async function handleReviewOutput(output: AiAgentOutputRow, decision: "accepted" | "rejected") {
+    setReviewingOutputId(output.id);
+    try {
+      await reviewAgentOutput({ outputId: output.id, decision });
+      toast.success(decision === "accepted" ? t("toast_ai_output_accepted") : t("toast_ai_output_rejected"));
+      qc.invalidateQueries({ queryKey: ["ai-output", id, output.agent_key] });
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    } finally {
+      setReviewingOutputId(null);
     }
   }
 
@@ -363,6 +463,15 @@ function OpportunityDetail() {
             >
               <RefreshCw className={`h-3.5 w-3.5 ${riskRunning ? "animate-spin" : ""}`} />
               {riskRunning ? "Assessing…" : "Risk Assessment"}
+            </button>
+            <button
+              type="button"
+              disabled={evalRunning}
+              onClick={handleOpportunityEvaluation}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${evalRunning ? "animate-spin" : ""}`} />
+              {evalRunning ? "Evaluating…" : "Opportunity Evaluation"}
             </button>
             {(() => {
               const primary = (stakeholdersQ.data ?? []).find((s: any) => !!s.email) ?? (stakeholdersQ.data ?? [])[0];
@@ -820,46 +929,48 @@ function OpportunityDetail() {
       {show("decision") && <BafoPanel opportunityId={o.id} />}
 
       {/* 7c. RISK ASSESSMENT */}
-      {(riskError || riskResult) && (
+      {(() => {
+        const riskDisplay = riskResult ?? (riskOutputQ.data?.structured_output as any);
+        return (riskError || riskDisplay) && (
         <Panel title="Risk Assessment">
           {riskError && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               {riskError}
             </div>
           )}
-          {riskResult && (
+          {riskDisplay && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-3">
-                {riskResult.risk_level && (
+                {riskDisplay.risk_level && (
                   <span
                     className={
                       "rounded px-2 py-1 text-xs font-semibold uppercase tracking-wide " +
-                      (riskResult.risk_level === "low"
+                      (riskDisplay.risk_level === "low"
                         ? "bg-won/15 text-won"
-                        : riskResult.risk_level === "medium"
+                        : riskDisplay.risk_level === "medium"
                         ? "bg-amber-500/15 text-amber-400"
-                        : riskResult.risk_level === "high"
+                        : riskDisplay.risk_level === "high"
                         ? "bg-orange-500/15 text-orange-400"
                         : "bg-destructive/15 text-destructive")
                     }
                   >
-                    {riskResult.risk_level}
+                    {riskDisplay.risk_level}
                   </span>
                 )}
-                {riskResult.risk_score != null && (
+                {riskDisplay.risk_score != null && (
                   <span className="text-sm text-foreground font-medium">
-                    Risk Score: {riskResult.risk_score}/100
+                    Risk Score: {riskDisplay.risk_score}/100
                   </span>
                 )}
               </div>
 
-              {riskResult.risk_factors && riskResult.risk_factors.length > 0 && (
+              {riskDisplay.risk_factors && riskDisplay.risk_factors.length > 0 && (
                 <div>
                   <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                     Risk Factors
                   </div>
                   <ul className="space-y-1.5">
-                    {riskResult.risk_factors.map((factor: any, i: number) => (
+                    {riskDisplay.risk_factors.map((factor: any, i: number) => (
                       <li key={i} className="flex flex-wrap items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs">
                         {factor.impact && (
                           <span
@@ -882,13 +993,13 @@ function OpportunityDetail() {
                 </div>
               )}
 
-              {riskResult.mitigations && riskResult.mitigations.length > 0 && (
+              {riskDisplay.mitigations && riskDisplay.mitigations.length > 0 && (
                 <div>
                   <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                     Mitigations
                   </div>
                   <ul className="space-y-1.5">
-                    {riskResult.mitigations.map((m: any, i: number) => (
+                    {riskDisplay.mitigations.map((m: any, i: number) => (
                       <li key={i} className="flex flex-wrap items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs">
                         {m.priority && (
                           <span
@@ -914,10 +1025,135 @@ function OpportunityDetail() {
               <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
                 This risk assessment is generated by AI and is intended as decision support only. Always validate with your own judgment and local context before taking action.
               </p>
+
+              <AiOutputReviewBar
+                output={riskOutputQ.data}
+                canReview={canReview}
+                busy={reviewingOutputId === riskOutputQ.data?.id}
+                onDecide={handleReviewOutput}
+              />
             </div>
           )}
         </Panel>
-      )}
+        );
+      })()}
+
+      {/* 7e. OPPORTUNITY EVALUATION */}
+      {(() => {
+        const evalDisplay = evalResult ?? (evalOutputQ.data?.structured_output as any);
+        return (evalError || evalDisplay) && (
+        <Panel title="Opportunity Evaluation">
+          {evalError && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {evalError}
+            </div>
+          )}
+          {evalDisplay && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                {evalDisplay.overall_score != null && (
+                  <span className="text-sm font-medium text-foreground">
+                    Score: {evalDisplay.overall_score}/100
+                  </span>
+                )}
+                {evalDisplay.qualification && (
+                  <StatusPill
+                    tone={
+                      evalDisplay.qualification === "high"
+                        ? "positive"
+                        : evalDisplay.qualification === "medium"
+                          ? "attention"
+                          : "muted"
+                    }
+                  >
+                    {humanize(evalDisplay.qualification)} qualification
+                  </StatusPill>
+                )}
+                {evalDisplay.recommended_priority && (
+                  <StatusPill tone={evalDisplay.recommended_priority === "critical" ? "danger" : "muted"}>
+                    {humanize(evalDisplay.recommended_priority)} priority
+                  </StatusPill>
+                )}
+                {evalDisplay.win_likelihood != null && (
+                  <span className="text-xs text-muted-foreground">
+                    Win likelihood: {evalDisplay.win_likelihood}%
+                  </span>
+                )}
+              </div>
+
+              {evalDisplay.rationale && (
+                <p className="text-sm leading-relaxed text-foreground">{evalDisplay.rationale}</p>
+              )}
+
+              {evalDisplay.strengths && evalDisplay.strengths.length > 0 && (
+                <div>
+                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Strengths</div>
+                  <ul className="space-y-1.5">
+                    {evalDisplay.strengths.map((s: string, i: number) => (
+                      <li key={i} className="rounded-md border border-won/20 bg-won/5 px-3 py-2 text-xs text-foreground">
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {evalDisplay.risks && evalDisplay.risks.length > 0 && (
+                <div>
+                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Risks</div>
+                  <ul className="space-y-1.5">
+                    {evalDisplay.risks.map((r: string, i: number) => (
+                      <li key={i} className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-foreground">
+                        {r}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {evalDisplay.missing_information && evalDisplay.missing_information.length > 0 && (
+                <div>
+                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Missing Information</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {evalDisplay.missing_information.map((m: string, i: number) => (
+                      <StatusPill key={i} tone="attention">{m}</StatusPill>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {evalDisplay.recommended_next_actions && evalDisplay.recommended_next_actions.length > 0 && (
+                <div>
+                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Recommended Next Actions</div>
+                  <ul className="space-y-1.5">
+                    {evalDisplay.recommended_next_actions.map((a: string, i: number) => (
+                      <li key={i} className="rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted-foreground">
+                        {a}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {evalDisplay.suggested_follow_up_date && (
+                <DataField label="Suggested Follow-up" value={fmtDate(evalDisplay.suggested_follow_up_date, lang)} />
+              )}
+
+              <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
+                {evalDisplay.disclaimer ?? "This evaluation is generated by AI and is intended as decision support only. Always validate with your own judgment before taking action."}
+              </p>
+
+              <AiOutputReviewBar
+                output={evalOutputQ.data}
+                canReview={canReview}
+                busy={reviewingOutputId === evalOutputQ.data?.id}
+                onDecide={handleReviewOutput}
+              />
+            </div>
+          )}
+        </Panel>
+        );
+      })()}
 
       {/* 7d. COMMUNICATION HISTORY — Communication Hub Phase 1 */}
       <Panel title={t("comm_history")}>
