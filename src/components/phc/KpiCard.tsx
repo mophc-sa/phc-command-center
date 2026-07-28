@@ -32,6 +32,13 @@ export function KpiCard({
   const TrendIcon =
     trend === "up" ? ArrowUpRight : trend === "down" ? ArrowDownRight : Minus;
 
+  // A long formatted-currency value (e.g. "2,000,000 SAR" / "٢٬٠٠٠٬٠٠٠ ر.س")
+  // at the same fixed size as a short count ("3", "45%") overwhelms the card
+  // and crowds out the label above it — shrink it instead of truncating,
+  // since clipping a currency figure would misrepresent the amount.
+  const valueText = typeof value === "string" ? value : "";
+  const valueSizeClass = valueText.length > 9 ? "text-[26px]" : "text-[40px]";
+
   return (
     <div
       className={cn(
@@ -51,7 +58,7 @@ export function KpiCard({
       </div>
       <div className="mt-3 flex items-center gap-2.5">
         <span
-          className="text-[40px] font-semibold leading-none tracking-[-0.03em] text-foreground num"
+          className={cn("font-semibold leading-none tracking-[-0.03em] text-foreground num", valueSizeClass)}
           data-tabular="true"
         >
           {value}

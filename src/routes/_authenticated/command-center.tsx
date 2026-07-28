@@ -292,7 +292,7 @@ function CommandCenter() {
       />
 
       {/* KPI row */}
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard
           label={lang === "ar" ? "الهدف الإجمالي للفريق" : "Team Target"}
           value={teamTarget && teamTarget.total > 0 ? formatCurrency(teamTarget.total, lang, "SAR") : "—"}
