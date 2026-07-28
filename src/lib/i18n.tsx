@@ -1295,15 +1295,28 @@ type Ctx = {
 const I18nContext = createContext<Ctx | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(() => {
-    if (typeof window === "undefined") return "en";
-    return (localStorage.getItem("phc-lang") as Lang) || "en";
-  });
+  // Must start as "en" on every render path — SSR, and the client's first
+  // hydration pass — since the server can never see localStorage. Reading
+  // the stored preference here (even behind a `typeof window` guard, which
+  // only protects the *server* render) made the client's very first
+  // hydration render disagree with the server-rendered HTML for every
+  // translated string on the page whenever a user had "ar" saved — a
+  // whole-tree hydration mismatch (React error #418) that left parts of
+  // the page unresponsive to clicks. The real preference is applied after
+  // mount instead (below), which is a normal post-hydration re-render, not
+  // a hydration mismatch.
+  const [lang, setLangState] = useState<Lang>("en");
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+    const stored = localStorage.getItem("phc-lang") as Lang | null;
+    if (stored && stored !== lang) {
+      setLangState(stored);
+      return; // wait for the corrected re-render before touching the DOM/storage below
+    }
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = lang;
+      document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+    }
     localStorage.setItem("phc-lang", lang);
   }, [lang]);
 
