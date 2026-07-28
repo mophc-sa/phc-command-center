@@ -42,7 +42,14 @@ export async function listTeam(): Promise<TeamMember[]> {
     supabase
       .from("profiles")
       .select("id, email, full_name, status")
-      .eq("status", "active")
+      // pending_approval accounts have their own dedicated panel
+      // (listPendingUsers below) with an Approve/Reject flow. Active,
+      // suspended, and deleted accounts all belong here — excluding
+      // suspended/deleted made the admin-settings Activate button
+      // unreachable for any account that had been suspended, since the
+      // row itself never rendered (found via a real support case: a
+      // suspended account had no way to be reactivated from the UI).
+      .neq("status", "pending_approval")
       .order("full_name", { ascending: true, nullsFirst: false }),
     supabase.from("user_roles").select("user_id, role"),
   ]);
