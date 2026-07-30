@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 export type Lang = "en" | "ar";
 
@@ -1306,12 +1306,21 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   // mount instead (below), which is a normal post-hydration re-render, not
   // a hydration mismatch.
   const [lang, setLangState] = useState<Lang>("en");
+  const hydratedFromStorage = useRef(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("phc-lang") as Lang | null;
-    if (stored && stored !== lang) {
-      setLangState(stored);
-      return; // wait for the corrected re-render before touching the DOM/storage below
+    // The one-time storage read/correction only applies to the very first
+    // effect run after mount. Running it on every `lang` change (e.g. from
+    // the user clicking the language switch) would compare the just-set
+    // value against the *old* localStorage entry and revert it right back,
+    // since storage is only written in the branch below.
+    if (!hydratedFromStorage.current) {
+      hydratedFromStorage.current = true;
+      const stored = localStorage.getItem("phc-lang") as Lang | null;
+      if (stored && stored !== lang) {
+        setLangState(stored);
+        return; // wait for the corrected re-render before touching the DOM/storage below
+      }
     }
     if (typeof document !== "undefined") {
       document.documentElement.lang = lang;
