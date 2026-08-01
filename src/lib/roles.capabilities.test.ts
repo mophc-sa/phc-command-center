@@ -20,6 +20,7 @@ import {
   canManageSalesPipeline,
   canCreateSalesRecords,
   canExecuteDelete,
+  canUseDiscussion,
   type AppRole,
 } from "./roles";
 
@@ -91,12 +92,24 @@ test("canCreateSalesRecords includes salesperson (unlike canManageSalesPipeline)
   }
 });
 
-test("canExecuteDelete is system_admin only — no commercial manager, no pipeline operator", () => {
+test("canExecuteDelete is system_admin and bd_manager (Development Manager) only", () => {
   expect(canExecuteDelete("system_admin")).toBe(true);
+  expect(canExecuteDelete("bd_manager")).toBe(true);
   for (const role of [
-    "managing_director", "general_manager", "ceo", "sales_manager", "bd_manager", "sales_ops", "salesperson", "viewer",
+    "managing_director", "general_manager", "ceo", "sales_manager", "sales_ops", "salesperson", "viewer",
   ] as AppRole[]) {
     expect(canExecuteDelete(role), role).toBe(false);
+  }
+});
+
+test("canUseDiscussion is General Manager, Sales Manager, Development Manager, System Admin only", () => {
+  for (const role of ["general_manager", "sales_manager", "bd_manager", "system_admin"] as AppRole[]) {
+    expect(canUseDiscussion(role), role).toBe(true);
+  }
+  for (const role of [
+    "managing_director", "ceo", "sales_ops", "finance_manager", "estimation_manager", "salesperson", "viewer",
+  ] as AppRole[]) {
+    expect(canUseDiscussion(role), role).toBe(false);
   }
 });
 

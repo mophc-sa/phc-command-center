@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
@@ -50,6 +50,7 @@ function sanitizeForOrFilter(q: string) {
 function ProjectsPage() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -261,7 +262,7 @@ function ProjectsPage() {
         ]}
         onSubmit={async (v) => {
           try {
-            await createProject({
+            const created = await createProject({
               name: v.name,
               location: v.location || undefined,
               sector: v.sector || undefined,
@@ -276,6 +277,10 @@ function ProjectsPage() {
             toast.success(t("crm_saved"));
             qc.invalidateQueries({ queryKey: ["projects"] });
             qc.invalidateQueries({ queryKey: ["projects-kpi"] });
+            // Land on the new project's own detail page — its "Linked
+            // Opportunities" panel is the bridge into the Opportunities
+            // journey merged into Intake (see lead-tender-inbox.tsx).
+            navigate({ to: "/projects/$id", params: { id: created.id } });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
           }

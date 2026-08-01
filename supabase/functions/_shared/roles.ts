@@ -102,9 +102,14 @@ export const canManageSalesPipeline = (r: RoleInput) => inGroup(r, PIPELINE_OPER
 export const canCreateSalesRecords = (r: RoleInput) =>
   inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.salesperson]);
 
-// Final delete execution — system_admin only, and only after a commercial
-// manager has approved the underlying delete request via decide_approval.
-export const canExecuteDelete = (r: RoleInput) => isSystemAdmin(r);
+// Final delete execution — system_admin and bd_manager (Development
+// Manager), and only after a commercial manager has approved the
+// underlying delete request via decide_approval. bd_manager mirrors
+// system_admin's existing role in this chain exactly: neither can
+// unilaterally delete — canApproveCommercialAction (executive + sales
+// manager) is intentionally untouched, preserving the two-person rule for
+// both roles.
+export const canExecuteDelete = (r: RoleInput) => inGroup(r, ["system_admin", "bd_manager"]);
 
 // Total Value (RFQ/opportunity) edit authority — per client spec
 // (2026-07-27): Finance Manager, BD Manager, System Admin only.
