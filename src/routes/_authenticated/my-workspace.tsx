@@ -31,10 +31,6 @@ import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions"
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { humanize } from "@/lib/utils";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { createRfqWithOpportunity, findContactByPhone } from "@/lib/rfq-actions";
 import {
   daysUntil, daysSince, urgencyTone, urgencyLabel,
   computeAwardedTotal, computeJihPipelineTotal, computeTenderPipelineTotal,
@@ -117,12 +113,6 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
   const [draftLoading, setDraftLoading] = useState(false);
   const [draftContent, setDraftContent] = useState("");
   const [draftFuId, setDraftFuId] = useState<string | null>(null);
-  const [rfqOpen, setRfqOpen] = useState(false);
-  const [rfqStep, setRfqStep] = useState<1 | 2>(1);
-  const [rfqCreating, setRfqCreating] = useState(false);
-  const [rfqDedupChecked, setRfqDedupChecked] = useState(false);
-  const [rfqFoundContact, setRfqFoundContact] = useState<{ id: string; name: string; companyName: string } | null>(null);
-  const [rfqForm, setRfqForm] = useState({ companyName: "", contactName: "", contactPhone: "", projectScope: "", responseDueDate: "", estimatedValue: "" });
   const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set());
 
   function toggleStage(key: string) {
@@ -215,39 +205,6 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  async function handleRfqPhoneBlur(phone: string) {
-    if (!phone.trim()) return;
-    const found = await findContactByPhone(phone);
-    if (found) {
-      const compName = (found as any).companies?.name ?? "";
-      setRfqFoundContact({ id: found.id, name: found.name, companyName: compName });
-      setRfqForm(f => ({ ...f, contactName: found.name, companyName: compName }));
-    } else { setRfqFoundContact(null); }
-    setRfqDedupChecked(true);
-  }
-
-  async function handleRfqSubmit() {
-    if (!rfqForm.companyName || !rfqForm.projectScope || !rfqForm.responseDueDate) {
-      toast.error(lang === "ar" ? "يرجى تعبئة الحقول المطلوبة" : "Fill required fields"); return;
-    }
-    setRfqCreating(true);
-    try {
-      const result = await createRfqWithOpportunity({
-        companyName: rfqForm.companyName, contactName: rfqForm.contactName,
-        contactPhone: rfqForm.contactPhone, existingContactId: rfqFoundContact?.id ?? null,
-        projectScope: rfqForm.projectScope, responseDueDate: rfqForm.responseDueDate,
-        estimatedValue: rfqForm.estimatedValue ? Number(rfqForm.estimatedValue) : null,
-      });
-      toast.success(t("ws_rfq_created"));
-      setRfqOpen(false); setRfqStep(1);
-      setRfqForm({ companyName: "", contactName: "", contactPhone: "", projectScope: "", responseDueDate: "", estimatedValue: "" });
-      setRfqFoundContact(null); setRfqDedupChecked(false);
-      qc.invalidateQueries({ queryKey: ["ws-urgent-rfqs", uid] });
-      navigate({ to: "/opportunities/$id", params: { id: result.opportunityId } });
-    } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
-    finally { setRfqCreating(false); }
-  }
-
   async function handleDraftFollowUp(followUpId: string, opportunityId: string, channel: string | null) {
     setDraftFuId(followUpId); setDraftLoading(true);
     try {
@@ -264,8 +221,6 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const inputCls = "w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none";
-
   return (
     <div className="mx-auto max-w-7xl space-y-6">
 
@@ -281,12 +236,12 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             <div className="text-[22px] font-bold text-foreground">{lang === "ar" ? `مرحباً، ${displayName}` : `Hi, ${displayName}`}</div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setRfqOpen(true); setRfqStep(1); }}
+            <Link
+              to="/lead-tender-inbox"
               className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-amber/90 px-4 text-[12px] font-semibold text-black transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
-              <Plus className="h-3.5 w-3.5" /> {t("ws_new_rfq")}
-            </button>
+              <Plus className="h-3.5 w-3.5" /> {t("ibx_new_item")}
+            </Link>
             <button
               onClick={() => setLogOpen(true)}
               className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border px-3.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
@@ -701,43 +656,6 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
       </AlertDialog>
 
       {/* RFQ Quick-Create Dialog — Steps 1 & 2 */}
-      <Dialog open={rfqOpen} onOpenChange={v => { if (!rfqCreating) { setRfqOpen(v); if (!v) { setRfqStep(1); setRfqFoundContact(null); setRfqDedupChecked(false); } } }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t("ws_new_rfq")}</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-5 py-2 sm:grid-cols-2">
-            {/* Step 1 — Opportunity Details */}
-            <div className="space-y-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("ws_rfq_step1")}</div>
-              <div className="space-y-1">
-                <Label className="text-xs">{t("ws_rfq_contact_phone")}</Label>
-                <input type="tel" value={rfqForm.contactPhone} onChange={e => { setRfqForm(f => ({ ...f, contactPhone: e.target.value })); setRfqDedupChecked(false); setRfqFoundContact(null); }} onBlur={e => handleRfqPhoneBlur(e.target.value)} placeholder="+966…" className={inputCls} />
-                {rfqDedupChecked && rfqFoundContact && <p className="text-[11px] text-won">✓ {t("ws_dedup_found")} {rfqFoundContact.name} ({rfqFoundContact.companyName})</p>}
-                {rfqDedupChecked && !rfqFoundContact && <p className="text-[11px] text-muted-foreground">{lang === "ar" ? "جهة اتصال جديدة" : "New contact"}</p>}
-              </div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_company")} *</Label><input type="text" value={rfqForm.companyName} onChange={e => setRfqForm(f => ({ ...f, companyName: e.target.value }))} className={inputCls} /></div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_project")} *</Label><textarea value={rfqForm.projectScope} onChange={e => setRfqForm(f => ({ ...f, projectScope: e.target.value }))} rows={2} className={inputCls} /></div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_value")}</Label><input type="number" value={rfqForm.estimatedValue} onChange={e => setRfqForm(f => ({ ...f, estimatedValue: e.target.value }))} className={inputCls} /></div>
-            </div>
-            {/* Step 2 — Contact Details */}
-            <div className="space-y-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("ws_rfq_step2")}</div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_contact")}</Label><input type="text" value={rfqForm.contactName} onChange={e => setRfqForm(f => ({ ...f, contactName: e.target.value }))} className={inputCls} /></div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_due")} *</Label><input type="date" value={rfqForm.responseDueDate} onChange={e => setRfqForm(f => ({ ...f, responseDueDate: e.target.value }))} className={inputCls} /></div>
-              <div className="mt-auto rounded-md border border-dashed border-border/50 bg-surface-2/30 px-3 py-2.5 text-[11px] text-muted-foreground">
-                {lang === "ar" ? "سيتم إضافة جهة الاتصال تلقائيًا إلى قاعدة بيانات جهات الاتصال." : "Contact will be automatically added to the Contacts Database."}
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => setRfqOpen(false)}>{lang === "ar" ? "إلغاء" : "Cancel"}</Button>
-                <Button size="sm" onClick={handleRfqSubmit} disabled={rfqCreating || !rfqForm.companyName || !rfqForm.projectScope || !rfqForm.responseDueDate}>
-                  {rfqCreating ? (lang === "ar" ? "جارٍ الإنشاء…" : "Creating…") : (lang === "ar" ? "إنشاء الطلب" : "Create RFQ")}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -757,12 +675,6 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
   const [draftLoading, setDraftLoading] = useState(false);
   const [draftContent, setDraftContent] = useState<string>("");
   const [draftFuId, setDraftFuId] = useState<string | null>(null);
-  const [rfqOpen, setRfqOpen] = useState(false);
-  const [rfqStep, setRfqStep] = useState<1 | 2>(1);
-  const [rfqCreating, setRfqCreating] = useState(false);
-  const [rfqDedupChecked, setRfqDedupChecked] = useState(false);
-  const [rfqFoundContact, setRfqFoundContact] = useState<{ id: string; name: string; companyName: string } | null>(null);
-  const [rfqForm, setRfqForm] = useState({ companyName: "", contactName: "", contactPhone: "", projectScope: "", responseDueDate: "", estimatedValue: "" });
   const { recent } = useRecentRecords();
 
   const { data, isLoading } = useQuery({
@@ -824,28 +736,6 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
     finally { setDraftLoading(false); setDraftFuId(null); }
   };
 
-  async function handleRfqPhoneBlur(phone: string) {
-    if (!phone.trim()) return;
-    const found = await findContactByPhone(phone);
-    if (found) { const compName = (found as any).companies?.name ?? ""; setRfqFoundContact({ id: found.id, name: found.name, companyName: compName }); setRfqForm(f => ({ ...f, contactName: found.name, companyName: compName })); } else { setRfqFoundContact(null); }
-    setRfqDedupChecked(true);
-  }
-
-  async function handleRfqSubmit() {
-    if (!rfqForm.companyName || !rfqForm.projectScope || !rfqForm.responseDueDate) { toast.error(lang === "ar" ? "يرجى تعبئة الحقول المطلوبة" : "Fill required fields"); return; }
-    setRfqCreating(true);
-    try {
-      const result = await createRfqWithOpportunity({ companyName: rfqForm.companyName, contactName: rfqForm.contactName, contactPhone: rfqForm.contactPhone, existingContactId: rfqFoundContact?.id ?? null, projectScope: rfqForm.projectScope, responseDueDate: rfqForm.responseDueDate, estimatedValue: rfqForm.estimatedValue ? Number(rfqForm.estimatedValue) : null });
-      toast.success(t("ws_rfq_created")); setRfqOpen(false); setRfqStep(1);
-      setRfqForm({ companyName: "", contactName: "", contactPhone: "", projectScope: "", responseDueDate: "", estimatedValue: "" }); setRfqFoundContact(null); setRfqDedupChecked(false);
-      qc.invalidateQueries({ queryKey: ["workspace", uid] }); qc.invalidateQueries({ queryKey: ["ws-rfqs", uid] });
-      navigate({ to: "/opportunities/$id", params: { id: result.opportunityId } });
-    } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
-    finally { setRfqCreating(false); }
-  }
-
-  const inputCls = "w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none";
-
   const jihValue = computeJihPipelineTotal(jihOpps as any[]);
   const tenderValue = computeTenderPipelineTotal(myTenders as any[]);
   const salesTarget = salesTargetValue;
@@ -866,12 +756,12 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setRfqOpen(true); setRfqStep(1); }}
+          <Link
+            to="/lead-tender-inbox"
             className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-amber/90 px-4 text-[12px] font-semibold text-black transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
-            <Plus className="h-3.5 w-3.5" /> {t("ws_new_rfq")}
-          </button>
+            <Plus className="h-3.5 w-3.5" /> {t("ibx_new_item")}
+          </Link>
           <button
             onClick={() => setLogOpen(true)}
             className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border px-3.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
@@ -1210,41 +1100,6 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
       </AlertDialog>
 
       {/* RFQ Quick-Create Dialog — 2-column layout */}
-      <Dialog open={rfqOpen} onOpenChange={v => { if (!rfqCreating) { setRfqOpen(v); if (!v) { setRfqStep(1); setRfqFoundContact(null); setRfqDedupChecked(false); } } }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t("ws_new_rfq")}</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-5 py-2 sm:grid-cols-2">
-            <div className="space-y-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("ws_rfq_step1")}</div>
-              <div className="space-y-1">
-                <Label className="text-xs">{t("ws_rfq_contact_phone")}</Label>
-                <input type="tel" value={rfqForm.contactPhone} onChange={e => { setRfqForm(f => ({ ...f, contactPhone: e.target.value })); setRfqDedupChecked(false); setRfqFoundContact(null); }} onBlur={e => handleRfqPhoneBlur(e.target.value)} placeholder="+966…" className={inputCls} />
-                {rfqDedupChecked && rfqFoundContact && <p className="text-[11px] text-won">✓ {t("ws_dedup_found")} {rfqFoundContact.name} ({rfqFoundContact.companyName})</p>}
-                {rfqDedupChecked && !rfqFoundContact && <p className="text-[11px] text-muted-foreground">{lang === "ar" ? "جهة اتصال جديدة" : "New contact"}</p>}
-              </div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_company")} *</Label><input type="text" value={rfqForm.companyName} onChange={e => setRfqForm(f => ({ ...f, companyName: e.target.value }))} className={inputCls} /></div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_project")} *</Label><textarea value={rfqForm.projectScope} onChange={e => setRfqForm(f => ({ ...f, projectScope: e.target.value }))} rows={2} className={inputCls} /></div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_value")}</Label><input type="number" value={rfqForm.estimatedValue} onChange={e => setRfqForm(f => ({ ...f, estimatedValue: e.target.value }))} className={inputCls} /></div>
-            </div>
-            <div className="space-y-3">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{t("ws_rfq_step2")}</div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_contact")}</Label><input type="text" value={rfqForm.contactName} onChange={e => setRfqForm(f => ({ ...f, contactName: e.target.value }))} className={inputCls} /></div>
-              <div className="space-y-1"><Label className="text-xs">{t("ws_rfq_due")} *</Label><input type="date" value={rfqForm.responseDueDate} onChange={e => setRfqForm(f => ({ ...f, responseDueDate: e.target.value }))} className={inputCls} /></div>
-              <div className="mt-auto rounded-md border border-dashed border-border/50 bg-surface-2/30 px-3 py-2.5 text-[11px] text-muted-foreground">
-                {lang === "ar" ? "سيتم إضافة جهة الاتصال تلقائيًا إلى قاعدة بيانات جهات الاتصال." : "Contact will be automatically added to the Contacts Database."}
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => setRfqOpen(false)}>{lang === "ar" ? "إلغاء" : "Cancel"}</Button>
-                <Button size="sm" onClick={handleRfqSubmit} disabled={rfqCreating || !rfqForm.companyName || !rfqForm.projectScope || !rfqForm.responseDueDate}>
-                  {rfqCreating ? (lang === "ar" ? "جارٍ الإنشاء…" : "Creating…") : (lang === "ar" ? "إنشاء الطلب" : "Create RFQ")}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

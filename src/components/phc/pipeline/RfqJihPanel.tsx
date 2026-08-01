@@ -16,23 +16,13 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
-import { createRfq, convertRfqToJih, type RfqClassification } from "@/lib/rfq-actions";
-import { createProject, createCompany } from "@/lib/crm-actions";
-import { INBOX_LOCATIONS } from "@/lib/inbox-actions";
+import { convertRfqToJih } from "@/lib/rfq-actions";
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import {
   advanceSalesStage, nextSalesStages, SALES_STAGES, type SalesStage,
 } from "@/lib/workflow-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canManageSalesPipeline, canEditTotalValue, canEditRfqNumber } from "@/lib/roles";
-
-function rfqClassifications(t: (k: string) => string): { value: RfqClassification; label: string }[] {
-  return [
-    { value: "jih", label: t("rfq_classification_jih") },
-    { value: "tender", label: t("rfq_classification_tender") },
-    { value: "other", label: t("rfq_classification_other_label") },
-  ];
-}
+import { canManageSalesPipeline } from "@/lib/roles";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import {
@@ -92,15 +82,10 @@ export function RfqJihPanel() {
   const { t, lang } = useI18n();
   const { roles } = useAuth();
   const canAssignOwner = canManageSalesPipeline(roles);
-  const canEditValue = canEditTotalValue(roles);
-  const canEditNumber = canEditRfqNumber(roles);
   const qc = useQueryClient();
-  const [newRfq, setNewRfq] = useState(false);
   const [convertRfq, setConvertRfq] = useState<any | null>(null);
   const [advance, setAdvance] = useState<{ opp: any; toStage: SalesStage } | null>(null);
   const [historyRfq, setHistoryRfq] = useState<{ id: string; label: string } | null>(null);
-  const [creatingProjectFor, setCreatingProjectFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
-  const [creatingCompanyFor, setCreatingCompanyFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
   const [detailsRfq, setDetailsRfq] = useState<any | null>(null);
   const sstageLabel = (s: string) => t(`sstage_${s}` as never);
 
@@ -150,12 +135,12 @@ export function RfqJihPanel() {
         title={t("nav_rfq_jih")}
         description={lang === "ar" ? "من طلب عرض السعر إلى الترسية والعقد." : "From incoming RFQ to award and contract."}
         actions={
-          <button
-            onClick={() => setNewRfq(true)}
+          <Link
+            to="/lead-tender-inbox"
             className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3.5 text-[12px] font-medium text-amber-light transition-colors hover:bg-amber/20"
           >
-            <Plus className="h-3.5 w-3.5" /> {t("wf_new_rfq")}
-          </button>
+            <Plus className="h-3.5 w-3.5" /> {t("ibx_new_item")}
+          </Link>
         }
       />
 
@@ -293,122 +278,6 @@ export function RfqJihPanel() {
         </div>
       )}
 
-
-      {/* New RFQ */}
-      <ActionDialog
-        open={newRfq}
-        onOpenChange={setNewRfq}
-        title={t("wf_new_rfq")}
-        submitLabel={t("crm_add")}
-        fields={[
-          // Auto-generated unless the caller holds edit authority (server
-          // enforces this too — see generate_rfq_number() trigger).
-          ...(canEditNumber ? [{ key: "rfqNumber", type: "text" as const, label: "RFQ #" }] : []),
-          {
-            key: "companyId", type: "select", label: t("crm_company"),
-            options: [{ value: "__none__", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))],
-            createLabel: t("wf_add_new_company"),
-            onCreateNew: () => new Promise((resolve) => setCreatingCompanyFor(() => resolve)),
-          },
-          {
-            key: "projectId", type: "select", label: t("nav_projects"),
-            options: [{ value: "__none__", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))],
-            createLabel: t("wf_add_new_project"),
-            onCreateNew: () => new Promise((resolve) => setCreatingProjectFor(() => resolve)),
-          },
-          { key: "city", type: "text", label: t("crm_location") },
-          {
-            key: "classification", type: "select", label: t("rfq_classification"),
-            options: [{ value: "__none__", label: "—" }, ...rfqClassifications((k) => t(k as never))],
-          },
-          { key: "classificationOther", type: "text", label: t("rfq_classification_other") },
-          { key: "receivedDate", type: "date", label: t("rfq_received_date") },
-          { key: "responseDueDate", type: "date", label: t("wf_expected_contract") },
-          // Assigning to someone else is a manager action; a salesperson's
-          // own RFQ always self-assigns (claimOwner below).
-          ...(canAssignOwner ? [{
-            key: "salesOwnerId", type: "select" as const, label: t("rfq_assigned_salesperson"),
-            options: [{ value: "__none__", label: "—" }, ...teamMembers.map((m: any) => ({ value: m.id, label: m.full_name || m.email }))],
-          }] : []),
-          // Total Value is Finance Manager / BD Manager / System Admin only —
-          // enforced server-side too (protect_rfq_estimated_value trigger).
-          ...(canEditValue ? [{ key: "estimatedValue", type: "text" as const, label: t("crm_total_value") }] : []),
-          { key: "documentUrl", type: "file", label: t("wf_evidence"), folder: "rfq" },
-        ]}
-        onSubmit={async (v) => {
-          try {
-            await createRfq({
-              rfqNumber: v.rfqNumber || undefined,
-              companyId: v.companyId && v.companyId !== "__none__" ? v.companyId : null,
-              projectId: v.projectId && v.projectId !== "__none__" ? v.projectId : null,
-              city: v.city || null,
-              classification: (v.classification && v.classification !== "__none__" ? v.classification : null) as RfqClassification | null,
-              classificationOther: v.classificationOther || null,
-              receivedDate: v.receivedDate || null,
-              estimatedValue: v.estimatedValue ? Number(v.estimatedValue) : null,
-              responseDueDate: v.responseDueDate || null,
-              documentUrl: v.documentUrl || null,
-              salesOwnerId: v.salesOwnerId && v.salesOwnerId !== "__none__" ? v.salesOwnerId : null,
-              claimOwner: true,
-            });
-            toast.success(t("rfq_created_location_hint"));
-            refresh();
-          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
-        }}
-      />
-
-      {/* Inline "add new project" from the RFQ project picker */}
-      <ActionDialog
-        open={!!creatingProjectFor}
-        onOpenChange={(o) => { if (!o) { creatingProjectFor?.(null); setCreatingProjectFor(null); } }}
-        title={t("wf_add_new_project")}
-        submitLabel={t("crm_add")}
-        fields={[
-          { key: "name", type: "text", label: t("label_project"), required: true },
-          { key: "location", type: "select", label: t("ibx_location_city"), options: [{ value: "", label: "—" }, ...INBOX_LOCATIONS.map((l) => ({ value: l, label: t(`ibx_location_${l}`) }))] },
-        ]}
-        onSubmit={async (v) => {
-          try {
-            const project = await createProject({ name: v.name, location: v.location || undefined });
-            creatingProjectFor?.({ value: project.id, label: project.name });
-            setCreatingProjectFor(null);
-            refresh();
-          } catch (e) {
-            // Resolve with null so the RFQ dialog's project select doesn't get
-            // stuck disabled forever waiting on a promise that will never
-            // settle otherwise (ActionDialog's onCreateNew only clears its
-            // "creating" state once this promise resolves).
-            creatingProjectFor?.(null);
-            setCreatingProjectFor(null);
-            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
-        }}
-      />
-
-      {/* Inline "add new company" from the RFQ company picker */}
-      <ActionDialog
-        open={!!creatingCompanyFor}
-        onOpenChange={(o) => { if (!o) { creatingCompanyFor?.(null); setCreatingCompanyFor(null); } }}
-        title={t("wf_add_new_company")}
-        submitLabel={t("crm_add")}
-        fields={[{ key: "name", type: "text", label: t("crm_company"), required: true }]}
-        onSubmit={async (v) => {
-          try {
-            const company = await createCompany({ name: v.name, companyType: "target_account", claimOwner: true });
-            creatingCompanyFor?.({ value: company.id, label: company.name });
-            setCreatingCompanyFor(null);
-            refresh();
-          } catch (e) {
-            // Resolve with null so the RFQ dialog's company select doesn't get
-            // stuck disabled forever waiting on a promise that will never
-            // settle otherwise (ActionDialog's onCreateNew only clears its
-            // "creating" state once this promise resolves).
-            creatingCompanyFor?.(null);
-            setCreatingCompanyFor(null);
-            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
-        }}
-      />
 
       {/* Convert RFQ -> JIH */}
       <ActionDialog
