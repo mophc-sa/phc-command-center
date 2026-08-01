@@ -34,8 +34,20 @@ import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 import { BafoPanel } from "@/components/phc/BafoPanel";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canManageSalesPipeline, canReviewAiOutput } from "@/lib/roles";
+import { canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
+import {
+  listDiscussion,
+  postDiscussionUpdate,
+  updatePersonInCharge,
+  uploadEvidenceFile,
+  listContracts,
+  createContract,
+  updateContract,
+  type ContractRecord,
+  type ContractStage,
+} from "@/lib/opportunity-collab-actions";
+import { Upload, Paperclip } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
@@ -150,6 +162,7 @@ function OpportunityDetail() {
   const { user, roles } = useAuth();
   const canScore = canManageSalesPipeline(roles);
   const canReview = canReviewAiOutput(roles);
+  const canDiscuss = canUseDiscussion(roles);
 
   const [riskResult, setRiskResult] = useState<any | null>(null);
   const [riskRunning, setRiskRunning] = useState(false);
@@ -222,15 +235,131 @@ function OpportunityDetail() {
 
   const teamQ = useQuery({ queryKey: ["team"], queryFn: listTeamMembers });
 
+  const discussionQ = useQuery({
+    queryKey: ["opp-discussion", id],
+    queryFn: () => listDiscussion(id),
+    enabled: canDiscuss,
+  });
+
+  const contractsQ = useQuery({
+    queryKey: ["opp-contracts", id],
+    queryFn: () => listContracts(id),
+  });
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["opp", id] });
     qc.invalidateQueries({ queryKey: ["opp-fu", id] });
     qc.invalidateQueries({ queryKey: ["opp-app", id] });
     qc.invalidateQueries({ queryKey: ["opp-milestones", id] });
+    qc.invalidateQueries({ queryKey: ["opp-ev", id] });
+    qc.invalidateQueries({ queryKey: ["opp-discussion", id] });
+    qc.invalidateQueries({ queryKey: ["opp-contracts", id] });
     qc.invalidateQueries({ queryKey: ["cc-metrics"] });
     qc.invalidateQueries({ queryKey: ["all-followups"] });
     qc.invalidateQueries({ queryKey: ["approvals"] });
   };
+
+  /* ---------------- Discussion ---------------- */
+  const [discussionDraft, setDiscussionDraft] = useState("");
+  const [discussionPicId, setDiscussionPicId] = useState<string>("");
+  const [discussionPicNote, setDiscussionPicNote] = useState("");
+  const [postingDiscussion, setPostingDiscussion] = useState(false);
+  async function handlePostDiscussion() {
+    if (!discussionDraft.trim()) return;
+    setPostingDiscussion(true);
+    try {
+      await postDiscussionUpdate({
+        opportunityId: id,
+        body: discussionDraft.trim(),
+        personInChargeId: discussionPicId || null,
+        personInChargeNote: discussionPicNote.trim() || null,
+      });
+      setDiscussionDraft("");
+      setDiscussionPicId("");
+      setDiscussionPicNote("");
+      toast.success(t("discussion_posted_toast"));
+      qc.invalidateQueries({ queryKey: ["opp-discussion", id] });
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    } finally {
+      setPostingDiscussion(false);
+    }
+  }
+
+  /* ---------------- Assignment: Person in Charge ---------------- */
+  const [savingPic, setSavingPic] = useState(false);
+  async function handleSetPersonInCharge(personInChargeId: string | null, note: string | null) {
+    setSavingPic(true);
+    try {
+      await updatePersonInCharge({ opportunityId: id, personInChargeId, personInChargeNote: note });
+      toast.success(t("crm_saved"));
+      qc.invalidateQueries({ queryKey: ["opp", id] });
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    } finally {
+      setSavingPic(false);
+    }
+  }
+
+  /* ---------------- Evidence file upload ---------------- */
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  async function handleEvidenceFilesSelected(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploadingEvidence(true);
+    try {
+      for (const file of Array.from(files)) {
+        try {
+          await uploadEvidenceFile({ opportunityId: id, file });
+        } catch (e) {
+          const msg =
+            e instanceof Error && e.message === "file_too_large"
+              ? t("evidence_upload_error_size")
+              : e instanceof Error && e.message === "file_type_not_allowed"
+                ? t("evidence_upload_error_type")
+                : t("toast_error") + (e instanceof Error ? `: ${e.message}` : "");
+          toast.error(`${file.name}: ${msg}`);
+          continue;
+        }
+      }
+      toast.success(t("evidence_upload_success"));
+      qc.invalidateQueries({ queryKey: ["opp-ev", id] });
+    } finally {
+      setUploadingEvidence(false);
+    }
+  }
+
+  /* ---------------- Contract Stage ---------------- */
+  const [contractDialogOpen, setContractDialogOpen] = useState(false);
+  const [editingContract, setEditingContract] = useState<ContractRecord | null>(null);
+  const canManageContract = canManageSalesPipeline(roles);
+  async function handleSaveContract(v: Record<string, string>) {
+    try {
+      const payload = {
+        contractName: v.contractName || null,
+        contractReferenceNumber: v.contractReferenceNumber || null,
+        stage: (v.stage || "draft") as ContractStage,
+        client: v.client || null,
+        contractValue: v.contractValue ? Number(v.contractValue) : null,
+        currency: v.currency || "SAR",
+        startDate: v.startDate || null,
+        endDate: v.endDate || null,
+        responsibleUserId: v.responsibleUserId && v.responsibleUserId !== "__none__" ? v.responsibleUserId : null,
+        documentUrl: v.documentUrl || null,
+        notes: v.notes || null,
+      };
+      if (editingContract) {
+        await updateContract(editingContract.id, id, payload);
+      } else {
+        await createContract({ opportunityId: id, ...payload });
+      }
+      toast.success(t("contract_saved_toast"));
+      setContractDialogOpen(false);
+      setEditingContract(null);
+      qc.invalidateQueries({ queryKey: ["opp-contracts", id] });
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    }
+  }
 
   const [savingMilestone, setSavingMilestone] = useState<OpportunityMilestone | null>(null);
   async function toggleMilestone(milestone: OpportunityMilestone, completed: boolean) {
@@ -533,47 +662,136 @@ function OpportunityDetail() {
       </Panel>
       )}
 
-      {/* 3. STAKEHOLDERS — assignment context */}
+      {/* 3. ASSIGNMENT — a single card: who to contact, who owns it, and who's
+          currently in charge (if different). One data source per fact —
+          Client Contact reuses the same "primary stakeholder" derivation as
+          the header's communication actions, Primary Person reuses the
+          existing opportunity owner, and Person in Charge is the one new
+          field (opportunities.person_in_charge_id), also reused by
+          Discussion below instead of being duplicated per-post. */}
+      {show("assignment") && (() => {
+        const clientContact =
+          (stakeholdersQ.data ?? []).find((s: any) => !!s.email) ?? (stakeholdersQ.data ?? [])[0] ?? null;
+        const primaryPerson = (teamQ.data ?? []).find((m: any) => m.id === o.owner_id) ?? null;
+        const picMember = (teamQ.data ?? []).find((m: any) => m.id === o.person_in_charge_id) ?? null;
+        const picDiffersFromPrimary = !!o.person_in_charge_id && o.person_in_charge_id !== o.owner_id;
+        return (
+          <Panel title={t("section_assignment")}>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <DataField
+                label={t("assignment_client_contact")}
+                value={
+                  clientContact
+                    ? [clientContact.name, clientContact.email || clientContact.phone].filter(Boolean).join(" · ")
+                    : "—"
+                }
+              />
+              <DataField
+                label={t("assignment_primary_person")}
+                value={primaryPerson?.full_name ?? primaryPerson?.email ?? t("assignment_unassigned")}
+              />
+              {picDiffersFromPrimary ? (
+                <DataField
+                  label={t("assignment_person_in_charge")}
+                  value={picMember?.full_name ?? picMember?.email ?? "—"}
+                />
+              ) : null}
+              {o.person_in_charge_note ? (
+                <DataField label={t("assignment_pic_note")} value={o.person_in_charge_note} />
+              ) : null}
+            </div>
+            {canManageContract ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+                <select
+                  value={o.person_in_charge_id ?? ""}
+                  disabled={savingPic}
+                  onChange={(e) => handleSetPersonInCharge(e.target.value || null, o.person_in_charge_note ?? null)}
+                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">{t("assignment_set_pic")}</option>
+                  {(teamQ.data ?? []).map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.full_name ?? m.email}</option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+          </Panel>
+        );
+      })()}
+
+      {/* 3.2. DISCUSSION — single free-text update box; posts are append-only
+          and shown newest-first as cards. Restricted to General Manager,
+          Sales Manager, Development Manager, and System Administrator both
+          here (UI) and via RLS (server) — see can_use_discussion(uuid). */}
       {show("assignment") && (
-      <Panel title={t("section_stakeholders")}>
-        {stakeholdersQ.data && stakeholdersQ.data.length > 0 ? (
-          <ul className="divide-y divide-border/60">
-            {stakeholdersQ.data.map((s: any) => (
-              <li key={s.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-foreground">{s.name}</div>
-                  <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {[s.role, s.organization].filter(Boolean).join(" · ") || "—"}
-                  </div>
-                  {s.email || s.phone ? (
-                    <div className="mt-1 truncate text-xs text-muted-foreground">
-                      {[s.email, s.phone].filter(Boolean).join(" · ")}
+      <Panel title={t("section_discussion")}>
+        {canDiscuss ? (
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <textarea
+                value={discussionDraft}
+                onChange={(e) => setDiscussionDraft(e.target.value)}
+                rows={3}
+                placeholder={t("discussion_placeholder")}
+                className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select
+                  value={discussionPicId}
+                  onChange={(e) => setDiscussionPicId(e.target.value)}
+                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">{t("discussion_person_in_charge")}</option>
+                  {(teamQ.data ?? []).map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.full_name ?? m.email}</option>
+                  ))}
+                </select>
+                <input
+                  value={discussionPicNote}
+                  onChange={(e) => setDiscussionPicNote(e.target.value)}
+                  placeholder={t("discussion_pic_note")}
+                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <button
+                  type="button"
+                  disabled={postingDiscussion || !discussionDraft.trim()}
+                  onClick={handlePostDiscussion}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+                >
+                  {t("discussion_post")}
+                </button>
+              </div>
+            </div>
+
+            {discussionQ.data && discussionQ.data.length > 0 ? (
+              <ul className="grid gap-2.5">
+                {discussionQ.data.map((post) => (
+                  <li key={post.id} className="rounded-md border border-border/60 bg-surface p-3">
+                    <p className="whitespace-pre-wrap text-sm text-foreground">{post.body}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {post.author?.full_name ?? post.author?.email ?? "—"}
+                      </span>
+                      <span>·</span>
+                      <span>{fmtDate(post.created_at, lang)}</span>
+                      {post.person_in_charge_note ? (
+                        <>
+                          <span>·</span>
+                          <span>{t("discussion_pic_note")}: {post.person_in_charge_note}</span>
+                        </>
+                      ) : null}
                     </div>
-                  ) : null}
-                </div>
-                <div className="text-right rtl:text-left">
-                  {s.contact_confidence ? (
-                    <StatusPill
-                      tone={
-                        s.contact_confidence === "high"
-                          ? "positive"
-                          : s.contact_confidence === "low"
-                            ? "muted"
-                            : "neutral"
-                      }
-                    >
-                      {humanize(s.contact_confidence)}
-                    </StatusPill>
-                  ) : null}
-                  <div className="mt-1 text-[11px] text-muted-foreground">
-                    {fmtDate(s.last_interaction_at, lang)}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState message={t("discussion_empty")} />
+            )}
+          </div>
         ) : (
-          <EmptyState message="—" />
+          <EmptyState message={t("discussion_forbidden")} />
         )}
       </Panel>
       )}
@@ -635,6 +853,22 @@ function OpportunityDetail() {
         title={t("section_evidence")}
         subtitle={`${formatNumber(evidenceQ.data?.length ?? 0, lang)} · ${humanize(o.source_confidence)}`}
       >
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 aria-disabled:cursor-not-allowed aria-disabled:opacity-50">
+            <Upload className="h-3.5 w-3.5" />
+            {uploadingEvidence ? t("evidence_uploading") : t("evidence_upload_button")}
+            <input
+              type="file"
+              multiple
+              disabled={uploadingEvidence}
+              onChange={(e) => {
+                handleEvidenceFilesSelected(e.target.files);
+                e.target.value = "";
+              }}
+              className="hidden"
+            />
+          </label>
+        </div>
         {evidenceQ.data && evidenceQ.data.length > 0 ? (
           <ul className="divide-y divide-border/60">
             {evidenceQ.data.map((e: any) => (
@@ -643,7 +877,11 @@ function OpportunityDetail() {
                 className="-mx-2 grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] gap-3 rounded px-2 py-3 transition-colors hover:bg-muted/40"
                 onClick={() => setEvidenceOpen(e)}
               >
-                <FileText className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                {e.source_type === "file_upload" ? (
+                  <Paperclip className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <FileText className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                )}
                 <div className="min-w-0">
                   <div className="truncate text-sm text-foreground">{e.source_title || e.source_type}</div>
                   {e.extracted_summary ? (
@@ -655,7 +893,12 @@ function OpportunityDetail() {
                     <span>{humanize(e.source_type)}</span>
                     <span>·</span>
                     <span>{fmtDate(e.source_date, lang)}</span>
-                    {e.confidence_level ? (
+                    {e.file_size ? (
+                      <>
+                        <span>·</span>
+                        <span>{(e.file_size / (1024 * 1024)).toFixed(1)} MB</span>
+                      </>
+                    ) : e.confidence_level ? (
                       <>
                         <span>·</span>
                         <span>{humanize(e.confidence_level)}</span>
@@ -668,6 +911,8 @@ function OpportunityDetail() {
                     href={e.source_url}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={(evt) => evt.stopPropagation()}
+                    title={t("evidence_download")}
                     className="inline-flex items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
@@ -797,6 +1042,76 @@ function OpportunityDetail() {
           </ul>
         ) : (
           <EmptyState message={t("empty_approvals")} />
+        )}
+      </Panel>
+      )}
+
+      {/* 6.5. CONTRACT STAGE — replaces the former "Log Outcome" concept:
+          the deal's current stage plus its linked contract(s), rendered
+          from the new `contracts` table. Handles zero/one/many contracts. */}
+      {show("outcome") && (
+      <Panel title={t("section_contract_stage")} subtitle={t("contract_stage_hint")}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <StatusPill tone="muted">{humanize(o.sales_stage ?? o.stage)}</StatusPill>
+          {canManageContract ? (
+            <button
+              type="button"
+              onClick={() => { setEditingContract(null); setContractDialogOpen(true); }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              {t("contract_create")}
+            </button>
+          ) : null}
+        </div>
+        {contractsQ.data && contractsQ.data.length > 0 ? (
+          <ul className="grid gap-2.5">
+            {contractsQ.data.map((c) => {
+              const responsible = (teamQ.data ?? []).find((m: any) => m.id === c.responsible_user_id);
+              return (
+                <li key={c.id} className="rounded-md border border-border/60 bg-surface p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-foreground">
+                        {c.contract_name || c.contract_reference_number || t("section_contract_stage")}
+                      </div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">
+                        {c.client ?? o.client ?? "—"}
+                      </div>
+                    </div>
+                    <StatusPill tone={c.stage === "active" || c.stage === "signed" ? "positive" : c.stage === "terminated" ? "danger" : "muted"}>
+                      {t(`contract_stage_${c.stage}` as never)}
+                    </StatusPill>
+                  </div>
+                  <div className="mt-2.5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <DataField label={t("contract_reference")} value={c.contract_reference_number} />
+                    <DataField label={t("contract_value")} value={formatCurrency(c.contract_value, lang, c.currency)} mono />
+                    <DataField label={t("contract_start_date")} value={fmtDate(c.start_date, lang)} />
+                    <DataField label={t("contract_end_date")} value={fmtDate(c.end_date, lang)} />
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                    {responsible ? <span>{t("contract_responsible")}: {responsible.full_name ?? responsible.email}</span> : null}
+                    {c.document_url ? (
+                      <a href={c.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-amber-light hover:underline">
+                        <Paperclip className="h-3 w-3" /> {t("contract_document")}
+                      </a>
+                    ) : null}
+                  </div>
+                  {c.notes ? <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">{c.notes}</p> : null}
+                  {canManageContract ? (
+                    <button
+                      type="button"
+                      onClick={() => { setEditingContract(c); setContractDialogOpen(true); }}
+                      className="mt-2 text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      {t("contract_edit")}
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <EmptyState message={t("contract_none")} />
         )}
       </Panel>
       )}
@@ -1309,6 +1624,32 @@ function OpportunityDetail() {
                   "toast_escalate_ok",
                 )
               }
+            />
+            <ActionDialog
+              open={contractDialogOpen}
+              onOpenChange={(v) => { setContractDialogOpen(v); if (!v) setEditingContract(null); }}
+              title={editingContract ? t("contract_edit") : t("contract_create")}
+              submitLabel={editingContract ? t("action_save") : t("contract_create")}
+              fields={[
+                { key: "contractName", type: "text", label: t("contract_name"), defaultValue: editingContract?.contract_name ?? "" },
+                { key: "contractReferenceNumber", type: "text", label: t("contract_reference"), defaultValue: editingContract?.contract_reference_number ?? "" },
+                {
+                  key: "stage", type: "select", label: t("section_contract_stage"),
+                  defaultValue: editingContract?.stage ?? "draft",
+                  options: (["draft", "sent_for_signature", "signed", "active", "completed", "terminated"] as const).map((s) => ({
+                    value: s, label: t(`contract_stage_${s}` as never),
+                  })),
+                },
+                { key: "client", type: "text", label: t("contract_client"), defaultValue: editingContract?.client ?? o.client ?? "" },
+                { key: "contractValue", type: "text", label: t("contract_value"), defaultValue: editingContract?.contract_value != null ? String(editingContract.contract_value) : "" },
+                { key: "currency", type: "text", label: t("contract_currency"), defaultValue: editingContract?.currency ?? o.currency ?? "SAR" },
+                { key: "startDate", type: "date", label: t("contract_start_date"), defaultValue: editingContract?.start_date ?? "" },
+                { key: "endDate", type: "date", label: t("contract_end_date"), defaultValue: editingContract?.end_date ?? "" },
+                { key: "responsibleUserId", type: "select", label: t("contract_responsible"), defaultValue: editingContract?.responsible_user_id ?? "", options: teamOpts },
+                { key: "documentUrl", type: "file", label: t("contract_document"), folder: "contracts" },
+                { key: "notes", type: "textarea", label: t("contract_notes"), defaultValue: editingContract?.notes ?? "" },
+              ]}
+              onSubmit={handleSaveContract}
             />
             <ActionDialog
               open={!!completeId}

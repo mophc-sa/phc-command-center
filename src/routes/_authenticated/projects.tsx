@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
-import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Plus, Search, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
@@ -9,9 +8,8 @@ import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
-import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
-import { createProject, type ProjectStage, type ProjectRow, type SourceConfidence } from "@/lib/crm-actions";
+import type { ProjectStage, ProjectRow } from "@/lib/crm-actions";
 
 export const Route = createFileRoute("/_authenticated/projects")({
   head: () => ({ meta: [{ title: "Projects — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -22,8 +20,6 @@ const PROJECT_STAGES: ProjectStage[] = [
   "early_planning", "design_development", "tender", "awarded",
   "under_construction", "near_handover", "completed", "unknown",
 ];
-
-const SOURCE_CONFIDENCE_LEVELS: SourceConfidence[] = ["high", "medium", "low"];
 
 const PAGE_SIZE = 20;
 
@@ -49,8 +45,6 @@ function sanitizeForOrFilter(q: string) {
 
 function ProjectsPage() {
   const { t, lang } = useI18n();
-  const qc = useQueryClient();
-  const [createOpen, setCreateOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<ProjectStage | "all">("all");
@@ -91,11 +85,6 @@ function ProjectsPage() {
   const totalCount = listResult?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const { data: contractors = [] } = useQuery({
-    queryKey: ["companies-contractors"],
-    queryFn: async () => (await supabase.from("companies").select("id, name").order("name")).data ?? [],
-  });
-
   // Global counts/totals must reflect every project, not just the current
   // page — a lightweight, joinless query keeps that cheap even though the
   // list above is now paginated.
@@ -118,13 +107,13 @@ function ProjectsPage() {
         eyebrow={t("nav_crm" as never) || "CRM"}
         title={t("nav_projects")}
         actions={
-          <button
-            onClick={() => setCreateOpen(true)}
+          <Link
+            to="/lead-tender-inbox"
             className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20"
           >
             <Plus className="h-3.5 w-3.5" />
-            {t("crm_new_project")}
-          </button>
+            {t("ibx_new_item")}
+          </Link>
         }
       />
 
@@ -240,47 +229,6 @@ function ProjectsPage() {
           ) : null}
         </>
       )}
-
-      <ActionDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        title={t("crm_new_project")}
-        description={t("crm_pending_verification")}
-        submitLabel={t("crm_add")}
-        fields={[
-          { key: "name", type: "text", label: t("nav_projects"), required: true },
-          { key: "location", type: "text", label: t("crm_location") },
-          { key: "sector", type: "text", label: t("crm_sector") },
-          { key: "mainContractorId", type: "select", label: t("crm_main_contractor"), options: [{ value: "", label: "—" }, ...contractors.map((c: any) => ({ value: c.id, label: c.name }))] },
-          { key: "projectStage", type: "select", label: t("crm_project_stage"), defaultValue: "unknown", options: PROJECT_STAGES.map((s) => ({ value: s, label: humanize(s) })) },
-          { key: "completionPct", type: "text", label: t("crm_completion") },
-          { key: "totalValue", type: "text", label: t("crm_total_value") },
-          { key: "expectedBoqDate", type: "date", label: t("crm_expected_boq") },
-          { key: "expectedSignageDate", type: "date", label: t("crm_expected_signage") },
-          { key: "sourceConfidence", type: "select", label: t("crm_source_confidence"), defaultValue: "low", options: SOURCE_CONFIDENCE_LEVELS.map((c) => ({ value: c, label: humanize(c) })) },
-        ]}
-        onSubmit={async (v) => {
-          try {
-            await createProject({
-              name: v.name,
-              location: v.location || undefined,
-              sector: v.sector || undefined,
-              mainContractorId: v.mainContractorId || null,
-              projectStage: v.projectStage as ProjectStage,
-              completionPct: v.completionPct ? Number(v.completionPct) : null,
-              totalValue: v.totalValue ? Number(v.totalValue) : null,
-              expectedBoqDate: v.expectedBoqDate || null,
-              expectedSignageDate: v.expectedSignageDate || null,
-              sourceConfidence: (v.sourceConfidence as SourceConfidence) || undefined,
-            });
-            toast.success(t("crm_saved"));
-            qc.invalidateQueries({ queryKey: ["projects"] });
-            qc.invalidateQueries({ queryKey: ["projects-kpi"] });
-          } catch (e) {
-            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
-        }}
-      />
     </div>
   );
 }

@@ -15,7 +15,6 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import {
-  createQuotation,
   updateQuotationStatus,
   type QuotationStatus,
 } from "@/lib/sales-actions";
@@ -45,7 +44,6 @@ function statusTone(s: QuotationStatus): "positive" | "attention" | "neutral" | 
 export function QuotationsPanel() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
-  const [createOpen, setCreateOpen] = useState(false);
   const [statusFor, setStatusFor] = useState<{ id: string; oppId: string } | null>(null);
   const [filter, setFilter] = useState<"open" | "closed" | "all">("open");
 
@@ -57,18 +55,6 @@ export function QuotationsPanel() {
           .from("quotations")
           .select("*, opportunities(id, project_name, client)")
           .order("updated_at", { ascending: false })
-      ).data ?? [],
-  });
-
-  const { data: opps = [] } = useQuery({
-    queryKey: ["opps-for-quote"],
-    queryFn: async () =>
-      (
-        await supabase
-          .from("opportunities")
-          .select("id, project_name")
-          .not("stage", "in", "(won,lost,archived)")
-          .order("project_name")
       ).data ?? [],
   });
 
@@ -104,13 +90,13 @@ export function QuotationsPanel() {
         eyebrow={t("nav_commercial" as never) || "Commercial"}
         title={t("nav_quotations")}
         actions={
-          <button
-            onClick={() => setCreateOpen(true)}
+          <Link
+            to="/lead-tender-inbox"
             className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20"
           >
             <Plus className="h-3.5 w-3.5" />
-            {t("action_new_quotation")}
-          </button>
+            {t("ibx_new_item")}
+          </Link>
         }
       />
 
@@ -217,44 +203,6 @@ export function QuotationsPanel() {
           })}
         </div>
       )}
-
-      <ActionDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        title={t("dialog_new_quotation_title")}
-        description={t("dialog_new_quotation_desc")}
-        submitLabel={t("action_new_quotation")}
-        fields={[
-          {
-            key: "opportunityId",
-            type: "select",
-            label: t("field_opportunity"),
-            required: true,
-            options: opps.map((o: any) => ({ value: o.id, label: o.project_name })),
-          },
-          { key: "quoteNumber", type: "text", label: t("field_quote_number"), required: true },
-          { key: "value", type: "text", label: t("field_value") },
-          { key: "issuedDate", type: "date", label: t("field_issued_date") },
-          { key: "validUntil", type: "date", label: t("field_valid_until") },
-          { key: "notes", type: "textarea", label: t("field_notes") },
-        ]}
-        onSubmit={async (v) => {
-          try {
-            await createQuotation({
-              opportunityId: v.opportunityId,
-              quoteNumber: v.quoteNumber,
-              value: v.value ? Number(v.value) : null,
-              issuedDate: v.issuedDate || null,
-              validUntil: v.validUntil || null,
-              notes: v.notes || undefined,
-            });
-            toast.success(t("toast_quotation_created"));
-            qc.invalidateQueries({ queryKey: ["quotations"] });
-          } catch (e) {
-            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
-        }}
-      />
 
       <ActionDialog
         open={!!statusFor}

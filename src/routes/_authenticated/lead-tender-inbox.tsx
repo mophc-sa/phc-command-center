@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +23,9 @@ import {
   type InboxClassification, type DuplicateCandidate,
 } from "@/lib/inbox-actions";
 import { humanize } from "@/lib/utils";
+import { createTender } from "@/lib/tender-actions";
+import { createRfq } from "@/lib/rfq-actions";
+import { IntakeHubTabs } from "@/components/phc/IntakeHubTabs";
 
 export const Route = createFileRoute("/_authenticated/lead-tender-inbox")({
   head: () => ({ meta: [{ title: "Lead & Tender Inbox — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -86,7 +89,10 @@ function LeadTenderInbox() {
   const { user } = useAuth();
   const uid = user?.id ?? "";
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [newItem, setNewItem] = useState(false);
+  const [newRequestPickerOpen, setNewRequestPickerOpen] = useState(false);
+  const [newRequestType, setNewRequestType] = useState<"jih" | "tender" | null>(null);
   const [classifyFor, setClassifyFor] = useState<any | null>(null);
   const [convertFor, setConvertFor] = useState<any | null>(null);
   const [missingDataFor, setMissingDataFor] = useState<any | null>(null);
@@ -161,15 +167,22 @@ function LeadTenderInbox() {
 
   return (
     <div className="mx-auto max-w-7xl">
+      <IntakeHubTabs active="requests" />
       <PageHeader
         eyebrow="Execution"
         title={t("ibx_title")}
         description={t("ibx_intro")}
         actions={
-          <button onClick={() => setNewItem(true)} className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20">
-            <Plus className="h-3.5 w-3.5" />
-            {t("ibx_new_item")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => setNewRequestPickerOpen(true)} className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20">
+              <Plus className="h-3.5 w-3.5" />
+              {t("ibx_new_request")}
+            </button>
+            <button onClick={() => setNewItem(true)} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted">
+              <Plus className="h-3.5 w-3.5" />
+              {t("ibx_new_item")}
+            </button>
+          </div>
         }
       />
 
@@ -252,6 +265,93 @@ function LeadTenderInbox() {
           ))}
         </div>
       )}
+
+      {/* New Request — dispatcher: pick JIH or Tender, then save into the
+          matching real record (rfqs / tenders) and jump straight to where
+          it now lives, so the redirect target always matches what was
+          actually persisted. */}
+      <ActionDialog
+        open={newRequestPickerOpen}
+        onOpenChange={setNewRequestPickerOpen}
+        title={t("ibx_new_request")}
+        submitLabel={t("ibx_continue")}
+        fields={[
+          {
+            key: "requestType", type: "select", label: t("ibx_request_type"), required: true,
+            options: [
+              { value: "jih", label: t("rfq_classification_jih") },
+              { value: "tender", label: t("rfq_classification_tender") },
+            ],
+          },
+        ]}
+        onSubmit={(v) => {
+          setNewRequestType(v.requestType as "jih" | "tender");
+          setNewRequestPickerOpen(false);
+        }}
+      />
+
+      <ActionDialog
+        open={newRequestType === "tender"}
+        onOpenChange={(v) => !v && setNewRequestType(null)}
+        title={t("wf_new_tender")}
+        submitLabel={t("crm_add")}
+        fields={[
+          { key: "tenderName", type: "text", label: t("nav_tenders"), required: true },
+          { key: "source", type: "text", label: t("wf_source") },
+          { key: "projectId", type: "select", label: t("nav_projects"), options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
+          { key: "expectedAwardDate", type: "date", label: t("wf_expected_award") },
+          { key: "estimatedProjectValue", type: "text", label: t("crm_total_value") },
+        ]}
+        onSubmit={async (v) => {
+          try {
+            await createTender({
+              tenderName: v.tenderName,
+              source: v.source || undefined,
+              projectId: v.projectId || null,
+              expectedAwardDate: v.expectedAwardDate || null,
+              estimatedProjectValue: v.estimatedProjectValue ? Number(v.estimatedProjectValue) : null,
+              claimOwner: true,
+            });
+            toast.success(t("ibx_request_created_tender"));
+            setNewRequestType(null);
+            navigate({ to: "/tenders" });
+          } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+            throw e;
+          }
+        }}
+      />
+
+      <ActionDialog
+        open={newRequestType === "jih"}
+        onOpenChange={(v) => !v && setNewRequestType(null)}
+        title={t("rfq_classification_jih")}
+        submitLabel={t("crm_add")}
+        fields={[
+          { key: "companyId", type: "select", label: t("crm_company"), options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
+          { key: "projectId", type: "select", label: t("nav_projects"), options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
+          { key: "estimatedValue", type: "text", label: t("ws_rfq_value") },
+          { key: "responseDueDate", type: "date", label: t("ws_rfq_due") },
+        ]}
+        onSubmit={async (v) => {
+          try {
+            await createRfq({
+              companyId: v.companyId || null,
+              projectId: v.projectId || null,
+              classification: "jih",
+              estimatedValue: v.estimatedValue ? Number(v.estimatedValue) : null,
+              responseDueDate: v.responseDueDate || null,
+              claimOwner: true,
+            });
+            toast.success(t("ibx_request_created_jih"));
+            setNewRequestType(null);
+            navigate({ to: "/quotations", search: { tab: "rfq_jih" } });
+          } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+            throw e;
+          }
+        }}
+      />
 
       <ActionDialog
         open={newItem}

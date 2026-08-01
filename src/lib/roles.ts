@@ -123,9 +123,14 @@ export const canManageSalesPipeline = (r: RoleInput) => inGroup(r, PIPELINE_OPER
 export const canCreateSalesRecords = (r: RoleInput) =>
   inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.salesperson]);
 
-// Final delete execution — system_admin only, and only after a commercial
-// manager has approved the underlying delete request via decide_approval.
-export const canExecuteDelete = (r: RoleInput) => isSystemAdmin(r);
+// Final delete execution — system_admin and bd_manager (Development
+// Manager), and only after a commercial manager has approved the
+// underlying delete request via decide_approval. bd_manager mirrors
+// system_admin's existing role in this chain exactly: neither can
+// unilaterally delete — canApproveCommercialAction (executive + sales
+// manager) is intentionally untouched, preserving the two-person rule for
+// both roles.
+export const canExecuteDelete = (r: RoleInput) => inGroup(r, ["system_admin", "bd_manager"]);
 
 // Total Value (RFQ/opportunity) edit authority — per client spec
 // (2026-07-27): Finance Manager, BD Manager, System Admin only. Deliberately
@@ -153,6 +158,13 @@ export const canEditRfqNumber = (r: RoleInput) =>
 // specifically — only salesperson is meant to lose visibility here.
 export const canViewAllSalesData = (r: RoleInput) =>
   inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.systemAdmin, ...ROLE_GROUPS.financeManager, ...ROLE_GROUPS.viewer]);
+
+// Discussion (opportunity_discussions) — General Manager, Sales Manager,
+// Development Manager (bd_manager), System Administrator only. Mirrors the
+// DB helper public.can_use_discussion(uuid), which is also enforced
+// server-side via RLS — this client-side check only controls the UI.
+export const canUseDiscussion = (r: RoleInput) =>
+  inGroup(r, ["general_manager", "sales_manager", "bd_manager", "system_admin"]);
 
 // ---- BAFO / commercial-discount approval chain ------------------------------
 // Client spec (2026-07-27), section 12's proposed 4-step approval chain

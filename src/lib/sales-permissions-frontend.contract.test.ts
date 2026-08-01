@@ -1,7 +1,12 @@
 // Contract tests for the frontend half of the 2026-07-27 sales permissions
-// batch: command-center's route guard, RFQ form field gating (both
-// RfqJihPanel and NewEntryDialog), and admin-settings' Suspend/Delete
+// batch: command-center's route guard and admin-settings' Suspend/Delete
 // confirm dialogs. Static source inspection. Run with `bun test src`.
+//
+// The RFQ form field gating tests that used to live here (RfqJihPanel's
+// standalone "New RFQ" dialog, and the global NewEntryDialog quick-create)
+// were removed alongside those dialogs themselves — system-redesign request
+// (2026-08-01): every record now originates from the single Intake capture
+// point instead of scattered per-page "New X" dialogs.
 import { test, expect, describe } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -32,38 +37,30 @@ describe("command-center route guard", () => {
   });
 });
 
-describe("RFQ form field gating — RfqJihPanel", () => {
-  const rfqPanelSrc = src("src/components/phc/pipeline/RfqJihPanel.tsx");
-
-  test("rfqNumber field is only rendered for canEditRfqNumber roles", () => {
-    expect(rfqPanelSrc).toMatch(/\.\.\.\(canEditNumber \? \[\{ key: "rfqNumber"/);
+describe("single-intake consolidation (2026-08-01)", () => {
+  test("RfqJihPanel no longer has its own standalone New RFQ dialog", () => {
+    const rfqPanelSrc = src("src/components/phc/pipeline/RfqJihPanel.tsx");
+    expect(rfqPanelSrc).not.toMatch(/wf_new_rfq/);
+    expect(rfqPanelSrc).not.toMatch(/canEditRfqNumber|canEditTotalValue/);
   });
 
-  test("estimatedValue (Total Value) field is only rendered for canEditTotalValue roles", () => {
-    expect(rfqPanelSrc).toMatch(/\.\.\.\(canEditValue \? \[\{ key: "estimatedValue"/);
+  test("the global NewEntryDialog quick-create component was removed", () => {
+    expect(() => src("src/components/phc/NewEntryDialog.tsx")).toThrow();
   });
 
-  test("salesOwnerId (assignment) field is only rendered for canManageSalesPipeline roles", () => {
-    expect(rfqPanelSrc).toMatch(/\.\.\.\(canAssignOwner \? \[\{/);
+  test("AppShell's Quick Actions 'New Entry' item navigates to Intake instead of opening a dialog", () => {
+    const appShellSrc = src("src/components/phc/AppShell.tsx");
+    expect(appShellSrc).not.toMatch(/NewEntryDialog/);
+    expect(appShellSrc).toMatch(/nav_\(\{ to: "\/lead-tender-inbox" \}\)/);
   });
 
-  test("city, classification, classificationOther, receivedDate fields are always present", () => {
-    for (const key of ["city", "classification", "classificationOther", "receivedDate"]) {
-      expect(rfqPanelSrc).toContain(`key: "${key}"`);
-    }
-  });
-});
-
-describe("RFQ form field gating — NewEntryDialog (rfq type)", () => {
-  const newEntrySrc = src("src/components/phc/NewEntryDialog.tsx");
-
-  test("rfqFields() takes teamMembers + roles and gates the same three fields", () => {
-    const fnStart = newEntrySrc.indexOf("function rfqFields(");
-    const fnEnd = newEntrySrc.indexOf("\n}", fnStart);
-    const body = newEntrySrc.slice(fnStart, fnEnd);
-    expect(body).toMatch(/canEditNumber \? \[\{ key: "rfqNumber"/);
-    expect(body).toMatch(/canEditValue \? \[\{ key: "estimatedValue"/);
-    expect(body).toMatch(/canAssignOwner \? \[\{/);
+  test("Projects, Tenders, and Quotations panels no longer have their own standalone create dialogs", () => {
+    const projectsSrc = src("src/routes/_authenticated/projects.tsx");
+    const tendersSrc = src("src/routes/_authenticated/tenders.tsx");
+    const quotationsPanelSrc = src("src/components/phc/pipeline/QuotationsPanel.tsx");
+    expect(projectsSrc).not.toMatch(/crm_new_project/);
+    expect(tendersSrc).not.toMatch(/wf_new_tender/);
+    expect(quotationsPanelSrc).not.toMatch(/action_new_quotation/);
   });
 });
 

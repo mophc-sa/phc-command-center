@@ -1416,6 +1416,71 @@ export type Database = {
           },
         ]
       }
+      contracts: {
+        Row: {
+          client: string | null
+          contract_name: string | null
+          contract_reference_number: string | null
+          contract_value: number | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          document_url: string | null
+          end_date: string | null
+          id: string
+          notes: string | null
+          opportunity_id: string
+          responsible_user_id: string | null
+          stage: string
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          client?: string | null
+          contract_name?: string | null
+          contract_reference_number?: string | null
+          contract_value?: number | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          document_url?: string | null
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          opportunity_id: string
+          responsible_user_id?: string | null
+          stage?: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client?: string | null
+          contract_name?: string | null
+          contract_reference_number?: string | null
+          contract_value?: number | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          document_url?: string | null
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          opportunity_id?: string
+          responsible_user_id?: string | null
+          stage?: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       duplicate_group_members: {
         Row: {
           created_at: string
@@ -1497,36 +1562,45 @@ export type Database = {
           confidence_level: Database["public"]["Enums"]["confidence_level"]
           created_at: string
           extracted_summary: string | null
+          file_size: number | null
+          file_type: string | null
           id: string
           related_opportunity_id: string
           source_date: string | null
           source_title: string
           source_type: string
           source_url: string | null
+          uploaded_by: string | null
           vault_path: string | null
         }
         Insert: {
           confidence_level?: Database["public"]["Enums"]["confidence_level"]
           created_at?: string
           extracted_summary?: string | null
+          file_size?: number | null
+          file_type?: string | null
           id?: string
           related_opportunity_id: string
           source_date?: string | null
           source_title: string
           source_type: string
           source_url?: string | null
+          uploaded_by?: string | null
           vault_path?: string | null
         }
         Update: {
           confidence_level?: Database["public"]["Enums"]["confidence_level"]
           created_at?: string
           extracted_summary?: string | null
+          file_size?: number | null
+          file_type?: string | null
           id?: string
           related_opportunity_id?: string
           source_date?: string | null
           source_title?: string
           source_type?: string
           source_url?: string | null
+          uploaded_by?: string | null
           vault_path?: string | null
         }
         Relationships: [
@@ -2993,6 +3067,8 @@ export type Database = {
           next_action_due: string | null
           owner_id: string | null
           package_budget_confirmed: boolean
+          person_in_charge_id: string | null
+          person_in_charge_note: string | null
           pipeline_step: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status: string | null
           project_id: string | null
@@ -3074,6 +3150,8 @@ export type Database = {
           next_action_due?: string | null
           owner_id?: string | null
           package_budget_confirmed?: boolean
+          person_in_charge_id?: string | null
+          person_in_charge_note?: string | null
           pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status?: string | null
           project_id?: string | null
@@ -3155,6 +3233,8 @@ export type Database = {
           next_action_due?: string | null
           owner_id?: string | null
           package_budget_confirmed?: boolean
+          person_in_charge_id?: string | null
+          person_in_charge_note?: string | null
           pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status?: string | null
           project_id?: string | null
@@ -3213,6 +3293,44 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_discussions: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          opportunity_id: string
+          person_in_charge_id: string | null
+          person_in_charge_note: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          opportunity_id: string
+          person_in_charge_id?: string | null
+          person_in_charge_note?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          opportunity_id?: string
+          person_in_charge_id?: string | null
+          person_in_charge_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_discussions_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
@@ -4694,6 +4812,7 @@ export type Database = {
       }
       can_edit_rfq_number: { Args: { _user_id: string }; Returns: boolean }
       can_edit_total_value: { Args: { _user_id: string }; Returns: boolean }
+      can_use_discussion: { Args: { _user_id: string }; Returns: boolean }
       can_view_all_sales_data: { Args: { _user_id: string }; Returns: boolean }
       claim_ai_agent_request: {
         Args: {
@@ -5471,6 +5590,7 @@ export const Constants = {
     },
   },
 } as const
+
 
 // Import Intelligence v2 — client-side types (not yet in auto-generated schema)
 // =============================================================================

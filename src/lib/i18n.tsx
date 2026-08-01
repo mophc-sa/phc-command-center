@@ -207,6 +207,11 @@ export const strings = {
   ibx_title: { en: "Lead & Tender Inbox", ar: "صندوق العملاء والمناقصات" },
   ibx_intro: { en: "Every new sales input lands here first — nothing becomes a CRM record without review.", ar: "كل مُدخل مبيعات جديد يوصل هنا أولاً — ولا يتحول لسجل CRM بدون مراجعة." },
   ibx_new_item: { en: "New Intake", ar: "إدخال جديد" },
+  ibx_new_request: { en: "New Request", ar: "طلب جديد" },
+  ibx_request_type: { en: "Request Type", ar: "نوع الطلب" },
+  ibx_continue: { en: "Continue", ar: "متابعة" },
+  ibx_request_created_tender: { en: "Request saved — opening Tender Monitor.", ar: "تم حفظ الطلب — جارٍ فتح صفحة المناقصات." },
+  ibx_request_created_jih: { en: "Request saved — opening JIH board.", ar: "تم حفظ الطلب — جارٍ فتح لوحة JIH." },
   ibx_source_type: { en: "Source Type", ar: "نوع المصدر" },
   ibx_source_name: { en: "Source Name", ar: "اسم المصدر" },
   ibx_company_name: { en: "Company Name", ar: "اسم الشركة" },
@@ -590,6 +595,7 @@ export const strings = {
   action_complete: { en: "Mark Complete", ar: "إتمام" },
   action_archive: { en: "Archive", ar: "أرشفة" },
   action_view_evidence: { en: "View Evidence", ar: "عرض الأدلة" },
+  action_save: { en: "Save", ar: "حفظ" },
 
   // Empty states
   empty_needs_attention: {
@@ -639,6 +645,58 @@ export const strings = {
   create_account: { en: "Create account", ar: "إنشاء حساب" },
   have_account: { en: "Already have an account? Sign in", ar: "لديك حساب؟ سجّل الدخول" },
   no_account: { en: "New here? Create an account", ar: "مستخدم جديد؟ أنشئ حساباً" },
+
+  // Discussion
+  section_discussion: { en: "Discussion", ar: "النقاش" },
+  discussion_placeholder: { en: "Post an update…", ar: "اكتب تحديثًا…" },
+  discussion_post: { en: "Post Update", ar: "نشر التحديث" },
+  discussion_person_in_charge: { en: "Person in Charge", ar: "الشخص المسؤول" },
+  discussion_pic_note: { en: "Note from Person in Charge", ar: "ملاحظة الشخص المسؤول" },
+  discussion_empty: { en: "No updates yet — be the first to post one.", ar: "لا توجد تحديثات بعد — كن أول من ينشر تحديثًا." },
+  discussion_forbidden: { en: "Discussion is limited to General Manager, Sales Manager, Development Manager, and System Administrator.", ar: "النقاش متاح فقط للمدير العام ومدير المبيعات ومدير التطوير ومدير النظام." },
+  discussion_posted_toast: { en: "Update posted", ar: "تم نشر التحديث" },
+  discussion_none: { en: "None", ar: "لا يوجد" },
+
+  // Assignment (simplified single card)
+  section_assignment: { en: "Assignment", ar: "الإسناد" },
+  assignment_client_contact: { en: "Client Contact", ar: "جهة اتصال العميل" },
+  assignment_primary_person: { en: "Primary Person", ar: "الشخص الأساسي" },
+  assignment_person_in_charge: { en: "Person in Charge", ar: "الشخص المسؤول" },
+  assignment_pic_note: { en: "Note", ar: "ملاحظة" },
+  assignment_set_pic: { en: "Set Person in Charge", ar: "تحديد الشخص المسؤول" },
+  assignment_unassigned: { en: "Unassigned", ar: "غير مُعيَّن" },
+
+  // Evidence file upload
+  evidence_upload_button: { en: "Add File", ar: "إضافة ملف" },
+  evidence_uploading: { en: "Uploading…", ar: "جارٍ الرفع…" },
+  evidence_upload_success: { en: "File uploaded", ar: "تم رفع الملف" },
+  evidence_upload_error_size: { en: "File is larger than 25 MB.", ar: "حجم الملف أكبر من 25 ميجابايت." },
+  evidence_upload_error_type: { en: "This file type isn't allowed.", ar: "نوع هذا الملف غير مسموح به." },
+  evidence_download: { en: "Download", ar: "تنزيل" },
+
+  // Contract Stage (replaces the former "Log Outcome" concept)
+  section_contract_stage: { en: "Contract Stage", ar: "مرحلة العقد" },
+  contract_stage_hint: { en: "Current deal stage and its linked contract(s).", ar: "المرحلة الحالية للصفقة والعقد أو العقود المرتبطة بها." },
+  contract_none: { en: "No contract linked yet.", ar: "لا يوجد عقد مرتبط بعد." },
+  contract_create: { en: "Create Contract", ar: "إنشاء عقد" },
+  contract_edit: { en: "Edit Contract", ar: "تعديل العقد" },
+  contract_name: { en: "Contract Name", ar: "اسم العقد" },
+  contract_reference: { en: "Contract Reference", ar: "مرجع العقد" },
+  contract_client: { en: "Client", ar: "العميل" },
+  contract_value: { en: "Contract Value", ar: "قيمة العقد" },
+  contract_currency: { en: "Currency", ar: "العملة" },
+  contract_start_date: { en: "Start Date", ar: "تاريخ البداية" },
+  contract_end_date: { en: "End Date", ar: "تاريخ النهاية" },
+  contract_responsible: { en: "Responsible Person", ar: "الشخص المسؤول" },
+  contract_document: { en: "Contract File / Link", ar: "ملف / رابط العقد" },
+  contract_notes: { en: "Notes", ar: "ملاحظات" },
+  contract_stage_draft: { en: "Draft", ar: "مسودة" },
+  contract_stage_sent_for_signature: { en: "Sent for Signature", ar: "أُرسل للتوقيع" },
+  contract_stage_signed: { en: "Signed", ar: "موقّع" },
+  contract_stage_active: { en: "Active", ar: "ساري" },
+  contract_stage_completed: { en: "Completed", ar: "مكتمل" },
+  contract_stage_terminated: { en: "Terminated", ar: "مُنهى" },
+  contract_saved_toast: { en: "Contract saved", ar: "تم حفظ العقد" },
 
   // Language
   language: { en: "Language", ar: "اللغة" },

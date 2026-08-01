@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useI18n } from "@/lib/i18n";
 import { QuotationsPanel } from "@/components/phc/pipeline/QuotationsPanel";
+import { IntakeHubTabs } from "@/components/phc/IntakeHubTabs";
 import { RfqJihPanel } from "@/components/phc/pipeline/RfqJihPanel";
 import { BoqPanel } from "@/components/phc/pipeline/BoqPanel";
 
@@ -28,6 +29,7 @@ function QuotationsRoute() {
 
   return (
     <div className="mx-auto max-w-7xl">
+      <IntakeHubTabs active="quotations" />
       <div className="mb-6 flex gap-2 border-b border-border/60">
         {([
           ["quotations", t("nav_quotations")],

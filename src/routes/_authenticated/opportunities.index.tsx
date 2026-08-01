@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { humanize } from "@/lib/utils";
+import { IntakeHubTabs } from "@/components/phc/IntakeHubTabs";
 
 export const Route = createFileRoute("/_authenticated/opportunities/")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -81,6 +82,7 @@ function OppList() {
 
   return (
     <div className="mx-auto max-w-7xl">
+      <IntakeHubTabs active="opportunities" />
       <PageHeader
         eyebrow={lang === "ar" ? "خط الأنابيب" : "Pipeline"}
         title={t("nav_opportunities")}
