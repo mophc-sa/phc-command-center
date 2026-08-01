@@ -719,83 +719,6 @@ function OpportunityDetail() {
         );
       })()}
 
-      {/* 3.2. DISCUSSION — single free-text update box; posts are append-only
-          and shown newest-first as cards. Restricted to General Manager,
-          Sales Manager, Development Manager, and System Administrator both
-          here (UI) and via RLS (server) — see can_use_discussion(uuid). */}
-      {show("assignment") && (
-      <Panel title={t("section_discussion")}>
-        {canDiscuss ? (
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <textarea
-                value={discussionDraft}
-                onChange={(e) => setDiscussionDraft(e.target.value)}
-                rows={3}
-                placeholder={t("discussion_placeholder")}
-                className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-              <div className="grid gap-2 sm:grid-cols-2">
-                <select
-                  value={discussionPicId}
-                  onChange={(e) => setDiscussionPicId(e.target.value)}
-                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="">{t("discussion_person_in_charge")}</option>
-                  {(teamQ.data ?? []).map((m: any) => (
-                    <option key={m.id} value={m.id}>{m.full_name ?? m.email}</option>
-                  ))}
-                </select>
-                <input
-                  value={discussionPicNote}
-                  onChange={(e) => setDiscussionPicNote(e.target.value)}
-                  placeholder={t("discussion_pic_note")}
-                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-              <div>
-                <button
-                  type="button"
-                  disabled={postingDiscussion || !discussionDraft.trim()}
-                  onClick={handlePostDiscussion}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
-                >
-                  {t("discussion_post")}
-                </button>
-              </div>
-            </div>
-
-            {discussionQ.data && discussionQ.data.length > 0 ? (
-              <ul className="grid gap-2.5">
-                {discussionQ.data.map((post) => (
-                  <li key={post.id} className="rounded-md border border-border/60 bg-surface p-3">
-                    <p className="whitespace-pre-wrap text-sm text-foreground">{post.body}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                      <span className="font-medium text-foreground">
-                        {post.author?.full_name ?? post.author?.email ?? "—"}
-                      </span>
-                      <span>·</span>
-                      <span>{fmtDate(post.created_at, lang)}</span>
-                      {post.person_in_charge_note ? (
-                        <>
-                          <span>·</span>
-                          <span>{t("discussion_pic_note")}: {post.person_in_charge_note}</span>
-                        </>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState message={t("discussion_empty")} />
-            )}
-          </div>
-        ) : (
-          <EmptyState message={t("discussion_forbidden")} />
-        )}
-      </Panel>
-      )}
-
       {/* 3.1. TECHNICAL NOTES — Phase 4 (system-redesign request), same tab
           as Stakeholders. Distinct from evidence_sources and the milestone
           checklist — a single free-form field. */}
@@ -1042,6 +965,85 @@ function OpportunityDetail() {
           </ul>
         ) : (
           <EmptyState message={t("empty_approvals")} />
+        )}
+      </Panel>
+      )}
+
+      {/* 6.2. DISCUSSION — single free-text update box; posts are append-only
+          and shown newest-first as cards. Restricted to General Manager,
+          Sales Manager, Development Manager, and System Administrator both
+          here (UI) and via RLS (server) — see can_use_discussion(uuid).
+          Grouped with Decision (not Assignment) per feedback: discussion
+          threads are about deciding what happens next, not who's assigned. */}
+      {show("decision") && (
+      <Panel title={t("section_discussion")}>
+        {canDiscuss ? (
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <textarea
+                value={discussionDraft}
+                onChange={(e) => setDiscussionDraft(e.target.value)}
+                rows={3}
+                placeholder={t("discussion_placeholder")}
+                className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select
+                  value={discussionPicId}
+                  onChange={(e) => setDiscussionPicId(e.target.value)}
+                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">{t("discussion_person_in_charge")}</option>
+                  {(teamQ.data ?? []).map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.full_name ?? m.email}</option>
+                  ))}
+                </select>
+                <input
+                  value={discussionPicNote}
+                  onChange={(e) => setDiscussionPicNote(e.target.value)}
+                  placeholder={t("discussion_pic_note")}
+                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <button
+                  type="button"
+                  disabled={postingDiscussion || !discussionDraft.trim()}
+                  onClick={handlePostDiscussion}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+                >
+                  {t("discussion_post")}
+                </button>
+              </div>
+            </div>
+
+            {discussionQ.data && discussionQ.data.length > 0 ? (
+              <ul className="grid gap-2.5">
+                {discussionQ.data.map((post) => (
+                  <li key={post.id} className="rounded-md border border-border/60 bg-surface p-3">
+                    <p className="whitespace-pre-wrap text-sm text-foreground">{post.body}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {post.author?.full_name ?? post.author?.email ?? "—"}
+                      </span>
+                      <span>·</span>
+                      <span>{fmtDate(post.created_at, lang)}</span>
+                      {post.person_in_charge_note ? (
+                        <>
+                          <span>·</span>
+                          <span>{t("discussion_pic_note")}: {post.person_in_charge_note}</span>
+                        </>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState message={t("discussion_empty")} />
+            )}
+          </div>
+        ) : (
+          <EmptyState message={t("discussion_forbidden")} />
         )}
       </Panel>
       )}
