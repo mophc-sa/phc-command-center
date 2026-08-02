@@ -7,6 +7,8 @@ import { canViewSalesAdmin, ALL_ROLES, type AppRole } from "@/lib/roles";
 import { usePinnedRecords, type PinnedRecord } from "@/hooks/usePinnedRecords";
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useIdleLogout } from "@/hooks/useIdleLogout";
+import { requiresMfa } from "@/lib/roles";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { NotificationCenter } from "@/components/phc/NotificationCenter";
 import { FontSizeControl } from "@/components/phc/FontSizeControl";
@@ -187,6 +189,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const canAdmin = canViewSalesAdmin(roles);
   const topRole = ALL_ROLES.find((r) => (roles as AppRole[]).includes(r));
+
+  // 30-minute inactivity auto sign-out for sensitive roles only.
+  useIdleLogout(requiresMfa(roles), 30, lang);
 
   // UI state
   const [mobileOpen, setMobileOpen] = useState(false);

@@ -180,3 +180,20 @@ export const canApproveBafoFinance = (r: RoleInput) =>
   inGroup(r, ["finance_manager", "system_admin"]);
 export const canApproveBafoFinal = (r: RoleInput) =>
   inGroup(r, [...ROLE_GROUPS.executive, ...ROLE_GROUPS.systemAdmin]);
+
+// ---- Mandatory MFA (2026-08-02 security hardening) ---------------------------
+// General Manager, Finance Manager, Sales Manager, System Administrator, and
+// Managing Director (mapped from the "Administrative Manager" requirement —
+// no such role exists separately in this system) hold the most sensitive
+// commercial/technical authority and must enroll TOTP MFA and step up to
+// AAL2 every session before reaching the app. Enforced in
+// src/routes/_authenticated/route.tsx's beforeLoad and reused to scope the
+// idle-timeout guard (src/hooks/useIdleLogout.ts) to the same role set.
+export const MFA_REQUIRED_ROLES: AppRole[] = [
+  "general_manager",
+  "finance_manager",
+  "sales_manager",
+  "system_admin",
+  "managing_director",
+];
+export const requiresMfa = (r: RoleInput) => inGroup(r, MFA_REQUIRED_ROLES);

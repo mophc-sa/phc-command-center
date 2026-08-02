@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
-import { Loader2, Clock } from "lucide-react";
+import { Loader2, Clock, MailCheck } from "lucide-react";
+import { Turnstile } from "@/components/phc/Turnstile";
 const phcLogo = { url: "/phc-logo.png" };
 
 
@@ -27,11 +28,12 @@ function AuthPage() {
   const { user, loading } = useAuth();
   const nav = useNavigate();
   const { next } = Route.useSearch();
-  const [mode, setMode] = useState<"signin" | "signup" | "pending">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "pending" | "forgot" | "forgot_sent">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!loading && user) {
@@ -50,7 +52,7 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
         if (error) throw error;
         toast.success(lang === "ar" ? "تم تسجيل الدخول" : "Signed in");
       } else {
@@ -60,6 +62,7 @@ function AuthPage() {
           options: {
             data: { full_name: fullName },
             emailRedirectTo: next ? `${window.location.origin}${next}` : `${window.location.origin}/command-center`,
+            captchaToken,
           },
         });
         if (error) throw error;
@@ -71,6 +74,26 @@ function AuthPage() {
       toast.error(msg);
     } finally {
       setBusy(false);
+      setCaptchaToken(undefined);
+    }
+  };
+
+  const submitForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+        captchaToken,
+      });
+      if (error) throw error;
+      setMode("forgot_sent");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t("error_generic");
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+      setCaptchaToken(undefined);
     }
   };
 
@@ -97,6 +120,78 @@ function AuthPage() {
         >
           {lang === "ar" ? "العودة لتسجيل الدخول" : "Back to sign in"}
         </button>
+      </div>
+    );
+  }
+
+  // Password-recovery link sent — holding screen.
+  if (mode === "forgot_sent") {
+    return (
+      <div dir={dir} className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background p-6 text-foreground">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-amber/30 bg-amber/10">
+          <MailCheck className="h-6 w-6 text-amber-light" />
+        </div>
+        <div className="max-w-sm space-y-2 text-center">
+          <h1 className="text-xl font-semibold tracking-tight">
+            {lang === "ar" ? "تحقق من بريدك الإلكتروني" : "Check your email"}
+          </h1>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {lang === "ar"
+              ? "إذا كان هذا البريد مرتبطًا بحساب، فسنرسل رابط استعادة كلمة المرور إليه."
+              : "If that email is linked to an account, we've sent a password-reset link to it."}
+          </p>
+        </div>
+        <button
+          onClick={() => setMode("signin")}
+          className="rounded-md border border-border bg-surface px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          {lang === "ar" ? "العودة لتسجيل الدخول" : "Back to sign in"}
+        </button>
+      </div>
+    );
+  }
+
+  // Forgot-password request form.
+  if (mode === "forgot") {
+    return (
+      <div dir={dir} className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background p-6 text-foreground">
+        <div className="w-full max-w-sm">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
+            {lang === "ar" ? "استعادة كلمة المرور" : "Reset your password"}
+          </h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            {lang === "ar"
+              ? "أدخل بريدك الإلكتروني وسنرسل لك رابط استعادة كلمة المرور."
+              : "Enter your email and we'll send you a password-reset link."}
+          </p>
+          <form onSubmit={submitForgot} className="mt-5 space-y-3.5">
+            <label className="block">
+              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("email")}</span>
+              <input
+                type="email"
+                autoComplete="email"
+                className="mt-1.5 w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-amber/60 focus:ring-1 focus:ring-amber/40"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </label>
+            <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(undefined)} />
+            <button
+              disabled={busy}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {lang === "ar" ? "إرسال رابط الاستعادة" : "Send reset link"}
+            </button>
+          </form>
+          <button
+            className="mt-5 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setMode("signin")}
+          >
+            {lang === "ar" ? "العودة لتسجيل الدخول" : "Back to sign in"}
+          </button>
+        </div>
       </div>
     );
   }
@@ -202,10 +297,20 @@ function AuthPage() {
                 className="mt-1.5 w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-amber/60 focus:ring-1 focus:ring-amber/40"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
+                minLength={8}
                 required
               />
             </label>
+            {mode === "signin" ? (
+              <button
+                type="button"
+                onClick={() => setMode("forgot")}
+                className="block text-xs text-muted-foreground hover:text-foreground"
+              >
+                {lang === "ar" ? "نسيت كلمة المرور؟" : "Forgot password?"}
+              </button>
+            ) : null}
+            <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(undefined)} />
             <button
               disabled={busy}
               className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-60"
