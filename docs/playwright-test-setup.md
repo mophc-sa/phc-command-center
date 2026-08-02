@@ -18,7 +18,9 @@ Complete these steps once; CI will exercise all role tests on every PR thereafte
 
 ## Overview
 
-Nine dedicated non-production accounts cover every test scenario:
+Ten dedicated non-production accounts cover every test scenario (a 10th,
+sales_ops, was added after this doc's original nine-account roster and is
+included below):
 
 | Account email | Role | Status | GitHub secret (EMAIL / PASSWORD) |
 |---|---|---|---|
@@ -27,6 +29,7 @@ Nine dedicated non-production accounts cover every test scenario:
 | pw-general-manager+test@phc-sa.com | general_manager | active | TEST_GENERAL_MANAGER_* |
 | pw-sales-manager+test@phc-sa.com | sales_manager | active | TEST_SALES_MANAGER_* |
 | pw-bd-manager+test@phc-sa.com | bd_manager | active | TEST_BD_MANAGER_* |
+| pw-sales-ops+test@phc-sa.com | sales_ops | active | TEST_SALES_OPS_* |
 | pw-salesperson+test@phc-sa.com | salesperson | active | TEST_SALESPERSON_* |
 | pw-viewer+test@phc-sa.com | viewer | active | TEST_VIEWER_* |
 | pw-pending+test@phc-sa.com | *(none)* | pending_approval | TEST_PENDING_* |
@@ -89,6 +92,8 @@ Add these secrets (the CI workflow already references them):
 | `TEST_SALES_MANAGER_PASSWORD` | *(password)* |
 | `TEST_BD_MANAGER_EMAIL` | `pw-bd-manager+test@phc-sa.com` |
 | `TEST_BD_MANAGER_PASSWORD` | *(password)* |
+| `TEST_SALES_OPS_EMAIL` | `pw-sales-ops+test@phc-sa.com` |
+| `TEST_SALES_OPS_PASSWORD` | *(password)* |
 | `TEST_SALESPERSON_EMAIL` | `pw-salesperson+test@phc-sa.com` |
 | `TEST_SALESPERSON_PASSWORD` | *(password)* |
 | `TEST_VIEWER_EMAIL` | `pw-viewer+test@phc-sa.com` |
