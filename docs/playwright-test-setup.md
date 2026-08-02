@@ -3,7 +3,18 @@
 One-time setup guide for Phase B checklist item 7.
 Complete these steps once; CI will exercise all role tests on every PR thereafter.
 
----
+> **2026-08-02 domain migration**: the `@phc-playwright.test` allowlist
+> carve-out was removed from `enforce_signup_email_domain()`
+> (`20260802130000_tighten_signup_email_domain_allowlist.sql`) as part of a
+> security hardening pass. Existing `pw-*@phc-playwright.test` accounts keep
+> working (the trigger only blocks new inserts/email-changes), but must be
+> **renamed** to the `pw-*+test@phc-sa.com` addresses below — via Supabase
+> Dashboard → Authentication → Users → Edit user → Email, which preserves
+> the user id — before the companion migration
+> (`20260802130100_playwright_test_accounts_phc_sa_domain.sql`) can
+> re-provision their roles. Until renamed, that migration is a harmless
+> no-op (`NOTICE`s only). The GitHub Actions `TEST_*_EMAIL` secrets must be
+> updated to match at the same time.
 
 ## Overview
 
@@ -11,18 +22,19 @@ Nine dedicated non-production accounts cover every test scenario:
 
 | Account email | Role | Status | GitHub secret (EMAIL / PASSWORD) |
 |---|---|---|---|
-| pw-system-admin@phc-playwright.test | system_admin | active | TEST_SYSTEM_ADMIN_* |
-| pw-managing-director@phc-playwright.test | managing_director | active | TEST_MANAGING_DIRECTOR_* |
-| pw-general-manager@phc-playwright.test | general_manager | active | TEST_GENERAL_MANAGER_* |
-| pw-sales-manager@phc-playwright.test | sales_manager | active | TEST_SALES_MANAGER_* |
-| pw-bd-manager@phc-playwright.test | bd_manager | active | TEST_BD_MANAGER_* |
-| pw-salesperson@phc-playwright.test | salesperson | active | TEST_SALESPERSON_* |
-| pw-viewer@phc-playwright.test | viewer | active | TEST_VIEWER_* |
-| pw-pending@phc-playwright.test | *(none)* | pending_approval | TEST_PENDING_* |
-| pw-suspended@phc-playwright.test | *(none)* | suspended | TEST_SUSPENDED_* |
+| pw-system-admin+test@phc-sa.com | system_admin | active | TEST_SYSTEM_ADMIN_* |
+| pw-managing-director+test@phc-sa.com | managing_director | active | TEST_MANAGING_DIRECTOR_* |
+| pw-general-manager+test@phc-sa.com | general_manager | active | TEST_GENERAL_MANAGER_* |
+| pw-sales-manager+test@phc-sa.com | sales_manager | active | TEST_SALES_MANAGER_* |
+| pw-bd-manager+test@phc-sa.com | bd_manager | active | TEST_BD_MANAGER_* |
+| pw-salesperson+test@phc-sa.com | salesperson | active | TEST_SALESPERSON_* |
+| pw-viewer+test@phc-sa.com | viewer | active | TEST_VIEWER_* |
+| pw-pending+test@phc-sa.com | *(none)* | pending_approval | TEST_PENDING_* |
+| pw-suspended+test@phc-sa.com | *(none)* | suspended | TEST_SUSPENDED_* |
 
 These are **non-production test accounts only** — never real employees, never shared mailboxes.
-The `.test` TLD is reserved and will never receive real email.
+The `+test` sub-address tag makes them easy to filter/identify while staying inside the
+`@phc-sa.com` allowlist enforced by `enforce_signup_email_domain()`.
 
 ---
 
@@ -42,15 +54,19 @@ Repeat for all 9.
 
 ## Step 2 — Apply the provisioning migration
 
-Once all 9 users are created, apply the migration in **Supabase Dashboard → SQL Editor**:
+Once all 9 users are created (or renamed, per the 2026-08-02 note above), the provisioning
+migration applies automatically with every `supabase db push` — no manual SQL Editor step
+needed going forward:
 
 ```
-supabase/migrations/20260713150000_playwright_test_accounts.sql
+supabase/migrations/20260802130100_playwright_test_accounts_phc_sa_domain.sql
 ```
 
-Copy-paste the file contents and run it. You should see 9 `NOTICE` lines confirming each account.
+(The original `20260713150000_playwright_test_accounts.sql` is left untouched for history —
+migrations are never edited after they've applied to production.)
 
-Verify with the query at the bottom of the migration file — should return 9 rows with the correct roles and statuses.
+Re-running it manually in **Supabase Dashboard → SQL Editor** is safe (idempotent) and useful
+to confirm provisioning immediately — you should see 9 `NOTICE` lines confirming each account.
 
 ---
 
@@ -62,24 +78,24 @@ Add these secrets (the CI workflow already references them):
 
 | Secret name | Value |
 |---|---|
-| `TEST_APP_URL` | Deployed app URL, e.g. `https://phc-command-center.lovable.app` |
-| `TEST_SYSTEM_ADMIN_EMAIL` | `pw-system-admin@phc-playwright.test` |
+| `TEST_APP_URL` | Deployed app URL, e.g. `https://agent.phc-sa.com` |
+| `TEST_SYSTEM_ADMIN_EMAIL` | `pw-system-admin+test@phc-sa.com` |
 | `TEST_SYSTEM_ADMIN_PASSWORD` | *(the password you chose in Step 1)* |
-| `TEST_MANAGING_DIRECTOR_EMAIL` | `pw-managing-director@phc-playwright.test` |
+| `TEST_MANAGING_DIRECTOR_EMAIL` | `pw-managing-director+test@phc-sa.com` |
 | `TEST_MANAGING_DIRECTOR_PASSWORD` | *(password)* |
-| `TEST_GENERAL_MANAGER_EMAIL` | `pw-general-manager@phc-playwright.test` |
+| `TEST_GENERAL_MANAGER_EMAIL` | `pw-general-manager+test@phc-sa.com` |
 | `TEST_GENERAL_MANAGER_PASSWORD` | *(password)* |
-| `TEST_SALES_MANAGER_EMAIL` | `pw-sales-manager@phc-playwright.test` |
+| `TEST_SALES_MANAGER_EMAIL` | `pw-sales-manager+test@phc-sa.com` |
 | `TEST_SALES_MANAGER_PASSWORD` | *(password)* |
-| `TEST_BD_MANAGER_EMAIL` | `pw-bd-manager@phc-playwright.test` |
+| `TEST_BD_MANAGER_EMAIL` | `pw-bd-manager+test@phc-sa.com` |
 | `TEST_BD_MANAGER_PASSWORD` | *(password)* |
-| `TEST_SALESPERSON_EMAIL` | `pw-salesperson@phc-playwright.test` |
+| `TEST_SALESPERSON_EMAIL` | `pw-salesperson+test@phc-sa.com` |
 | `TEST_SALESPERSON_PASSWORD` | *(password)* |
-| `TEST_VIEWER_EMAIL` | `pw-viewer@phc-playwright.test` |
+| `TEST_VIEWER_EMAIL` | `pw-viewer+test@phc-sa.com` |
 | `TEST_VIEWER_PASSWORD` | *(password)* |
-| `TEST_PENDING_EMAIL` | `pw-pending@phc-playwright.test` |
+| `TEST_PENDING_EMAIL` | `pw-pending+test@phc-sa.com` |
 | `TEST_PENDING_PASSWORD` | *(password)* |
-| `TEST_SUSPENDED_EMAIL` | `pw-suspended@phc-playwright.test` |
+| `TEST_SUSPENDED_EMAIL` | `pw-suspended+test@phc-sa.com` |
 | `TEST_SUSPENDED_PASSWORD` | *(password)* |
 
 ---
@@ -98,7 +114,7 @@ Expected result: all tests pass. If a test fails:
 ## Maintenance notes
 
 - **Never commit passwords** — they live only in GitHub Actions secrets.
-- **Never reuse real employee emails** — the `pw-*@phc-playwright.test` namespace is reserved for test accounts.
+- **Never reuse real employee emails** — the `pw-*+test@phc-sa.com` namespace is reserved for test accounts.
 - If a test account's password needs rotating: update the Supabase user's password in the Dashboard, then update the corresponding GitHub secret.
 - The `pw-suspended` account must stay `status = suspended` — if a Playwright run accidentally activates it, re-run the migration to reset it.
 - The `pw-pending` account must stay `status = pending_approval` with no role — same rule.

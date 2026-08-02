@@ -15,7 +15,7 @@ function withSecurityHeaders(request: Request, response: Response): Response {
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
   headers.set(
     "Content-Security-Policy-Report-Only",
-    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.lovable.dev",
+    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.lovable.dev https://challenges.cloudflare.com",
   );
   if (new URL(request.url).protocol === "https:") {
     headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");

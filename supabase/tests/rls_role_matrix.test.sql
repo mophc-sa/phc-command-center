@@ -34,23 +34,23 @@ insert into auth.users (
 ) values
   ('00000000-0000-0000-0000-000000000000',
    '20000000-0000-0000-0000-000000000001', 'authenticated', 'authenticated',
-   'rls2-viewer@phc-local.test',        now(),
+   'rls2-viewer+test@phc-sa.com',        now(),
    '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('00000000-0000-0000-0000-000000000000',
    '20000000-0000-0000-0000-000000000002', 'authenticated', 'authenticated',
-   'rls2-salesperson@phc-local.test',   now(),
+   'rls2-salesperson+test@phc-sa.com',   now(),
    '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('00000000-0000-0000-0000-000000000000',
    '20000000-0000-0000-0000-000000000003', 'authenticated', 'authenticated',
-   'rls2-bd-manager@phc-local.test',    now(),
+   'rls2-bd-manager+test@phc-sa.com',    now(),
    '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('00000000-0000-0000-0000-000000000000',
    '20000000-0000-0000-0000-000000000004', 'authenticated', 'authenticated',
-   'rls2-sales-manager@phc-local.test', now(),
+   'rls2-sales-manager+test@phc-sa.com', now(),
    '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('00000000-0000-0000-0000-000000000000',
    '20000000-0000-0000-0000-000000000005', 'authenticated', 'authenticated',
-   'rls2-system-admin@phc-local.test',  now(),
+   'rls2-system-admin+test@phc-sa.com',  now(),
    '{"provider":"email","providers":["email"]}', '{}', now(), now());
 
 -- Profiles are auto-created by trigger; activate all five.

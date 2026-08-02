@@ -9,7 +9,10 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PendingApprovalRouteImport } from './routes/pending-approval'
+import { Route as MfaVerifyRouteImport } from './routes/mfa-verify'
+import { Route as MfaSetupRouteImport } from './routes/mfa-setup'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
@@ -52,9 +55,24 @@ import { Route as AuthenticatedAccountsIdRouteImport } from './routes/_authentic
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PendingApprovalRoute = PendingApprovalRouteImport.update({
   id: '/pending-approval',
   path: '/pending-approval',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MfaVerifyRoute = MfaVerifyRouteImport.update({
+  id: '/mfa-verify',
+  path: '/mfa-verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MfaSetupRoute = MfaSetupRouteImport.update({
+  id: '/mfa-setup',
+  path: '/mfa-setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpRoute = McpRouteImport.update({
@@ -282,7 +300,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/mcp': typeof McpRoute
+  '/mfa-setup': typeof MfaSetupRoute
+  '/mfa-verify': typeof MfaVerifyRoute
   '/pending-approval': typeof PendingApprovalRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/accounts': typeof AuthenticatedAccountsRouteWithChildren
@@ -325,7 +346,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/mcp': typeof McpRoute
+  '/mfa-setup': typeof MfaSetupRoute
+  '/mfa-verify': typeof MfaVerifyRoute
   '/pending-approval': typeof PendingApprovalRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/action-center': typeof AuthenticatedActionCenterRoute
@@ -368,7 +392,10 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/mcp': typeof McpRoute
+  '/mfa-setup': typeof MfaSetupRoute
+  '/mfa-verify': typeof MfaVerifyRoute
   '/pending-approval': typeof PendingApprovalRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/accounts': typeof AuthenticatedAccountsRouteWithChildren
@@ -413,7 +440,10 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/mcp'
+    | '/mfa-setup'
+    | '/mfa-verify'
     | '/pending-approval'
+    | '/reset-password'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/accounts'
@@ -456,7 +486,10 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/mcp'
+    | '/mfa-setup'
+    | '/mfa-verify'
     | '/pending-approval'
+    | '/reset-password'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/action-center'
@@ -498,7 +531,10 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/mcp'
+    | '/mfa-setup'
+    | '/mfa-verify'
     | '/pending-approval'
+    | '/reset-password'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/accounts'
@@ -543,7 +579,10 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   McpRoute: typeof McpRoute
+  MfaSetupRoute: typeof MfaSetupRoute
+  MfaVerifyRoute: typeof MfaVerifyRoute
   PendingApprovalRoute: typeof PendingApprovalRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
@@ -552,11 +591,32 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pending-approval': {
       id: '/pending-approval'
       path: '/pending-approval'
       fullPath: '/pending-approval'
       preLoaderRoute: typeof PendingApprovalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mfa-verify': {
+      id: '/mfa-verify'
+      path: '/mfa-verify'
+      fullPath: '/mfa-verify'
+      preLoaderRoute: typeof MfaVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mfa-setup': {
+      id: '/mfa-setup'
+      path: '/mfa-setup'
+      fullPath: '/mfa-setup'
+      preLoaderRoute: typeof MfaSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp': {
@@ -963,7 +1023,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   McpRoute: McpRoute,
+  MfaSetupRoute: MfaSetupRoute,
+  MfaVerifyRoute: MfaVerifyRoute,
   PendingApprovalRoute: PendingApprovalRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
