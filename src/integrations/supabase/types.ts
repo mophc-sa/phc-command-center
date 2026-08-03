@@ -3475,10 +3475,159 @@ export type Database = {
         }
         Relationships: []
       }
+      project_budget_items: {
+        Row: {
+          actual_amount: number | null
+          category: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          description: string | null
+          id: string
+          notes: string | null
+          planned_amount: number | null
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          actual_amount?: number | null
+          category: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          planned_amount?: number | null
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          actual_amount?: number | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          planned_amount?: number | null
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_budget_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_job_stages: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          position: number
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          position?: number
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          position?: number
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_job_stages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_jobs: {
+        Row: {
+          ai_notes: string | null
+          assignee_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          position: number
+          project_id: string
+          stage_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_notes?: string | null
+          assignee_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          position?: number
+          project_id: string
+          stage_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ai_notes?: string | null
+          assignee_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          position?: number
+          project_id?: string
+          stage_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_jobs_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "project_job_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           completion_pct: number | null
           consultant_id: string | null
+          cover_image_path: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -3491,6 +3640,7 @@ export type Database = {
           name: string
           notes: string | null
           owner_company_id: string | null
+          project_number: string | null
           project_stage: Database["public"]["Enums"]["project_stage"]
           sector: string | null
           signage_package_status: Database["public"]["Enums"]["signage_package_status"]
@@ -3503,6 +3653,7 @@ export type Database = {
         Insert: {
           completion_pct?: number | null
           consultant_id?: string | null
+          cover_image_path?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -3515,6 +3666,7 @@ export type Database = {
           name: string
           notes?: string | null
           owner_company_id?: string | null
+          project_number?: string | null
           project_stage?: Database["public"]["Enums"]["project_stage"]
           sector?: string | null
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
@@ -3527,6 +3679,7 @@ export type Database = {
         Update: {
           completion_pct?: number | null
           consultant_id?: string | null
+          cover_image_path?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -3539,6 +3692,7 @@ export type Database = {
           name?: string
           notes?: string | null
           owner_company_id?: string | null
+          project_number?: string | null
           project_stage?: Database["public"]["Enums"]["project_stage"]
           sector?: string | null
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
@@ -5590,7 +5744,6 @@ export const Constants = {
     },
   },
 } as const
-
 
 // Import Intelligence v2 — client-side types (not yet in auto-generated schema)
 // =============================================================================

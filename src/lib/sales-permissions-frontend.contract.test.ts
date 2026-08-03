@@ -55,7 +55,7 @@ describe("single-intake consolidation (2026-08-01)", () => {
   });
 
   test("Projects, Tenders, and Quotations panels no longer have their own standalone create dialogs", () => {
-    const projectsSrc = src("src/routes/_authenticated/projects.tsx");
+    const projectsSrc = src("src/routes/_authenticated/projects.index.tsx");
     const tendersSrc = src("src/routes/_authenticated/tenders.tsx");
     const quotationsPanelSrc = src("src/components/phc/pipeline/QuotationsPanel.tsx");
     expect(projectsSrc).not.toMatch(/crm_new_project/);

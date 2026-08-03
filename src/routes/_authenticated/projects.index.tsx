@@ -11,7 +11,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import type { ProjectStage, ProjectRow } from "@/lib/crm-actions";
 
-export const Route = createFileRoute("/_authenticated/projects")({
+export const Route = createFileRoute("/_authenticated/projects/")({
   head: () => ({ meta: [{ title: "Projects — PHC" }, { name: "robots", content: "noindex" }] }),
   component: ProjectsPage,
 });
