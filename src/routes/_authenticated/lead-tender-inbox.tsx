@@ -51,7 +51,9 @@ export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): D
     { key: "clientType", type: "select", label: t("ibx_client_type"), options: [{ value: "", label: "—" }, ...INBOX_CLIENT_TYPES.map((c) => ({ value: c, label: t(`ibx_client_type_${c}`) }))] },
     { key: "projectType", type: "select", label: t("ibx_project_type"), options: [{ value: "", label: "—" }, ...INBOX_PROJECT_TYPES.map((p) => ({ value: p, label: t(`ibx_project_type_${p}`) }))] },
     { key: "projectName", type: "text", label: t("label_project") },
-    { key: "projectNumber", type: "text", label: t("ibx_project_number") },
+    // Project Number intentionally omitted — auto-generated server-side
+    // (INT-{year}-{seq}, generate_inbox_project_number() trigger),
+    // not typed manually (2026-08-03).
     { key: "rfqFrom", type: "select", label: t("ibx_rfq_from"), options: [{ value: "", label: "—" }, ...INBOX_RFQ_FROM.map((r) => ({ value: r, label: t(`ibx_rfq_from_${r}`) }))] },
     { key: "clientOwner", type: "text", label: t("ibx_client_owner") },
     { key: "mainContractor", type: "text", label: t("label_contractor") },
@@ -376,7 +378,6 @@ function LeadTenderInbox() {
               clientType: v.clientType ? (v.clientType as never) : undefined,
               projectType: v.projectType ? (v.projectType as never) : undefined,
               projectName: v.projectName || undefined,
-              projectNumber: v.projectNumber || undefined,
               rfqFrom: v.rfqFrom ? (v.rfqFrom as never) : undefined,
               clientOwner: v.clientOwner || undefined,
               mainContractor: v.mainContractor || undefined,
