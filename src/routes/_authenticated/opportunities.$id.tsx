@@ -429,6 +429,23 @@ function OpportunityDetail() {
     },
   });
 
+  // Source of "JIH or Tender" + sales code for the Client details box — the
+  // opportunity itself doesn't carry a classification, but the rfq it
+  // originated from does.
+  const rfqQ = useQuery({
+    queryKey: ["opp-rfq", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("rfqs")
+        .select("classification, rfq_number")
+        .eq("opportunity_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data ?? null;
+    },
+  });
+
   const evidenceQ = useQuery({
     queryKey: ["opp-ev", id],
     queryFn: async () => {
@@ -633,6 +650,32 @@ function OpportunityDetail() {
         </div>
       </Panel>
       )}
+
+      {/* 1.5 CLIENT DETAILS — basic identifying info at a glance, requested
+          so opening an Opportunity doesn't require hunting through other
+          panels for who the client is and what kind of request this was. */}
+      {show("alert") && (() => {
+        const clientContact =
+          (stakeholdersQ.data ?? []).find((s: any) => !!s.email) ?? (stakeholdersQ.data ?? [])[0] ?? null;
+        const companyName = o.company?.name ?? o.client ?? clientContact?.organization ?? null;
+        const classification = rfqQ.data?.classification === "jih" ? "JIH" : rfqQ.data?.classification === "tender" ? "Tender" : null;
+        const salesCode = rfqQ.data?.rfq_number ?? null;
+        return (
+          <Panel title={t("section_client_details")}>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <DataField label={t("label_contact_person")} value={clientContact?.name ?? null} />
+              <DataField label={t("label_contact_number")} value={clientContact?.phone ?? null} />
+              <DataField label={t("email")} value={clientContact?.email ?? null} />
+              <DataField label={t("label_company_name")} value={companyName} />
+              <DataField
+                label={t("label_jih_or_tender")}
+                value={classification ? (salesCode ? `${classification} · ${salesCode}` : classification) : null}
+              />
+              <DataField label={t("label_location")} value={o.location} />
+            </div>
+          </Panel>
+        );
+      })()}
 
 
       {/* 2. QUALIFICATION — under Alert */}

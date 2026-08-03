@@ -79,11 +79,6 @@ function MfaSetupPage() {
     }
     void prepare();
     return () => { cancelled = true; };
-    // Depend on the stable user id, not the `user` object — useSupabaseAuth's
-    // getSession()/onAuthStateChange can both resolve in quick succession
-    // with a new `user` object reference for the same id, which would
-    // otherwise re-fire this effect spuriously.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   async function handleVerify(e: React.FormEvent) {
