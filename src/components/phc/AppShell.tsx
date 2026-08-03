@@ -131,6 +131,16 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { kind: "link", to: "/accounts", key: "nav_accounts", icon: Building2 },
       { kind: "link", to: "/contacts", key: "nav_contacts", icon: Contact2 },
+    ],
+  },
+  {
+    // Production owns Projects — separate from the Sales/CRM groups above.
+    // The only link back to Sales is the automatic opportunity-won ->
+    // project handoff (see create_project_from_won_opportunity() trigger);
+    // Production is not otherwise part of the sales pipeline.
+    key: "navgroup_production",
+    fallback: "Production",
+    items: [
       { kind: "link", to: "/projects", key: "nav_projects", icon: Landmark },
     ],
   },
