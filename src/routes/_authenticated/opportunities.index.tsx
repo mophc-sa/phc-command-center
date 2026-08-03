@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, LayoutGrid, Rows3 } from "lucide-react";
+import { Search, LayoutGrid, Rows3, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_authenticated/opportunities/")({
     q:     typeof s.q === "string" ? s.q : "",
     stage: typeof s.stage === "string" ? s.stage : "all",
     tier:  typeof s.tier === "string" ? s.tier : "all",
-    view:  s.view === "table" ? "table" as const : "cards" as const,
+    view:  s.view === "cards" ? "cards" as const : "table" as const,
   }),
   head: () => ({
     meta: [
@@ -54,14 +54,29 @@ function OppList() {
   const { data = [], isLoading } = useQuery({
     queryKey: ["opps"],
     queryFn: async () => {
-      const { data } = await supabase.from("opportunities").select("*").order("last_activity_at", { ascending: false, nullsFirst: false });
+      const { data } = await supabase
+        .from("opportunities")
+        .select(
+          "*, company:companies!opportunities_company_id_fkey(id, name), rfqs(classification, rfq_number, created_at), quotations(status, value, issued_date, created_at)",
+        )
+        .order("last_activity_at", { ascending: false, nullsFirst: false });
       return (data ?? []) as unknown as OpportunityRow[];
     },
   });
 
+  type SortKey = "classification" | "sales_code" | "project_name" | "amount" | "quotation_status" | "submission_date" | "client_company";
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  const toggleSort = (key: SortKey) =>
+    setSort((prev) => (prev?.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+
+  const latestRfq = (o: any) =>
+    [...(o.rfqs ?? [])].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0] ?? null;
+  const latestQuotation = (o: any) =>
+    [...(o.quotations ?? [])].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0] ?? null;
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return data.filter((o: any) => {
+    const rows = data.filter((o: any) => {
       if (stage !== "all" && o.stage !== stage) return false;
       if (tier !== "all" && o.tier !== tier) return false;
       if (!q) return true;
@@ -69,7 +84,28 @@ function OppList() {
         .filter(Boolean)
         .some((f: string) => f.toLowerCase().includes(q));
     });
-  }, [data, search, stage, tier]);
+    if (!sort) return rows;
+    const sortValue = (o: any): string | number => {
+      const rfq = latestRfq(o);
+      const quote = latestQuotation(o);
+      switch (sort.key) {
+        case "classification": return rfq?.classification ?? "";
+        case "sales_code": return rfq?.rfq_number ?? "";
+        case "project_name": return o.project_name ?? "";
+        case "amount": return quote?.value ?? o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0;
+        case "quotation_status": return quote?.status ?? "";
+        case "submission_date": return quote?.issued_date ?? "";
+        case "client_company": return o.company?.name ?? o.client ?? "";
+      }
+    };
+    const sorted = [...rows].sort((a, b) => {
+      const av = sortValue(a);
+      const bv = sortValue(b);
+      const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+      return sort.dir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [data, search, stage, tier, sort]);
 
   const open = data.filter((o) => !CLOSED.includes(o.stage));
   const openValue = open.reduce((s, o) => s + (o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0), 0);
@@ -161,46 +197,90 @@ function OppList() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
           <div className="overflow-x-auto">
-          <div className="min-w-[580px] grid grid-cols-[minmax(0,2fr)_auto_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            <div>{lang === "ar" ? "المشروع" : "Project"}</div>
-            <div>{lang === "ar" ? "الطبقة" : "Tier"}</div>
-            <div>{t("score_label")}</div>
-            <div>{lang === "ar" ? "المرحلة" : "Stage"}</div>
-            <div className="text-right">{lang === "ar" ? "القيمة" : "Value"}</div>
-            <div>{lang === "ar" ? "التالي" : "Next action"}</div>
+          <div className="min-w-[900px] grid grid-cols-[90px_130px_minmax(0,2fr)_130px_150px_110px_minmax(0,1.2fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <SortHeader label={lang === "ar" ? "JIH / منافسة" : "JIH / Tender"} active={sort?.key === "classification"} dir={sort?.dir} onClick={() => toggleSort("classification")} />
+            <SortHeader label={lang === "ar" ? "كود المبيعات" : "Sales Code"} active={sort?.key === "sales_code"} dir={sort?.dir} onClick={() => toggleSort("sales_code")} />
+            <SortHeader label={lang === "ar" ? "اسم المشروع" : "Project Name"} active={sort?.key === "project_name"} dir={sort?.dir} onClick={() => toggleSort("project_name")} />
+            <SortHeader label={lang === "ar" ? "القيمة" : "Amount"} active={sort?.key === "amount"} dir={sort?.dir} onClick={() => toggleSort("amount")} className="justify-end text-right" />
+            <SortHeader label={lang === "ar" ? "حالة العرض" : "Quotation Status"} active={sort?.key === "quotation_status"} dir={sort?.dir} onClick={() => toggleSort("quotation_status")} />
+            <SortHeader label={lang === "ar" ? "تاريخ التقديم" : "Submission Date"} active={sort?.key === "submission_date"} dir={sort?.dir} onClick={() => toggleSort("submission_date")} />
+            <SortHeader label={lang === "ar" ? "شركة العميل" : "Client Company"} active={sort?.key === "client_company"} dir={sort?.dir} onClick={() => toggleSort("client_company")} />
           </div>
           <ul>
-            {filtered.map((o) => (
-              <li key={o.id} className="transition-colors hover:bg-surface-2/40">
-                <Link
-                  to="/opportunities/$id"
-                  params={{ id: o.id }}
-                  className="min-w-[580px] grid grid-cols-[minmax(0,2fr)_auto_auto_auto_auto_minmax(0,1fr)] items-center gap-3 border-t border-border/60 px-4 py-3 first:border-t-0"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate text-[13px] font-medium text-foreground">{o.project_name}</div>
-                    <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{o.client ?? "—"}{o.main_contractor ? ` · ${o.main_contractor}` : ""}</div>
-                  </div>
-                  <StatusPill tone={o.tier === "A" ? "attention" : "neutral"}>{o.tier}</StatusPill>
-                  {(o as any).score != null ? (
-                    <StatusPill tone={(o as any).score_tier === "A" ? "positive" : (o as any).score_tier === "not_qualified" ? "danger" : "muted"}>
-                      {(o as any).score}
-                    </StatusPill>
-                  ) : (
-                    <span className="text-[11px] text-muted-foreground">—</span>
-                  )}
-                  <StatusPill tone="muted">{humanize(o.stage)}</StatusPill>
-                  <div className="num text-right text-[12px] font-medium text-foreground" data-tabular="true">
-                    {formatCurrency(o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min, lang, o.currency)}
-                  </div>
-                  <div className="truncate text-[11px] text-muted-foreground">{o.next_action ?? "—"}</div>
-                </Link>
-              </li>
-            ))}
+            {filtered.map((o: any) => {
+              const rfq = latestRfq(o);
+              const quote = latestQuotation(o);
+              const amount = quote?.value ?? o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min;
+              return (
+                <li key={o.id} className="transition-colors hover:bg-surface-2/40">
+                  <Link
+                    to="/opportunities/$id"
+                    params={{ id: o.id }}
+                    className="min-w-[900px] grid grid-cols-[90px_130px_minmax(0,2fr)_130px_150px_110px_minmax(0,1.2fr)] items-center gap-3 border-t border-border/60 px-4 py-3 first:border-t-0"
+                  >
+                    {rfq?.classification ? (
+                      <StatusPill tone={rfq.classification === "tender" ? "attention" : "muted"}>
+                        {rfq.classification === "jih" ? "JIH" : humanize(rfq.classification)}
+                      </StatusPill>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">—</span>
+                    )}
+                    <div className="truncate text-[12px] text-foreground" data-tabular="true">{rfq?.rfq_number ?? "—"}</div>
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] font-medium text-foreground">{o.project_name}</div>
+                      <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{o.location ?? "—"}</div>
+                    </div>
+                    <div className="num text-right text-[12px] font-medium text-foreground" data-tabular="true">
+                      {formatCurrency(amount, lang, o.currency)}
+                    </div>
+                    {quote?.status ? (
+                      <StatusPill tone={quote.status === "won" ? "positive" : quote.status === "lost" || quote.status === "expired" ? "danger" : "muted"}>
+                        {humanize(quote.status)}
+                      </StatusPill>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">—</span>
+                    )}
+                    <div className="truncate text-[11px] text-muted-foreground" data-tabular="true">
+                      {quote?.issued_date ? new Date(quote.issued_date).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "—"}
+                    </div>
+                    <div className="truncate text-[12px] text-foreground">{o.company?.name ?? o.client ?? "—"}</div>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function SortHeader({
+  label,
+  active,
+  dir,
+  onClick,
+  className,
+}: {
+  label: string;
+  active?: boolean;
+  dir?: "asc" | "desc";
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1 text-start transition-colors hover:text-foreground ${active ? "text-foreground" : ""} ${className ?? ""}`}
+    >
+      {label}
+      {active ? (
+        dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+      ) : (
+        <ArrowUpDown className="h-3 w-3 opacity-40" />
+      )}
+    </button>
   );
 }

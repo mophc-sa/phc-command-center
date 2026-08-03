@@ -711,6 +711,11 @@ export const strings = {
 
   // Opportunity detail — Alert / Evidence / Decision
   section_alert: { en: "Alert & Recommendation", ar: "التنبيه والتوصية" },
+  section_client_details: { en: "Client Details", ar: "بيانات العميل" },
+  label_contact_person: { en: "Contact Person", ar: "الشخص المسؤول" },
+  label_contact_number: { en: "Contact Number", ar: "رقم التواصل" },
+  label_company_name: { en: "Company Name", ar: "اسم الشركة" },
+  label_jih_or_tender: { en: "JIH or Tender", ar: "JIH أو منافسة" },
   section_qualification: { en: "Qualification & Signage Package", ar: "التأهيل وحزمة اللوحات" },
   section_stakeholders: { en: "Stakeholders", ar: "أصحاب القرار" },
   section_technical_notes: { en: "Technical Notes", ar: "ملاحظات فنية" },
