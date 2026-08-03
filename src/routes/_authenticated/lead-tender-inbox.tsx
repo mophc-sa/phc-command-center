@@ -24,7 +24,7 @@ import {
 } from "@/lib/inbox-actions";
 import { humanize } from "@/lib/utils";
 import { createTender } from "@/lib/tender-actions";
-import { createRfq } from "@/lib/rfq-actions";
+import { createJihRequestWithOpportunity } from "@/lib/rfq-actions";
 import { IntakeHubTabs } from "@/components/phc/IntakeHubTabs";
 
 export const Route = createFileRoute("/_authenticated/lead-tender-inbox")({
@@ -338,16 +338,17 @@ function LeadTenderInbox() {
         ]}
         onSubmit={async (v) => {
           try {
-            await createRfq({
+            // Creates the opportunity immediately alongside the RFQ (2026-08-03:
+            // a JIH request must show up in the Opportunities list right away,
+            // not only after a later manual conversion step).
+            const { opportunityId } = await createJihRequestWithOpportunity({
               companyId: v.companyId || null,
               projectId: v.projectId || null,
-              classification: "jih",
               responseDueDate: v.responseDueDate || null,
-              claimOwner: true,
             });
             toast.success(t("ibx_request_created_jih"));
             setNewRequestType(null);
-            navigate({ to: "/quotations", search: { tab: "rfq_jih" } });
+            navigate({ to: "/opportunities/$id", params: { id: opportunityId } });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
             throw e;

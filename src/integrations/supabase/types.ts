@@ -3303,27 +3303,36 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          mention_purpose: string | null
+          mentioned_user_id: string | null
           opportunity_id: string
           person_in_charge_id: string | null
           person_in_charge_note: string | null
+          updated_at: string
         }
         Insert: {
           body: string
           created_at?: string
           created_by?: string | null
           id?: string
+          mention_purpose?: string | null
+          mentioned_user_id?: string | null
           opportunity_id: string
           person_in_charge_id?: string | null
           person_in_charge_note?: string | null
+          updated_at?: string
         }
         Update: {
           body?: string
           created_at?: string
           created_by?: string | null
           id?: string
+          mention_purpose?: string | null
+          mentioned_user_id?: string | null
           opportunity_id?: string
           person_in_charge_id?: string | null
           person_in_charge_note?: string | null
+          updated_at?: string
         }
         Relationships: [
           {

@@ -657,6 +657,12 @@ export const strings = {
   discussion_forbidden: { en: "Discussion is limited to General Manager, Sales Manager, Development Manager, and System Administrator.", ar: "النقاش متاح فقط للمدير العام ومدير المبيعات ومدير التطوير ومدير النظام." },
   discussion_posted_toast: { en: "Update posted", ar: "تم نشر التحديث" },
   discussion_none: { en: "None", ar: "لا يوجد" },
+  discussion_delete: { en: "Delete", ar: "حذف" },
+  discussion_mention_person: { en: "Mention someone (optional)", ar: "منشن شخص (اختياري)" },
+  discussion_mention_purpose: { en: "Purpose", ar: "الغرض" },
+  discussion_mention_review: { en: "Review", ar: "مراجعة" },
+  discussion_mention_approval: { en: "Approval", ar: "موافقة" },
+  discussion_mention_endorsement: { en: "Endorsement", ar: "اعتماد" },
 
   // Assignment (simplified single card)
   section_assignment: { en: "Assignment", ar: "الإسناد" },

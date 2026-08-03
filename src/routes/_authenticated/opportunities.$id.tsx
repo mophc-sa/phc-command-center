@@ -39,13 +39,17 @@ import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
 import {
   listDiscussion,
   postDiscussionUpdate,
+  updateDiscussionPost,
+  deleteDiscussionPost,
   updatePersonInCharge,
   uploadEvidenceFile,
   listContracts,
   createContract,
   updateContract,
+  upsertClientDetails,
   type ContractRecord,
   type ContractStage,
+  type MentionPurpose,
 } from "@/lib/opportunity-collab-actions";
 import { Upload, Paperclip } from "lucide-react";
 
@@ -159,10 +163,12 @@ function OpportunityDetail() {
   const show = (k: TimelineFilter) => filter === "all" || filter === k;
   const [scoring, setScoring] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
+  const [clientDetailsOpen, setClientDetailsOpen] = useState(false);
   const { user, roles } = useAuth();
   const canScore = canManageSalesPipeline(roles);
   const canReview = canReviewAiOutput(roles);
   const canDiscuss = canUseDiscussion(roles);
+  const canEditClientDetails = canManageSalesPipeline(roles);
 
   const [riskResult, setRiskResult] = useState<any | null>(null);
   const [riskRunning, setRiskRunning] = useState(false);
@@ -248,6 +254,7 @@ function OpportunityDetail() {
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["opp", id] });
+    qc.invalidateQueries({ queryKey: ["opp-stake", id] });
     qc.invalidateQueries({ queryKey: ["opp-fu", id] });
     qc.invalidateQueries({ queryKey: ["opp-app", id] });
     qc.invalidateQueries({ queryKey: ["opp-milestones", id] });
@@ -263,7 +270,12 @@ function OpportunityDetail() {
   const [discussionDraft, setDiscussionDraft] = useState("");
   const [discussionPicId, setDiscussionPicId] = useState<string>("");
   const [discussionPicNote, setDiscussionPicNote] = useState("");
+  const [discussionMentionUserId, setDiscussionMentionUserId] = useState<string>("");
+  const [discussionMentionPurpose, setDiscussionMentionPurpose] = useState<MentionPurpose | "">("");
   const [postingDiscussion, setPostingDiscussion] = useState(false);
+  const [editingDiscussionId, setEditingDiscussionId] = useState<string | null>(null);
+  const [editingDiscussionDraft, setEditingDiscussionDraft] = useState("");
+  const [savingDiscussionEdit, setSavingDiscussionEdit] = useState(false);
   async function handlePostDiscussion() {
     if (!discussionDraft.trim()) return;
     setPostingDiscussion(true);
@@ -273,16 +285,45 @@ function OpportunityDetail() {
         body: discussionDraft.trim(),
         personInChargeId: discussionPicId || null,
         personInChargeNote: discussionPicNote.trim() || null,
+        mentionedUserId: discussionMentionUserId || null,
+        mentionPurpose: discussionMentionPurpose || null,
       });
       setDiscussionDraft("");
       setDiscussionPicId("");
       setDiscussionPicNote("");
+      setDiscussionMentionUserId("");
+      setDiscussionMentionPurpose("");
       toast.success(t("discussion_posted_toast"));
       qc.invalidateQueries({ queryKey: ["opp-discussion", id] });
+      qc.invalidateQueries({ queryKey: ["approvals"] });
     } catch (e) {
       toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
     } finally {
       setPostingDiscussion(false);
+    }
+  }
+
+  async function handleUpdateDiscussion(postId: string) {
+    if (!editingDiscussionDraft.trim()) return;
+    setSavingDiscussionEdit(true);
+    try {
+      await updateDiscussionPost(postId, editingDiscussionDraft.trim());
+      setEditingDiscussionId(null);
+      qc.invalidateQueries({ queryKey: ["opp-discussion", id] });
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    } finally {
+      setSavingDiscussionEdit(false);
+    }
+  }
+
+  async function handleDeleteDiscussion(postId: string) {
+    if (!confirm(lang === "ar" ? "حذف هذا المنشور؟" : "Delete this post?")) return;
+    try {
+      await deleteDiscussionPost(postId);
+      qc.invalidateQueries({ queryKey: ["opp-discussion", id] });
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
     }
   }
 
@@ -390,11 +431,12 @@ function OpportunityDetail() {
     }
   }
 
-  const runSafe = async (fn: () => Promise<unknown>, okKey: Parameters<typeof t>[0]) => {
+  const runSafe = async (fn: () => Promise<unknown>, okKey: Parameters<typeof t>[0], onDone?: () => void) => {
     try {
       await fn();
       toast.success(t(okKey));
       invalidate();
+      onDone?.();
     } catch (e) {
       toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
     }
@@ -653,7 +695,10 @@ function OpportunityDetail() {
 
       {/* 1.5 CLIENT DETAILS — basic identifying info at a glance, requested
           so opening an Opportunity doesn't require hunting through other
-          panels for who the client is and what kind of request this was. */}
+          panels for who the client is and what kind of request this was.
+          Editable (2026-08-03): writes back to stakeholders/companies/
+          opportunities.location instead of just displaying derived data —
+          see upsertClientDetails in opportunity-collab-actions.ts. */}
       {show("alert") && (() => {
         const clientContact =
           (stakeholdersQ.data ?? []).find((s: any) => !!s.email) ?? (stakeholdersQ.data ?? [])[0] ?? null;
@@ -661,7 +706,20 @@ function OpportunityDetail() {
         const classification = rfqQ.data?.classification === "jih" ? "JIH" : rfqQ.data?.classification === "tender" ? "Tender" : null;
         const salesCode = rfqQ.data?.rfq_number ?? null;
         return (
-          <Panel title={t("section_client_details")}>
+          <Panel
+            title={t("section_client_details")}
+            action={
+              canEditClientDetails ? (
+                <button
+                  type="button"
+                  onClick={() => setClientDetailsOpen(true)}
+                  className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {t("crm_edit")}
+                </button>
+              ) : undefined
+            }
+          >
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <DataField label={t("label_contact_person")} value={clientContact?.name ?? null} />
               <DataField label={t("label_contact_number")} value={clientContact?.phone ?? null} />
@@ -673,6 +731,37 @@ function OpportunityDetail() {
               />
               <DataField label={t("label_location")} value={o.location} />
             </div>
+            <ActionDialog
+              open={clientDetailsOpen}
+              onOpenChange={setClientDetailsOpen}
+              title={t("section_client_details")}
+              submitLabel={t("action_save")}
+              fields={[
+                { key: "contactName", type: "text", label: t("label_contact_person"), defaultValue: clientContact?.name ?? "" },
+                { key: "contactPhone", type: "text", label: t("label_contact_number"), defaultValue: clientContact?.phone ?? "" },
+                { key: "contactEmail", type: "text", label: t("email"), defaultValue: clientContact?.email ?? "" },
+                { key: "companyName", type: "text", label: t("label_company_name"), defaultValue: companyName ?? "" },
+                { key: "location", type: "text", label: t("label_location"), defaultValue: o.location ?? "" },
+              ]}
+              onSubmit={async (v) => {
+                try {
+                  await upsertClientDetails({
+                    opportunityId: id,
+                    existingStakeholderId: clientContact?.id ?? null,
+                    contactName: v.contactName,
+                    contactPhone: v.contactPhone,
+                    contactEmail: v.contactEmail,
+                    companyName: v.companyName,
+                    location: v.location,
+                  });
+                  toast.success(t("crm_saved"));
+                  setClientDetailsOpen(false);
+                  invalidate();
+                } catch (e) {
+                  toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+                }
+              }}
+            />
           </Panel>
         );
       })()}
@@ -902,7 +991,7 @@ function OpportunityDetail() {
               const overdue =
                 f.due_date && f.status !== "completed" && new Date(f.due_date) < new Date();
               return (
-                <li key={f.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-3">
+                <li key={f.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-4 py-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm text-foreground">
                       {humanize(f.channel)} · {humanize(f.cadence_tier)}
@@ -943,6 +1032,7 @@ function OpportunityDetail() {
                       </div>
                     ) : null}
                   </div>
+                  <RecordLifecycleMenu entityType="follow_ups" entityId={f.id} roles={roles} onDone={invalidate} />
                 </li>
               );
             })}
@@ -1012,12 +1102,17 @@ function OpportunityDetail() {
       </Panel>
       )}
 
-      {/* 6.2. DISCUSSION — single free-text update box; posts are append-only
-          and shown newest-first as cards. Restricted to General Manager,
-          Sales Manager, Development Manager, and System Administrator both
-          here (UI) and via RLS (server) — see can_use_discussion(uuid).
-          Grouped with Decision (not Assignment) per feedback: discussion
-          threads are about deciding what happens next, not who's assigned. */}
+      {/* 6.2. DISCUSSION — single free-text update box, newest-first cards.
+          Restricted to General Manager, Sales Manager, Development Manager,
+          and System Administrator both here (UI) and via RLS (server) — see
+          can_use_discussion(uuid). Grouped with Decision (not Assignment)
+          per feedback: discussion threads are about deciding what happens
+          next, not who's assigned. Editable/deletable by the post's own
+          author (or system_admin) and mentionable-for-review/approval/
+          endorsement as of 2026-08-03 — see updateDiscussionPost/
+          deleteDiscussionPost in opportunity-collab-actions.ts; a mention
+          creates a pending approval so it shows on the mentioned person's
+          own page (My Workspace / notifications). */}
       {show("decision") && (
       <Panel title={t("section_discussion")}>
         {canDiscuss ? (
@@ -1048,6 +1143,29 @@ function OpportunityDetail() {
                   className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select
+                  value={discussionMentionUserId}
+                  onChange={(e) => setDiscussionMentionUserId(e.target.value)}
+                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">{t("discussion_mention_person")}</option>
+                  {(teamQ.data ?? []).map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.full_name ?? m.email}</option>
+                  ))}
+                </select>
+                <select
+                  value={discussionMentionPurpose}
+                  disabled={!discussionMentionUserId}
+                  onChange={(e) => setDiscussionMentionPurpose(e.target.value as MentionPurpose | "")}
+                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                >
+                  <option value="">{t("discussion_mention_purpose")}</option>
+                  <option value="review">{t("discussion_mention_review")}</option>
+                  <option value="approval">{t("discussion_mention_approval")}</option>
+                  <option value="endorsement">{t("discussion_mention_endorsement")}</option>
+                </select>
+              </div>
               <div>
                 <button
                   type="button"
@@ -1062,24 +1180,85 @@ function OpportunityDetail() {
 
             {discussionQ.data && discussionQ.data.length > 0 ? (
               <ul className="grid gap-2.5">
-                {discussionQ.data.map((post) => (
-                  <li key={post.id} className="rounded-md border border-border/60 bg-surface p-3">
-                    <p className="whitespace-pre-wrap text-sm text-foreground">{post.body}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                      <span className="font-medium text-foreground">
-                        {post.author?.full_name ?? post.author?.email ?? "—"}
-                      </span>
-                      <span>·</span>
-                      <span>{fmtDate(post.created_at, lang)}</span>
-                      {post.person_in_charge_note ? (
+                {discussionQ.data.map((post) => {
+                  const isOwnPost = post.created_by === user?.id;
+                  const canModerate = isOwnPost || (roles ?? []).includes("system_admin" as never);
+                  const isEditing = editingDiscussionId === post.id;
+                  return (
+                    <li key={post.id} className="rounded-md border border-border/60 bg-surface p-3">
+                      {isEditing ? (
+                        <div className="grid gap-2">
+                          <textarea
+                            value={editingDiscussionDraft}
+                            onChange={(e) => setEditingDiscussionDraft(e.target.value)}
+                            rows={3}
+                            className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              disabled={savingDiscussionEdit || !editingDiscussionDraft.trim()}
+                              onClick={() => handleUpdateDiscussion(post.id)}
+                              className="rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-[11px] font-medium text-amber-light hover:bg-amber/20 disabled:opacity-50"
+                            >
+                              {t("action_save")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingDiscussionId(null)}
+                              className="rounded-md border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+                            >
+                              {t("cancel")}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
                         <>
-                          <span>·</span>
-                          <span>{t("discussion_pic_note")}: {post.person_in_charge_note}</span>
+                          <p className="whitespace-pre-wrap text-sm text-foreground">{post.body}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                            <span className="font-medium text-foreground">
+                              {post.author?.full_name ?? post.author?.email ?? "—"}
+                            </span>
+                            <span>·</span>
+                            <span>{fmtDate(post.created_at, lang)}</span>
+                            {post.person_in_charge_note ? (
+                              <>
+                                <span>·</span>
+                                <span>{t("discussion_pic_note")}: {post.person_in_charge_note}</span>
+                              </>
+                            ) : null}
+                            {post.mentioned ? (
+                              <>
+                                <span>·</span>
+                                <StatusPill tone="attention">
+                                  {t(`discussion_mention_${post.mention_purpose}` as never)}: {post.mentioned.full_name ?? post.mentioned.email}
+                                </StatusPill>
+                              </>
+                            ) : null}
+                            {canModerate ? (
+                              <span className="ms-auto flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => { setEditingDiscussionId(post.id); setEditingDiscussionDraft(post.body); }}
+                                  className="hover:text-foreground hover:underline"
+                                >
+                                  {t("crm_edit")}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDiscussion(post.id)}
+                                  className="hover:text-destructive hover:underline"
+                                >
+                                  {t("discussion_delete")}
+                                </button>
+                              </span>
+                            ) : null}
+                          </div>
                         </>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <EmptyState message={t("discussion_empty")} />
@@ -1630,6 +1809,11 @@ function OpportunityDetail() {
                       ownerId: v.owner === "__none__" ? null : v.owner,
                     }),
                   "toast_schedule_ok",
+                  // Jump straight to the Follow-up filter so the new entry is
+                  // guaranteed visible — "Add Follow-up" lives in the Alert
+                  // panel, but the display panel is gated by a different
+                  // filter category (2026-08-03 feedback).
+                  () => setFilter("follow_up"),
                 )
               }
             />
