@@ -2,6 +2,10 @@
 
 > المهام المكتملة تُنقل إلى هنا (لا تُحذف). الأحدث في الأعلى.
 
+## 2026-08-04 — حذف زر "طلب جديد" من Lead & Tender Inbox
+- الناتج: صفحة الاستقبال أصبحت بمدخل إنشاء واحد ("إدخال جديد") بدل اثنين — JIH/Tender يبقيان متاحين بالكامل عبر إدخال جديد ← تصنيف ← تحويل. حذف `createJihRequestWithOpportunity` غير المستخدَم + مفاتيح i18n يتيمة.
+- PR: #161 · مدموج (`71de821`) · لا migrations · Cloudflare Worker منشور. تفاصيل كاملة في `docs/AI_HANDOFF.md`.
+
 ## 2026-08-03/04 — لوحة مشاريع Production + نقلها لقسم الإنتاج
 - الناتج: `project_number` تلقائي (مشاريع + استقبال)، صورة غلاف، Job Pipeline (Kanban مرن بـ`@dnd-kit`)، Budget، نقل قسم المشاريع من المبيعات إلى الإنتاج مع ربط تلقائي عبر trigger عند فوز الفرصة، Discussion قابل للتعديل/الحذف + منشن، Client Details قابل للتعديل، زر "New Opportunity" من صفحة Account، إصلاح خلل توجيه `/projects/$id` القديم.
 - PR: #160 · مدموج (`078484b`) · 4 migrations مطبَّقة على الإنتاج (`lrfdtoexyeghrzynapyn`) · Cloudflare Worker منشور. تفاصيل كاملة في `docs/AI_HANDOFF.md`.
