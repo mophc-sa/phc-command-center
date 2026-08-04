@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline } from "@/lib/roles";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
+import { AiRiskAssessment } from "@/components/phc/AiRiskAssessment";
 import {
   Dialog,
   DialogContent,
@@ -379,6 +380,12 @@ export function RfqJihPanel() {
                   {t("wf_evidence")}
                 </a>
               ) : null}
+              <AiRiskAssessment
+                entityType="rfqs"
+                entityId={detailsRfq.id}
+                agentKey="rfq_tender_risk"
+                title={lang === "ar" ? "تقييم المخاطر" : "Risk Assessment"}
+              />
             </div>
           ) : null}
         </DialogContent>

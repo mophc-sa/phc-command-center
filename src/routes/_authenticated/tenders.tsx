@@ -2,7 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Gavel, AlertTriangle, Trophy, GitMerge, History } from "lucide-react";
+import { Plus, Search, Gavel, AlertTriangle, Trophy, GitMerge, History, Sparkles } from "lucide-react";
+import { AiRiskAssessment } from "@/components/phc/AiRiskAssessment";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -121,6 +122,7 @@ function TenderMonitor() {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"board" | "table">("board");
   const [historyTender, setHistoryTender] = useState<{ id: string; label: string } | null>(null);
+  const [riskTender, setRiskTender] = useState<{ id: string; label: string } | null>(null);
   const tstageLabel = (s: string) => t(`tstage_${s}` as never);
 
   const { data: tenders = [], isLoading } = useQuery({
@@ -268,6 +270,15 @@ function TenderMonitor() {
                           >
                             <History className="h-3 w-3" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setRiskTender({ id: x.id, label: x.tender_name })}
+                            title={lang === "ar" ? "تقييم المخاطر" : "Risk Assessment"}
+                            aria-label={lang === "ar" ? "تقييم المخاطر" : "Risk Assessment"}
+                            className="grid h-6 w-6 place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground"
+                          >
+                            <Sparkles className="h-3 w-3" />
+                          </button>
                           <CommunicationActions
                             size="xs"
                             linked={{
@@ -398,6 +409,22 @@ function TenderMonitor() {
             <DialogTitle>{historyTender ? `${t("comm_history")} — ${historyTender.label}` : t("comm_history")}</DialogTitle>
           </DialogHeader>
           {historyTender ? <CommunicationTimeline filter={{ tenderId: historyTender.id }} /> : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!riskTender} onOpenChange={(o) => !o && setRiskTender(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{riskTender?.label ?? ""}</DialogTitle>
+          </DialogHeader>
+          {riskTender ? (
+            <AiRiskAssessment
+              entityType="tenders"
+              entityId={riskTender.id}
+              agentKey="rfq_tender_risk"
+              title={lang === "ar" ? "تقييم المخاطر" : "Risk Assessment"}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
 

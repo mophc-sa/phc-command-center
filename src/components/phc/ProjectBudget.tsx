@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatCurrency } from "@/lib/i18n";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canReviewAiOutput } from "@/lib/roles";
+import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { EmptyState } from "@/components/phc/EmptyState";
 import {
@@ -110,6 +114,8 @@ export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEd
         </div>
       )}
 
+      {items.length > 0 ? <BudgetVariancePanel projectId={projectId} lang={lang} /> : null}
+
       {canEdit ? (
         <ActionDialog
           open={addOpen}
@@ -164,6 +170,171 @@ export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEd
           }}
         />
       ) : null}
+    </div>
+  );
+}
+
+const VARIANCE_RISK_TONE: Record<string, string> = {
+  low: "bg-won/15 text-won",
+  medium: "bg-amber-500/15 text-amber-400",
+  high: "bg-destructive/15 text-destructive",
+};
+
+// project_budget_variance AI agent (2026-08-04) — planned vs. actual
+// analysis across this project's line items. Read-only recommendation with
+// the same Accept/Reject audit trail as every other agent; nothing here
+// writes back to project_budget_items.
+function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en" | "ar" }) {
+  const { roles } = useAuth();
+  const canReview = canReviewAiOutput(roles);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+
+  const outputQ = useQuery({
+    queryKey: ["ai-output", "projects", projectId, "project_budget_variance"],
+    queryFn: () => getLatestAgentOutput("projects", projectId, "project_budget_variance"),
+  });
+
+  async function handleRun() {
+    setRunning(true);
+    setError(null);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("ai-orchestrator", {
+        body: { agent: "project_budget_variance", entityType: "projects", entityId: projectId },
+      });
+      if (invokeError || !data?.ok) throw new Error(data?.message ?? invokeError?.message ?? "Failed");
+      outputQ.refetch();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function handleDecide(output: AiAgentOutputRow, decision: "accepted" | "rejected") {
+    setReviewingId(output.id);
+    try {
+      await reviewAgentOutput({ outputId: output.id, decision });
+      outputQ.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error");
+    } finally {
+      setReviewingId(null);
+    }
+  }
+
+  const output = outputQ.data;
+  const display = output?.structured_output as any;
+
+  return (
+    <div className="space-y-3 rounded-lg border border-border/70 bg-surface/40 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+          {lang === "ar" ? "تحليل انحراف الميزانية (AI)" : "Budget Variance Analysis (AI)"}
+        </div>
+        <button
+          type="button"
+          onClick={handleRun}
+          disabled={running}
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-[11px] font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+        >
+          <Sparkles className="h-3 w-3" />
+          {running ? (lang === "ar" ? "جارٍ التحليل…" : "Analyzing…") : (lang === "ar" ? "تحليل الآن" : "Analyze now")}
+        </button>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>
+      )}
+
+      {display && (
+        <div className="space-y-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            {display.risk_level && (
+              <span className={`rounded px-2 py-1 text-xs font-semibold uppercase tracking-wide ${VARIANCE_RISK_TONE[display.risk_level] ?? "bg-muted text-muted-foreground"}`}>
+                {display.risk_level}
+              </span>
+            )}
+            {display.overall_variance_pct != null && (
+              <span className="text-sm font-medium text-foreground">
+                {lang === "ar" ? "الانحراف الإجمالي" : "Overall variance"}: {display.overall_variance_pct > 0 ? "+" : ""}{display.overall_variance_pct}%
+              </span>
+            )}
+          </div>
+          {display.narrative && <div className="text-xs text-muted-foreground">{display.narrative}</div>}
+
+          {display.over_budget_categories?.length > 0 && (
+            <div>
+              <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "فوق الميزانية" : "Over Budget"}</div>
+              <ul className="space-y-1">
+                {display.over_budget_categories.map((c: any, i: number) => (
+                  <li key={i} className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs">
+                    <span className="font-medium text-destructive">{c.category}</span>{" "}
+                    <span className="text-muted-foreground">({c.variance_pct > 0 ? "+" : ""}{c.variance_pct}%) — {c.note}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {display.under_budget_categories?.length > 0 && (
+            <div>
+              <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "تحت الميزانية" : "Under Budget"}</div>
+              <ul className="space-y-1">
+                {display.under_budget_categories.map((c: any, i: number) => (
+                  <li key={i} className="rounded-md border border-won/30 bg-won/10 px-2.5 py-1.5 text-xs">
+                    <span className="font-medium text-won">{c.category}</span>{" "}
+                    <span className="text-muted-foreground">({c.variance_pct > 0 ? "+" : ""}{c.variance_pct}%) — {c.note}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {display.recommended_actions?.length > 0 && (
+            <div>
+              <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "إجراءات موصى بها" : "Recommended Actions"}</div>
+              <ul className="space-y-1">
+                {display.recommended_actions.map((a: string, i: number) => (
+                  <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">{a}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {display.disclaimer && <div className="text-[11px] italic text-muted-foreground">{display.disclaimer}</div>}
+
+          {output && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3 text-xs">
+              <span className="text-muted-foreground">
+                {output.status === "pending_review"
+                  ? (lang === "ar" ? "بانتظار المراجعة" : "Pending review")
+                  : output.status === "accepted"
+                  ? (lang === "ar" ? "تم القبول" : "Accepted")
+                  : (lang === "ar" ? "تم الرفض" : "Rejected")}
+              </span>
+              {output.status === "pending_review" && canReview ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={reviewingId === output.id}
+                    onClick={() => handleDecide(output, "accepted")}
+                    className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-[11px] font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+                  >
+                    {lang === "ar" ? "قبول" : "Accept"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={reviewingId === output.id}
+                    onClick={() => handleDecide(output, "rejected")}
+                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+                  >
+                    {lang === "ar" ? "رفض" : "Reject"}
+                  </button>
+                </>
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

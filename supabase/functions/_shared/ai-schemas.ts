@@ -34,6 +34,11 @@ export const AGENT_KEYS = [
   "relationship_resolver",
   "change_interpreter",
   "import_routing_reviewer",
+  // 2026-08-04 AI coverage expansion — RFQ/Tender risk, Production job notes,
+  // Budget variance.
+  "rfq_tender_risk",
+  "project_job_notes",
+  "project_budget_variance",
 ] as const;
 export type AgentKey = (typeof AGENT_KEYS)[number];
 
@@ -52,6 +57,8 @@ export const ENTITY_TYPES = [
   "import_batches",
   "import_rows",
   "pipeline",
+  "projects",
+  "project_jobs",
 ] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
 
@@ -397,6 +404,76 @@ export const RiskFinanceOutputSchema = z
   .strict();
 export type RiskFinanceOutput = z.infer<typeof RiskFinanceOutputSchema>;
 
+// rfq_tender_risk (2026-08-04) intentionally reuses this exact shape — same
+// risk_score/risk_level/risk_factors/mitigations model applied to a single
+// RFQ or tender instead of an opportunity. Kept as one schema (not a
+// duplicate near-identical type) so the same review-card UI component can
+// render either agent's output unchanged.
+export const RfqTenderRiskOutputSchema = RiskFinanceOutputSchema;
+export type RfqTenderRiskOutput = RiskFinanceOutput;
+
+// ---------------------------------------------------------------------------
+// project_job_notes (2026-08-04) — single Job Pipeline card (project_jobs
+// row) analysis. suggested_notes is deliberately plain text, not committed
+// anywhere by the orchestrator itself — the frontend's "Apply as note"
+// action (a human-triggered write, not autonomous) is what may eventually
+// copy it into project_jobs.ai_notes, matching this codebase's "AI never
+// auto-applies" rule.
+// ---------------------------------------------------------------------------
+
+export const ProjectJobNotesOutputSchema = z
+  .object({
+    summary: z.string().min(1).max(500),
+    suggested_notes: z.string().min(1).max(2000),
+    risk_flags: z.array(z.string().min(1).max(300)).max(20),
+    suggested_next_steps: z.array(z.string().min(1).max(300)).max(20),
+    confidence: z.number().min(0).max(1),
+    disclaimer: z.string().min(1).max(500),
+  })
+  .strict();
+export type ProjectJobNotesOutput = z.infer<typeof ProjectJobNotesOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// project_budget_variance (2026-08-04) — planned vs. actual analysis across
+// a project's project_budget_items rows.
+// ---------------------------------------------------------------------------
+
+const BUDGET_VARIANCE_RISK_LEVELS = ["low", "medium", "high"] as const;
+
+export const BudgetVarianceOutputSchema = z
+  .object({
+    overall_variance_pct: z.number().min(-1000).max(1000),
+    risk_level: z.enum(BUDGET_VARIANCE_RISK_LEVELS),
+    narrative: z.string().min(1).max(1000),
+    over_budget_categories: z
+      .array(
+        z
+          .object({
+            category: z.string().min(1).max(200),
+            variance_pct: z.number().min(-1000).max(1000),
+            note: z.string().min(1).max(300),
+          })
+          .strict(),
+      )
+      .max(20),
+    under_budget_categories: z
+      .array(
+        z
+          .object({
+            category: z.string().min(1).max(200),
+            variance_pct: z.number().min(-1000).max(1000),
+            note: z.string().min(1).max(300),
+          })
+          .strict(),
+      )
+      .max(20),
+    recommended_actions: z.array(z.string().min(1).max(300)).max(20),
+    confidence: z.number().min(0).max(1),
+    disclaimer: z.string().min(1).max(500),
+  })
+  .strict();
+export type BudgetVarianceOutput = z.infer<typeof BudgetVarianceOutputSchema>;
+
 // ---------------------------------------------------------------------------
 // Import Intelligence v2 — 7 classification pipeline agents
 // ---------------------------------------------------------------------------
@@ -577,6 +654,9 @@ export const AGENT_OUTPUT_SCHEMAS = {
   relationship_resolver: RelationshipResolverOutputSchema,
   change_interpreter: ChangeInterpreterOutputSchema,
   import_routing_reviewer: ImportRoutingReviewerOutputSchema,
+  rfq_tender_risk: RfqTenderRiskOutputSchema,
+  project_job_notes: ProjectJobNotesOutputSchema,
+  project_budget_variance: BudgetVarianceOutputSchema,
 } as const satisfies Record<AgentKey, z.ZodType>;
 
 export const AGENT_OUTPUT_TYPES = {
@@ -594,6 +674,9 @@ export const AGENT_OUTPUT_TYPES = {
   relationship_resolver: "staged_classification",
   change_interpreter: "recommendation",
   import_routing_reviewer: "recommendation",
+  rfq_tender_risk: "recommendation",
+  project_job_notes: "recommendation",
+  project_budget_variance: "recommendation",
 } as const satisfies Record<AgentKey, OutputType>;
 
 // ---------------------------------------------------------------------------

@@ -355,6 +355,124 @@ export function buildRiskFinancePrompt(context: string): BuiltPrompt {
 }
 
 // ---------------------------------------------------------------------------
+// Agent 15 — rfq_tender_risk (2026-08-04)
+// ---------------------------------------------------------------------------
+
+const RFQ_TENDER_RISK_INSTRUCTIONS = `
+AGENT: rfq_tender_risk (${PROMPT_VERSION})
+You are a financial risk assessor for PHC, a Saudi signage company. Evaluate
+the single RFQ or tender described in the CONTEXT block and produce a risk
+assessment for a manager to review before any commercial decision — you do NOT
+approve, reject, or modify any record.
+
+Risk factors to evaluate:
+- Deadline pressure: response/award due date close to today relative to the
+  scope implied by the value.
+- Missing linkage: no linked project or company on record.
+- Value without documentation: a meaningful estimated value with no
+  supporting classification/scope detail present in the CONTEXT.
+- Stalled status: a status/stage that has not advanced in a long time for an
+  otherwise active record (only judge this if the CONTEXT gives you enough
+  to tell — otherwise say so in missing_information via risk_factors).
+
+risk_score thresholds:
+- 0-30: "low"
+- 31-60: "medium"
+- 61-80: "high"
+- 81-100: "critical"
+
+Return a JSON object with exactly these fields:
+- risk_score: number 0-100
+- risk_level: "low" | "medium" | "high" | "critical" (must be consistent with
+  risk_score threshold above)
+- risk_factors: array of { factor, impact ("low"|"medium"|"high"), description }
+- mitigations: array of { action, priority ("low"|"medium"|"high") }
+- confidence: number 0-1, your confidence in this risk assessment
+- disclaimer: string reminding the reader this is an AI-generated assessment
+  requiring human judgment before any commercial or financial decision is made
+`.trim();
+
+export function buildRfqTenderRiskPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${RFQ_TENDER_RISK_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("rfq_tender_risk", context),
+    version: PROMPT_VERSION,
+    schemaName: "rfq_tender_risk_output",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Agent 16 — project_job_notes (2026-08-04)
+// ---------------------------------------------------------------------------
+
+const PROJECT_JOB_NOTES_INSTRUCTIONS = `
+AGENT: project_job_notes (${PROMPT_VERSION})
+You are a production-operations assistant for PHC, a Saudi signage company.
+Analyze the single Job Pipeline card (a production task within a project)
+described in the CONTEXT block and draft an operational note for whoever is
+assigned to it. You do NOT move the card, change its stage, or assign anyone.
+
+Return a JSON object with exactly these fields:
+- summary: short string, one-line summary of the job's current situation
+- suggested_notes: a ready-to-use note text (a few sentences) the assignee
+  could paste directly into the job's notes field — practical and specific
+  to what is in the CONTEXT, never generic filler
+- risk_flags: string[] (anything that could delay or block this job — e.g. a
+  due date with no recent activity, missing assignee, unclear scope; empty
+  array if you see nothing concerning)
+- suggested_next_steps: string[] (concrete, human-actionable steps)
+- confidence: number 0-1, your confidence in this note
+- disclaimer: short string reminding the reader this is an AI-generated
+  draft requiring human review before it is treated as the job's real status
+`.trim();
+
+export function buildProjectJobNotesPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${PROJECT_JOB_NOTES_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("project_job", context),
+    version: PROMPT_VERSION,
+    schemaName: "project_job_notes_output",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Agent 17 — project_budget_variance (2026-08-04)
+// ---------------------------------------------------------------------------
+
+const PROJECT_BUDGET_VARIANCE_INSTRUCTIONS = `
+AGENT: project_budget_variance (${PROMPT_VERSION})
+You are a project-finance analyst for PHC, a Saudi signage company. Analyze
+the single project's budget line items (planned vs. actual amounts per
+category) described in the CONTEXT block and produce a variance analysis for
+a finance-adjacent manager to review. You do NOT modify any budget line or
+approve anything.
+
+Return a JSON object with exactly these fields:
+- overall_variance_pct: number, (actual - planned) / planned * 100 across all
+  categories combined; 0 if there is not enough data to compute it responsibly
+- risk_level: "low" | "medium" | "high"
+- narrative: short string explaining the overall picture in plain language
+- over_budget_categories: array of { category, variance_pct, note } — only
+  categories where actual clearly exceeds planned
+- under_budget_categories: array of { category, variance_pct, note } — only
+  categories where actual is clearly below planned (this can be a good or a
+  concerning sign — say which, in note)
+- recommended_actions: string[] (concrete, human-actionable suggestions only)
+- confidence: number 0-1, your confidence in this analysis
+- disclaimer: short string reminding the reader this is an AI-generated
+  analysis requiring human review before any financial decision is made
+`.trim();
+
+export function buildProjectBudgetVariancePrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${PROJECT_BUDGET_VARIANCE_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("project_budget", context),
+    version: PROMPT_VERSION,
+    schemaName: "project_budget_variance_output",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Import Intelligence v2 — Agents 8-14
 // ---------------------------------------------------------------------------
 
@@ -602,4 +720,7 @@ export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltP
   relationship_resolver: buildRelationshipResolverPrompt,
   change_interpreter: buildChangeInterpreterPrompt,
   import_routing_reviewer: buildImportRoutingReviewerPrompt,
+  rfq_tender_risk: buildRfqTenderRiskPrompt,
+  project_job_notes: buildProjectJobNotesPrompt,
+  project_budget_variance: buildProjectBudgetVariancePrompt,
 };

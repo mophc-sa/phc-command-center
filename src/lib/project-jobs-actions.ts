@@ -108,14 +108,25 @@ export async function createJob(input: {
 
 export async function updateJob(
   jobId: Uuid,
-  patch: Partial<{ title: string; description: string | null; assigneeId: string | null; dueDate: string | null }>,
+  patch: Partial<{ title: string; description: string | null; assigneeId: string | null; dueDate: string | null; aiNotes: string | null }>,
 ) {
   const dbPatch: Record<string, unknown> = {};
   if (patch.title !== undefined) dbPatch.title = patch.title;
   if (patch.description !== undefined) dbPatch.description = patch.description;
   if (patch.assigneeId !== undefined) dbPatch.assignee_id = patch.assigneeId;
   if (patch.dueDate !== undefined) dbPatch.due_date = patch.dueDate;
+  if (patch.aiNotes !== undefined) dbPatch.ai_notes = patch.aiNotes;
   const { error } = await supabase.from("project_jobs").update(dbPatch as never).eq("id", jobId);
+  if (error) throw error;
+}
+
+// project_job_notes AI agent (2026-08-04) — the agent's suggestion is staged
+// as a normal pending_review ai_agent_outputs row like every other agent;
+// this is the one, explicit, human-triggered write that copies its
+// suggested_notes into the job's own ai_notes column once a user clicks
+// "Apply as note" — never written automatically by the orchestrator itself.
+export async function applyJobAiNotes(jobId: Uuid, notes: string) {
+  const { error } = await supabase.from("project_jobs").update({ ai_notes: notes } as never).eq("id", jobId);
   if (error) throw error;
 }
 
