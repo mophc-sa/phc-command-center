@@ -19,6 +19,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canReviewAiOutput, canManageSalesPipeline } from "@/lib/roles";
 import { reviewAgentOutput, REVIEWABLE_AGENT_KEYS } from "@/lib/ai-review-actions";
+import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 
 export const Route = createFileRoute("/_authenticated/agent-activity")({
   head: () => ({ meta: [{ title: "Agent Activity — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -148,18 +149,20 @@ function AgentActivityPage() {
     setRadarRunning(true);
     setRadarError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("ai-orchestrator", {
-        // entityId must be a real UUID (ai_agent_outputs.entity_id is uuid-typed
-        // and the request schema enforces z.string().uuid()) — "pipeline" is
-        // neither, so this call was silently rejected with AI_INPUT_INVALID on
-        // every click until this fix (2026-08-04). Pipeline-wide agents have no
-        // real per-record entity, so the nil UUID is used as an explicit
-        // "no specific entity" sentinel — same fix applied to the new
-        // sales_report_insights agent on the Reports page.
-        body: { agent: "project_radar", entityType: "pipeline", entityId: "00000000-0000-0000-0000-000000000000" },
+      // entityId must be a real UUID (ai_agent_outputs.entity_id is uuid-typed
+      // and the request schema enforces z.string().uuid()) — "pipeline" is
+      // neither, so this call was silently rejected with AI_INPUT_INVALID on
+      // every click until this fix (2026-08-04). Pipeline-wide agents have no
+      // real per-record entity, so the nil UUID is used as an explicit
+      // "no specific entity" sentinel — same fix applied to the new
+      // sales_report_insights agent on the Reports page.
+      const orchestratorResult = await runAiAgent({
+        agent: "project_radar",
+        entityType: "pipeline",
+        entityId: "00000000-0000-0000-0000-000000000000",
       });
-      if (error || !data?.ok) throw new Error(data?.message ?? error?.message ?? "Failed");
-      const result = data.result;
+      if (!orchestratorResult.ok) throw new Error(orchestratorResult.message);
+      const result = orchestratorResult.result as any;
       setRadarAlerts(result.radar_alerts ?? []);
       setRadarScore(result.pipeline_health_score ?? null);
       setRadarSummary(result.summary ?? "");

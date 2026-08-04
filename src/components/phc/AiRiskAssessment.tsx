@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { Panel } from "@/components/phc/Panel";
-import { supabase } from "@/integrations/supabase/client";
+import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canReviewAiOutput } from "@/lib/roles";
@@ -57,10 +57,8 @@ export function AiRiskAssessment({
     setRunning(true);
     setError(null);
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("ai-orchestrator", {
-        body: { agent: agentKey, entityType, entityId },
-      });
-      if (invokeError || !data?.ok) throw new Error(data?.message ?? invokeError?.message ?? "Failed");
+      const result = await runAiAgent({ agent: agentKey, entityType, entityId });
+      if (!result.ok) throw new Error(result.message);
       qc.invalidateQueries({ queryKey: ["ai-output", entityType, entityId, agentKey] });
     } catch (e: any) {
       setError(e.message);

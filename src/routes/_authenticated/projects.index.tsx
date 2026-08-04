@@ -104,7 +104,7 @@ function ProjectsPage() {
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
-        eyebrow={t("nav_crm" as never) || "CRM"}
+        eyebrow={t("navgroup_production")}
         title={t("nav_projects")}
         actions={
           <Link

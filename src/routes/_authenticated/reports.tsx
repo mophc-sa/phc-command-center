@@ -24,6 +24,7 @@ import { computeQuotationWinRatePct } from "@/lib/dashboard-helpers";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline, canReviewAiOutput } from "@/lib/roles";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
+import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Reports — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -318,10 +319,8 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
     setRunning(true);
     setError(null);
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("ai-orchestrator", {
-        body: { agent: "sales_report_insights", entityType: "reports", entityId: REPORTS_ENTITY_ID },
-      });
-      if (invokeError || !data?.ok) throw new Error(data?.message ?? invokeError?.message ?? "Failed");
+      const result = await runAiAgent({ agent: "sales_report_insights", entityType: "reports", entityId: REPORTS_ENTITY_ID });
+      if (!result.ok) throw new Error(result.message);
       outputQ.refetch();
     } catch (e: any) {
       setError(e.message);
