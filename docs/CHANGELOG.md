@@ -13,6 +13,17 @@
 
 ---
 
+## 2026-08-04 — اختبار شامل بالمتصفح + إصلاحات (PR #165)
+تفاصيل كاملة في `docs/AI_HANDOFF.md`.
+### Added
+- `supabase/functions/deno.json` — يصلح تعطُّل `ai-orchestrator` بالتطوير المحلي بالكامل.
+### Fixed
+- كل استدعاءات AI (9 مواضع) تُظهر الآن رسالة الخطأ الحقيقية بدل رسالة SDK عامة.
+- تحذير وصولية (a11y) بكل `ActionDialog` بلا وصف.
+- تسمية "CRM" قديمة بصفحة Projects (الصحيح: Production).
+
+---
+
 ## 2026-08-04 — توسيع تغطية AI عبر النظام (PR #163)
 تفاصيل كاملة في `docs/AI_HANDOFF.md` وَ`docs/ai-orchestrator.md`. 4 وكلاء AI جدد، توحيد KPIs في Agent Activity، وإصلاح خللين حقيقيين كانا يعطِّلان ميزات AI موجودة منذ إطلاقها.
 ### Added
