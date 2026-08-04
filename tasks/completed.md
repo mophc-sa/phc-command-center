@@ -2,6 +2,10 @@
 
 > المهام المكتملة تُنقل إلى هنا (لا تُحذف). الأحدث في الأعلى.
 
+## 2026-08-04 — توسيع تغطية AI عبر النظام (فحص + تنفيذ)
+- الناتج: إصلاح خللين حقيقيين مكتشَفين (Draft Follow-up، Scan Pipeline — كلاهما كان معطَّلاً منذ الإطلاق بسبب شكل طلب خاطئ)، 4 وكلاء AI جدد (`project_job_notes`، `project_budget_variance`، `commercial_risk_assessment` يغطي RFQ/Tender/Quotation/Accounts، `sales_report_insights`)، توحيد عرض KPIs في Agent Activity. كل صفحة رئيسية بالنظام لديها الآن نقطة تماس AI واحدة على الأقل (18 وكيل إجمالاً).
+- PR: #163 · مدموج (`1f15bd8`) · لا migrations · Cloudflare Worker + Edge Functions (`ai-orchestrator` v27، `sales-os-api` v40) منشورة فعليًا. تفاصيل كاملة في `docs/AI_HANDOFF.md` وَ`docs/ai-orchestrator.md`.
+
 ## 2026-08-04 — حذف زر "طلب جديد" من Lead & Tender Inbox
 - الناتج: صفحة الاستقبال أصبحت بمدخل إنشاء واحد ("إدخال جديد") بدل اثنين — JIH/Tender يبقيان متاحين بالكامل عبر إدخال جديد ← تصنيف ← تحويل. حذف `createJihRequestWithOpportunity` غير المستخدَم + مفاتيح i18n يتيمة.
 - PR: #161 · مدموج (`71de821`) · لا migrations · Cloudflare Worker منشور. تفاصيل كاملة في `docs/AI_HANDOFF.md`.
