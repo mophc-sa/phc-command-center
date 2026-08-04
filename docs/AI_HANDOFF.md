@@ -3,7 +3,33 @@
 > **أهم ملف بعد CLAUDE.md.** يُحدَّث في نهاية كل جلسة. اقرأه أولًا عند بداية أي جلسة/حساب جديد.
 
 ## Date
-2026-07-28  *(محدَّثة — تدقيق أمني شامل (/cso) منشور بالكامل: PR #152، بلا migrations)*
+2026-08-04
+
+## Current Branch / Last Commit
+`feature/remove-inbox-new-request-button-2026-08-04` @ `272059d` (PR #161, **مفتوح — لم يُدمج بعد**، بانتظار "ادمج وانشر" من المستخدم).
+`main` @ الدمج `078484b` (PR #160، مدموج ومنشور بالكامل).
+
+## 📋 لوحة مشاريع Production + تنظيف Lead & Tender Inbox — PR #160 (مدموج) + #161 (مفتوح) — 2026-08-03/04
+
+### ✅ PR #160 — مدموج، migrations مطبَّقة على الإنتاج، Cloudflare Worker منشور
+طلب المستخدم سلسلة تعديلات على تدفق المشاريع/الفرص/الاستقبال:
+1. **إعادة هيكلة صفحة المشروع كـ dashboard**: `project_number` تلقائي (`PRJ-YYYY-NNNN`، trigger + backfill)، صورة غلاف (bucket خاص، `cover_image_path` مُعاد توقيعه عند كل قراءة لا URL دائم)، **Job Pipeline** مرن (Kanban بـ`@dnd-kit`، مراحل يضيفها/يحذفها/يعيد تسميتها المستخدم يدويًا — وليس enum ثابت، بناءً على طلب صريح: "خليها مرنة... يدويًا أو AI لاحقًا")، **Budget** (بنود يدوية، صلاحية كتابة = نفس أدوار `can_edit_total_value`).
+2. **نقل قسم المشاريع من "المبيعات" إلى "الإنتاج"** (`navgroup_production` جديد في `AppShell.tsx`) — الرابط الوحيد مع المبيعات: trigger `create_project_from_won_opportunity` (`BEFORE UPDATE OF stage`) يُنشئ مشروعًا تلقائيًا فقط عند إغلاق الفرصة كـ"win"، تحقَّق أن فوز فرصة ثانية على نفس `project_id` (حالة متعدد مقاولين) **لا** يُنشئ مشروعًا مكررًا.
+3. **إصلاح خلل توجيه سابق خطير**: `/projects/$id` كانت غير قابلة للوصول إطلاقًا (تعشيش خاطئ بسبب تسمية `projects.tsx` بدل `projects.index.tsx` — نفس نمط TanStack Router المعروف بالمستودع) — أُصلح بإعادة التسمية، تأكَّدتُ عبر فحص طلبات الشبكة أن الاستعلام الصحيح يعمل الآن.
+4. **Discussion على الفرص أصبح قابلاً للتعديل/الحذف** (كان سجلاً غير قابل للتغيير سابقًا) + إضافة "منشن" (@mention) لشخص مع غرض (مراجعة/موافقة/اعتماد) — يُعاد استخدام جدول `approvals` كآلية إشعار موجودة أصلًا (`assigned_approver`)، لا بنية تحتية إشعارات جديدة.
+5. **صندوق Client Details على صفحة الفرصة أصبح قابلاً للتعديل** (`upsertClientDetails`)، وصفوف Follow-up أصبحت قابلة للحذف (`RecordLifecycleMenu`).
+6. **JIH من New Intake يُنشئ الفرصة فورًا** (`createJihRequestWithOpportunity` وقتها — لاحقًا حُذفت بالكامل في PR #161، انظر أدناه) بدل الانتظار لتحويل يدوي لاحق.
+7. **زر "New Opportunity" على صفحة Account** (`createOpportunityForCompany`, `flow_type: "manual"`) — حساب موجود بالـCRM لا يحتاج المرور بالاستقبال لبدء صفقة جديدة.
+8. **`project_number` في Inbox (`inbox_items`) أصبح تلقائيًا** (`INT-YYYY-NNNN`، حقل نصي يدوي كان يُدخله المستخدم سابقًا — حُذف من نموذج New Intake).
+
+**4 migrations** (`20260803100000`…`20260803130000`) طُبِّقت على الإنتاج (`lrfdtoexyeghrzynapyn`) عبر `supabase db push --linked` بلا أخطاء — تحقَّقتُ أن `migration list --linked` أصبحت `local == remote` لكل الأربعة. `main` دُمج (merge commit `078484b`)، Cloudflare Worker نُشر تلقائيًا (workflow منفصل يعمل عند merge إلى main، وهذا **لا** يخالف حوكمة `deployment-governance.md` لأنه يخص الواجهة فقط لا الـmigrations/Edge Functions التي تبقى يدوية). CI أخضر بالكامل (CodeQL/secret-scan/migrations-pgTAP/playwright-smoke/typecheck-build).
+
+**⚠️ ملاحظة غير مرتبطة اكتُشفت بعد الدمج:** فحص "Dependency audit" الأمني بدأ بالفشل — لكنه **مسبق الوجود وغير مرتبط بهذه الدفعة** (كان فاشلاً على `main` قبل هذا الدمج أيضًا): 3 ثغرات عالية في تبعيات dev tooling فقط (`fast-uri`/`ip-address`/`brace-expansion` عبر `eslint` و`@modelcontextprotocol/sdk`)، ليست كود تشغيل. يحتاج PR منفصل صغير (`bun update` على تلك التبعيات تحديدًا).
+
+### 🔓 PR #161 — مفتوح، **لم يُدمج/يُنشر بعد**
+طلب المستخدم حذف زر "طلب جديد" (Request Type picker → JIH/Tender) من صفحة Lead & Tender Inbox، والإبقاء على "إدخال جديد" فقط. تأكَّدتُ أن إنشاء JIH/Tender يبقى متاحًا بالكامل عبر المسار الموجود أصلًا (إدخال جديد ← تصنيف ← تحويل → `convertInboxToRfq`/`convertInboxToTender`) — لا فقدان وظيفة. حذفتُ أيضًا `createJihRequestWithOpportunity` (لم يعد له أي مستدعٍ) ومفاتيح i18n اليتيمة المرتبطة. `bun run typecheck`/`lint`(0 أخطاء)/`bun test src` (574/574) كلها نظيفة. **لم يُجرَ فحص متصفح حي** — Docker المحلي لمشروع Supabase الخاص بهذا المستودع كان متوقفًا وحاويات مشروع آخر غير مرتبط ("mo") تشغل نفس المنافذ، فتجنَّبت لمسها بلا إذن. بانتظار موافقة المستخدم للدمج والنشر.
+
+---
 
 ## 🔒 تدقيق أمني شامل على كل مستويات النظام (/cso) — PR #152 — 2026-07-28
 طلب المستخدم فحص أمان النظام بالكامل (الكود، قاعدة البيانات، CI/CD، سلسلة التبعيات، أمان الذكاء الاصطناعي) واكتشاف المشاكل وإصلاحها بالكامل. استُخدمت منهجية `/cso` (14 مرحلة: أرشيف الأسرار، سلسلة التبعيات، أمان CI/CD، البنية التحتية، الويبهوكس، أمان LLM، OWASP Top 10، STRIDE...).
