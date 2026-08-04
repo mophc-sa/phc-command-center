@@ -24,7 +24,7 @@ import {
 } from "@/lib/inbox-actions";
 import { humanize } from "@/lib/utils";
 import { createTender } from "@/lib/tender-actions";
-import { createRfq } from "@/lib/rfq-actions";
+import { createJihRequestWithOpportunity } from "@/lib/rfq-actions";
 import { IntakeHubTabs } from "@/components/phc/IntakeHubTabs";
 
 export const Route = createFileRoute("/_authenticated/lead-tender-inbox")({
@@ -43,7 +43,6 @@ function statusTone(s: string): "positive" | "attention" | "danger" | "muted" | 
 export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): DialogField[] {
   return [
     { key: "sourceType", type: "select", label: t("ibx_source_type"), required: true, options: INBOX_SOURCE_TYPES.map((s) => ({ value: s, label: t(`src_${s}`) })) },
-    { key: "sourceName", type: "text", label: t("ibx_source_name") },
     { key: "dateReceived", type: "date", label: t("ibx_date_received"), defaultValue: new Date().toISOString().slice(0, 10) },
     { key: "companyName", type: "text", label: t("ibx_company_name") },
     { key: "contactName", type: "text", label: t("ibx_contact_name") },
@@ -52,14 +51,19 @@ export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): D
     { key: "clientType", type: "select", label: t("ibx_client_type"), options: [{ value: "", label: "—" }, ...INBOX_CLIENT_TYPES.map((c) => ({ value: c, label: t(`ibx_client_type_${c}`) }))] },
     { key: "projectType", type: "select", label: t("ibx_project_type"), options: [{ value: "", label: "—" }, ...INBOX_PROJECT_TYPES.map((p) => ({ value: p, label: t(`ibx_project_type_${p}`) }))] },
     { key: "projectName", type: "text", label: t("label_project") },
-    { key: "projectNumber", type: "text", label: t("ibx_project_number") },
+    // Project Number intentionally omitted — auto-generated server-side
+    // (INT-{year}-{seq}, generate_inbox_project_number() trigger),
+    // not typed manually (2026-08-03).
     { key: "rfqFrom", type: "select", label: t("ibx_rfq_from"), options: [{ value: "", label: "—" }, ...INBOX_RFQ_FROM.map((r) => ({ value: r, label: t(`ibx_rfq_from_${r}`) }))] },
     { key: "clientOwner", type: "text", label: t("ibx_client_owner") },
     { key: "mainContractor", type: "text", label: t("label_contractor") },
     { key: "consultant", type: "text", label: t("ibx_consultant") },
     { key: "scopeType", type: "select", label: t("ibx_scope_type"), options: [{ value: "", label: "—" }, ...INBOX_SCOPES.map((s) => ({ value: s, label: t(`ibx_scope_${s}`) }))] },
     { key: "locationCity", type: "select", label: t("ibx_location_city"), options: [{ value: "", label: "—" }, ...INBOX_LOCATIONS.map((l) => ({ value: l, label: t(`ibx_location_${l}`) }))] },
-    { key: "estimatedValue", type: "text", label: t("ibx_estimated_value") },
+    // Estimated Value intentionally omitted here — per 2026-08-03 client
+    // request, it's now a later-stage field set by Finance
+    // (opportunities/rfqs.estimated_value, gated by can_edit_total_value —
+    // see canEditTotalValue in src/lib/roles.ts), not captured at intake.
     { key: "deadline", type: "date", label: t("ibx_deadline") },
     { key: "notes", type: "textarea", label: t("wf_notes") },
     { key: "evidenceUrl", type: "file", label: t("ibx_evidence_url"), folder: "inbox" },
@@ -300,7 +304,8 @@ function LeadTenderInbox() {
           { key: "source", type: "text", label: t("wf_source") },
           { key: "projectId", type: "select", label: t("nav_projects"), options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
           { key: "expectedAwardDate", type: "date", label: t("wf_expected_award") },
-          { key: "estimatedProjectValue", type: "text", label: t("crm_total_value") },
+          // Estimated Value intentionally omitted — set later by Finance
+          // (can_edit_total_value), not captured at intake (2026-08-03).
         ]}
         onSubmit={async (v) => {
           try {
@@ -309,7 +314,6 @@ function LeadTenderInbox() {
               source: v.source || undefined,
               projectId: v.projectId || null,
               expectedAwardDate: v.expectedAwardDate || null,
-              estimatedProjectValue: v.estimatedProjectValue ? Number(v.estimatedProjectValue) : null,
               claimOwner: true,
             });
             toast.success(t("ibx_request_created_tender"));
@@ -330,22 +334,23 @@ function LeadTenderInbox() {
         fields={[
           { key: "companyId", type: "select", label: t("crm_company"), options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
           { key: "projectId", type: "select", label: t("nav_projects"), options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
-          { key: "estimatedValue", type: "text", label: t("ws_rfq_value") },
+          // Estimated Value intentionally omitted — set later by Finance
+          // (can_edit_total_value), not captured at intake (2026-08-03).
           { key: "responseDueDate", type: "date", label: t("ws_rfq_due") },
         ]}
         onSubmit={async (v) => {
           try {
-            await createRfq({
+            // Creates the opportunity immediately alongside the RFQ (2026-08-03:
+            // a JIH request must show up in the Opportunities list right away,
+            // not only after a later manual conversion step).
+            const { opportunityId } = await createJihRequestWithOpportunity({
               companyId: v.companyId || null,
               projectId: v.projectId || null,
-              classification: "jih",
-              estimatedValue: v.estimatedValue ? Number(v.estimatedValue) : null,
               responseDueDate: v.responseDueDate || null,
-              claimOwner: true,
             });
             toast.success(t("ibx_request_created_jih"));
             setNewRequestType(null);
-            navigate({ to: "/quotations", search: { tab: "rfq_jih" } });
+            navigate({ to: "/opportunities/$id", params: { id: opportunityId } });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
             throw e;
@@ -373,7 +378,6 @@ function LeadTenderInbox() {
               clientType: v.clientType ? (v.clientType as never) : undefined,
               projectType: v.projectType ? (v.projectType as never) : undefined,
               projectName: v.projectName || undefined,
-              projectNumber: v.projectNumber || undefined,
               rfqFrom: v.rfqFrom ? (v.rfqFrom as never) : undefined,
               clientOwner: v.clientOwner || undefined,
               mainContractor: v.mainContractor || undefined,
@@ -467,11 +471,14 @@ function LeadTenderInbox() {
             } else if (convertFor.classification === "contact") {
               await convertInboxToContact(convertFor.id, { name: v.name, companyId: v.companyId || null, phone: v.phone || undefined, email: v.email || undefined, claimOwner: true });
             } else if (convertFor.classification === "project") {
-              await convertInboxToProject(convertFor.id, {
+              const project = await convertInboxToProject(convertFor.id, {
                 name: v.name, location: v.location || undefined,
                 ownerCompanyId: v.ownerCompanyId || null, mainContractorId: v.mainContractorId || null, consultantId: v.consultantId || null,
                 totalValue: v.totalValue ? Number(v.totalValue) : null,
               });
+              toast.success(t("crm_saved"));
+              navigate({ to: "/projects/$id", params: { id: project.id } });
+              return;
             } else if (convertFor.classification === "rfq") {
               await convertInboxToRfq(convertFor.id, {
                 projectId: v.projectId || null, companyId: v.companyId || null,

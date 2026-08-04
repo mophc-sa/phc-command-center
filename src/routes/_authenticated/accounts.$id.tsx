@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,8 +13,8 @@ import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { updateCompany, changeAccountOwner, type CompanyType } from "@/lib/crm-actions";
-import { canAssignOwner } from "@/lib/roles";
+import { updateCompany, changeAccountOwner, createOpportunityForCompany, type CompanyType } from "@/lib/crm-actions";
+import { canAssignOwner, canManageSalesPipeline } from "@/lib/roles";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { ArchivedBadge, RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
@@ -34,9 +34,12 @@ function AccountDetail() {
   const { t, lang } = useI18n();
   const { roles } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
   const [ownerOpen, setOwnerOpen] = useState(false);
+  const [newOppOpen, setNewOppOpen] = useState(false);
   const isManager = canAssignOwner(roles);
+  const canCreateOpp = canManageSalesPipeline(roles);
 
   const { data: company, isLoading } = useQuery({
     queryKey: ["company", id],
@@ -237,7 +240,21 @@ function AccountDetail() {
           )}
         </Panel>
 
-        <Panel title={t("crm_linked_opportunities")} subtitle={String(oppCount)}>
+        <Panel
+          title={t("crm_linked_opportunities")}
+          subtitle={String(oppCount)}
+          action={
+            canCreateOpp ? (
+              <button
+                type="button"
+                onClick={() => setNewOppOpen(true)}
+                className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {t("crm_new_opportunity")}
+              </button>
+            ) : undefined
+          }
+        >
           {(c.opportunities ?? []).length === 0 ? (
             <div className="text-xs text-muted-foreground">—</div>
           ) : (
@@ -254,6 +271,31 @@ function AccountDetail() {
               ))}
             </ul>
           )}
+          {canCreateOpp ? (
+            <ActionDialog
+              open={newOppOpen}
+              onOpenChange={setNewOppOpen}
+              title={t("crm_new_opportunity")}
+              submitLabel={t("crm_add")}
+              fields={[
+                { key: "projectName", type: "text", label: t("label_project"), required: true },
+                { key: "location", type: "text", label: t("crm_location"), defaultValue: c.regions ?? "" },
+              ]}
+              onSubmit={async (v) => {
+                try {
+                  const opp = await createOpportunityForCompany({
+                    companyId: c.id,
+                    projectName: v.projectName,
+                    location: v.location || null,
+                  });
+                  toast.success(t("crm_saved"));
+                  navigate({ to: "/opportunities/$id", params: { id: opp.id } });
+                } catch (e) {
+                  toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+                }
+              }}
+            />
+          ) : null}
         </Panel>
       </div>
 

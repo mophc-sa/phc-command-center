@@ -26,7 +26,6 @@ import { Route as AuthenticatedRfqJihRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedReferenceLibraryRouteImport } from './routes/_authenticated/reference-library'
 import { Route as AuthenticatedQuotationsRouteImport } from './routes/_authenticated/quotations'
-import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
 import { Route as AuthenticatedMyWorkspaceRouteImport } from './routes/_authenticated/my-workspace'
 import { Route as AuthenticatedLeadTenderInboxRouteImport } from './routes/_authenticated/lead-tender-inbox'
 import { Route as AuthenticatedKnowledgeRouteImport } from './routes/_authenticated/knowledge'
@@ -45,6 +44,7 @@ import { Route as AuthenticatedActionCenterRouteImport } from './routes/_authent
 import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
+import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects.index'
 import { Route as AuthenticatedOpportunitiesIndexRouteImport } from './routes/_authenticated/opportunities.index'
 import { Route as AuthenticatedDataImportIndexRouteImport } from './routes/_authenticated/data-import.index'
 import { Route as AuthenticatedAccountsIndexRouteImport } from './routes/_authenticated/accounts.index'
@@ -139,11 +139,6 @@ const AuthenticatedReferenceLibraryRoute =
 const AuthenticatedQuotationsRoute = AuthenticatedQuotationsRouteImport.update({
   id: '/quotations',
   path: '/quotations',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMyWorkspaceRoute =
@@ -244,6 +239,12 @@ const Char91DotmcpChar93ListToolsRoute =
     path: '/.mcp/list-tools',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedProjectsIndexRoute =
+  AuthenticatedProjectsIndexRouteImport.update({
+    id: '/projects/',
+    path: '/projects/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedOpportunitiesIndexRoute =
   AuthenticatedOpportunitiesIndexRouteImport.update({
     id: '/opportunities/',
@@ -263,9 +264,9 @@ const AuthenticatedAccountsIndexRoute =
     getParentRoute: () => AuthenticatedAccountsRoute,
   } as any)
 const AuthenticatedProjectsIdRoute = AuthenticatedProjectsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AuthenticatedProjectsRoute,
+  id: '/projects/$id',
+  path: '/projects/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedOpportunitiesIdRoute =
   AuthenticatedOpportunitiesIdRouteImport.update({
@@ -322,7 +323,6 @@ export interface FileRoutesByFullPath {
   '/knowledge': typeof AuthenticatedKnowledgeRoute
   '/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
   '/my-workspace': typeof AuthenticatedMyWorkspaceRoute
-  '/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/quotations': typeof AuthenticatedQuotationsRoute
   '/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -341,6 +341,7 @@ export interface FileRoutesByFullPath {
   '/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/data-import/': typeof AuthenticatedDataImportIndexRoute
   '/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
+  '/projects/': typeof AuthenticatedProjectsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -366,7 +367,6 @@ export interface FileRoutesByTo {
   '/knowledge': typeof AuthenticatedKnowledgeRoute
   '/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
   '/my-workspace': typeof AuthenticatedMyWorkspaceRoute
-  '/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/quotations': typeof AuthenticatedQuotationsRoute
   '/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -385,6 +385,7 @@ export interface FileRoutesByTo {
   '/accounts': typeof AuthenticatedAccountsIndexRoute
   '/data-import': typeof AuthenticatedDataImportIndexRoute
   '/opportunities': typeof AuthenticatedOpportunitiesIndexRoute
+  '/projects': typeof AuthenticatedProjectsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -414,7 +415,6 @@ export interface FileRoutesById {
   '/_authenticated/knowledge': typeof AuthenticatedKnowledgeRoute
   '/_authenticated/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
   '/_authenticated/my-workspace': typeof AuthenticatedMyWorkspaceRoute
-  '/_authenticated/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/_authenticated/quotations': typeof AuthenticatedQuotationsRoute
   '/_authenticated/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
@@ -433,6 +433,7 @@ export interface FileRoutesById {
   '/_authenticated/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/_authenticated/data-import/': typeof AuthenticatedDataImportIndexRoute
   '/_authenticated/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
+  '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -462,7 +463,6 @@ export interface FileRouteTypes {
     | '/knowledge'
     | '/lead-tender-inbox'
     | '/my-workspace'
-    | '/projects'
     | '/quotations'
     | '/reference-library'
     | '/reports'
@@ -481,6 +481,7 @@ export interface FileRouteTypes {
     | '/accounts/'
     | '/data-import/'
     | '/opportunities/'
+    | '/projects/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -506,7 +507,6 @@ export interface FileRouteTypes {
     | '/knowledge'
     | '/lead-tender-inbox'
     | '/my-workspace'
-    | '/projects'
     | '/quotations'
     | '/reference-library'
     | '/reports'
@@ -525,6 +525,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/data-import'
     | '/opportunities'
+    | '/projects'
   id:
     | '__root__'
     | '/'
@@ -553,7 +554,6 @@ export interface FileRouteTypes {
     | '/_authenticated/knowledge'
     | '/_authenticated/lead-tender-inbox'
     | '/_authenticated/my-workspace'
-    | '/_authenticated/projects'
     | '/_authenticated/quotations'
     | '/_authenticated/reference-library'
     | '/_authenticated/reports'
@@ -572,6 +572,7 @@ export interface FileRouteTypes {
     | '/_authenticated/accounts/'
     | '/_authenticated/data-import/'
     | '/_authenticated/opportunities/'
+    | '/_authenticated/projects/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -710,13 +711,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedQuotationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/projects': {
-      id: '/_authenticated/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof AuthenticatedProjectsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/my-workspace': {
       id: '/_authenticated/my-workspace'
       path: '/my-workspace'
@@ -843,6 +837,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/projects/': {
+      id: '/_authenticated/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof AuthenticatedProjectsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/opportunities/': {
       id: '/_authenticated/opportunities/'
       path: '/opportunities'
@@ -866,10 +867,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/projects/$id': {
       id: '/_authenticated/projects/$id'
-      path: '/$id'
+      path: '/projects/$id'
       fullPath: '/projects/$id'
       preLoaderRoute: typeof AuthenticatedProjectsIdRouteImport
-      parentRoute: typeof AuthenticatedProjectsRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/opportunities/$id': {
       id: '/_authenticated/opportunities/$id'
@@ -940,19 +941,6 @@ const AuthenticatedDataImportRouteWithChildren =
     AuthenticatedDataImportRouteChildren,
   )
 
-interface AuthenticatedProjectsRouteChildren {
-  AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
-}
-
-const AuthenticatedProjectsRouteChildren: AuthenticatedProjectsRouteChildren = {
-  AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
-}
-
-const AuthenticatedProjectsRouteWithChildren =
-  AuthenticatedProjectsRoute._addFileChildren(
-    AuthenticatedProjectsRouteChildren,
-  )
-
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRouteWithChildren
   AuthenticatedActionCenterRoute: typeof AuthenticatedActionCenterRoute
@@ -970,7 +958,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedKnowledgeRoute: typeof AuthenticatedKnowledgeRoute
   AuthenticatedLeadTenderInboxRoute: typeof AuthenticatedLeadTenderInboxRoute
   AuthenticatedMyWorkspaceRoute: typeof AuthenticatedMyWorkspaceRoute
-  AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRouteWithChildren
   AuthenticatedQuotationsRoute: typeof AuthenticatedQuotationsRoute
   AuthenticatedReferenceLibraryRoute: typeof AuthenticatedReferenceLibraryRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
@@ -981,7 +968,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTendersRoute: typeof AuthenticatedTendersRoute
   AuthenticatedVendorsRoute: typeof AuthenticatedVendorsRoute
   AuthenticatedOpportunitiesIdRoute: typeof AuthenticatedOpportunitiesIdRoute
+  AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
   AuthenticatedOpportunitiesIndexRoute: typeof AuthenticatedOpportunitiesIndexRoute
+  AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -1001,7 +990,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedKnowledgeRoute: AuthenticatedKnowledgeRoute,
   AuthenticatedLeadTenderInboxRoute: AuthenticatedLeadTenderInboxRoute,
   AuthenticatedMyWorkspaceRoute: AuthenticatedMyWorkspaceRoute,
-  AuthenticatedProjectsRoute: AuthenticatedProjectsRouteWithChildren,
   AuthenticatedQuotationsRoute: AuthenticatedQuotationsRoute,
   AuthenticatedReferenceLibraryRoute: AuthenticatedReferenceLibraryRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
@@ -1012,7 +1000,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTendersRoute: AuthenticatedTendersRoute,
   AuthenticatedVendorsRoute: AuthenticatedVendorsRoute,
   AuthenticatedOpportunitiesIdRoute: AuthenticatedOpportunitiesIdRoute,
+  AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
   AuthenticatedOpportunitiesIndexRoute: AuthenticatedOpportunitiesIndexRoute,
+  AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

@@ -21,6 +21,9 @@
     "deploy": "bun run build && bunx wrangler@4.112.0 deploy --config .output/server/wrangler.json --name mophc-sa-phc-command-center --domain agent.phc-sa.com --keep-vars"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.2.2",
     "@lovable.dev/mcp-js": "^0.20.0",
     "@radix-ui/react-accordion": "^1.2.12",

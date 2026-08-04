@@ -41,6 +41,7 @@ export const strings = {
   // Sidebar / nav groups
   navgroup_overview: { en: "Overview", ar: "نظرة عامة" },
   navgroup_crm: { en: "CRM", ar: "إدارة العلاقات" },
+  navgroup_production: { en: "Production", ar: "الإنتاج" },
   navgroup_pipeline: { en: "Pipeline", ar: "خط المبيعات" },
   navgroup_execution: { en: "Execution", ar: "التنفيذ" },
   navgroup_intelligence: { en: "Intelligence & Resources", ar: "المعلومات والموارد" },
@@ -316,6 +317,7 @@ export const strings = {
   crm_linked_projects: { en: "Linked Projects", ar: "المشاريع المرتبطة" },
   crm_linked_contacts: { en: "Contacts", ar: "جهات الاتصال" },
   crm_linked_opportunities: { en: "Opportunities", ar: "الفرص" },
+  crm_new_opportunity: { en: "New Opportunity", ar: "فرصة جديدة" },
   crm_multi_contractor_hint: { en: "Multiple contractors are competing on this project — each opportunity below tracks its own stage, package status, and BOQ independently.", ar: "عدّة مقاولين يتنافسون على هذا المشروع — كل فرصة أدناه تتبّع مرحلتها وحالة الباكج والـ BOQ الخاصة بها بشكل مستقل." },
   crm_no_contractor: { en: "No contractor", ar: "بلا مقاول" },
   crm_package: { en: "Package", ar: "الباكج" },
@@ -656,6 +658,12 @@ export const strings = {
   discussion_forbidden: { en: "Discussion is limited to General Manager, Sales Manager, Development Manager, and System Administrator.", ar: "النقاش متاح فقط للمدير العام ومدير المبيعات ومدير التطوير ومدير النظام." },
   discussion_posted_toast: { en: "Update posted", ar: "تم نشر التحديث" },
   discussion_none: { en: "None", ar: "لا يوجد" },
+  discussion_delete: { en: "Delete", ar: "حذف" },
+  discussion_mention_person: { en: "Mention someone (optional)", ar: "منشن شخص (اختياري)" },
+  discussion_mention_purpose: { en: "Purpose", ar: "الغرض" },
+  discussion_mention_review: { en: "Review", ar: "مراجعة" },
+  discussion_mention_approval: { en: "Approval", ar: "موافقة" },
+  discussion_mention_endorsement: { en: "Endorsement", ar: "اعتماد" },
 
   // Assignment (simplified single card)
   section_assignment: { en: "Assignment", ar: "الإسناد" },

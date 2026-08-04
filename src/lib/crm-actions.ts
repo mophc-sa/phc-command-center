@@ -196,6 +196,36 @@ export async function createProject(input: {
 }
 
 /**
+ * "New Opportunity" from an existing Account page (2026-08-03 client
+ * request): a company already in the CRM doesn't need to go back through
+ * Intake to start a new deal — flow_type "manual" is the enum value
+ * already reserved for exactly this case (distinct from "direct_rfq" and
+ * "tender_converted", both of which originate elsewhere).
+ */
+export async function createOpportunityForCompany(input: {
+  companyId: Uuid;
+  projectName: string;
+  location?: string | null;
+}) {
+  const uid = await currentUserId();
+  const { data, error } = await supabase
+    .from("opportunities")
+    .insert({
+      project_name: input.projectName,
+      location: input.location ?? null,
+      company_id: input.companyId,
+      stage: "discovery",
+      flow_type: "manual",
+      owner_id: uid,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  await audit("opportunity.created", "opportunity", data.id, null, data);
+  return data;
+}
+
+/**
  * Mark a project verified. Distinct from a plain updateProject() call so the
  * audit_log entry records specifically that this was a verification action,
  * not a generic field edit.

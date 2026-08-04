@@ -21,12 +21,18 @@ async function audit(action: string, entityType: string, entityId: Uuid, after?:
   });
 }
 
-/* ---------------- Discussion (single-thread, append-only) ---------------- */
+/* ---------------- Discussion (single-thread) ---------------- */
 // RLS restricts SELECT/INSERT to General Manager, Sales Manager, Development
 // Manager (bd_manager), and System Administrator — see
-// can_use_discussion(uuid) in the migration. No UPDATE/DELETE grant exists
-// at all: posts are permanent, matching the product requirement that
-// previous updates are never replaced.
+// can_use_discussion(uuid) in the migration. UPDATE/DELETE are restricted to
+// the post's own author, or system_admin (20260803120000 — reversed the
+// earlier "immutable log" design per explicit 2026-08-03 client direction).
+// A post can optionally @mention one person for review/approval/endorsement;
+// that creates a pending `approvals` row (assigned_approver) so the
+// mentioned person sees it via the existing NotificationCenter / my-workspace
+// "my approvals" paths — no separate notification system needed.
+
+export type MentionPurpose = "review" | "approval" | "endorsement";
 
 export type DiscussionPost = {
   id: string;
@@ -34,9 +40,13 @@ export type DiscussionPost = {
   body: string;
   person_in_charge_id: string | null;
   person_in_charge_note: string | null;
+  mentioned_user_id: string | null;
+  mention_purpose: MentionPurpose | null;
   created_by: string | null;
   created_at: string;
+  updated_at: string;
   author: { full_name: string | null; email: string | null } | null;
+  mentioned: { full_name: string | null; email: string | null } | null;
 };
 
 export async function listDiscussion(opportunityId: Uuid): Promise<DiscussionPost[]> {
@@ -46,23 +56,28 @@ export async function listDiscussion(opportunityId: Uuid): Promise<DiscussionPos
     .eq("opportunity_id", opportunityId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  const posts = (data ?? []) as unknown as Omit<DiscussionPost, "author">[];
+  const posts = (data ?? []) as unknown as Omit<DiscussionPost, "author" | "mentioned">[];
 
-  // opportunity_discussions.created_by references auth.users, not
-  // public.profiles directly, so there's no FK PostgREST can embed
-  // through in one query — resolve author names with a second lookup
+  // opportunity_discussions.created_by/mentioned_user_id reference
+  // auth.users, not public.profiles directly, so there's no FK PostgREST
+  // can embed through in one query — resolve names with a second lookup
   // instead (profiles.id shares the same UUID space as auth.users.id).
-  const authorIds = [...new Set(posts.map((p) => p.created_by).filter((v): v is string => !!v))];
-  let authors = new Map<string, { full_name: string | null; email: string | null }>();
-  if (authorIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name, email")
-      .in("id", authorIds);
-    authors = new Map((profiles ?? []).map((p) => [p.id, { full_name: p.full_name, email: p.email }]));
+  const userIds = [
+    ...new Set(
+      posts.flatMap((p) => [p.created_by, p.mentioned_user_id]).filter((v): v is string => !!v),
+    ),
+  ];
+  let profiles = new Map<string, { full_name: string | null; email: string | null }>();
+  if (userIds.length > 0) {
+    const { data: rows } = await supabase.from("profiles").select("id, full_name, email").in("id", userIds);
+    profiles = new Map((rows ?? []).map((p) => [p.id, { full_name: p.full_name, email: p.email }]));
   }
 
-  return posts.map((p) => ({ ...p, author: p.created_by ? (authors.get(p.created_by) ?? null) : null }));
+  return posts.map((p) => ({
+    ...p,
+    author: p.created_by ? (profiles.get(p.created_by) ?? null) : null,
+    mentioned: p.mentioned_user_id ? (profiles.get(p.mentioned_user_id) ?? null) : null,
+  }));
 }
 
 export async function postDiscussionUpdate(input: {
@@ -70,6 +85,8 @@ export async function postDiscussionUpdate(input: {
   body: string;
   personInChargeId?: string | null;
   personInChargeNote?: string | null;
+  mentionedUserId?: string | null;
+  mentionPurpose?: MentionPurpose | null;
 }) {
   const created_by = await currentUserId();
   const { data, error } = await supabase
@@ -79,13 +96,39 @@ export async function postDiscussionUpdate(input: {
       body: input.body,
       person_in_charge_id: input.personInChargeId ?? null,
       person_in_charge_note: input.personInChargeNote ?? null,
+      mentioned_user_id: input.mentionedUserId ?? null,
+      mention_purpose: input.mentionPurpose ?? null,
       created_by,
     })
     .select()
     .single();
   if (error) throw error;
   await audit("discussion.posted", "opportunity", input.opportunityId, { id: data.id });
+
+  if (input.mentionedUserId && input.mentionPurpose) {
+    await supabase.from("approvals").insert({
+      related_opportunity_id: input.opportunityId,
+      approval_type: `discussion_${input.mentionPurpose}`,
+      status: "pending",
+      requested_by: created_by,
+      assigned_approver: input.mentionedUserId,
+      linked_record_type: "opportunity_discussion",
+      linked_record_id: data.id,
+      requested_payload: { discussion_id: data.id, body_preview: input.body.slice(0, 200) } as never,
+    });
+  }
+
   return data;
+}
+
+export async function updateDiscussionPost(id: Uuid, body: string) {
+  const { error } = await supabase.from("opportunity_discussions").update({ body } as never).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteDiscussionPost(id: Uuid) {
+  const { error } = await supabase.from("opportunity_discussions").delete().eq("id", id);
+  if (error) throw error;
 }
 
 /* ---------------- Assignment (single source of truth) ---------------- */
@@ -284,4 +327,75 @@ export async function updateContract(
   if (error) throw error;
   await audit("contract.updated", "opportunity", opportunityId, { id: contractId });
   return data as unknown as ContractRecord;
+}
+
+/* ---------------- Client Details (editable, CRM-linked) ------------------- */
+// Writes back to the real CRM records instead of just displaying derived
+// data: the contact goes into `stakeholders` (create the opportunity's
+// primary stakeholder if none exists yet, else update it), the company
+// name finds-or-creates a `companies` row and links opportunities.company_id
+// (mirrors the find-or-create pattern already used by
+// createRfqWithOpportunity in rfq-actions.ts), and location writes directly
+// to opportunities.location (not server-guarded — only stage/sales_stage
+// are protected by protect_commercial_stage()).
+
+export async function upsertClientDetails(input: {
+  opportunityId: Uuid;
+  existingStakeholderId?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  companyName?: string | null;
+  location?: string | null;
+}) {
+  // 1. Stakeholder (contact person) — update in place if one already exists
+  // for this opportunity, else create it.
+  if (input.contactName && input.contactName.trim()) {
+    const contactPatch = {
+      name: input.contactName.trim(),
+      phone: input.contactPhone?.trim() || null,
+      email: input.contactEmail?.trim() || null,
+    };
+    if (input.existingStakeholderId) {
+      const { error } = await supabase
+        .from("stakeholders")
+        .update(contactPatch as never)
+        .eq("id", input.existingStakeholderId);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from("stakeholders")
+        .insert({ opportunity_id: input.opportunityId, ...contactPatch } as never);
+      if (error) throw error;
+    }
+  }
+
+  // 2. Company — find or create by name, link opportunities.company_id.
+  let companyId: string | undefined;
+  if (input.companyName && input.companyName.trim()) {
+    const name = input.companyName.trim();
+    const existing = await supabase.from("companies").select("id").ilike("name", name).maybeSingle();
+    if (existing.data) {
+      companyId = existing.data.id;
+    } else {
+      const { data: newCo, error: coErr } = await supabase
+        .from("companies")
+        .insert({ name, company_type: "target_account" } as never)
+        .select("id")
+        .single();
+      if (coErr) throw coErr;
+      companyId = newCo.id;
+    }
+  }
+
+  // 3. Opportunity fields (location + company link).
+  const oppPatch: Record<string, unknown> = {};
+  if (input.location !== undefined) oppPatch.location = input.location?.trim() || null;
+  if (companyId) oppPatch.company_id = companyId;
+  if (Object.keys(oppPatch).length > 0) {
+    const { error } = await supabase.from("opportunities").update(oppPatch as never).eq("id", input.opportunityId);
+    if (error) throw error;
+  }
+
+  await audit("client_details.updated", "opportunity", input.opportunityId, input);
 }
