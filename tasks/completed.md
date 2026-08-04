@@ -2,6 +2,10 @@
 
 > المهام المكتملة تُنقل إلى هنا (لا تُحذف). الأحدث في الأعلى.
 
+## 2026-08-04 — اختبار شامل بالمتصفح الحقيقي لكل النظام (/qa)
+- الناتج: 4 مشاكل حقيقية أُصلحت — (1) `ai-orchestrator` كان معطَّلاً بالكامل بالتطوير المحلي (خلل استيراد `zod`، لا علاقة بالإنتاج)، (2) رسائل خطأ AI عامة غير مفيدة بسبب عدم استخدام `runAiAgent()` الموجودة أصلًا — رُحِّلت 9 نقاط استدعاء، (3) تحذير وصولية بكل `ActionDialog` بلا وصف، (4) تسمية "CRM" قديمة بصفحة Projects. فُحص واستُبعد: تحذير hydration (أداة تطوير TanStack فقط)، وخلل Kanban ظاهري (خطأ بسكربت الاختبار لا بالتطبيق).
+- PR: #165 · مدموج (`49eda92`) · لا migrations · Cloudflare Worker منشور (لا تغيير بكود Edge Functions). تفاصيل كاملة في `docs/AI_HANDOFF.md`.
+
 ## 2026-08-04 — توسيع تغطية AI عبر النظام (فحص + تنفيذ)
 - الناتج: إصلاح خللين حقيقيين مكتشَفين (Draft Follow-up، Scan Pipeline — كلاهما كان معطَّلاً منذ الإطلاق بسبب شكل طلب خاطئ)، 4 وكلاء AI جدد (`project_job_notes`، `project_budget_variance`، `commercial_risk_assessment` يغطي RFQ/Tender/Quotation/Accounts، `sales_report_insights`)، توحيد عرض KPIs في Agent Activity. كل صفحة رئيسية بالنظام لديها الآن نقطة تماس AI واحدة على الأقل (18 وكيل إجمالاً).
 - PR: #163 · مدموج (`1f15bd8`) · لا migrations · Cloudflare Worker + Edge Functions (`ai-orchestrator` v27، `sales-os-api` v40) منشورة فعليًا. تفاصيل كاملة في `docs/AI_HANDOFF.md` وَ`docs/ai-orchestrator.md`.
