@@ -168,61 +168,6 @@ export async function createRfqWithOpportunity(input: {
   return { opportunityId: opp.id, rfqId: rfq.id, companyId, contactId };
 }
 
-/**
- * "New Request" JIH quick-create (2026-08-03 client request: a new JIH
- * request must be immediately visible in the Opportunities list, not
- * invisible until a later manual/gated conversion step — that gated step,
- * convert_rfq_to_jih, is a different, later-lifecycle action for RFQs that
- * arrived through other channels without an opportunity yet). Creates the
- * opportunity first (flow_type "direct_rfq", matching the existing enum
- * value already reserved for exactly this case), then the RFQ, then links
- * them both ways.
- */
-export async function createJihRequestWithOpportunity(input: {
-  companyId: string | null;
-  projectId: string | null;
-  responseDueDate: string | null;
-}) {
-  const uid = await currentUserId();
-
-  let projectName = "New JIH Request";
-  if (input.projectId) {
-    const { data: proj } = await supabase.from("projects").select("name").eq("id", input.projectId).maybeSingle();
-    if (proj?.name) projectName = proj.name;
-  } else if (input.companyId) {
-    const { data: co } = await supabase.from("companies").select("name").eq("id", input.companyId).maybeSingle();
-    if (co?.name) projectName = `${co.name} — JIH`;
-  }
-
-  const { data: opp, error: oppErr } = await supabase
-    .from("opportunities")
-    .insert({
-      project_name: projectName,
-      stage: "discovery",
-      sales_stage: "rfq_received",
-      company_id: input.companyId,
-      project_id: input.projectId,
-      owner_id: uid,
-      flow_type: "direct_rfq",
-    })
-    .select("id")
-    .single();
-  if (oppErr) throw oppErr;
-
-  const rfq = await createRfq({
-    companyId: input.companyId,
-    projectId: input.projectId,
-    classification: "jih",
-    responseDueDate: input.responseDueDate,
-    claimOwner: true,
-  });
-
-  const { error: linkErr } = await supabase.from("rfqs").update({ opportunity_id: opp.id } as never).eq("id", rfq.id);
-  if (linkErr) throw linkErr;
-
-  return { opportunityId: opp.id as string, rfqId: rfq.id as string };
-}
-
 /** Dedup check: find a contact by phone number. */
 export async function findContactByPhone(phone: string) {
   if (!phone.trim()) return null;
