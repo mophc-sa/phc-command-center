@@ -208,9 +208,10 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
   async function handleDraftFollowUp(followUpId: string, opportunityId: string, channel: string | null) {
     setDraftFuId(followUpId); setDraftLoading(true);
     try {
-      const res = await supabase.functions.invoke("ai-orchestrator", { body: { agentKey: "smart_followup_draft", entityType: "opportunity", entityId: opportunityId, input: { follow_up_id: followUpId, channel: normalizeFollowUpChannel(channel) } } });
+      const res = await supabase.functions.invoke("ai-orchestrator", { body: { agent: "smart_followup_draft", entityType: "opportunities", entityId: opportunityId, input: { follow_up_id: followUpId, channel: normalizeFollowUpChannel(channel) } } });
       if (res.error) throw new Error(String(res.error));
-      const draft = res.data?.result?.draft_text ?? res.data?.result?.body ?? JSON.stringify(res.data?.result ?? {}, null, 2);
+      if (res.data?.ok === false) throw new Error(res.data?.message || res.data?.code || "AI_NOT_CONFIGURED");
+      const draft = res.data?.result?.message ?? JSON.stringify(res.data?.result ?? {}, null, 2);
       setDraftContent(typeof draft === "string" ? draft : JSON.stringify(draft, null, 2));
       setDraftOpen(true);
     } catch (e: any) { toast.error((lang === "ar" ? "تعذّر إنشاء المسودة: " : "Draft failed: ") + e.message); }
@@ -727,9 +728,10 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
   const handleDraftFollowUp = async (followUpId: string, opportunityId: string, channel: string | null) => {
     setDraftFuId(followUpId); setDraftLoading(true);
     try {
-      const res = await supabase.functions.invoke("ai-orchestrator", { body: { agentKey: "smart_followup_draft", entityType: "opportunity", entityId: opportunityId, input: { follow_up_id: followUpId, channel: normalizeFollowUpChannel(channel) } } });
+      const res = await supabase.functions.invoke("ai-orchestrator", { body: { agent: "smart_followup_draft", entityType: "opportunities", entityId: opportunityId, input: { follow_up_id: followUpId, channel: normalizeFollowUpChannel(channel) } } });
       if (res.error) throw new Error(String(res.error));
-      const draft = res.data?.result?.draft_text ?? res.data?.result?.body ?? JSON.stringify(res.data?.result ?? {}, null, 2);
+      if (res.data?.ok === false) throw new Error(res.data?.message || res.data?.code || "AI_NOT_CONFIGURED");
+      const draft = res.data?.result?.message ?? JSON.stringify(res.data?.result ?? {}, null, 2);
       setDraftContent(typeof draft === "string" ? draft : JSON.stringify(draft, null, 2));
       setDraftOpen(true);
     } catch (e: any) { toast.error((lang === "ar" ? "تعذّر إنشاء المسودة: " : "Draft failed: ") + e.message); }
