@@ -33,6 +33,7 @@ import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 import { BafoPanel } from "@/components/phc/BafoPanel";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
+import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
@@ -195,11 +196,9 @@ function OpportunityDetail() {
     setRiskRunning(true);
     setRiskError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("ai-orchestrator", {
-        body: { agent: "risk_finance", entityType: "opportunities", entityId: id },
-      });
-      if (error || !data?.ok) throw new Error(data?.message ?? error?.message ?? "Failed");
-      setRiskResult(data.result);
+      const result = await runAiAgent({ agent: "risk_finance", entityType: "opportunities", entityId: id });
+      if (!result.ok) throw new Error(result.message);
+      setRiskResult(result.result);
       qc.invalidateQueries({ queryKey: ["ai-output", id, "risk_finance"] });
     } catch (e: any) {
       setRiskError(e.message);
@@ -212,11 +211,9 @@ function OpportunityDetail() {
     setEvalRunning(true);
     setEvalError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("ai-orchestrator", {
-        body: { agent: "opportunity_evaluation", entityType: "opportunities", entityId: id },
-      });
-      if (error || !data?.ok) throw new Error(data?.message ?? error?.message ?? "Failed");
-      setEvalResult(data.result);
+      const result = await runAiAgent({ agent: "opportunity_evaluation", entityType: "opportunities", entityId: id });
+      if (!result.ok) throw new Error(result.message);
+      setEvalResult(result.result);
       qc.invalidateQueries({ queryKey: ["ai-output", id, "opportunity_evaluation"] });
     } catch (e: any) {
       setEvalError(e.message);

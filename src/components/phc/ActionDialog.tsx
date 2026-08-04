@@ -127,7 +127,16 @@ export function ActionDialog({
       <DialogContent dir={dir} className={cn("flex flex-col", isWide ? "sm:max-w-2xl" : "sm:max-w-md")}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          {description ? <DialogDescription>{description}</DialogDescription> : null}
+          {description ? (
+            <DialogDescription>{description}</DialogDescription>
+          ) : (
+            // Radix requires DialogContent to have an aria-describedby target;
+            // most callers here don't pass a visible description, so this
+            // sr-only fallback keeps every dialog accessible without adding
+            // visible copy (found via /qa: every ActionDialog without a
+            // description prop was logging a Radix a11y warning on open).
+            <DialogDescription className="sr-only">{title}</DialogDescription>
+          )}
         </DialogHeader>
         <div className={cn("grid gap-4 overflow-y-auto py-2", isWide && "sm:grid-cols-2 max-h-[55vh] pe-1")}>
           {fields.map((f) => (

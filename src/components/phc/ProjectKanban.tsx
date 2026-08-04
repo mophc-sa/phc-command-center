@@ -19,11 +19,11 @@ import { CSS } from "@dnd-kit/utilities";
 import { Plus, X, Pencil, Trash2, GripVertical, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canReviewAiOutput } from "@/lib/roles";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
+import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import {
   listJobStages,
@@ -455,10 +455,8 @@ function AiJobNotesPanel({
     setRunning(true);
     setError(null);
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke("ai-orchestrator", {
-        body: { agent: "project_job_notes", entityType: "project_jobs", entityId: job.id },
-      });
-      if (invokeError || !data?.ok) throw new Error(data?.message ?? invokeError?.message ?? "Failed");
+      const result = await runAiAgent({ agent: "project_job_notes", entityType: "project_jobs", entityId: job.id });
+      if (!result.ok) throw new Error(result.message);
       outputQ.refetch();
     } catch (e: any) {
       setError(e.message);
