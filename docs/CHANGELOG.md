@@ -7,9 +7,21 @@
 ### Added
 - نظام AI Handoff (docs/ + tasks/ + prompts/) لحفظ ذاكرة المشروع عبر الجلسات.
 ### Changed
--
+- (PR #161، مفتوح) حذف زر "طلب جديد" من صندوق الاستقبال — "إدخال جديد" فقط الآن.
 ### Fixed
 -
+
+---
+
+## 2026-08-03/04 — لوحة مشاريع Production + نقلها لقسم الإنتاج (PR #160)
+تفاصيل كاملة في `docs/AI_HANDOFF.md`. `project_number` تلقائي للمشاريع والاستقبال، صورة غلاف، Job Pipeline (Kanban مرن)، Budget، نقل المشاريع لقسم "الإنتاج" مع ربط تلقائي عبر trigger عند فوز الفرصة، Discussion قابل للتعديل/الحذف + منشن، Client Details قابل للتعديل، إصلاح خلل توجيه `/projects/$id`.
+### Added
+- `projects.project_number`, `inbox_items.project_number` (تلقائي)، `project_job_stages`/`project_jobs` (Kanban)، `project_budget_items`، `navgroup_production`، منشن على Discussion.
+### Changed
+- المشاريع نُقلت من قسم المبيعات إلى قسم الإنتاج بالتنقّل.
+- Discussion على الفرص أصبح قابلاً للتعديل/الحذف (كان سجلاً غير قابل للتغيير).
+### Fixed
+- `/projects/$id` كانت غير قابلة للوصول إطلاقًا (خلل توجيه TanStack Router سابق).
 
 ---
 
