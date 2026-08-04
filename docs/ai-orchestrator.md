@@ -133,15 +133,15 @@ hardcoded again.
 
 ### Later agents (added in subsequent sprints, not yet given the full matrix treatment above)
 
-`AGENT_REGISTRY` grew to 17 total agents. The table above only covers the
-original 3. The remaining 14, quick reference only (see
+`AGENT_REGISTRY` grew to 18 total agents. The table above only covers the
+original 3. The remaining 15, quick reference only (see
 `ai-agent-registry.ts` for the full definition of each):
 
 | Agent | Purpose | Wired into a UI? |
 |---|---|---|
 | `data_cleanup` | Suggests field corrections + duplicate groupings for an import batch, with a data-quality score | Yes — "Data Quality & Contact Mapping" section, `data-import.$batchId.tsx` (fixed 2026-07-28, PR #148 — was dead wiring before that). |
 | `contact_mapping` | Classifies import rows by entity type and proposes contact↔company links within a batch | Yes — same section as `data_cleanup`. |
-| `project_radar` | Pipeline-wide health scan (risk alerts across all open opportunities) | Yes — `agent-activity.tsx`'s "Scan Pipeline" button. |
+| `project_radar` | Pipeline-wide health scan (risk alerts across all open opportunities) | Yes — `agent-activity.tsx`'s "Scan Pipeline" button. Was silently broken since it shipped (`entityId: "pipeline"` against a uuid-typed column / `.uuid()`-enforced schema — see "Sentinel entity IDs" below); fixed 2026-08-04. |
 | `risk_finance` | Per-opportunity financial/risk assessment | Yes — `opportunities.$id.tsx`. |
 | `workbook_classifier` | Detects the uploaded file's source kind and primary target entity | Yes — drives the one-click auto-import flow in `data-import.index.tsx`. |
 | `sheet_classifier` | Classifies an individual sheet within a multi-sheet workbook | Yes — AI Assist panel, `data-import.$batchId.tsx`. |
@@ -151,16 +151,32 @@ original 3. The remaining 14, quick reference only (see
 | `change_interpreter` | Interprets a re-uploaded/updated source file's differences against a previously-committed batch | Yes — "Recurring Import Changes" panel. |
 | `import_routing_reviewer` | Final AI sanity check of a batch's routing/candidates before commit | Yes — "Final AI Review" panel. |
 | `smart_followup_draft` | Drafts a follow-up message (email/WhatsApp/internal note) for a linked record | Yes — My Workspace's "Draft Follow-up" action. Was silently broken 2026-07-28 → 2026-08-04 (wrong request shape: `agentKey` instead of `agent`, singular `"opportunity"` instead of the enum's `"opportunities"` — `.strict()` rejected every call) in both dashboard variants; fixed 2026-08-04. |
-| `rfq_tender_risk` | Single-RFQ/tender financial risk assessment (2026-08-04) — reuses `risk_finance`'s exact output shape | Yes — `AiRiskAssessment` component, embedded in the RFQ details dialog (`RfqJihPanel.tsx`) and a new per-row dialog on `tenders.tsx`. |
+| `commercial_risk_assessment` | Single-record commercial risk assessment (2026-08-04, originally shipped same day as `rfq_tender_risk`, renamed+widened hours later pre-merge) — reuses `risk_finance`'s output shape for RFQs/tenders/quotations ("deal risk"), and a distinct context-loader branch for companies/accounts ("relationship risk": no recent contact, no open opportunities despite an active relationship, missing next_action) | Yes — `AiRiskAssessment` component: RFQ details dialog (`RfqJihPanel.tsx`), per-row dialog on `tenders.tsx` and `QuotationsPanel.tsx`, inline panel on `accounts.$id.tsx`. |
 | `project_job_notes` | Drafts an operational note + risk flags + next steps for a single Job Pipeline card (2026-08-04) | Yes — sparkle button on each `ProjectKanban.tsx` card; "Apply as note" copies `suggested_notes` into `project_jobs.ai_notes` as an explicit human-triggered write (never automatic). |
 | `project_budget_variance` | Planned-vs-actual narrative analysis across a project's budget line items (2026-08-04) | Yes — `BudgetVariancePanel`, `ProjectBudget.tsx`. |
+| `sales_report_insights` | Narrative summary of the Reports dashboard's own aggregates (win rate, pipeline by stage, quotation funnel, lost reasons) — mirrors reports.tsx's client-side math exactly, including the same win-rate formula as `computeQuotationWinRatePct` (2026-08-04) | Yes — `SalesReportInsightsPanel`, `reports.tsx`. |
 
-**Coverage gaps remaining as of 2026-08-04** (page-level, not agent-level —
-every registered agent now has a UI entry point): RFQ/Tender/Quotation
-pages beyond the new risk agent, the Reports/Dashboard pages, and the
-Accounts pages have no AI touchpoint at all. `rfq_tender_risk` intentionally
-covers only RFQs/tenders, not quotations — a natural next extension if
-wanted.
+**Page coverage as of 2026-08-04**: every core sales/production page now has
+at least one AI touchpoint. `data-import.$batchId.tsx` alone carries 9 of
+the 18 agents.
+
+### Sentinel entity IDs (pipeline-wide / no-single-record agents)
+
+`project_radar` and `sales_report_insights` have no single record to
+reference — `entityType` is a sentinel (`"pipeline"` / `"reports"`, not a
+real table) and so is `entityId`. Both `ai_agent_outputs.entity_id` and
+`ai_agent_trace_events.entity_id` are `uuid` columns, and
+`OrchestratorRequestSchema.entityId` enforces `z.string().uuid()` — so a
+placeholder string like `"pipeline"` is **not** a valid value; it fails
+request validation before the call ever reaches the registry
+(`AI_INPUT_INVALID`, "Request did not match the required shape"). This was
+exactly `project_radar`'s bug from launch until 2026-08-04. The fix used
+here (and required for any future sentinel-style agent) is the nil UUID,
+`00000000-0000-0000-0000-000000000000`, as an explicit "no specific entity"
+value — valid UUID format, so it passes both the Zod schema and the `uuid`
+columns; the corresponding context loaders (`loadProjectRadarContext`,
+`loadSalesReportInsightsContext`) already ignore their `entityId` parameter
+entirely, so the sentinel value is never actually used to look anything up.
 
 ### Entity/context loaders
 
@@ -586,13 +602,13 @@ as every other `sales-os-api` action — never a direct client-side `UPDATE`
 `status`/`reviewed_by`/`reviewed_at`/`review_decision`, gated by
 `canReviewAiOutput` and an `agent_key IN (...)` allowlist
 (`REVIEWABLE_AGENT_KEYS`, mirrored — unimportable — on the frontend in
-`src/lib/ai-review-actions.ts`). As of 2026-08-04 that allowlist covers 7 of
-the 17 agents: `opportunity_evaluation`, `smart_followup_draft`,
-`project_radar`, `risk_finance`, `rfq_tender_risk`, `project_job_notes`,
-`project_budget_variance` — the other 10 (import-pipeline agents) are
-deliberately excluded from this allowlist; they have their own dedicated
-commit/review flow against separate tables in `data-import.$batchId.tsx`
-instead.
+`src/lib/ai-review-actions.ts`). As of 2026-08-04 that allowlist covers 8 of
+the 18 agents: `opportunity_evaluation`, `smart_followup_draft`,
+`project_radar`, `risk_finance`, `commercial_risk_assessment`,
+`project_job_notes`, `project_budget_variance`, `sales_report_insights` —
+the other 10 (import-pipeline agents) are deliberately excluded from this
+allowlist; they have their own dedicated commit/review flow against
+separate tables in `data-import.$batchId.tsx` instead.
 
 `agent-activity.tsx`'s "AI Outputs" tab is the global review surface (list +
 accept/reject for any of the 7 above); several detail pages also embed an
