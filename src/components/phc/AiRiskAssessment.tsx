@@ -1,8 +1,8 @@
 // Generic "run + review" risk-assessment panel for any single-record risk
 // agent that shares risk_finance's output shape (risk_score/risk_level/
-// risk_factors/mitigations) — introduced for rfq_tender_risk (2026-08-04)
+// risk_factors/mitigations) — introduced for commercial_risk_assessment (2026-08-04)
 // but written entity-agnostic so any future agent using the same output
-// schema (see RfqTenderRiskOutputSchema = RiskFinanceOutputSchema in
+// schema (see CommercialRiskOutputSchema = RiskFinanceOutputSchema in
 // _shared/ai-schemas.ts) can reuse it instead of a fourth near-identical
 // inline block. opportunities.$id.tsx's risk_finance panel predates this
 // and is left as-is (working code, not worth the churn to migrate).
@@ -35,9 +35,9 @@ export function AiRiskAssessment({
   agentKey,
   title,
 }: {
-  entityType: "rfqs" | "tenders";
+  entityType: "rfqs" | "tenders" | "quotations" | "companies";
   entityId: string;
-  agentKey: "rfq_tender_risk";
+  agentKey: "commercial_risk_assessment";
   title: string;
 }) {
   const { t, lang } = useI18n();

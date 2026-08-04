@@ -383,7 +383,7 @@ export function RfqJihPanel() {
               <AiRiskAssessment
                 entityType="rfqs"
                 entityId={detailsRfq.id}
-                agentKey="rfq_tender_risk"
+                agentKey="commercial_risk_assessment"
                 title={lang === "ar" ? "تقييم المخاطر" : "Risk Assessment"}
               />
             </div>

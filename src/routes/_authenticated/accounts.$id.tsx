@@ -18,6 +18,7 @@ import { canAssignOwner, canManageSalesPipeline } from "@/lib/roles";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { ArchivedBadge, RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
+import { AiRiskAssessment } from "@/components/phc/AiRiskAssessment";
 
 export const Route = createFileRoute("/_authenticated/accounts/$id")({
   head: () => ({ meta: [{ title: "Account — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -183,6 +184,13 @@ function AccountDetail() {
           </div>
         ) : null}
       </Panel>
+
+      <AiRiskAssessment
+        entityType="companies"
+        entityId={id}
+        agentKey="commercial_risk_assessment"
+        title={lang === "ar" ? "تقييم صحة العلاقة (AI)" : "Relationship Health (AI)"}
+      />
 
       {/* Extra data from import — dynamic columns preserved from uploaded files */}
       {c.extra_data && Object.keys(c.extra_data).length > 0 ? (

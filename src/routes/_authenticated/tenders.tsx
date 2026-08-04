@@ -421,7 +421,7 @@ function TenderMonitor() {
             <AiRiskAssessment
               entityType="tenders"
               entityId={riskTender.id}
-              agentKey="rfq_tender_risk"
+              agentKey="commercial_risk_assessment"
               title={lang === "ar" ? "تقييم المخاطر" : "Risk Assessment"}
             />
           ) : null}

@@ -15,9 +15,10 @@ const REVIEWABLE_AGENT_KEYS = new Set([
   "project_radar",
   "risk_finance",
   // 2026-08-04 AI coverage expansion.
-  "rfq_tender_risk",
+  "commercial_risk_assessment",
   "project_job_notes",
   "project_budget_variance",
+  "sales_report_insights",
 ]);
 
 // Records a human decision on an ai_agent_outputs row. Pure audit trail —

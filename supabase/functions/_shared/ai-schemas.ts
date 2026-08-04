@@ -36,9 +36,10 @@ export const AGENT_KEYS = [
   "import_routing_reviewer",
   // 2026-08-04 AI coverage expansion — RFQ/Tender risk, Production job notes,
   // Budget variance.
-  "rfq_tender_risk",
+  "commercial_risk_assessment",
   "project_job_notes",
   "project_budget_variance",
+  "sales_report_insights",
 ] as const;
 export type AgentKey = (typeof AGENT_KEYS)[number];
 
@@ -59,6 +60,9 @@ export const ENTITY_TYPES = [
   "pipeline",
   "projects",
   "project_jobs",
+  // Sentinel, like "pipeline" — sales_report_insights has no single record,
+  // it summarizes the Reports dashboard's aggregate view.
+  "reports",
 ] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
 
@@ -404,13 +408,14 @@ export const RiskFinanceOutputSchema = z
   .strict();
 export type RiskFinanceOutput = z.infer<typeof RiskFinanceOutputSchema>;
 
-// rfq_tender_risk (2026-08-04) intentionally reuses this exact shape — same
-// risk_score/risk_level/risk_factors/mitigations model applied to a single
-// RFQ or tender instead of an opportunity. Kept as one schema (not a
-// duplicate near-identical type) so the same review-card UI component can
-// render either agent's output unchanged.
-export const RfqTenderRiskOutputSchema = RiskFinanceOutputSchema;
-export type RfqTenderRiskOutput = RiskFinanceOutput;
+// commercial_risk_assessment (2026-08-04, widened to quotations/companies
+// same day) intentionally reuses this exact shape — same risk_score/
+// risk_level/risk_factors/mitigations model applied to a single RFQ,
+// tender, quotation, or company/account instead of an opportunity. Kept as
+// one schema (not four near-identical types) so the same AiRiskAssessment
+// UI component can render any of them unchanged.
+export const CommercialRiskOutputSchema = RiskFinanceOutputSchema;
+export type CommercialRiskOutput = RiskFinanceOutput;
 
 // ---------------------------------------------------------------------------
 // project_job_notes (2026-08-04) — single Job Pipeline card (project_jobs
@@ -473,6 +478,25 @@ export const BudgetVarianceOutputSchema = z
   })
   .strict();
 export type BudgetVarianceOutput = z.infer<typeof BudgetVarianceOutputSchema>;
+
+// ---------------------------------------------------------------------------
+// sales_report_insights (2026-08-04) — narrative summary of the Reports
+// dashboard's aggregate view (win rate, pipeline by stage, quotation funnel,
+// lost reasons). Sentinel entityType "reports", like project_radar's
+// "pipeline" — no single record to reference.
+// ---------------------------------------------------------------------------
+
+export const SalesReportInsightsOutputSchema = z
+  .object({
+    headline: z.string().min(1).max(300),
+    key_insights: z.array(z.string().min(1).max(400)).max(20),
+    risks: z.array(z.string().min(1).max(400)).max(20),
+    recommended_actions: z.array(z.string().min(1).max(300)).max(20),
+    confidence: z.number().min(0).max(1),
+    disclaimer: z.string().min(1).max(500),
+  })
+  .strict();
+export type SalesReportInsightsOutput = z.infer<typeof SalesReportInsightsOutputSchema>;
 
 // ---------------------------------------------------------------------------
 // Import Intelligence v2 — 7 classification pipeline agents
@@ -654,9 +678,10 @@ export const AGENT_OUTPUT_SCHEMAS = {
   relationship_resolver: RelationshipResolverOutputSchema,
   change_interpreter: ChangeInterpreterOutputSchema,
   import_routing_reviewer: ImportRoutingReviewerOutputSchema,
-  rfq_tender_risk: RfqTenderRiskOutputSchema,
+  commercial_risk_assessment: CommercialRiskOutputSchema,
   project_job_notes: ProjectJobNotesOutputSchema,
   project_budget_variance: BudgetVarianceOutputSchema,
+  sales_report_insights: SalesReportInsightsOutputSchema,
 } as const satisfies Record<AgentKey, z.ZodType>;
 
 export const AGENT_OUTPUT_TYPES = {
@@ -674,9 +699,10 @@ export const AGENT_OUTPUT_TYPES = {
   relationship_resolver: "staged_classification",
   change_interpreter: "recommendation",
   import_routing_reviewer: "recommendation",
-  rfq_tender_risk: "recommendation",
+  commercial_risk_assessment: "recommendation",
   project_job_notes: "recommendation",
   project_budget_variance: "recommendation",
+  sales_report_insights: "recommendation",
 } as const satisfies Record<AgentKey, OutputType>;
 
 // ---------------------------------------------------------------------------
