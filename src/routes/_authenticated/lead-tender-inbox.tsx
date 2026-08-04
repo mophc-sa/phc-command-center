@@ -13,6 +13,7 @@ import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { listTeamMembers } from "@/lib/opportunity-actions";
+import { createProject, createCompany } from "@/lib/crm-actions";
 import {
   createInboxItem, classifyInboxItem, checkInboxDuplicates,
   convertInboxToCompany, convertInboxToContact, convertInboxToProject,
@@ -103,6 +104,10 @@ function LeadTenderInbox() {
   const [duplicates, setDuplicates] = useState<DuplicateCandidate[]>([]);
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [markDupCandidates, setMarkDupCandidates] = useState<DuplicateCandidate[]>([]);
+  // Inline "add new" resolvers for the RFQ convert dialog's Project/Company
+  // pickers — same pattern as contacts.tsx's company picker.
+  const [creatingProjectFor, setCreatingProjectFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
+  const [creatingCompanyFor, setCreatingCompanyFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
 
   const { data: items = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["inbox-items"],
@@ -347,8 +352,18 @@ function LeadTenderInbox() {
             { key: "totalValue", type: "text", label: t("ibx_estimated_value"), defaultValue: convertFor.estimated_value != null ? String(convertFor.estimated_value) : "" },
           ] :
           convertFor.classification === "rfq" ? [
-            { key: "projectId", type: "select", label: t("label_project"), options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))] },
-            { key: "companyId", type: "select", label: t("ibx_company_name"), options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
+            {
+              key: "projectId", type: "select", label: t("label_project"),
+              options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))],
+              createLabel: t("wf_add_new_project"),
+              onCreateNew: () => new Promise((resolve) => setCreatingProjectFor(() => resolve)),
+            },
+            {
+              key: "companyId", type: "select", label: t("ibx_company_name"),
+              options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))],
+              createLabel: t("wf_add_new_company"),
+              onCreateNew: () => new Promise((resolve) => setCreatingCompanyFor(() => resolve)),
+            },
             { key: "responseDueDate", type: "date", label: t("ibx_deadline"), defaultValue: convertFor.deadline ?? "" },
             { key: "estimatedValue", type: "text", label: t("ibx_estimated_value"), defaultValue: convertFor.estimated_value != null ? String(convertFor.estimated_value) : "" },
           ] :
@@ -402,6 +417,50 @@ function LeadTenderInbox() {
             toast.success(t("crm_saved"));
             refresh();
           } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+        }}
+      />
+
+      {/* Inline "add new project" from the RFQ convert dialog's Project picker */}
+      <ActionDialog
+        open={!!creatingProjectFor}
+        onOpenChange={(o) => { if (!o) { creatingProjectFor?.(null); setCreatingProjectFor(null); } }}
+        title={t("wf_add_new_project")}
+        submitLabel={t("crm_add")}
+        fields={[{ key: "name", type: "text", label: t("label_project"), required: true }]}
+        onSubmit={async (v) => {
+          try {
+            const project = await createProject({ name: v.name });
+            creatingProjectFor?.({ value: project.id, label: project.name });
+            setCreatingProjectFor(null);
+            qc.invalidateQueries({ queryKey: ["projects-min"] });
+          } catch (e) {
+            // Resolve with null so the select doesn't stay stuck disabled
+            // waiting on a promise that would otherwise never settle.
+            creatingProjectFor?.(null);
+            setCreatingProjectFor(null);
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
+
+      {/* Inline "add new company" from the RFQ convert dialog's Company picker */}
+      <ActionDialog
+        open={!!creatingCompanyFor}
+        onOpenChange={(o) => { if (!o) { creatingCompanyFor?.(null); setCreatingCompanyFor(null); } }}
+        title={t("wf_add_new_company")}
+        submitLabel={t("crm_add")}
+        fields={[{ key: "name", type: "text", label: t("ibx_company_name"), required: true }]}
+        onSubmit={async (v) => {
+          try {
+            const company = await createCompany({ name: v.name, companyType: "target_account", claimOwner: true });
+            creatingCompanyFor?.({ value: company.id, label: company.name });
+            setCreatingCompanyFor(null);
+            qc.invalidateQueries({ queryKey: ["companies-min"] });
+          } catch (e) {
+            creatingCompanyFor?.(null);
+            setCreatingCompanyFor(null);
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
         }}
       />
 
