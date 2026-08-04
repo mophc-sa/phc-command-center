@@ -16,9 +16,14 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, X, Pencil, Trash2, GripVertical } from "lucide-react";
+import { Plus, X, Pencil, Trash2, GripVertical, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canReviewAiOutput } from "@/lib/roles";
+import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import {
   listJobStages,
@@ -31,6 +36,7 @@ import {
   deleteJob,
   moveJob,
   reorderJobs,
+  applyJobAiNotes,
   type ProjectJob,
   type ProjectJobStage,
 } from "@/lib/project-jobs-actions";
@@ -70,6 +76,7 @@ export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEd
   const [addJobFor, setAddJobFor] = useState<string | null>(null);
   const [editJob, setEditJob] = useState<ProjectJob | null>(null);
   const [renamingStage, setRenamingStage] = useState<ProjectJobStage | null>(null);
+  const [aiJobFor, setAiJobFor] = useState<ProjectJob | null>(null);
 
   function findContainer(jobId: string): string | null {
     return Object.keys(columns).find((stageId) => columns[stageId].some((j) => j.id === jobId)) ?? null;
@@ -171,6 +178,7 @@ export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEd
               onAddJob={() => setAddJobFor(stage.id)}
               onEditJob={setEditJob}
               onDeleteJob={handleDeleteJob}
+              onAiAssist={setAiJobFor}
               onRenameStage={() => setRenamingStage(stage)}
               onDeleteStage={() => handleDeleteStage(stage)}
             />
@@ -259,6 +267,7 @@ export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEd
             { key: "description", type: "textarea", label: lang === "ar" ? "الوصف" : "Description", defaultValue: editJob.description ?? "" },
             { key: "assigneeId", type: "select", label: lang === "ar" ? "المسؤول" : "Assignee", defaultValue: editJob.assignee_id ?? "", options: [{ value: "", label: "—" }, ...teamOptions] },
             { key: "dueDate", type: "date", label: lang === "ar" ? "تاريخ الاستحقاق" : "Due date", defaultValue: editJob.due_date ?? "" },
+            { key: "aiNotes", type: "textarea", label: lang === "ar" ? "ملاحظات (AI)" : "Notes (AI)", defaultValue: editJob.ai_notes ?? "" },
           ]}
           onSubmit={async (v) => {
             await updateJob(editJob.id, {
@@ -266,11 +275,30 @@ export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEd
               description: v.description || null,
               assigneeId: v.assigneeId || null,
               dueDate: v.dueDate || null,
+              aiNotes: v.aiNotes || null,
             });
             setEditJob(null);
             invalidate();
           }}
         />
+      ) : null}
+
+      {aiJobFor ? (
+        <Dialog open={!!aiJobFor} onOpenChange={(o) => !o && setAiJobFor(null)}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{aiJobFor.title}</DialogTitle>
+            </DialogHeader>
+            <AiJobNotesPanel
+              job={aiJobFor}
+              lang={lang}
+              onApplied={() => {
+                setAiJobFor(null);
+                invalidate();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       ) : null}
     </div>
   );
@@ -284,6 +312,7 @@ function KanbanColumn({
   onAddJob,
   onEditJob,
   onDeleteJob,
+  onAiAssist,
   onRenameStage,
   onDeleteStage,
 }: {
@@ -294,6 +323,7 @@ function KanbanColumn({
   onAddJob: () => void;
   onEditJob: (job: ProjectJob) => void;
   onDeleteJob: (job: ProjectJob) => void;
+  onAiAssist: (job: ProjectJob) => void;
   onRenameStage: () => void;
   onDeleteStage: () => void;
 }) {
@@ -319,7 +349,7 @@ function KanbanColumn({
       <div ref={setNodeRef} className={`flex min-h-[80px] flex-1 flex-col gap-2 p-2 transition-colors ${isOver ? "bg-amber/[0.05]" : ""}`}>
         <SortableContext items={jobs.map((j) => j.id)} strategy={verticalListSortingStrategy}>
           {jobs.map((job) => (
-            <JobCard key={job.id} job={job} lang={lang} canEdit={canEdit} onEdit={() => onEditJob(job)} onDelete={() => onDeleteJob(job)} />
+            <JobCard key={job.id} job={job} lang={lang} canEdit={canEdit} onEdit={() => onEditJob(job)} onDelete={() => onDeleteJob(job)} onAiAssist={() => onAiAssist(job)} />
           ))}
         </SortableContext>
         {canEdit ? (
@@ -343,6 +373,7 @@ function JobCard({
   dragging,
   onEdit,
   onDelete,
+  onAiAssist,
 }: {
   job: ProjectJob;
   lang: "en" | "ar";
@@ -350,6 +381,7 @@ function JobCard({
   dragging?: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onAiAssist?: () => void;
 }) {
   const sortable = useSortable({ id: job.id, disabled: !canEdit });
   const style = {
@@ -378,12 +410,181 @@ function JobCard({
             </div>
           ) : null}
         </button>
+        {canEdit && onAiAssist ? (
+          <button type="button" onClick={onAiAssist} className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-amber-light group-hover:opacity-100" aria-label="AI Assist">
+            <Sparkles className="h-3 w-3" />
+          </button>
+        ) : null}
         {canEdit ? (
           <button type="button" onClick={onDelete} className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100" aria-label="Delete">
             <Trash2 className="h-3 w-3" />
           </button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+// project_job_notes AI agent (2026-08-04) — run + review + "Apply as note".
+// Applying is a separate, explicit, human-triggered write (applyJobAiNotes)
+// distinct from Accept/Reject (which only records a review decision on the
+// ai_agent_outputs audit row) — a user can apply a note without formally
+// reviewing it, or review it without applying it to the card.
+function AiJobNotesPanel({
+  job,
+  lang,
+  onApplied,
+}: {
+  job: ProjectJob;
+  lang: "en" | "ar";
+  onApplied: () => void;
+}) {
+  const { roles } = useAuth();
+  const canReview = canReviewAiOutput(roles);
+  const [running, setRunning] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+
+  const outputQ = useQuery({
+    queryKey: ["ai-output", "project_jobs", job.id, "project_job_notes"],
+    queryFn: () => getLatestAgentOutput("project_jobs", job.id, "project_job_notes"),
+  });
+
+  async function handleRun() {
+    setRunning(true);
+    setError(null);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("ai-orchestrator", {
+        body: { agent: "project_job_notes", entityType: "project_jobs", entityId: job.id },
+      });
+      if (invokeError || !data?.ok) throw new Error(data?.message ?? invokeError?.message ?? "Failed");
+      outputQ.refetch();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function handleDecide(output: AiAgentOutputRow, decision: "accepted" | "rejected") {
+    setReviewingId(output.id);
+    try {
+      await reviewAgentOutput({ outputId: output.id, decision });
+      outputQ.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error");
+    } finally {
+      setReviewingId(null);
+    }
+  }
+
+  async function handleApply(notes: string) {
+    setApplying(true);
+    try {
+      await applyJobAiNotes(job.id, notes);
+      toast.success(lang === "ar" ? "تم تطبيق الملاحظة" : "Note applied");
+      onApplied();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error");
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  const output = outputQ.data;
+  const display = output?.structured_output as any;
+
+  return (
+    <div className="space-y-4">
+      <button
+        type="button"
+        onClick={handleRun}
+        disabled={running}
+        className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-[11px] font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+      >
+        <Sparkles className="h-3 w-3" />
+        {running ? (lang === "ar" ? "جارٍ التحليل…" : "Analyzing…") : (lang === "ar" ? "اقتراح ملاحظة" : "Suggest a note")}
+      </button>
+
+      {error && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>
+      )}
+
+      {display && (
+        <div className="space-y-3 text-sm">
+          {display.summary && <div className="text-foreground">{display.summary}</div>}
+          {display.suggested_notes && (
+            <div className="rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap">
+              {display.suggested_notes}
+            </div>
+          )}
+          {display.risk_flags?.length > 0 && (
+            <div>
+              <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "تنبيهات" : "Risk Flags"}</div>
+              <ul className="space-y-1">
+                {display.risk_flags.map((f: string, i: number) => (
+                  <li key={i} className="rounded-md border border-amber/30 bg-amber/10 px-2.5 py-1.5 text-xs text-amber-light">{f}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {display.suggested_next_steps?.length > 0 && (
+            <div>
+              <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "خطوات مقترحة" : "Next Steps"}</div>
+              <ul className="space-y-1">
+                {display.suggested_next_steps.map((s: string, i: number) => (
+                  <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {display.disclaimer && <div className="text-[11px] italic text-muted-foreground">{display.disclaimer}</div>}
+
+          {display.suggested_notes && (
+            <button
+              type="button"
+              disabled={applying}
+              onClick={() => handleApply(display.suggested_notes)}
+              className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-[11px] font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+            >
+              {lang === "ar" ? "تطبيق كملاحظة" : "Apply as note"}
+            </button>
+          )}
+
+          {output && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3 text-xs">
+              <span className="text-muted-foreground">
+                {output.status === "pending_review"
+                  ? (lang === "ar" ? "بانتظار المراجعة" : "Pending review")
+                  : output.status === "accepted"
+                  ? (lang === "ar" ? "تم القبول" : "Accepted")
+                  : (lang === "ar" ? "تم الرفض" : "Rejected")}
+              </span>
+              {output.status === "pending_review" && canReview ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={reviewingId === output.id}
+                    onClick={() => handleDecide(output, "accepted")}
+                    className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-[11px] font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+                  >
+                    {lang === "ar" ? "قبول" : "Accept"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={reviewingId === output.id}
+                    onClick={() => handleDecide(output, "rejected")}
+                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+                  >
+                    {lang === "ar" ? "رفض" : "Reject"}
+                  </button>
+                </>
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

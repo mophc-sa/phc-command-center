@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Bar,
   BarChart,
@@ -11,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { TrendingUp, Wallet, AlertCircle, XCircle, Bot } from "lucide-react";
+import { TrendingUp, Wallet, AlertCircle, XCircle, Bot, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -20,6 +21,9 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonChart } from "@/components/phc/Skeleton";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { computeQuotationWinRatePct } from "@/lib/dashboard-helpers";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canManageSalesPipeline, canReviewAiOutput } from "@/lib/roles";
+import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Reports — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -256,6 +260,8 @@ function ReportsPage() {
             </ChartFrame>
           ) : null}
 
+          <SalesReportInsightsPanel lang={lang} />
+
           {weeklyReport ? (
             <ChartFrame
               title={lang === "ar" ? "التقرير الأسبوعي للذكاء الاصطناعي" : "AI Weekly Report"}
@@ -282,5 +288,154 @@ function ReportsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// sales_report_insights AI agent (2026-08-04) — narrative summary of this
+// page's own aggregates (win rate, pipeline by stage, quotation funnel,
+// lost reasons). No single record — the nil UUID below is a deliberate
+// "no specific entity" sentinel (entity_id is a uuid-typed column; see the
+// comment on the project_radar call in agent-activity.tsx for the bug this
+// pattern replaces — a non-UUID placeholder string silently failed schema
+// validation on every call).
+const REPORTS_ENTITY_ID = "00000000-0000-0000-0000-000000000000";
+
+function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
+  const { roles } = useAuth();
+  const canRun = canManageSalesPipeline(roles);
+  const canReview = canReviewAiOutput(roles);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+
+  const outputQ = useQuery({
+    queryKey: ["ai-output", "reports", REPORTS_ENTITY_ID, "sales_report_insights"],
+    queryFn: () => getLatestAgentOutput("reports", REPORTS_ENTITY_ID, "sales_report_insights"),
+    enabled: canRun,
+  });
+
+  async function handleRun() {
+    setRunning(true);
+    setError(null);
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("ai-orchestrator", {
+        body: { agent: "sales_report_insights", entityType: "reports", entityId: REPORTS_ENTITY_ID },
+      });
+      if (invokeError || !data?.ok) throw new Error(data?.message ?? invokeError?.message ?? "Failed");
+      outputQ.refetch();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function handleDecide(output: AiAgentOutputRow, decision: "accepted" | "rejected") {
+    setReviewingId(output.id);
+    try {
+      await reviewAgentOutput({ outputId: output.id, decision });
+      outputQ.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error");
+    } finally {
+      setReviewingId(null);
+    }
+  }
+
+  if (!canRun) return null;
+
+  const output = outputQ.data;
+  const display = output?.structured_output as any;
+
+  return (
+    <ChartFrame
+      title={lang === "ar" ? "رؤى الذكاء الاصطناعي" : "AI Insights"}
+      subtitle={lang === "ar" ? "تحليل عند الطلب لأرقام هذه الصفحة" : "On-demand analysis of this page's own numbers"}
+    >
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={handleRun}
+          disabled={running}
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-[11px] font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+        >
+          <Sparkles className="h-3 w-3" />
+          {running ? (lang === "ar" ? "جارٍ التحليل…" : "Analyzing…") : (lang === "ar" ? "تحليل الآن" : "Analyze now")}
+        </button>
+
+        {error && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>
+        )}
+
+        {display && (
+          <div className="space-y-3 text-sm">
+            {display.headline && <div className="font-medium text-foreground">{display.headline}</div>}
+            {display.key_insights?.length > 0 && (
+              <div>
+                <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "ملاحظات رئيسية" : "Key Insights"}</div>
+                <ul className="space-y-1">
+                  {display.key_insights.map((s: string, i: number) => (
+                    <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">{s}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {display.risks?.length > 0 && (
+              <div>
+                <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "مخاطر" : "Risks"}</div>
+                <ul className="space-y-1">
+                  {display.risks.map((s: string, i: number) => (
+                    <li key={i} className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive/90">{s}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {display.recommended_actions?.length > 0 && (
+              <div>
+                <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "إجراءات موصى بها" : "Recommended Actions"}</div>
+                <ul className="space-y-1">
+                  {display.recommended_actions.map((s: string, i: number) => (
+                    <li key={i} className="rounded-md border border-won/30 bg-won/10 px-2.5 py-1.5 text-xs text-won">{s}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {display.disclaimer && <div className="text-[11px] italic text-muted-foreground">{display.disclaimer}</div>}
+
+            {output && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3 text-xs">
+                <span className="text-muted-foreground">
+                  {output.status === "pending_review"
+                    ? (lang === "ar" ? "بانتظار المراجعة" : "Pending review")
+                    : output.status === "accepted"
+                    ? (lang === "ar" ? "تم القبول" : "Accepted")
+                    : (lang === "ar" ? "تم الرفض" : "Rejected")}
+                </span>
+                {output.status === "pending_review" && canReview ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={reviewingId === output.id}
+                      onClick={() => handleDecide(output, "accepted")}
+                      className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-[11px] font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+                    >
+                      {lang === "ar" ? "قبول" : "Accept"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={reviewingId === output.id}
+                      onClick={() => handleDecide(output, "rejected")}
+                      className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+                    >
+                      {lang === "ar" ? "رفض" : "Reject"}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </ChartFrame>
   );
 }

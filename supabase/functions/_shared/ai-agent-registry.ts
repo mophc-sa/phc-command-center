@@ -649,6 +649,287 @@ async function loadRiskFinanceContext(
 }
 
 // ---------------------------------------------------------------------------
+// Agent 15 — commercial_risk_assessment (2026-08-04, widened same day)
+// Mirrors loadRiskFinanceContext's shape. Started as rfqs/tenders only;
+// widened to quotations (same "deal risk" shape as rfqs/tenders — a linked
+// project/company) and companies (a genuinely different shape — account
+// relationship health, not a single deal — so it gets its own branch below
+// rather than being forced through the deal-record enrichment logic).
+// ---------------------------------------------------------------------------
+
+async function loadCommercialRiskContext(
+  svc: SupabaseClient,
+  entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  if (entityType === "companies") {
+    const { data: co } = await svc
+      .from("companies")
+      .select("id, name, company_type, account_status, relationship_level, next_action, next_action_due, last_contact_at")
+      .eq("id", entityId)
+      .maybeSingle();
+    if (!isPlainRecord(co)) return { ok: false, code: "AI_INPUT_INVALID", message: "Company not found." };
+
+    const { count: opportunityCount } = await svc.from("opportunities").select("id", { count: "exact", head: true }).eq("company_id", entityId);
+    const { count: contactCount } = await svc.from("contacts").select("id", { count: "exact", head: true }).eq("company_id", entityId);
+
+    const contextText = JSON.stringify(
+      { record_type: "companies", record: co, linked_counts: { opportunities: opportunityCount ?? 0, contacts: contactCount ?? 0 } },
+      null,
+      2,
+    );
+    const manifest: ContextManifest = {
+      fields_loaded: Object.keys(co),
+      record_counts: { companies: 1, opportunities: opportunityCount ?? 0, contacts: contactCount ?? 0 },
+      source_entity_types: ["companies", "opportunities", "contacts"],
+      redacted_identifiers: { entity_id: redactId(entityId) },
+    };
+    return { ok: true, contextText, manifest, recordCount: 1 };
+  }
+
+  if (entityType !== "rfqs" && entityType !== "tenders" && entityType !== "quotations") {
+    return { ok: false, code: "AI_ENTITY_NOT_ALLOWED", message: "Unsupported entity type for this agent." };
+  }
+
+  let record: Record<string, unknown>;
+  let projectId: unknown;
+  let companyId: unknown = null;
+  if (entityType === "rfqs") {
+    const { data } = await svc
+      .from("rfqs")
+      .select("id, rfq_number, classification, status, received_date, response_due_date, estimated_value, project_id, company_id")
+      .eq("id", entityId)
+      .maybeSingle();
+    if (!isPlainRecord(data)) return { ok: false, code: "AI_INPUT_INVALID", message: "RFQ not found." };
+    record = data;
+    projectId = data.project_id;
+    companyId = data.company_id;
+  } else if (entityType === "tenders") {
+    const { data } = await svc
+      .from("tenders")
+      .select("id, tender_name, tender_stage, tender_priority_classification, expected_award_date, estimated_project_value, signage_potential, project_id")
+      .eq("id", entityId)
+      .maybeSingle();
+    if (!isPlainRecord(data)) return { ok: false, code: "AI_INPUT_INVALID", message: "Tender not found." };
+    record = data;
+    projectId = data.project_id;
+  } else {
+    const { data } = await svc
+      .from("quotations")
+      .select("id, quote_number, version, status, value, currency, valid_until, issued_date, last_follow_up_at, related_opportunity_id")
+      .eq("id", entityId)
+      .maybeSingle();
+    if (!isPlainRecord(data)) return { ok: false, code: "AI_INPUT_INVALID", message: "Quotation not found." };
+    record = data;
+    if (typeof data.related_opportunity_id === "string") {
+      const { data: opp } = await svc.from("opportunities").select("project_id, company_id").eq("id", data.related_opportunity_id).maybeSingle();
+      if (isPlainRecord(opp)) {
+        projectId = opp.project_id;
+        companyId = opp.company_id;
+      }
+    }
+  }
+
+  let project: { name: unknown; project_stage: unknown } | null = null;
+  if (typeof projectId === "string") {
+    const { data: proj } = await svc.from("projects").select("name, project_stage").eq("id", projectId).maybeSingle();
+    if (isPlainRecord(proj)) project = { name: proj.name, project_stage: proj.project_stage };
+  }
+
+  let company: { name: unknown; company_type: unknown } | null = null;
+  if (typeof companyId === "string") {
+    const { data: co } = await svc.from("companies").select("name, company_type").eq("id", companyId).maybeSingle();
+    if (isPlainRecord(co)) company = { name: co.name, company_type: co.company_type };
+  }
+
+  const contextText = JSON.stringify({ record_type: entityType, record, linked_project: project, linked_company: company }, null, 2);
+  const recordCount = 1 + (project ? 1 : 0) + (company ? 1 : 0);
+  const manifest: ContextManifest = {
+    fields_loaded: Object.keys(record),
+    record_counts: { [entityType]: 1, projects: project ? 1 : 0, companies: company ? 1 : 0 },
+    source_entity_types: [entityType, "projects", "companies"],
+    redacted_identifiers: { entity_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+// ---------------------------------------------------------------------------
+// Agent 16 — project_job_notes (2026-08-04)
+// Single project_jobs card — Production section, not Sales. No per-record
+// owner concept (project_jobs RLS is team-based, is_sales_contributor OR
+// system_admin), so checkAccess is role-only (see checkOwnershipAccess: no
+// OWNER_FIELD_BY_ENTITY entry for "project_jobs" -> falls through to true).
+// ---------------------------------------------------------------------------
+
+async function loadProjectJobNotesContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: job } = await svc
+    .from("project_jobs")
+    .select("id, title, description, due_date, stage_id, assignee_id, project_id")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (!isPlainRecord(job)) return { ok: false, code: "AI_INPUT_INVALID", message: "Job not found." };
+
+  let stageName: unknown = null;
+  if (typeof job.stage_id === "string") {
+    const { data: stage } = await svc.from("project_job_stages").select("name").eq("id", job.stage_id).maybeSingle();
+    if (isPlainRecord(stage)) stageName = stage.name;
+  }
+
+  let project: { name: unknown; project_number: unknown; project_stage: unknown } | null = null;
+  if (typeof job.project_id === "string") {
+    const { data: proj } = await svc.from("projects").select("name, project_number, project_stage").eq("id", job.project_id).maybeSingle();
+    if (isPlainRecord(proj)) project = { name: proj.name, project_number: proj.project_number, project_stage: proj.project_stage };
+  }
+
+  let assigneeName: unknown = null;
+  if (typeof job.assignee_id === "string") {
+    const { data: profile } = await svc.from("profiles").select("full_name").eq("id", job.assignee_id).maybeSingle();
+    if (isPlainRecord(profile)) assigneeName = profile.full_name;
+  }
+
+  const contextText = JSON.stringify(
+    {
+      job: { id: job.id, title: job.title, description: job.description, due_date: job.due_date, stage: stageName, assignee: assigneeName },
+      project,
+    },
+    null,
+    2,
+  );
+  const recordCount = 1 + (project ? 1 : 0);
+  const manifest: ContextManifest = {
+    fields_loaded: ["title", "description", "due_date", "stage", "assignee", "project.name", "project.project_number", "project.project_stage"],
+    record_counts: { project_jobs: 1, projects: project ? 1 : 0 },
+    source_entity_types: ["project_jobs", "projects"],
+    redacted_identifiers: { entity_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount };
+}
+
+// ---------------------------------------------------------------------------
+// Agent 17 — project_budget_variance (2026-08-04)
+// A project's budget line items — planned vs. actual. No per-record owner
+// concept for "projects" either (falls through to role-only, same as above).
+// ---------------------------------------------------------------------------
+
+const BUDGET_VARIANCE_ITEMS_LIMIT = 15;
+
+async function loadProjectBudgetVarianceContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data: project } = await svc
+    .from("projects")
+    .select("id, name, project_number, total_value, project_stage")
+    .eq("id", entityId)
+    .maybeSingle();
+  if (!isPlainRecord(project)) return { ok: false, code: "AI_INPUT_INVALID", message: "Project not found." };
+
+  const { data: items } = await svc
+    .from("project_budget_items")
+    .select("category, description, planned_amount, actual_amount, currency")
+    .eq("project_id", entityId)
+    .order("created_at", { ascending: true })
+    .limit(BUDGET_VARIANCE_ITEMS_LIMIT);
+  const budgetItems = Array.isArray(items) ? items : [];
+
+  const contextText = JSON.stringify(
+    {
+      project: { name: project.name, project_number: project.project_number, total_value: project.total_value, project_stage: project.project_stage },
+      budget_items: budgetItems,
+    },
+    null,
+    2,
+  );
+  const manifest: ContextManifest = {
+    fields_loaded: ["project.name", "project.project_number", "project.total_value", "project.project_stage", "budget_items"],
+    record_counts: { projects: 1, project_budget_items: budgetItems.length },
+    source_entity_types: ["projects", "project_budget_items"],
+    redacted_identifiers: { entity_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount: 1 + budgetItems.length };
+}
+
+// ---------------------------------------------------------------------------
+// Agent 18 — sales_report_insights (2026-08-04)
+// Company-wide summary, no single record — mirrors the aggregations
+// reports.tsx already computes client-side (win rate via the same formula
+// as computeQuotationWinRatePct in src/lib/dashboard-helpers.ts; pipeline
+// value by opportunity stage; quotation funnel by status; lost-reason
+// frequency, not the raw reason strings, to keep the context bounded).
+// ---------------------------------------------------------------------------
+
+async function checkSalesReportInsightsAccess(): Promise<AgentAccessResult> {
+  return { ok: true };
+}
+
+const REPORT_OPPS_LIMIT = 500;
+const REPORT_QUOTES_LIMIT = 500;
+
+async function loadSalesReportInsightsContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  _entityId: string,
+): Promise<AgentContextResult> {
+  const { data: opps } = await svc
+    .from("opportunities")
+    .select("stage, estimated_value_max")
+    .order("updated_at", { ascending: false })
+    .limit(REPORT_OPPS_LIMIT);
+  const { data: quotes } = await svc
+    .from("quotations")
+    .select("status, value, win_loss_reason")
+    .order("created_at", { ascending: false })
+    .limit(REPORT_QUOTES_LIMIT);
+
+  const oppsList = Array.isArray(opps) ? opps : [];
+  const quotesList = Array.isArray(quotes) ? quotes : [];
+
+  const pipelineByStage: Record<string, number> = {};
+  for (const o of oppsList as { stage: unknown; estimated_value_max: unknown }[]) {
+    const stage = typeof o.stage === "string" ? o.stage : "unknown";
+    pipelineByStage[stage] = (pipelineByStage[stage] ?? 0) + (typeof o.estimated_value_max === "number" ? o.estimated_value_max : 0);
+  }
+
+  const quotationFunnel: Record<string, { count: number; value: number }> = {};
+  for (const q of quotesList as { status: unknown; value: unknown }[]) {
+    const status = typeof q.status === "string" ? q.status : "unknown";
+    const bucket = quotationFunnel[status] ?? { count: 0, value: 0 };
+    bucket.count += 1;
+    bucket.value += typeof q.value === "number" ? q.value : 0;
+    quotationFunnel[status] = bucket;
+  }
+
+  const won = quotesList.filter((q: any) => q.status === "won").length;
+  const lost = quotesList.filter((q: any) => q.status === "lost").length;
+  const winRatePct = won + lost > 0 ? Math.round((won / (won + lost)) * 100) : null;
+
+  const lostReasonCounts: Record<string, number> = {};
+  for (const q of quotesList as { status: unknown; win_loss_reason: unknown }[]) {
+    if (q.status !== "lost" || typeof q.win_loss_reason !== "string" || !q.win_loss_reason.trim()) continue;
+    const reason = q.win_loss_reason.trim();
+    lostReasonCounts[reason] = (lostReasonCounts[reason] ?? 0) + 1;
+  }
+
+  const contextText = JSON.stringify(
+    { win_rate_pct: winRatePct, pipeline_value_by_stage: pipelineByStage, quotation_funnel: quotationFunnel, lost_reason_counts: lostReasonCounts },
+    null,
+    2,
+  );
+  const manifest: ContextManifest = {
+    fields_loaded: ["win_rate_pct", "pipeline_value_by_stage", "quotation_funnel", "lost_reason_counts"],
+    record_counts: { opportunities: oppsList.length, quotations: quotesList.length },
+    source_entity_types: ["opportunities", "quotations"],
+    redacted_identifiers: {},
+  };
+  return { ok: true, contextText, manifest, recordCount: 1 };
+}
+
+// ---------------------------------------------------------------------------
 // Agents 8-14 — Import Intelligence v2 classification pipeline
 // All agents operate on import_batches — no per-record owner concept;
 // access is role-gated (matching the real import pipeline).
@@ -1300,6 +1581,54 @@ export const AGENT_REGISTRY: Record<AgentKey, AgentDefinition> = {
     outputSchema: AGENT_OUTPUT_SCHEMAS.import_routing_reviewer,
     outputType: AGENT_OUTPUT_TYPES.import_routing_reviewer,
     maxContextRecords: 15,
+    allowProviderFallback: true,
+  },
+  commercial_risk_assessment: {
+    key: "commercial_risk_assessment",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.commercial_risk_assessment,
+    hasRole: AGENT_ROLE_CHECK.commercial_risk_assessment,
+    checkAccess: checkOwnershipAccess,
+    loadContext: loadCommercialRiskContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.commercial_risk_assessment,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.commercial_risk_assessment,
+    outputType: AGENT_OUTPUT_TYPES.commercial_risk_assessment,
+    maxContextRecords: 20,
+    allowProviderFallback: true,
+  },
+  project_job_notes: {
+    key: "project_job_notes",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.project_job_notes,
+    hasRole: AGENT_ROLE_CHECK.project_job_notes,
+    checkAccess: checkOwnershipAccess,
+    loadContext: loadProjectJobNotesContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.project_job_notes,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.project_job_notes,
+    outputType: AGENT_OUTPUT_TYPES.project_job_notes,
+    maxContextRecords: 20,
+    allowProviderFallback: true,
+  },
+  project_budget_variance: {
+    key: "project_budget_variance",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.project_budget_variance,
+    hasRole: AGENT_ROLE_CHECK.project_budget_variance,
+    checkAccess: checkOwnershipAccess,
+    loadContext: loadProjectBudgetVarianceContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.project_budget_variance,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.project_budget_variance,
+    outputType: AGENT_OUTPUT_TYPES.project_budget_variance,
+    maxContextRecords: 20,
+    allowProviderFallback: true,
+  },
+  sales_report_insights: {
+    key: "sales_report_insights",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.sales_report_insights,
+    hasRole: AGENT_ROLE_CHECK.sales_report_insights,
+    checkAccess: checkSalesReportInsightsAccess,
+    loadContext: loadSalesReportInsightsContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.sales_report_insights,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.sales_report_insights,
+    outputType: AGENT_OUTPUT_TYPES.sales_report_insights,
+    maxContextRecords: 20,
     allowProviderFallback: true,
   },
 } satisfies Record<AgentKey, AgentDefinition>;

@@ -68,6 +68,18 @@ function AgentActivityPage() {
     staleTime: 30_000,
   });
 
+  // Loaded eagerly (not gated to the "outputs" tab) so the combined KPI
+  // strip below — added 2026-08-04 specifically so this page gives one
+  // honest, at-a-glance picture of AI activity across BOTH systems
+  // (ai_agent_runs, the older batch-scan model, and ai_agent_outputs, the
+  // newer per-request orchestrator model — see docs/ai-orchestrator.md's
+  // "Relationship to the existing Phase-5 AI foundation") — has data to show
+  // without requiring a tab switch. Before this, the "Runs (recent 200)" /
+  // "Errors" KPI cards above only ever reflected ai_agent_runs, silently
+  // excluding all 17 ai-orchestrator agents (opportunity_evaluation,
+  // risk_finance, the import-intelligence pipeline, etc.) — the majority of
+  // real AI activity in the system was invisible on this dashboard's
+  // headline numbers.
   const { data: outputs = [], isLoading: outputsLoading } = useQuery({
     queryKey: ["ai-agent-outputs"],
     queryFn: async () =>
@@ -79,8 +91,15 @@ function AgentActivityPage() {
           .limit(200)
       ).data ?? [],
     staleTime: 30_000,
-    enabled: mainTab === "outputs",
   });
+
+  const outputsKpis = useMemo(() => {
+    const total = outputs.length;
+    const pending = outputs.filter((o: any) => o.status === "pending_review").length;
+    const accepted = outputs.filter((o: any) => o.status === "accepted").length;
+    const rejected = outputs.filter((o: any) => o.status === "rejected").length;
+    return { total, pending, accepted, rejected };
+  }, [outputs]);
 
   const agents = useMemo(() => Array.from(new Set(rows.map((r: any) => r.agent_key).filter(Boolean))), [rows]);
 
@@ -130,7 +149,14 @@ function AgentActivityPage() {
     setRadarError(null);
     try {
       const { data, error } = await supabase.functions.invoke("ai-orchestrator", {
-        body: { agent: "project_radar", entityType: "pipeline", entityId: "pipeline" },
+        // entityId must be a real UUID (ai_agent_outputs.entity_id is uuid-typed
+        // and the request schema enforces z.string().uuid()) — "pipeline" is
+        // neither, so this call was silently rejected with AI_INPUT_INVALID on
+        // every click until this fix (2026-08-04). Pipeline-wide agents have no
+        // real per-record entity, so the nil UUID is used as an explicit
+        // "no specific entity" sentinel — same fix applied to the new
+        // sales_report_insights agent on the Reports page.
+        body: { agent: "project_radar", entityType: "pipeline", entityId: "00000000-0000-0000-0000-000000000000" },
       });
       if (error || !data?.ok) throw new Error(data?.message ?? error?.message ?? "Failed");
       const result = data.result;
@@ -251,11 +277,29 @@ function AgentActivityPage() {
         </Panel>
       ) : null}
 
+      <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+        {lang === "ar" ? "الفحص الدفعي (نظام أقدم)" : "Batch Scans (legacy system)"}
+      </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Runs (recent 200)" value={kpis.total} icon={<Activity className="h-3.5 w-3.5" />} />
         <KpiCard label="Completed" value={kpis.completed} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
         <KpiCard label="Not configured" value={kpis.notConfigured} icon={<PauseCircle className="h-3.5 w-3.5" />} />
         <KpiCard label="Errors" value={kpis.errors} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
+      </div>
+
+      {/* Per-request orchestrator system (ai-orchestrator / ai_agent_outputs)
+          — a separate, complementary model from the batch-scan KPIs above
+          (see docs/ai-orchestrator.md), shown together here so this page
+          gives one honest picture of both instead of hiding this half
+          behind the "AI Outputs" tab below. */}
+      <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+        {lang === "ar" ? "مخرجات الوكلاء (لكل طلب — النظام الحالي)" : "Agent Outputs (per-request — current system)"}
+      </div>
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label={lang === "ar" ? "إجمالي (آخر 200)" : "Total (recent 200)"} value={outputsKpis.total} icon={<Activity className="h-3.5 w-3.5" />} />
+        <KpiCard label={lang === "ar" ? "بانتظار المراجعة" : "Pending review"} value={outputsKpis.pending} icon={<PauseCircle className="h-3.5 w-3.5" />} />
+        <KpiCard label={lang === "ar" ? "مقبول" : "Accepted"} value={outputsKpis.accepted} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
+        <KpiCard label={lang === "ar" ? "مرفوض" : "Rejected"} value={outputsKpis.rejected} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
       </div>
 
       <div className="mb-6">

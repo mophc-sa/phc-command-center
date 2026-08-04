@@ -12,7 +12,7 @@
 // portability convention established by _shared/conversion.ts.
 // =============================================================================
 import { AGENT_KEYS, type AgentKey, type EntityType } from "./ai-schemas.ts";
-import { canApproveCommercialAction, canCreateSalesRecords, canManageSalesPipeline, canViewSalesAdmin, type AppRole } from "./roles.ts";
+import { canApproveCommercialAction, canCreateSalesRecords, canEditTotalValue, canManageSalesPipeline, canViewSalesAdmin, isSystemAdmin, type AppRole } from "./roles.ts";
 
 // ---------------------------------------------------------------------------
 // 1. Agent allowlist
@@ -46,6 +46,16 @@ export const AGENT_ENTITY_ALLOWLIST: Record<AgentKey, readonly EntityType[]> = {
   relationship_resolver: ["import_batches"],
   change_interpreter: ["import_batches"],
   import_routing_reviewer: ["import_batches"],
+  // Single-record commercial risk assessment — RFQ/tender at launch
+  // (2026-08-04), widened same day to quotations and companies/accounts.
+  commercial_risk_assessment: ["rfqs", "tenders", "quotations", "companies"],
+  // Single Job Pipeline card (Production section, not Sales).
+  project_job_notes: ["project_jobs"],
+  // Single project's budget line items.
+  project_budget_variance: ["projects"],
+  // Reports dashboard-wide summary — sentinel "reports" entity type, like
+  // project_radar's "pipeline".
+  sales_report_insights: ["reports"],
 };
 
 export function isEntityAllowedForAgent(agent: AgentKey, entityType: string | null | undefined): boolean {
@@ -88,6 +98,17 @@ export const AGENT_ROLE_CHECK: Record<AgentKey, (roles: AppRole[]) => boolean> =
   relationship_resolver: (roles) => canViewSalesAdmin(roles),
   change_interpreter: (roles) => canViewSalesAdmin(roles),
   import_routing_reviewer: (roles) => canApproveCommercialAction(roles),
+  // Same commercial-pipeline gate as risk_finance — this is the same kind of
+  // assessment, just for an RFQ/tender instead of an opportunity.
+  commercial_risk_assessment: (roles) => canManageSalesPipeline(roles),
+  // Same "who can edit this project" gate as ProjectKanban.tsx's canEdit —
+  // Production section, not a Sales capability.
+  project_job_notes: (roles) => canCreateSalesRecords(roles) || isSystemAdmin(roles),
+  // Same finance-adjacent gate as project_budget_items' RLS / ProjectBudget.tsx's canEdit.
+  project_budget_variance: (roles) => canEditTotalValue(roles),
+  // Same pipeline-wide gate as project_radar — a dashboard-level summary,
+  // not a single record.
+  sales_report_insights: (roles) => canManageSalesPipeline(roles),
 };
 
 export function hasAgentRole(agent: AgentKey, roles: AppRole[]): boolean {

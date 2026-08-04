@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 type Uuid = string;
 
-// The 4 agents whose outputs get a review action in the "AI Outputs" tab.
+// The 8 agents whose outputs get a review action in the "AI Outputs" tab.
 // The other 10 (import-pipeline) agents already have their own dedicated
 // review/commit flow in data-import.$batchId.tsx against separate tables —
 // deliberately not wired to this action.
@@ -12,6 +12,11 @@ export const REVIEWABLE_AGENT_KEYS = [
   "smart_followup_draft",
   "project_radar",
   "risk_finance",
+  // 2026-08-04 AI coverage expansion.
+  "commercial_risk_assessment",
+  "project_job_notes",
+  "project_budget_variance",
+  "sales_report_insights",
 ] as const;
 
 export type AiAgentOutputRow = {

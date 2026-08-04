@@ -6,7 +6,7 @@ const VALID_DECISIONS = new Set(["accepted", "rejected"]);
 // Mirrors REVIEWABLE_AGENT_KEYS in src/lib/ai-review-actions.ts (frontend-only,
 // unimportable from this Deno Edge Function — same duplication pattern as the
 // role-capability lists in src/lib/roles.ts and _shared/roles.ts). The UI only
-// renders Accept/Reject for these 4 agents; enforce that scope boundary here
+// renders Accept/Reject for these agents; enforce that scope boundary here
 // too so an out-of-scope agent_key can't be accepted/rejected via a direct
 // API call.
 const REVIEWABLE_AGENT_KEYS = new Set([
@@ -14,6 +14,11 @@ const REVIEWABLE_AGENT_KEYS = new Set([
   "smart_followup_draft",
   "project_radar",
   "risk_finance",
+  // 2026-08-04 AI coverage expansion.
+  "commercial_risk_assessment",
+  "project_job_notes",
+  "project_budget_variance",
+  "sales_report_insights",
 ]);
 
 // Records a human decision on an ai_agent_outputs row. Pure audit trail —

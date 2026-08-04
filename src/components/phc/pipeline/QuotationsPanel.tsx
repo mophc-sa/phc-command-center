@@ -5,7 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, FileText, AlertTriangle, CheckCircle2, Wallet } from "lucide-react";
+import { Plus, FileText, AlertTriangle, CheckCircle2, Wallet, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -13,6 +13,8 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
+import { AiRiskAssessment } from "@/components/phc/AiRiskAssessment";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import {
   updateQuotationStatus,
@@ -45,6 +47,7 @@ export function QuotationsPanel() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
   const [statusFor, setStatusFor] = useState<{ id: string; oppId: string } | null>(null);
+  const [riskFor, setRiskFor] = useState<{ id: string; label: string } | null>(null);
   const [filter, setFilter] = useState<"open" | "closed" | "all">("open");
 
   const { data: quotes = [], isLoading } = useQuery({
@@ -187,6 +190,14 @@ export function QuotationsPanel() {
                       </div>
                     ) : null}
                   </div>
+                  <button
+                    onClick={() => setRiskFor({ id: q.id, label: q.quote_number ?? q.id })}
+                    title={lang === "ar" ? "تقييم المخاطر" : "Risk Assessment"}
+                    aria-label={lang === "ar" ? "تقييم المخاطر" : "Risk Assessment"}
+                    className="grid h-8 w-8 place-items-center rounded-md border border-border text-muted-foreground hover:text-foreground"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </button>
                   {!CLOSED.includes(q.status) ? (
                     <button
                       onClick={() =>
@@ -236,6 +247,22 @@ export function QuotationsPanel() {
           }
         }}
       />
+
+      <Dialog open={!!riskFor} onOpenChange={(o) => !o && setRiskFor(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{riskFor?.label ?? ""}</DialogTitle>
+          </DialogHeader>
+          {riskFor ? (
+            <AiRiskAssessment
+              entityType="quotations"
+              entityId={riskFor.id}
+              agentKey="commercial_risk_assessment"
+              title={lang === "ar" ? "تقييم المخاطر" : "Risk Assessment"}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
