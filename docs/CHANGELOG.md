@@ -7,9 +7,26 @@
 ### Added
 - نظام AI Handoff (docs/ + tasks/ + prompts/) لحفظ ذاكرة المشروع عبر الجلسات.
 ### Changed
-- (PR #161، مفتوح) حذف زر "طلب جديد" من صندوق الاستقبال — "إدخال جديد" فقط الآن.
+-
 ### Fixed
 -
+
+---
+
+## 2026-08-04 — توسيع تغطية AI عبر النظام (PR #163)
+تفاصيل كاملة في `docs/AI_HANDOFF.md` وَ`docs/ai-orchestrator.md`. 4 وكلاء AI جدد، توحيد KPIs في Agent Activity، وإصلاح خللين حقيقيين كانا يعطِّلان ميزات AI موجودة منذ إطلاقها.
+### Added
+- وكلاء: `project_job_notes`، `project_budget_variance`، `commercial_risk_assessment` (RFQ/Tender/Quotation/Accounts)، `sales_report_insights`.
+### Changed
+- `agent-activity.tsx`: شريط KPI منفصل لكل من النظامين (الدفعي القديم + لكل-طلب الجديد) بدل حجب أحدهما.
+### Fixed
+- "Draft Follow-up" (My Workspace) و"Scan Pipeline" (`project_radar`) كانا معطَّلين بالكامل منذ الإطلاق — شكل طلب خاطئ في كليهما.
+
+---
+
+## 2026-08-04 — حذف زر "طلب جديد" من صندوق الاستقبال (PR #161)
+### Changed
+- "إدخال جديد" فقط الآن — JIH/Tender يبقيان متاحين بالكامل عبر إدخال جديد ← تصنيف ← تحويل.
 
 ---
 
