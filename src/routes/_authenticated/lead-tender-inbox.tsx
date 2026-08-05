@@ -19,7 +19,6 @@ import {
   convertInboxToCompany, convertInboxToContact, convertInboxToProject,
   convertInboxToRfq, convertInboxToTender, convertInboxToOpportunityCandidate,
   sendInboxToMissingData, markInboxDuplicate, archiveInboxItem,
-  createProjectFromInboxItem,
   INBOX_SOURCE_TYPES, INBOX_CLASSIFICATIONS,
   INBOX_CLIENT_TYPES, INBOX_PROJECT_TYPES, INBOX_RFQ_FROM, INBOX_SCOPES, INBOX_LOCATIONS,
   type InboxClassification, type DuplicateCandidate,
@@ -107,7 +106,6 @@ function LeadTenderInbox() {
   const [markDupCandidates, setMarkDupCandidates] = useState<DuplicateCandidate[]>([]);
   // Inline "add new" resolvers for the RFQ convert dialog's Project/Company
   // pickers — same pattern as contacts.tsx's company picker.
-  const [creatingProjectFor, setCreatingProjectFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
   const [creatingCompanyFor, setCreatingCompanyFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
 
   const { data: items = [], isLoading, isError, refetch } = useQuery({
@@ -353,11 +351,18 @@ function LeadTenderInbox() {
             { key: "totalValue", type: "text", label: t("ibx_estimated_value"), defaultValue: convertFor.estimated_value != null ? String(convertFor.estimated_value) : "" },
           ] :
           convertFor.classification === "rfq" ? [
+            // Optional link to an EXISTING master project only — no "create
+            // new" here. A Production project belongs at the end of the
+            // lifecycle (§29 Awarded → "create project handover"), and the
+            // create_project_from_won_opportunity trigger builds it on win.
+            // Offering creation here manufactured a Production project out of a
+            // sales enquiry, and — because that trigger only fires when
+            // project_id IS NULL — quietly stopped the real one from ever being
+            // created. The picker stays for the §39 case: several bidders
+            // priced against one project that already exists.
             {
-              key: "projectId", type: "select", label: t("label_project"),
+              key: "projectId", type: "select", label: t("rfq_link_existing_project"),
               options: [{ value: "", label: "—" }, ...projects.map((p: any) => ({ value: p.id, label: p.name }))],
-              createLabel: t("wf_add_new_project"),
-              onCreateNew: () => new Promise((resolve) => setCreatingProjectFor(() => resolve)),
             },
             {
               key: "companyId", type: "select", label: t("ibx_company_name"),
@@ -400,10 +405,17 @@ function LeadTenderInbox() {
               navigate({ to: "/projects/$id", params: { id: project.id } });
               return;
             } else if (convertFor.classification === "rfq") {
-              await convertInboxToRfq(convertFor.id, {
+              const res = await convertInboxToRfq(convertFor.id, {
                 projectId: v.projectId || null, companyId: v.companyId || null,
                 responseDueDate: v.responseDueDate || null, estimatedValue: v.estimatedValue ? Number(v.estimatedValue) : null, claimOwner: true,
               });
+              // Land on the opportunity in Pipeline — that is what conversion
+              // produces now, and it is where the deal is worked from here on
+              // (§25.10 "add the opportunity to the correct pipeline").
+              toast.success(t("crm_saved"));
+              refresh();
+              navigate({ to: "/opportunities/$id", params: { id: res.opportunityId } });
+              return;
             } else if (convertFor.classification === "tender") {
               await convertInboxToTender(convertFor.id, {
                 tenderName: v.tenderName, source: v.source || undefined, projectId: v.projectId || null,
@@ -418,38 +430,6 @@ function LeadTenderInbox() {
             toast.success(t("crm_saved"));
             refresh();
           } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
-        }}
-      />
-
-      {/* Inline "add new project" from the RFQ convert dialog's Project picker */}
-      <ActionDialog
-        open={!!creatingProjectFor}
-        onOpenChange={(o) => { if (!o) { creatingProjectFor?.(null); setCreatingProjectFor(null); } }}
-        title={t("wf_add_new_project")}
-        submitLabel={t("crm_add")}
-        // Prefilled from the intake record rather than blank: the user already
-        // typed all of this one screen earlier (field report 2026-08-05).
-        fields={[
-          { key: "name", type: "text", label: t("label_project"), required: true, defaultValue: convertFor?.project_name ?? "" },
-          { key: "location", type: "text", label: t("label_location"), defaultValue: convertFor?.location ?? "" },
-        ]}
-        onSubmit={async (v) => {
-          try {
-            // Carries client/contractor/consultant/value/scope across too, and
-            // links the three company fields where an exact match exists.
-            const project = convertFor
-              ? await createProjectFromInboxItem(convertFor, { name: v.name, location: v.location })
-              : await createProject({ name: v.name, location: v.location || undefined });
-            creatingProjectFor?.({ value: project.id, label: project.name });
-            setCreatingProjectFor(null);
-            qc.invalidateQueries({ queryKey: ["projects-min"] });
-          } catch (e) {
-            // Resolve with null so the select doesn't stay stuck disabled
-            // waiting on a promise that would otherwise never settle.
-            creatingProjectFor?.(null);
-            setCreatingProjectFor(null);
-            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
         }}
       />
 

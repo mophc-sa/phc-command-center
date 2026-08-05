@@ -67,35 +67,62 @@ describe("a converted intake item cannot be silently re-routed", () => {
   });
 });
 
-// ─── §39 the project is the master record — it must not be born empty ────────
-describe("intake data reaches the project it creates", () => {
-  test("createProjectFromInboxItem carries the fields the user already typed", async () => {
+// ─── §25.2/§25.10 vs §29 — where the project belongs in the lifecycle ───────
+describe("classify + convert lands on an Opportunity, not a Project", () => {
+  test("converting an RFQ creates the opportunity, not just an RFQ row", async () => {
     const fs = await import("fs/promises");
     const src = await fs.readFile("src/lib/inbox-actions.ts", "utf8");
-    const fn = src.slice(src.indexOf("export async function createProjectFromInboxItem"));
-    for (const field of [
-      "project_name", "location", "estimated_value", "scope_type", "source_name",
-      "client_owner", "main_contractor", "consultant",
-    ]) {
-      expect(fn).toContain(field);
-    }
+    const fn = src.slice(src.indexOf("export async function convertInboxToRfq"));
+    const body = fn.slice(0, fn.indexOf("export async function convertInboxToTender"));
+    // It must go through the §25 path, which builds opportunity + RFQ + contact
+    // + company + follow-up + activity together.
+    expect(body).toContain("createRfqWithOpportunity");
+    // The bare createRfq call is what left the pipeline empty after conversion.
+    expect(body).not.toMatch(/await createRfq\(/);
   });
 
-  test("the inline shortcut uses it instead of name-only createProject", async () => {
+  test("the intake item points at the opportunity, so that is what opens", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/lib/inbox-actions.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function convertInboxToRfq"));
+    expect(fn.slice(0, fn.indexOf("export async function convertInboxToTender"))).toContain(
+      'markConverted(id, "opportunity", result.opportunityId)',
+    );
+  });
+
+  test("the UI navigates to the opportunity after converting an RFQ", async () => {
     const fs = await import("fs/promises");
     const src = await fs.readFile("src/routes/_authenticated/lead-tender-inbox.tsx", "utf8");
-    expect(src).toContain("createProjectFromInboxItem");
-    // The name-only call that produced the blank project page.
-    expect(src).not.toContain("createProject({ name: v.name })");
+    // Anchor on the call itself — "classification === rfq" also appears in the
+    // fields branch further up.
+    const branch = src.slice(src.indexOf("await convertInboxToRfq("));
+    expect(branch.slice(0, 900)).toContain('to: "/opportunities/$id"');
   });
 
-  test("company links are matched, never invented from free text", async () => {
+  test("the RFQ convert dialog can no longer create a Production project", async () => {
     const fs = await import("fs/promises");
-    const src = await fs.readFile("src/lib/inbox-actions.ts", "utf8");
-    const fn = src.slice(src.indexOf("async function linkCompanyByName"));
-    expect(fn.slice(0, 600)).toContain("ilike");
-    // No insert into companies from this path — a typo must not mint a record.
-    expect(fn.slice(0, 600)).not.toContain(".insert(");
+    const src = await fs.readFile("src/routes/_authenticated/lead-tender-inbox.tsx", "utf8");
+    // The inline creator and its resolver state are gone entirely.
+    expect(src).not.toContain("creatingProjectFor");
+    expect(src).not.toContain("wf_add_new_project");
+  });
+
+  test("linking to an EXISTING project stays available for the §39 multi-bidder case", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/routes/_authenticated/lead-tender-inbox.tsx", "utf8");
+    expect(src).toContain("rfq_link_existing_project");
+  });
+
+  test("the Production project is still created on win, by trigger", async () => {
+    const fs = await import("fs/promises");
+    const sql = await fs.readFile(
+      "supabase/migrations/20260803110000_auto_create_project_on_opportunity_won.sql",
+      "utf8",
+    );
+    expect(sql).toContain("NEW.stage = 'won'");
+    // Only when the opportunity has no project yet — which is precisely why
+    // handing it one at intake used to suppress the real post-award project.
+    expect(sql).toContain("NEW.project_id IS NULL");
   });
 });
 

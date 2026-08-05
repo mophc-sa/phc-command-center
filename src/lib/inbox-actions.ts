@@ -14,7 +14,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { createCompany, createContact, createProject, type CompanyType, type ContactAuthority, type ContactLocation, type ProjectStage } from "@/lib/crm-actions";
-import { createRfq } from "@/lib/rfq-actions";
+import { createRfq, createRfqWithOpportunity } from "@/lib/rfq-actions";
 import { createTender } from "@/lib/tender-actions";
 import { createLead } from "@/lib/lead-actions";
 
@@ -372,96 +372,95 @@ export async function convertInboxToContact(id: Uuid, input: {
   return contact;
 }
 
+/**
+ * The `project` classification — a genuine market/reference project record,
+ * not a sales deal. Unlike the RFQ path, this one is *meant* to create a
+ * project, because the intake item genuinely described one.
+ *
+ * Fields the dialog does not ask for (sector, source) are carried across from
+ * the intake record rather than dropped; anything the dialog does ask for wins,
+ * since the user has just confirmed it against real company pickers.
+ */
 export async function convertInboxToProject(id: Uuid, input: {
   name: string; location?: string; ownerCompanyId?: Uuid | null; mainContractorId?: Uuid | null;
   consultantId?: Uuid | null; totalValue?: number | null; projectStage?: ProjectStage; source?: string;
 }) {
-  const project = await createProject(input);
+  const { data: item } = await supabase
+    .from("inbox_items")
+    .select("scope, scope_type, source_name, location, location_city")
+    .eq("id", id)
+    .single();
+
+  const project = await createProject({
+    ...input,
+    location: input.location ?? item?.location ?? item?.location_city ?? undefined,
+    sector: item?.scope_type ?? item?.scope ?? undefined,
+    source: input.source ?? item?.source_name ?? undefined,
+  });
   await markConverted(id, "project", project.id);
   return project;
 }
 
 /**
- * Resolves a free-text company name to an existing company id.
+ * Converts an intake item onto the JIH track: opportunity first, RFQ attached.
  *
- * Link-only, never create. Spec §25.14 sanctions "create or link the company
- * account", but the intake form captures these three as free text, so
- * auto-creating on every conversion would mint a company record for every
- * typo and abbreviation. Linking an exact match keeps the relationship when we
- * are certain, and leaves the field empty — visibly, on the project page — when
- * we are not.
+ * This used to call `createRfq` and stop. The result was that classify+convert
+ * produced an RFQ row and *nothing else* — no opportunity, so nothing appeared
+ * in Pipeline → Opportunities, and there was no record to advance through
+ * stages. The only thing the user could see afterwards was whatever project the
+ * convert dialog had made them create, which is how a sales enquiry ended up
+ * presenting as a Production project (field report, 2026-08-05, second round).
+ *
+ * Spec §25 is explicit that saving an RFQ must "create the opportunity" (2) and
+ * "add the opportunity to the correct pipeline" (10). §29 puts project creation
+ * at the *other* end of the lifecycle, under Awarded: "create project
+ * handover". The repo already implements that end correctly — the
+ * `create_project_from_won_opportunity` trigger builds the Production project
+ * when an opportunity reaches `won`.
+ *
+ * There was also a second, quieter harm in forcing a project here: that trigger
+ * only fires `WHEN NEW.project_id IS NULL`. An opportunity that was handed a
+ * project at intake therefore never gets its proper post-award project — the
+ * premature one silently takes its place.
+ *
+ * `projectId` stays supported but optional, for the §39 case where several
+ * bidders are priced against one existing master project.
  */
-async function linkCompanyByName(name: string | null | undefined): Promise<Uuid | null> {
-  const trimmed = name?.trim();
-  if (!trimmed) return null;
-  const { data } = await supabase
-    .from("companies")
-    .select("id")
-    .ilike("name", trimmed)
-    .limit(1)
-    .maybeSingle();
-  return data?.id ?? null;
-}
-
-/**
- * Creates a project carrying the intake record's data across.
- *
- * Field report, 2026-08-05 (Faisal): filled in the 19-field intake form,
- * converted to RFQ, was required to pick a project, used the inline "add new
- * project" shortcut — and the resulting project page was blank. The shortcut
- * (added in PR #167) only ever asked for a name and called
- * `createProject({ name })`, dropping every other field the user had already
- * typed one screen earlier.
- *
- * Spec §39 treats the project as the master record several bidder
- * opportunities hang off, so an empty one is not a cosmetic problem — it is
- * the anchor for everything downstream.
- *
- * `overrides` wins over the inbox item, so the caller can still let the user
- * correct the name before creating.
- */
-export async function createProjectFromInboxItem(
-  item: {
-    project_name?: string | null;
-    location?: string | null;
-    location_city?: string | null;
-    client_owner?: string | null;
-    main_contractor?: string | null;
-    consultant?: string | null;
-    estimated_value?: number | null;
-    scope?: string | null;
-    scope_type?: string | null;
-    source_name?: string | null;
-  },
-  overrides: { name?: string; location?: string } = {},
-) {
-  const [ownerCompanyId, mainContractorId, consultantId] = await Promise.all([
-    linkCompanyByName(item.client_owner),
-    linkCompanyByName(item.main_contractor),
-    linkCompanyByName(item.consultant),
-  ]);
-
-  return await createProject({
-    name: (overrides.name ?? item.project_name ?? "").trim(),
-    // `location` is free text; `location_city` is the enum picker. Prefer what
-    // the user typed, fall back to the picker.
-    location: overrides.location ?? item.location ?? item.location_city ?? undefined,
-    sector: item.scope_type ?? item.scope ?? undefined,
-    ownerCompanyId,
-    mainContractorId,
-    consultantId,
-    totalValue: item.estimated_value ?? null,
-    source: item.source_name ?? undefined,
-  });
-}
-
 export async function convertInboxToRfq(id: Uuid, input: {
   rfqNumber?: string; sourceType?: string; projectId?: Uuid | null; companyId?: Uuid | null;
   contactId?: Uuid | null; responseDueDate?: string | null; estimatedValue?: number | null; claimOwner?: boolean;
 }) {
-  const rfq = await createRfq(input);
-  await markConverted(id, "rfq", rfq.id);
-  return rfq;
+  const { data: item, error: readErr } = await supabase
+    .from("inbox_items")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (readErr) throw readErr;
+
+  const result = await createRfqWithOpportunity({
+    companyName: item.company_name ?? "",
+    contactName: item.contact_name ?? "",
+    contactPhone: item.phone ?? "",
+    existingCompanyId: input.companyId ?? null,
+    existingContactId: input.contactId ?? null,
+    projectScope: item.project_name?.trim() || item.project_number || "RFQ Opportunity",
+    location: item.location ?? item.location_city ?? null,
+    // The dialog's deadline wins; the intake deadline is the fallback. If
+    // neither exists we still need a date for the follow-up cadence, so use
+    // today rather than failing the conversion outright.
+    responseDueDate: input.responseDueDate ?? item.deadline ?? new Date().toISOString().slice(0, 10),
+    // §25.3 — carried from the intake form, not asked again. See D8.
+    opportunityType: item.project_type === "tender" ? "tender" : "jih",
+    sourceType: item.source_type ?? null,
+    documentUrl: item.evidence_url ?? null,
+    projectId: input.projectId ?? null,
+    estimatedValue: input.estimatedValue ?? item.estimated_value ?? null,
+  });
+
+  // Point the intake item at the opportunity: that is the record the user
+  // should open and work, not the RFQ document behind it.
+  await markConverted(id, "opportunity", result.opportunityId);
+  return result;
 }
 
 export async function convertInboxToTender(id: Uuid, input: {
