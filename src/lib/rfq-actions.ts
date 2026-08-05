@@ -180,8 +180,31 @@ export async function createRfqWithOpportunity(input: {
     responseDueDate: input.responseDueDate,
     estimatedValue: input.estimatedValue ?? null,
     opportunityId: opp.id,
+    // Without this the opportunity page's "JIH or Tender" field renders "—",
+    // even though the user picked one on the intake form: that panel reads
+    // `rfqs.classification`, and this path never set it. Found by browser QA
+    // 2026-08-05 — the database looked correct, the screen did not.
+    classification: input.opportunityType === "tender" ? "tender" : "jih",
     claimOwner: true,
   });
+
+  // 4b. Stakeholder — so the person actually shows on the opportunity.
+  //
+  // The contact created above is linked to the RFQ (`rfqs.contact_id`), but the
+  // opportunity page's Client Details panel reads `stakeholders`, not
+  // `contacts`. Without this row the panel renders Contact Person / Number /
+  // Email as "—" even though the user typed all three on the intake form.
+  // Found by browser QA 2026-08-05: every database check passed while the
+  // screen the user lands on was blank.
+  if (input.contactName?.trim() || input.contactPhone?.trim()) {
+    await supabase.from("stakeholders").insert({
+      opportunity_id: opp.id,
+      name: input.contactName?.trim() || input.companyName.trim(),
+      phone: input.contactPhone?.trim() || null,
+      organization: input.companyName?.trim() || null,
+      contact_order: 1,
+    });
+  }
 
   // 5. Follow-up (3 days out)
   const followUpDate = new Date();
