@@ -1295,6 +1295,7 @@ export const strings = {
   rfq_new_desc: { en: "Creates the RFQ and its opportunity together, ready to work.", ar: "يُنشئ طلب عرض السعر والفرصة معًا، جاهزة للعمل." },
   rfq_new_created: { en: "RFQ and opportunity created", ar: "تم إنشاء الطلب والفرصة" },
   rfq_opportunity_type: { en: "Opportunity type", ar: "نوع الفرصة" },
+  rfq_link_existing_project: { en: "Link to existing project (optional)", ar: "ربط بمشروع قائم (اختياري)" },
   rfq_source_reference: { en: "RFQ document or source link", ar: "مستند الطلب أو رابط المصدر" },
   nav_new_rfq: { en: "New RFQ", ar: "طلب جديد" },
   dialog_paste_link: { en: "Paste a link (e.g. the email)", ar: "الصق رابطًا (رابط الإيميل مثلًا)" },
