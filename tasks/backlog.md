@@ -25,4 +25,5 @@
 - [ ] Data Import: توحيد مخرجات `relationship_resolver` مع جدول `import_candidate_links` (مُخصَّص لذلك أصلًا) بدل كتابتها في `import_rows.raw_data.__relationship_hints`.
 - [ ] زر "New Opportunity" بصفحة الحساب يُنشئ فرصة بلا RFQ مقابل — المواصفة (§25/§33) لا تعرّف فرصة قبل وجود RFQ. إمّا التقاط RFQ ضمن نفس التدفق، أو تحويل الزر لإنشاء BD lead. مترتّب على قرار D6 في `docs/DECISIONS.md`.
 - [ ] `tender_bafo` غير قابلة للوصول: الواجهة تعرضها كمرحلة تالية (`src/lib/tender-actions.ts`) بينما خريطة الخادم (`supabase/functions/sales-os-api/shared.ts::TENDER_TRANSITIONS`) لا تحوي مفتاحًا لها إطلاقًا — الانتقال يُرفض بـ409، وأي مناقصة تصلها تصبح بلا مخرج شرعي. رُصد 2026-08-05.
+- [ ] مراجعة إعلان تبعيات Edge Functions: النشر يطبع `WARNING: Functions using fallback import map` — الـCLI يوصي بـ`deno.json` لكل دالة بدل الـimport map المشترك. رُصد أثناء نشر `sales-os-api` v41 (2026-08-05)؛ غير حاجب لكن الـfallback مرشَّح للإزالة.
 - [ ] [[أضف أفكارك هنا]]

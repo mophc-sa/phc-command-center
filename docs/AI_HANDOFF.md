@@ -5,7 +5,23 @@
 ## Date
 2026-08-05
 
-## 🔬 تدقيق حي على الإنتاج + إصلاح ربط المراحل والتواريخ — فرع `fix/stage-wiring-and-date-validation-2026-08-05` (PR مفتوح، غير مدموج) — 2026-08-05
+## 🚀 سجل النشر — PR #169 (مدموج ومنشور) — 2026-08-05
+| العنصر | القيمة |
+|---|---|
+| Merge commit | `488098c` |
+| Project ref | `lrfdtoexyeghrzynapyn` |
+| Edge Function | `sales-os-api` **v40 → v41** (الوحيدة المنشورة — لم تُلمس `ai-orchestrator` v27 ولا `import-pipeline` v33 ولا `error-ingest` v10) |
+| Migrations | **صفر** — لا `db push`، لا بوابة قاعدة بيانات |
+| Cloudflare Worker | نُشر تلقائيًا من `488098c` (تأكَّدت أن الـSHA يطابق الدمج) |
+| توقيت | 2026-08-05 |
+
+**تحقّق ما بعد النشر:** `agent.phc-sa.com` يستجيب HTTP 200. استدعاء غير مصادَق لـ`sales-os-api` يُرجع **خطأ منظَّمًا** (`401 UNAUTHORIZED_NO_AUTH_HEADER`) لا انهيار boot — أي أن الدالة أقلعت وطبقة المصادقة تعمل. CI أخضر بالكامل (typecheck-build · playwright-smoke · CodeQL · Secret scan · migrations/pgTAP) عدا "Dependency audit" الفاشل مسبقًا على `main` منذ #166 والفرع لم يمسّ `package.json`/`bun.lock`.
+
+**تنبيه ملاحَظ أثناء النشر (غير حاجب):** `WARNING: Functions using fallback import map: sales-os-api` — الـCLI صار يوصي بـ`deno.json` لكل دالة بدل `--import-map`. `supabase/functions/deno.json` أُضيف في PR #165 للتطوير المحلي؛ يستحق مراجعة أن كل دالة تعلن تبعياتها بنفسها قبل أن يُزال الـfallback من الـCLI. بند backlog.
+
+---
+
+## 🔬 تدقيق حي على الإنتاج + إصلاح ربط المراحل والتواريخ — PR #169 (مدموج ومنشور) — 2026-08-05
 طلب المستخدم التحقق من مطابقة النظام لمواصفة إعادة تصميم لوحة المبيعات (46 قسمًا)، ثم **فحصًا حيًّا** قبل التقرير النهائي.
 
 **طريقة الفحص الحي:** استعلامات قراءة فقط على الإنتاج (`lrfdtoexyeghrzynapyn`) عبر Management API (`read_only:true`) — لا `psql` مثبَّت، لا `.env` بالمستودع، ومنفذا 54321/54322 يشغلهما مشروع Supabase محلي آخر ("mo")، فتجنَّبت لمسه. **لم يُجرَ فحص متصفح** لهذا السبب — والبيانات الحية أعطت أدلة أقوى على أي حال.
@@ -34,7 +50,7 @@
 ---
 
 ## Current Branch / Last Commit
-`main` @ الدمج `51b7fe8` (PR #167، مدموج ومنشور — Cloudflare Worker فقط، لا migrations). قبله PR #165 (`49eda92`) وPR #163 (`1f15bd8`، Edge Functions `ai-orchestrator` v27 و`sales-os-api` v40 منشورتان). لا مهمة نشطة معلَّقة حاليًا.
+`main` @ الدمج `488098c` (PR #169، مدموج ومنشور — Cloudflare Worker + `sales-os-api` v41، لا migrations). قبله PR #167 (`51b7fe8`) وPR #165 (`49eda92`). لا مهمة نشطة معلَّقة حاليًا.
 
 ## ➕ إضافة "إنشاء جديد" مباشر لحقلي المشروع والشركة بنافذة تحويل RFQ — PR #167 (مدموج ومنشور) — 2026-08-04
 طلب المستخدم: عند تحويل عنصر بصندوق الاستقبال مصنَّف كـ"طلب عرض سعر" (RFQ)، إضافة إمكانية إنشاء مشروع/شركة جديدة مباشرة إذا لم تكن موجودة بالقائمة. الآلية (`onCreateNew`/`createLabel`) كانت موجودة أصلًا بمكوّن `ActionDialog` ومُستخدَمة فعليًا بنفس الشكل بمنتقي الشركة بصفحة Contacts — لم أبنِ آلية جديدة، فقط ربطتها بحقلي `projectId`/`companyId` بفرع تصنيف "rfq"، مع نافذتين متداخلتين صغيرتين لإنشاء كل سجل (`createProject`/`createCompany` الموجودتان أصلًا). مفتاح `wf_add_new_project` كان معرَّفًا بملف i18n بلا أي نقطة استخدام قبل هذا.
