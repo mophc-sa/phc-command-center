@@ -105,10 +105,15 @@ async function convert_lead(
       location: lead.location,
       estimated_value_max: lead.estimated_value,
       stage: "qualification",
-      // See crm-actions.ts createOpportunityForCompany: omitting sales_stage
-      // leaves the row NULL and hidden from every JIH view, even though the
-      // write path (advance_sales_stage) silently treats NULL as "jih". The
-      // read and write paths disagreed; this settles it at creation time.
+      // Omitting sales_stage leaves the row NULL and hidden from every JIH
+      // view, even though the write path (advance_sales_stage) silently treats
+      // NULL as "jih". The read and write paths disagreed; this settles it at
+      // creation time.
+      //
+      // `rfq_received` is exactly right here rather than a compromise — see
+      // docs/DECISIONS.md D6. The client spec keeps pre-RFQ work in the BD
+      // module and converts a lead only "when an RFQ is received" (§33), so
+      // the moment of conversion IS the RFQ-received moment.
       sales_stage: "rfq_received",
       pipeline_step: "qualified_lead",
       owner_id: lead.owner_id ?? caller.userId,

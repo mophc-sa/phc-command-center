@@ -23,4 +23,6 @@
 - [x] ~~Data Import: إصلاح فقدان البيانات غير المُطابَقة لعمود صمتًا~~ — نُفِّذ 2026-07-27. راجع `docs/KNOWN_ISSUES.md`.
 - [ ] Data Import: ربط وكيلَي AI الجاهزين وغير المستخدَمين `data_cleanup` و`contact_mapping` بواجهة مستخدم فعلية (مبنيّان ومُختبَران، بلا أي زر/لوحة تستدعيهما حاليًا) — راجع `docs/ai-orchestrator.md` قسم "Later agents".
 - [ ] Data Import: توحيد مخرجات `relationship_resolver` مع جدول `import_candidate_links` (مُخصَّص لذلك أصلًا) بدل كتابتها في `import_rows.raw_data.__relationship_hints`.
+- [ ] زر "New Opportunity" بصفحة الحساب يُنشئ فرصة بلا RFQ مقابل — المواصفة (§25/§33) لا تعرّف فرصة قبل وجود RFQ. إمّا التقاط RFQ ضمن نفس التدفق، أو تحويل الزر لإنشاء BD lead. مترتّب على قرار D6 في `docs/DECISIONS.md`.
+- [ ] `tender_bafo` غير قابلة للوصول: الواجهة تعرضها كمرحلة تالية (`src/lib/tender-actions.ts`) بينما خريطة الخادم (`supabase/functions/sales-os-api/shared.ts::TENDER_TRANSITIONS`) لا تحوي مفتاحًا لها إطلاقًا — الانتقال يُرفض بـ409، وأي مناقصة تصلها تصبح بلا مخرج شرعي. رُصد 2026-08-05.
 - [ ] [[أضف أفكارك هنا]]

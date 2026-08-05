@@ -49,16 +49,22 @@ the same time — the worst combination for trusting a dashboard number.
 
 Both sites now set `sales_stage: "rfq_received"`.
 
-**Why `rfq_received` and not `jih`:** `rfq_received` is the enum's genuine entry
-point. Writing `jih` would match the existing implicit NULL fallback but would
-fabricate progress for a deal that has not received an RFQ. `rfq_received → jih`
-is a legal transition, so nothing downstream is blocked by the more conservative
-choice.
+**Why `rfq_received` and not `jih`:** settled by the client spec, not by
+judgement — recorded as **D6 in `docs/DECISIONS.md`**.
 
-> ⚠️ **Confirm this is the intended business semantics.** An opportunity started
-> from an Account page, or converted from a qualified lead, may in practice
-> already be past the RFQ step. If PHC considers those to start at `jih`, change
-> both constants — the transition map allows either.
+- §4.2 names the first JIH stage **"New JIH RFQ"**.
+- §25 creates the opportunity *as a result of* saving an RFQ.
+- §33 keeps pre-RFQ work in the BD module and converts a lead only "**when an
+  RFQ is received**".
+
+So there is no opportunity before an RFQ exists, and a newly created one is by
+definition at the RFQ-received stage. `jih` means estimation/technical
+preparation has actually begun — writing it at creation would fabricate progress.
+
+> **Follow-on question this raises (not addressed here):** the Account page's
+> "New Opportunity" button creates an opportunity with no corresponding RFQ,
+> which the spec does not define. Either the flow should capture an RFQ, or the
+> button should create a BD lead instead. Logged in `tasks/backlog.md`.
 
 Guarded by `src/lib/opportunity-sales-stage.contract.test.ts`, which parses every
 `INSERT` body at all five sites and fails if any omits the column.
