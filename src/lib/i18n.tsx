@@ -1291,6 +1291,9 @@ export const strings = {
 
   // Phase 0 UX — ActionDialog inline validation
   dialog_field_required: { en: "This field is required", ar: "هذا الحقل مطلوب" },
+  dialog_date_invalid: { en: "Enter a valid date (YYYY-MM-DD)", ar: "أدخل تاريخًا صحيحًا (سنة-شهر-يوم)" },
+  dialog_date_too_early: { en: "That date is too far in the past", ar: "هذا التاريخ قديم أكثر من اللازم" },
+  dialog_date_too_late: { en: "That date is too far in the future — check the year", ar: "هذا التاريخ بعيد أكثر من اللازم — تأكد من السنة" },
   dialog_create_new: { en: "+ Add new", ar: "+ إضافة جديد" },
   dialog_reject_ai_output_title: { en: "Reject AI output", ar: "رفض مخرج الذكاء الاصطناعي" },
   dialog_reject_ai_output_desc: {

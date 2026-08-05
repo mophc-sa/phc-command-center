@@ -1,5 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  validateDateBounds,
+  dateBoundsErrorKey,
+  maxAllowedDate,
+  MIN_DATE,
+} from "@/lib/date-bounds";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -100,7 +106,17 @@ export function ActionDialog({
     // Collect all validation errors before bailing so every required field is marked at once.
     const newErrors: Record<string, string> = {};
     for (const f of fields) {
-      if (f.required && !values[f.key]) newErrors[f.key] = t("dialog_field_required");
+      if (f.required && !values[f.key]) {
+        newErrors[f.key] = t("dialog_field_required");
+        continue;
+      }
+      // Date bounds: the browser's own date picker happily emits six-digit
+      // years, which then sit in the DB excluded from every deadline query.
+      // See src/lib/date-bounds.ts for the live case this guards against.
+      if (f.type === "date") {
+        const res = validateDateBounds(values[f.key]);
+        if (!res.ok) newErrors[f.key] = t(dateBoundsErrorKey(res.reason));
+      }
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -232,6 +248,11 @@ export function ActionDialog({
                 <Input
                   id={f.key}
                   type={f.type === "date" ? "date" : "text"}
+                  // Native bounds stop the spinner/keyboard from reaching an
+                  // absurd year at all; handleSubmit still re-checks, since a
+                  // pasted value can bypass these.
+                  min={f.type === "date" ? MIN_DATE : undefined}
+                  max={f.type === "date" ? maxAllowedDate() : undefined}
                   value={values[f.key] ?? ""}
                   placeholder={"placeholder" in f ? f.placeholder : undefined}
                   aria-required={f.required ?? undefined}

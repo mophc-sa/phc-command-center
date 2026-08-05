@@ -93,6 +93,40 @@ export const JIH_ACTIVE_STAGES = new Set([
   "jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed",
 ]);
 
+/**
+ * The near-award stages the Award & Contract Queue is responsible for.
+ *
+ * This list previously lived inline in award-queue.tsx and silently went stale
+ * when `contract_signed` was added to the sales_stage enum (migration
+ * 20260716100000) — deals sitting one step from award vanished from the queue.
+ * It is exported here, with `awardQueueStagesAreComplete()` below asserting it
+ * against the canonical stage order, so the same drift fails a test instead of
+ * hiding a deal.
+ */
+export const AWARD_QUEUE_STAGES = [
+  "verbally_awarded",
+  "contract_received",
+  "contract_signed",
+  "won",
+] as const;
+
+/**
+ * Guard for the invariant above: every stage at or after `verbally_awarded` in
+ * the canonical order must appear in AWARD_QUEUE_STAGES. `lost` and `on_hold`
+ * are terminal/paused branches, not award-path stages, so they are excluded.
+ *
+ * Pass the canonical ordered stage list (SALES_STAGES from workflow-actions).
+ * Returns the stages that are missing — empty array means the queue is complete.
+ */
+export function awardQueueMissingStages(orderedStages: readonly string[]): string[] {
+  const start = orderedStages.indexOf("verbally_awarded");
+  if (start === -1) return [];
+  const covered = new Set<string>(AWARD_QUEUE_STAGES);
+  return orderedStages
+    .slice(start)
+    .filter((s) => s !== "lost" && s !== "on_hold" && !covered.has(s));
+}
+
 export const TENDER_TERMINAL_STAGES = new Set([
   "converted_to_jih", "tender_lost_or_archived",
 ]);

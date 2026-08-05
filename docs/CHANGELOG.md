@@ -13,6 +13,19 @@
 
 ---
 
+## 2026-08-05 — إصلاح ربط المراحل + التحقق من التواريخ (فرع `fix/stage-wiring-and-date-validation-2026-08-05`)
+### Fixed
+- **`contract_signed` كانت تختفي من Award & Contract Queue** — الاستعلام كان يسرد 3 مراحل بشكل مباشر ولم يُحدَّث عند إضافة المرحلة (migration 20260716100000). صفقة على بُعد خطوة من الترسية كانت تغيب عن الطابور تمامًا.
+- **`sales_stage` كان يبقى NULL** في مسارَي إنشاء من أصل 5 (`createOpportunityForCompany` من صفحة الحساب، وتحويل Lead إلى Opportunity) — السجل يعمل لكنه غير مرئي لأي لوحة JIH. رُصد حيًّا: فرصتان من 4 بالإنتاج.
+### Added
+- `src/lib/date-bounds.ts` — تحقق مركزي من حدود التواريخ + `min`/`max` على كل حقل `date` في `ActionDialog`. سببه سجل إنتاج حي بتاريخ `275760-07-29` (حد تاريخ JavaScript) كان يُخفي الـRFQ من كل استعلامات المواعيد للأبد.
+- `src/lib/stage-canonical.ts` — تحضير refactor توحيد حقل المرحلة (غير مستخدَم بعد، لا تغيير سلوك).
+- اختبارات حارسة: تغطية مراحل طابور الترسيات، وعقد يفرض ضبط `sales_stage` في كل `INSERT`.
+- `docs/migration/sales-stage-backfill-plan.md` و`docs/migration/automation-idempotency-audit.md` — تخطيط فقط، لا تنفيذ.
+- `docs/USER_GUIDE.md` — دليل تشغيلي كامل لسير العمل لكل الأدوار.
+
+---
+
 ## 2026-08-04 — "إنشاء جديد" مباشر بنافذة تحويل RFQ (PR #167)
 ### Added
 - حقلا Project/Company بنافذة تحويل RFQ (Lead & Tender Inbox) يدعمان "+ إضافة جديد" مباشرة.

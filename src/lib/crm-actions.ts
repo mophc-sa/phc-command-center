@@ -215,6 +215,14 @@ export async function createOpportunityForCompany(input: {
       location: input.location ?? null,
       company_id: input.companyId,
       stage: "discovery",
+      // Without this the row lands with sales_stage = NULL and is invisible to
+      // every JIH view (My Workspace panels, Award Queue, computeJihPipelineTotal
+      // all filter on sales_stage). Found live 2026-08-05: 2 of 4 production
+      // opportunities were orphaned this way. `rfq_received` is the enum's real
+      // entry point — deliberately NOT `jih`, which would fabricate progress for
+      // a deal that has not received an RFQ yet. rfq_received -> jih is a legal
+      // transition, so nothing downstream is blocked.
+      sales_stage: "rfq_received",
       flow_type: "manual",
       owner_id: uid,
     })
