@@ -11,7 +11,7 @@ import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { requiresMfa } from "@/lib/roles";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { NotificationCenter } from "@/components/phc/NotificationCenter";
-import { NewRfqDialog } from "@/components/phc/NewRfqDialog";
+import { NewIntakeDialog } from "@/components/phc/NewIntakeDialog";
 import { FontSizeControl } from "@/components/phc/FontSizeControl";
 import { StatusPill } from "@/components/phc/StatusPill";
 import {
@@ -211,7 +211,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [newRfqOpen, setNewRfqOpen] = useState(false);
+  const [newIntakeOpen, setNewIntakeOpen] = useState(false);
 
   const { data: notifItems = [] } = useNotifications();
   const notifCount = notifItems.length;
@@ -548,17 +548,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {lang === "en" ? "AR" : "EN"}
               </button>
 
-              {/* "+ New RFQ" — spec §6: "must remain visible or easily
-                  accessible throughout the application". Sitting in the shell
-                  header makes it reachable from every page. Collapses to the
-                  quick-actions menu below on narrow screens. */}
+              {/* The single entry form. Spec §6 wants a creation entry point
+                  "visible or easily accessible throughout the application";
+                  mounting the one intake form in the shell header satisfies
+                  that without a second form beside it (see D11). Collapses to
+                  the quick-actions menu below on narrow screens. */}
               {canCreate ? (
                 <button
-                  onClick={() => setNewRfqOpen(true)}
+                  onClick={() => setNewIntakeOpen(true)}
                   className="hidden h-8 items-center gap-1.5 rounded-full bg-amber/90 px-3.5 text-[11px] font-semibold text-black shadow-card transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:inline-flex"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  {t("nav_new_rfq")}
+                  {t("nav_new_intake")}
                 </button>
               ) : null}
 
@@ -578,14 +579,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {canCreate ? (
-                    <DropdownMenuItem onClick={() => setNewRfqOpen(true)}>
+                    <DropdownMenuItem onClick={() => setNewIntakeOpen(true)}>
                       <Plus className="h-3.5 w-3.5" />
-                      {t("nav_new_rfq")}
+                      {t("nav_new_intake")}
                     </DropdownMenuItem>
                   ) : null}
+                  {/* Goes to the inbox list itself. The form is the item above;
+                      this is "show me the queue", not "create something". */}
                   <DropdownMenuItem onClick={() => nav_({ to: "/lead-tender-inbox" })}>
                     <Mailbox className="h-3.5 w-3.5" />
-                    {t("qa_new_entry")}
+                    {t("nav_intake")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => nav_({ to: "/my-workspace" })}>
                     <Activity className="h-3.5 w-3.5" />
@@ -628,8 +631,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Global overlays — mounted once at shell level */}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <NotificationCenter open={notifOpen} onOpenChange={setNotifOpen} />
-      {/* Mounted at shell level so "+ New RFQ" works from any page (spec §6). */}
-      {canCreate ? <NewRfqDialog open={newRfqOpen} onOpenChange={setNewRfqOpen} /> : null}
+      {/* Mounted at shell level so the one intake form opens from any page (§6). */}
+      {canCreate ? <NewIntakeDialog open={newIntakeOpen} onOpenChange={setNewIntakeOpen} /> : null}
     </div>
   );
 }

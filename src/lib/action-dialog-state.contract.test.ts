@@ -82,7 +82,7 @@ describe("callers still hand in freshly-built field arrays", () => {
   // and assumes the guard below is therefore unnecessary.
   test("newIntakeFields is called inline in the JSX prop", async () => {
     const fs = await import("fs/promises");
-    const src = await fs.readFile("src/routes/_authenticated/lead-tender-inbox.tsx", "utf8");
+    const src = await fs.readFile("src/components/phc/NewIntakeDialog.tsx", "utf8");
     expect(src).toMatch(/fields=\{newIntakeFields\(/);
   });
 
