@@ -26,4 +26,7 @@
 - [ ] زر "New Opportunity" بصفحة الحساب يُنشئ فرصة بلا RFQ مقابل — المواصفة (§25/§33) لا تعرّف فرصة قبل وجود RFQ. إمّا التقاط RFQ ضمن نفس التدفق، أو تحويل الزر لإنشاء BD lead. مترتّب على قرار D6 في `docs/DECISIONS.md`.
 - [ ] `tender_bafo` غير قابلة للوصول: الواجهة تعرضها كمرحلة تالية (`src/lib/tender-actions.ts`) بينما خريطة الخادم (`supabase/functions/sales-os-api/shared.ts::TENDER_TRANSITIONS`) لا تحوي مفتاحًا لها إطلاقًا — الانتقال يُرفض بـ409، وأي مناقصة تصلها تصبح بلا مخرج شرعي. رُصد 2026-08-05.
 - [ ] مراجعة إعلان تبعيات Edge Functions: النشر يطبع `WARNING: Functions using fallback import map` — الـCLI يوصي بـ`deno.json` لكل دالة بدل الـimport map المشترك. رُصد أثناء نشر `sales-os-api` v41 (2026-08-05)؛ غير حاجب لكن الـfallback مرشَّح للإزالة.
+- [ ] **لا تحذف حسابات `PW *`** — هي fixtures اختبارات Playwright المربوطة بـGitHub Secrets ووظيفة `playwright-smoke` (تعمل على كل PR). راجع `docs/playwright-test-setup.md`. سُجِّل هنا بعد أن كاد يُطلب حذفها بالخطأ (2026-08-05).
+- [ ] `opportunity_flags` و`stage_transition_history` أعمدتهما polymorphic بلا FK — حذف فرصة يترك أيتامًا صامتة (وقع فعلًا 2026-08-05، 11 صفًا نُظِّفت يدويًا). الخيارات: trigger تنظيف، أو FK جزئي، أو فلترة الأيتام في استعلامات الواجهة.
+- [ ] تأكيد ميداني لإصلاح PR #171: أول تحويل بعد 2026-08-05 10:05 UTC يجب أن يُنتج فرصة و`rfqs.opportunity_id` غير فارغ. الـ3 RFQ الحالية غير المرتبطة كلها سابقة للنشر.
 - [ ] [[أضف أفكارك هنا]]
