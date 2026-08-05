@@ -19,6 +19,7 @@ import {
   convertInboxToCompany, convertInboxToContact, convertInboxToProject,
   convertInboxToRfq, convertInboxToTender, convertInboxToOpportunityCandidate,
   sendInboxToMissingData, markInboxDuplicate, archiveInboxItem,
+  createProjectFromInboxItem,
   INBOX_SOURCE_TYPES, INBOX_CLASSIFICATIONS,
   INBOX_CLIENT_TYPES, INBOX_PROJECT_TYPES, INBOX_RFQ_FROM, INBOX_SCOPES, INBOX_LOCATIONS,
   type InboxClassification, type DuplicateCandidate,
@@ -65,7 +66,7 @@ export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): D
     // see canEditTotalValue in src/lib/roles.ts), not captured at intake.
     { key: "deadline", type: "date", label: t("ibx_deadline") },
     { key: "notes", type: "textarea", label: t("wf_notes") },
-    { key: "evidenceUrl", type: "file", label: t("ibx_evidence_url"), folder: "inbox" },
+    { key: "evidenceUrl", type: "file_or_url", label: t("ibx_evidence_url"), folder: "inbox" },
     { key: "assignedOwnerId", type: "select", label: t("ibx_assigned_owner"), options: [{ value: "", label: "—" }, ...teamMembers.map((p: any) => ({ value: p.id, label: p.full_name || p.email }))] },
     { key: "nextAction", type: "text", label: t("label_next_action") },
     { key: "followUpDate", type: "date", label: t("ibx_follow_up_date") },
@@ -426,10 +427,19 @@ function LeadTenderInbox() {
         onOpenChange={(o) => { if (!o) { creatingProjectFor?.(null); setCreatingProjectFor(null); } }}
         title={t("wf_add_new_project")}
         submitLabel={t("crm_add")}
-        fields={[{ key: "name", type: "text", label: t("label_project"), required: true }]}
+        // Prefilled from the intake record rather than blank: the user already
+        // typed all of this one screen earlier (field report 2026-08-05).
+        fields={[
+          { key: "name", type: "text", label: t("label_project"), required: true, defaultValue: convertFor?.project_name ?? "" },
+          { key: "location", type: "text", label: t("label_location"), defaultValue: convertFor?.location ?? "" },
+        ]}
         onSubmit={async (v) => {
           try {
-            const project = await createProject({ name: v.name });
+            // Carries client/contractor/consultant/value/scope across too, and
+            // links the three company fields where an exact match exists.
+            const project = convertFor
+              ? await createProjectFromInboxItem(convertFor, { name: v.name, location: v.location })
+              : await createProject({ name: v.name, location: v.location || undefined });
             creatingProjectFor?.({ value: project.id, label: project.name });
             setCreatingProjectFor(null);
             qc.invalidateQueries({ queryKey: ["projects-min"] });

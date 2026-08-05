@@ -172,7 +172,11 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
     queryKey: ["ws-urgent-rfqs", uid], enabled: !!uid,
     queryFn: async () => {
       const sevenDaysOut = new Date(); sevenDaysOut.setDate(sevenDaysOut.getDate() + 7);
-      return (await supabase.from("rfqs").select("id, rfq_number, response_due_date, estimated_value, status").eq("sales_owner_id", uid).eq("status", "open").not("response_due_date", "is", null).lte("response_due_date", sevenDaysOut.toISOString().slice(0, 10)).order("response_due_date", { ascending: true })).data ?? [];
+      // Spec §16 wants project name and client on this table, not just a code —
+      // and the row has to open the record (§9 "Open full opportunity"). Pull
+      // opportunity_id so the row knows where to navigate, plus the related
+      // project/company names so the user recognises the deal at a glance.
+      return (await supabase.from("rfqs").select("id, rfq_number, response_due_date, estimated_value, status, opportunity_id, projects(name), companies(name)").eq("sales_owner_id", uid).eq("status", "open").not("response_due_date", "is", null).lte("response_due_date", sevenDaysOut.toISOString().slice(0, 10)).order("response_due_date", { ascending: true })).data ?? [];
     },
   });
 
@@ -429,7 +433,12 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                 <table className="w-full text-[12px]">
                   <thead>
                     <tr className="border-b border-border/30">
-                      <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "رقم الطلب" : "Project Name"}</th>
+                      {/* Header said "رقم الطلب" in Arabic and "Project Name" in
+                          English while the cell showed neither reliably — it fell
+                          back to a raw UUID fragment. Split into the two columns
+                          spec §16 actually asks for. */}
+                      <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "رقم الطلب" : "RFQ No."}</th>
+                      <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع / العميل" : "Project / Client"}</th>
                       <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Deadline"}</th>
                       <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
                     </tr>
@@ -437,9 +446,26 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                   <tbody>
                     {(urgentRfqs as any[]).map(r => {
                       const days = daysUntil(r.response_due_date);
+                      // The row used to be inert — it had a hover highlight, so it
+                      // looked clickable, and did nothing (field report 2026-08-05).
+                      // Spec §9/§16 require it to open the record. An RFQ that has
+                      // been converted has an opportunity to open; one that has not
+                      // still lives on the RFQ & JIH board.
+                      const projectLabel = r.projects?.name ?? r.companies?.name ?? null;
                       return (
                         <tr key={r.id} className="border-t border-border/20 hover:bg-surface-2/30">
-                          <td className="px-4 py-2.5 font-medium text-foreground">{r.rfq_number || r.id.slice(0, 8)}</td>
+                          <td className="px-4 py-2.5 font-medium text-foreground">
+                            {r.opportunity_id ? (
+                              <Link to="/opportunities/$id" params={{ id: r.opportunity_id }} className="text-foreground hover:underline">
+                                {r.rfq_number || (lang === "ar" ? "بلا رقم" : "No number")}
+                              </Link>
+                            ) : (
+                              <Link to="/quotations" search={{ tab: "rfq_jih" }} className="text-foreground hover:underline">
+                                {r.rfq_number || (lang === "ar" ? "بلا رقم" : "No number")}
+                              </Link>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-muted-foreground">{projectLabel ?? "—"}</td>
                           <td className="px-4 py-2.5 num text-muted-foreground">{r.response_due_date || "—"}</td>
                           <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
                         </tr>

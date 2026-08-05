@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, formatCurrency } from "@/lib/i18n";
+import { AWARD_QUEUE_STAGES } from "@/lib/dashboard-helpers";
 
 export const Route = createFileRoute("/_authenticated/award-queue")({
   head: () => ({ meta: [{ title: "Award & Contract Queue — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -27,13 +28,16 @@ function daysSince(d?: string | null): number | null {
 function toneForStage(s: string): "positive" | "attention" | "muted" | "neutral" {
   if (s === "won") return "positive";
   if (s === "verbally_awarded") return "attention";
+  // contract_signed is one step from award — read it as close to won, not as
+  // just another mid-pipeline stage.
+  if (s === "contract_signed") return "positive";
   if (s === "contract_received") return "neutral";
   return "muted";
 }
 
 function AwardQueue() {
   const { t, lang } = useI18n();
-  const [tab, setTab] = useState<"all" | "verbal" | "contract" | "won" | "highvalue">("all");
+  const [tab, setTab] = useState<"all" | "verbal" | "contract" | "signed" | "won" | "highvalue">("all");
 
   const { data: opps = [], isLoading } = useQuery({
     queryKey: ["award-queue"],
@@ -42,7 +46,9 @@ function AwardQueue() {
         await supabase
           .from("opportunities")
           .select("id, project_name, sales_stage, estimated_value_max, contract_value, currency, expected_contract_date, handover_status, updated_at, client")
-          .in("sales_stage", ["verbally_awarded", "contract_received", "won"])
+          // Stage list is centralised in dashboard-helpers and guarded by a test
+          // (awardQueueMissingStages) — do NOT inline it again here.
+          .in("sales_stage", [...AWARD_QUEUE_STAGES])
           .order("updated_at", { ascending: false })
       ).data ?? [],
   });
@@ -51,6 +57,7 @@ function AwardQueue() {
 
   const verbalNoContract = useMemo(() => opps.filter((o: any) => o.sales_stage === "verbally_awarded"), [opps]);
   const contractReceived = useMemo(() => opps.filter((o: any) => o.sales_stage === "contract_received"), [opps]);
+  const contractSigned = useMemo(() => opps.filter((o: any) => o.sales_stage === "contract_signed"), [opps]);
   const wonAwaiting = useMemo(() => opps.filter((o: any) => o.sales_stage === "won" && o.handover_status !== "handed_over"), [opps]);
   const overdue = useMemo(() => verbalNoContract.filter((o: any) => o.expected_contract_date && o.expected_contract_date < today), [verbalNoContract, today]);
   const highValue = useMemo(() => opps.filter((o: any) => (o.contract_value ?? o.estimated_value_max ?? 0) >= HIGH_VALUE_THRESHOLD), [opps]);
@@ -60,10 +67,11 @@ function AwardQueue() {
   const rows = useMemo(() => {
     if (tab === "verbal") return verbalNoContract;
     if (tab === "contract") return contractReceived;
+    if (tab === "signed") return contractSigned;
     if (tab === "won") return wonAwaiting;
     if (tab === "highvalue") return highValue;
     return opps;
-  }, [tab, opps, verbalNoContract, contractReceived, wonAwaiting, highValue]);
+  }, [tab, opps, verbalNoContract, contractReceived, contractSigned, wonAwaiting, highValue]);
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -85,6 +93,7 @@ function AwardQueue() {
           { k: "all", label: `All (${opps.length})` },
           { k: "verbal", label: `Verbal (${verbalNoContract.length})` },
           { k: "contract", label: `Contract received (${contractReceived.length})` },
+          { k: "signed", label: `Contract signed (${contractSigned.length})` },
           { k: "won", label: `Awaiting handover (${wonAwaiting.length})` },
           { k: "highvalue", label: `High value (${highValue.length})` },
         ] as const).map((f) => (

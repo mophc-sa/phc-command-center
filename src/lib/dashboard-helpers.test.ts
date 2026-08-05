@@ -17,9 +17,12 @@ import {
   remainingTarget,
   computeQuotationWinRatePct,
   normalizeFollowUpChannel,
+  AWARD_QUEUE_STAGES,
+  awardQueueMissingStages,
   type OpportunityStageRow,
   type TenderPipelineRow,
 } from "./dashboard-helpers";
+import { SALES_STAGES } from "./workflow-actions";
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -541,5 +544,44 @@ describe("sidebar integrity — Spec test case 20", () => {
     expect(src).not.toContain("supabase");
     expect(src).not.toContain("useQuery");
     expect(src).not.toContain("import React");
+  });
+});
+
+// ─── Award & Contract Queue stage coverage ───────────────────────────────────
+// Regression guard for the 2026-08-05 audit finding: award-queue.tsx queried an
+// inline list of three stages and was never updated when `contract_signed` was
+// added to the sales_stage enum (migration 20260716100000). Deals one step from
+// award silently disappeared from the queue. These tests fail loudly if the
+// enum grows again without the queue following.
+describe("award queue stage coverage", () => {
+  test("covers every award-path stage from verbally_awarded onward", () => {
+    expect(awardQueueMissingStages(SALES_STAGES)).toEqual([]);
+  });
+
+  test("includes contract_signed — the stage that was missing", () => {
+    expect(AWARD_QUEUE_STAGES).toContain("contract_signed");
+  });
+
+  test("detects a newly added award-path stage that the queue does not cover", () => {
+    // Simulates a future migration inserting a stage before `won`.
+    const withNewStage = [
+      "rfq_received", "jih", "jih_bafo", "under_negotiation", "verbally_awarded",
+      "contract_received", "contract_signed", "handover_ready", "won", "lost", "on_hold",
+    ];
+    expect(awardQueueMissingStages(withNewStage)).toEqual(["handover_ready"]);
+  });
+
+  test("does not demand coverage of the lost / on_hold branches", () => {
+    expect([...AWARD_QUEUE_STAGES]).not.toContain("lost");
+    expect([...AWARD_QUEUE_STAGES]).not.toContain("on_hold");
+    expect(awardQueueMissingStages(SALES_STAGES)).not.toContain("on_hold");
+  });
+
+  test("award-queue.tsx uses the shared list, not an inline stage array", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/routes/_authenticated/award-queue.tsx", "utf8");
+    expect(src).toContain("AWARD_QUEUE_STAGES");
+    // The exact inline array that caused the bug must not come back.
+    expect(src).not.toContain(`["verbally_awarded", "contract_received", "won"]`);
   });
 });
