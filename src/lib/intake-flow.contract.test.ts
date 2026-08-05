@@ -132,15 +132,28 @@ describe("the RFQ-first entry point", () => {
     const fs = await import("fs/promises");
     const dialog = await fs.readFile("src/components/phc/ActionDialog.tsx", "utf8");
     expect(dialog).toContain(`type: "file_or_url"`);
-    const intake = await fs.readFile("src/routes/_authenticated/lead-tender-inbox.tsx", "utf8");
+    const intake = await fs.readFile("src/components/phc/NewIntakeDialog.tsx", "utf8");
     expect(intake).toMatch(/key: "evidenceUrl", type: "file_or_url"/);
   });
 
-  test("+ New RFQ lives in the shell, so it is reachable from every page", async () => {
+  test("the single intake form lives in the shell, reachable from every page", async () => {
     const fs = await import("fs/promises");
     const shell = await fs.readFile("src/components/phc/AppShell.tsx", "utf8");
-    expect(shell).toContain("NewRfqDialog");
-    expect(shell).toContain("nav_new_rfq");
+    expect(shell).toContain("NewIntakeDialog");
+    expect(shell).toContain("nav_new_intake");
+  });
+
+  test("the separate New RFQ form is gone — one form, not two (D11)", async () => {
+    const fs = await import("fs/promises");
+    let exists = true;
+    try {
+      await fs.access("src/components/phc/NewRfqDialog.tsx");
+    } catch {
+      exists = false;
+    }
+    expect(exists).toBe(false);
+    const shell = await fs.readFile("src/components/phc/AppShell.tsx", "utf8");
+    expect(shell).not.toContain("NewRfqDialog");
   });
 
   test("it is gated by the same authority as other record creation", async () => {
@@ -206,5 +219,65 @@ describe("My Day urgent submissions", () => {
     // The old header claimed "Project Name" over a cell that rendered an RFQ
     // number or a UUID fragment.
     expect(header).not.toMatch(/"رقم الطلب" : "Project Name"/);
+  });
+});
+
+// ─── D11 — one form that routes itself ──────────────────────────────────────
+describe("a single intake form, routed by its own fields", () => {
+  test("createInboxItemAndRoute sends rfq to the opportunity track", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/lib/inbox-actions.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function createInboxItemAndRoute"));
+    const body = fn.slice(0, fn.indexOf("export async function classifyInboxItem"));
+    expect(body).toContain('classification === "rfq"');
+    expect(body).toContain("convertInboxToRfq");
+    expect(body).toContain("opportunityId");
+  });
+
+  test("...and tender to the monitoring board, with no opportunity", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/lib/inbox-actions.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function createInboxItemAndRoute"));
+    const body = fn.slice(0, fn.indexOf("export async function classifyInboxItem"));
+    expect(body).toContain('classification === "tender"');
+    expect(body).toContain("convertInboxToTender");
+    // §27: a tender must not count in the JIH pipeline until converted.
+    expect(body).not.toContain('routed: "tender", inboxItemId: item.id, opportunityId');
+  });
+
+  test("an unroutable capture still lands safely in the inbox", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/lib/inbox-actions.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function createInboxItemAndRoute"));
+    expect(fn.slice(0, fn.indexOf("export async function classifyInboxItem"))).toContain('routed: "none"');
+  });
+
+  test("the tender path can run off the intake record alone", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/lib/inbox-actions.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function convertInboxToTender"));
+    // Every argument optional, defaults pulled from the item — that is what
+    // lets one form route without a second dialog.
+    expect(fn.slice(0, 1400)).toContain("} = {}) {");
+    expect(fn.slice(0, 1400)).toContain("item?.project_name");
+  });
+
+  test("the form navigates to whatever it produced", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/components/phc/NewIntakeDialog.tsx", "utf8");
+    expect(src).toContain('res.routed === "rfq"');
+    expect(src).toContain('to: "/opportunities/$id"');
+    expect(src).toContain('res.routed === "tender"');
+    expect(src).toContain('to: "/tenders"');
+  });
+
+  test("the inbox page and the shell header share one form component", async () => {
+    const fs = await import("fs/promises");
+    const page = await fs.readFile("src/routes/_authenticated/lead-tender-inbox.tsx", "utf8");
+    const shell = await fs.readFile("src/components/phc/AppShell.tsx", "utf8");
+    expect(page).toContain("<NewIntakeDialog");
+    expect(shell).toContain("<NewIntakeDialog");
+    // The page must not carry its own copy of the field list any more.
+    expect(page).not.toContain("export function newIntakeFields");
   });
 });

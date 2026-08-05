@@ -169,6 +169,51 @@ export async function createInboxItem(input: InboxItemInput) {
   return data;
 }
 
+export type IntakeRouteResult =
+  | { routed: "rfq"; inboxItemId: Uuid; opportunityId: Uuid; rfqId: Uuid }
+  | { routed: "tender"; inboxItemId: Uuid; tenderId: Uuid }
+  | { routed: "none"; inboxItemId: Uuid };
+
+/**
+ * One form, one save, routed onto the right track.
+ *
+ * This is the whole of spec §25 behind a single submit: the form is saved, the
+ * classification is derived from it (§25.3, see D8), and the item is carried
+ * straight onto its track — RFQ → opportunity in the pipeline (§25.2, §25.10),
+ * or Tender → the monitoring board (§3, §27).
+ *
+ * Requested directly by the user on 2026-08-05, after Faisal's report: one
+ * intake form that decides for itself, rather than a second "New RFQ" form
+ * beside it and a manual classify/convert pair behind it. Two forms covering
+ * the same ground was the worse answer — see D11.
+ *
+ * `routed: "none"` is not a failure. An item with no project type, or no
+ * project name, cannot be routed confidently — it stays in the inbox as
+ * `unclassified` for manual triage, which is what the classify step is
+ * genuinely for: market signals, incomplete captures, duplicates, and items
+ * that turn out to be a company or a contact.
+ *
+ * Routing failure does not lose the capture. If the conversion throws, the
+ * inbox item is already saved; the error propagates so the caller can report
+ * it, and the item is left for manual conversion rather than being rolled back.
+ */
+export async function createInboxItemAndRoute(input: InboxItemInput): Promise<IntakeRouteResult> {
+  const item = await createInboxItem(input);
+  const classification = item.classification as InboxClassification;
+
+  if (classification === "rfq") {
+    const res = await convertInboxToRfq(item.id, {});
+    return { routed: "rfq", inboxItemId: item.id, opportunityId: res.opportunityId, rfqId: res.rfqId };
+  }
+
+  if (classification === "tender") {
+    const tender = await convertInboxToTender(item.id, {});
+    return { routed: "tender", inboxItemId: item.id, tenderId: tender.id };
+  }
+
+  return { routed: "none", inboxItemId: item.id };
+}
+
 export async function classifyInboxItem(id: Uuid, classification: InboxClassification) {
   // An already-converted item must not be silently re-classified.
   //
@@ -463,11 +508,38 @@ export async function convertInboxToRfq(id: Uuid, input: {
   return result;
 }
 
+/**
+ * Converts an intake item onto the tender-monitoring track.
+ *
+ * Every argument is optional now, so the caller can hand over just the id and
+ * let the intake record supply the rest — the same shape as the RFQ path. That
+ * is what lets a single form route itself without a second dialog.
+ *
+ * A tender deliberately does NOT create an opportunity. Spec §3 keeps the two
+ * tracks apart until the main contract is awarded, and §27 says a tender "must
+ * not be counted in the JIH pipeline until converted". The opportunity is
+ * created later, by the Tender → JIH conversion (§40).
+ */
 export async function convertInboxToTender(id: Uuid, input: {
-  tenderName: string; source?: string; projectId?: Uuid | null; classification?: "A" | "B" | "C" | null;
+  tenderName?: string; source?: string; projectId?: Uuid | null; classification?: "A" | "B" | "C" | null;
   expectedAwardDate?: string | null; estimatedProjectValue?: number | null; claimOwner?: boolean;
-}) {
-  const tender = await createTender(input);
+} = {}) {
+  const { data: item, error: readErr } = await supabase
+    .from("inbox_items")
+    .select("project_name, project_number, source_name, deadline, estimated_value")
+    .eq("id", id)
+    .single();
+  if (readErr) throw readErr;
+
+  const tender = await createTender({
+    ...input,
+    tenderName:
+      input.tenderName?.trim() || item?.project_name?.trim() || item?.project_number || "Tender",
+    source: input.source ?? item?.source_name ?? undefined,
+    expectedAwardDate: input.expectedAwardDate ?? item?.deadline ?? null,
+    estimatedProjectValue: input.estimatedProjectValue ?? item?.estimated_value ?? null,
+    claimOwner: input.claimOwner ?? true,
+  });
   await markConverted(id, "tender", tender.id);
   return tender;
 }
