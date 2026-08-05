@@ -281,3 +281,44 @@ describe("a single intake form, routed by its own fields", () => {
     expect(page).not.toContain("export function newIntakeFields");
   });
 });
+
+// ─── Found by browser QA, 2026-08-05 ────────────────────────────────────────
+// Three defects the database could not reveal. Every DB assertion passed while
+// the page the user actually lands on showed "—" in three fields.
+describe("what the opportunity page renders after intake", () => {
+  test("the RFQ carries the JIH/Tender the user picked", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/lib/rfq-actions.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function createRfqWithOpportunity"));
+    // opportunities.$id reads rfqs.classification for the "JIH or Tender" field.
+    expect(fn).toContain(`classification: input.opportunityType === "tender" ? "tender" : "jih"`);
+  });
+
+  test("the contact becomes a stakeholder, which is what Client Details reads", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/lib/rfq-actions.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function createRfqWithOpportunity"));
+    expect(fn).toContain(`from("stakeholders")`);
+    expect(fn).toContain("opportunity_id: opp.id");
+  });
+
+  test("Client Details still reads stakeholders — if that changes, the insert above must too", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/routes/_authenticated/opportunities.$id.tsx", "utf8");
+    // The coupling that made the panel blank. Pinned so the two stay in step.
+    expect(src).toContain("const clientContact =");
+    expect(src).toContain("stakeholdersQ.data");
+  });
+});
+
+describe("the demo seed is visible to the JIH views it demos", () => {
+  test("every seeded opportunity sets sales_stage, not just stage", async () => {
+    const fs = await import("fs/promises");
+    const sql = await fs.readFile("supabase/seed.sql", "utf8");
+    const cols = sql.slice(sql.indexOf("INSERT INTO public.opportunities"));
+    expect(cols.slice(0, 400)).toContain("sales_stage");
+    // Six demo rows, each needing a value in the column list order.
+    const values = sql.match(/'(rfq_received|jih)'/g) ?? [];
+    expect(values.length).toBeGreaterThanOrEqual(6);
+  });
+});

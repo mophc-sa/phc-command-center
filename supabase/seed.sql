@@ -1,5 +1,10 @@
 -- =========================================================
 -- OPTIONAL demo seed — realistic PHC-style pipeline data.
+-- Every opportunity sets sales_stage as well as stage. Without it the rows land
+-- NULL and are invisible to every JIH view (My Workspace panels, Award Queue,
+-- computeJihPipelineTotal all filter on sales_stage) — you seed six deals and
+-- the dashboard shows zero. Found by browser QA 2026-08-05; same defect class as
+-- docs/DECISIONS.md D6, which fixed the application code but missed this file.
 -- Run manually (SQL editor / `supabase db execute`) on a dev or
 -- pilot environment only. NOT a migration; never run on live data.
 -- Project names mirror PHC's real reference sectors but all
@@ -8,32 +13,32 @@
 
 WITH new_opps AS (
   INSERT INTO public.opportunities
-    (project_name, client, main_contractor, location, sector, tier, stage, project_stage,
+    (project_name, client, main_contractor, location, sector, tier, stage, sales_stage, project_stage,
      signage_package_status, signage_package_confidence, estimated_value_min, estimated_value_max,
      next_action, next_action_due, agent_recommendation, agent_reasoning, source_confidence, last_activity_at)
   VALUES
     ('King Salman Park — Visitor Hub', 'King Salman Park Foundation', 'ALEC Saudi', 'Riyadh', 'Giga Project',
-     'A', 'follow_up', 'under_construction', 'confirmed', 'high', 1800000, 2400000,
+     'A', 'follow_up', 'jih', 'under_construction', 'confirmed', 'high', 1800000, 2400000,
      'Follow up on submitted quotation', CURRENT_DATE + 2, 'proceed',
      'Signage package confirmed in tender documents; PHC prequalified with main contractor.', 'high', now() - interval '1 day'),
     ('Diriyah Gate — Phase 2 Retail', 'Diriyah Company', 'Salini / El Seif JV', 'Riyadh', 'Mixed-Use',
-     'A', 'quotation', 'under_construction', 'likely', 'medium', 900000, 1400000,
+     'A', 'quotation', 'jih', 'under_construction', 'likely', 'medium', 900000, 1400000,
      'Prepare BOQ-based quotation draft', CURRENT_DATE + 4, 'proceed',
      'Similar package delivered in Phase 1; contractor relationship active.', 'high', now() - interval '2 days'),
     ('SEVEN Entertainment — Abha', 'SEVEN', 'Almabani', 'Abha', 'Entertainment',
-     'B', 'qualification', 'awarded', 'unknown', 'low', 400000, 700000,
+     'B', 'qualification', 'rfq_received', 'awarded', 'unknown', 'low', 400000, 700000,
      'Verify signage scope with project team', CURRENT_DATE + 7, 'management_review',
      'Project awarded recently; signage package not yet visible in public sources.', 'medium', now() - interval '3 days'),
     ('New Murabba — Gateway District', 'New Murabba Development Co', 'China State Construction', 'Riyadh', 'Giga Project',
-     'A', 'discovery', 'early_planning', 'unknown', 'low', 2000000, 3500000,
+     'A', 'discovery', 'rfq_received', 'early_planning', 'unknown', 'low', 2000000, 3500000,
      'Monitor design development milestones', CURRENT_DATE + 30, NULL,
      NULL, 'low', now() - interval '5 days'),
     ('CENOMI — Jawharat Jeddah Mall', 'CENOMI Centers', 'Nesma & Partners', 'Jeddah', 'Retail',
-     'B', 'preparation', 'near_handover', 'confirmed', 'high', 600000, 850000,
+     'B', 'preparation', 'rfq_received', 'near_handover', 'confirmed', 'high', 600000, 850000,
      'Site validation visit before quoting', CURRENT_DATE + 1, 'proceed',
      'Handover approaching — highest urgency window per project-stage policy.', 'high', now()),
     ('Red Sea — Coastal Resort Cluster', 'Red Sea Global', 'Unknown', 'Umluj', 'Hospitality',
-     'C', 'qualification', 'design_development', 'likely', 'low', 250000, 450000,
+     'C', 'qualification', 'rfq_received', 'design_development', 'likely', 'low', 250000, 450000,
      'Identify main contractor before proceeding', CURRENT_DATE + 14, 'management_review',
      'Below 300K floor at minimum estimate — needs strategic-exception review.', 'low', now() - interval '8 days')
   RETURNING id, project_name
