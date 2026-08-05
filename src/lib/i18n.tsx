@@ -1291,6 +1291,14 @@ export const strings = {
 
   // Phase 0 UX — ActionDialog inline validation
   dialog_field_required: { en: "This field is required", ar: "هذا الحقل مطلوب" },
+  rfq_new_title: { en: "New RFQ", ar: "طلب عرض سعر جديد" },
+  rfq_new_desc: { en: "Creates the RFQ and its opportunity together, ready to work.", ar: "يُنشئ طلب عرض السعر والفرصة معًا، جاهزة للعمل." },
+  rfq_new_created: { en: "RFQ and opportunity created", ar: "تم إنشاء الطلب والفرصة" },
+  rfq_opportunity_type: { en: "Opportunity type", ar: "نوع الفرصة" },
+  rfq_source_reference: { en: "RFQ document or source link", ar: "مستند الطلب أو رابط المصدر" },
+  nav_new_rfq: { en: "New RFQ", ar: "طلب جديد" },
+  dialog_paste_link: { en: "Paste a link (e.g. the email)", ar: "الصق رابطًا (رابط الإيميل مثلًا)" },
+  dialog_or_upload: { en: "or upload", ar: "أو ارفع ملفًا" },
   dialog_date_invalid: { en: "Enter a valid date (YYYY-MM-DD)", ar: "أدخل تاريخًا صحيحًا (سنة-شهر-يوم)" },
   dialog_date_too_early: { en: "That date is too far in the past", ar: "هذا التاريخ قديم أكثر من اللازم" },
   dialog_date_too_late: { en: "That date is too far in the future — check the year", ar: "هذا التاريخ بعيد أكثر من اللازم — تأكد من السنة" },

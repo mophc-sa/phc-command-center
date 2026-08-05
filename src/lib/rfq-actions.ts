@@ -28,11 +28,15 @@ export async function createRfq(input: {
   // claimOwner (self-assign) for a salesperson creating their own RFQ.
   salesOwnerId?: Uuid | null;
   claimOwner?: boolean;
+  /** Links the RFQ to the opportunity it belongs to (spec §25.2/§25.10).
+   *  Left null by the intake-conversion path, which creates the RFQ first. */
+  opportunityId?: Uuid | null;
 }) {
   const uid = await currentUserId();
   const { data, error } = await supabase
     .from("rfqs")
     .insert({
+      opportunity_id: input.opportunityId ?? null,
       rfq_number: input.rfqNumber ?? null,
       source_type: input.sourceType ?? null,
       project_id: input.projectId ?? null,
@@ -75,6 +79,22 @@ export async function convertRfqToJih(
  * creates an opportunity at rfq_received stage, creates the RFQ,
  * and schedules a follow-up 3 days out.
  */
+/**
+ * Spec §25 in one call: saving one RFQ form produces the whole starting state.
+ *
+ * §25 lists 18 things that must happen automatically when an RFQ is saved. This
+ * covers the ones that are actionable today: generate the opportunity (2),
+ * classify it Tender or JIH (3), write the first activity record (4), set a
+ * default next follow-up (17), and create-or-link both the contact (13) and the
+ * company account (14).
+ *
+ * Before this was wired up, reaching the same state took a salesperson four
+ * screens — New Intake, Classify, Convert, then a separate RFQ→Opportunity
+ * action — and the RFQ that came out the far end was not even linked to its
+ * opportunity. Faisal, 2026-08-05: "why all these steps after filling in the
+ * form?" Spec §45-1 asks for a new RFQ in under two minutes; §6 asks for a
+ * "+ New RFQ" button reachable from anywhere.
+ */
 export async function createRfqWithOpportunity(input: {
   companyName: string;
   contactName: string;
@@ -84,6 +104,14 @@ export async function createRfqWithOpportunity(input: {
   projectScope: string;
   responseDueDate: string;
   estimatedValue?: number | null;
+  /** §24 mandatory: Tender or JIH. Drives the opportunity's starting stage. */
+  opportunityType?: "jih" | "tender";
+  /** §24: Source (Email, WhatsApp, Phone, Portal, ...). */
+  sourceType?: string | null;
+  /** §24: link to the source — the email the RFQ arrived in, typically. */
+  documentUrl?: string | null;
+  projectId?: string | null;
+  location?: string | null;
 }) {
   const uid = await currentUserId();
 
@@ -120,7 +148,7 @@ export async function createRfqWithOpportunity(input: {
     contactId = newContact.id;
   }
 
-  // 3. Opportunity at rfq_received
+  // 3. Opportunity at rfq_received (§25.2, §25.3, docs/DECISIONS.md D6)
   const { data: opp, error: oppErr } = await supabase
     .from("opportunities")
     .insert({
@@ -128,19 +156,30 @@ export async function createRfqWithOpportunity(input: {
       stage: "quotation",
       sales_stage: "rfq_received",
       company_id: companyId,
+      project_id: input.projectId ?? null,
+      location: input.location ?? null,
       owner_id: uid,
-      flow_type: "direct_rfq",
+      // §25.3 "Classify it as Tender or JIH". A tender-track RFQ is one where
+      // the contractor is still bidding, so it is not a direct RFQ.
+      flow_type: input.opportunityType === "tender" ? "manual" : "direct_rfq",
     })
     .select("id").single();
   if (oppErr) throw oppErr;
 
-  // 4. RFQ
+  // 4. RFQ, linked back to the opportunity.
+  //
+  // The link is the point. This function already created both records before,
+  // but never set rfqs.opportunity_id — so every RFQ it produced was an orphan,
+  // and the urgent-submissions table could not navigate anywhere from it.
   const rfq = await createRfq({
-    projectId: null,
+    projectId: input.projectId ?? null,
     companyId,
     contactId,
+    sourceType: input.sourceType ?? undefined,
+    documentUrl: input.documentUrl ?? null,
     responseDueDate: input.responseDueDate,
     estimatedValue: input.estimatedValue ?? null,
+    opportunityId: opp.id,
     claimOwner: true,
   });
 

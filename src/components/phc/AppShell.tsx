@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canViewSalesAdmin, ALL_ROLES, type AppRole } from "@/lib/roles";
+import { canViewSalesAdmin, canCreateSalesRecords, ALL_ROLES, type AppRole } from "@/lib/roles";
 import { usePinnedRecords, type PinnedRecord } from "@/hooks/usePinnedRecords";
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -11,6 +11,7 @@ import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { requiresMfa } from "@/lib/roles";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { NotificationCenter } from "@/components/phc/NotificationCenter";
+import { NewRfqDialog } from "@/components/phc/NewRfqDialog";
 import { FontSizeControl } from "@/components/phc/FontSizeControl";
 import { StatusPill } from "@/components/phc/StatusPill";
 import {
@@ -198,6 +199,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
 
   const canAdmin = canViewSalesAdmin(roles);
+  // Same authority as every other record-creation entry point: pipeline
+  // operators plus salespeople. Viewers and system_admin do not get it.
+  const canCreate = canCreateSalesRecords(roles);
   const topRole = ALL_ROLES.find((r) => (roles as AppRole[]).includes(r));
 
   // 30-minute inactivity auto sign-out for sensitive roles only.
@@ -207,6 +211,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [newRfqOpen, setNewRfqOpen] = useState(false);
 
   const { data: notifItems = [] } = useNotifications();
   const notifCount = notifItems.length;
@@ -543,6 +548,20 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {lang === "en" ? "AR" : "EN"}
               </button>
 
+              {/* "+ New RFQ" — spec §6: "must remain visible or easily
+                  accessible throughout the application". Sitting in the shell
+                  header makes it reachable from every page. Collapses to the
+                  quick-actions menu below on narrow screens. */}
+              {canCreate ? (
+                <button
+                  onClick={() => setNewRfqOpen(true)}
+                  className="hidden h-8 items-center gap-1.5 rounded-full bg-amber/90 px-3.5 text-[11px] font-semibold text-black shadow-card transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:inline-flex"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("nav_new_rfq")}
+                </button>
+              ) : null}
+
               {/* Quick Actions "+" */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -558,6 +577,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {t("nav_quick_actions")}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {canCreate ? (
+                    <DropdownMenuItem onClick={() => setNewRfqOpen(true)}>
+                      <Plus className="h-3.5 w-3.5" />
+                      {t("nav_new_rfq")}
+                    </DropdownMenuItem>
+                  ) : null}
                   <DropdownMenuItem onClick={() => nav_({ to: "/lead-tender-inbox" })}>
                     <Mailbox className="h-3.5 w-3.5" />
                     {t("qa_new_entry")}
@@ -603,6 +628,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Global overlays — mounted once at shell level */}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <NotificationCenter open={notifOpen} onOpenChange={setNotifOpen} />
+      {/* Mounted at shell level so "+ New RFQ" works from any page (spec §6). */}
+      {canCreate ? <NewRfqDialog open={newRfqOpen} onOpenChange={setNewRfqOpen} /> : null}
     </div>
   );
 }
