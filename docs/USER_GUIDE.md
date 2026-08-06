@@ -122,16 +122,20 @@ entire interface, including right-to-left layout, switches with it.
 
 ```mermaid
 flowchart TD
-    A["📥 Lead &amp; Tender Inbox<br/>New Entry"] --> B{"Classify"}
+    A["➕ New Entry<br/>one form, on every page"] --> B{"Project Type<br/>set on the form?"}
 
-    B -->|Company| C1["Create Account"]
-    B -->|Contact| C2["Create Contact"]
-    B -->|Project| C3["Create Project"]
-    B -->|Incomplete| C4["Send to Missing Data"]
-    B -->|Duplicate| C5["Mark Duplicate"]
+    B -->|"JIH — contractor<br/>already has the job"| D["🟠 JIH TRACK<br/>opportunity + linked RFQ<br/>+ company + contact<br/>+ follow-up + activity"]
+    B -->|"Tender — contractor<br/>still bidding"| E["🔵 TENDER TRACK<br/>tender created<br/>(no opportunity yet)"]
+    B -->|"not set, or no<br/>project name"| I["📥 Inbox<br/>unclassified"]
 
-    B -->|"RFQ — contractor<br/>already has the job"| D["🟠 JIH TRACK<br/>Opportunity created"]
-    B -->|"Tender — contractor<br/>still bidding"| E["🔵 TENDER TRACK<br/>Tender created"]
+    I --> B2{"Manual classify"}
+    B2 -->|RFQ| D
+    B2 -->|Tender| E
+    B2 -->|Company| C1["Create Account"]
+    B2 -->|Contact| C2["Create Contact"]
+    B2 -->|Project| C3["Create Project"]
+    B2 -->|Incomplete| C4["Send to Missing Data"]
+    B2 -->|Duplicate| C5["Mark Duplicate"]
 
     D --> D1["rfq_received"]
     D1 --> D2["jih"]
@@ -145,7 +149,7 @@ flowchart TD
     D6 --> D7["contract_signed"]
     D7 --> D8["🔒 won = AWARDED"]
     D6 --> D8
-    D8 --> D9["📦 Handover to Production"]
+    D8 --> D9["📦 Production project<br/>created automatically"]
 
     E --> E1["tender_identified"]
     E1 --> E2["tender_under_process"]
@@ -164,64 +168,101 @@ flowchart TD
     E1 --> Y["tender_lost_or_archived"]
     E2 --> Y
 
+    style A fill:#f59e0b,color:#000
     style D fill:#f59e0b,color:#000
     style E fill:#3b82f6,color:#fff
     style D8 fill:#16a34a,color:#fff
+    style D9 fill:#16a34a,color:#fff
     style D5 fill:#fbbf24,color:#000
     style D6 fill:#14b8a6,color:#fff
 ```
 
 🔒 = **gated stage.** A salesperson can only *request* it; a commercial manager approves.
 
+**Two things worth reading off that diagram:**
+
+- **The form routes itself.** Setting Project Type and a project name is the whole of
+  classification — there is no separate step for a routable entry. The Inbox and its manual
+  classify exist for what genuinely can't be routed.
+- **The Production project appears at the end, not the start.** It is created automatically
+  when an opportunity reaches `won`. Nothing you do at intake creates one, and nothing should.
+
 ---
 
 ## 5. Step by step, stage by stage
 
-### Step 1 — Everything enters through the Inbox
+### Step 1 — One form, from anywhere
+
+**Button:** **+ New Entry** in the top bar. It is on every page — you never have to navigate
+somewhere first to start.
+
+This is the only entry form in the system. Everything arrives through it: an RFQ, a tender,
+a market rumour, a half-captured lead. Fill in what you know — you do **not** need everything
+up front. The system assigns an intake number automatically (`INT-2026-0001`); don't type one.
+
+**Two fields decide where it goes:**
+
+| Field | Effect |
+|---|---|
+| **Project Type** = JIH | Straight onto the JIH track |
+| **Project Type** = Tender | Straight onto the Tender track |
+| **Project** (name) | Required alongside the type — a type with nothing attached isn't enough to route on |
+
+Everything else is optional and can be filled in later.
+
+> **The single most consequential decision in the system is JIH vs Tender.** Ask one question:
+> *does this contractor already have the project?* Yes → **JIH**. No, they're still bidding →
+> **Tender**.
+
+**Other useful fields at intake:** Source · Client type · RFQ from · Scope · Location ·
+Deadline · **Evidence** (paste the email link, or attach a file — both work) · Assigned owner.
+
+### Step 2 — Save. That's it.
+
+There is no separate classify step and no separate convert step for a routable entry. Saving
+the form does all of it:
+
+**If you set Project Type = JIH** and gave a project name, saving creates in one go:
+
+- the **opportunity** at `rfq_received`
+- the **RFQ**, linked to that opportunity
+- the **company** and **contact** (matched to existing records where they exist, created where they don't)
+- a **follow-up** three days out
+- the first **activity log** entry
+
+…and takes you straight to the **opportunity page**.
+
+**If you set Project Type = Tender**, saving creates the tender on the monitoring board and
+takes you there. Deliberately **no opportunity** — a tender doesn't count in the JIH pipeline
+until the main contract is awarded and it converts.
+
+**If you set neither**, the entry waits in the Inbox as *unclassified* for manual triage. That
+is not a failure — it's the right home for a vague market signal or an incomplete capture.
+
+### Step 3 — Manual classify and convert (only for what didn't route)
 
 **Page:** Lead & Tender Inbox — صندوق العملاء والمناقصات (`/lead-tender-inbox`)
 
-Click **New Entry**. Fill in what you know — you do **not** need everything up front. The
-system assigns an intake number automatically in the form `INT-2026-0001`. Do not type one
-yourself.
+Entries that couldn't route themselves sit here. Open one and classify it:
 
-Useful fields to capture at intake:
-
-- **Source** — manual lead / manual tender / manual RFQ / referral / market signal / old data
-- **Client type** — main client · contractor (JIH) · contractor (tender) · consultant
-- **Project type** — JIH or Tender
-- **RFQ from** — owner/developer · main contractor · consultant
-- **Scope** and **Location**
-
-### Step 2 — Classify it
-
-An inbox item sits at `new` until someone classifies it. Open it and choose one of:
-
-| Classification | What happens next |
+| Classification | What happens on Convert |
 |---|---|
-| **RFQ** | Converts to an RFQ + opportunity → **JIH track** |
-| **Tender** | Converts to a tender → **Tender track** |
-| **Opportunity candidate** | Held as a potential deal, not yet an RFQ |
-| **Company** / **Contact** / **Project** | Creates the CRM record only |
+| **RFQ** | Opportunity + linked RFQ → **JIH track** |
+| **Tender** | Tender on the monitoring board → **Tender track** |
+| **Opportunity candidate** | Held as a lead for qualification, not yet an RFQ |
+| **Company** / **Contact** / **Project** | Creates that CRM record only |
 | **Signal / watchlist** | Kept for monitoring, no record created |
 | **Incomplete** | Sent back to *Missing Data* with a reason |
 | **Duplicate** | Linked to the record it duplicates |
 
-> **The single most consequential decision in the system is RFQ vs Tender.** Ask one
-> question: *does this contractor already have the project?* Yes → RFQ (JIH). No, they're
-> still bidding → Tender.
+**Correcting a wrong classification:** you can re-classify **before** converting. Once an entry
+has been converted, the classification is locked — the record it created already exists, and
+silently re-pointing the entry would orphan it. If a converted entry went down the wrong track,
+tell a manager rather than trying to redo it from the Inbox.
 
-### Step 3 — Convert
-
-On an item classified `rfq`, click **Convert**. The dialog asks for project, company,
-contact, deadline, and estimated value.
-
-**If the project or company isn't in the list, create it right there** — both fields have an
-*Add new* option in the picker. You don't have to abandon the form.
-
-⚠️ **Check the submission deadline before saving.** Date fields accept whatever you type,
-including impossible years. A wrong deadline makes the record invisible to the urgency
-system permanently. (See [Limitations](#10-current-limitations).)
+**Dates are validated.** Anything outside a sensible range is rejected before saving, with the
+message *"That date is too far in the future — check the year"*. A mistyped year can no longer
+hide a record from the deadline queue.
 
 ### Step 4 — Work the JIH stages
 
@@ -375,7 +416,7 @@ Old tenders are not allowed to sit active forever.
 | Page | Use it for |
 |---|---|
 | **Pipeline Overview** `/command-center` | Org-wide executive view. Pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention. |
-| **Intake** `/lead-tender-inbox` | Where everything starts. New Entry → classify → convert. |
+| **Intake** `/lead-tender-inbox` | The triage queue for entries that couldn't route themselves. Classify and convert them here. Entries with a project type and name never appear — they went straight to their track. |
 | **Opportunities** `/opportunities` | Every JIH opportunity. Card or table view, filter by stage and tier. |
 | **Tender Monitor** `/tenders` | Every tender, with urgency KPIs and age tracking. |
 
@@ -465,6 +506,10 @@ on its own** — it proposes, you apply.
    system will flag it.
 6. Request gated stage moves early — approval takes time.
 
+**When an RFQ lands in your email:** hit **+ New Entry** from wherever you are, set Project
+Type and the project name, paste the email link into Evidence, save. You'll be on the
+opportunity page with the follow-up already scheduled. Don't go looking for the Inbox first.
+
 ### Sales Manager — مدير المبيعات
 
 1. Open **Command Center** for the org-wide position.
@@ -530,52 +575,65 @@ These are guardrails, not suggestions. They will stop you.
 
 ## 10. Current limitations
 
-Verified against production on **2026-08-05**. Read this before trusting a number on screen.
+Verified against production on **2026-08-06**. Read this before trusting a number on screen.
 
-### The system is nearly empty
-Production holds **4 opportunities — 3 of them test records** — 1 tender, 3 RFQs, and 1
-quotation. The historical quotation masterlist **has not been migrated yet**. Company,
-project, and contact data *is* loaded (151 / 35 / 31). Until the masterlist is imported,
-every dashboard is showing an accurate picture of almost no data.
+### The system is still nearly empty
+Production holds **2 opportunities, 6 RFQs, 0 tenders, 0 quotations**. Company, project and
+contact data *is* loaded (152 / 36 / 31), and the import tooling works — 18 batches and 1,675
+rows have run through it. But the historical **quotation masterlist has not been migrated
+yet**, so every dashboard is giving an accurate picture of almost no data. This is the single
+biggest thing standing between the system and being useful.
 
 ### The target gauge reads zero
-There is no annual target row, no August monthly target, and no awarded opportunity. All
-target, achievement, and remaining figures currently display as zero or blank. This is
-missing data, not a broken calculation.
+There is no annual target row, no current-month target, and no awarded opportunity. Target,
+achievement and remaining all display as zero or blank. **This is missing data, not a broken
+calculation** — the arithmetic has been verified. Someone needs to enter an annual target.
 
 ### Reminders do not fire on their own
 The automation engine works and has 10 good rules, but **nothing schedules it**. Flags are
-only created when a manager clicks **Run Automations** in Action Center. Do not rely on
-being reminded.
+only created when a manager clicks **Run Automations** in Action Center. Do not rely on being
+reminded.
 
-Also not yet implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
-and the 90-day tender review — both are calculated for display but never raised as queue items.
-
-### Dates are not validated
-Date fields accept any value, including impossible years. One live RFQ carries a deadline
-in the year 275760 and is permanently invisible to the urgency system. **Check dates before
-saving.**
+Not yet implemented as rules at all: submission-deadline countdown reminders (7/5/3/1/0 days)
+and the 90-day tender review. Both are calculated for display but never raised as queue items.
 
 ### Two stage fields disagree
 Opportunities carry both a legacy CRM `stage` and the real `sales_stage`. They are only
-synchronised at won and lost. **Command Center, Reports, and the opportunities list read
-the legacy field** — so a verbally-awarded deal can appear under "Quotation" in those charts.
-My Workspace and Award Queue read the correct field.
+synchronised at won and lost. **Command Center, Reports, and the opportunities list read the
+legacy field** — so a verbally-awarded deal can appear under "Quotation" in those charts.
+My Workspace and Award Queue read the correct one. Groundwork for unifying them is in place
+but not yet switched on.
+
+### Tender BAFO is unreachable
+The stage picker offers `tender_bafo`, but the backend's transition map has no entry for it —
+the move is rejected with a 409. Skip it and go straight to Award Negotiation. A tender that
+somehow reached that stage would also have no legal way out.
+
+### Records created before 2026-08-06
+`RFQ-2026-0001` through `0004` predate the intake rewrite. They have no opportunity attached
+and no JIH/Tender classification, because the flow that created them didn't produce those.
+They are not broken, just incomplete — a manager can attach them if they still matter.
+
+`RFQ-2026-0001` also carries a deadline in the year 275760, from before date validation
+existed. It is invisible to every deadline queue until someone sets the real date.
 
 ### Known gaps against the target design
 Not yet built: a separate opportunity *condition* field (Dormant / Cancelled), separate
-technical and commercial proposal statuses, per-stage win probability, a submission
-calendar, dedicated Awarded Projects and Lost/Cancelled pages, and most executive charts
-(funnel, pipeline composition, monthly award trend, aging, top opportunities).
+technical and commercial proposal statuses, per-stage win probability, a submission calendar,
+dedicated Awarded Projects and Lost/Cancelled pages, and most executive charts (funnel,
+pipeline composition, monthly award trend, aging, top opportunities).
 
-### Two confirmed broken paths
+### Fixed since the first version of this guide
+Listed so nobody works around a problem that no longer exists:
 
-- **Tender BAFO is unreachable.** The interface offers `tender_bafo` as a next stage, but
-  the backend's transition map has no entry for it — the move is rejected with a 409. Any
-  tender that did reach that stage would also have no legal way out.
-- **`contract_signed` is invisible in the Award & Contract Queue.** That page queries only
-  verbally awarded, contract received, and won — so a signed contract disappears from the
-  queue at the most important moment.
+| Was | Now |
+|---|---|
+| `contract_signed` invisible in the Award & Contract Queue | Fixed — it has its own tab, and a test fails if the stage list drifts again |
+| Date fields accepted impossible years | Fixed — out-of-range dates are rejected before saving, in both languages |
+| Some opportunities created with no `sales_stage`, invisible to every JIH view | Fixed — every creation path sets it |
+| Conversion produced an RFQ but no opportunity | Fixed — conversion produces the opportunity and lands you on it |
+| Convert dialog forced you to create a Production project | Removed — the project is created on win |
+| "JIH or Tender" and Client Details blank on the opportunity page | Fixed |
 
 ---
 
@@ -583,10 +641,10 @@ calendar, dedicated Awarded Projects and Lost/Cancelled pages, and most executiv
 
 - Something wrong with a record → tell your Sales Manager or BD Manager.
 - Can't get in, or missing a permission → System Admin.
-- The number on screen looks wrong → check Section 10 first, then report it.
+- The number on screen looks wrong → check [Current limitations](#10-current-limitations) first, then report it.
 
 ---
 
-*Reflects the system as at 2026-08-05, `main` @ `7380506`.
-Behaviour verified against source and the production database.
+*Reflects the system as at 2026-08-06, `main` @ `1e14885`.
+Behaviour verified against source, a live browser pass, and the production database.
 Update this file when the workflow changes.*
