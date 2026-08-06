@@ -239,6 +239,27 @@ until the main contract is awarded and it converts.
 **If you set neither**, the entry waits in the Inbox as *unclassified* for manual triage. That
 is not a failure — it's the right home for a vague market signal or an incomplete capture.
 
+### Editing after it's created
+
+Open the opportunity and use **Edit** on the **Submission** panel. You can change:
+
+- **Deadline** — when the client grants an extension, record it here. Everything that
+  chases you about this submission reads that date.
+- **Waiting on** — hand the submission to whoever it's actually sitting with. If you need a
+  price from Estimation before the quotation can go out, put them here: they get notified,
+  and the deal stays yours.
+- **Attachment or link** — add the revised RFQ, a drawing, anything that arrived later.
+- **Notes** — anything worth saying about this submission.
+
+The RFQ number, the company and the contact are not editable here. Those identify the
+record; changing them would make it a different record.
+
+### Your RFQ number carries your code
+
+Numbers look like **`FA-26-0001`** — your code, the year, the sequence. The code comes from
+your profile, so a number tells you whose deal it is without opening it. Ask an admin if
+yours is wrong or missing.
+
 ### Step 3 — Manual classify and convert (only for what didn't route)
 
 **Page:** Lead & Tender Inbox — صندوق العملاء والمناقصات (`/lead-tender-inbox`)
@@ -500,7 +521,9 @@ on its own** — it proposes, you apply.
 
 1. Open **My Workspace**. Check the target gauge and what's overdue.
 2. Work **Urgent Follow-ups** top down. Log the outcome — don't just reschedule.
-3. Check **Urgent Quotation Submissions** for anything due within 7 days.
+3. Check **Urgent Quotation Submissions** for anything due within 7 days. It shows the
+   submission's real status (not started / in progress / submitted) and who it's waiting on,
+   so you can tell at a glance what needs chasing and who to chase. Click a row to open it.
 4. Clear **Action Required**.
 5. For every JIH deal, confirm the **next action** field is filled. Empty next action = the
    system will flag it.
@@ -644,6 +667,6 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-06, `main` @ `faaea79`.
+*Reflects the system as at 2026-08-06, `main` @ `5a36e09`.
 Behaviour verified against source, a live browser pass, and the production database.
 Update this file when the workflow changes.*
