@@ -8,6 +8,7 @@ import {
   Award, CheckCheck, Clock, Plus, ChevronDown, ChevronRight, AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { listTeamMembers } from "@/lib/opportunity-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { ChartFrame } from "@/components/phc/ChartFrame";
@@ -65,6 +66,37 @@ const STAGE_ACTION: Record<string, { en: string; ar: string }> = {
   tender_bafo: { en: "Submit Tender BAFO and monitor main contract result", ar: "تقديم BAFO المناقصة ومتابعة نتيجة العقد الرئيسي" },
 };
 
+
+// ─── Submission status ────────────────────────────────────────────────────────
+// Faisal, 2026-08-06: "it's urgent quotation submission ... I need to see the
+// status of this thing on here, so I can follow up." The column that used to be
+// headed "Status" showed days-remaining — that is urgency, not status, and it
+// told him nothing about whether the quotation had actually gone out.
+//
+// Derived rather than stored: a quotation exists and has been submitted, or it
+// is being prepared, or nothing has started. Three states is what a rep needs to
+// decide whether to chase.
+type UrgentRfqRow = {
+  status?: string | null;
+  quotations?: { status: string | null }[] | null;
+};
+
+export function submissionStatusKey(r: UrgentRfqRow): "sub_status_submitted" | "sub_status_in_progress" | "sub_status_not_started" {
+  const quotes = r.quotations ?? [];
+  if (quotes.some((q) => q.status && !["draft", "under_internal_review"].includes(q.status))) {
+    return "sub_status_submitted";
+  }
+  if (quotes.length > 0) return "sub_status_in_progress";
+  return "sub_status_not_started";
+}
+
+export function submissionTone(r: UrgentRfqRow): "positive" | "attention" | "muted" {
+  const key = submissionStatusKey(r);
+  if (key === "sub_status_submitted") return "positive";
+  if (key === "sub_status_in_progress") return "attention";
+  return "muted";
+}
+
 // ─── Pipeline diagram constants ──────────────────────────────────────────────
 
 const STAGE_BOX_W = 108;
@@ -103,6 +135,11 @@ function WorkspacePage() {
 function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
+  const { data: teamForMap = [] } = useQuery({ queryKey: ["team-members-min"], queryFn: listTeamMembers });
+  const teamMap = useMemo(
+    () => new Map((teamForMap as any[]).map((m) => [m.id, m.full_name || m.email || "—"])),
+    [teamForMap],
+  );
   const navigate = useNavigate();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -440,7 +477,9 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                       <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "رقم الطلب" : "RFQ No."}</th>
                       <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع / العميل" : "Project / Client"}</th>
                       <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Deadline"}</th>
-                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{t("label_submission_status")}</th>
+                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{t("label_pending_on")}</th>
+                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الإلحاح" : "Urgency"}</th>
                     </tr>
                   </thead>
                   <tbody>

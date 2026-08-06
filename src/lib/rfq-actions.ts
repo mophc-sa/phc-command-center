@@ -215,7 +215,10 @@ export async function createRfqWithOpportunity(input: {
     due_date: followUpDate.toISOString().slice(0, 10),
     channel: "call",
     status: "scheduled" as const,
-    notes: `RFQ follow-up — due ${input.responseDueDate}`,
+    // Carries the RFQ number, so the follow-up says which submission it is
+    // about rather than just "an RFQ" (Faisal, 2026-08-06: "I need to follow up
+    // for the quotation or this RFQ number ... once it's generated").
+    notes: `${rfq.rfq_number ?? "RFQ"} — follow up, submission due ${input.responseDueDate}`,
   });
 
   // 6. Activity log
@@ -239,4 +242,90 @@ export async function findContactByPhone(phone: string) {
     .eq("phone", phone.trim())
     .maybeSingle();
   return data ?? null;
+}
+
+/**
+ * Edits an RFQ after creation.
+ *
+ * Faisal, 2026-08-06: "if I'll open that opportunities ... I need to edit
+ * something on this thing. Because sometime I'll put some date for this thing,
+ * so I got some extension, or some more files, or some details I need to
+ * mention. So there is no option for the edit."
+ *
+ * He was right: the deadline, the notes and the document were all write-once.
+ * The only editable things on an opportunity were Client Details and Technical
+ * Notes. A deadline extension — the single most common change a rep makes —
+ * had nowhere to go.
+ *
+ * `estimatedValue` is deliberately NOT here. It stays gated behind
+ * canEditTotalValue (Finance / BD / admin) per the 2026-07-27 client rule.
+ */
+export async function updateRfqDetails(input: {
+  rfqId: Uuid;
+  responseDueDate?: string | null;
+  notes?: string | null;
+  documentUrl?: string | null;
+  assignedTo?: Uuid | null;
+}) {
+  const uid = await currentUserId();
+
+  const { data: before, error: readErr } = await supabase
+    .from("rfqs")
+    .select("id, rfq_number, response_due_date, notes, document_url, assigned_to")
+    .eq("id", input.rfqId)
+    .single();
+  if (readErr) throw readErr;
+
+  // Typed rather than Record<string, unknown> so the generated Supabase types
+  // actually check the column names.
+  const patch: {
+    response_due_date?: string | null;
+    notes?: string | null;
+    document_url?: string;
+    assigned_to?: string | null;
+  } = {};
+  if (input.responseDueDate !== undefined) patch.response_due_date = input.responseDueDate || null;
+  if (input.notes !== undefined) patch.notes = input.notes || null;
+  if (input.documentUrl) patch.document_url = input.documentUrl;
+  if (input.assignedTo !== undefined) patch.assigned_to = input.assignedTo || null;
+
+  if (Object.keys(patch).length === 0) return before;
+
+  const { data, error } = await supabase
+    .from("rfqs")
+    .update(patch)
+    .eq("id", input.rfqId)
+    .select()
+    .single();
+  if (error) throw error;
+
+  await supabase.from("audit_log").insert({
+    actor_id: uid,
+    actor_type: "user",
+    action: "rfq.details_updated",
+    entity_type: "rfq",
+    entity_id: input.rfqId,
+    before_value: before as never,
+    after_value: data as never,
+  });
+
+  return data;
+}
+
+/**
+ * Hands the submission to someone and says so out loud.
+ *
+ * Faisal, 2026-08-06: "if it's pending from Zaid, can we just add something to
+ * notify him, or automatically notify, or notify my side?" Zaid is the Finance
+ * and Estimation Manager — the person a rep waits on for a price before the
+ * quotation can go out, which is why this is the common case rather than an
+ * edge one.
+ *
+ * `assigned_to` is separate from `sales_owner_id` on purpose: the deal is still
+ * Faisal's, the *work* is currently Zaid's. The nightly rules flag it to
+ * whoever holds it, and the notification bell is already routed by
+ * action_owner_id, so no new delivery mechanism was needed.
+ */
+export async function assignRfqSubmission(rfqId: Uuid, assignedTo: Uuid | null) {
+  return updateRfqDetails({ rfqId, assignedTo });
 }

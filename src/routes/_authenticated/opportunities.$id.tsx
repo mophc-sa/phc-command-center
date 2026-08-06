@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { updateRfqDetails } from "@/lib/rfq-actions";
 import { useI18n, formatCurrency, formatNumber, type Lang } from "@/lib/i18n";
 import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
@@ -24,6 +25,7 @@ import {
   overrideOpportunityScore,
   setOpportunityMilestone,
   updateOpportunityTechnicalNotes,
+  // Faisal, 2026-08-06: the submission deadline and its owner had to become editable.
   OPPORTUNITY_MILESTONES,
   type OpportunityMilestone,
 } from "@/lib/opportunity-actions";
@@ -165,6 +167,7 @@ function OpportunityDetail() {
   const [scoring, setScoring] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [clientDetailsOpen, setClientDetailsOpen] = useState(false);
+  const [submissionOpen, setSubmissionOpen] = useState(false);
   const { user, roles } = useAuth();
   const canScore = canManageSalesPipeline(roles);
   const canReview = canReviewAiOutput(roles);
@@ -476,7 +479,7 @@ function OpportunityDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("rfqs")
-        .select("classification, rfq_number")
+        .select("id, classification, rfq_number, response_due_date, notes, document_url, assigned_to")
         .eq("opportunity_id", id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -696,6 +699,105 @@ function OpportunityDetail() {
           Editable (2026-08-03): writes back to stakeholders/companies/
           opportunities.location instead of just displaying derived data —
           see upsertClientDetails in opportunity-collab-actions.ts. */}
+      {/* Submission — the deadline, the document, and who the work is sitting
+          with. All of it was write-once before 2026-08-06: a rep who got a
+          deadline extension had nowhere to record it, and no way to say the
+          quotation was waiting on Estimation. Faisal: "sometime I'll put some
+          date for this thing, so I got some extension ... there is no option
+          for the edit for this thing." */}
+      {show("alert") && rfqQ.data ? (
+        <Panel
+          title={t("section_submission")}
+          subtitle={rfqQ.data.rfq_number ?? undefined}
+          action={
+            canEditClientDetails ? (
+              <button
+                type="button"
+                onClick={() => setSubmissionOpen(true)}
+                className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {t("crm_edit")}
+              </button>
+            ) : undefined
+          }
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DataField label={t("ibx_deadline")} value={rfqQ.data.response_due_date} />
+            <DataField
+              label={t("label_pending_on")}
+              value={rfqQ.data.assigned_to ? ((teamQ.data ?? []).find((m: any) => m.id === rfqQ.data!.assigned_to)?.full_name ?? "—") : null}
+            />
+            <DataField label={t("wf_notes")} value={rfqQ.data.notes} />
+          </div>
+          {rfqQ.data.document_url ? (
+            <a
+              href={rfqQ.data.document_url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-block text-xs text-amber-light underline underline-offset-2"
+            >
+              {t("ibx_evidence_url")}
+            </a>
+          ) : null}
+
+          <ActionDialog
+            open={submissionOpen}
+            onOpenChange={setSubmissionOpen}
+            title={t("section_submission")}
+            submitLabel={t("action_save")}
+            fields={[
+              {
+                key: "responseDueDate",
+                type: "date",
+                label: t("ibx_deadline"),
+                defaultValue: rfqQ.data.response_due_date ?? "",
+              },
+              {
+                key: "assignedTo",
+                type: "select",
+                label: t("label_pending_on"),
+                defaultValue: rfqQ.data.assigned_to ?? "",
+                options: [
+                  { value: "", label: "—" },
+                  ...(teamQ.data ?? []).map((m: any) => ({
+                    value: m.id,
+                    label: m.full_name || m.email,
+                  })),
+                ],
+              },
+              {
+                key: "documentUrl",
+                type: "file_or_url",
+                label: t("ibx_evidence_url"),
+                folder: "rfq",
+              },
+              {
+                key: "notes",
+                type: "textarea",
+                label: t("wf_notes"),
+                defaultValue: rfqQ.data.notes ?? "",
+              },
+            ]}
+            onSubmit={async (v) => {
+              try {
+                await updateRfqDetails({
+                  rfqId: rfqQ.data!.id,
+                  responseDueDate: v.responseDueDate || null,
+                  assignedTo: v.assignedTo || null,
+                  documentUrl: v.documentUrl || undefined,
+                  notes: v.notes || null,
+                });
+                toast.success(t("crm_saved"));
+                rfqQ.refetch();
+                qc.invalidateQueries({ queryKey: ["ws-urgent-rfqs"] });
+              } catch (e) {
+                toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+              }
+            }}
+          />
+        </Panel>
+      ) : null}
+
       {show("alert") && (() => {
         const clientContact =
           (stakeholdersQ.data ?? []).find((s: any) => !!s.email) ?? (stakeholdersQ.data ?? [])[0] ?? null;
