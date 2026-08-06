@@ -360,18 +360,18 @@ do **not** contribute to the annual target — by design.
 A tender is *monitored*, not chased. Record the bidding contractors under
 **Tender Contractors** with a win-likelihood for each.
 
-**Tender stages — what actually works:**
+**Tender stages:**
 
 ```
 tender_identified      → tender_under_process · archived
-tender_under_process   → award_negotiation · awarded_to_contractor · archived
+tender_under_process   → tender_bafo · award_negotiation · awarded_to_contractor · archived
+tender_bafo            → award_negotiation · awarded_to_contractor · archived
 award_negotiation      → awarded_to_contractor · archived
 awarded_to_contractor  → converted_to_jih · archived
 ```
 
-> ⚠️ **Tender BAFO does not work.** The stage picker offers it, but the backend rejects
-> the move with *"Transition tender_under_process → tender_bafo is not allowed"*. Skip it
-> and go straight to Award Negotiation. See [Limitations](#10-current-limitations).
+**Tender BAFO** is for a best-and-final round on the tender itself. It is optional —
+go straight to Award Negotiation when there isn't one.
 
 ### When the main contract is awarded
 
@@ -589,25 +589,16 @@ There is no annual target row, no current-month target, and no awarded opportuni
 achievement and remaining all display as zero or blank. **This is missing data, not a broken
 calculation** — the arithmetic has been verified. Someone needs to enter an annual target.
 
-### Reminders do not fire on their own
-The automation engine works and has 10 good rules, but **nothing schedules it**. Flags are
-only created when a manager clicks **Run Automations** in Action Center. Do not rely on being
-reminded.
+### Reminders: scheduled, pending one approval
+The engine is now safe to schedule and the schedule is written, but **the migration that
+enables it has not been applied yet** — it needs sign-off. Until it is, flags are still only
+created when a manager clicks **Run Automations** in Action Center.
 
-Not yet implemented as rules at all: submission-deadline countdown reminders (7/5/3/1/0 days)
+Once applied it runs daily at 07:00 AST. You can check it actually ran:
+`SELECT * FROM automation_runs ORDER BY started_at DESC;`
+
+Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
 and the 90-day tender review. Both are calculated for display but never raised as queue items.
-
-### Two stage fields disagree
-Opportunities carry both a legacy CRM `stage` and the real `sales_stage`. They are only
-synchronised at won and lost. **Command Center, Reports, and the opportunities list read the
-legacy field** — so a verbally-awarded deal can appear under "Quotation" in those charts.
-My Workspace and Award Queue read the correct one. Groundwork for unifying them is in place
-but not yet switched on.
-
-### Tender BAFO is unreachable
-The stage picker offers `tender_bafo`, but the backend's transition map has no entry for it —
-the move is rejected with a 409. Skip it and go straight to Award Negotiation. A tender that
-somehow reached that stage would also have no legal way out.
 
 ### Records created before 2026-08-06
 `RFQ-2026-0001` through `0004` predate the intake rewrite. They have no opportunity attached
@@ -634,6 +625,9 @@ Listed so nobody works around a problem that no longer exists:
 | Conversion produced an RFQ but no opportunity | Fixed — conversion produces the opportunity and lands you on it |
 | Convert dialog forced you to create a Production project | Removed — the project is created on win |
 | "JIH or Tender" and Client Details blank on the opportunity page | Fixed |
+| Tender BAFO rejected with a 409 — the stage was unreachable | Fixed — it works, and a test diffs the two transition maps |
+| Management pages read the legacy stage, so a verbal award showed as "Quotation" | Fixed — Command Center, Reports and the opportunities list all read the canonical stage |
+| Closing a flag re-raised it on the next automation run | Fixed — flags are keyed to the occurrence, so a dismissed one stays dismissed |
 
 ---
 
@@ -645,6 +639,6 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-06, `main` @ `1e14885`.
+*Reflects the system as at 2026-08-06, `main` @ `c7160a8`.
 Behaviour verified against source, a live browser pass, and the production database.
 Update this file when the workflow changes.*
