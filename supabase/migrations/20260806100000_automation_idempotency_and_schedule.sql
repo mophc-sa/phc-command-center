@@ -93,6 +93,27 @@ CREATE POLICY "Automation runs readable by sales admins"
 CREATE INDEX IF NOT EXISTS idx_automation_runs_started ON public.automation_runs (started_at DESC);
 
 -- ============ 5. Schedule ============
+--
+-- ⚠️ REGISTERED THEN UNSCHEDULED ON 2026-08-06 — DO NOT RE-ENABLE UNTIL AUTH IS SOLVED.
+--
+-- The job registers and fires correctly (verified: cron.job_run_details shows
+-- `succeeded`, and net._http_response shows the request reaching the function).
+-- But the function answers 401 {"error":"Not authenticated"}, and so does a
+-- direct curl with the service_role key AND with the new-format sb_secret key.
+--
+-- The cause is not this migration and not Vault. `sales-os-api` runs with
+-- verify_jwt = true (supabase/config.toml), so Supabase's gateway validates the
+-- caller's JWT as a USER token before the function is reached. A service key is
+-- not a user token, so no machine caller can get through the gateway at all.
+--
+-- Making cron work therefore requires a security decision, not a config tweak:
+-- either turn verify_jwt off for a function that gates stage advancement,
+-- approvals and deletions and re-implement caller checks in code, or give
+-- run_automations its own authenticated path. Both need review before either is
+-- built — an easy version of this becomes a bypass into sensitive actions.
+--
+-- Everything above this line is applied and working. Only the block below is
+-- inert; it self-skips unless the prerequisites exist.
 -- Daily at 04:00 UTC (07:00 AST) — before the sales day starts, so the queue is
 -- populated when people open it. No-op if pg_cron / pg_net are unavailable, so
 -- this migration stays safe on environments without them (local, CI).

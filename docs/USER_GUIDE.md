@@ -589,13 +589,15 @@ There is no annual target row, no current-month target, and no awarded opportuni
 achievement and remaining all display as zero or blank. **This is missing data, not a broken
 calculation** — the arithmetic has been verified. Someone needs to enter an annual target.
 
-### Reminders: scheduled, pending one approval
-The engine is now safe to schedule and the schedule is written, but **the migration that
-enables it has not been applied yet** — it needs sign-off. Until it is, flags are still only
-created when a manager clicks **Run Automations** in Action Center.
+### Reminders still do not fire on their own
+The engine is now **safe** to schedule — flags are keyed to the occurrence, so it can no
+longer spam the queue — and pg_cron is installed and proven to fire. But the scheduled call
+is blocked on authentication: `sales-os-api` requires a signed-in user's token, and a
+scheduled job doesn't have one. Solving that means a security decision about how a machine
+authenticates to a function that also gates approvals and deletions.
 
-Once applied it runs daily at 07:00 AST. You can check it actually ran:
-`SELECT * FROM automation_runs ORDER BY started_at DESC;`
+**So: flags are still only created when a manager clicks Run Automations in Action Center.**
+Do not rely on being reminded.
 
 Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
 and the 90-day tender review. Both are calculated for display but never raised as queue items.
@@ -639,6 +641,6 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-06, `main` @ `c7160a8`.
+*Reflects the system as at 2026-08-06, `main` @ `d1a02af`.
 Behaviour verified against source, a live browser pass, and the production database.
 Update this file when the workflow changes.*
