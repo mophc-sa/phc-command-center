@@ -8,6 +8,7 @@ import {
   missing,
 } from "../shared.ts";
 import { insertLeadServerSide, canCreateLead } from "../../_shared/leads.ts";
+import { readTrigger, startRun, finishRun } from "../../_shared/automation-run-log.ts";
 
 async function run_protenders_ingest(
   payload: Record<string, unknown>,
@@ -358,13 +359,18 @@ async function run_smart_followup(
 // whenever a score is (re)computed, so it is not duplicated in this loop.
 
 async function run_automations(
-  _payload: Record<string, unknown>,
+  payload: Record<string, unknown>,
   ctx: SalesOsContext,
 ): Promise<Response> {
   const { caller, audit: auditLog } = ctx;
   if (!canRunSensitiveSalesAction(caller.roles))
     return err("Sensitive-action authority required", 403);
   const svc = ctx.svc;
+
+  // Run log — see _shared/automation-run-log.ts for why this exists.
+  const trigger = readTrigger(payload);
+  const runId = await startRun(svc, trigger);
+
   const now = Date.now();
   const today = new Date(now).toISOString().slice(0, 10);
   const daysAgo = (d: number) => new Date(now - d * 864e5).toISOString().slice(0, 10);
@@ -378,6 +384,18 @@ async function run_automations(
       action_type?: string;
       risk_flag?: string;
       queue_action_type: string;
+      /**
+       * Identifies the OCCURRENCE, not just its type — the value that made this
+       * condition true (a due date, an approval id). This is the idempotency
+       * key, and it is what makes the engine safe to schedule.
+       *
+       * Dedup used to consult only ACTIVE statuses, so closing a flag without
+       * fixing the underlying condition meant the next run raised a fresh one.
+       * Keyed on the occurrence and checked across ALL statuses, a dismissed
+       * flag stays dismissed while the condition is unchanged; reschedule the
+       * follow-up and the key changes, so a new flag is correctly raised.
+       */
+      condition_key: string;
       reason: string;
       recommended_action?: string;
       owner_id?: string | null;
@@ -385,28 +403,24 @@ async function run_automations(
       priority?: "A" | "B" | "C";
     },
   ) => {
-    // Avoid duplicates: skip if an active item of the same queue_action_type
-    // already exists for this record. "Active" mirrors ACTIVE_FLAG_STATUSES
-    // in workflow-actions.ts (open/in_progress/escalated/blocked) so an
-    // escalated or blocked item doesn't get silently duplicated by the next
-    // automation run. Scoping the dedup check to queue_action_type (not
-    // just flag_kind) means two different rules on the same record no
-    // longer suppress each other.
     const { data: existing } = await svc
       .from("opportunity_flags")
       .select("id")
+      .eq("linked_record_type", recordType)
       .eq("linked_record_id", recordId)
-      .in("status", ["open", "in_progress", "escalated", "blocked"])
       .eq("queue_action_type", opts.queue_action_type)
+      .eq("condition_key", opts.condition_key)
       .limit(1);
     if (existing && existing.length) return;
-    await svc.from("opportunity_flags").insert({
+
+    const { error } = await svc.from("opportunity_flags").insert({
       linked_record_type: recordType,
       linked_record_id: recordId,
       flag_kind: kind,
       action_type: opts.action_type ?? null,
       risk_flag: opts.risk_flag ?? null,
       queue_action_type: opts.queue_action_type,
+      condition_key: opts.condition_key,
       recommended_action: opts.recommended_action ?? null,
       action_owner_id: opts.owner_id ?? null,
       due_date: opts.due_date ?? null,
@@ -415,6 +429,14 @@ async function run_automations(
       status: "open",
       ai_generated: true,
     });
+
+    // 23505 = unique_violation on opportunity_flags_condition_dedup. The check
+    // above lost a race with a concurrent run — which is precisely what the
+    // index exists to catch. Someone else raised it; that is success, not error.
+    if (error) {
+      if (error.code === "23505") return;
+      throw error;
+    }
     raised++;
   };
 
@@ -429,6 +451,9 @@ async function run_automations(
     await raiseFlag("rfq", r.id, "action_required", {
       action_type: "follow_up_required",
       queue_action_type: "rfq_review_needed",
+      // Raised once per RFQ: the condition is "still unassigned", which does
+      // not vary until someone assigns it (and then the rule stops matching).
+      condition_key: "unassigned",
       reason: "RFQ unassigned for 24h",
       recommended_action: "Assign a sales owner to this RFQ.",
       priority: "A",
@@ -445,6 +470,10 @@ async function run_automations(
     await raiseFlag("opportunity", o.id, "risk", {
       risk_flag: "contract_pending",
       queue_action_type: "contract_evidence_missing",
+      // Three separate rules share this queue_action_type. Before fingerprinting
+      // they suppressed each other — whichever fired first hid the other two.
+      // Distinct keys let all three coexist on one opportunity.
+      condition_key: `verbal_no_contract:${o.verbal_award_date ?? "-"}`,
       reason: "Verbally awarded >14d without contract",
       recommended_action: "Follow up on the contract and record it once received.",
       owner_id: o.owner_id,
@@ -462,6 +491,7 @@ async function run_automations(
     await raiseFlag("opportunity", o.id, "risk", {
       risk_flag: "contract_pending",
       queue_action_type: "contract_evidence_missing",
+      condition_key: `verbal_no_evidence:${o.verbal_award_date ?? "-"}`,
       reason: "Verbal award recorded without evidence",
       recommended_action: "Upload verbal award evidence (email, letter, or call note).",
       owner_id: o.owner_id,
@@ -477,6 +507,7 @@ async function run_automations(
   for (const o of contractNoRef ?? []) {
     await raiseFlag("opportunity", o.id, "action_required", {
       queue_action_type: "contract_evidence_missing",
+      condition_key: "contract_no_reference",
       reason: "Contract stage reached without a contract reference number",
       recommended_action: "Record the signed contract reference number.",
       owner_id: o.owner_id,
@@ -496,6 +527,8 @@ async function run_automations(
     await raiseFlag("tender", tdr.id, "action_required", {
       action_type: "tender_decision_required",
       queue_action_type: "tender_review_needed",
+      // Keyed on the award date: push the date out and it is a new occurrence.
+      condition_key: `expected_award:${tdr.expected_award_date ?? "-"}`,
       reason: "Tender award expected within 7 days",
       recommended_action: "Review the tender and confirm the go/no-go decision.",
       owner_id: tdr.tender_owner_id,
@@ -514,6 +547,7 @@ async function run_automations(
     await raiseFlag("opportunity", f.opportunity_id, "action_required", {
       action_type: "follow_up_required",
       queue_action_type: "follow_up_due",
+      condition_key: `followup:${f.id}:${f.due_date}`,
       reason: "Follow-up due today",
       recommended_action: "Complete today's scheduled follow-up.",
       owner_id: f.owner_id,
@@ -532,6 +566,10 @@ async function run_automations(
     await raiseFlag("opportunity", f.opportunity_id, "risk", {
       risk_flag: "follow_up_overdue",
       queue_action_type: "follow_up_overdue",
+      // The defect this whole change exists for: dismissing the flag while the
+      // follow-up stayed overdue used to re-raise it on every run. Reschedule
+      // the follow-up and due_date changes, so a new flag IS correct.
+      condition_key: `followup:${f.id}:${f.due_date}`,
       reason: `Follow-up overdue since ${f.due_date}`,
       recommended_action: "Contact the customer immediately and reschedule.",
       owner_id: f.owner_id,
@@ -550,6 +588,7 @@ async function run_automations(
   for (const o of noNextAction ?? []) {
     await raiseFlag("opportunity", o.id, "action_required", {
       queue_action_type: "no_next_action",
+      condition_key: "missing_next_action",
       reason: "Important opportunity has no next action set",
       recommended_action: "Define and record the next action for this opportunity.",
       owner_id: o.owner_id,
@@ -567,6 +606,7 @@ async function run_automations(
   for (const o of inactiveTierA ?? []) {
     await raiseFlag("opportunity", o.id, "risk", {
       queue_action_type: "inactive_tier_a_opportunity",
+      condition_key: `inactive_since:${String(o.last_activity_at ?? "-").slice(0, 10)}`,
       reason: "Tier A opportunity with no activity in 14+ days",
       recommended_action: "Re-engage the client and log an activity.",
       owner_id: o.owner_id,
@@ -582,6 +622,7 @@ async function run_automations(
   for (const a of pendingApprovals ?? []) {
     await raiseFlag("approval", a.id, "action_required", {
       queue_action_type: "approval_needed",
+      condition_key: `approval:${a.id}`,
       reason: `Pending ${a.approval_type} approval`,
       recommended_action: "Review and decide on this approval request.",
       owner_id: a.assigned_approver ?? a.requested_by,
@@ -600,6 +641,7 @@ async function run_automations(
     if (lastTouch && lastTouch < followUpCutoff) {
       await raiseFlag("quotation", q.id, "action_required", {
         queue_action_type: "quotation_follow_up",
+        condition_key: `quotation:${q.id}:${String(q.last_follow_up_at ?? "-").slice(0, 10)}`,
         reason: "No follow-up on this quotation in 5+ days",
         recommended_action: "Follow up with the client on the submitted quotation.",
         owner_id: q.owner_id,
@@ -613,7 +655,8 @@ async function run_automations(
   // previous "run_automations" string silently failed the column's uuid
   // check and the insert never happened).
   await auditLog(svc, caller.userId, "automations.run", "system", null, { raised }, caller.roles);
-  return json({ ok: true, raised });
+  await finishRun(svc, runId, raised);
+  return json({ ok: true, raised, run_id: runId, trigger });
 }
 
 // ---- Record lifecycle: archive / unarchive / request-delete / execute-delete / duplicate flag ----

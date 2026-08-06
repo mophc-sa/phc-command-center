@@ -3,6 +3,12 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, LayoutGrid, Rows3, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  resolveCanonicalStage,
+  CANONICAL_ACTIVE_STAGES,
+  CANONICAL_STAGES,
+  canonicalStageLabelKey,
+} from "@/lib/stage-canonical";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
 import { PageHeader } from "@/components/phc/PageHeader";
@@ -38,7 +44,9 @@ export const Route = createFileRoute("/_authenticated/opportunities/")({
   component: OppList,
 });
 
-const STAGES = ["discovery", "qualification", "preparation", "quotation", "follow_up", "won", "lost", "archived"] as const;
+// The filter offers the real PHC pipeline, not the generic CRM buckets. It used
+// to list discovery/qualification/preparation/... — stages a salesperson never
+// sees anywhere else in the app, and which no longer matched what the rows show.
 const CLOSED = ["won", "lost", "archived"];
 
 function OppList() {
@@ -77,7 +85,7 @@ function OppList() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const rows = data.filter((o: any) => {
-      if (stage !== "all" && o.stage !== stage) return false;
+      if (stage !== "all" && resolveCanonicalStage(o).stage !== stage) return false;
       if (tier !== "all" && o.tier !== tier) return false;
       if (!q) return true;
       return [o.project_name, o.client, o.main_contractor, o.location, o.sector]
@@ -107,13 +115,22 @@ function OppList() {
     return sorted;
   }, [data, search, stage, tier, sort]);
 
-  const open = data.filter((o) => !CLOSED.includes(o.stage));
+  // Canonical stage. `stage` and `sales_stage` only agree at won/lost, so the
+  // KPI strip on this page could disagree with My Workspace for the same deal.
+  const canonical = (o: any) => resolveCanonicalStage(o).stage;
+  const open = data.filter((o) => {
+    const s = canonical(o);
+    return s !== null && (CANONICAL_ACTIVE_STAGES as readonly string[]).includes(s);
+  });
   const openValue = open.reduce((s, o) => s + (o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0), 0);
   const tierA = open.filter((o) => o.tier === "A").length;
   const winRate = (() => {
-    const closed = data.filter((o) => CLOSED.includes(o.stage) && o.stage !== "archived");
+    const closed = data.filter((o) => {
+      const s = canonical(o);
+      return s === "won" || s === "lost";
+    });
     if (closed.length === 0) return 0;
-    return Math.round((closed.filter((o) => o.stage === "won").length / closed.length) * 100);
+    return Math.round((closed.filter((o) => canonical(o) === "won").length / closed.length) * 100);
   })();
 
   return (
@@ -147,8 +164,8 @@ function OppList() {
           <SelectTrigger className="h-9 w-full sm:w-[180px] text-[12px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("filter_all_stages")}</SelectItem>
-            {STAGES.map((s) => (
-              <SelectItem key={s} value={s}>{humanize(s)}</SelectItem>
+            {CANONICAL_STAGES.map((s) => (
+              <SelectItem key={s} value={s}>{t(canonicalStageLabelKey(s))}</SelectItem>
             ))}
           </SelectContent>
         </Select>

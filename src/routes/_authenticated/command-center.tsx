@@ -36,6 +36,12 @@ import { PriorityItem } from "@/components/phc/PriorityItem";
 import { StatusPill } from "@/components/phc/StatusPill";
 import type { OpportunityRow } from "@/components/phc/OpportunityCard";
 import { humanize } from "@/lib/utils";
+import {
+  resolveCanonicalStage,
+  groupByCanonicalStage,
+  canonicalStageLabelKey,
+  CANONICAL_ACTIVE_STAGES,
+} from "@/lib/stage-canonical";
 import { isSalesperson, canManageSalesPipeline, isSystemAdmin, isFinanceManager, type AppRole } from "@/lib/roles";
 
 // ── Route guard ───────────────────────────────────────────────────────────────
@@ -111,7 +117,7 @@ function CommandCenter() {
       const sinceIso = since.toISOString();
 
       const [opps, followUps, approvals, agentRuns, activities, rfqs] = await Promise.all([
-        supabase.from("opportunities").select("id, project_name, stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor").order("last_activity_at", { ascending: false, nullsFirst: false }).limit(200),
+        supabase.from("opportunities").select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor").order("last_activity_at", { ascending: false, nullsFirst: false }).limit(200),
         supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, owner_id").neq("status", "completed").order("due_date", { ascending: true }).limit(100),
         supabase.from("approvals").select("*").eq("status", "pending"),
         supabase.from("ai_agent_runs").select("*").order("started_at", { ascending: false }).limit(6),
@@ -159,7 +165,15 @@ function CommandCenter() {
   const activities = data?.activities ?? [];
   const rfqs = data?.rfqs ?? [];
 
-  const openOpps = opps.filter((o) => !CLOSED.includes(o.stage));
+  // Canonical stage, not the legacy CRM one. `stage` and `sales_stage` are only
+  // synchronised at won/lost, so reading `stage` mid-pipeline filed a
+  // verbally-awarded deal under "Quotation" on this page while My Workspace
+  // showed it correctly. Live cross-tab, 2026-08-05, made that concrete.
+  const canonicalOf = (o: OpportunityRow) => resolveCanonicalStage(o).stage;
+  const openOpps = opps.filter((o) => {
+    const s = canonicalOf(o);
+    return s !== null && (CANONICAL_ACTIVE_STAGES as readonly string[]).includes(s);
+  });
   const openPipelineValue = openOpps.reduce(
     (s, o) => s + (o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0),
     0,
@@ -172,25 +186,26 @@ function CommandCenter() {
     return s + (o?.quotation_value ?? o?.estimated_value_max ?? o?.estimated_value_min ?? 0);
   }, 0);
 
-  const newlyQualified = opps.filter((o) => o.stage === "qualification").length;
+  const newlyQualified = opps.filter((o) => canonicalOf(o) === "jih").length;
 
-  // Pipeline by stage
+  // Pipeline by stage — the real PHC flow (rfq_received → … → contract_signed),
+  // not the generic CRM buckets this used to show.
   const pipelineByStage = useMemo(() => {
-    const order = ["discovery", "qualification", "preparation", "quotation", "follow_up"];
-    const map = new Map<string, { count: number; value: number }>();
-    order.forEach((s) => map.set(s, { count: 0, value: 0 }));
-    for (const o of openOpps) {
-      const cur = map.get(o.stage) ?? { count: 0, value: 0 };
-      cur.count += 1;
-      cur.value += o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0;
-      map.set(o.stage, cur);
-    }
-    return Array.from(map.entries()).map(([stage, v]) => ({
-      stage: humanize(stage),
-      count: v.count,
-      value: v.value,
+    const grouped = groupByCanonicalStage(opps as unknown as Parameters<typeof groupByCanonicalStage>[0]);
+    return grouped.buckets.map((b) => ({
+      stage: t(canonicalStageLabelKey(b.stage)),
+      count: b.count,
+      value: b.value,
     }));
-  }, [openOpps]);
+  }, [opps, t]);
+
+  // How much of the chart above rests on rows with no sales_stage, where the
+  // position had to be inferred. Surfaced rather than averaged in silently —
+  // a number built from guesses is not the same quality as one built from data.
+  const inferredCount = useMemo(
+    () => groupByCanonicalStage(opps as unknown as Parameters<typeof groupByCanonicalStage>[0]).inferredCount,
+    [opps],
+  );
 
   // Activity trend (last 30 days)
   const activityTrend = useMemo(() => {
