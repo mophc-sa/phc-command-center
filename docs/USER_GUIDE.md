@@ -589,15 +589,17 @@ There is no annual target row, no current-month target, and no awarded opportuni
 achievement and remaining all display as zero or blank. **This is missing data, not a broken
 calculation** — the arithmetic has been verified. Someone needs to enter an annual target.
 
-### Reminders still do not fire on their own
-The engine is now **safe** to schedule — flags are keyed to the occurrence, so it can no
-longer spam the queue — and pg_cron is installed and proven to fire. But the scheduled call
-is blocked on authentication: `sales-os-api` requires a signed-in user's token, and a
-scheduled job doesn't have one. Solving that means a security decision about how a machine
-authenticates to a function that also gates approvals and deletions.
+### Reminders now fire on their own
+The engine runs **nightly at 07:00 AST**. You no longer have to remember to press anything —
+the queue is populated before the sales day starts. A manager can still run it on demand with
+**Run Automations** in Action Center; both paths execute the same rules.
 
-**So: flags are still only created when a manager clicks Run Automations in Action Center.**
-Do not rely on being reminded.
+Flags are keyed to the *occurrence* that raised them, so the queue does not repeat itself:
+dismiss a flag and it stays dismissed while the situation is unchanged. Reschedule the
+follow-up and you get a fresh flag, because that is genuinely a new situation.
+
+Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
+and the 90-day tender review. Both are calculated for display but never raised as queue items.
 
 Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
 and the 90-day tender review. Both are calculated for display but never raised as queue items.
@@ -630,6 +632,7 @@ Listed so nobody works around a problem that no longer exists:
 | Tender BAFO rejected with a 409 — the stage was unreachable | Fixed — it works, and a test diffs the two transition maps |
 | Management pages read the legacy stage, so a verbal award showed as "Quotation" | Fixed — Command Center, Reports and the opportunities list all read the canonical stage |
 | Closing a flag re-raised it on the next automation run | Fixed — flags are keyed to the occurrence, so a dismissed one stays dismissed |
+| Reminders only appeared when a manager remembered to press a button | Fixed — the engine runs nightly at 07:00 AST |
 
 ---
 
@@ -641,6 +644,6 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-06, `main` @ `d1a02af`.
+*Reflects the system as at 2026-08-06, `main` @ `faaea79`.
 Behaviour verified against source, a live browser pass, and the production database.
 Update this file when the workflow changes.*

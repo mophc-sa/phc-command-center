@@ -8,7 +8,7 @@ import {
   missing,
 } from "../shared.ts";
 import { insertLeadServerSide, canCreateLead } from "../../_shared/leads.ts";
-import { readTrigger, startRun, finishRun } from "../../_shared/automation-run-log.ts";
+import { readTrigger } from "../../_shared/automation-run-log.ts";
 
 async function run_protenders_ingest(
   payload: Record<string, unknown>,
@@ -365,297 +365,44 @@ async function run_automations(
   const { caller, audit: auditLog } = ctx;
   if (!canRunSensitiveSalesAction(caller.roles))
     return err("Sensitive-action authority required", 403);
+
+  // The rules live in SQL — public.run_sales_automations(), migration
+  // 20260806120000. This handler is the authenticated front door for the
+  // Action Center button; pg_cron calls the same function directly on its
+  // nightly schedule. One implementation, so the manual run and the scheduled
+  // run can never drift apart.
+  //
+  // They were reimplemented here in TypeScript until 2026-08-06. Moving them
+  // into the database was not a style preference: scheduling them over HTTP was
+  // blocked because sales-os-api requires a user token (verify_jwt), and no
+  // machine caller can produce one. Rather than open a second door into a
+  // function that also gates approvals and deletions, the rules moved to where
+  // pg_cron already has authority. Every rule is a SELECT plus an INSERT into
+  // opportunity_flags, so nothing was lost in the move.
   const svc = ctx.svc;
-
-  // Run log — see _shared/automation-run-log.ts for why this exists.
   const trigger = readTrigger(payload);
-  const runId = await startRun(svc, trigger);
 
-  const now = Date.now();
-  const today = new Date(now).toISOString().slice(0, 10);
-  const daysAgo = (d: number) => new Date(now - d * 864e5).toISOString().slice(0, 10);
-  const daysFromNow = (d: number) => new Date(now + d * 864e5).toISOString().slice(0, 10);
-  let raised = 0;
-  const raiseFlag = async (
-    recordType: string,
-    recordId: string,
-    kind: "action_required" | "risk",
-    opts: {
-      action_type?: string;
-      risk_flag?: string;
-      queue_action_type: string;
-      /**
-       * Identifies the OCCURRENCE, not just its type — the value that made this
-       * condition true (a due date, an approval id). This is the idempotency
-       * key, and it is what makes the engine safe to schedule.
-       *
-       * Dedup used to consult only ACTIVE statuses, so closing a flag without
-       * fixing the underlying condition meant the next run raised a fresh one.
-       * Keyed on the occurrence and checked across ALL statuses, a dismissed
-       * flag stays dismissed while the condition is unchanged; reschedule the
-       * follow-up and the key changes, so a new flag is correctly raised.
-       */
-      condition_key: string;
-      reason: string;
-      recommended_action?: string;
-      owner_id?: string | null;
-      due_date?: string | null;
-      priority?: "A" | "B" | "C";
-    },
-  ) => {
-    const { data: existing } = await svc
-      .from("opportunity_flags")
-      .select("id")
-      .eq("linked_record_type", recordType)
-      .eq("linked_record_id", recordId)
-      .eq("queue_action_type", opts.queue_action_type)
-      .eq("condition_key", opts.condition_key)
-      .limit(1);
-    if (existing && existing.length) return;
+  const { data, error } = await svc.rpc("run_sales_automations", { _trigger: trigger });
+  if (error) return err(`Automation run failed: ${error.message}`, 500);
 
-    const { error } = await svc.from("opportunity_flags").insert({
-      linked_record_type: recordType,
-      linked_record_id: recordId,
-      flag_kind: kind,
-      action_type: opts.action_type ?? null,
-      risk_flag: opts.risk_flag ?? null,
-      queue_action_type: opts.queue_action_type,
-      condition_key: opts.condition_key,
-      recommended_action: opts.recommended_action ?? null,
-      action_owner_id: opts.owner_id ?? null,
-      due_date: opts.due_date ?? null,
-      priority: opts.priority ?? null,
-      reason: opts.reason,
-      status: "open",
-      ai_generated: true,
-    });
+  const row = Array.isArray(data) ? data[0] : data;
+  const raised = Number(row?.raised ?? 0);
+  const runId = row?.run_id ?? null;
 
-    // 23505 = unique_violation on opportunity_flags_condition_dedup. The check
-    // above lost a race with a concurrent run — which is precisely what the
-    // index exists to catch. Someone else raised it; that is success, not error.
-    if (error) {
-      if (error.code === "23505") return;
-      throw error;
-    }
-    raised++;
-  };
+  // entity_id is a uuid column. runId is a real UUID when the run was recorded;
+  // when it wasn't, pass null — never a placeholder string. A non-UUID literal
+  // here is the bug audit-helper.contract.test.ts exists to catch, and it fails
+  // at the database rather than in review.
+  await auditLog(
+    svc,
+    caller.userId,
+    "automations.run",
+    "automation_run",
+    runId ?? null,
+    { raised, trigger, run_id: runId },
+    caller.roles,
+  );
 
-  // RFQ with no owner for 24h -> RFQ review needed.
-  const { data: orphanRfqs } = await svc
-    .from("rfqs")
-    .select("id, created_at")
-    .is("sales_owner_id", null)
-    .eq("status", "open")
-    .lt("created_at", daysAgo(1));
-  for (const r of orphanRfqs ?? []) {
-    await raiseFlag("rfq", r.id, "action_required", {
-      action_type: "follow_up_required",
-      queue_action_type: "rfq_review_needed",
-      // Raised once per RFQ: the condition is "still unassigned", which does
-      // not vary until someone assigns it (and then the rule stops matching).
-      condition_key: "unassigned",
-      reason: "RFQ unassigned for 24h",
-      recommended_action: "Assign a sales owner to this RFQ.",
-      priority: "A",
-    });
-  }
-
-  // Verbally awarded with no contract after 14 days -> contract evidence missing.
-  const { data: staleAwards } = await svc
-    .from("opportunities")
-    .select("id, owner_id, verbal_award_date")
-    .eq("sales_stage", "verbally_awarded")
-    .lt("verbal_award_date", daysAgo(14));
-  for (const o of staleAwards ?? []) {
-    await raiseFlag("opportunity", o.id, "risk", {
-      risk_flag: "contract_pending",
-      queue_action_type: "contract_evidence_missing",
-      // Three separate rules share this queue_action_type. Before fingerprinting
-      // they suppressed each other — whichever fired first hid the other two.
-      // Distinct keys let all three coexist on one opportunity.
-      condition_key: `verbal_no_contract:${o.verbal_award_date ?? "-"}`,
-      reason: "Verbally awarded >14d without contract",
-      recommended_action: "Follow up on the contract and record it once received.",
-      owner_id: o.owner_id,
-      priority: "A",
-    });
-  }
-  // Verbally awarded without any recorded award evidence -> contract evidence missing.
-  const { data: verbalNoEvidence } = await svc
-    .from("opportunities")
-    .select("id, owner_id, verbal_award_date")
-    .eq("sales_stage", "verbally_awarded")
-    .is("verbal_award_evidence", null)
-    .lt("verbal_award_date", daysAgo(3));
-  for (const o of verbalNoEvidence ?? []) {
-    await raiseFlag("opportunity", o.id, "risk", {
-      risk_flag: "contract_pending",
-      queue_action_type: "contract_evidence_missing",
-      condition_key: `verbal_no_evidence:${o.verbal_award_date ?? "-"}`,
-      reason: "Verbal award recorded without evidence",
-      recommended_action: "Upload verbal award evidence (email, letter, or call note).",
-      owner_id: o.owner_id,
-      priority: "A",
-    });
-  }
-  // Contract stage reached without a contract reference number -> contract evidence missing.
-  const { data: contractNoRef } = await svc
-    .from("opportunities")
-    .select("id, owner_id")
-    .in("sales_stage", ["contract_received", "won"])
-    .is("contract_reference_number", null);
-  for (const o of contractNoRef ?? []) {
-    await raiseFlag("opportunity", o.id, "action_required", {
-      queue_action_type: "contract_evidence_missing",
-      condition_key: "contract_no_reference",
-      reason: "Contract stage reached without a contract reference number",
-      recommended_action: "Record the signed contract reference number.",
-      owner_id: o.owner_id,
-      priority: "A",
-    });
-  }
-
-  // Tenders with expected award within 7 days -> tender review needed.
-  const { data: dueTenders } = await svc
-    .from("tenders")
-    .select("id, tender_owner_id, expected_award_date")
-    .not("expected_award_date", "is", null)
-    .lte("expected_award_date", daysFromNow(7))
-    .neq("tender_stage", "converted_to_jih")
-    .neq("tender_stage", "tender_lost_or_archived");
-  for (const tdr of dueTenders ?? []) {
-    await raiseFlag("tender", tdr.id, "action_required", {
-      action_type: "tender_decision_required",
-      queue_action_type: "tender_review_needed",
-      // Keyed on the award date: push the date out and it is a new occurrence.
-      condition_key: `expected_award:${tdr.expected_award_date ?? "-"}`,
-      reason: "Tender award expected within 7 days",
-      recommended_action: "Review the tender and confirm the go/no-go decision.",
-      owner_id: tdr.tender_owner_id,
-      due_date: tdr.expected_award_date,
-      priority: "A",
-    });
-  }
-
-  // Follow-ups due today -> follow-up due.
-  const { data: dueFollowUps } = await svc
-    .from("follow_ups")
-    .select("id, opportunity_id, owner_id, due_date, cadence_tier")
-    .eq("status", "scheduled")
-    .eq("due_date", today);
-  for (const f of dueFollowUps ?? []) {
-    await raiseFlag("opportunity", f.opportunity_id, "action_required", {
-      action_type: "follow_up_required",
-      queue_action_type: "follow_up_due",
-      condition_key: `followup:${f.id}:${f.due_date}`,
-      reason: "Follow-up due today",
-      recommended_action: "Complete today's scheduled follow-up.",
-      owner_id: f.owner_id,
-      due_date: f.due_date,
-      priority: f.cadence_tier,
-    });
-  }
-
-  // Follow-ups past due -> follow-up overdue.
-  const { data: overdueFollowUps } = await svc
-    .from("follow_ups")
-    .select("id, opportunity_id, owner_id, due_date, cadence_tier")
-    .not("status", "in", "(completed,cancelled)")
-    .lt("due_date", today);
-  for (const f of overdueFollowUps ?? []) {
-    await raiseFlag("opportunity", f.opportunity_id, "risk", {
-      risk_flag: "follow_up_overdue",
-      queue_action_type: "follow_up_overdue",
-      // The defect this whole change exists for: dismissing the flag while the
-      // follow-up stayed overdue used to re-raise it on every run. Reschedule
-      // the follow-up and due_date changes, so a new flag IS correct.
-      condition_key: `followup:${f.id}:${f.due_date}`,
-      reason: `Follow-up overdue since ${f.due_date}`,
-      recommended_action: "Contact the customer immediately and reschedule.",
-      owner_id: f.owner_id,
-      due_date: f.due_date,
-      priority: "A",
-    });
-  }
-
-  // Important (Tier A/B) opportunities with no next action -> no next action.
-  const { data: noNextAction } = await svc
-    .from("opportunities")
-    .select("id, owner_id, tier")
-    .in("tier", ["A", "B"])
-    .is("next_action", null)
-    .not("stage", "in", "(won,lost,archived)");
-  for (const o of noNextAction ?? []) {
-    await raiseFlag("opportunity", o.id, "action_required", {
-      queue_action_type: "no_next_action",
-      condition_key: "missing_next_action",
-      reason: "Important opportunity has no next action set",
-      recommended_action: "Define and record the next action for this opportunity.",
-      owner_id: o.owner_id,
-      priority: o.tier,
-    });
-  }
-
-  // Tier A opportunities inactive 14+ days -> inactive Tier A opportunity.
-  const { data: inactiveTierA } = await svc
-    .from("opportunities")
-    .select("id, owner_id, last_activity_at")
-    .eq("tier", "A")
-    .not("stage", "in", "(won,lost,archived)")
-    .or(`last_activity_at.is.null,last_activity_at.lt.${daysAgo(14)}`);
-  for (const o of inactiveTierA ?? []) {
-    await raiseFlag("opportunity", o.id, "risk", {
-      queue_action_type: "inactive_tier_a_opportunity",
-      condition_key: `inactive_since:${String(o.last_activity_at ?? "-").slice(0, 10)}`,
-      reason: "Tier A opportunity with no activity in 14+ days",
-      recommended_action: "Re-engage the client and log an activity.",
-      owner_id: o.owner_id,
-      priority: "A",
-    });
-  }
-
-  // Pending approvals -> approval needed.
-  const { data: pendingApprovals } = await svc
-    .from("approvals")
-    .select("id, assigned_approver, requested_by, approval_type")
-    .eq("status", "pending");
-  for (const a of pendingApprovals ?? []) {
-    await raiseFlag("approval", a.id, "action_required", {
-      queue_action_type: "approval_needed",
-      condition_key: `approval:${a.id}`,
-      reason: `Pending ${a.approval_type} approval`,
-      recommended_action: "Review and decide on this approval request.",
-      owner_id: a.assigned_approver ?? a.requested_by,
-      priority: "A",
-    });
-  }
-
-  // Quotations with no follow-up in 5+ days -> quotation follow-up.
-  const { data: staleQuotations } = await svc
-    .from("quotations")
-    .select("id, owner_id, issued_date, last_follow_up_at, status")
-    .in("status", ["submitted", "follow_up", "negotiation"]);
-  const followUpCutoff = daysAgo(5);
-  for (const q of staleQuotations ?? []) {
-    const lastTouch = q.last_follow_up_at ?? q.issued_date;
-    if (lastTouch && lastTouch < followUpCutoff) {
-      await raiseFlag("quotation", q.id, "action_required", {
-        queue_action_type: "quotation_follow_up",
-        condition_key: `quotation:${q.id}:${String(q.last_follow_up_at ?? "-").slice(0, 10)}`,
-        reason: "No follow-up on this quotation in 5+ days",
-        recommended_action: "Follow up with the client on the submitted quotation.",
-        owner_id: q.owner_id,
-        priority: "B",
-      });
-    }
-  }
-
-  // entity_id is nullable — this is a system-level action with no single
-  // entity, so pass null rather than a non-UUID string literal (the
-  // previous "run_automations" string silently failed the column's uuid
-  // check and the insert never happened).
-  await auditLog(svc, caller.userId, "automations.run", "system", null, { raised }, caller.roles);
-  await finishRun(svc, runId, raised);
   return json({ ok: true, raised, run_id: runId, trigger });
 }
 
