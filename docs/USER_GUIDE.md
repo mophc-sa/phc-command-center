@@ -70,6 +70,11 @@ There are 11 roles. **A user can hold more than one** — permissions are additi
 | `sales_ops` | عمليات المبيعات | Data quality, pipeline hygiene |
 | `finance_manager` | المدير المالي | Values, margins, finance approval |
 | `estimation_manager` | مدير التقدير | Cost approval on discounts |
+
+> **Finance and Estimation are one person at PHC — Ahmed Zaid.** The system keeps them
+> as separate roles because they answer different questions ("is this above our cost?"
+> versus "does this fit our margin?"), and one person can answer both. So the BAFO chain
+> below is four steps but **three people**: requester → Zaid (two steps) → executive.
 | `salesperson` | مندوب مبيعات | Owns their own deals end to end |
 | `viewer` | مطّلع | Read only |
 | `ceo` | — | Legacy. Kept only for existing data |
@@ -359,6 +364,9 @@ flowchart LR
 ```
 
 The order is enforced by the database. Step 3 cannot happen before step 2.
+
+Steps 2 and 3 are both Ahmed Zaid, who holds Finance and Estimation. The independent
+check is step 4.
 
 ### Step 8 — Award and handover
 
