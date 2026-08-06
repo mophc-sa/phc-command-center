@@ -15,13 +15,28 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 
 test("run_automations no longer passes a non-UUID string literal as entity_id", () => {
+  // audit_log.entity_id is a uuid column. The original bug passed a bare string
+  // literal, which the database rejects. The invariant is not "always null" —
+  // it is "a real UUID expression, or null". When the rules moved into SQL
+  // (2026-08-06) the handler gained a genuine run_id UUID to log, and a first
+  // pass at that reintroduced the bug as `runId ?? "unknown"`. This checks the
+  // rule rather than one previous spelling of it.
   const src = readFileSync(
     join(here, "../../supabase/functions/sales-os-api/handlers/automation.ts"),
     "utf8",
   );
-  const match = src.match(/auditLog\(svc, caller\.userId, "automations\.run", "system", ([^,]+),/);
+  const match = src.match(
+    /auditLog\(\s*svc,\s*caller\.userId,\s*"automations\.run",\s*"[a-z_]+",\s*([^,]+),/,
+  );
   expect(match, "automations.run audit() call not found").not.toBeNull();
-  expect(match![1].trim()).toBe("null");
+  const entityId = match![1].trim();
+
+  // Reject any string literal: that is the shape of the original defect.
+  expect(entityId, `entity_id must not be a string literal, got ${entityId}`).not.toMatch(
+    /^["'`]/,
+  );
+  expect(entityId).not.toMatch(/\?\?\s*["'`]/); // ...including as a `?? "fallback"`
+  expect(entityId === "null" || entityId.includes("runId")).toBe(true);
 });
 
 test("audit() checks and logs the insert error instead of discarding it", () => {
