@@ -198,9 +198,17 @@ export const STAGE_APPROVAL: Record<string, string> = {
 };
 
 // ---- Tender workflow ----
+// MUST stay identical to TENDER_TRANSITIONS in src/lib/tender-actions.ts.
+// `tender_bafo` was added to the enum by migration 20260716100000 and wired
+// into the frontend map only. The picker offered the stage, this map rejected
+// it with a 409 ("Transition tender_under_process -> tender_bafo is not
+// allowed"), and a tender that somehow reached it had no key here at all — so
+// no legal way out either. Guarded by tender-transitions.contract.test.ts,
+// which diffs the two maps.
 export const TENDER_TRANSITIONS: Record<string, string[]> = {
   tender_identified: ["tender_under_process", "tender_lost_or_archived"],
-  tender_under_process: ["award_negotiation", "awarded_to_contractor", "tender_lost_or_archived"],
+  tender_under_process: ["tender_bafo", "award_negotiation", "awarded_to_contractor", "tender_lost_or_archived"],
+  tender_bafo: ["award_negotiation", "awarded_to_contractor", "tender_lost_or_archived"],
   award_negotiation: ["awarded_to_contractor", "tender_lost_or_archived"],
   awarded_to_contractor: ["converted_to_jih", "tender_lost_or_archived"],
   converted_to_jih: [],

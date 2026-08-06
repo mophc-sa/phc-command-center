@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { ChartFrame } from "@/components/phc/ChartFrame";
+import { groupByCanonicalStage, canonicalStageLabelKey } from "@/lib/stage-canonical";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonChart } from "@/components/phc/Skeleton";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
@@ -30,17 +31,6 @@ export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Reports — PHC" }, { name: "robots", content: "noindex" }] }),
   component: ReportsPage,
 });
-
-const STAGE_ORDER = [
-  "discovery",
-  "qualification",
-  "preparation",
-  "quotation",
-  "follow_up",
-  "won",
-  "lost",
-  "archived",
-] as const;
 
 const QUOTE_ORDER = [
   "draft",
@@ -77,7 +67,7 @@ function ReportsPage() {
       (
         await supabase
           .from("opportunities")
-          .select("id, stage, quotation_value, estimated_value_max")
+          .select("id, stage, sales_stage, quotation_value, estimated_value_max")
       ).data ?? [],
   });
 
@@ -103,21 +93,20 @@ function ReportsPage() {
     staleTime: 60_000,
   });
 
+  // Canonical stage — the real PHC pipeline, not the legacy CRM buckets.
+  // Reading `stage` here put a verbally-awarded deal under "Quotation", because
+  // the two columns are only synchronised at won/lost.
   const stageRows = useMemo(
     () =>
-      STAGE_ORDER.map((s) => {
-        const list = opps.filter((o: any) => o.stage === s);
-        return {
-          key: s,
-          label: humanize(s),
-          count: list.length,
-          value: list.reduce(
-            (sum: number, o: any) => sum + (o.quotation_value ?? o.estimated_value_max ?? 0),
-            0,
-          ),
-        };
-      }).filter((r) => r.count > 0),
-    [opps],
+      groupByCanonicalStage(opps as unknown as Parameters<typeof groupByCanonicalStage>[0])
+        .buckets.map((b) => ({
+          key: b.stage,
+          label: t(canonicalStageLabelKey(b.stage)),
+          count: b.count,
+          value: b.value,
+        }))
+        .filter((r) => r.count > 0),
+    [opps, t],
   );
 
   const quoteRows = useMemo(
@@ -210,7 +199,16 @@ function ReportsPage() {
                         {stageRows.map((r) => (
                           <Cell
                             key={r.key}
-                            fill={r.key === "won" ? CHART.emerald : r.key === "lost" || r.key === "archived" ? CHART.red : CHART.amber}
+                            // The chart now shows active canonical stages only,
+                            // so won/lost never appear here. Colour by proximity
+                            // to award instead: the near-award stages read green.
+                            fill={
+                              r.key === "verbally_awarded" ||
+                              r.key === "contract_received" ||
+                              r.key === "contract_signed"
+                                ? CHART.emerald
+                                : CHART.amber
+                            }
                           />
                         ))}
                       </Bar>

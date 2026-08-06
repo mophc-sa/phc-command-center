@@ -6,6 +6,15 @@ Production deployments (Supabase Edge Functions, database migrations, configurat
 ## AI Orchestrator
 Every AI agent in the system is fronted by a single backend-only Edge Function (`ai-orchestrator`) — never call a provider directly from the frontend, and never add a new Edge Function per agent. See [docs/ai-orchestrator.md](docs/ai-orchestrator.md) for the architecture, agent registry, guardrails, and error codes.
 
+## User Guide — يُحدَّث مع التغيير لا بعده
+[docs/USER_GUIDE.md](docs/USER_GUIDE.md) يشرح سير العمل لكل دور. **أي PR يغيّر تدفق المستخدم يُحدِّث الدليل في نفس الـPR** — لا كدفعة لاحقة.
+
+يشمل ذلك: تغيير خطوات الإدخال أو التصنيف أو التحويل · إضافة/حذف/إعادة تسمية مرحلة · تغيير من يملك صلاحية إجراء · إضافة أو نقل صفحة · تغيير ما يظهر على صفحة يفتحها المستخدم · إصلاح قيد مذكور في القسم 10.
+
+**السبب:** بتاريخ 2026-08-06 كان الدليل متأخرًا **سبعة PRs** — يصف تدفقًا من ثلاث خطوات أُلغي، ويسرد قيودًا أُصلحت. دليل يوجّه الناس للالتفاف حول مشكلة محلولة أسوأ من غياب الدليل. الوتيرة هنا أسرع من أي دفعة توثيق لاحقة، فالتحديث داخل الـPR هو الطريقة الوحيدة التي تصمد.
+
+عند التحديث: صحّح القسم المتأثر **وقسم 10 (القيود)** معًا، وحدّث سطر التذييل (التاريخ + الـcommit). النسخة في Obsidian (`1. PROJECTS/PHC/`) تُزامَن من نفس المصدر.
+
 ## AI Handoff System (ذاكرة المشروع عبر الجلسات)
 المشروع يحتفظ بذاكرته في ملفات، لا في المحادثة. التزم بالبروتوكول التالي:
 

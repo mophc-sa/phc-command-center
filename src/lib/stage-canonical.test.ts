@@ -187,14 +187,18 @@ describe("legacyStageFor — keeping the old column meaningful during migration"
   });
 });
 
-describe("preparation only — nothing wired up yet", () => {
-  test("no route imports stage-canonical, so this PR changes no behaviour", async () => {
+describe("wired into the management views", () => {
+  // This block used to assert the opposite — that NO route imported this module,
+  // because it shipped as groundwork ahead of the switch. The switch has now
+  // happened, so the assertion is inverted: these three pages must use it, and
+  // the pages that were already correct must keep reading sales_stage directly.
+  // Full coverage lives in stage-unification.contract.test.ts.
+  test.each([
+    "src/routes/_authenticated/command-center.tsx",
+    "src/routes/_authenticated/reports.tsx",
+    "src/routes/_authenticated/opportunities.index.tsx",
+  ])("%s resolves stage through this module", async (file) => {
     const fs = await import("fs/promises");
-    const dir = "src/routes/_authenticated";
-    const files = await fs.readdir(dir);
-    for (const f of files.filter((x) => x.endsWith(".tsx"))) {
-      const src = await fs.readFile(`${dir}/${f}`, "utf8");
-      expect(src).not.toContain("stage-canonical");
-    }
+    expect(await fs.readFile(file, "utf8")).toContain("stage-canonical");
   });
 });
