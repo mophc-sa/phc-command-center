@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { authErrorMessage } from "@/lib/auth-error-messages";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -43,7 +44,7 @@ function ResetPasswordPage() {
       toast.success(lang === "ar" ? "تم تحديث كلمة المرور" : "Password updated");
       nav({ to: "/", replace: true });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : (lang === "ar" ? "حدث خطأ" : "Something went wrong");
+      const msg = authErrorMessage(err, lang);
       toast.error(msg);
     } finally {
       setBusy(false);

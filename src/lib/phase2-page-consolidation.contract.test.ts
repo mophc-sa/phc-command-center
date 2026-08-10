@@ -14,18 +14,27 @@ function read(relPath: string): string {
   return readFileSync(join(repoRoot, relPath), "utf8");
 }
 
-test("/rfq-jih redirects to /quotations?tab=rfq_jih via beforeLoad", () => {
+// QA 2026-08-10 (ISSUE-003): these two tests used to assert the redirect
+// mechanism itself — `beforeLoad: () => { throw redirect(...) }`. That
+// mechanism turned out to be the bug: under the `ssr: false` `_authenticated`
+// layout, throwing the redirect during hydration left React's Suspense tree
+// unresolved and a direct hit on /boq or /rfq-jih rendered a blank page. The
+// assertions now cover the contract that actually matters — the retired route
+// still exists and lands on the right /quotations tab — and leave the
+// mechanism free to change. See retired-route-redirects.contract.test.ts.
+
+test("/rfq-jih redirects to /quotations?tab=rfq_jih", () => {
   const source = read("src/routes/_authenticated/rfq-jih.tsx");
-  expect(source).toMatch(/beforeLoad: \(\) => \{/);
-  expect(source).toMatch(/throw redirect\(\{ to: "\/quotations", search: \{ tab: "rfq_jih" \} \}\);/);
+  expect(source).toMatch(/to="\/quotations"/);
+  expect(source).toMatch(/tab: "rfq_jih"/);
   // Not deleted — still exports a Route so old links resolve instead of 404ing.
   expect(source).toMatch(/export const Route = createFileRoute\("\/_authenticated\/rfq-jih"\)/);
 });
 
-test("/boq redirects to /quotations?tab=boq via beforeLoad", () => {
+test("/boq redirects to /quotations?tab=boq", () => {
   const source = read("src/routes/_authenticated/boq.tsx");
-  expect(source).toMatch(/beforeLoad: \(\) => \{/);
-  expect(source).toMatch(/throw redirect\(\{ to: "\/quotations", search: \{ tab: "boq" \} \}\);/);
+  expect(source).toMatch(/to="\/quotations"/);
+  expect(source).toMatch(/tab: "boq"/);
   expect(source).toMatch(/export const Route = createFileRoute\("\/_authenticated\/boq"\)/);
 });
 

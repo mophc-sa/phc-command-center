@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useI18n } from "@/lib/i18n";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/_authenticated/ai-agents")({
 });
 
 function AiAgentsPage() {
+  const { t } = useI18n();
   const { roles } = useAuth();
   const canRun = canManageSalesPipeline(roles);
   const qc = useQueryClient();
@@ -70,14 +72,14 @@ function AiAgentsPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeader eyebrow="Intelligence" title="AI Agents" description="Real-data agents. Every recommendation shows its evidence; nothing is applied automatically." />
+      <PageHeader eyebrow={t("ag_eyebrow_intelligence")} title={t("ag_title")} description={t("ag_description")} />
 
       {canRun ? (
-        <Panel title="Run agents">
+        <Panel title={t("ag_run_agents")}>
           <div className="flex flex-wrap gap-2">
-            <RunButton icon={<Sparkles className="h-3.5 w-3.5" />} label="Lead Scoring" busy={busy === "Lead Scoring"} onClick={() => run("Lead Scoring", runLeadScoring)} />
-            <RunButton icon={<Copy className="h-3.5 w-3.5" />} label="Duplicate Detection" busy={busy === "Duplicate Detection"} onClick={() => run("Duplicate Detection", runDuplicateDetection)} />
-            <RunButton icon={<FileBarChart className="h-3.5 w-3.5" />} label="Weekly Report" busy={busy === "Weekly Report"} onClick={() => run("Weekly Report", generateWeeklyReport)} />
+            <RunButton icon={<Sparkles className="h-3.5 w-3.5" />} label={t("ag_lead_scoring")} busy={busy === "Lead Scoring"} onClick={() => run("Lead Scoring", runLeadScoring)} />
+            <RunButton icon={<Copy className="h-3.5 w-3.5" />} label={t("ag_duplicate_detection")} busy={busy === "Duplicate Detection"} onClick={() => run("Duplicate Detection", runDuplicateDetection)} />
+            <RunButton icon={<FileBarChart className="h-3.5 w-3.5" />} label={t("ag_weekly_report")} busy={busy === "Weekly Report"} onClick={() => run("Weekly Report", generateWeeklyReport)} />
             {Object.entries(AGENT_ACTIONS).map(([key, action]) => (
               <RunButton key={key} icon={<Users className="h-3.5 w-3.5" />} label={key} muted busy={busy === key} onClick={() => run(key, () => runAgent(action))} />
             ))}
@@ -88,11 +90,11 @@ function AiAgentsPage() {
         </Panel>
       ) : null}
 
-      <Panel title="Recommendations">
+      <Panel title={t("ag_recommendations")}>
         {isLoading ? (
           <SkeletonCard count={3} />
         ) : recs.length === 0 ? (
-          <EmptyState message="No pending recommendations. Run an agent to generate evidence-backed suggestions." />
+          <EmptyState message={t("ag_empty_recommendations")} />
         ) : (
           <div className="space-y-3">
             {recs.map((rec) => (
@@ -102,7 +104,7 @@ function AiAgentsPage() {
         )}
       </Panel>
 
-      <Panel title="Recent runs">
+      <Panel title={t("ag_recent_runs")}>
         {runs.length === 0 ? (
           <div className="text-xs text-muted-foreground">No runs yet.</div>
         ) : (

@@ -20,6 +20,26 @@ describe("phase 1 security baseline", () => {
     expect(source).toContain("withSecurityHeaders(request");
   });
 
+  // QA 2026-08-10 (ISSUE-006): the CSP was report-only, and carried no
+  // report-uri/report-to, so it blocked nothing and reported nowhere. This
+  // guards against it silently regressing to observation-only again.
+  test("the Content-Security-Policy is enforced, not merely reported", () => {
+    const source = readFileSync(join(root, "src/server.ts"), "utf8");
+    expect(source).toContain('headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY)');
+    for (const directive of [
+      "default-src 'self'",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "https://*.supabase.co",
+      "wss://*.supabase.co",
+      "https://challenges.cloudflare.com",
+    ]) {
+      expect(source).toContain(directive);
+    }
+  });
+
   test("Edge Function CORS is not open to every origin", () => {
     const source = readFileSync(join(root, "supabase/functions/_shared/cors.ts"), "utf8");
     expect(source).not.toContain('"Access-Control-Allow-Origin": "*"');

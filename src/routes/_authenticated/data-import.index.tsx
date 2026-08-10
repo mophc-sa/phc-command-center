@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useI18n, type StringKey } from "@/lib/i18n";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -50,16 +51,30 @@ function statusTone(s: string): StatusTone {
   return "neutral";
 }
 
-function stepLabel(status: string): string {
-  const map: Record<string, string> = {
-    uploading: "Uploading…", parsing: "Parsing…",
-    needs_mapping: "Map Columns", mapping: "Map Columns",
-    validating: "Validating", duplicate_review: "Review Duplicates",
-    pending_approval: "Needs Approval", approved: "Approved",
-    dry_run: "Dry Run", committed: "Committed", rolled_back: "Rolled Back",
-    failed: "Failed", cancelled: "Cancelled",
+// Import batch status → i18n key. Was a hardcoded English map, so Arabic
+// users saw "Map Columns" / "Needs Approval" mid-sentence (QA ISSUE-005).
+const STEP_LABEL_KEYS: Record<string, StringKey> = {
+  uploading: "di_status_uploading",
+  parsing: "di_status_parsing",
+  needs_mapping: "di_status_map_columns",
+  mapping: "di_status_map_columns",
+  validating: "di_status_validating",
+  duplicate_review: "di_status_duplicate_review",
+  pending_approval: "di_status_pending_approval",
+  approved: "di_status_approved",
+  dry_run: "di_status_dry_run",
+  committed: "di_status_committed",
+  rolled_back: "di_status_rolled_back",
+  failed: "di_status_failed",
+  cancelled: "di_status_cancelled",
+};
+
+function useStepLabel() {
+  const { t } = useI18n();
+  return (status: string): string => {
+    const key = STEP_LABEL_KEYS[status];
+    return key ? t(key) : status;
   };
-  return map[status] ?? status;
 }
 
 function isActive(b: ImportBatch) {
@@ -73,6 +88,7 @@ function fmtDate(iso: string) {
 // ---------- main component ----------------------------------------------------
 
 function DataImportLanding() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { hasAnyRole } = useAuth();
   const qc = useQueryClient();
@@ -109,7 +125,7 @@ function DataImportLanding() {
   const totalRows = batches.reduce((s, b) => s + (b.valid_rows ?? 0), 0);
 
   async function handleCreate() {
-    if (!newFile) { toast.error("Choose a file first"); return; }
+    if (!newFile) { toast.error(t("di_choose_file_first")); return; }
     setCreating(true);
     let batchId: string | null = null;
     try {
@@ -216,7 +232,7 @@ function DataImportLanding() {
       toast.success(`Ready for review → ${destLabel}. Review the Candidates tab, then approve and commit.`);
       navigate({ to: "/data-import/$batchId", params: { batchId: batch.id } });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Import failed");
+      toast.error(e instanceof Error ? e.message : t("di_import_failed"));
       // Navigate to batch detail so user can see what happened + retry manually
       if (batchId) navigate({ to: "/data-import/$batchId", params: { batchId } });
     } finally {
@@ -228,7 +244,7 @@ function DataImportLanding() {
   if (!canAccess) {
     return (
       <div className="mx-auto max-w-4xl">
-        <PageHeader eyebrow="Data" title="Import Center" description="Upload and map structured data files into PHC." />
+        <PageHeader eyebrow={t("di_eyebrow_data")} title={t("di_title")} description={t("di_description")} />
         <EmptyState message="You do not have permission to access the import centre." />
       </div>
     );
@@ -275,9 +291,9 @@ function DataImportLanding() {
             <SkeletonCard count={3} />
           ) : active.length === 0 ? (
             <EmptyState
-              message="No active imports."
-              hint="Start one with New Import above."
-              primaryAction={{ label: "New Import", onClick: () => setNewOpen(true) }}
+              message={t("di_empty_active")}
+              hint={t("di_empty_active_hint")}
+              primaryAction={{ label: t("di_new_import"), onClick: () => setNewOpen(true) }}
             />
           ) : (
             <div className="space-y-2">
@@ -288,7 +304,7 @@ function DataImportLanding() {
 
         <TabsContent value="recurring">
           {profiles.length === 0 ? (
-            <EmptyState message="No recurring source profiles yet." hint="Source profiles are created automatically when the AI classifies a recurring upload pattern." />
+            <EmptyState message={t("di_empty_profiles")} hint={t("di_empty_profiles_hint")} />
           ) : (
             <div className="space-y-2">
               {profiles.map((p) => <ProfileCard key={p.id} profile={p} />)}
@@ -300,7 +316,7 @@ function DataImportLanding() {
           {isLoading ? (
             <SkeletonCard count={3} />
           ) : processed.length === 0 ? (
-            <EmptyState message="No processed batches yet." />
+            <EmptyState message={t("di_empty_processed")} />
           ) : (
             <div className="space-y-2">
               {processed.map((b) => <BatchCard key={b.id} batch={b} />)}
@@ -375,7 +391,7 @@ function DataImportLanding() {
 
 function BatchCard({ batch }: { batch: ImportBatch }) {
   const tone = statusTone(batch.status);
-  const label = stepLabel(batch.status);
+  const label = useStepLabel()(batch.status);
 
   return (
     <Link
