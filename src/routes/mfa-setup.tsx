@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { authErrorMessage } from "@/lib/auth-error-messages";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -72,7 +73,7 @@ function MfaSetupPage() {
         setQrCode(data.totp.qr_code);
         setSecret(data.totp.secret);
       } catch (err: unknown) {
-        if (!cancelled) setPrepError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setPrepError(authErrorMessage(err, lang));
       } finally {
         if (!cancelled) setPreparing(false);
       }
@@ -91,7 +92,7 @@ function MfaSetupPage() {
       toast.success(lang === "ar" ? "تم تفعيل التحقق بخطوتين" : "Two-factor authentication enabled");
       nav({ to: "/", replace: true });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : (lang === "ar" ? "رمز غير صحيح" : "Invalid code");
+      const msg = authErrorMessage(err, lang);
       toast.error(msg);
     } finally {
       setVerifying(false);

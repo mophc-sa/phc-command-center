@@ -1196,7 +1196,7 @@ function OpportunityDetail() {
             ))}
           </ul>
         ) : (
-          <EmptyState message={t("empty_approvals")} />
+          <EmptyState message={t("empty_approvals_record")} />
         )}
       </Panel>
       )}

@@ -493,6 +493,18 @@ project does **not** create a duplicate.
 | **Admin Settings** `/admin-settings` | *(admin only)* Users, roles, status. |
 | **Settings** `/settings` | Your own profile, language, MFA. |
 
+### Finding anything fast — ⌘K
+
+Press **⌘K** (or **Ctrl+K**) anywhere in the app to open search. Type two characters or more
+and it looks across **opportunities, projects, accounts and contacts** as well as page names,
+in Arabic or English. Pick a result and it takes you straight to that record.
+
+Contacts have no page of their own, so a contact hit opens the Contacts list already filtered
+to that name — the address bar shows `\u200E/contacts?q=…`, which you can bookmark or send to someone.
+
+With the box empty you get your pinned and recently opened records instead. If nothing matches,
+it says so.
+
 ### Inside an opportunity
 
 The opportunity page is one long timeline you can filter by facet:
@@ -656,6 +668,12 @@ Listed so nobody works around a problem that no longer exists:
 | Management pages read the legacy stage, so a verbal award showed as "Quotation" | Fixed — Command Center, Reports and the opportunities list all read the canonical stage |
 | Closing a flag re-raised it on the next automation run | Fixed — flags are keyed to the occurrence, so a dismissed one stays dismissed |
 | Reminders only appeared when a manager remembered to press a button | Fixed — the engine runs nightly at 07:00 AST |
+| Global search (⌘K) found pages and accounts but never opportunities, projects or contacts | Fixed — all four are searchable, and contacts were added |
+| Search showed a blank panel when nothing matched, with no message | Fixed — it says "No results found." / "لا نتائج." |
+| A bookmark to `/boq` or `/rfq-jih` opened a white screen | Fixed — both land on the matching Quotations tab |
+| A failed sign-in showed "Invalid login credentials" in English on the Arabic UI | Fixed — every auth message is bilingual |
+| Agent Activity, AI Agents and Data Import were mostly English in Arabic mode | Fixed — the page chrome is translated (agent names and agent-written summaries stay as-is, they are data) |
+| The error toast covered the PHC logo in Arabic | Fixed — it now anchors to the side opposite the logo |
 
 ---
 
@@ -667,6 +685,6 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-06, `main` @ `5a36e09`.
+*Reflects the system as at 2026-08-10, branch `fix/qa-findings-2026-08-10` (base `main` @ `c240bb3`).
 Behaviour verified against source, a live browser pass, and the production database.
 Update this file when the workflow changes.*

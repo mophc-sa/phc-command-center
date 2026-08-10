@@ -5,6 +5,13 @@ import { useI18n } from "@/lib/i18n";
 import { usePinnedRecords, type PinnedRecord } from "@/hooks/usePinnedRecords";
 import { useRecentRecords, type RecentRecord } from "@/hooks/useRecentRecords";
 import {
+  buildSearchResults,
+  filterPages,
+  isCommandEmpty,
+  MIN_QUERY_LENGTH,
+  type SearchResult,
+} from "@/lib/command-search";
+import {
   CommandDialog,
   CommandInput,
   CommandList,
@@ -87,14 +94,8 @@ export const RECORD_TYPE_ICONS: Record<string, LucideIcon> = {
 };
 
 // ── Search result type ──────────────────────────────────────────────────────
-
-type SearchResult = {
-  id: string;
-  type: "opportunity" | "account" | "project";
-  label: string;
-  sub?: string;
-  to: string;
-};
+// Shape and mapping live in @/lib/command-search so they can be unit-tested
+// without a DOM. See the note there about the cmdk UUID-filtering bug.
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -119,49 +120,44 @@ export function CommandPalette({
     if (!open) setQuery("");
   }, [open]);
 
-  // Debounced Supabase search
+  // Debounced Supabase search. A stale-response guard keeps a slow request for
+  // an earlier query from overwriting the results of a later one.
   useEffect(() => {
-    if (query.trim().length < 2) {
+    if (query.trim().length < MIN_QUERY_LENGTH) {
       setResults([]);
       setSearching(false);
       return;
     }
+    let cancelled = false;
     setSearching(true);
     const timer = setTimeout(async () => {
       const q = query.trim();
-      const [companies, opps, projects] = await Promise.allSettled([
+      const [companies, opps, projects, contacts] = await Promise.allSettled([
         supabase.from("companies").select("id, name").ilike("name", `%${q}%`).limit(4),
         supabase.from("opportunities").select("id, project_name").ilike("project_name", `%${q}%`).limit(4),
         supabase.from("projects").select("id, name").ilike("name", `%${q}%`).limit(3),
+        supabase.from("contacts").select("id, name, title").ilike("name", `%${q}%`).limit(3),
       ]);
-      const hits: SearchResult[] = [
-        ...(companies.status === "fulfilled" ? companies.value.data ?? [] : []).map(
-          (r) => ({ id: r.id, type: "account" as const, label: r.name, to: `/accounts/${r.id}` }),
-        ),
-        ...(opps.status === "fulfilled" ? opps.value.data ?? [] : []).map(
-          (r) => ({ id: r.id, type: "opportunity" as const, label: r.project_name, to: `/opportunities/${r.id}` }),
-        ),
-        ...(projects.status === "fulfilled" ? projects.value.data ?? [] : []).map(
-          (r) => ({ id: r.id, type: "project" as const, label: r.name, to: `/projects/${r.id}` }),
-        ),
-      ];
-      setResults(hits);
+      if (cancelled) return;
+      setResults(
+        buildSearchResults({
+          companies: companies.status === "fulfilled" ? companies.value.data : null,
+          opportunities: opps.status === "fulfilled" ? opps.value.data : null,
+          projects: projects.status === "fulfilled" ? projects.value.data : null,
+          contacts: contacts.status === "fulfilled" ? contacts.value.data : null,
+        }),
+      );
       setSearching(false);
     }, 220);
-    return () => { clearTimeout(timer); };
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [query]);
 
-  // Client-side page filter
-  const filteredPages = useMemo(() => {
-    if (!query.trim()) return PAGES;
-    const q = query.trim().toLowerCase();
-    return PAGES.filter(
-      (p) =>
-        p.labelEn.toLowerCase().includes(q) ||
-        p.labelAr.includes(q) ||
-        p.group.toLowerCase().includes(q),
-    );
-  }, [query]);
+  // Client-side page filter. cmdk's own filter is disabled below, so this is
+  // the only thing narrowing the page list.
+  const filteredPages = useMemo(() => filterPages(PAGES, query), [query]);
 
   const go = useCallback(
     (to: string) => {
@@ -173,11 +169,19 @@ export function CommandPalette({
 
   const showPinned = pinned.length > 0 && !query.trim();
   const showRecent = recent.length > 0 && !query.trim();
-  const showResults = results.length > 0 && query.trim().length >= 2;
-  const isEmpty = !searching && query.trim().length >= 2 && results.length === 0 && filteredPages.length === 0;
+  const showResults = results.length > 0 && query.trim().length >= MIN_QUERY_LENGTH;
+  const isEmpty = isCommandEmpty({
+    searching,
+    query,
+    resultCount: results.length,
+    pageCount: filteredPages.length,
+  });
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange}>
+    // shouldFilter={false}: records are filtered server-side and pages by
+    // filterPages(). Leaving cmdk's client-side filter on made it re-score
+    // every item against the query and hide real matches (QA ISSUE-001).
+    <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
       <CommandInput
         placeholder={t("cmd_placeholder")}
         value={query}
@@ -233,10 +237,13 @@ export function CommandPalette({
               {results.map((r) => {
                 const Icon = RECORD_TYPE_ICONS[r.type] ?? Building2;
                 return (
-                  <CommandItem key={r.id} value={`result-${r.id}`} onSelect={() => go(r.to)}>
+                  <CommandItem key={`${r.type}-${r.id}`} value={r.searchValue} onSelect={() => go(r.to)}>
                     <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    <span>{r.label}</span>
-                    <span className="ms-auto text-xs text-muted-foreground capitalize">{r.type}</span>
+                    <span className="truncate">{r.label}</span>
+                    {r.sub && (
+                      <span className="truncate text-xs text-muted-foreground">{r.sub}</span>
+                    )}
+                    <span className="ms-auto shrink-0 text-xs text-muted-foreground capitalize">{r.type}</span>
                   </CommandItem>
                 );
               })}

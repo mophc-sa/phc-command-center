@@ -607,6 +607,14 @@ export const strings = {
     en: "No opportunities are awaiting approval.",
     ar: "لا توجد فرص بانتظار الاعتماد.",
   },
+  // Single-record context. The approvals *list* string above was being reused
+  // on an individual opportunity's detail page, where "No opportunities are
+  // awaiting approval" reads as a statement about the whole pipeline rather
+  // than about the record on screen (QA 2026-08-10 ISSUE-007).
+  empty_approvals_record: {
+    en: "This opportunity has no approval requests yet.",
+    ar: "لا توجد طلبات اعتماد على هذه الفرصة حتى الآن.",
+  },
   empty_discovery: {
     en: "No new discovery candidates need qualification today.",
     ar: "لا توجد فرص مكتشفة تحتاج إلى تأهيل اليوم.",
@@ -1332,6 +1340,91 @@ export const strings = {
   navgroup_resources: { en: "Resources", ar: "الموارد" },
 
   // Command Palette
+  // Agent Activity / AI Agents / Data Import.
+  // QA 2026-08-10 (ISSUE-005): these three pages rendered most of their chrome
+  // as hardcoded English under Arabic headings — /agent-activity measured 196
+  // Latin words against 97 Arabic. Translations below are curated, not machine
+  // output. Agent run summaries stay untranslated on purpose: they are row data
+  // written by the agents, not UI strings.
+  aa_eyebrow_governance: { en: "Governance", ar: "الحوكمة" },
+  aa_project_radar: { en: "Project Radar", ar: "رادار المشاريع" },
+  aa_scan_pipeline: { en: "Scan Pipeline", ar: "افحص خط المبيعات" },
+  aa_scanning: { en: "Running…", ar: "جارٍ التشغيل…" },
+  aa_radar_hint: {
+    en: 'Click "Scan Pipeline" to run the Project Radar agent.',
+    ar: 'اضغط "افحص خط المبيعات" لتشغيل وكيل رادار المشاريع.',
+  },
+  aa_kpi_runs: { en: "Runs (recent 200)", ar: "التشغيلات (آخر 200)" },
+  aa_kpi_completed: { en: "Completed", ar: "مكتملة" },
+  aa_kpi_not_configured: { en: "Not configured", ar: "غير مُهيأة" },
+  aa_kpi_errors: { en: "Errors", ar: "أخطاء" },
+  aa_runs_last_7: { en: "Runs — last 7 days", ar: "التشغيلات — آخر 7 أيام" },
+  aa_search_placeholder: { en: "Search agent, summary", ar: "ابحث في الوكلاء والملخصات" },
+  aa_all_agents: { en: "All agents", ar: "كل الوكلاء" },
+  aa_tab_batch_runs: { en: "Batch Runs", ar: "التشغيلات الدفعية" },
+  aa_tab_ai_outputs: { en: "AI Outputs", ar: "مخرجات الذكاء" },
+  aa_empty_outputs: { en: "No AI agent outputs yet.", ar: "لا توجد مخرجات للوكلاء حتى الآن." },
+  aa_scanned_suffix: { en: "scanned", ar: "سجل مفحوص" },
+  aa_recommendations_suffix: { en: "recommendations", ar: "توصية" },
+  aa_status_all: { en: "All", ar: "الكل" },
+  aa_status_running: { en: "Running", ar: "قيد التشغيل" },
+  aa_status_completed: { en: "Completed", ar: "مكتملة" },
+  aa_status_failed: { en: "Failed", ar: "فاشلة" },
+  aa_status_not_configured: { en: "Not configured", ar: "غير مُهيأة" },
+
+  ag_eyebrow_intelligence: { en: "Intelligence", ar: "الذكاء" },
+  ag_title: { en: "AI Agents", ar: "وكلاء الذكاء" },
+  ag_description: {
+    en: "Real-data agents. Every recommendation shows its evidence; nothing is applied automatically.",
+    ar: "وكلاء تعمل على بيانات حقيقية. كل توصية تعرض دليلها، ولا يُطبَّق شيء تلقائياً.",
+  },
+  ag_run_agents: { en: "Run agents", ar: "تشغيل الوكلاء" },
+  ag_lead_scoring: { en: "Lead Scoring", ar: "تقييم العملاء المحتملين" },
+  ag_duplicate_detection: { en: "Duplicate Detection", ar: "كشف التكرار" },
+  ag_weekly_report: { en: "Weekly Report", ar: "التقرير الأسبوعي" },
+  ag_recommendations: { en: "Recommendations", ar: "التوصيات" },
+  ag_empty_recommendations: {
+    en: "No pending recommendations. Run an agent to generate evidence-backed suggestions.",
+    ar: "لا توجد توصيات معلّقة. شغّل وكيلاً لتوليد اقتراحات مدعومة بالأدلة.",
+  },
+  ag_recent_runs: { en: "Recent runs", ar: "آخر التشغيلات" },
+
+  di_eyebrow_data: { en: "Data", ar: "البيانات" },
+  di_title: { en: "Import Center", ar: "مركز الاستيراد" },
+  di_description: {
+    en: "Upload and map structured data files into PHC.",
+    ar: "ارفع ملفات البيانات المنظّمة وطابق أعمدتها داخل PHC.",
+  },
+  di_new_import: { en: "New Import", ar: "استيراد جديد" },
+  di_choose_file_first: { en: "Choose a file first", ar: "اختر ملفاً أولاً" },
+  di_import_failed: { en: "Import failed", ar: "فشل الاستيراد" },
+  di_empty_active: { en: "No active imports.", ar: "لا توجد عمليات استيراد نشطة." },
+  di_empty_active_hint: {
+    en: "Start one with New Import above.",
+    ar: "ابدأ واحدة عبر «استيراد جديد» بالأعلى.",
+  },
+  di_empty_profiles: {
+    en: "No recurring source profiles yet.",
+    ar: "لا توجد ملفات مصادر متكررة حتى الآن.",
+  },
+  di_empty_profiles_hint: {
+    en: "Source profiles are created automatically when the AI classifies a recurring upload pattern.",
+    ar: "تُنشأ ملفات المصادر تلقائياً عندما يصنّف الذكاء نمط رفع متكرراً.",
+  },
+  di_empty_processed: { en: "No processed batches yet.", ar: "لا توجد دفعات معالَجة حتى الآن." },
+  di_status_uploading: { en: "Uploading…", ar: "جارٍ الرفع…" },
+  di_status_parsing: { en: "Parsing…", ar: "جارٍ التحليل…" },
+  di_status_map_columns: { en: "Map Columns", ar: "مطابقة الأعمدة" },
+  di_status_validating: { en: "Validating", ar: "قيد التحقق" },
+  di_status_duplicate_review: { en: "Review Duplicates", ar: "مراجعة التكرارات" },
+  di_status_pending_approval: { en: "Needs Approval", ar: "بانتظار الاعتماد" },
+  di_status_approved: { en: "Approved", ar: "معتمَدة" },
+  di_status_dry_run: { en: "Dry Run", ar: "تشغيل تجريبي" },
+  di_status_committed: { en: "Committed", ar: "مُثبَّتة" },
+  di_status_rolled_back: { en: "Rolled Back", ar: "متراجَع عنها" },
+  di_status_failed: { en: "Failed", ar: "فاشلة" },
+  di_status_cancelled: { en: "Cancelled", ar: "ملغاة" },
+
   cmd_placeholder: { en: "Search records, pages…", ar: "ابحث في السجلات والصفحات…" },
   cmd_no_results: { en: "No results found.", ar: "لا نتائج." },
   cmd_pages: { en: "Pages", ar: "الصفحات" },
@@ -1366,6 +1459,8 @@ export const strings = {
 } satisfies Dict;
 
 type Key = keyof typeof strings;
+/** Public alias so callers can type maps of translation keys. */
+export type StringKey = Key;
 
 type Ctx = {
   lang: Lang;
