@@ -35,6 +35,11 @@ describe("phase 1 security baseline", () => {
       "https://*.supabase.co",
       "wss://*.supabase.co",
       "https://challenges.cloudflare.com",
+      // Cloudflare injects the Web Analytics beacon at the edge, so it never
+      // shows up locally — the first enforced deploy blocked it. Both entries
+      // are needed: the script host, and the RUM endpoint it posts to.
+      "https://static.cloudflareinsights.com",
+      "https://cloudflareinsights.com",
     ]) {
       expect(source).toContain(directive);
     }
