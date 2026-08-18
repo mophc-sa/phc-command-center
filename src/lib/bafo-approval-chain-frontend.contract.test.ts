@@ -21,33 +21,75 @@ function src(rel: string): string {
 }
 
 describe("roles.ts BAFO capability helpers", () => {
-  test("canReviewBafoCommercial: bd_manager, sales_manager, system_admin only", () => {
+  // Phase 1 governance (PRD 2026-08-12 §111-114). These tests used to assert
+  // that `system_admin` passed EVERY step — the "platform-admin override".
+  // That override is the defect: one account holding only system_admin could
+  // raise a BAFO and approve all four checks on it, so the chain enforced an
+  // order rather than four independent judgements. The assertions below now
+  // describe the required behaviour, not the behaviour that shipped.
+
+  test("canReviewBafoCommercial: bd_manager or sales_manager", () => {
     expect(canReviewBafoCommercial(["bd_manager"])).toBe(true);
     expect(canReviewBafoCommercial(["sales_manager"])).toBe(true);
-    expect(canReviewBafoCommercial(["system_admin"])).toBe(true);
     expect(canReviewBafoCommercial(["salesperson"])).toBe(false);
     expect(canReviewBafoCommercial(["estimation_manager"])).toBe(false);
   });
 
-  test("canApproveBafoCost: estimation_manager, system_admin only", () => {
+  test("canApproveBafoCost: estimation_manager only", () => {
     expect(canApproveBafoCost(["estimation_manager"])).toBe(true);
-    expect(canApproveBafoCost(["system_admin"])).toBe(true);
     expect(canApproveBafoCost(["bd_manager"])).toBe(false);
     expect(canApproveBafoCost(["finance_manager"])).toBe(false);
   });
 
-  test("canApproveBafoFinance: finance_manager, system_admin only", () => {
+  test("canApproveBafoFinance: finance_manager only", () => {
     expect(canApproveBafoFinance(["finance_manager"])).toBe(true);
-    expect(canApproveBafoFinance(["system_admin"])).toBe(true);
     expect(canApproveBafoFinance(["estimation_manager"])).toBe(false);
   });
 
-  test("canApproveBafoFinal: executives (managing_director/general_manager/ceo) and system_admin only", () => {
+  test("canApproveBafoFinal: executives only (managing_director/general_manager/ceo)", () => {
     expect(canApproveBafoFinal(["managing_director"])).toBe(true);
     expect(canApproveBafoFinal(["general_manager"])).toBe(true);
     expect(canApproveBafoFinal(["ceo"])).toBe(true);
-    expect(canApproveBafoFinal(["system_admin"])).toBe(true);
     expect(canApproveBafoFinal(["finance_manager"])).toBe(false);
+  });
+
+  test("system_admin ALONE cannot decide any step of the chain", () => {
+    const admin = ["system_admin"] as const;
+    expect(canReviewBafoCommercial(admin)).toBe(false);
+    expect(canApproveBafoCost(admin)).toBe(false);
+    expect(canApproveBafoFinance(admin)).toBe(false);
+    expect(canApproveBafoFinal(admin)).toBe(false);
+  });
+
+  test("system_admin cannot single-handedly complete the whole chain", () => {
+    // The property that actually matters: no single role set consisting only
+    // of system_admin satisfies every gate. If a future change re-adds the
+    // override anywhere, this fails.
+    const steps = [canReviewBafoCommercial, canApproveBafoCost, canApproveBafoFinance, canApproveBafoFinal];
+    expect(steps.filter((can) => can(["system_admin"])).length).toBe(0);
+  });
+
+  test("system_admin PLUS a business role gets exactly that role's authority, and no more", () => {
+    // Roles are additive: holding system_admin must neither grant nor remove
+    // anything. The authority comes from the business role alone.
+    expect(canApproveBafoFinance(["system_admin", "finance_manager"])).toBe(true);
+    expect(canApproveBafoCost(["system_admin", "finance_manager"])).toBe(false);
+    expect(canApproveBafoFinal(["system_admin", "finance_manager"])).toBe(false);
+
+    expect(canApproveBafoCost(["system_admin", "estimation_manager"])).toBe(true);
+    expect(canApproveBafoFinance(["system_admin", "estimation_manager"])).toBe(false);
+
+    expect(canApproveBafoFinal(["system_admin", "general_manager"])).toBe(true);
+    expect(canReviewBafoCommercial(["system_admin", "general_manager"])).toBe(false);
+  });
+
+  test("holding system_admin changes nothing for a user who already holds the business role", () => {
+    for (const role of ["bd_manager", "sales_manager", "estimation_manager", "finance_manager", "general_manager"] as const) {
+      expect(canReviewBafoCommercial([role, "system_admin"])).toBe(canReviewBafoCommercial([role]));
+      expect(canApproveBafoCost([role, "system_admin"])).toBe(canApproveBafoCost([role]));
+      expect(canApproveBafoFinance([role, "system_admin"])).toBe(canApproveBafoFinance([role]));
+      expect(canApproveBafoFinal([role, "system_admin"])).toBe(canApproveBafoFinal([role]));
+    }
   });
 
   test("canRequestBafo matches the existing sales-record-creation capability (any sales contributor, not just managers)", () => {

@@ -24,7 +24,6 @@ import {
   type InboxClassification, type DuplicateCandidate,
 } from "@/lib/inbox-actions";
 import { humanize } from "@/lib/utils";
-import { IntakeHubTabs } from "@/components/phc/IntakeHubTabs";
 
 export const Route = createFileRoute("/_authenticated/lead-tender-inbox")({
   head: () => ({ meta: [{ title: "Lead & Tender Inbox — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -138,7 +137,6 @@ function LeadTenderInbox() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <IntakeHubTabs active="requests" />
       <PageHeader
         eyebrow="Execution"
         title={t("ibx_title")}
