@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   graphql_public: {
     Tables: {
@@ -2602,34 +2602,13 @@ export type Database = {
           },
         ]
       }
-      // Phase 2 (migration 20260818090000, not yet applied remotely — so
-      // `supabase gen types` cannot see these yet). Remove this note and
-      // regenerate once the migration is applied.
       inbox_items: {
         Row: {
-          request_type: "jih" | "tender_contractor" | "tender_government" | "unknown" | null
-          owner_entity: string | null
-          client_rfq_reference: string | null
-          internal_rfq_reference: string | null
-          has_boq: boolean
-          has_drawings: boolean
-          has_specs: boolean
-          review_state: "pending_review" | "approved_for_pricing" | "need_information" | "monitored" | "rejected"
-          reviewed_by: string | null
-          reviewed_at: string | null
-          review_notes: string | null
-          reject_reason: string | null
-          info_required_items: string[] | null
-          info_comment: string | null
-          info_responsible_id: string | null
-          info_due_date: string | null
-          info_requested_at: string | null
-          resubmitted_at: string | null
-          resubmit_count: number
           archive_reason: string | null
           assigned_owner_id: string | null
           classification: Database["public"]["Enums"]["inbox_classification"]
           client_owner: string | null
+          client_rfq_reference: string | null
           client_type: Database["public"]["Enums"]["inbox_client_type"] | null
           company_name: string | null
           consultant: string | null
@@ -2646,17 +2625,35 @@ export type Database = {
           estimated_value: number | null
           evidence_url: string | null
           follow_up_date: string | null
+          has_boq: boolean
+          has_drawings: boolean
+          has_specs: boolean
           id: string
+          info_comment: string | null
+          info_due_date: string | null
+          info_requested_at: string | null
+          info_required_items: string[] | null
+          info_responsible_id: string | null
+          internal_rfq_reference: string | null
           location: string | null
           location_city: Database["public"]["Enums"]["inbox_location"] | null
           main_contractor: string | null
           missing_data_reason: string | null
           next_action: string | null
           notes: string | null
+          owner_entity: string | null
           phone: string | null
           project_name: string | null
           project_number: string | null
           project_type: Database["public"]["Enums"]["inbox_project_type"] | null
+          reject_reason: string | null
+          request_type: string | null
+          resubmit_count: number
+          resubmitted_at: string | null
+          review_notes: string | null
+          review_state: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           rfq_from: Database["public"]["Enums"]["inbox_rfq_from"] | null
           scope: string | null
           scope_type: Database["public"]["Enums"]["inbox_scope"] | null
@@ -2666,29 +2663,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          request_type?: "jih" | "tender_contractor" | "tender_government" | "unknown" | null
-          owner_entity?: string | null
-          client_rfq_reference?: string | null
-          internal_rfq_reference?: string | null
-          has_boq?: boolean
-          has_drawings?: boolean
-          has_specs?: boolean
-          review_state?: "pending_review" | "approved_for_pricing" | "need_information" | "monitored" | "rejected"
-          reviewed_by?: string | null
-          reviewed_at?: string | null
-          review_notes?: string | null
-          reject_reason?: string | null
-          info_required_items?: string[] | null
-          info_comment?: string | null
-          info_responsible_id?: string | null
-          info_due_date?: string | null
-          info_requested_at?: string | null
-          resubmitted_at?: string | null
-          resubmit_count?: number
           archive_reason?: string | null
           assigned_owner_id?: string | null
           classification?: Database["public"]["Enums"]["inbox_classification"]
           client_owner?: string | null
+          client_rfq_reference?: string | null
           client_type?: Database["public"]["Enums"]["inbox_client_type"] | null
           company_name?: string | null
           consultant?: string | null
@@ -2705,19 +2684,37 @@ export type Database = {
           estimated_value?: number | null
           evidence_url?: string | null
           follow_up_date?: string | null
+          has_boq?: boolean
+          has_drawings?: boolean
+          has_specs?: boolean
           id?: string
+          info_comment?: string | null
+          info_due_date?: string | null
+          info_requested_at?: string | null
+          info_required_items?: string[] | null
+          info_responsible_id?: string | null
+          internal_rfq_reference?: string | null
           location?: string | null
           location_city?: Database["public"]["Enums"]["inbox_location"] | null
           main_contractor?: string | null
           missing_data_reason?: string | null
           next_action?: string | null
           notes?: string | null
+          owner_entity?: string | null
           phone?: string | null
           project_name?: string | null
           project_number?: string | null
           project_type?:
             | Database["public"]["Enums"]["inbox_project_type"]
             | null
+          reject_reason?: string | null
+          request_type?: string | null
+          resubmit_count?: number
+          resubmitted_at?: string | null
+          review_notes?: string | null
+          review_state?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           rfq_from?: Database["public"]["Enums"]["inbox_rfq_from"] | null
           scope?: string | null
           scope_type?: Database["public"]["Enums"]["inbox_scope"] | null
@@ -2727,29 +2724,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          request_type?: "jih" | "tender_contractor" | "tender_government" | "unknown" | null
-          owner_entity?: string | null
-          client_rfq_reference?: string | null
-          internal_rfq_reference?: string | null
-          has_boq?: boolean
-          has_drawings?: boolean
-          has_specs?: boolean
-          review_state?: "pending_review" | "approved_for_pricing" | "need_information" | "monitored" | "rejected"
-          reviewed_by?: string | null
-          reviewed_at?: string | null
-          review_notes?: string | null
-          reject_reason?: string | null
-          info_required_items?: string[] | null
-          info_comment?: string | null
-          info_responsible_id?: string | null
-          info_due_date?: string | null
-          info_requested_at?: string | null
-          resubmitted_at?: string | null
-          resubmit_count?: number
           archive_reason?: string | null
           assigned_owner_id?: string | null
           classification?: Database["public"]["Enums"]["inbox_classification"]
           client_owner?: string | null
+          client_rfq_reference?: string | null
           client_type?: Database["public"]["Enums"]["inbox_client_type"] | null
           company_name?: string | null
           consultant?: string | null
@@ -2766,19 +2745,37 @@ export type Database = {
           estimated_value?: number | null
           evidence_url?: string | null
           follow_up_date?: string | null
+          has_boq?: boolean
+          has_drawings?: boolean
+          has_specs?: boolean
           id?: string
+          info_comment?: string | null
+          info_due_date?: string | null
+          info_requested_at?: string | null
+          info_required_items?: string[] | null
+          info_responsible_id?: string | null
+          internal_rfq_reference?: string | null
           location?: string | null
           location_city?: Database["public"]["Enums"]["inbox_location"] | null
           main_contractor?: string | null
           missing_data_reason?: string | null
           next_action?: string | null
           notes?: string | null
+          owner_entity?: string | null
           phone?: string | null
           project_name?: string | null
           project_number?: string | null
           project_type?:
             | Database["public"]["Enums"]["inbox_project_type"]
             | null
+          reject_reason?: string | null
+          request_type?: string | null
+          resubmit_count?: number
+          resubmitted_at?: string | null
+          review_notes?: string | null
+          review_state?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           rfq_from?: Database["public"]["Enums"]["inbox_rfq_from"] | null
           scope?: string | null
           scope_type?: Database["public"]["Enums"]["inbox_scope"] | null
@@ -4831,6 +4828,7 @@ export type Database = {
       }
       can_edit_rfq_number: { Args: { _user_id: string }; Returns: boolean }
       can_edit_total_value: { Args: { _user_id: string }; Returns: boolean }
+      can_review_intake: { Args: { _user_id: string }; Returns: boolean }
       can_use_discussion: { Args: { _user_id: string }; Returns: boolean }
       can_view_all_sales_data: { Args: { _user_id: string }; Returns: boolean }
       claim_ai_agent_request: {
