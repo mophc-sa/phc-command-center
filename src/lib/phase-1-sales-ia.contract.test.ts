@@ -65,7 +65,7 @@ describe("surfaces removed from primary business navigation", () => {
   test.each(REMOVED)("%s still exists as a working route", (path) => {
     // Nav membership and route existence are separate concerns. Nothing was
     // deleted; these must keep resolving for bookmarks and deep links.
-    const file = path.replace("/", "").replace(/-/g, "-");
+    const file = path.replace(/^\//, "");
     const candidates = [
       `src/routes/_authenticated/${file}.tsx`,
       `src/routes/_authenticated/${file}.index.tsx`,
