@@ -224,25 +224,40 @@ describe("My Day urgent submissions", () => {
 
 // ─── D11 — one form that routes itself ──────────────────────────────────────
 describe("a single intake form, routed by its own fields", () => {
-  test("createInboxItemAndRoute sends rfq to the opportunity track", async () => {
+  // Phase 2 (PRD 2026-08-12 §15) moved the routing, and these two tests moved
+  // with it. They used to assert that createInboxItemAndRoute converted the
+  // item on save. That is exactly what the review gate removes: a request now
+  // waits for a Sales Manager / BD Manager decision, and the SAME conversion
+  // runs on approval. The routing contract is unchanged — only its trigger is.
+  test("approval sends a JIH request to the opportunity track", async () => {
     const fs = await import("fs/promises");
     const src = await fs.readFile("src/lib/inbox-actions.ts", "utf8");
-    const fn = src.slice(src.indexOf("export async function createInboxItemAndRoute"));
-    const body = fn.slice(0, fn.indexOf("export async function classifyInboxItem"));
-    expect(body).toContain('classification === "rfq"');
+    const fn = src.slice(src.indexOf("export async function approveIntakeForPricing"));
+    const body = fn.slice(0, fn.indexOf("export async function requestIntakeInformation"));
+    expect(body).toContain('track === "jih"');
     expect(body).toContain("convertInboxToRfq");
     expect(body).toContain("opportunityId");
   });
 
-  test("...and tender to the monitoring board, with no opportunity", async () => {
+  test("...and a tender request to the monitoring board, with no opportunity", async () => {
+    const fs = await import("fs/promises");
+    const src = await fs.readFile("src/lib/inbox-actions.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function approveIntakeForPricing"));
+    const body = fn.slice(0, fn.indexOf("export async function requestIntakeInformation"));
+    expect(body).toContain('track === "tender"');
+    expect(body).toContain("convertInboxToTender");
+    // §27: a tender must not count in the JIH pipeline until converted.
+    expect(body).not.toContain('routed: "tender", inboxItemId: id, opportunityId');
+  });
+
+  test("saving the form no longer converts anything by itself", async () => {
     const fs = await import("fs/promises");
     const src = await fs.readFile("src/lib/inbox-actions.ts", "utf8");
     const fn = src.slice(src.indexOf("export async function createInboxItemAndRoute"));
     const body = fn.slice(0, fn.indexOf("export async function classifyInboxItem"));
-    expect(body).toContain('classification === "tender"');
-    expect(body).toContain("convertInboxToTender");
-    // §27: a tender must not count in the JIH pipeline until converted.
-    expect(body).not.toContain('routed: "tender", inboxItemId: item.id, opportunityId');
+    // The whole point of the gate: no conversion call on the save path.
+    expect(body).not.toContain("convertInboxToRfq(");
+    expect(body).not.toContain("convertInboxToTender(");
   });
 
   test("an unroutable capture still lands safely in the inbox", async () => {
@@ -262,13 +277,17 @@ describe("a single intake form, routed by its own fields", () => {
     expect(fn.slice(0, 1400)).toContain("item?.project_name");
   });
 
-  test("the form navigates to whatever it produced", async () => {
+  // Phase 2: the form no longer produces a routed record, so there is nothing
+  // to land on. It produces a REQUEST, and the request goes to review. The
+  // test moved with the behaviour: what matters is that the user is told where
+  // it went, rather than being dropped somewhere with no explanation.
+  test("the form tells the user the request went for review", async () => {
     const fs = await import("fs/promises");
     const src = await fs.readFile("src/components/phc/NewIntakeDialog.tsx", "utf8");
-    expect(src).toContain('res.routed === "rfq"');
-    expect(src).toContain('to: "/opportunities/$id"');
-    expect(src).toContain('res.routed === "tender"');
-    expect(src).toContain('to: "/tenders"');
+    expect(src).toContain("intake_sent_for_review");
+    expect(src).toContain('to: "/lead-tender-inbox"');
+    // And it must not pretend a conversion happened.
+    expect(src).not.toContain('res.routed === "rfq"');
   });
 
   test("the inbox page and the shell header share one form component", async () => {

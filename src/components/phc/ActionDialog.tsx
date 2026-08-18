@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
 export type DialogField =
   | {
       key: string;
-      type: "text" | "textarea" | "date";
+      type: "text" | "textarea" | "date" | "checkbox";
       label: string;
       placeholder?: string;
       required?: boolean;
@@ -277,6 +277,22 @@ export function ActionDialog({
                     />
                   </div>
                 </div>
+              ) : f.type === "checkbox" ? (
+                // Phase 2 intake needs a few plain yes/no facts ("did a BOQ
+                // arrive?"). Modelled as a real checkbox rather than a
+                // two-option select so it reads as the boolean it is.
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-border accent-foreground"
+                    // Stored as "true"/"" so the shared values map stays
+                    // Record<string,string> — widening it would touch every
+                    // dialog in the app for one field type.
+                    checked={values[f.key] === "true"}
+                    onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.checked ? "true" : "" }))}
+                  />
+                  <span className="text-muted-foreground">{f.label}</span>
+                </label>
               ) : f.type === "select" ? (
                 <Select
                   value={values[f.key] ? values[f.key] : "__none__"}

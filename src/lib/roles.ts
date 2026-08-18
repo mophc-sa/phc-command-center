@@ -172,6 +172,19 @@ export const canViewAllSalesData = (r: RoleInput) =>
 export const canUseDiscussion = (r: RoleInput) =>
   inGroup(r, ["general_manager", "sales_manager", "bd_manager", "system_admin"]);
 
+// ---- Intake / Opportunity Review (Phase 2) ----------------------------------
+// PRD 2026-08-12 §15: a new request is reviewed by the Sales Manager OR the BD
+// Manager before it can go to pricing — either one alone is sufficient, they do
+// not both have to sign. Executives are included because they outrank both and
+// already hold every commercial approval in this system.
+//
+// `system_admin` is deliberately absent, for the same reason it is absent from
+// the BAFO chain: approving a request for pricing is a commercial judgement,
+// not platform administration. Mirrors the DB helper
+// public.can_review_intake(uuid), which enforces this server-side.
+export const canReviewIntake = (r: RoleInput) =>
+  inGroup(r, ["sales_manager", "bd_manager", ...ROLE_GROUPS.executive]);
+
 // ---- BAFO / commercial-discount approval chain ------------------------------
 // Client spec (2026-07-27), section 12's proposed 4-step approval chain
 // (a salesperson/BD rep negotiates and requests; these four decide, in

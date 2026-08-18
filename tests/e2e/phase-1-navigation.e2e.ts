@@ -127,3 +127,44 @@ test.describe("Phase 1 navigation", () => {
     await expect(page.locator("html")).toHaveAttribute("dir", "ltr", { timeout: 10_000 });
   });
 });
+
+// ── Phase 2 — Intake & Opportunity Review ──────────────────────────────────
+// The salesperson fixture is the right lens here: it is the role that CREATES
+// requests and must NOT be able to decide them. Reviewer-side behaviour is
+// covered by the contract tests and by the database trigger; what only a real
+// browser can confirm is that the gate is actually rendered and that a
+// non-reviewer is not offered the decision.
+test.describe("Phase 2 intake review", () => {
+  test.skip(!READY, "needs TEST_APP_URL and TEST_SALESPERSON_* credentials");
+
+  test.beforeEach(async ({ page }) => {
+    await signInWithCachedSession(page, EMAIL!, PASSWORD!);
+  });
+
+  test("the review queue is present on Intake", async ({ page }) => {
+    await page.goto("/lead-tender-inbox");
+    const main = page.locator("#main-content");
+    await main.waitFor({ state: "visible", timeout: 20_000 });
+    const body = (await main.innerText()).replace(/\s+/g, " ");
+    expect(body).toMatch(/Opportunity Review|مراجعة الفرص/);
+  });
+
+  test("a salesperson is told they cannot decide, and gets no decision buttons", async ({ page }) => {
+    await page.goto("/lead-tender-inbox");
+    const main = page.locator("#main-content");
+    await main.waitFor({ state: "visible", timeout: 20_000 });
+    const body = (await main.innerText()).replace(/\s+/g, " ");
+    expect(body).toMatch(/Only a Sales Manager or BD Manager|صلاحية مدير المبيعات/);
+    await expect(page.getByRole("button", { name: /Approve for Pricing|اعتماد للتسعير/ })).toHaveCount(0);
+  });
+
+  test("the intake form offers all four request types", async ({ page }) => {
+    await page.goto("/lead-tender-inbox");
+    await page.locator("#main-content").waitFor({ state: "visible", timeout: 20_000 });
+    await page.getByRole("button", { name: /New (Entry|Request|Item)|إدخال جديد|طلب جديد/ }).first().click();
+    const dialog = page.getByRole("dialog");
+    await dialog.waitFor({ state: "visible", timeout: 10_000 });
+    const text = (await dialog.innerText()).replace(/\s+/g, " ");
+    expect(text).toMatch(/Request Type|نوع الطلب/);
+  });
+});

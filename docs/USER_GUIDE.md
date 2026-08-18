@@ -224,7 +224,29 @@ Everything else is optional and can be filled in later.
 **Other useful fields at intake:** Source · Client type · RFQ from · Scope · Location ·
 Deadline · **Evidence** (paste the email link, or attach a file — both work) · Assigned owner.
 
-### Step 2 — Save. That's it.
+### Step 2 — Save. It goes for review.
+
+**Changed 2026-08-18.** Saving no longer creates the opportunity or the tender
+straight away. The request lands in **Opportunity Review** at the top of Intake,
+and a **Sales Manager or BD Manager** decides what happens to it. Either one of
+them alone is enough — they do not both have to sign.
+
+| Decision | What happens |
+|---|---|
+| **Approve for Pricing** | Exactly what used to happen on save: a JIH request becomes an opportunity with its RFQ; a tender goes to the Tender board. |
+| **Need Information** | Comes back to you with what is missing, who owes it, and by when. Fix it and press **Resubmit** — you do not need a manager to hand it back. |
+| **Monitor** | Real, but nothing to do yet. It stays visible and out of the pipeline. |
+| **Reject** | Closed, with a reason. The reason is required. |
+
+Everything you type is still one form and one save. The only change is that a
+second pair of eyes sees it before it becomes a live deal.
+
+**Request type now has four options,** not two: JIH · Tender (contractors
+bidding) · Tender (government/owner, pre-award) · Unknown. Both tender types go
+to the same board — the split tells a contractor you can quote today apart from
+a project whose main contract has not been let yet.
+
+### Step 2b — the old behaviour
 
 There is no separate classify step and no separate convert step for a routable entry. Saving
 the form does all of it:
@@ -667,11 +689,11 @@ They are not broken, just incomplete — a manager can attach them if they still
 `RFQ-2026-0001` also carries a deadline in the year 275760, from before date validation
 existed. It is invisible to every deadline queue until someone sets the real date.
 
-### Navigation was changed on 2026-08-12 and not yet eyeballed
-The Sales cleanup, the Home group and the Awarded Projects filter are covered by contract
-tests but **have not been visually checked in a browser yet** — the tooling used for that
-was failing during the change. If a sidebar entry looks wrong, that is why. Nothing about
-the underlying routes or data changed.
+### The Opportunity Review gate is built but not yet live in production
+Phase 2's review gate needs a database migration that **has not been applied to
+production yet**. Until it is, the system still behaves the old way: saving a request
+converts it immediately, with no review step. Everything described in Step 2 above is
+in the code and tested, and starts working the moment the migration is approved.
 
 ### Known gaps against the target design
 Not yet built: a separate opportunity *condition* field (Dormant / Cancelled), separate
@@ -703,6 +725,7 @@ Listed so nobody works around a problem that no longer exists:
 | Inbox, Opportunities and Quotations each showed the other two as tabs | Fixed — the duplicated strip is gone; each page is one thing |
 | My Workspace and the management dashboards could disagree about a deal's stage | Fixed — every view now resolves the same canonical stage |
 | A System Administrator could approve all four BAFO steps alone | Fixed — each step needs its own business role, enforced in the database |
+| Nothing reviewed a request before it entered the pipeline | Fixed — Opportunity Review gates every request, enforced in the database |
 
 ---
 
@@ -714,6 +737,6 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-12, branch `feat/phase-1-sales-ia-and-governance` (base `main` @ `aa7ae78`).
-Behaviour verified against source and the test suite. The 2026-08-12 navigation change has not yet had a live browser pass — see Section 10.
+*Reflects the system as at 2026-08-18, branch `feat/phase-2-intake-and-opportunity-review` (base `main` @ `9eb946a`).
+Behaviour verified against source, the test suite, and a live authenticated browser pass (Phase 1 navigation, 14/14). The Phase 2 review gate is verified by tests and a database behaviour suite; its migration is not yet applied to production — see Section 10.
 Update this file when the workflow changes.*
