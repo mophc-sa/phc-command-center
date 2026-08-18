@@ -2602,8 +2602,30 @@ export type Database = {
           },
         ]
       }
+      // Phase 2 (migration 20260818090000, not yet applied remotely — so
+      // `supabase gen types` cannot see these yet). Remove this note and
+      // regenerate once the migration is applied.
       inbox_items: {
         Row: {
+          request_type: "jih" | "tender_contractor" | "tender_government" | "unknown" | null
+          owner_entity: string | null
+          client_rfq_reference: string | null
+          internal_rfq_reference: string | null
+          has_boq: boolean
+          has_drawings: boolean
+          has_specs: boolean
+          review_state: "pending_review" | "approved_for_pricing" | "need_information" | "monitored" | "rejected"
+          reviewed_by: string | null
+          reviewed_at: string | null
+          review_notes: string | null
+          reject_reason: string | null
+          info_required_items: string[] | null
+          info_comment: string | null
+          info_responsible_id: string | null
+          info_due_date: string | null
+          info_requested_at: string | null
+          resubmitted_at: string | null
+          resubmit_count: number
           archive_reason: string | null
           assigned_owner_id: string | null
           classification: Database["public"]["Enums"]["inbox_classification"]
@@ -2644,6 +2666,25 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          request_type?: "jih" | "tender_contractor" | "tender_government" | "unknown" | null
+          owner_entity?: string | null
+          client_rfq_reference?: string | null
+          internal_rfq_reference?: string | null
+          has_boq?: boolean
+          has_drawings?: boolean
+          has_specs?: boolean
+          review_state?: "pending_review" | "approved_for_pricing" | "need_information" | "monitored" | "rejected"
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          review_notes?: string | null
+          reject_reason?: string | null
+          info_required_items?: string[] | null
+          info_comment?: string | null
+          info_responsible_id?: string | null
+          info_due_date?: string | null
+          info_requested_at?: string | null
+          resubmitted_at?: string | null
+          resubmit_count?: number
           archive_reason?: string | null
           assigned_owner_id?: string | null
           classification?: Database["public"]["Enums"]["inbox_classification"]
@@ -2686,6 +2727,25 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          request_type?: "jih" | "tender_contractor" | "tender_government" | "unknown" | null
+          owner_entity?: string | null
+          client_rfq_reference?: string | null
+          internal_rfq_reference?: string | null
+          has_boq?: boolean
+          has_drawings?: boolean
+          has_specs?: boolean
+          review_state?: "pending_review" | "approved_for_pricing" | "need_information" | "monitored" | "rejected"
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          review_notes?: string | null
+          reject_reason?: string | null
+          info_required_items?: string[] | null
+          info_comment?: string | null
+          info_responsible_id?: string | null
+          info_due_date?: string | null
+          info_requested_at?: string | null
+          resubmitted_at?: string | null
+          resubmit_count?: number
           archive_reason?: string | null
           assigned_owner_id?: string | null
           classification?: Database["public"]["Enums"]["inbox_classification"]
