@@ -38,8 +38,15 @@ export const strings = {
   nav_tender_conversion: { en: "Tender Conversion", ar: "تحويل المناقصات" },
   nav_lead_tender_inbox: { en: "Lead & Tender Inbox", ar: "صندوق العملاء والمناقصات" },
 
+  // Phase 1 navigation (PRD 2026-08-12 target architecture).
+  navgroup_sales: { en: "Sales", ar: "المبيعات" },
+  nav_awarded_projects: { en: "Awarded Projects", ar: "المشاريع المرساة" },
+  nav_ai_configuration: { en: "AI Configuration", ar: "إعداد الذكاء" },
+  nav_ai_audit: { en: "AI Audit", ar: "تدقيق الذكاء" },
+
   // Sidebar / nav groups
   navgroup_overview: { en: "Overview", ar: "نظرة عامة" },
+  navgroup_home: { en: "Home", ar: "الرئيسية" },
   navgroup_crm: { en: "CRM", ar: "إدارة العلاقات" },
   navgroup_production: { en: "Production", ar: "الإنتاج" },
   navgroup_pipeline: { en: "Pipeline", ar: "خط المبيعات" },

@@ -133,12 +133,18 @@ export const canCreateSalesRecords = (r: RoleInput) =>
 export const canExecuteDelete = (r: RoleInput) => inGroup(r, ["system_admin", "bd_manager"]);
 
 // Total Value (RFQ/opportunity) edit authority — per client spec
-// (2026-07-27): Finance Manager, BD Manager, System Admin only. Deliberately
-// NOT the general COMMERCIAL_MANAGERS set (sales_manager/executives are
-// excluded here even though they hold broader commercial authority
-// elsewhere) — this is a narrower, spec-specific grant.
+// (2026-07-27): Finance Manager and BD Manager. Deliberately NOT the general
+// COMMERCIAL_MANAGERS set (sales_manager/executives are excluded here even
+// though they hold broader commercial authority elsewhere) — this is a
+// narrower, spec-specific grant.
+//
+// Phase 1 governance (PRD 2026-08-12 §111–114): `system_admin` was removed
+// from this list. Total Value is the commercial number the whole pipeline is
+// judged on; platform administration is not a reason to be able to set it.
+// An administrator who genuinely needs it holds finance_manager or
+// bd_manager as a second role, and the authority comes from that role.
 export const canEditTotalValue = (r: RoleInput) =>
-  inGroup(r, ["finance_manager", "bd_manager", "system_admin"]);
+  inGroup(r, ["finance_manager", "bd_manager"]);
 
 // Manual RFQ-number entry/edit authority — per client spec (2026-07-27):
 // "Account Manager" (this codebase's existing term for the role is
@@ -171,15 +177,24 @@ export const canUseDiscussion = (r: RoleInput) =>
 // (a salesperson/BD rep negotiates and requests; these four decide, in
 // order). Each mirrors a same-named DB helper used by bafo_requests'
 // step-gating trigger — see 20260727220000_bafo_approval_chain.sql.
+//
+// Phase 1 governance (PRD 2026-08-12 §111–114): `system_admin` held ALL FOUR
+// steps as a "platform-admin override". One account with only that role could
+// therefore originate a discount request and approve every check on it — the
+// four-step control enforced an order, not four independent judgements. The
+// override is removed at every step. A user who legitimately decides one of
+// these holds the matching business role, and the authority comes from there;
+// because roles are additive, `system_admin` + `finance_manager` still passes
+// the finance step, and passes it *as* finance_manager.
 export const canRequestBafo = (r: RoleInput) => canCreateSalesRecords(r);
 export const canReviewBafoCommercial = (r: RoleInput) =>
-  inGroup(r, ["bd_manager", "sales_manager", "system_admin"]);
+  inGroup(r, ["bd_manager", "sales_manager"]);
 export const canApproveBafoCost = (r: RoleInput) =>
-  inGroup(r, ["estimation_manager", "system_admin"]);
+  inGroup(r, ["estimation_manager"]);
 export const canApproveBafoFinance = (r: RoleInput) =>
-  inGroup(r, ["finance_manager", "system_admin"]);
+  inGroup(r, ["finance_manager"]);
 export const canApproveBafoFinal = (r: RoleInput) =>
-  inGroup(r, [...ROLE_GROUPS.executive, ...ROLE_GROUPS.systemAdmin]);
+  inGroup(r, ROLE_GROUPS.executive);
 
 // ---- Mandatory MFA (2026-08-02 security hardening) ---------------------------
 // General Manager, Finance Manager, Sales Manager, System Administrator, and

@@ -51,8 +51,26 @@ test("sidebar no longer lists /rfq-jih or /boq as separate nav items", () => {
   const source = read("src/components/phc/AppShell.tsx");
   expect(source).not.toMatch(/to: "\/rfq-jih"/);
   expect(source).not.toMatch(/to: "\/boq"/);
-  // /quotations itself must still be present.
-  expect(source).toMatch(/to: "\/quotations"/);
+});
+
+// Phase 1 (PRD 2026-08-12): /quotations left the Sales sidebar — it belongs to
+// Commercial & Finance, which does not exist yet. This test used to require
+// `to: "/quotations"` in AppShell, which would have blocked that move. What
+// actually matters is that the route keeps working and stays reachable, so
+// that is what is asserted now.
+test("/quotations is out of the sidebar but still routable and still reachable", () => {
+  expect(read("src/components/phc/AppShell.tsx")).not.toMatch(/to: "\/quotations"/);
+
+  // The route file still exists and still renders all three panels.
+  const route = read("src/routes/_authenticated/quotations.tsx");
+  expect(route).toMatch(/createFileRoute\("\/_authenticated\/quotations"\)/);
+  expect(route).toContain("QuotationsPanel");
+  expect(route).toContain("RfqJihPanel");
+  expect(route).toContain("BoqPanel");
+
+  // And the command palette still indexes it, so removing the nav entry did
+  // not strand the page.
+  expect(read("src/components/phc/CommandPalette.tsx")).toContain('to: "/quotations"');
 });
 
 test("command palette no longer lists /rfq-jih or /boq as separate destinations", () => {

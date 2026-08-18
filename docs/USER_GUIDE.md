@@ -81,16 +81,23 @@ There are 11 roles. **A user can hold more than one** — permissions are additi
 | Create records (leads, contacts, RFQs, opportunities, follow-ups) | Everyone except `viewer` and `system_admin` |
 | **See other people's deals** | Everyone **except `salesperson`** — a salesperson sees only their own |
 | Move an opportunity to Verbally Awarded / Contract Received / Won | `sales_manager` + executives. Others may only **request** it |
-| Edit **Total Value** | `finance_manager`, `bd_manager`, `system_admin` **only** |
+| Edit **Total Value** | `finance_manager`, `bd_manager` **only** |
 | Edit the **RFQ number** | `sales_manager`, `bd_manager`, `system_admin` **only** |
 | Use **Discussion** on an opportunity | `general_manager`, `sales_manager`, `bd_manager`, `system_admin` |
 | Assign an owner to a deal | `sales_manager` + executives |
 | Execute a delete | `system_admin`, `bd_manager` — **and only after someone else approved it** |
+| **BAFO / discount approval (4 steps)** | Each step needs its own business role. **`system_admin` alone can decide none of them** |
 | Review AI output | `system_admin` + commercial managers |
 
 > **Note the deliberate split:** `system_admin` can run the platform but **cannot approve a
 > commercial decision**. A commercial manager can approve deals but cannot administer the
 > platform. This separation is intentional — don't work around it by stacking roles.
+>
+> Since **2026-08-12** this holds in the database, not only in the interface. `system_admin`
+> previously carried an override on all four BAFO steps and on Total Value, so a single
+> administrator could approve an entire discount alone. If you hold `system_admin` **and** a
+> business role, the authority comes from the business role — and the audit trail records it
+> that way.
 
 ---
 
@@ -425,31 +432,44 @@ Old tenders are not allowed to sit active forever.
 
 ## 7. Page-by-page guide
 
-### Workspace — مساحة العمل
+### Home — الرئيسية
 
 | Page | Use it for |
 |---|---|
+| **Command Center** `/command-center` | Org-wide executive view. Pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention. |
 | **My Workspace** `/my-workspace` | Your personal command centre. Target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups, urgent submissions, awarded / final negotiation / verbally awarded panels. **A salesperson's home base.** |
 | **Action Required** `/action-center` | Your work queue. Every automated flag raised against your records. Managers also get the **Run Automations** button here. |
+| **Approvals** `/approvals` | The decision desk. Verbal award, contract, won, BAFO, deletion, sure-win requests. |
+| **Notifications** (bell) | Opens the drawer, not a page. |
 
-### Pipeline — خط المبيعات
+### Sales — المبيعات
+
+Four destinations, and only four. As of **2026-08-12** this group is the whole of Sales.
 
 | Page | Use it for |
 |---|---|
-| **Pipeline Overview** `/command-center` | Org-wide executive view. Pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention. |
 | **Intake** `/lead-tender-inbox` | The triage queue for entries that couldn't route themselves. Classify and convert them here. Entries with a project type and name never appear — they went straight to their track. |
 | **Opportunities** `/opportunities` | Every JIH opportunity. Card or table view, filter by stage and tier. |
 | **Tender Monitor** `/tenders` | Every tender, with urgency KPIs and age tracking. |
+| **Awarded Projects** | Not a separate page — the Opportunities list filtered to **won**. Same records, same filters, one place. |
 
-### Execution — التنفيذ
+> **Inbox, Opportunities and Quotations used to show each other as tabs.** That strip is
+> gone. Each page is now one thing, which is the point of the cleanup.
 
-| Page | Use it for |
+### Pages that left the sidebar — and still work
+
+Nothing was deleted. These keep their data and their URLs; they are reachable by direct
+link, by bookmark, and from **⌘K** search. They left the sidebar because they are a view
+of something else, an action inside a record, or they belong to a section not built yet.
+
+| Page | Where it went |
 |---|---|
-| **Approvals** `/approvals` | The decision desk. Verbal award, contract, won, BAFO, deletion, sure-win requests. |
-| **Follow-ups** `/follow-ups` | Every scheduled touchpoint. Complete, reschedule, or draft a message with AI. |
-| **Quotations** `/quotations` | All quotations and BOQ, in tabs. Per-row AI commercial risk assessment. |
-| **Award & Contract Queue** `/award-queue` | Deals near or at award, sorted by time in stage. Verbal-no-contract, contract received, awaiting handover, high value. |
-| **Tender Conversion** `/tender-conversion` | The conversion review queue. |
+| **Quotations** `/quotations` | Moves to Commercial & Finance when that section exists. Until then: ⌘K or the direct link. All three tabs (Quotations, RFQ & JIH, BOQ) still work. |
+| **Follow-ups** `/follow-ups` | A follow-up is an action on a record. It appears in My Workspace, on the opportunity, and in Action Required. Also in the header's quick-actions menu. |
+| **Targets** `/targets` | The number belongs next to the work it judges — My Workspace, Command Center, Admin Settings. |
+| **Award & Contract Queue** `/award-queue` | Replaced in the sidebar by **Awarded Projects**, the filtered Opportunities view. The page itself still works. |
+| **Tender Conversion** `/tender-conversion` | Becomes an action inside the tender. The queue page still works. |
+| **AI Agents / Agent Activity** | Now **AI Configuration** and **AI Audit**, under the collapsed Admin group. |
 
 ### CRM — إدارة العلاقات
 
@@ -647,6 +667,12 @@ They are not broken, just incomplete — a manager can attach them if they still
 `RFQ-2026-0001` also carries a deadline in the year 275760, from before date validation
 existed. It is invisible to every deadline queue until someone sets the real date.
 
+### Navigation was changed on 2026-08-12 and not yet eyeballed
+The Sales cleanup, the Home group and the Awarded Projects filter are covered by contract
+tests but **have not been visually checked in a browser yet** — the tooling used for that
+was failing during the change. If a sidebar entry looks wrong, that is why. Nothing about
+the underlying routes or data changed.
+
 ### Known gaps against the target design
 Not yet built: a separate opportunity *condition* field (Dormant / Cancelled), separate
 technical and commercial proposal statuses, per-stage win probability, a submission calendar,
@@ -674,6 +700,9 @@ Listed so nobody works around a problem that no longer exists:
 | A failed sign-in showed "Invalid login credentials" in English on the Arabic UI | Fixed — every auth message is bilingual |
 | Agent Activity, AI Agents and Data Import were mostly English in Arabic mode | Fixed — the page chrome is translated (agent names and agent-written summaries stay as-is, they are data) |
 | The error toast covered the PHC logo in Arabic | Fixed — it now anchors to the side opposite the logo |
+| Inbox, Opportunities and Quotations each showed the other two as tabs | Fixed — the duplicated strip is gone; each page is one thing |
+| My Workspace and the management dashboards could disagree about a deal's stage | Fixed — every view now resolves the same canonical stage |
+| A System Administrator could approve all four BAFO steps alone | Fixed — each step needs its own business role, enforced in the database |
 
 ---
 
@@ -685,6 +714,6 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-10, branch `fix/qa-findings-2026-08-10` (base `main` @ `c240bb3`).
-Behaviour verified against source, a live browser pass, and the production database.
+*Reflects the system as at 2026-08-12, branch `feat/phase-1-sales-ia-and-governance` (base `main` @ `aa7ae78`).
+Behaviour verified against source and the test suite. The 2026-08-12 navigation change has not yet had a live browser pass — see Section 10.
 Update this file when the workflow changes.*

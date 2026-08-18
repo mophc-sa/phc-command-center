@@ -1,9 +1,19 @@
 // PHC Sales OS — Canonical stage resolution.
 //
-// PREPARATION ONLY. Nothing in the UI imports this yet. It exists so the
-// "one stage field" refactor can be done page by page, with the mapping
-// decisions written down and tested first instead of being re-derived (and
-// re-guessed) at each call site.
+// ADOPTED. As of Phase 1 (2026-08-12) every surface that makes a business
+// decision from an opportunity's progress resolves it here:
+//
+//   command-center.tsx · reports.tsx · opportunities.index.tsx · my-workspace.tsx
+//
+// (This header previously read "PREPARATION ONLY. Nothing in the UI imports
+// this yet." That stopped being true when the first three pages adopted it,
+// and it stayed wrong long enough to be quoted back as evidence that the
+// refactor had not started. It had.)
+//
+// `sales_stage` is the canonical commercial stage. `stage` and `pipeline_step`
+// are retained as deprecated compatibility columns — still written by legacy
+// paths, still read *only* through this module's fallback — until a migration
+// retires them. Do not add a new read of either column directly.
 //
 // ── The problem ──────────────────────────────────────────────────────────────
 //
