@@ -146,7 +146,7 @@ test.describe("Phase 2 intake review", () => {
     const main = page.locator("#main-content");
     await main.waitFor({ state: "visible", timeout: 20_000 });
     const body = (await main.innerText()).replace(/\s+/g, " ");
-    expect(body).toMatch(/Opportunity Review|مراجعة الفرص/);
+    expect(body).toMatch(/Opportunity Review|مراجعة الفرص/i);
   });
 
   test("a salesperson is told they cannot decide, and gets no decision buttons", async ({ page }) => {
@@ -154,7 +154,7 @@ test.describe("Phase 2 intake review", () => {
     const main = page.locator("#main-content");
     await main.waitFor({ state: "visible", timeout: 20_000 });
     const body = (await main.innerText()).replace(/\s+/g, " ");
-    expect(body).toMatch(/Only a Sales Manager or BD Manager|صلاحية مدير المبيعات/);
+    expect(body).toMatch(/Only a Sales Manager or BD Manager|صلاحية مدير المبيعات/i);
     await expect(page.getByRole("button", { name: /Approve for Pricing|اعتماد للتسعير/ })).toHaveCount(0);
   });
 
@@ -165,6 +165,12 @@ test.describe("Phase 2 intake review", () => {
     const dialog = page.getByRole("dialog");
     await dialog.waitFor({ state: "visible", timeout: 10_000 });
     const text = (await dialog.innerText()).replace(/\s+/g, " ");
-    expect(text).toMatch(/Request Type|نوع الطلب/);
+    // Field labels are uppercased with CSS text-transform, and innerText
+    // returns the TRANSFORMED text — so this has to be case-insensitive.
+    expect(text).toMatch(/Request Type|نوع الطلب/i);
+    // The Phase 2 fields the PRD's minimum-data list was missing.
+    expect(text).toMatch(/Owner \/ Government Entity|الجهة الحكومية/i);
+    expect(text).toMatch(/Client RFQ Reference|مرجع طلب العميل/i);
+    expect(text).toMatch(/BOQ Received|وصل جدول الكميات/i);
   });
 });
