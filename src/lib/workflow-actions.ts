@@ -203,3 +203,86 @@ export async function blockAction(id: Uuid, reason: string) {
   if (error) throw error;
   await auditFlag("flag.blocked", id, before, { status: "blocked", reason });
 }
+
+/* ---------------- Phase 3 — win probability, kept as two separate facts ---- */
+
+/**
+ * The AI's score and a manager's own number are different claims and are
+ * stored separately (migration 20260818140000).
+ *
+ * Before Phase 3 a human estimate was written through `score_manual_override`,
+ * which overwrote the model's value — after which nobody could ask the useful
+ * question: where does the desk disagree with the model, and who was right?
+ * Setting one never clears the other.
+ */
+export async function setHumanWinProbability(
+  opportunityId: Uuid,
+  probability: number,
+  reason?: string,
+) {
+  if (!Number.isInteger(probability) || probability < 0 || probability > 100) {
+    throw new Error("Probability must be a whole number between 0 and 100.");
+  }
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id ?? null;
+  const { error } = await supabase
+    .from("opportunities")
+    .update({
+      human_win_probability: probability,
+      human_probability_reason: reason?.trim() || null,
+      human_probability_at: new Date().toISOString(),
+      human_probability_by: uid,
+      // score / score_reasons / scored_at are deliberately untouched.
+    })
+    .eq("id", opportunityId);
+  if (error) throw error;
+  await supabase.from("audit_log").insert({
+    actor_id: uid, actor_type: "user", action: "opportunity.human_probability.set",
+    entity_type: "opportunity", entity_id: opportunityId,
+    after_value: { probability, reason: reason ?? null } as never,
+  });
+}
+
+/** Commercial handoff status — independent of the sales stage (PRD §19). */
+export const COMMERCIAL_HANDOFF_STATES = [
+  "with_sales", "waiting_management", "with_commercial", "waiting_vendor",
+  "waiting_gm", "final_review", "ready_for_sales", "submitted", "waiting_client",
+] as const;
+export type CommercialHandoffState = (typeof COMMERCIAL_HANDOFF_STATES)[number];
+
+/**
+ * The states Sales actually drives today. The rest of the vocabulary exists so
+ * Commercial & Finance inherits it rather than inventing a parallel one, but
+ * Sales cannot set them — a salesperson marking a file "waiting GM" when it
+ * never reached Commercial would be a lie the next phase has to unpick.
+ */
+export const SALES_SETTABLE_HANDOFF: readonly CommercialHandoffState[] = [
+  "with_sales", "waiting_management", "with_commercial",
+];
+
+export async function setCommercialHandoff(
+  opportunityId: Uuid,
+  state: CommercialHandoffState,
+  note?: string,
+) {
+  if (!SALES_SETTABLE_HANDOFF.includes(state)) {
+    throw new Error(`Sales cannot set the handoff state "${state}" — it belongs to a later stage of the flow.`);
+  }
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id ?? null;
+  const { error } = await supabase
+    .from("opportunities")
+    .update({
+      commercial_handoff_status: state,
+      commercial_handoff_at: new Date().toISOString(),
+      commercial_handoff_by: uid,
+      commercial_handoff_note: note?.trim() || null,
+    })
+    .eq("id", opportunityId);
+  if (error) throw error;
+  await supabase.from("audit_log").insert({
+    actor_id: uid, actor_type: "user", action: "opportunity.handoff.changed",
+    entity_type: "opportunity", entity_id: opportunityId,
+    after_value: { state, note: note ?? null } as never,
+  });
+}

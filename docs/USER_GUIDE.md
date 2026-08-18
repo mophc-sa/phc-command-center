@@ -726,6 +726,7 @@ Listed so nobody works around a problem that no longer exists:
 | My Workspace and the management dashboards could disagree about a deal's stage | Fixed — every view now resolves the same canonical stage |
 | A System Administrator could approve all four BAFO steps alone | Fixed — each step needs its own business role, enforced in the database |
 | Nothing reviewed a request before it entered the pipeline | Fixed — Opportunity Review gates every request, enforced in the database |
+| Picking **JIH BAFO** or **Contract Signed** failed with an error | Fixed — the server rejected two stages the screen offered; both are reachable now |
 
 ---
 
@@ -737,6 +738,6 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-18, branch `feat/phase-2-intake-and-opportunity-review` (base `main` @ `9eb946a`).
+*Reflects the system as at 2026-08-18, branch `feat/phase-3-execution` (base `main` @ `7ddf0de`).
 Behaviour verified against source, the test suite, and a live authenticated browser pass (Phase 1 navigation, 14/14). The Phase 2 review gate is verified by tests and a database behaviour suite; its migration is not yet applied to production — see Section 10.
 Update this file when the workflow changes.*

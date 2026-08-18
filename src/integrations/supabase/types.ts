@@ -3028,8 +3028,23 @@ export type Database = {
           },
         ]
       }
+      // Phase 3 (migration 20260818140000, not yet applied remotely — so
+      // `supabase gen types` cannot see these yet). Regenerate and delete
+      // these hand-added fields once the migration is applied.
       opportunities: {
         Row: {
+          source_tender_id: string | null
+          commercial_handoff_status: string
+          commercial_handoff_at: string | null
+          commercial_handoff_by: string | null
+          commercial_handoff_note: string | null
+          human_win_probability: number | null
+          human_probability_reason: string | null
+          human_probability_at: string | null
+          human_probability_by: string | null
+          lost_to_competitor: string | null
+          lost_at_stage: string | null
+          contract_signed_date: string | null
           action_priority: Database["public"]["Enums"]["priority_tier"] | null
           action_required: boolean
           agent_reasoning: string | null
@@ -3111,6 +3126,18 @@ export type Database = {
           win_confidence: Database["public"]["Enums"]["win_confidence"] | null
         }
         Insert: {
+          source_tender_id?: string | null
+          commercial_handoff_status?: string
+          commercial_handoff_at?: string | null
+          commercial_handoff_by?: string | null
+          commercial_handoff_note?: string | null
+          human_win_probability?: number | null
+          human_probability_reason?: string | null
+          human_probability_at?: string | null
+          human_probability_by?: string | null
+          lost_to_competitor?: string | null
+          lost_at_stage?: string | null
+          contract_signed_date?: string | null
           action_priority?: Database["public"]["Enums"]["priority_tier"] | null
           action_required?: boolean
           agent_reasoning?: string | null
@@ -3194,6 +3221,18 @@ export type Database = {
           win_confidence?: Database["public"]["Enums"]["win_confidence"] | null
         }
         Update: {
+          source_tender_id?: string | null
+          commercial_handoff_status?: string
+          commercial_handoff_at?: string | null
+          commercial_handoff_by?: string | null
+          commercial_handoff_note?: string | null
+          human_win_probability?: number | null
+          human_probability_reason?: string | null
+          human_probability_at?: string | null
+          human_probability_by?: string | null
+          lost_to_competitor?: string | null
+          lost_at_stage?: string | null
+          contract_signed_date?: string | null
           action_priority?: Database["public"]["Enums"]["priority_tier"] | null
           action_required?: boolean
           agent_reasoning?: string | null
@@ -4536,6 +4575,11 @@ export type Database = {
       }
       tenders: {
         Row: {
+          tender_subtype: string | null
+          winning_contractor_id: string | null
+          winning_contractor_name: string | null
+          contractor_award_date: string | null
+          contractor_award_evidence: string | null
           archive_reason: string | null
           archived_at: string | null
           archived_by: string | null
@@ -4572,6 +4616,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          tender_subtype?: string | null
+          winning_contractor_id?: string | null
+          winning_contractor_name?: string | null
+          contractor_award_date?: string | null
+          contractor_award_evidence?: string | null
           archive_reason?: string | null
           archived_at?: string | null
           archived_by?: string | null
@@ -4608,6 +4657,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          tender_subtype?: string | null
+          winning_contractor_id?: string | null
+          winning_contractor_name?: string | null
+          contractor_award_date?: string | null
+          contractor_award_evidence?: string | null
           archive_reason?: string | null
           archived_at?: string | null
           archived_by?: string | null
