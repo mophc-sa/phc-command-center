@@ -110,8 +110,11 @@ test.describe("Phase 1 navigation", () => {
     await page.goto("/my-workspace");
     await page.locator("#main-content").waitFor({ state: "visible", timeout: 20_000 });
 
-    const toggle = page.getByRole("button", { name: /^AR$|اللغة|Language/ }).first();
-    await toggle.click();
+    // The toggle's ACCESSIBLE NAME is the word "Language"/"اللغة"; the visible
+    // text is the language it switches TO ("AR" / "EN"). Matching on the text
+    // works in English and silently fails in Arabic, so match the name.
+    const langToggle = () => page.getByRole("button", { name: /Language|اللغة/ }).first();
+    await langToggle().click();
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl", { timeout: 10_000 });
     await expect(page.locator("html")).toHaveAttribute("lang", "ar");
     // No horizontal overflow after mirroring.
@@ -120,7 +123,7 @@ test.describe("Phase 1 navigation", () => {
     );
     expect(rtlOverflow, "RTL layout overflows horizontally").toBe(false);
 
-    await page.getByRole("button", { name: /^EN$/ }).first().click();
+    await langToggle().click();
     await expect(page.locator("html")).toHaveAttribute("dir", "ltr", { timeout: 10_000 });
   });
 });
