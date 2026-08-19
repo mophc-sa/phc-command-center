@@ -2,7 +2,18 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ShieldAlert, PlayCircle, Sparkles, PlayIcon, CheckIcon, XIcon, ArrowUpCircle, PauseCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  ShieldAlert,
+  PlayCircle,
+  Sparkles,
+  PlayIcon,
+  CheckIcon,
+  XIcon,
+  ArrowUpCircle,
+  PauseCircle,
+  Ban,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
@@ -29,65 +40,32 @@ import {
   QUEUE_ACTION_TYPES,
   ACTIVE_FLAG_STATUSES,
   type QueueActionType,
-  type FlagStatus,
 } from "@/lib/workflow-actions";
-import { canManageSalesPipeline } from "@/lib/roles";
+import {
+  canManageSalesPipeline,
+  canReviewIntake,
+  canApproveCommercialAction,
+} from "@/lib/roles";
+import {
+  assembleActions,
+  countActions,
+  filterActions,
+  urgencyOf,
+  DEFAULT_FILTERS,
+  type ActionFilters,
+  type UnifiedAction,
+  type ApprovalRowIn,
+  type FlagRowIn,
+  type FollowUpRowIn,
+  type IntakeRowIn,
+  type TaskRowIn,
+} from "@/lib/action-center";
 import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/action-center")({
   head: () => ({ meta: [{ title: "Sales Action Queue — PHC" }, { name: "robots", content: "noindex" }] }),
   component: ActionCenter,
 });
-
-type FlagRow = {
-  id: string;
-  linked_record_type: string;
-  linked_record_id: string;
-  flag_kind: "action_required" | "risk";
-  action_type: string | null;
-  risk_flag: string | null;
-  queue_action_type: QueueActionType | null;
-  recommended_action: string | null;
-  ai_generated: boolean;
-  action_owner_id: string | null;
-  due_date: string | null;
-  priority: "A" | "B" | "C" | null;
-  reason: string | null;
-  status: FlagStatus;
-  created_at: string;
-};
-
-const RELATED_ROUTE: Record<string, string> = {
-  opportunity: "/opportunities",
-  rfq: "/quotations",
-  tender: "/tenders",
-  approval: "/approvals",
-  quotation: "/quotations",
-};
-
-function priorityRank(p: string | null | undefined): number {
-  if (p === "A") return 0;
-  if (p === "B") return 1;
-  return 2;
-}
-
-function statusTone(s: FlagStatus): "neutral" | "attention" | "positive" | "muted" | "danger" {
-  if (s === "completed" || s === "resolved") return "positive";
-  if (s === "in_progress") return "attention";
-  if (s === "escalated" || s === "blocked") return "danger";
-  if (s === "dismissed") return "muted";
-  return "neutral";
-}
-
-const STATUS_KEY: Record<string, string> = {
-  open: "acst_open",
-  in_progress: "acst_in_progress",
-  completed: "acst_completed",
-  resolved: "acst_resolved",
-  dismissed: "acst_dismissed",
-  escalated: "acst_escalated",
-  blocked: "acst_blocked",
-};
 
 const TYPE_KEY: Record<string, string> = {
   follow_up_due: "acty_follow_up_due",
@@ -102,7 +80,15 @@ const TYPE_KEY: Record<string, string> = {
   contract_evidence_missing: "acty_contract_evidence_missing",
 };
 
-const RECORD_TYPE_KEY: Record<string, string> = {
+const SOURCE_KEY: Record<string, string> = {
+  flag: "ac_source_flag",
+  task: "ac_source_task",
+  follow_up: "ac_source_follow_up",
+  approval: "ac_source_approval",
+  intake_review: "ac_source_intake_review",
+};
+
+const ENTITY_KEY: Record<string, string> = {
   opportunity: "acrt_opportunity",
   rfq: "acrt_rfq",
   tender: "acrt_tender",
@@ -112,86 +98,108 @@ const RECORD_TYPE_KEY: Record<string, string> = {
 
 function ActionCenter() {
   const { t, lang } = useI18n();
-  const { roles } = useAuth();
+  const { user, roles } = useAuth();
+  const uid = user?.id ?? "";
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"active" | "completed" | "dismissed" | "all">("active");
-  const [typeFilter, setTypeFilter] = useState<"all" | QueueActionType>("all");
-  const [dialog, setDialog] = useState<{ kind: "complete" | "dismiss" | "escalate" | "block"; flag: FlagRow } | null>(null);
   const isManager = canManageSalesPipeline(roles);
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data: flags = [], isLoading } = useQuery({
-    queryKey: ["action-queue", tab],
+  const [filters, setFilters] = useState<ActionFilters>(DEFAULT_FILTERS);
+  const [dialog, setDialog] = useState<{
+    kind: "complete" | "dismiss" | "escalate" | "block";
+    flagId: string;
+  } | null>(null);
+
+  const set = <K extends keyof ActionFilters>(k: K, v: ActionFilters[K]) =>
+    setFilters((f) => ({ ...f, [k]: v }));
+
+  // ── Sources ────────────────────────────────────────────────────────────────
+  // Each source keeps its own table and lifecycle; this page only projects them.
+  // Fetched together so one refetch key invalidates the whole queue.
+  const { data: sources, isLoading } = useQuery({
+    queryKey: ["unified-actions", filters.status],
     staleTime: 30_000,
     queryFn: async () => {
-      let q = supabase.from("opportunity_flags").select("*").order("created_at", { ascending: false });
-      if (tab === "active") q = q.in("status", ACTIVE_FLAG_STATUSES);
-      else if (tab === "completed") q = q.in("status", ["completed", "resolved"]);
-      else if (tab === "dismissed") q = q.eq("status", "dismissed");
-      const { data } = await q;
-      return (data ?? []) as unknown as FlagRow[];
-    },
-  });
-
-  const ids = useMemo(() => {
-    const byType: Record<string, string[]> = { opportunity: [], rfq: [], tender: [], approval: [], quotation: [] };
-    for (const f of flags) {
-      if (byType[f.linked_record_type]) byType[f.linked_record_type].push(f.linked_record_id);
-    }
-    return byType;
-  }, [flags]);
-
-  const ownerIds = useMemo(() => [...new Set(flags.map((f) => f.action_owner_id).filter(Boolean) as string[])], [flags]);
-
-  const { data: relatedRecords } = useQuery({
-    queryKey: ["action-queue-related", ids.opportunity.length, ids.rfq.length, ids.tender.length, ids.approval.length, ids.quotation.length],
-    staleTime: 30_000,
-    enabled: flags.length > 0,
-    queryFn: async () => {
-      const [opps, rfqs, tenders, approvals, quotations] = await Promise.all([
-        ids.opportunity.length ? supabase.from("opportunities").select("id, project_name, owner_id, main_contractor, next_action, tier").in("id", ids.opportunity) : Promise.resolve({ data: [] }),
-        ids.rfq.length ? supabase.from("rfqs").select("id, rfq_number").in("id", ids.rfq) : Promise.resolve({ data: [] }),
-        ids.tender.length ? supabase.from("tenders").select("id, tender_name").in("id", ids.tender) : Promise.resolve({ data: [] }),
-        ids.approval.length ? supabase.from("approvals").select("id, approval_type").in("id", ids.approval) : Promise.resolve({ data: [] }),
-        ids.quotation.length ? supabase.from("quotations").select("id, quote_number").in("id", ids.quotation) : Promise.resolve({ data: [] }),
+      const [flags, tasks, followUps, approvals, intake] = await Promise.all([
+        supabase.from("opportunity_flags").select("*").order("created_at", { ascending: false }).limit(300),
+        supabase
+          .from("tasks")
+          .select("id, title, related_opportunity_id, owner_id, priority, due_date, status, created_at, completed_at")
+          .order("due_date", { ascending: true })
+          .limit(200),
+        supabase
+          .from("follow_ups")
+          .select("id, opportunity_id, owner_id, due_date, cadence_tier, channel, status, notes, created_at")
+          .order("due_date", { ascending: true })
+          .limit(200),
+        supabase
+          .from("approvals")
+          .select(
+            "id, approval_type, related_opportunity_id, linked_record_type, linked_record_id, requested_by, assigned_approver, status, created_at, decided_at",
+          )
+          .order("created_at", { ascending: false })
+          .limit(200),
+        supabase
+          .from("inbox_items")
+          .select(
+            "id, project_name, company_name, review_state, assigned_owner_id, created_by, request_type, info_due_date, info_responsible_id, created_at, reviewed_at",
+          )
+          .in("review_state", ["pending_review", "need_information"])
+          .limit(200),
       ]);
-      const map = new Map<string, { label: string; sub?: string; linkId?: string }>();
-      for (const o of opps.data ?? []) map.set(`opportunity:${o.id}`, { label: o.project_name, sub: o.main_contractor ?? undefined, linkId: o.id });
-      for (const r of rfqs.data ?? []) map.set(`rfq:${r.id}`, { label: r.rfq_number ?? r.id.slice(0, 8) });
-      for (const tdr of tenders.data ?? []) map.set(`tender:${tdr.id}`, { label: tdr.tender_name });
-      for (const a of approvals.data ?? []) map.set(`approval:${a.id}`, { label: humanize(a.approval_type) });
-      for (const q of quotations.data ?? []) map.set(`quotation:${q.id}`, { label: q.quote_number });
-      return map;
+      return {
+        flags: (flags.data ?? []) as unknown as FlagRowIn[],
+        tasks: (tasks.data ?? []) as unknown as TaskRowIn[],
+        followUps: (followUps.data ?? []) as unknown as FollowUpRowIn[],
+        approvals: (approvals.data ?? []) as unknown as ApprovalRowIn[],
+        intake: (intake.data ?? []) as unknown as IntakeRowIn[],
+      };
     },
   });
 
+  const actions = useMemo(
+    () =>
+      assembleActions(sources ?? {}, {
+        canReviewIntake: canReviewIntake(roles),
+        canDecideApprovals: canApproveCommercialAction(roles),
+      }, today),
+    [sources, roles, today],
+  );
+
+  const visible = useMemo(
+    () => filterActions(actions, filters, { uid, today }),
+    [actions, filters, uid, today],
+  );
+
+  // KPIs describe the personal queue — a team-wide count is not something an
+  // individual can act on, and this page's job is "what do I do next".
+  const counts = useMemo(
+    () => countActions(filterActions(actions, { ...DEFAULT_FILTERS, scope: "mine" }, { uid, today }), today),
+    [actions, uid, today],
+  );
+
+  // Owner filter options come from whatever is actually in the queue.
+  const ownerIds = useMemo(
+    () => [...new Set(actions.map((a) => a.ownerUserId).filter(Boolean) as string[])],
+    [actions],
+  );
   const { data: owners } = useQuery({
-    queryKey: ["action-queue-owners", ownerIds.join(",")],
-    staleTime: 30_000,
+    queryKey: ["action-owners", ownerIds.join(",")],
+    staleTime: 60_000,
     enabled: ownerIds.length > 0,
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("id, full_name, email").in("id", ownerIds);
-      const map = new Map<string, string>();
-      for (const p of data ?? []) map.set(p.id, p.full_name || p.email || p.id.slice(0, 8));
-      return map;
+      return new Map((data ?? []).map((p) => [p.id, p.full_name || p.email || p.id.slice(0, 8)]));
     },
   });
 
-  const filtered = useMemo(() => {
-    const arr = typeFilter === "all" ? flags : flags.filter((f) => f.queue_action_type === typeFilter);
-    return [...arr].sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
-  }, [flags, typeFilter]);
+  const typeOptions = useMemo(() => [...new Set(actions.map((a) => a.type))].sort(), [actions]);
 
-  const activeFlags = useMemo(() => flags.filter((f) => (ACTIVE_FLAG_STATUSES as string[]).includes(f.status)), [flags]);
-  const overdueCount = activeFlags.filter((f) => f.due_date && f.due_date < today).length;
-  const escalatedBlockedCount = activeFlags.filter((f) => f.status === "escalated" || f.status === "blocked").length;
-  const aiCount = activeFlags.filter((f) => f.ai_generated).length;
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["unified-actions"] });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["action-queue"] });
-
-  async function handleStart(f: FlagRow) {
+  async function handleStart(flagId: string) {
     try {
-      await startAction(f.id);
+      await startAction(flagId);
       invalidate();
     } catch (e) {
       toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
@@ -210,16 +218,23 @@ function ActionCenter() {
   async function handleDialogSubmit(values: Record<string, string>) {
     if (!dialog) return;
     try {
-      if (dialog.kind === "complete") await completeAction(dialog.flag.id, values.note);
-      else if (dialog.kind === "dismiss") await dismissAction(dialog.flag.id, values.reason);
-      else if (dialog.kind === "escalate") await escalateAction(dialog.flag.id, values.note);
-      else await blockAction(dialog.flag.id, values.reason);
+      if (dialog.kind === "complete") await completeAction(dialog.flagId, values.note);
+      else if (dialog.kind === "dismiss") await dismissAction(dialog.flagId, values.reason);
+      else if (dialog.kind === "escalate") await escalateAction(dialog.flagId, values.note);
+      else await blockAction(dialog.flagId, values.reason);
       invalidate();
     } catch (e) {
       toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
       throw e;
     }
   }
+
+  const pill = (active: boolean) =>
+    `rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+      active
+        ? "border-amber/40 bg-amber/10 text-amber-light"
+        : "border-border/70 bg-surface/60 text-muted-foreground hover:text-foreground"
+    }`;
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -232,8 +247,8 @@ function ActionCenter() {
             <button
               onClick={async () => {
                 try {
-                  const r: any = await runAutomations();
-                  toast.success(`${t("wf_run_automations")}: ${r.raised}`);
+                  const r = (await runAutomations()) as { raised?: number };
+                  toast.success(`${t("wf_run_automations")}: ${r.raised ?? 0}`);
                   invalidate();
                 } catch (e) {
                   toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
@@ -248,175 +263,130 @@ function ActionCenter() {
       />
 
       <section className="mb-6 grid gap-3 sm:grid-cols-4">
-        <KpiCard label={t("ac_kpi_open")} value={formatNumber(activeFlags.length, lang)} hint={lang === "ar" ? "بانتظار الفريق" : "Waiting on the team"} />
-        <KpiCard label={t("ac_kpi_overdue")} value={formatNumber(overdueCount, lang)} hint={lang === "ar" ? "تجاوزت التاريخ" : "Past due date"} trend={overdueCount > 0 ? "down" : "flat"} />
-        <KpiCard label={t("ac_kpi_escalated")} value={formatNumber(escalatedBlockedCount, lang)} hint={lang === "ar" ? "تحتاج تدخلاً" : "Needs intervention"} trend={escalatedBlockedCount > 0 ? "down" : "flat"} />
-        <KpiCard label={t("ac_kpi_ai")} value={formatNumber(aiCount, lang)} hint={lang === "ar" ? "من محرك الإجراءات" : "From the action engine"} />
+        <KpiCard label={t("ac_kpi_open")} value={formatNumber(counts.total, lang)} hint={lang === "ar" ? "في قائمتك" : "In your queue"} />
+        <KpiCard
+          label={t("ac_kpi_blocking")}
+          value={formatNumber(counts.blocking, lang)}
+          hint={lang === "ar" ? "توقف العمل" : "Work is stopped"}
+          trend={counts.blocking > 0 ? "down" : "flat"}
+        />
+        <KpiCard
+          label={t("ac_kpi_overdue")}
+          value={formatNumber(counts.overdue, lang)}
+          hint={lang === "ar" ? "تجاوزت التاريخ" : "Past due date"}
+          trend={counts.overdue > 0 ? "down" : "flat"}
+        />
+        <KpiCard label={t("ac_kpi_due_today")} value={formatNumber(counts.dueToday, lang)} hint={lang === "ar" ? "اليوم" : "Today"} />
       </section>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      {/* Scope + urgency */}
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        {(["mine", "team", "all"] as const).map((s) => (
+          <button key={s} onClick={() => set("scope", s)} className={pill(filters.scope === s)}>
+            {t(`ac_scope_${s}` as never)}
+          </button>
+        ))}
+        <span className="mx-1 h-4 w-px bg-border/70" aria-hidden="true" />
+        {(["all", "overdue", "due_today", "upcoming"] as const).map((u) => (
+          <button key={u} onClick={() => set("urgency", u)} className={pill(filters.urgency === u)}>
+            {t(`ac_urgency_${u}` as never)}
+          </button>
+        ))}
+      </div>
+
+      {/* Status + dropdown filters */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="flex gap-1.5">
-          {(["active", "completed", "dismissed", "all"] as const).map((k) => (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              className={`rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
-                tab === k
-                  ? "border-amber/40 bg-amber/10 text-amber-light"
-                  : "border-border/70 bg-surface/60 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t(`ac_tab_${k}` as never)}
+          {(["active", "done", "dismissed", "all"] as const).map((s) => (
+            <button key={s} onClick={() => set("status", s)} className={pill(filters.status === s)}>
+              {t((s === "active" ? "ac_tab_active" : s === "done" ? "ac_tab_completed" : s === "dismissed" ? "ac_tab_dismissed" : "ac_tab_all") as never)}
             </button>
           ))}
         </div>
-        <Select
-          value={typeFilter}
-          onValueChange={(v) => setTypeFilter(v as "all" | QueueActionType)}
-        >
-          <SelectTrigger className="h-8 w-auto min-w-[10rem] border-border/70 bg-surface/60 text-[11px] text-foreground">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("crm_filter_all_types")}</SelectItem>
-            {QUEUE_ACTION_TYPES.map((qt) => (
-              <SelectItem key={qt} value={qt}>{t(TYPE_KEY[qt] as never)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
+        <div className="ms-auto flex flex-wrap gap-2">
+          <Select value={filters.type} onValueChange={(v) => set("type", v)}>
+            <SelectTrigger className="h-8 w-auto min-w-[9rem] border-border/70 bg-surface/60 text-[11px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("crm_filter_all_types")}</SelectItem>
+              {typeOptions.map((ty) => (
+                <SelectItem key={ty} value={ty}>
+                  {TYPE_KEY[ty] ? t(TYPE_KEY[ty] as never) : humanize(ty)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filters.entityType} onValueChange={(v) => set("entityType", v)}>
+            <SelectTrigger className="h-8 w-auto min-w-[8rem] border-border/70 bg-surface/60 text-[11px]">
+              <SelectValue placeholder={t("ac_filter_entity")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("ac_filter_entity")}</SelectItem>
+              {["opportunity", "rfq", "tender", "approval", "quotation", "inbox_item"].map((e) => (
+                <SelectItem key={e} value={e}>
+                  {ENTITY_KEY[e] ? t(ENTITY_KEY[e] as never) : humanize(e)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filters.priority} onValueChange={(v) => set("priority", v as ActionFilters["priority"])}>
+            <SelectTrigger className="h-8 w-auto min-w-[7rem] border-border/70 bg-surface/60 text-[11px]">
+              <SelectValue placeholder={t("ac_filter_priority")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("ac_filter_priority")}</SelectItem>
+              {(["A", "B", "C"] as const).map((p) => (
+                <SelectItem key={p} value={p}>
+                  {t("label_tier")} {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {ownerIds.length > 0 && (
+            <Select value={filters.owner} onValueChange={(v) => set("owner", v)}>
+              <SelectTrigger className="h-8 w-auto min-w-[8rem] border-border/70 bg-surface/60 text-[11px]">
+                <SelectValue placeholder={t("ac_filter_owner")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("ac_filter_owner")}</SelectItem>
+                {ownerIds.map((o) => (
+                  <SelectItem key={o} value={o}>
+                    {owners?.get(o) ?? o.slice(0, 8)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
         <SkeletonTable rows={6} />
-      ) : filtered.length === 0 ? (
-        tab === "active" ? (
-          <EmptyState
-            icon={CheckIcon}
-            title={t("empty_title_action_center")}
-            description={t("empty_desc_action_center")}
-          />
-        ) : (
-          <EmptyState message={t("wf_no_records")} compact />
-        )
+      ) : visible.length === 0 ? (
+        <EmptyState
+          icon={CheckIcon}
+          title={t("empty_title_action_center")}
+          description={t("empty_desc_action_center")}
+        />
       ) : (
         <ul className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
-          {filtered.map((f) => {
-            const high = f.priority === "A";
-            const related = relatedRecords?.get(`${f.linked_record_type}:${f.linked_record_id}`);
-            const ownerName = f.action_owner_id ? owners?.get(f.action_owner_id) : undefined;
-            const overdue = !!f.due_date && f.due_date < today && (ACTIVE_FLAG_STATUSES as string[]).includes(f.status);
-            const active = (ACTIVE_FLAG_STATUSES as string[]).includes(f.status);
-            const listPath = RELATED_ROUTE[f.linked_record_type];
-            return (
-              <li key={f.id} className="border-t border-border/60 first:border-t-0">
-                <div className="grid grid-cols-[3px_minmax(0,1fr)_auto] items-stretch">
-                  <div
-                    className={high ? "bg-amber/70" : f.flag_kind === "risk" ? "bg-destructive/50" : "bg-transparent"}
-                    aria-label={high ? (lang === "ar" ? "أولوية عالية" : "High priority") : f.flag_kind === "risk" ? (lang === "ar" ? "خطر" : "Risk") : undefined}
-                  />
-                  <div className="px-5 py-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusPill tone={f.flag_kind === "risk" ? "danger" : "attention"}>
-                        {f.flag_kind === "risk" ? <ShieldAlert className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-                        {f.queue_action_type ? t(TYPE_KEY[f.queue_action_type] as never) : humanize(f.action_type ?? f.risk_flag ?? f.flag_kind)}
-                      </StatusPill>
-                      <StatusPill tone={statusTone(f.status)}>{t((STATUS_KEY[f.status] ?? "acst_open") as never)}</StatusPill>
-                      {f.priority ? <StatusPill tone={high ? "attention" : "muted"}>{t("label_tier")} {f.priority}</StatusPill> : null}
-                      {f.ai_generated ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber/30 bg-amber/10 px-2 py-0.5 text-[10px] font-medium text-amber-light">
-                          <Sparkles className="h-2.5 w-2.5" /> {t("ac_ai_badge")}
-                        </span>
-                      ) : null}
-                      <span className="text-[11px] text-muted-foreground">{t((RECORD_TYPE_KEY[f.linked_record_type] ?? "") as never) || humanize(f.linked_record_type)}</span>
-                      {f.due_date ? (
-                        <span
-                          className={`inline-flex items-center gap-1 num text-[11px] ${overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}
-                          data-tabular="true"
-                        >
-                          {overdue ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
-                          {overdue ? t("urgency_overdue") : t("ac_due")}: {f.due_date}
-                        </span>
-                      ) : null}
-                    </div>
-                    {related ? (
-                      f.linked_record_type === "opportunity" && related.linkId ? (
-                        <Link to="/opportunities/$id" params={{ id: related.linkId }} className="mt-1.5 block truncate text-[13px] font-medium text-foreground hover:underline">
-                          {related.label}
-                        </Link>
-                      ) : listPath ? (
-                        <Link to={listPath as any} className="mt-1.5 block truncate text-[13px] font-medium text-foreground hover:underline">
-                          {related.label}
-                        </Link>
-                      ) : (
-                        <div className="mt-1.5 truncate text-[13px] font-medium text-foreground">{related.label}</div>
-                      )
-                    ) : null}
-                    {f.reason ? <div className="mt-1 text-[12px] text-muted-foreground">{f.reason}</div> : null}
-                    {f.recommended_action ? (
-                      <div className="mt-1 text-[11px] text-muted-foreground">
-                        <span className="text-amber-light">{t("ac_recommended_action")}:</span> {f.recommended_action}
-                      </div>
-                    ) : null}
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      {t("ac_owner")}: {ownerName ?? t("ac_unassigned")}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 pe-4">
-                    {active ? (
-                      <>
-                        {f.status === "open" ? (
-                          <button
-                            onClick={() => handleStart(f)}
-                            aria-label={t("ac_start")}
-                            title={t("ac_start")}
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-                          >
-                            <PlayIcon className="h-3.5 w-3.5" />
-                          </button>
-                        ) : null}
-                        <button
-                          onClick={() => setDialog({ kind: "complete", flag: f })}
-                          aria-label={t("ac_complete")}
-                          title={t("ac_complete")}
-                          className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-won/40 bg-won/10 text-won transition-colors duration-150 hover:bg-won/[0.16]"
-                        >
-                          <CheckIcon className="h-3.5 w-3.5" />
-                        </button>
-                        {f.status !== "escalated" ? (
-                          <button
-                            onClick={() => setDialog({ kind: "escalate", flag: f })}
-                            aria-label={t("ac_escalate")}
-                            title={t("ac_escalate")}
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-                          >
-                            <ArrowUpCircle className="h-3.5 w-3.5" />
-                          </button>
-                        ) : null}
-                        {f.status !== "blocked" ? (
-                          <button
-                            onClick={() => setDialog({ kind: "block", flag: f })}
-                            aria-label={t("ac_block")}
-                            title={t("ac_block")}
-                            className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-                          >
-                            <PauseCircle className="h-3.5 w-3.5" />
-                          </button>
-                        ) : null}
-                        <button
-                          onClick={() => setDialog({ kind: "dismiss", flag: f })}
-                          aria-label={t("ac_dismiss")}
-                          title={t("ac_dismiss")}
-                          className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-                        >
-                          <XIcon className="h-3.5 w-3.5" />
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
+          {visible.map((a) => (
+            <ActionRow
+              key={a.id}
+              a={a}
+              today={today}
+              ownerName={a.ownerUserId ? owners?.get(a.ownerUserId) : undefined}
+              t={t}
+              lang={lang}
+              onStart={() => handleStart(a.sourceRecordId)}
+              onDialog={(kind) => setDialog({ kind, flagId: a.sourceRecordId })}
+            />
+          ))}
         </ul>
       )}
 
@@ -435,7 +405,13 @@ function ActionCenter() {
           )}
           fields={dialogFields}
           submitLabel={t(
-            (dialog.kind === "complete" ? "ac_complete" : dialog.kind === "dismiss" ? "ac_dismiss" : dialog.kind === "escalate" ? "ac_escalate" : "ac_block") as never,
+            (dialog.kind === "complete"
+              ? "ac_complete"
+              : dialog.kind === "dismiss"
+                ? "ac_dismiss"
+                : dialog.kind === "escalate"
+                  ? "ac_escalate"
+                  : "ac_block") as never,
           )}
           destructive={dialog.kind === "dismiss" || dialog.kind === "block"}
           onSubmit={handleDialogSubmit}
@@ -444,3 +420,135 @@ function ActionCenter() {
     </div>
   );
 }
+
+function ActionRow({
+  a,
+  today,
+  ownerName,
+  t,
+  lang,
+  onStart,
+  onDialog,
+}: {
+  a: UnifiedAction;
+  today: string;
+  ownerName?: string;
+  t: (k: never) => string;
+  lang: "en" | "ar";
+  onStart: () => void;
+  onDialog: (k: "complete" | "dismiss" | "escalate" | "block") => void;
+}) {
+  const urgency = urgencyOf(a.dueAt, today);
+  const overdue = urgency === "overdue";
+  const high = a.priority === "A";
+  // Only flag-sourced rows have the start/complete/escalate/block lifecycle.
+  // Everything else is resolved on its own entity, so we link instead of
+  // offering buttons that would silently do nothing.
+  const actionable = a.source === "flag" && (["open", "in_progress", "blocked"] as string[]).includes(a.status);
+
+  return (
+    <li className="border-t border-border/60 first:border-t-0">
+      <div className="grid grid-cols-[3px_minmax(0,1fr)_auto] items-stretch">
+        <div
+          className={a.blocking ? "bg-destructive/60" : high ? "bg-amber/70" : "bg-transparent"}
+          aria-label={a.blocking ? (lang === "ar" ? "معطِّل" : "Blocking") : high ? (lang === "ar" ? "أولوية عالية" : "High priority") : undefined}
+        />
+        <div className="px-5 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill tone={a.blocking ? "danger" : "attention"}>
+              {a.blocking ? <ShieldAlert className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+              {TYPE_KEY[a.type] ? t(TYPE_KEY[a.type] as never) : humanize(a.type)}
+            </StatusPill>
+            <StatusPill tone="muted">{t(SOURCE_KEY[a.source] as never)}</StatusPill>
+            <StatusPill tone={high ? "attention" : "muted"}>
+              {t("label_tier" as never)} {a.priority}
+            </StatusPill>
+            {a.status === "blocked" ? (
+              <StatusPill tone="danger">
+                <Ban className="h-3 w-3" />
+                {t("acst_blocked" as never)}
+              </StatusPill>
+            ) : null}
+            {a.dueAt ? (
+              <span
+                className={`num inline-flex items-center gap-1 text-[11px] ${overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}
+                data-tabular="true"
+              >
+                {overdue ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
+                {overdue ? t("urgency_overdue" as never) : t("ac_due" as never)}: {a.dueAt}
+              </span>
+            ) : null}
+          </div>
+
+          <Link to={a.href as never} className="mt-1.5 block truncate text-[13px] font-medium text-foreground hover:underline">
+            {a.title}
+          </Link>
+
+          {/* Why this is on the list — required by PRD §2. */}
+          {a.reason ? (
+            <div className="mt-1 text-[12px] text-muted-foreground">
+              <span className="text-amber-light">{t("ac_why" as never)}:</span> {a.reason}
+            </div>
+          ) : null}
+          {a.context && a.context !== a.reason ? (
+            <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{a.context}</div>
+          ) : null}
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            {t("ac_owner" as never)}: {ownerName ?? t("ac_unassigned" as never)}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 pe-4">
+          {actionable ? (
+            <>
+              {a.status === "open" ? (
+                <button
+                  onClick={onStart}
+                  aria-label={t("ac_start" as never)}
+                  title={t("ac_start" as never)}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                >
+                  <PlayIcon className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+              <button
+                onClick={() => onDialog("complete")}
+                aria-label={t("ac_complete" as never)}
+                title={t("ac_complete" as never)}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-won/40 bg-won/10 text-won transition-colors duration-150 hover:bg-won/[0.16]"
+              >
+                <CheckIcon className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onDialog("escalate")}
+                aria-label={t("ac_escalate" as never)}
+                title={t("ac_escalate" as never)}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+              >
+                <ArrowUpCircle className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onDialog("block")}
+                aria-label={t("ac_block" as never)}
+                title={t("ac_block" as never)}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+              >
+                <PauseCircle className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onDialog("dismiss")}
+                aria-label={t("ac_dismiss" as never)}
+                title={t("ac_dismiss" as never)}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+              >
+                <XIcon className="h-3.5 w-3.5" />
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+export { ACTIVE_FLAG_STATUSES, QUEUE_ACTION_TYPES, type QueueActionType };

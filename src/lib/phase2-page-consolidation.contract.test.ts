@@ -6,6 +6,7 @@ import { test, expect } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { actionHref } from "@/lib/action-center";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "../..");
@@ -80,8 +81,17 @@ test("command palette no longer lists /rfq-jih or /boq as separate destinations"
   expect(source).toMatch(/to: "\/quotations"/);
 });
 
+// Phase 4 moved this mapping out of the page and into the shared action
+// projection (src/lib/action-center.ts). Assert the behaviour rather than the
+// file it happens to live in, so the next refactor does not fail a test that is
+// really still passing.
 test("action-center routes 'rfq' related-items to /quotations, not the retired /rfq-jih", () => {
-  const source = read("src/routes/_authenticated/action-center.tsx");
-  expect(source).toMatch(/rfq: "\/quotations"/);
-  expect(source).not.toMatch(/rfq: "\/rfq-jih"/);
+  expect(actionHref("rfq", "any-id")).toBe("/quotations");
+  expect(actionHref("quotation", "any-id")).toBe("/quotations");
+
+  // and nothing in either file still points at the retired routes
+  for (const f of ["src/routes/_authenticated/action-center.tsx", "src/lib/action-center.ts"]) {
+    expect(read(f)).not.toMatch(/"\/rfq-jih"/);
+    expect(read(f)).not.toMatch(/"\/boq"/);
+  }
 });

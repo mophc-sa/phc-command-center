@@ -12,6 +12,7 @@ import { resolveCanonicalStage, CANONICAL_ACTIVE_STAGES } from "@/lib/stage-cano
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { TodayPanel } from "@/components/phc/TodayPanel";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -148,8 +149,18 @@ const PIPELINE_STAGES: Array<{
 function WorkspacePage() {
   const { user, roles } = useAuth();
   const uid = user?.id ?? "";
-  if (isSalesperson(roles)) return <SalespersonDashboard uid={uid} user={user} />;
-  return <ExistingWorkspaceContent uid={uid} user={user} />;
+  // Phase 4: every role opens on the same question — what needs me today —
+  // then falls through to the dashboard their role already had.
+  return (
+    <>
+      <TodayPanel uid={uid} />
+      {isSalesperson(roles) ? (
+        <SalespersonDashboard uid={uid} user={user} />
+      ) : (
+        <ExistingWorkspaceContent uid={uid} user={user} />
+      )}
+    </>
+  );
 }
 
 // ─── Salesperson Dashboard ────────────────────────────────────────────────────

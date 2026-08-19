@@ -7,6 +7,7 @@ import { canViewSalesAdmin, canCreateSalesRecords, ALL_ROLES, type AppRole } fro
 import { usePinnedRecords, type PinnedRecord } from "@/hooks/usePinnedRecords";
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
+import { badgeLabel, unreadCount } from "@/lib/notifications";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { requiresMfa } from "@/lib/roles";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
@@ -240,7 +241,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [newIntakeOpen, setNewIntakeOpen] = useState(false);
 
   const { data: notifItems = [] } = useNotifications();
-  const notifCount = notifItems.length;
+  // Badge on UNREAD, not on total. Before Phase 4 the bell counted every
+  // currently-open item, so it never reached zero and stopped meaning anything.
+  const notifCount = unreadCount(notifItems);
 
   const isOnAdminRoute = ADMIN_ROUTE_PREFIXES.some((prefix) => path.startsWith(prefix));
   const [adminOpen, setAdminOpen] = useState(() => canAdmin || isOnAdminRoute);
@@ -650,8 +653,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {notifCount > 0 && (
                   <span
                     aria-hidden="true"
-                    className="absolute end-1 top-1 h-1.5 w-1.5 rounded-full bg-amber"
-                  />
+                    className="num absolute -end-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-amber px-1 text-[9px] font-semibold leading-none text-black"
+                  >
+                    {badgeLabel(notifCount)}
+                  </span>
                 )}
               </button>
             </div>

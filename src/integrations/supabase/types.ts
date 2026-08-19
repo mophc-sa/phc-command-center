@@ -2978,6 +2978,60 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          dedupe_key: string
+          dismissed_at: string | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          metadata: Json | null
+          notification_type: string
+          read_at: string | null
+          recipient_user_id: string
+          severity: string
+          source_event: string
+          source_event_id: string | null
+          title: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          dedupe_key: string
+          dismissed_at?: string | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          notification_type: string
+          read_at?: string | null
+          recipient_user_id: string
+          severity?: string
+          source_event: string
+          source_event_id?: string | null
+          title: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          dedupe_key?: string
+          dismissed_at?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          notification_type?: string
+          read_at?: string | null
+          recipient_user_id?: string
+          severity?: string
+          source_event?: string
+          source_event_id?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       operations_handovers: {
         Row: {
           approved_value: number | null
@@ -4915,6 +4969,7 @@ export type Database = {
           request_trace_id: string
         }[]
       }
+      dismiss_notification: { Args: { _id: string }; Returns: boolean }
       execute_approved_record_delete: {
         Args: { _actor_id: string; _approval_id: string }
         Returns: Json
@@ -4938,6 +4993,8 @@ export type Database = {
       is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_sales_contributor: { Args: { _user_id: string }; Returns: boolean }
+      mark_all_notifications_read: { Args: never; Returns: number }
+      mark_notifications_read: { Args: { _ids: string[] }; Returns: number }
       match_knowledge: {
         Args: {
           filter_source_type?: string

@@ -459,10 +459,30 @@ Old tenders are not allowed to sit active forever.
 | Page | Use it for |
 |---|---|
 | **Command Center** `/command-center` | Org-wide executive view. Pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention. |
-| **My Workspace** `/my-workspace` | Your personal command centre. Target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups, urgent submissions, awarded / final negotiation / verbally awarded panels. **A salesperson's home base.** |
-| **Action Required** `/action-center` | Your work queue. Every automated flag raised against your records. Managers also get the **Run Automations** button here. |
-| **Approvals** `/approvals` | The decision desk. Verbal award, contract, won, BAFO, deletion, sure-win requests. |
-| **Notifications** (bell) | Opens the drawer, not a page. |
+| **My Workspace** `/my-workspace` | Your personal command centre. Opens with **What needs you today** — one ranked list of your highest-priority work drawn from every queue. Below it, the dashboard your role already had: target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups and submissions. **A salesperson's home base.** |
+| **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
+| **Approvals** `/approvals` | One decision desk for all three approval workflows: **intake review**, the **BAFO chain** (showing which of the four steps is waiting and on which role), and record approvals — verbal award, contract, won, deletion, sure-win. |
+| **Notifications** (bell) | Opens the drawer, not a page. Shows **what happened**: unread count on the bell, mark-one/mark-all read, dismiss, and a deep link to the record. Distinct from actions — see Section 7b. |
+
+### 7b. Actions vs notifications — they are not the same thing
+
+The two are easy to confuse, and the system treats them differently on purpose.
+
+| | Action | Notification |
+|---|---|---|
+| Answers | *What do I need to do?* | *What happened?* |
+| Lives in | Action Center, My Workspace | The bell drawer |
+| Lifecycle | Open → in progress → done / dismissed | Unread → read → dismissed |
+| Disappears when | The underlying work is finished | You read or dismiss it |
+
+**You will not be notified twice about the same thing.** A notification is raised
+once per *occurrence*, not once per day. An item that stays overdue for a month
+notifies you the day it goes late and then stays quiet. You get a fresh one only
+when something genuinely changes: a new stage, a new decision, a new assignee, a
+resubmission, or a due date that moved and then passed again.
+
+You are also never notified about your own action — moving your own opportunity
+to the next stage does not ping you about it.
 
 ### Sales — المبيعات
 
@@ -727,6 +747,9 @@ Listed so nobody works around a problem that no longer exists:
 | A System Administrator could approve all four BAFO steps alone | Fixed — each step needs its own business role, enforced in the database |
 | Nothing reviewed a request before it entered the pipeline | Fixed — Opportunity Review gates every request, enforced in the database |
 | Picking **JIH BAFO** or **Contract Signed** failed with an error | Fixed — the server rejected two stages the screen offered; both are reachable now |
+| Action Center showed only automation flags — tasks, follow-ups, approvals and intake reviews were invisible there | Fixed — one queue over all five sources, with Mine / Team / overdue / priority filters |
+| Approvals showed only record approvals; intake reviews and BAFO steps lived elsewhere | Fixed — one decision desk covering all three workflows |
+| The bell counted every open item, so it never reached zero and stopped meaning anything | Fixed — it counts **unread** notifications, and you can mark read or dismiss |
 
 ---
 
@@ -738,6 +761,8 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-18, branch `feat/phase-3-execution` (base `main` @ `7ddf0de`).
-Behaviour verified against source, the test suite, and a live authenticated browser pass (Phase 1 navigation, 14/14). The Phase 2 review gate is verified by tests and a database behaviour suite; its migration is not yet applied to production — see Section 10.
+*Reflects the system as at 2026-08-19, branch `feat/phase-4-workspace-actions-notifications` (base `main` @ `9e5cda7`).
+Behaviour verified against source, the test suite (969 passing), and a database behaviour suite run against a throwaway Postgres with all 105 migrations applied (25/25 notification checks, including RLS recipient isolation and deduplication).
+
+**Phase 4 is not yet live.** The notifications table and its triggers exist only as a local migration; nothing in Section 7's notification behaviour is active in production until that migration is applied and the frontend is deployed — in that order. The Action Center, Approvals and My Workspace changes are code-only and ship with the same deploy.
 Update this file when the workflow changes.*
