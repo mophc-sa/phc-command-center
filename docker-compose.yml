@@ -1,5 +1,8 @@
+name: phc-command-center
+
 services:
   app:
+    container_name: phc-command-center-app
     build: .
     ports:
       - "8080:8080"
