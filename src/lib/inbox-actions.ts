@@ -723,6 +723,20 @@ export async function approveIntakeForPricing(id: Uuid): Promise<IntakeRouteResu
 
   if (track === "jih") {
     const res = await convertInboxToRfq(id, {});
+    // "Approve for Pricing" is the natural entry into the commercial pricing
+    // cycle (PRD §19-20) — the decision is literally "this is ready to be
+    // priced". The opportunity therefore starts at `with_commercial` rather
+    // than the `with_sales` default.
+    //
+    // This, not Won, is where the file moves to Commercial. Won is the far end
+    // of the deal and leaves the pricing cycle alone.
+    await supabase
+      .from("opportunities")
+      .update({
+        commercial_handoff_status: "with_commercial",
+        commercial_handoff_at: new Date().toISOString(),
+      })
+      .eq("id", res.opportunityId);
     return { routed: "rfq", inboxItemId: id, opportunityId: res.opportunityId, rfqId: res.rfqId };
   }
   if (track === "tender") {

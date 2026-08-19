@@ -330,10 +330,18 @@ export async function applySalesStage(
   }
   if (toStage === "won") {
     patch.stage = "won";
+    // PRD §47-48: only Won enters the official awarded figure and the target,
+    // and Won starts the PROJECT handover — a different track entirely.
     patch.handover_status = "pending";
-    // PRD §47: only Won enters the official awarded figure and the target.
-    // The handoff leaves Sales at the same moment.
-    patch.commercial_handoff_status = "with_commercial";
+    // commercial_handoff_status is deliberately NOT touched here.
+    //
+    // An earlier version of this set it to "with_commercial" on Won. That was
+    // wrong: commercial_handoff_status models the PRICING cycle that runs
+    // BEFORE a deal is won (with_sales -> ... -> submitted -> waiting_client).
+    // Setting it on Won pushed a closed deal back into the pricing queue and
+    // made "waiting on Commercial to price it" indistinguishable from "already
+    // sold". Won is a Sales outcome; what happens after it is the project
+    // handover above, and the Contract / Project Handover phase owns that.
   }
   if (toStage === "lost") {
     patch.stage = "lost";

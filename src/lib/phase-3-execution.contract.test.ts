@@ -128,10 +128,38 @@ describe("commercial handoff is independent of the sales stage", () => {
     expect(MIG).not.toMatch(/sales_stage\s*=\s*commercial_handoff/);
   });
 
-  test("winning a deal hands the file to Commercial", () => {
+  // The handoff models the PRICING cycle, which runs BEFORE a deal is won.
+  // An earlier version of this phase set it to "with_commercial" on Won,
+  // which pushed a closed deal back into the pricing queue and made "waiting
+  // for Commercial to price it" indistinguishable from "already sold".
+  test("Won does NOT move the file into the commercial pricing cycle", () => {
     const apply = SHARED.slice(SHARED.indexOf("export async function applySalesStage"));
     const won = apply.slice(apply.indexOf('toStage === "won"'), apply.indexOf('toStage === "lost"'));
-    expect(won).toContain('commercial_handoff_status = "with_commercial"');
+    // Only the comment may mention it; no assignment may.
+    const code = won.replace(/\/\/.*$/gm, "");
+    expect(code).not.toMatch(/commercial_handoff_status\s*=/);
+    expect(code).not.toMatch(/commercial_handoff_status\s*:/);
+  });
+
+  test("Won starts the PROJECT handover instead — a different track", () => {
+    const apply = SHARED.slice(SHARED.indexOf("export async function applySalesStage"));
+    const won = apply.slice(apply.indexOf('toStage === "won"'), apply.indexOf('toStage === "lost"'));
+    expect(won).toContain('handover_status = "pending"');
+  });
+
+  test("no sales stage anywhere writes the pricing handoff", () => {
+    // The pricing cycle is driven by the review decision and by Commercial,
+    // never as a side effect of moving through the sales pipeline.
+    const apply = SHARED.slice(SHARED.indexOf("export async function applySalesStage"));
+    const code = apply.slice(0, apply.indexOf("const { error }")).replace(/\/\/.*$/gm, "");
+    expect(code).not.toContain("commercial_handoff_status");
+  });
+
+  test("Approve for Pricing is what moves the file to Commercial", () => {
+    const inbox = read("src/lib/inbox-actions.ts");
+    const fn = inbox.slice(inbox.indexOf("export async function approveIntakeForPricing"));
+    const body = fn.slice(0, fn.indexOf("export async function requestIntakeInformation"));
+    expect(body).toContain('commercial_handoff_status: "with_commercial"');
   });
 });
 
