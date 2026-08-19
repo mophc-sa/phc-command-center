@@ -3037,9 +3037,14 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           client: string | null
+          commercial_handoff_at: string | null
+          commercial_handoff_by: string | null
+          commercial_handoff_note: string | null
+          commercial_handoff_status: string
           company_id: string | null
           contract_received_date: string | null
           contract_reference_number: string | null
+          contract_signed_date: string | null
           contract_value: number | null
           contractor_decision_maker: string | null
           created_at: string
@@ -3057,11 +3062,17 @@ export type Database = {
           handover_status: Database["public"]["Enums"]["handover_status"] | null
           hold_reason: string | null
           hold_review_date: string | null
+          human_probability_at: string | null
+          human_probability_by: string | null
+          human_probability_reason: string | null
+          human_win_probability: number | null
           id: string
           last_activity_at: string | null
           location: string | null
           loss_notes: string | null
           loss_reason: string | null
+          lost_at_stage: string | null
+          lost_to_competitor: string | null
           main_contractor: string | null
           main_contractor_confirmed: boolean
           main_contractor_id: string | null
@@ -3098,6 +3109,7 @@ export type Database = {
           signage_package_confidence: Database["public"]["Enums"]["confidence_level"]
           signage_package_status: Database["public"]["Enums"]["signage_package_status"]
           source_confidence: Database["public"]["Enums"]["confidence_level"]
+          source_tender_id: string | null
           stage: Database["public"]["Enums"]["opportunity_stage"]
           strategic_value: string | null
           technical_notes: string | null
@@ -3118,9 +3130,14 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           client?: string | null
+          commercial_handoff_at?: string | null
+          commercial_handoff_by?: string | null
+          commercial_handoff_note?: string | null
+          commercial_handoff_status?: string
           company_id?: string | null
           contract_received_date?: string | null
           contract_reference_number?: string | null
+          contract_signed_date?: string | null
           contract_value?: number | null
           contractor_decision_maker?: string | null
           created_at?: string
@@ -3140,11 +3157,17 @@ export type Database = {
             | null
           hold_reason?: string | null
           hold_review_date?: string | null
+          human_probability_at?: string | null
+          human_probability_by?: string | null
+          human_probability_reason?: string | null
+          human_win_probability?: number | null
           id?: string
           last_activity_at?: string | null
           location?: string | null
           loss_notes?: string | null
           loss_reason?: string | null
+          lost_at_stage?: string | null
+          lost_to_competitor?: string | null
           main_contractor?: string | null
           main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
@@ -3181,6 +3204,7 @@ export type Database = {
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
           source_confidence?: Database["public"]["Enums"]["confidence_level"]
+          source_tender_id?: string | null
           stage?: Database["public"]["Enums"]["opportunity_stage"]
           strategic_value?: string | null
           technical_notes?: string | null
@@ -3201,9 +3225,14 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           client?: string | null
+          commercial_handoff_at?: string | null
+          commercial_handoff_by?: string | null
+          commercial_handoff_note?: string | null
+          commercial_handoff_status?: string
           company_id?: string | null
           contract_received_date?: string | null
           contract_reference_number?: string | null
+          contract_signed_date?: string | null
           contract_value?: number | null
           contractor_decision_maker?: string | null
           created_at?: string
@@ -3223,11 +3252,17 @@ export type Database = {
             | null
           hold_reason?: string | null
           hold_review_date?: string | null
+          human_probability_at?: string | null
+          human_probability_by?: string | null
+          human_probability_reason?: string | null
+          human_win_probability?: number | null
           id?: string
           last_activity_at?: string | null
           location?: string | null
           loss_notes?: string | null
           loss_reason?: string | null
+          lost_at_stage?: string | null
+          lost_to_competitor?: string | null
           main_contractor?: string | null
           main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
@@ -3264,6 +3299,7 @@ export type Database = {
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
           source_confidence?: Database["public"]["Enums"]["confidence_level"]
+          source_tender_id?: string | null
           stage?: Database["public"]["Enums"]["opportunity_stage"]
           strategic_value?: string | null
           technical_notes?: string | null
@@ -3296,6 +3332,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_source_tender_id_fkey"
+            columns: ["source_tender_id"]
+            isOneToOne: false
+            referencedRelation: "tenders"
             referencedColumns: ["id"]
           },
         ]
@@ -4542,6 +4585,8 @@ export type Database = {
           award_evidence: string | null
           below_300k_exception_approval_id: string | null
           contact_plan_ready: boolean
+          contractor_award_date: string | null
+          contractor_award_evidence: string | null
           conversion_reason: string | null
           converted_opportunity_id: string | null
           created_at: string
@@ -4569,7 +4614,10 @@ export type Database = {
             | Database["public"]["Enums"]["priority_tier"]
             | null
           tender_stage: Database["public"]["Enums"]["tender_stage"]
+          tender_subtype: string | null
           updated_at: string
+          winning_contractor_id: string | null
+          winning_contractor_name: string | null
         }
         Insert: {
           archive_reason?: string | null
@@ -4578,6 +4626,8 @@ export type Database = {
           award_evidence?: string | null
           below_300k_exception_approval_id?: string | null
           contact_plan_ready?: boolean
+          contractor_award_date?: string | null
+          contractor_award_evidence?: string | null
           conversion_reason?: string | null
           converted_opportunity_id?: string | null
           created_at?: string
@@ -4605,7 +4655,10 @@ export type Database = {
             | Database["public"]["Enums"]["priority_tier"]
             | null
           tender_stage?: Database["public"]["Enums"]["tender_stage"]
+          tender_subtype?: string | null
           updated_at?: string
+          winning_contractor_id?: string | null
+          winning_contractor_name?: string | null
         }
         Update: {
           archive_reason?: string | null
@@ -4614,6 +4667,8 @@ export type Database = {
           award_evidence?: string | null
           below_300k_exception_approval_id?: string | null
           contact_plan_ready?: boolean
+          contractor_award_date?: string | null
+          contractor_award_evidence?: string | null
           conversion_reason?: string | null
           converted_opportunity_id?: string | null
           created_at?: string
@@ -4641,7 +4696,10 @@ export type Database = {
             | Database["public"]["Enums"]["priority_tier"]
             | null
           tender_stage?: Database["public"]["Enums"]["tender_stage"]
+          tender_subtype?: string | null
           updated_at?: string
+          winning_contractor_id?: string | null
+          winning_contractor_name?: string | null
         }
         Relationships: [
           {
@@ -4670,6 +4728,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenders_winning_contractor_id_fkey"
+            columns: ["winning_contractor_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
