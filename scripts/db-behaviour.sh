@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # Replay every migration into a throwaway Postgres, then run the behavioural
-# suites in supabase/tests/behaviour/.
+# suites in tests/db-behaviour/.
 #
 # WHY THIS EXISTS
 # Static reading of a migration cannot tell you whether a trigger fires, whether
@@ -133,8 +133,8 @@ run_suite() {
 }
 
 # Order matters: the RLS suite reads rows the notifications suite created.
-run_suite supabase/tests/behaviour/phase4_notifications.sql run
-run_suite supabase/tests/behaviour/phase4_notifications_rls.sql run
+run_suite tests/db-behaviour/phase4_notifications.sql run
+run_suite tests/db-behaviour/phase4_notifications_rls.sql run
 
 # The overdue suite needs its own fixtures and a database without the rows the
 # suites above inserted, so give it a fresh replay.
@@ -166,7 +166,7 @@ for f in supabase/migrations/*.sql; do
   psql_ -d phc -q -v ON_ERROR_STOP=1 --single-transaction < "$f" >/dev/null 2>&1 || {
     echo "✗ replay failed on $(basename "$f")"; exit 1; }
 done
-run_suite supabase/tests/behaviour/phase4_overdue_automation.sql run
+run_suite tests/db-behaviour/phase4_overdue_automation.sql run
 
 echo ""
 echo "─────────────────────────────────────────"

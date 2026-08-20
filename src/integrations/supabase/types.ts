@@ -4973,6 +4973,36 @@ export type Database = {
         }[]
       }
       dismiss_notification: { Args: { _id: string }; Returns: boolean }
+      emit_notification: {
+        Args: {
+          _body: string
+          _dedupe_key: string
+          _entity_id: string
+          _entity_type: string
+          _metadata?: Json
+          _recipient: string
+          _severity: string
+          _source_event: string
+          _title: string
+          _type: string
+        }
+        Returns: string
+      }
+      emit_notification_to_roles: {
+        Args: {
+          _body: string
+          _dedupe_key: string
+          _entity_id: string
+          _entity_type: string
+          _metadata?: Json
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _severity: string
+          _source_event: string
+          _title: string
+          _type: string
+        }
+        Returns: number
+      }
       execute_approved_record_delete: {
         Args: { _actor_id: string; _approval_id: string }
         Returns: Json
@@ -5013,6 +5043,7 @@ export type Database = {
           title: string
         }[]
       }
+      notify_overdue_items: { Args: never; Returns: number }
       run_sales_automations: {
         Args: { _trigger?: string }
         Returns: {
@@ -5678,6 +5709,7 @@ export const Constants = {
         "no_next_action",
         "inactive_tier_a_opportunity",
         "contract_evidence_missing",
+        "submission_pending_on",
       ],
       quotation_status: [
         "draft",
