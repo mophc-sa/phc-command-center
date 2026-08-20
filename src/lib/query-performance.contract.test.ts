@@ -106,3 +106,38 @@ describe("sidebar selection is legible", () => {
     expect(styles).toMatch(/--sidebar-accent:\s*oklch\(1 0 0\)/);
   });
 });
+
+// ─── Freshness must survive the caching change ───────────────────────────────
+// Raising staleTime to 60s removed the safety net that a 0 staleTime provided:
+// every page used to refetch on mount, so a query key nobody invalidated still
+// came back fresh. Roughly a dozen keys read the opportunities table under
+// different names, so the state changes visible on more than one screen now
+// have to invalidate broadly or a user's own edit could sit hidden for a minute.
+
+describe("mutations still show the user their own change", () => {
+  const readFile = (p: string) => readFileSync(join(root, p), "utf8");
+
+  it("the broad-invalidation helper exists and invalidates everything", () => {
+    const s = readFile("src/lib/invalidate-sales.ts");
+    expect(s).toMatch(/qc\.invalidateQueries\(\)/);
+    expect(s).toContain("staleTime");
+  });
+
+  // These four are the paths whose result is visible on other pages: stage
+  // advance, RFQ→JIH conversion, approval decisions and intake approval.
+  for (const [label, path] of [
+    ["stage advance / RFQ conversion", "src/components/phc/pipeline/RfqJihPanel.tsx"],
+    ["approval decisions", "src/routes/_authenticated/approvals.tsx"],
+    ["intake approval", "src/components/phc/IntakeReviewPanel.tsx"],
+    ["opportunity detail actions", "src/routes/_authenticated/opportunities.$id.tsx"],
+  ] as const) {
+    it(`${label} invalidates across pages`, () => {
+      expect(readFile(path)).toContain("invalidateSalesData");
+    });
+  }
+
+  it("the opportunity page keeps its granular per-record invalidation too", () => {
+    const s = readFile("src/routes/_authenticated/opportunities.$id.tsx");
+    expect(s).toContain('queryKey: ["opp", id]');
+  });
+});

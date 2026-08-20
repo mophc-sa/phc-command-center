@@ -11,6 +11,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
+import { invalidateSalesData } from "@/lib/invalidate-sales";
 import { decideApproval } from "@/lib/opportunity-actions";
 import { decideBafoStep } from "@/lib/bafo-actions";
 import { approveIntakeForPricing, rejectIntake, requestIntakeInformation } from "@/lib/inbox-actions";
@@ -126,10 +127,9 @@ function ApprovalsPage() {
   );
 
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["approvals-unified"] });
-    qc.invalidateQueries({ queryKey: ["unified-actions"] });
-    qc.invalidateQueries({ queryKey: ["notifications"] });
-    qc.invalidateQueries({ queryKey: ["cc-metrics"] });
+    // An approval decision moves stages, handoff state and notifications, which
+    // are read under a dozen different keys across the app.
+    invalidateSalesData(qc);
   };
 
   async function submitDecision(values: Record<string, string>) {

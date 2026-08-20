@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { updateRfqDetails } from "@/lib/rfq-actions";
+import { invalidateSalesData } from "@/lib/invalidate-sales";
 import { useI18n, formatCurrency, formatNumber, type Lang } from "@/lib/i18n";
 import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
@@ -262,6 +263,10 @@ function OpportunityDetail() {
     qc.invalidateQueries({ queryKey: ["opp-discussion", id] });
     qc.invalidateQueries({ queryKey: ["opp-contracts", id] });
     qc.invalidateQueries({ queryKey: ["cc-metrics"] });
+    // The keys above cover this record's own panels. A stage or approval change
+    // here is also visible on Opportunities, Command Center and My Workspace,
+    // which read the same rows under different keys.
+    invalidateSalesData(qc);
     qc.invalidateQueries({ queryKey: ["all-followups"] });
     qc.invalidateQueries({ queryKey: ["approvals"] });
   };
