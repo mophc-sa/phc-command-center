@@ -29,6 +29,11 @@ export const QUEUE_ACTION_TYPES: QueueActionType[] = [
   "follow_up_due", "follow_up_overdue", "missing_data", "rfq_review_needed",
   "tender_review_needed", "approval_needed", "quotation_follow_up", "no_next_action",
   "inactive_tier_a_opportunity", "contract_evidence_missing",
+  // Added by 20260806140000's rule 12, but the enum value it needs was only
+  // added in 20260819110000 — the gap that broke the nightly automation run
+  // for a fortnight. queue-action-types.contract.test.ts now pins the two
+  // together so the same drift cannot recur.
+  "submission_pending_on",
 ];
 
 // Active (not-yet-terminal) statuses a queue item can be worked from.

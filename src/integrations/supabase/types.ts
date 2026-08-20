@@ -753,6 +753,7 @@ export type Database = {
           error: string | null
           finished_at: string | null
           id: string
+          notified: number | null
           raised: number | null
           started_at: string
           trigger: string
@@ -761,6 +762,7 @@ export type Database = {
           error?: string | null
           finished_at?: string | null
           id?: string
+          notified?: number | null
           raised?: number | null
           started_at?: string
           trigger?: string
@@ -769,6 +771,7 @@ export type Database = {
           error?: string | null
           finished_at?: string | null
           id?: string
+          notified?: number | null
           raised?: number | null
           started_at?: string
           trigger?: string
@@ -2978,6 +2981,60 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          dedupe_key: string
+          dismissed_at: string | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          metadata: Json | null
+          notification_type: string
+          read_at: string | null
+          recipient_user_id: string
+          severity: string
+          source_event: string
+          source_event_id: string | null
+          title: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          dedupe_key: string
+          dismissed_at?: string | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          notification_type: string
+          read_at?: string | null
+          recipient_user_id: string
+          severity?: string
+          source_event: string
+          source_event_id?: string | null
+          title: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          dedupe_key?: string
+          dismissed_at?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          notification_type?: string
+          read_at?: string | null
+          recipient_user_id?: string
+          severity?: string
+          source_event?: string
+          source_event_id?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       operations_handovers: {
         Row: {
           approved_value: number | null
@@ -4915,6 +4972,37 @@ export type Database = {
           request_trace_id: string
         }[]
       }
+      dismiss_notification: { Args: { _id: string }; Returns: boolean }
+      emit_notification: {
+        Args: {
+          _body: string
+          _dedupe_key: string
+          _entity_id: string
+          _entity_type: string
+          _metadata?: Json
+          _recipient: string
+          _severity: string
+          _source_event: string
+          _title: string
+          _type: string
+        }
+        Returns: string
+      }
+      emit_notification_to_roles: {
+        Args: {
+          _body: string
+          _dedupe_key: string
+          _entity_id: string
+          _entity_type: string
+          _metadata?: Json
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _severity: string
+          _source_event: string
+          _title: string
+          _type: string
+        }
+        Returns: number
+      }
       execute_approved_record_delete: {
         Args: { _actor_id: string; _approval_id: string }
         Returns: Json
@@ -4938,6 +5026,8 @@ export type Database = {
       is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_sales_contributor: { Args: { _user_id: string }; Returns: boolean }
+      mark_all_notifications_read: { Args: never; Returns: number }
+      mark_notifications_read: { Args: { _ids: string[] }; Returns: number }
       match_knowledge: {
         Args: {
           filter_source_type?: string
@@ -4953,6 +5043,7 @@ export type Database = {
           title: string
         }[]
       }
+      notify_overdue_items: { Args: never; Returns: number }
       run_sales_automations: {
         Args: { _trigger?: string }
         Returns: {
@@ -5187,6 +5278,7 @@ export type Database = {
         | "no_next_action"
         | "inactive_tier_a_opportunity"
         | "contract_evidence_missing"
+        | "submission_pending_on"
       quotation_status:
         | "draft"
         | "under_internal_review"
@@ -5617,6 +5709,7 @@ export const Constants = {
         "no_next_action",
         "inactive_tier_a_opportunity",
         "contract_evidence_missing",
+        "submission_pending_on",
       ],
       quotation_status: [
         "draft",
