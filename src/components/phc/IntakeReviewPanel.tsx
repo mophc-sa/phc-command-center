@@ -24,6 +24,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { useI18n } from "@/lib/i18n";
+import { invalidateSalesData } from "@/lib/invalidate-sales";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canReviewIntake } from "@/lib/roles";
 import { listTeamMembers } from "@/lib/opportunity-actions";
@@ -73,9 +74,10 @@ export function IntakeReviewPanel() {
   });
 
   const refresh = () => {
-    for (const k of ["intake-review-queue", "inbox-items", "opportunities", "tenders", "cc-core"]) {
-      qc.invalidateQueries({ queryKey: [k] });
-    }
+    // Approving intake for pricing creates an opportunity and moves handoff
+    // state, which is read under keys this list does not name (opps, ws-*,
+    // unified-actions, today-panel).
+    invalidateSalesData(qc);
   };
 
   async function run(id: string, fn: () => Promise<unknown>, okMessage: string) {

@@ -16,6 +16,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
+import { invalidateSalesData } from "@/lib/invalidate-sales";
 import { convertRfqToJih } from "@/lib/rfq-actions";
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import {
@@ -119,8 +120,11 @@ export function RfqJihPanel() {
   });
 
   const refresh = () => {
-    qc.invalidateQueries({ queryKey: ["rfqs-open"] });
-    qc.invalidateQueries({ queryKey: ["opps-sales-stage"] });
+    // Stage advances and RFQ→JIH conversions change what Opportunities, Command
+    // Center, My Workspace and the Action Center all show, and each reads the
+    // opportunities table under a different query key. Invalidate broadly so a
+    // 60s staleTime cannot leave another page showing the old stage.
+    invalidateSalesData(qc);
   };
 
   const rfqValue = rfqs.reduce((s: number, r: any) => s + (r.estimated_value ?? 0), 0);

@@ -341,8 +341,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         onClick={() => setMobileOpen(false)}
         className={cn(
           "group relative flex items-center gap-3 rounded-full px-3 py-[7px] text-[13px] transition-all duration-150",
+          // Selected = solid black pill, white label. This was
+          // bg-sidebar-accent, which is pure white — on a near-white sidebar the
+          // current page was effectively unmarked.
           active
-            ? "bg-sidebar-accent text-foreground shadow-sm"
+            ? "bg-sidebar-active text-sidebar-active-foreground shadow-sm"
             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
         )}
       >
@@ -350,7 +353,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           className={cn(
             "h-[15px] w-[15px] shrink-0 transition-colors",
             active
-              ? "text-foreground"
+              ? "text-sidebar-active-foreground"
               : "text-muted-foreground/80 group-hover:text-foreground",
           )}
           strokeWidth={1.75}
