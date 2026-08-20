@@ -753,6 +753,7 @@ export type Database = {
           error: string | null
           finished_at: string | null
           id: string
+          notified: number | null
           raised: number | null
           started_at: string
           trigger: string
@@ -761,6 +762,7 @@ export type Database = {
           error?: string | null
           finished_at?: string | null
           id?: string
+          notified?: number | null
           raised?: number | null
           started_at?: string
           trigger?: string
@@ -769,6 +771,7 @@ export type Database = {
           error?: string | null
           finished_at?: string | null
           id?: string
+          notified?: number | null
           raised?: number | null
           started_at?: string
           trigger?: string
@@ -5244,6 +5247,7 @@ export type Database = {
         | "no_next_action"
         | "inactive_tier_a_opportunity"
         | "contract_evidence_missing"
+        | "submission_pending_on"
       quotation_status:
         | "draft"
         | "under_internal_review"

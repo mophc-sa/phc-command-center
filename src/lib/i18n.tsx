@@ -198,6 +198,7 @@ export const strings = {
   acty_no_next_action: { en: "No Next Action", ar: "بلا إجراء تالٍ" },
   acty_inactive_tier_a_opportunity: { en: "Inactive Tier A Opportunity", ar: "فرصة طبقة أ خاملة" },
   acty_contract_evidence_missing: { en: "Contract Evidence Missing", ar: "دليل عقد ناقص" },
+  acty_submission_pending_on: { en: "Submission waiting on you", ar: "تسليم بانتظارك" },
 
   // Sales Action Queue — related record type labels
   acrt_opportunity: { en: "Opportunity", ar: "فرصة" },

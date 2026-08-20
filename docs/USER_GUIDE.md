@@ -484,6 +484,11 @@ resubmission, or a due date that moved and then passed again.
 You are also never notified about your own action — moving your own opportunity
 to the next stage does not ping you about it.
 
+**Overdue alerts** arrive from the nightly automation run (07:00 Riyadh), the same
+job that fills the Action Center. Only tier A and B items raise one — tier C would
+be noise — and only if they lapsed within the last week, so switching this on does
+not dredge up work that went late months ago.
+
 ### Sales — المبيعات
 
 Four destinations, and only four. As of **2026-08-12** this group is the whole of Sales.
@@ -750,6 +755,8 @@ Listed so nobody works around a problem that no longer exists:
 | Action Center showed only automation flags — tasks, follow-ups, approvals and intake reviews were invisible there | Fixed — one queue over all five sources, with Mine / Team / overdue / priority filters |
 | Approvals showed only record approvals; intake reviews and BAFO steps lived elsewhere | Fixed — one decision desk covering all three workflows |
 | The bell counted every open item, so it never reached zero and stopped meaning anything | Fixed — it counts **unread** notifications, and you can mark read or dismiss |
+| **The nightly automation stopped raising anything on 2026-08-07 and nobody noticed for two weeks** | Fixed — a rule referenced a flag type that was never added to the database, and the error rolled back the whole run. The Action Center's apparent quiet was a crash, not calm |
+| Nothing told you an important item had gone past its due date | Fixed — tier A/B items that lapse raise one notification, once |
 
 ---
 
@@ -761,8 +768,8 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-19, branch `feat/phase-4-workspace-actions-notifications` (base `main` @ `9e5cda7`).
-Behaviour verified against source, the test suite (969 passing), and a database behaviour suite run against a throwaway Postgres with all 105 migrations applied (25/25 notification checks, including RLS recipient isolation and deduplication).
+*Reflects the system as at 2026-08-20, branch `feat/phase-4-workspace-actions-notifications` (base `main` @ `9e5cda7`).
+Behaviour verified against source, the test suite (969 passing), and a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
 
 **Phase 4 is not yet live.** The notifications table and its triggers exist only as a local migration; nothing in Section 7's notification behaviour is active in production until that migration is applied and the frontend is deployed — in that order. The Action Center, Approvals and My Workspace changes are code-only and ship with the same deploy.
 Update this file when the workflow changes.*

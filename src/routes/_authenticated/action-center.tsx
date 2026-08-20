@@ -37,9 +37,6 @@ import {
   escalateAction,
   blockAction,
   runAutomations,
-  QUEUE_ACTION_TYPES,
-  ACTIVE_FLAG_STATUSES,
-  type QueueActionType,
 } from "@/lib/workflow-actions";
 import {
   canManageSalesPipeline,
@@ -78,6 +75,7 @@ const TYPE_KEY: Record<string, string> = {
   no_next_action: "acty_no_next_action",
   inactive_tier_a_opportunity: "acty_inactive_tier_a_opportunity",
   contract_evidence_missing: "acty_contract_evidence_missing",
+  submission_pending_on: "acty_submission_pending_on",
 };
 
 const SOURCE_KEY: Record<string, string> = {
@@ -551,4 +549,3 @@ function ActionRow({
   );
 }
 
-export { ACTIVE_FLAG_STATUSES, QUEUE_ACTION_TYPES, type QueueActionType };

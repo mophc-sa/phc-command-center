@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "test:e2e:readiness": "bun scripts/verify-e2e-env.ts && playwright test",
     "test:db": "supabase test db",
+    "test:db:behaviour": "bash scripts/db-behaviour.sh",
     "audit:deps": "bun audit --audit-level=high",
     "lint": "eslint .",
     "format": "prettier --write .",
