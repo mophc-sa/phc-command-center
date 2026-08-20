@@ -168,6 +168,7 @@ for f in supabase/migrations/*.sql; do
 done
 run_suite tests/db-behaviour/phase4_overdue_automation.sql run
 run_suite tests/db-behaviour/phase5_project_number_boq.sql run
+run_suite tests/db-behaviour/phase5_won_lost_timestamps.sql run
 
 echo ""
 echo "─────────────────────────────────────────"

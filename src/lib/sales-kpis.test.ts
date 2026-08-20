@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   concentrationBy,
+  wonUndated,
   customRange,
   DEFAULT_HEALTH,
   executiveKpis,
@@ -294,9 +295,13 @@ describe("period windows", () => {
     expect(k.value).toBe(10);
   });
 
-  it("warns when it had to fall back to updated_at", () => {
+  // The old implementation fell back to updated_at, so a deal won in March and
+  // re-saved in August reported as an August win. It now refuses to guess.
+  it("never uses updated_at as an award date", () => {
     const k = wonValue([opp({ sales_stage: "won", contract_value: 10, updated_at: "2026-08-05" })], MONTH);
-    expect(k.caveat).toContain("no recorded won transition");
+    expect(k.value).toBe(0);
+    expect(k.recordIds).toEqual([]);
+    expect(k.caveat).toContain("no recorded award date");
   });
 
   it("supports a custom range", () => {
@@ -479,7 +484,7 @@ describe("every KPI explains itself", () => {
   });
 
   it("states which date field bounded the period", () => {
-    expect(exec.wonValue.dateField).toContain("stage_transition_history");
+    expect(exec.wonValue.dateField).toContain("won_at");
     expect(exec.openPipeline.dateField).toBeNull();
   });
 });
@@ -525,5 +530,92 @@ describe("stage counts", () => {
     const k = stageCount([opp({ id: "a", sales_stage: "jih_bafo" }), opp({ sales_stage: "jih" })], SNAPSHOT, "jih_bafo");
     expect(k.value).toBe(1);
     expect(k.drilldown!.search).toEqual({ stage: "jih_bafo" });
+  });
+});
+
+
+// ─── Undated Won (PRD §6) ────────────────────────────────────────────────────
+// A deal closed before outcome-date tracking existed has no award date. It is
+// still Won — dropping it would understate the lifetime total — but it cannot
+// be placed in a month, and inventing one would corrupt every period
+// comparison. So it stays in the total, leaves the period, and is counted out
+// loud.
+
+describe("Won with no recorded award date", () => {
+  const rows: OppRow[] = [
+    opp({ id: "dated", sales_stage: "won", contract_value: 100, won_at: "2026-08-05" }),
+    opp({ id: "undated", sales_stage: "won", contract_value: 400, updated_at: "2026-08-05" }),
+  ];
+
+  it("counts toward the lifetime total", () => {
+    const k = wonValue(rows, SNAPSHOT);
+    expect(k.value).toBe(500);
+    expect(k.recordIds.sort()).toEqual(["dated", "undated"]);
+  });
+
+  it("is excluded from a date range rather than guessed into it", () => {
+    const k = wonValue(rows, MONTH);
+    expect(k.value).toBe(100);
+    expect(k.recordIds).toEqual(["dated"]);
+  });
+
+  it("says how many were held out, and why", () => {
+    const k = wonValue(rows, MONTH);
+    expect(k.caveat).toContain("1 won deal has no recorded award date");
+    expect(k.caveat).toContain("Won (undated)");
+  });
+
+  it("has its own KPI so the months still reconcile to the total", () => {
+    const u = wonUndated(rows, MONTH);
+    expect(u.value).toBe(400);
+    expect(u.recordIds).toEqual(["undated"]);
+    expect(u.filters.join(" ")).toContain("excluded from any date range");
+    expect(u.caveat).toContain("no date was invented");
+  });
+
+  it("is silent when every won deal is dated", () => {
+    expect(wonValue([rows[0]], MONTH).caveat).toBeUndefined();
+    expect(wonUndated([rows[0]], MONTH).value).toBe(0);
+  });
+
+  it("is exposed on the executive rollup", () => {
+    expect(executiveKpis(rows, MONTH).wonUndated.value).toBe(400);
+  });
+});
+
+describe("Lost with no recorded close date", () => {
+  const rows: OppRow[] = [
+    opp({ id: "d", sales_stage: "lost", contract_value: 10, lost_at: "2026-08-05" }),
+    opp({ id: "u", sales_stage: "lost", contract_value: 90, updated_at: "2026-08-05" }),
+  ];
+
+  it("behaves the same way as Won", () => {
+    expect(lostValue(rows, SNAPSHOT).value).toBe(100);
+    expect(lostValue(rows, MONTH).value).toBe(10);
+    expect(lostValue(rows, MONTH).caveat).toContain("no recorded close date");
+  });
+});
+
+describe("Win rate with undated closures", () => {
+  it("reports what the rate could not include", () => {
+    const k = winRate(
+      [
+        opp({ sales_stage: "won", won_at: "2026-08-05" }),
+        opp({ sales_stage: "lost", lost_at: "2026-08-06" }),
+        opp({ sales_stage: "won", updated_at: "2026-08-05" }),
+      ],
+      MONTH,
+    );
+    expect(k.value).toBe(50);
+    expect(k.caveat).toContain("1 closed deal has no recorded date");
+  });
+
+  it("counts every closure when no period is applied", () => {
+    const k = winRate(
+      [opp({ sales_stage: "won" }), opp({ sales_stage: "lost" })],
+      SNAPSHOT,
+    );
+    expect(k.value).toBe(50);
+    expect(k.caveat).toBeUndefined();
   });
 });

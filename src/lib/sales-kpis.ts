@@ -50,11 +50,13 @@ export type OppRow = {
   lost_to_competitor?: string | null;
   lost_at_stage?: string | null;
   expected_contract_date?: string | null;
+  /** Set when the opportunity was converted from a tender (Phase 3). */
+  source_tender_id?: string | null;
   last_activity_at?: string | null;
   next_action?: string | null;
   updated_at?: string | null;
   created_at?: string | null;
-  // Resolved by the caller from stage_transition_history when available.
+  // Stamped at the transition by trg_stamp_outcome_dates. NULL = undated.
   won_at?: string | null;
   lost_at?: string | null;
 };
@@ -170,23 +172,30 @@ export type Period = { from: string; to: string; label: string };
  * the PRD calls out — would attribute a deal won this month to the month it was
  * first entered.
  *
- * NOTE on `won_at`: there is no won_at column on opportunities. The honest
- * source is stage_transition_history (to_stage='won'), which the caller resolves
- * and passes in. When it is absent we fall back to updated_at and the KPI
- * carries a caveat, because updated_at moves on any edit and is only an
- * approximation of when the deal was actually won.
+ * `won_at` / `lost_at` are stamped once at the moment of transition by
+ * trg_stamp_outcome_dates (20260820110000) and are never moved by a later edit.
+ * Rows closed before that tracking existed have NULL and are reported as
+ * undated — see wonUndated() — rather than being assigned a guessed month.
  */
 export const DATE_FIELD = {
-  won: "stage_transition_history.created_at (to_stage='won'), else opportunities.updated_at",
-  lost: "stage_transition_history.created_at (to_stage='lost'), else opportunities.updated_at",
+  won: "opportunities.won_at (stamped at the transition to won)",
+  lost: "opportunities.lost_at (stamped at the transition to lost)",
   snapshot: null,
 } as const;
 
+/**
+ * The award date, or null.
+ *
+ * It deliberately does NOT fall back to `updated_at`. That column moves on any
+ * edit, so a deal won in March and re-saved in August would report as an August
+ * win — wrong in a way nobody can see. A row with no stamped date is undated,
+ * and the KPIs below say so out loud instead of inventing a month for it.
+ */
 export function wonDate(o: OppRow): string | null {
-  return o.won_at ?? o.updated_at ?? null;
+  return o.won_at ?? null;
 }
 export function lostDate(o: OppRow): string | null {
-  return o.lost_at ?? o.updated_at ?? null;
+  return o.lost_at ?? null;
 }
 
 /** Half-open [from, to). ISO string compare — no Date parsing, no TZ drift. */
@@ -295,8 +304,13 @@ function filterLabels(ctx: KpiContext, extra: string[] = []): string[] {
 
 /** Official Won. Only sales_stage = won. Nothing earlier counts. */
 export function wonValue(opps: OppRow[], ctx: KpiContext): Kpi {
-  const rows = ownerFiltered(opps, ctx).filter((o) => isWon(o) && inPeriod(wonDate(o), ctx.period));
-  const missingWonAt = rows.filter((o) => !o.won_at).length;
+  const allWon = ownerFiltered(opps, ctx).filter(isWon);
+  const undated = allWon.filter((o) => wonDate(o) === null);
+  // With no period this is the lifetime total, so undated deals belong in it.
+  // With a period they cannot be placed in time, so they are held out of the
+  // window and reported separately — never dropped, never assigned a month.
+  const rows = ctx.period ? allWon.filter((o) => inPeriod(wonDate(o), ctx.period)) : allWon;
+
   return kpi({
     key: "won_value",
     value: sumValues(rows),
@@ -309,14 +323,42 @@ export function wonValue(opps: OppRow[], ctx: KpiContext): Kpi {
     recordIds: rows.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "won" } },
     caveat:
-      missingWonAt > 0 && ctx.period
-        ? `${missingWonAt} of ${rows.length} have no recorded won transition; updated_at was used, which moves on any edit`
+      undated.length > 0
+        ? ctx.period
+          ? `${undated.length} won ${undated.length === 1 ? "deal has" : "deals have"} no recorded award date and sit outside this period — see Won (undated)`
+          : `${undated.length} won ${undated.length === 1 ? "deal has" : "deals have"} no recorded award date`
         : undefined,
   });
 }
 
+/**
+ * The Won that a date range cannot place. Surfaced as its own KPI so a manager
+ * comparing months can see what is missing from the comparison rather than
+ * wondering why the months do not add up to the total.
+ */
+export function wonUndated(opps: OppRow[], ctx: KpiContext): Kpi {
+  const rows = ownerFiltered(opps, ctx).filter((o) => isWon(o) && wonDate(o) === null);
+  return kpi({
+    key: "won_undated",
+    value: sumValues(rows),
+    kind: "currency",
+    formula: "Σ value of won opportunities with no recorded award date",
+    source: "opportunities.won_at IS NULL",
+    stages: WON_STAGES,
+    dateField: null,
+    filters: filterLabels({ ...ctx, period: null }, [
+      "Counted in the lifetime total, excluded from any date range — the date is unknown, not zero",
+    ]),
+    recordIds: rows.map((o) => o.id),
+    drilldown: { to: OPP_LIST, search: { stage: "won" } },
+    caveat: rows.length > 0 ? "These pre-date outcome-date tracking; no date was invented for them" : undefined,
+  });
+}
+
 export function lostValue(opps: OppRow[], ctx: KpiContext): Kpi {
-  const rows = ownerFiltered(opps, ctx).filter((o) => isLost(o) && inPeriod(lostDate(o), ctx.period));
+  const allLost = ownerFiltered(opps, ctx).filter(isLost);
+  const undated = allLost.filter((o) => lostDate(o) === null);
+  const rows = ctx.period ? allLost.filter((o) => inPeriod(lostDate(o), ctx.period)) : allLost;
   return kpi({
     key: "lost_value",
     value: sumValues(rows),
@@ -328,6 +370,7 @@ export function lostValue(opps: OppRow[], ctx: KpiContext): Kpi {
     filters: filterLabels(ctx),
     recordIds: rows.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "lost" } },
+    caveat: undated.length > 0 ? `${undated.length} lost ${undated.length === 1 ? "deal has" : "deals have"} no recorded close date` : undefined,
   });
 }
 
@@ -412,8 +455,14 @@ export function lateStageExposure(opps: OppRow[], ctx: KpiContext): Kpi {
  */
 export function winRate(opps: OppRow[], ctx: KpiContext): Kpi {
   const scope = ownerFiltered(opps, ctx);
-  const won = scope.filter((o) => isWon(o) && inPeriod(wonDate(o), ctx.period));
-  const lost = scope.filter((o) => isLost(o) && inPeriod(lostDate(o), ctx.period));
+  // Undated closures are excluded from a period rate for the same reason they
+  // are excluded from period Won: they cannot be placed in time. The caveat
+  // reports them so the denominator is never silently short.
+  const won = scope.filter((o) => isWon(o) && (ctx.period ? inPeriod(wonDate(o), ctx.period) : true));
+  const lost = scope.filter((o) => isLost(o) && (ctx.period ? inPeriod(lostDate(o), ctx.period) : true));
+  const undatedClosed = ctx.period
+    ? scope.filter((o) => (isWon(o) && wonDate(o) === null) || (isLost(o) && lostDate(o) === null)).length
+    : 0;
   const closed = won.length + lost.length;
   return kpi({
     key: "win_rate",
@@ -426,7 +475,12 @@ export function winRate(opps: OppRow[], ctx: KpiContext): Kpi {
     filters: filterLabels(ctx, ["Not derived from quotations"]),
     recordIds: [...won, ...lost].map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "closed" } },
-    caveat: closed === 0 ? "Nothing has closed in this period — a rate cannot be computed" : undefined,
+    caveat:
+      closed === 0
+        ? "Nothing has closed in this period — a rate cannot be computed"
+        : undatedClosed > 0
+          ? `${undatedClosed} closed ${undatedClosed === 1 ? "deal has" : "deals have"} no recorded date and are not in this rate`
+          : undefined,
   });
 }
 
@@ -688,6 +742,7 @@ export function concentrationBy(
 
 export type ExecutiveKpis = {
   openPipeline: Kpi;
+  wonUndated: Kpi;
   weightedPipeline: Kpi;
   wonValue: Kpi;
   lostValue: Kpi;
@@ -711,6 +766,7 @@ const EXEC_STAGES: CanonicalStage[] = [
 export function executiveKpis(opps: OppRow[], ctx: KpiContext): ExecutiveKpis {
   return {
     openPipeline: openPipeline(opps, ctx),
+    wonUndated: wonUndated(opps, ctx),
     weightedPipeline: weightedPipeline(opps, ctx),
     wonValue: wonValue(opps, ctx),
     lostValue: lostValue(opps, ctx),

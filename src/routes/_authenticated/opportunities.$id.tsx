@@ -10,6 +10,7 @@ import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { OpportunityTimeline } from "@/components/phc/OpportunityTimeline";
 import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import {
@@ -1802,6 +1803,13 @@ function OpportunityDetail() {
       <Panel title={t("comm_history")}>
         <CommunicationTimeline filter={{ opportunityId: o.id }} />
       </Panel>
+
+      {/* 7e. FULL LIFECYCLE TIMELINE — Phase 5.
+           CommunicationTimeline above covers contact history only. This is the
+           whole story: intake, review, stage moves, approvals, tender lineage,
+           award, contract and commercial handoff, projected from the tables
+           that already record them rather than a duplicate history of its own. */}
+      <OpportunityTimeline opportunityId={o.id} />
 
       {/* Evidence viewer */}
       <EvidenceViewer

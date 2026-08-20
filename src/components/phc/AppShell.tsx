@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Gauge,
   LayoutDashboard,
   FolderKanban,
   Inbox,
@@ -165,6 +166,9 @@ const NAV_GROUPS: NavGroup[] = [
     key: "navgroup_reports",
     fallback: "Reports & Analysis",
     items: [
+      // Phase 5: the management surface. Role-gated inside — a viewer with no
+      // commercial role gets an explanation, not a blank page.
+      { kind: "link", to: "/sales-management", key: "nav_sales_management", icon: Gauge },
       { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart },
     ],
   },

@@ -19,6 +19,7 @@ export const strings = {
   nav_boq: { en: "BOQ Center", ar: "مركز الـ BOQ" },
   nav_targets: { en: "Targets & Performance", ar: "الأهداف والأداء" },
   nav_reports: { en: "Reports", ar: "التقارير" },
+  nav_sales_management: { en: "Sales Management", ar: "إدارة المبيعات" },
   nav_agent_activity: { en: "Agent Activity", ar: "نشاط الوكيل" },
   nav_settings: { en: "Settings", ar: "الإعدادات" },
   nav_admin_settings: { en: "Admin Settings", ar: "إعدادات المسؤول" },
