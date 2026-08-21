@@ -5003,9 +5003,19 @@ export type Database = {
       can_edit_rfq_number: { Args: { _user_id: string }; Returns: boolean }
       can_edit_total_value: { Args: { _user_id: string }; Returns: boolean }
       can_read_attachments: { Args: { _user_id: string }; Returns: boolean }
+      can_read_contract: {
+        Args: {
+          _created_by: string
+          _opportunity_id: string
+          _responsible_user_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       can_review_intake: { Args: { _user_id: string }; Returns: boolean }
       can_use_discussion: { Args: { _user_id: string }; Returns: boolean }
       can_view_all_sales_data: { Args: { _user_id: string }; Returns: boolean }
+      can_write_contract: { Args: { _user_id: string }; Returns: boolean }
       claim_ai_agent_request: {
         Args: {
           _agent_key: string
