@@ -278,6 +278,8 @@ Open the opportunity and use **Edit** on the **Submission** panel. You can chang
   price from Estimation before the quotation can go out, put them here: they get notified,
   and the deal stays yours.
 - **Attachment or link** — add the revised RFQ, a drawing, anything that arrived later.
+  Uploaded files open in a new tab when you click them; the link is generated at that
+  moment and is not stored, so nothing you attach today stops working next week.
 - **Notes** — anything worth saying about this submission.
 
 The RFQ number, the company and the contact are not editable here. Those identify the
@@ -725,6 +727,26 @@ and the 90-day tender review. Both are calculated for display but never raised a
 Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
 and the 90-day tender review. Both are calculated for display but never raised as queue items.
 
+### Who can open an attachment
+Since **2026-08-21**, a file in the attachments bucket is readable only if you uploaded it,
+your role handles documents (managing director, general manager, CEO, sales manager, BD
+manager, sales ops, finance manager, estimation manager), or you can already see the
+opportunity or project it belongs to. Before that date **every signed-in account could read
+every file**, including `viewer`.
+
+Two consequences you may notice. A salesperson no longer sees attachments on opportunities
+that are not theirs — that is the fix, not a fault. And `system_admin` alone does not grant
+access: administering the system is not a reason to read commercial documents, so an admin
+who also needs the files needs a second role.
+
+### Two old attachments and one orphan
+Files uploaded before this date were stored as a link that expires after seven days, so a few
+old ones died quietly. Two were recovered automatically and open again. Three references
+could not be recovered and were **not** guessed at: two are Google Drive links (an external
+link is not an internal document) and one field holds an email address rather than a file.
+They are listed in `document_backfill_report` for someone to sort out. One uploaded file that
+no record points at is listed there too — reported, not deleted.
+
 ### Records created before 2026-08-06
 `RFQ-2026-0001` through `0004` predate the intake rewrite. They have no opportunity attached
 and no JIH/Tender classification, because the flow that created them didn't produce those.
@@ -794,6 +816,8 @@ Listed so nobody works around a problem that no longer exists:
 Behaviour verified against source, the test suite (969 passing), and a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
 
 **Phase 4 is live** — the notifications migration was applied on 2026-08-20 and the frontend deployed at `6ce2a37`.
+
+**Attachment access isolation is live** — applied and deployed on 2026-08-21 at `ad41ccf` (PR #196).
 
 **Phase 5 is not yet live.** The canonical KPI engine, drilldown, timeline, entry presets and AI discipline layer are code-only and ship with the next deploy. The NO BOQ / NO PROJECT NUMBER rule exists only as a local migration and is **not** applied to production — see Section 10.
 Update this file when the workflow changes.*
