@@ -28,6 +28,7 @@ import { canManageSalesPipeline } from "@/lib/roles";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { AiRiskAssessment } from "@/components/phc/AiRiskAssessment";
+import { AttachmentLink } from "@/components/phc/AttachmentLink";
 import {
   Dialog,
   DialogContent,
@@ -389,11 +390,13 @@ export function RfqJihPanel() {
               <div><span className="text-muted-foreground">{t("nav_projects")}: </span>{projects.find((p: any) => p.id === detailsRfq.project_id)?.name ?? "—"}</div>
               <div><span className="text-muted-foreground">{t("crm_total_value")}: </span>{formatCurrency(detailsRfq.estimated_value, lang, "SAR")}</div>
               <div><span className="text-muted-foreground">{t("wf_expected_contract")}: </span>{detailsRfq.response_due_date ?? "—"}</div>
-              {detailsRfq.document_url ? (
-                <a href={detailsRfq.document_url} target="_blank" rel="noreferrer" className="text-primary underline">
-                  {t("wf_evidence")}
-                </a>
-              ) : null}
+              <AttachmentLink
+                storagePath={detailsRfq.document_storage_path}
+                legacyUrl={detailsRfq.document_url}
+                className="text-primary underline"
+              >
+                {t("wf_evidence")}
+              </AttachmentLink>
               <AiRiskAssessment
                 entityType="rfqs"
                 entityId={detailsRfq.id}

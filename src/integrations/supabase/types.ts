@@ -1430,6 +1430,42 @@ export type Database = {
           },
         ]
       }
+      document_backfill_report: {
+        Row: {
+          derived_path: string | null
+          id: string
+          outcome: string
+          raw_value: string | null
+          reason: string
+          record_id: string
+          reported_at: string
+          source_column: string
+          source_table: string
+        }
+        Insert: {
+          derived_path?: string | null
+          id?: string
+          outcome: string
+          raw_value?: string | null
+          reason: string
+          record_id: string
+          reported_at?: string
+          source_column: string
+          source_table: string
+        }
+        Update: {
+          derived_path?: string | null
+          id?: string
+          outcome?: string
+          raw_value?: string | null
+          reason?: string
+          record_id?: string
+          reported_at?: string
+          source_column?: string
+          source_table?: string
+        }
+        Relationships: []
+      }
       duplicate_group_members: {
         Row: {
           created_at: string
@@ -2626,6 +2662,7 @@ export type Database = {
           duplicate_of_type: string | null
           email: string | null
           estimated_value: number | null
+          evidence_storage_path: string | null
           evidence_url: string | null
           follow_up_date: string | null
           has_boq: boolean
@@ -2685,6 +2722,7 @@ export type Database = {
           duplicate_of_type?: string | null
           email?: string | null
           estimated_value?: number | null
+          evidence_storage_path?: string | null
           evidence_url?: string | null
           follow_up_date?: string | null
           has_boq?: boolean
@@ -2746,6 +2784,7 @@ export type Database = {
           duplicate_of_type?: string | null
           email?: string | null
           estimated_value?: number | null
+          evidence_storage_path?: string | null
           evidence_url?: string | null
           follow_up_date?: string | null
           has_boq?: boolean
@@ -4184,6 +4223,7 @@ export type Database = {
           conversion_reason: string | null
           created_at: string
           created_by: string | null
+          document_storage_path: string | null
           document_url: string | null
           estimated_signage_value: number | null
           estimated_value: number | null
@@ -4220,6 +4260,7 @@ export type Database = {
           conversion_reason?: string | null
           created_at?: string
           created_by?: string | null
+          document_storage_path?: string | null
           document_url?: string | null
           estimated_signage_value?: number | null
           estimated_value?: number | null
@@ -4256,6 +4297,7 @@ export type Database = {
           conversion_reason?: string | null
           created_at?: string
           created_by?: string | null
+          document_storage_path?: string | null
           document_url?: string | null
           estimated_signage_value?: number | null
           estimated_value?: number | null
@@ -4950,12 +4992,17 @@ export type Database = {
         Args: { _entity_id: string; _entity_type: string; _user_id: string }
         Returns: boolean
       }
+      attachment_entity_visible: {
+        Args: { _path: string; _user_id: string }
+        Returns: boolean
+      }
       can_access_import_batch: {
         Args: { _batch_uuid: string }
         Returns: boolean
       }
       can_edit_rfq_number: { Args: { _user_id: string }; Returns: boolean }
       can_edit_total_value: { Args: { _user_id: string }; Returns: boolean }
+      can_read_attachments: { Args: { _user_id: string }; Returns: boolean }
       can_review_intake: { Args: { _user_id: string }; Returns: boolean }
       can_use_discussion: { Args: { _user_id: string }; Returns: boolean }
       can_view_all_sales_data: { Args: { _user_id: string }; Returns: boolean }
@@ -4978,6 +5025,7 @@ export type Database = {
           request_trace_id: string
         }[]
       }
+      derive_attachment_path: { Args: { _value: string }; Returns: string }
       dismiss_notification: { Args: { _id: string }; Returns: boolean }
       emit_notification: {
         Args: {
@@ -5053,6 +5101,13 @@ export type Database = {
       notify_overdue_items: { Args: never; Returns: number }
       project_has_valid_boq: { Args: { _project_id: string }; Returns: boolean }
       project_number_denied_message: { Args: never; Returns: string }
+      rerun_attachment_backfill: {
+        Args: never
+        Returns: {
+          recovered: number
+          reported: number
+        }[]
+      }
       run_sales_automations: {
         Args: { _trigger?: string }
         Returns: {

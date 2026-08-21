@@ -224,8 +224,10 @@ export function ActionDialog({
                       setUploading(true);
                       clearFieldError(f.key);
                       try {
-                        const { url } = await uploadAttachment(f.folder, file);
-                        setValues((v) => ({ ...v, [f.key]: url ?? "" }));
+                        // Persist the PATH, not a signed URL. A signed URL is a temporary
+                        // key that expires and leaves the row pointing at nothing.
+                        const { path } = await uploadAttachment(f.folder, file);
+                        setValues((v) => ({ ...v, [f.key]: path }));
                       } catch (err) {
                         toast.error(t("toast_error") + (err instanceof Error ? `: ${err.message}` : ""));
                       } finally {
@@ -266,8 +268,11 @@ export function ActionDialog({
                         setUploading(true);
                         clearFieldError(f.key);
                         try {
-                          const { url } = await uploadAttachment(f.folder, file);
-                          setValues((v) => ({ ...v, [f.key]: url ?? "" }));
+                          // Persist the PATH, not a signed URL. A signed URL
+                          // is a temporary key that expires and leaves the row
+                          // pointing at nothing; the path is the address.
+                          const { path } = await uploadAttachment(f.folder, file);
+                          setValues((v) => ({ ...v, [f.key]: path }));
                         } catch (err) {
                           toast.error(t("toast_error") + (err instanceof Error ? `: ${err.message}` : ""));
                         } finally {

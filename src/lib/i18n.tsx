@@ -227,6 +227,10 @@ export const strings = {
   ibx_estimated_value: { en: "Estimated Value", ar: "القيمة التقديرية" },
   ibx_deadline: { en: "Deadline", ar: "الموعد النهائي" },
   ibx_evidence_url: { en: "Evidence URL / Attachment", ar: "رابط الدليل / المرفق" },
+  attachment_unavailable: {
+    en: "This attachment could not be opened — the file is missing or you do not have access.",
+    ar: "تعذّر فتح المرفق — الملف غير موجود أو لا تملك صلاحية الوصول إليه.",
+  },
   ibx_assigned_owner: { en: "Assigned Owner", ar: "المسؤول المعيّن" },
   ibx_follow_up_date: { en: "Follow-up Date", ar: "تاريخ المتابعة" },
   ibx_classify: { en: "Classify", ar: "تصنيف" },

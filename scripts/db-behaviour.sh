@@ -76,6 +76,9 @@ CREATE TABLE storage.buckets (id text PRIMARY KEY, name text, public boolean DEF
   file_size_limit bigint, allowed_mime_types text[], owner uuid, created_at timestamptz DEFAULT now());
 CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   bucket_id text, name text, owner uuid, metadata jsonb);
+-- Real Supabase ships storage.objects with RLS ON. Without this the stub makes
+-- every storage policy inert, and a policy test would pass vacuously.
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 CREATE TABLE vault.secrets (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text, secret text, created_at timestamptz DEFAULT now());
 CREATE TABLE vault.decrypted_secrets (id uuid, name text, decrypted_secret text);
@@ -124,8 +127,18 @@ run_suite() {
   local p f
   p=$(echo "$out" | grep -c "PASS") ; f=$(echo "$out" | grep -c "FAIL")
   PASS=$((PASS + p)); FAIL=$((FAIL + f))
-  if echo "$out" | grep -q "^ERROR"; then
-    echo "$out" | grep "^ERROR" | head -3 | sed 's/^/  /'
+  if echo "$out" | grep -q "^ERROR\|^psql.*ERROR"; then
+    echo "$out" | grep -E "^ERROR|^psql.*ERROR" | head -3 | sed 's/^/  /'
+    # Count the error itself as a failure. A suite that aborts emits no
+    # PASS/FAIL lines at all, so without this the totals stay clean and a
+    # completely broken suite reports green.
+    FAIL=$((FAIL + 1))
+    FAILED_SUITES="$FAILED_SUITES $(basename "$file")"
+  fi
+  # Likewise a suite that produced no checks at all ran nothing useful.
+  if [ "$p" -eq 0 ] && [ "$f" -eq 0 ]; then
+    echo "  ✗ produced no checks — treating as a failure"
+    FAIL=$((FAIL + 1))
     FAILED_SUITES="$FAILED_SUITES $(basename "$file")"
   fi
   [ "$f" -gt 0 ] && FAILED_SUITES="$FAILED_SUITES $(basename "$file")"
@@ -158,6 +171,9 @@ CREATE TABLE storage.buckets (id text PRIMARY KEY, name text, public boolean DEF
   file_size_limit bigint, allowed_mime_types text[], owner uuid, created_at timestamptz DEFAULT now());
 CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   bucket_id text, name text, owner uuid, metadata jsonb);
+-- Real Supabase ships storage.objects with RLS ON. Without this the stub makes
+-- every storage policy inert, and a policy test would pass vacuously.
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 CREATE TABLE vault.secrets (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text, secret text, created_at timestamptz DEFAULT now());
 CREATE TABLE vault.decrypted_secrets (id uuid, name text, decrypted_secret text);
@@ -166,9 +182,24 @@ for f in supabase/migrations/*.sql; do
   psql_ -d phc -q -v ON_ERROR_STOP=1 --single-transaction < "$f" >/dev/null 2>&1 || {
     echo "✗ replay failed on $(basename "$f")"; exit 1; }
 done
+# The re-replay above created a fresh database, so the rls_tester grants from
+# the first pass are gone. Any suite that runs as a non-superuser needs them
+# back — without this the storage-policy checks fail on "permission denied for
+# schema auth" rather than actually testing the policy.
+psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
+GRANT USAGE ON SCHEMA public, auth, storage TO rls_tester;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rls_tester;
+GRANT SELECT ON auth.users TO rls_tester;
+GRANT SELECT ON ALL TABLES IN SCHEMA storage TO rls_tester;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO rls_tester;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO rls_tester;
+SQL
+
 run_suite tests/db-behaviour/phase4_overdue_automation.sql run
 run_suite tests/db-behaviour/phase5_project_number_boq.sql run
 run_suite tests/db-behaviour/phase5_won_lost_timestamps.sql run
+run_suite tests/db-behaviour/attachment_read_isolation.sql run
+run_suite tests/db-behaviour/attachment_backfill_policy.sql run
 
 echo ""
 echo "─────────────────────────────────────────"
