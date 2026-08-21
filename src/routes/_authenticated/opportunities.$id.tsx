@@ -57,6 +57,7 @@ import {
   type MentionPurpose,
 } from "@/lib/opportunity-collab-actions";
 import { Upload, Paperclip } from "lucide-react";
+import { AttachmentLink } from "@/components/phc/AttachmentLink";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
@@ -485,7 +486,7 @@ function OpportunityDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("rfqs")
-        .select("id, classification, rfq_number, response_due_date, notes, document_url, assigned_to")
+        .select("id, classification, rfq_number, response_due_date, notes, document_url, document_storage_path, assigned_to")
         .eq("opportunity_id", id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -735,16 +736,13 @@ function OpportunityDetail() {
             />
             <DataField label={t("wf_notes")} value={rfqQ.data.notes} />
           </div>
-          {rfqQ.data.document_url ? (
-            <a
-              href={rfqQ.data.document_url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-block text-xs text-amber-light underline underline-offset-2"
-            >
-              {t("ibx_evidence_url")}
-            </a>
-          ) : null}
+          <AttachmentLink
+            storagePath={rfqQ.data.document_storage_path}
+            legacyUrl={rfqQ.data.document_url}
+            className="mt-3 inline-block text-xs text-amber-light underline underline-offset-2"
+          >
+            {t("ibx_evidence_url")}
+          </AttachmentLink>
 
           <ActionDialog
             open={submissionOpen}
@@ -1066,18 +1064,15 @@ function OpportunityDetail() {
                     ) : null}
                   </div>
                 </div>
-                {e.source_url ? (
-                  <a
-                    href={e.source_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(evt) => evt.stopPropagation()}
-                    title={t("evidence_download")}
+                <span onClick={(evt) => evt.stopPropagation()}>
+                  <AttachmentLink
+                    storagePath={e.vault_path}
+                    legacyUrl={e.source_url}
                     className="inline-flex items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground"
                   >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                ) : null}
+                    <ExternalLink className="h-3.5 w-3.5" aria-label={t("evidence_download")} />
+                  </AttachmentLink>
+                </span>
               </li>
             ))}
           </ul>
@@ -1419,11 +1414,9 @@ function OpportunityDetail() {
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                     {responsible ? <span>{t("contract_responsible")}: {responsible.full_name ?? responsible.email}</span> : null}
-                    {c.document_url ? (
-                      <a href={c.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-amber-light hover:underline">
-                        <Paperclip className="h-3 w-3" /> {t("contract_document")}
-                      </a>
-                    ) : null}
+                    <AttachmentLink legacyUrl={c.document_url} className="inline-flex items-center gap-1 text-amber-light hover:underline">
+                      <Paperclip className="h-3 w-3" /> {t("contract_document")}
+                    </AttachmentLink>
                   </div>
                   {c.notes ? <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">{c.notes}</p> : null}
                   {canManageContract ? (
@@ -2230,16 +2223,15 @@ function EvidenceViewer({
           ) : null}
         </div>
         <div className="flex items-center justify-between gap-2 border-t border-border/70 px-5 py-3">
-          {evidence.source_url ? (
-            <a
-              href={evidence.source_url}
-              target="_blank"
-              rel="noreferrer"
+          {evidence.vault_path || evidence.source_url ? (
+            <AttachmentLink
+              storagePath={evidence.vault_path}
+              legacyUrl={evidence.source_url}
               className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs text-amber-light hover:bg-amber/20"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               {t("evidence_open_source")}
-            </a>
+            </AttachmentLink>
           ) : (
             <span className="text-xs text-muted-foreground">{t("evidence_no_url")}</span>
           )}
