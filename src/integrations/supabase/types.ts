@@ -39,6 +39,92 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_interactions: {
+        Row: {
+          company_id: string
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          feedback: string | null
+          id: string
+          interaction_date: string
+          interaction_type: string
+          next_action: string | null
+          next_action_due: string | null
+          outcome: string | null
+          priority: string | null
+          source_batch_id: string | null
+          source_row_id: string | null
+          summary: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          feedback?: string | null
+          id?: string
+          interaction_date: string
+          interaction_type: string
+          next_action?: string | null
+          next_action_due?: string | null
+          outcome?: string | null
+          priority?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          summary: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          feedback?: string | null
+          id?: string
+          interaction_date?: string
+          interaction_type?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          outcome?: string | null
+          priority?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          summary?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_interactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_interactions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_interactions_source_batch_id_fkey"
+            columns: ["source_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_interactions_source_row_id_fkey"
+            columns: ["source_row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
@@ -4111,6 +4197,86 @@ export type Database = {
           },
         ]
       }
+      quotation_updates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          next_action: string | null
+          next_action_due: string | null
+          opportunity_id: string | null
+          quotation_id: string | null
+          source_batch_id: string | null
+          source_row_id: string | null
+          status_after: string | null
+          status_before: string | null
+          summary: string
+          update_date: string
+          update_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          opportunity_id?: string | null
+          quotation_id?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          status_after?: string | null
+          status_before?: string | null
+          summary: string
+          update_date: string
+          update_type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          opportunity_id?: string | null
+          quotation_id?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          status_after?: string | null
+          status_before?: string | null
+          summary?: string
+          update_date?: string
+          update_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_updates_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_updates_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_updates_source_batch_id_fkey"
+            columns: ["source_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_updates_source_row_id_fkey"
+            columns: ["source_row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotations: {
         Row: {
           boq_id: string | null
@@ -4489,6 +4655,85 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_actuals_monthly: {
+        Row: {
+          actual_value: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          is_legacy_aggregate: boolean
+          metric_type: string
+          month: number
+          notes: string | null
+          owner_id: string | null
+          source_batch_id: string | null
+          source_profile_id: string | null
+          source_row_id: string | null
+          team_label: string | null
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          actual_value?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          is_legacy_aggregate?: boolean
+          metric_type: string
+          month: number
+          notes?: string | null
+          owner_id?: string | null
+          source_batch_id?: string | null
+          source_profile_id?: string | null
+          source_row_id?: string | null
+          team_label?: string | null
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          actual_value?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          is_legacy_aggregate?: boolean
+          metric_type?: string
+          month?: number
+          notes?: string | null
+          owner_id?: string | null
+          source_batch_id?: string | null
+          source_profile_id?: string | null
+          source_row_id?: string | null
+          team_label?: string | null
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_actuals_monthly_source_batch_id_fkey"
+            columns: ["source_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_actuals_monthly_source_profile_id_fkey"
+            columns: ["source_profile_id"]
+            isOneToOne: false
+            referencedRelation: "import_source_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_actuals_monthly_source_row_id_fkey"
+            columns: ["source_row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
             referencedColumns: ["id"]
           },
         ]

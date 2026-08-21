@@ -233,7 +233,11 @@ describe("the migrations stay local until approved", () => {
   // were still unapplied everywhere.
   it("Phase 6 adds exactly three migrations, all after the last applied one", () => {
     const LAST_APPLIED = "20260822130000_contract_security.sql";
-    const p6 = readdirSync(MIGRATIONS).filter((f) => f.startsWith("20260823"));
+    // Matched by name, not by date prefix: unrelated migrations share the date
+    // (the integrity repair does), and a date filter would fail the moment one
+    // lands rather than when Phase 6 actually grows a fourth file.
+    const p6 = readdirSync(MIGRATIONS).filter((f) =>
+      /_(document_registry|document_storage_and_backfill|location_foundation)\.sql$/.test(f));
     expect(p6.sort()).toEqual([
       "20260823100000_document_registry.sql",
       "20260823110000_document_storage_and_backfill.sql",
