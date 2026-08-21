@@ -16,9 +16,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (p: string) => readFileSync(join(root, p), "utf8");
 
 const MIGRATIONS = join(root, "supabase/migrations");
-const registry = read("supabase/migrations/20260822100000_document_registry.sql");
-const storage = read("supabase/migrations/20260822110000_document_storage_and_backfill.sql");
-const location = read("supabase/migrations/20260822120000_location_foundation.sql");
+const registry = read("supabase/migrations/20260823100000_document_registry.sql");
+const storage = read("supabase/migrations/20260823110000_document_storage_and_backfill.sql");
+const location = read("supabase/migrations/20260823120000_location_foundation.sql");
 const actions = read("src/lib/document-actions.ts");
 
 // Comments explain the OLD behaviour being replaced, so predicates are matched
@@ -227,12 +227,18 @@ describe("the migrations stay local until approved", () => {
     }
   });
 
-  it("Phase 6 adds exactly three migrations", () => {
-    const p6 = readdirSync(MIGRATIONS).filter((f) => f.startsWith("20260822"));
+  // Numbered after the contract-security hotfix, which shipped first. Sorting
+  // before an already-applied migration is an out-of-order state that
+  // `supabase db push` refuses outright, and renumbering was free while these
+  // were still unapplied everywhere.
+  it("Phase 6 adds exactly three migrations, all after the last applied one", () => {
+    const LAST_APPLIED = "20260822130000_contract_security.sql";
+    const p6 = readdirSync(MIGRATIONS).filter((f) => f.startsWith("20260823"));
     expect(p6.sort()).toEqual([
-      "20260822100000_document_registry.sql",
-      "20260822110000_document_storage_and_backfill.sql",
-      "20260822120000_location_foundation.sql",
+      "20260823100000_document_registry.sql",
+      "20260823110000_document_storage_and_backfill.sql",
+      "20260823120000_location_foundation.sql",
     ]);
+    for (const f of p6) expect(f > LAST_APPLIED).toBe(true);
   });
 });

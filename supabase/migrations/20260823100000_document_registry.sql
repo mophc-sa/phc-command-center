@@ -285,12 +285,23 @@ BEGIN
       ) INTO _exists, _personal
         FROM public.projects p WHERE p.id = _entity_id;
 
+    -- Contracts are the one entity that already has a purpose-built read
+    -- predicate, so this defers to it wholesale and returns — it does NOT fall
+    -- through to the can_read_attachments role fallback below.
+    --
+    -- Without the early return, estimation_manager would be able to open a
+    -- document attached to a contract while being refused the contract record
+    -- itself, because they are in D24's attachment list but deliberately not in
+    -- the contract read set. A file whose whole content is the commercial terms
+    -- should not be reachable by someone denied those terms. Same for viewer and
+    -- system_admin, which can_read_contract already excludes.
     WHEN 'contract' THEN
-      SELECT TRUE, (c.responsible_user_id = _user_id OR c.created_by = _user_id
-                    OR EXISTS (SELECT 1 FROM public.opportunities o
-                                WHERE o.id = c.opportunity_id AND o.owner_id = _user_id))
-        INTO _exists, _personal
-        FROM public.contracts c WHERE c.id = _entity_id;
+      RETURN EXISTS (
+        SELECT 1 FROM public.contracts c
+         WHERE c.id = _entity_id
+           AND public.can_read_contract(c.opportunity_id, c.responsible_user_id,
+                                        c.created_by, _user_id)
+      );
 
     WHEN 'boq' THEN
       SELECT TRUE, (b.created_by = _user_id

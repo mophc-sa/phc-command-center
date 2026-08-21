@@ -11,13 +11,14 @@
 
 DO $$
 DECLARE
-  s1 UUID; s2 UUID; bd UUID; vw UUID; adm UUID; sus UUID; vw2 UUID;
-  o1 UUID; o2 UUID; p1 UUID;
-  d_theirs UUID; d_mine UUID; d_project UUID;
+  s1 UUID; s2 UUID; bd UUID; vw UUID; adm UUID; sus UUID; vw2 UUID; est UUID; fin UUID;
+  o1 UUID; o2 UUID; p1 UUID; k1 UUID;
+  d_theirs UUID; d_mine UUID; d_project UUID; d_contract UUID;
 BEGIN
   INSERT INTO auth.users (email) VALUES
     ('p6s1@phc-sa.com'),('p6s2@phc-sa.com'),('p6bd@phc-sa.com'),
-    ('p6vw@phc-sa.com'),('p6adm@phc-sa.com'),('p6sus@phc-sa.com'),('p6vw2@phc-sa.com');
+    ('p6vw@phc-sa.com'),('p6adm@phc-sa.com'),('p6sus@phc-sa.com'),('p6vw2@phc-sa.com'),
+    ('p6est@phc-sa.com'),('p6fin@phc-sa.com');
   SELECT id INTO s1  FROM auth.users WHERE email='p6s1@phc-sa.com';
   SELECT id INTO s2  FROM auth.users WHERE email='p6s2@phc-sa.com';
   SELECT id INTO bd  FROM auth.users WHERE email='p6bd@phc-sa.com';
@@ -25,7 +26,9 @@ BEGIN
   SELECT id INTO adm FROM auth.users WHERE email='p6adm@phc-sa.com';
   SELECT id INTO sus FROM auth.users WHERE email='p6sus@phc-sa.com';
   SELECT id INTO vw2 FROM auth.users WHERE email='p6vw2@phc-sa.com';
-  UPDATE public.profiles SET status='active'    WHERE id IN (s1,s2,bd,vw,adm,vw2);
+  SELECT id INTO est FROM auth.users WHERE email='p6est@phc-sa.com';
+  SELECT id INTO fin FROM auth.users WHERE email='p6fin@phc-sa.com';
+  UPDATE public.profiles SET status='active'    WHERE id IN (s1,s2,bd,vw,adm,vw2,est,fin);
   -- A suspended account that WOULD otherwise qualify: same role as bd.
   UPDATE public.profiles SET status='suspended' WHERE id = sus;
 
@@ -33,7 +36,12 @@ BEGIN
     (s1,'salesperson'),(s2,'salesperson'),(bd,'bd_manager'),
     (vw,'viewer'),(adm,'system_admin'),(sus,'bd_manager'),
     -- the same person holding a read-only role AND a document role
-    (vw2,'viewer'),(vw2,'finance_manager');
+    (vw2,'viewer'),(vw2,'finance_manager'),
+    -- In D24's attachment list but NOT in the contract read set — the exact
+    -- mismatch checks 17-23 exist to close.
+    (est,'estimation_manager'),
+    -- In both, so it must reach the contract's documents.
+    (fin,'finance_manager');
 
   INSERT INTO public.opportunities (project_name, owner_id) VALUES ('P6 mine', s1)   RETURNING id INTO o1;
   INSERT INTO public.opportunities (project_name, owner_id) VALUES ('P6 theirs', s2) RETURNING id INTO o2;
@@ -44,7 +52,8 @@ BEGIN
   INSERT INTO storage.objects (bucket_id,name,owner) VALUES
     ('attachments','p6/theirs.pdf', bd),
     ('attachments','p6/mine.pdf',   bd),
-    ('attachments','p6/project.pdf',bd);
+    ('attachments','p6/project.pdf',bd),
+    ('attachments','p6/contract.pdf',bd);
 
   INSERT INTO public.documents (storage_path, original_filename, uploaded_by)
     VALUES ('p6/theirs.pdf','theirs.pdf',bd) RETURNING id INTO d_theirs;
@@ -53,10 +62,19 @@ BEGIN
   INSERT INTO public.documents (storage_path, original_filename, uploaded_by)
     VALUES ('p6/project.pdf','project.pdf',bd) RETURNING id INTO d_project;
 
+  INSERT INTO public.documents (storage_path, original_filename, uploaded_by)
+    VALUES ('p6/contract.pdf','contract.pdf',bd) RETURNING id INTO d_contract;
+
+  -- A contract on s1's deal, with a document attached to it. This is the case
+  -- where document access must agree with contract-record access.
+  INSERT INTO public.contracts (opportunity_id, contract_name, created_by)
+    VALUES (o1, 'P6 contract', bd) RETURNING id INTO k1;
+
   INSERT INTO public.document_links (document_id, entity_type, entity_id, linked_by) VALUES
     (d_theirs,  'opportunity', o2, bd),
     (d_mine,    'opportunity', o1, bd),
-    (d_project, 'project',     p1, bd);
+    (d_project, 'project',     p1, bd),
+    (d_contract,'contract',    k1, bd);
 END $$;
 
 CREATE TEMP TABLE p6 AS SELECT
@@ -65,7 +83,9 @@ CREATE TEMP TABLE p6 AS SELECT
   (SELECT id FROM public.documents   WHERE storage_path='p6/project.pdf') AS d_project,
   (SELECT id FROM public.opportunities WHERE project_name='P6 mine')      AS o1,
   (SELECT id FROM public.opportunities WHERE project_name='P6 theirs')    AS o2,
-  (SELECT id FROM public.projects    WHERE name='P6 site')                AS p1;
+  (SELECT id FROM public.projects    WHERE name='P6 site')                AS p1,
+  (SELECT id FROM public.contracts   WHERE contract_name='P6 contract')    AS k1,
+  (SELECT id FROM public.documents   WHERE storage_path='p6/contract.pdf') AS d_contract;
 GRANT SELECT ON p6 TO rls_tester;
 
 SET ROLE rls_tester;
@@ -76,6 +96,7 @@ DECLARE
   -- Prefixed: plpgsql resolves a bare name to the COLUMN when a variable and a
   -- column of the temp table share it, and the error says only "ambiguous".
   v_theirs UUID; v_mine UUID; v_project UUID; v_o1 UUID; v_o2 UUID; v_p1 UUID;
+  v_k1 UUID; v_dk UUID; est UUID; fin UUID;
 BEGIN
   SELECT id INTO s1  FROM auth.users WHERE email='p6s1@phc-sa.com';
   SELECT id INTO s2  FROM auth.users WHERE email='p6s2@phc-sa.com';
@@ -84,8 +105,10 @@ BEGIN
   SELECT id INTO adm FROM auth.users WHERE email='p6adm@phc-sa.com';
   SELECT id INTO sus FROM auth.users WHERE email='p6sus@phc-sa.com';
   SELECT id INTO vw2 FROM auth.users WHERE email='p6vw2@phc-sa.com';
-  SELECT d_theirs, d_mine, d_project, o1, o2, p1
-    INTO v_theirs, v_mine, v_project, v_o1, v_o2, v_p1 FROM p6;
+  SELECT d_theirs, d_mine, d_project, o1, o2, p1, k1, d_contract
+    INTO v_theirs, v_mine, v_project, v_o1, v_o2, v_p1, v_k1, v_dk FROM p6;
+  SELECT id INTO est FROM auth.users WHERE email='p6est@phc-sa.com';
+  SELECT id INTO fin FROM auth.users WHERE email='p6fin@phc-sa.com';
 
   -- ===== 1. the escalation the link table invites =====
   -- s1 owns v_o1. If they may attach someone else's document to their own
@@ -200,6 +223,40 @@ BEGIN
   -- the other and this would fail.
   RAISE NOTICE '% 16. multi-role is additive: viewer + finance_manager reaches project documents',
     CASE WHEN public.document_entity_grants('project', v_p1, vw2) THEN 'PASS' ELSE 'FAIL' END;
+
+  -- ===== 17-22. contract documents follow contract-record access =====
+  -- The mismatch this closes: estimation_manager is in D24's attachment list
+  -- but deliberately not in the contract read set, so without the early return
+  -- in document_entity_grants they could open a file whose whole content is the
+  -- commercial terms they are refused.
+  -- The `has_role` half matters: without it this would also pass for a user
+  -- who simply holds no roles, which is how it first passed for the wrong
+  -- reason when the fixture insert silently missed.
+  RAISE NOTICE '% 17. estimation_manager cannot reach a contract''s documents, matching the contract record',
+    CASE WHEN public.has_role(est,'estimation_manager'::public.app_role)
+          AND public.can_read_attachments(est)
+          AND public.document_entity_grants('contract', v_k1, est) = FALSE
+         THEN 'PASS' ELSE 'FAIL' END;
+  RAISE NOTICE '% 18. …and can_read_contract agrees, so the two are not merely both false by accident',
+    CASE WHEN public.can_read_contract(v_o1, NULL, NULL, est) = FALSE THEN 'PASS' ELSE 'FAIL' END;
+  RAISE NOTICE '% 19. finance_manager reaches them, matching its contract read right',
+    CASE WHEN public.document_entity_grants('contract', v_k1, fin) THEN 'PASS' ELSE 'FAIL' END;
+  RAISE NOTICE '% 20. the deal owner reaches them',
+    CASE WHEN public.document_entity_grants('contract', v_k1, s1) THEN 'PASS' ELSE 'FAIL' END;
+  RAISE NOTICE '% 21. viewer and system_admin reach neither',
+    CASE WHEN public.document_entity_grants('contract', v_k1, vw) = FALSE
+          AND public.document_entity_grants('contract', v_k1, adm) = FALSE
+         THEN 'PASS' ELSE 'FAIL' END;
+
+  -- End to end: the storage object itself, not just the predicate.
+  PERFORM set_config('test.uid', est::text, false);
+  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments' AND name='p6/contract.pdf';
+  RAISE NOTICE '% 22. end to end: estimation_manager cannot read the contract file object (expect 0, got %)',
+    CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
+  PERFORM set_config('test.uid', fin::text, false);
+  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments' AND name='p6/contract.pdf';
+  RAISE NOTICE '% 23. …and finance_manager can (expect 1, got %)',
+    CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
 
   RESET ROLE;
   RAISE NOTICE '--- phase 6 document security: done ---';

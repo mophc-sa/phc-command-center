@@ -6,6 +6,11 @@
 -- write check would have succeeded. Both are written to fail loudly if either
 -- comes back.
 --
+-- Counts are scoped to this suite's own two fixture contracts. Other suites
+-- share this database and create contracts of their own — the Phase 6
+-- attachment suite does — so an absolute `count(*) FROM contracts` would assert
+-- something about them rather than about this policy.
+--
 -- Runs as `rls_tester`, which the harness now grants membership in
 -- `authenticated`. That grant is load-bearing here: this policy is scoped
 -- `TO authenticated`, so a tester outside the role would match no policy, see
@@ -96,7 +101,7 @@ BEGIN
   -- If rls_tester were not in `authenticated`, everything below would report 0
   -- and every denial check would "pass". This is the canary.
   PERFORM set_config('test.uid', bd::text, false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '%  0. CANARY: a permitted role sees rows at all — otherwise every denial below is vacuous (expect 2, got %)',
     CASE WHEN n=2 THEN 'PASS' ELSE 'FAIL' END, n;
 
@@ -110,7 +115,7 @@ BEGIN
   RAISE NOTICE '%  2. …and NOT another salesperson''s (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '%  3. a salesperson sees exactly one contract, not the table (expect 1, got %)',
     CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
 
@@ -121,37 +126,37 @@ BEGIN
 
   -- ===== commercial managers allowed =====
   PERFORM set_config('test.uid', sm::text, false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '%  5. sales_manager reads both (expect 2, got %)',
     CASE WHEN n=2 THEN 'PASS' ELSE 'FAIL' END, n;
 
   PERFORM set_config('test.uid', bd::text, false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '%  6. bd_manager reads both (expect 2, got %)',
     CASE WHEN n=2 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== finance allowed: they bill against these =====
   PERFORM set_config('test.uid', fin::text, false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '%  7. finance_manager reads both (expect 2, got %)',
     CASE WHEN n=2 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== estimation denied: BOQs are their work, commercial terms are not =====
   PERFORM set_config('test.uid', est::text, false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '%  8. estimation_manager reads no contract records (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== the two roles this hotfix exists to exclude =====
   PERFORM set_config('test.uid', adm::text, false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '%  9. system_admin ALONE reads nothing (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- vw is viewer + sales_ops, so this also proves roles are additive rather
   -- than resolved by precedence: the read-only role must not cancel the other.
   PERFORM set_config('test.uid', vw::text, false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '% 10. multi-role is additive: viewer + sales_ops reads both (expect 2, got %)',
     CASE WHEN n=2 THEN 'PASS' ELSE 'FAIL' END, n;
 
@@ -160,7 +165,7 @@ BEGIN
   -- is true, and the check would pass without testing anything — the same
   -- vacuity the harness `GRANT authenticated` fixes at the other end.
   PERFORM set_config('test.uid', vwo::text, false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '% 11. a viewer holding no other role reads nothing (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
   RAISE NOTICE '% 11b. …and the predicate says so directly, for a user that provably exists',
@@ -179,13 +184,13 @@ BEGIN
 
   -- ===== suspended account =====
   PERFORM set_config('test.uid', sus::text, false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '% 14. a SUSPENDED sales_manager reads nothing (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== anon =====
   PERFORM set_config('test.uid', '', false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '% 15. unauthenticated reads nothing (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
   RAISE NOTICE '% 16. …and the predicate refuses a null user outright',
@@ -204,13 +209,13 @@ BEGIN
 
   -- ===== GM/MD reach it too =====
   PERFORM set_config('test.uid', gm::text, false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '% 19. general_manager reads both (expect 2, got %)',
     CASE WHEN n=2 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== system_admin + a business role behaves as that role, exactly =====
   PERFORM set_config('test.uid', abd::text, false);
-  SELECT count(*) INTO n FROM public.contracts;
+  SELECT count(*) INTO n FROM public.contracts WHERE contract_name IN ('C mine','C theirs');
   RAISE NOTICE '% 20. system_admin + bd_manager reads exactly what bd_manager reads (expect 2, got %)',
     CASE WHEN n=2 THEN 'PASS' ELSE 'FAIL' END, n;
   RAISE NOTICE '% 21. …and the predicate agrees for both, so system_admin neither adds nor subtracts',
