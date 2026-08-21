@@ -290,3 +290,54 @@ test("computeManagerMetrics aggregates team target/actual, pipeline by owner, an
   expect(m.tenderConversionPct).toBe(50);
   expect(m.quotationWinRatePct).toBe(50);
 });
+
+// ─── Phase 5: canonical stage classification ─────────────────────────────────
+// These metrics used to filter on the LEGACY `stage` enum, so a deal at a real
+// pipeline stage (jih, jih_bafo, under_negotiation, ...) was counted in NOTHING
+// — invisible to open pipeline, forecast and tier-A rollups alike. They now
+// classify through resolveCanonicalStage.
+
+test("open pipeline counts canonical stages the legacy enum never had", () => {
+  const opps = [
+    { id: "a", owner_id: "u1", stage: "quotation", sales_stage: "jih_bafo", tier: "A",
+      estimated_value_max: 1000, quotation_value: null, win_confidence: null, updated_at: "2026-08-01" },
+    { id: "b", owner_id: "u1", stage: "quotation", sales_stage: "under_negotiation", tier: "B",
+      estimated_value_max: 500, quotation_value: null, win_confidence: null, updated_at: "2026-08-01" },
+  ] as never;
+
+  const m = computeManagerMetrics([], { opportunities: opps, rfqs: [], tenders: [], quotations: [], actionFlags: [] }, "2026-08-20");
+  expect(m.pipelineByOwner.u1).toBe(1500);
+});
+
+test("sales_stage wins over the legacy column when they disagree", () => {
+  // Legacy says won; canonical says still negotiating. Canonical is the truth.
+  const opps = [
+    { id: "a", owner_id: "u1", stage: "won", sales_stage: "under_negotiation", tier: "B",
+      estimated_value_max: 900, quotation_value: null, win_confidence: null, updated_at: "2026-08-05" },
+  ] as never;
+
+  const target = {
+    id: "t", user_id: "u1", period_type: "monthly", period_start: "2026-08-01",
+    sales_target: 1000, pipeline_target: 0, quotation_target: 0, activity_target: 0,
+    conversion_target: 0, notes: null,
+  } as SalesTargetRow;
+
+  const m = computeSalespersonMetrics(target, { opportunities: opps, rfqs: [], tenders: [], quotations: [], followUps: [] });
+  expect(m.wonValue).toBe(0);
+  expect(m.openPipeline).toBe(900);
+});
+
+test("a legacy won row with no sales_stage still counts as won", () => {
+  const opps = [
+    { id: "old", owner_id: "u1", stage: "won", tier: "B",
+      estimated_value_max: 700, quotation_value: null, win_confidence: null, updated_at: "2026-08-05" },
+  ] as never;
+
+  const target = {
+    id: "t", user_id: "u1", period_type: "monthly", period_start: "2026-08-01",
+    sales_target: 1000, pipeline_target: 0, quotation_target: 0, activity_target: 0,
+    conversion_target: 0, notes: null,
+  } as SalesTargetRow;
+
+  expect(computeSalespersonMetrics(target, { opportunities: opps, rfqs: [], tenders: [], quotations: [], followUps: [] }).wonValue).toBe(700);
+});

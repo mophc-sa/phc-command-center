@@ -458,11 +458,30 @@ Old tenders are not allowed to sit active forever.
 
 | Page | Use it for |
 |---|---|
-| **Command Center** `/command-center` | Org-wide executive view. Pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention. |
+| **Command Center** `/command-center` | Org-wide executive view. Opens with **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention. |
 | **My Workspace** `/my-workspace` | Your personal command centre. Opens with **What needs you today** — one ranked list of your highest-priority work drawn from every queue. Below it, the dashboard your role already had: target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups and submissions. **A salesperson's home base.** |
 | **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
 | **Approvals** `/approvals` | One decision desk for all three approval workflows: **intake review**, the **BAFO chain** (showing which of the four steps is waiting and on which role), and record approvals — verbal award, contract, won, deletion, sure-win. |
 | **Notifications** (bell) | Opens the drawer, not a page. Shows **what happened**: unread count on the bell, mark-one/mark-all read, dismiss, and a deep link to the record. Distinct from actions — see Section 7b. |
+
+### 7a. What counts as a sale
+
+Three numbers get confused constantly, so the system keeps them apart:
+
+| | What it means | Counts toward target? |
+|---|---|---|
+| **Won** | `sales_stage = won`. The deal is ours. | **Yes — only this** |
+| **Late-stage exposure** | Verbally awarded, contract received, contract signed. | **No.** These can still be lost |
+| **Weighted forecast** | Open pipeline × probability | **No.** An estimate, not money |
+
+**Win rate is Won ÷ (Won + Lost).** Open deals are not in the denominator, and it
+is never calculated from quotations. If nothing has closed yet the system says so
+rather than showing 0%.
+
+**Probability** comes from the manager's number when one is recorded, and from AI
+only when it is not — labelled "AI-estimated" so you always know which you are
+looking at. The two are shown side by side and never averaged. A deal nobody has
+scored is reported as **Unscored** and left out of the forecast entirely.
 
 ### 7b. Actions vs notifications — they are not the same thing
 
@@ -757,6 +776,9 @@ Listed so nobody works around a problem that no longer exists:
 | The bell counted every open item, so it never reached zero and stopped meaning anything | Fixed — it counts **unread** notifications, and you can mark read or dismiss |
 | **The nightly automation stopped raising anything on 2026-08-07 and nobody noticed for two weeks** | Fixed — a rule referenced a flag type that was never added to the database, and the error rolled back the whole run. The Action Center's apparent quiet was a crash, not calm |
 | Nothing told you an important item had gone past its due date | Fixed — tier A/B items that lapse raise one notification, once |
+| KPIs were computed three different ways, and a deal at JIH BAFO was counted in none of them | Fixed — one canonical engine reading `sales_stage`, so every screen agrees |
+| Forecast quietly weighted unscored deals at 20%, inventing pipeline out of nothing | Fixed — unscored deals are excluded and counted separately, never assumed |
+| You could not tell where a number came from | Fixed — every KPI shows its formula, source, filters and record count, and clicks through to the records |
 
 ---
 
@@ -768,8 +790,10 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-20, branch `feat/phase-4-workspace-actions-notifications` (base `main` @ `9e5cda7`).
+*Reflects the system as at 2026-08-20, branch `feat/phase-5-sales-management` (base `main` @ `6ce2a37`).
 Behaviour verified against source, the test suite (969 passing), and a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
 
-**Phase 4 is not yet live.** The notifications table and its triggers exist only as a local migration; nothing in Section 7's notification behaviour is active in production until that migration is applied and the frontend is deployed — in that order. The Action Center, Approvals and My Workspace changes are code-only and ship with the same deploy.
+**Phase 4 is live** — the notifications migration was applied on 2026-08-20 and the frontend deployed at `6ce2a37`.
+
+**Phase 5 is not yet live.** The canonical KPI engine, drilldown, timeline, entry presets and AI discipline layer are code-only and ship with the next deploy. The NO BOQ / NO PROJECT NUMBER rule exists only as a local migration and is **not** applied to production — see Section 10.
 Update this file when the workflow changes.*

@@ -17,6 +17,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { invalidateSalesData } from "@/lib/invalidate-sales";
+import { label, LOST_REASONS, ON_HOLD_REASONS, type PresetOption } from "@/lib/entry-presets";
 import { convertRfqToJih } from "@/lib/rfq-actions";
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import {
@@ -45,7 +46,12 @@ function stageTone(s: SalesStage): "positive" | "attention" | "danger" | "muted"
   return "neutral";
 }
 
-function fieldsForStage(t: string, tt: (k: string) => string): DialogField[] {
+// Phase 5 §28/§29: loss and hold reasons are structured, not free text. They
+// feed lostByReason() in the KPI engine, and a reason typed as prose cannot be
+// grouped — a loss analysis built on sentences is just a list of sentences.
+// "Other" keeps the taxonomy honest by staying available, with a note.
+function fieldsForStage(t: string, tt: (k: string) => string, lang: "en" | "ar" = "en"): DialogField[] {
+  const opts = (list: PresetOption[]) => list.map((o) => ({ value: o.value, label: label(o, lang) }));
   switch (t) {
     case "under_negotiation":
       return [{ key: "notes", type: "textarea", label: tt("wf_notes"), required: true }];
@@ -67,12 +73,16 @@ function fieldsForStage(t: string, tt: (k: string) => string): DialogField[] {
       return [{ key: "notes", type: "textarea", label: tt("wf_notes") }];
     case "lost":
       return [
-        { key: "loss_reason", type: "textarea", label: tt("wf_loss_reason"), required: true },
+        { key: "loss_reason", type: "select", label: tt("wf_loss_reason"), required: true, options: opts(LOST_REASONS) },
+        // Free text stays available for the detail, but the reason itself is now
+        // one of a closed set so lostByReason() can actually group it.
         { key: "loss_notes", type: "textarea", label: tt("wf_notes") },
+        { key: "lost_to_competitor", type: "text", label: lang === "ar" ? "المنافس (إن عُرف)" : "Competitor (if known)" },
       ];
     case "on_hold":
       return [
-        { key: "hold_reason", type: "textarea", label: tt("wf_hold_reason"), required: true },
+        { key: "hold_reason", type: "select", label: tt("wf_hold_reason"), required: true, options: opts(ON_HOLD_REASONS) },
+        { key: "hold_notes", type: "textarea", label: tt("wf_notes") },
         { key: "hold_review_date", type: "date", label: tt("wf_hold_review"), required: true },
       ];
     default:
@@ -340,7 +350,7 @@ export function RfqJihPanel() {
         onOpenChange={(o) => !o && setAdvance(null)}
         title={advance ? `${t("wf_move_to")}: ${sstageLabel(advance.toStage)}` : ""}
         submitLabel={t("wf_advance_stage")}
-        fields={advance ? fieldsForStage(advance.toStage, (k) => t(k as never)) : []}
+        fields={advance ? fieldsForStage(advance.toStage, (k) => t(k as never), lang) : []}
         onSubmit={async (v) => {
           if (!advance) return;
           const { notes, evidence, ...fields } = v as Record<string, string>;

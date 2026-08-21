@@ -3128,6 +3128,7 @@ export type Database = {
           location: string | null
           loss_notes: string | null
           loss_reason: string | null
+          lost_at: string | null
           lost_at_stage: string | null
           lost_to_competitor: string | null
           main_contractor: string | null
@@ -3178,6 +3179,7 @@ export type Database = {
           verbal_award_evidence: string | null
           verbal_award_method: string | null
           win_confidence: Database["public"]["Enums"]["win_confidence"] | null
+          won_at: string | null
         }
         Insert: {
           action_priority?: Database["public"]["Enums"]["priority_tier"] | null
@@ -3223,6 +3225,7 @@ export type Database = {
           location?: string | null
           loss_notes?: string | null
           loss_reason?: string | null
+          lost_at?: string | null
           lost_at_stage?: string | null
           lost_to_competitor?: string | null
           main_contractor?: string | null
@@ -3273,6 +3276,7 @@ export type Database = {
           verbal_award_evidence?: string | null
           verbal_award_method?: string | null
           win_confidence?: Database["public"]["Enums"]["win_confidence"] | null
+          won_at?: string | null
         }
         Update: {
           action_priority?: Database["public"]["Enums"]["priority_tier"] | null
@@ -3318,6 +3322,7 @@ export type Database = {
           location?: string | null
           loss_notes?: string | null
           loss_reason?: string | null
+          lost_at?: string | null
           lost_at_stage?: string | null
           lost_to_competitor?: string | null
           main_contractor?: string | null
@@ -3368,6 +3373,7 @@ export type Database = {
           verbal_award_evidence?: string | null
           verbal_award_method?: string | null
           win_confidence?: Database["public"]["Enums"]["win_confidence"] | null
+          won_at?: string | null
         }
         Relationships: [
           {
@@ -5026,6 +5032,7 @@ export type Database = {
       is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_sales_contributor: { Args: { _user_id: string }; Returns: boolean }
+      issue_project_number: { Args: { _project_id: string }; Returns: string }
       mark_all_notifications_read: { Args: never; Returns: number }
       mark_notifications_read: { Args: { _ids: string[] }; Returns: number }
       match_knowledge: {
@@ -5044,6 +5051,8 @@ export type Database = {
         }[]
       }
       notify_overdue_items: { Args: never; Returns: number }
+      project_has_valid_boq: { Args: { _project_id: string }; Returns: boolean }
+      project_number_denied_message: { Args: never; Returns: string }
       run_sales_automations: {
         Args: { _trigger?: string }
         Returns: {

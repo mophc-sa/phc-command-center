@@ -26,6 +26,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { KpiTile } from "@/components/phc/KpiTile";
+import { executiveKpis, thisMonth, type OppRow } from "@/lib/sales-kpis";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -117,7 +119,7 @@ function CommandCenter() {
       const sinceIso = since.toISOString();
 
       const [opps, followUps, approvals, agentRuns, activities, rfqs] = await Promise.all([
-        supabase.from("opportunities").select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor").order("last_activity_at", { ascending: false, nullsFirst: false }).limit(200),
+        supabase.from("opportunities").select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, updated_at, created_at").order("last_activity_at", { ascending: false, nullsFirst: false }).limit(200),
         supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, owner_id").neq("status", "completed").order("due_date", { ascending: true }).limit(100),
         supabase.from("approvals").select("*").eq("status", "pending"),
         supabase.from("ai_agent_runs").select("*").order("started_at", { ascending: false }).limit(6),
@@ -294,6 +296,16 @@ function CommandCenter() {
     }),
   ].slice(0, 5);
 
+  // Canonical Phase 5 KPIs. `today` is derived once so every tile shares one
+  // period boundary and they cannot disagree about what "this month" means.
+  const execKpis = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return executiveKpis((data?.opportunities ?? []) as unknown as OppRow[], {
+      today,
+      period: thisMonth(today),
+    });
+  }, [data]);
+
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
@@ -305,6 +317,36 @@ function CommandCenter() {
             : "Pipeline, follow-ups, and decision-ready priorities in a single view."
         }
       />
+
+      {/* ── Sales Management (Phase 5) ──────────────────────────────────────
+          Canonical KPIs from src/lib/sales-kpis.ts. Every tile carries its own
+          formula, source, active filters and record ids, and links to exactly
+          the records behind the number — the tooltip cannot drift from the
+          value because both are read off the same object. */}
+      <section className="mb-6">
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-[13px] font-semibold text-foreground">
+            {lang === "ar" ? "مؤشرات المبيعات" : "Sales performance"}
+          </h2>
+          <span className="text-[11px] text-muted-foreground">
+            {lang === "ar" ? "هذا الشهر · اضغط أي رقم لفتح سجلاته" : "This month · click any number to open its records"}
+          </span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <KpiTile kpi={execKpis.openPipeline}      label={lang === "ar" ? "خط الأنابيب المفتوح" : "Open pipeline"} />
+          <KpiTile kpi={execKpis.weightedPipeline}  label={lang === "ar" ? "المرجّح" : "Weighted pipeline"} />
+          <KpiTile kpi={execKpis.wonValue}          label={lang === "ar" ? "المحقق (Won فقط)" : "Won (official)"} />
+          <KpiTile kpi={execKpis.lateStageExposure} label={lang === "ar" ? "تعرض المراحل المتأخرة" : "Late-stage exposure"} />
+          <KpiTile kpi={execKpis.winRate}           label={lang === "ar" ? "معدل الفوز" : "Win rate"} />
+          <KpiTile kpi={execKpis.lossRate}          label={lang === "ar" ? "معدل الخسارة" : "Loss rate"} />
+          <KpiTile kpi={execKpis.lostValue}         label={lang === "ar" ? "قيمة الخسائر" : "Lost value"} />
+          {execKpis.byStage
+            .filter((k) => k.key === "stage_jih_bafo" || k.key === "stage_under_negotiation")
+            .map((k) => (
+              <KpiTile key={k.key} kpi={k} label={k.key === "stage_jih_bafo" ? "JIH BAFO" : (lang === "ar" ? "قيد التفاوض" : "Under negotiation")} />
+            ))}
+        </div>
+      </section>
 
       {/* KPI row */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">

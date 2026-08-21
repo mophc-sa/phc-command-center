@@ -4,6 +4,7 @@
 // and src/lib/sales-actions.ts.
 
 import { computeQuotationWinRatePct } from "@/lib/dashboard-helpers";
+import { isOpen as isCanonicallyOpen, isWon as isCanonicallyWon, isLost as isCanonicallyLost } from "@/lib/sales-kpis";
 
 // target_period enum: 'monthly' | 'quarterly' | 'annual'.
 // The 'annual' value was added in migration 20260716100000_salesperson_dashboard.sql.
@@ -25,7 +26,10 @@ export type SalesTargetRow = {
 export type OpportunityRow = {
   id: string;
   owner_id: string | null;
+  /** Legacy column. Read only through the canonical resolver — never directly. */
   stage: "discovery" | "qualification" | "preparation" | "quotation" | "follow_up" | "won" | "lost" | "archived";
+  /** Canonical column (Phase 1). Nullable on legacy rows. */
+  sales_stage?: string | null;
   tier: "A" | "B" | "C";
   estimated_value_max: number | null;
   quotation_value: number | null;
@@ -69,7 +73,16 @@ export type ActionFlagRow = {
   due_date: string | null;
 };
 
-const OPEN_PIPELINE_STAGES = new Set(["discovery", "qualification", "preparation", "quotation", "follow_up"]);
+// Phase 5: stage classification moved to the canonical resolver.
+//
+// This used to test the LEGACY `stage` enum
+// (discovery/qualification/preparation/quotation/follow_up). Phase 1 made
+// `sales_stage` the source of truth, and every one of those legacy buckets maps
+// to "somewhere in the pipeline" with no commercial meaning — so a deal sitting
+// at jih_bafo was invisible to open-pipeline, and a legacy row with no
+// sales_stage was invisible to everything. resolveCanonicalStage (via
+// sales-kpis) reads sales_stage first and falls back to `stage` only where that
+// is genuinely authoritative, so both old and new rows land in the right bucket.
 const SENT_QUOTATION_STATUSES = new Set(["submitted", "follow_up", "negotiation", "revised", "won", "lost"]);
 const OPEN_ACTION_STATUSES = new Set<ActionFlagRow["status"]>(["open", "in_progress", "escalated", "blocked"]);
 
@@ -200,7 +213,7 @@ const DEFAULT_FORECAST_WEIGHT = 0.2; // no confidence set yet — Phase-1 assump
 // period-bounded (same reasoning as openPipeline below).
 export function forecastValue(opportunities: OpportunityRow[]): number {
   return opportunities
-    .filter((o) => OPEN_PIPELINE_STAGES.has(o.stage))
+    .filter(isCanonicallyOpen)
     .reduce(
       (sum, o) => sum + opportunityValue(o) * (o.win_confidence ? FORECAST_CONFIDENCE_WEIGHTS[o.win_confidence] : DEFAULT_FORECAST_WEIGHT),
       0,
@@ -239,14 +252,14 @@ export function computeSalespersonMetrics(
   // events attributed to the period they occurred in, so they use the full
   // half-open [periodStart, periodEnd) window.
   const wonValue = myOpps
-    .filter((o) => o.stage === "won" && inPeriod(o.updated_at, window))
+    .filter((o) => isCanonicallyWon(o) && inPeriod(o.updated_at, window))
     .reduce((s, o) => s + opportunityValue(o), 0);
-  const lostCount = myOpps.filter((o) => o.stage === "lost" && inPeriod(o.updated_at, window)).length;
-  const wonCount = myOpps.filter((o) => o.stage === "won" && inPeriod(o.updated_at, window)).length;
+  const lostCount = myOpps.filter((o) => isCanonicallyLost(o) && inPeriod(o.updated_at, window)).length;
+  const wonCount = myOpps.filter((o) => isCanonicallyWon(o) && inPeriod(o.updated_at, window)).length;
 
   // Open pipeline is current state ("what's open right now"), not a
   // period-scoped event — intentionally unbounded, same as forecastValue.
-  const openPipeline = myOpps.filter((o) => OPEN_PIPELINE_STAGES.has(o.stage)).reduce((s, o) => s + opportunityValue(o), 0);
+  const openPipeline = myOpps.filter(isCanonicallyOpen).reduce((s, o) => s + opportunityValue(o), 0);
 
   const myRfqs = data.rfqs.filter((r) => r.sales_owner_id === userId);
   const rfqsReviewed = myRfqs.filter((r) => r.status !== "open" && inPeriod(r.updated_at, window)).length;
@@ -316,7 +329,7 @@ export function computeManagerMetrics(
   // as openPipeline/forecastValue above.
   const pipelineByOwner: Record<string, number> = {};
   for (const o of data.opportunities) {
-    if (!o.owner_id || !OPEN_PIPELINE_STAGES.has(o.stage)) continue;
+    if (!o.owner_id || !isCanonicallyOpen(o)) continue;
     pipelineByOwner[o.owner_id] = (pipelineByOwner[o.owner_id] ?? 0) + opportunityValue(o);
   }
 
@@ -331,7 +344,7 @@ export function computeManagerMetrics(
   }
 
   // Open Tier A opportunities is a current-state snapshot — unbounded.
-  const tierAOpen = data.opportunities.filter((o) => o.tier === "A" && OPEN_PIPELINE_STAGES.has(o.stage));
+  const tierAOpen = data.opportunities.filter((o) => o.tier === "A" && isCanonicallyOpen(o));
 
   // RFQ / tender / quotation conversion rates are lifetime (company-wide,
   // all-time) ratios, not scoped to the current target period — this
