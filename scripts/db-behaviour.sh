@@ -199,6 +199,7 @@ run_suite tests/db-behaviour/phase4_overdue_automation.sql run
 run_suite tests/db-behaviour/phase5_project_number_boq.sql run
 run_suite tests/db-behaviour/phase5_won_lost_timestamps.sql run
 run_suite tests/db-behaviour/attachment_read_isolation.sql run
+run_suite tests/db-behaviour/attachment_backfill_policy.sql run
 
 echo ""
 echo "─────────────────────────────────────────"
