@@ -13,6 +13,25 @@
 
 ---
 
+## 2026-08-22 — Phase 6: سجل المستندات والصور والموقع (فرع، غير مدموج)
+### Added
+- **`documents` + `document_links`** — الملف يُخزَّن مرة ويرتبط بعدة سجلات (فرصة / RFQ / مناقصة / مشروع / عقد / BOQ / عرض سعر / وارد). bucket/path · الاسم الأصلي · MIME · الحجم · checksum · النوع · العنوان/الملاحظات · من رفع/حذف ومتى · `superseded_by`. **لا signed URL في أي عمود.**
+- **الصور** مستندات نوعها صورة — نفس الجدول ونفس السياسة، معرض بدل صف. لا معمارية تخزين ثانية.
+- **الموقع:** `projects.site_latitude/site_longitude/site_address` + `documents.captured_lat/lon`. NUMERIC(9,6)، بلا PostGIS ولا geocoding ولا مزوّد خرائط ([[D27]]).
+- **Timeline:** فئة `documents` (رفع/ربط/استبدال/حذف/صورة) فوق نفس الـread projection — لا event store جديد.
+- `document_backfill_status` view · `register_legacy_documents()` · `src/lib/audit.ts` (بديل مشترك للنسخة المكررة في ثمانية ملفات — لم يُضَف تاسع).
+### Security
+- **استُبدلت staging policy الخاصة بـmigration 109** بنموذج مشتق من الكيان: `documents → document_links → صلاحية الكيان`. الكائن غير المسجَّل يقرأه رافعه فقط (fail closed).
+- **الصلاحية لا تُشتق من RLS الكيان نفسه** — `projects`/`inbox_items` سياستهما `is_active_user()` و`contracts` سياستها `true`؛ الاشتقاق منها كان سيسلّم `viewer` كل عقد ([[D26]]).
+- سياسة INSERT على الروابط تشترط **قراءة الطرفين** — بدونها يصير ربط ملف بفرصة تملكها بدائيةَ قراءةٍ للـbucket.
+- **trigger** يجمّد `storage_path` والـprovenance والـchecksum — بدونه يُعاد توجيه صفٍّ تملكه إلى ملف غيرك.
+- **لا حذف فيزيائي:** لا سياسة DELETE على أيٍّ من الجدولين؛ الحذف الناعم يوقف تقديم البايتات ويُبقي كل شيء.
+### Fixed
+- **`rls_tester` لم يكن عضوًا في `authenticated`** في هارنس الاختبار، ومعظم السياسات `TO authenticated` — فأي فحص عزل كان ينجح للسبب الخاطئ وسيظل ينجح لو حُذفت السياسة. أُضيف الـGRANT.
+- `getProjectCoverUrl` كانت تصنع توقيعًا عمره 7 أيام — TTL ثانٍ يناقض العشر دقائق. تمرّ الآن عبر `signAttachment`.
+
+---
+
 ## 2026-08-21 — Security hotfix: عزل الوصول إلى المرفقات (PR #196)
 ### Security
 - 🔴 **كل مستخدم مسجَّل كان يقرأ كل مرفق.** سياسة `storage.objects` كانت `bucket_id = 'attachments'` بلا شرط آخر — أي حساب، بما فيه `viewer`، يقرأ أي BOQ أو عقد أو دليل على فرصة مندوب آخر. استُبدلت بـ owner / role / linked-entity، والمسارات غير المفهومة تفشل مغلقة. `can_read_attachments()` تستثني `system_admin` و`viewer` عمدًا.

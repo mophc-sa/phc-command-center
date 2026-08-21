@@ -1,5 +1,12 @@
 -- =============================================================================
--- SECURITY HOTFIX — attachment read isolation (behavioural).
+-- Attachment read isolation — Phase 6 registry model (behavioural).
+--
+-- This suite began life against migration 109's staging policy, where access
+-- came from a role plus whatever the object path happened to reveal. Phase 6
+-- replaced that with the registry, so the mechanism under test changed. The
+-- INTENTS did not, and they are the same numbered checks: a salesperson reaches
+-- their own deal's files and nobody else's, viewer and system_admin reach
+-- nothing by role alone, anon reaches nothing, and nothing leaks across buckets.
 --
 -- Runs as the non-superuser `rls_tester` so the storage policy is actually
 -- enforced. Without the SET ROLE every check would pass vacuously.
@@ -7,11 +14,11 @@
 \set ON_ERROR_STOP on
 \pset pager off
 
--- Fixtures created as owner (RLS does not apply), then read back as each role.
 DO $$
 DECLARE
   u_sales1 UUID; u_sales2 UUID; u_bd UUID; u_admin UUID; u_viewer UUID; u_fin UUID;
   o_mine UUID; o_theirs UUID;
+  d_mine UUID; d_theirs UUID; d_inbox UUID; d_contract UUID; d_orphan UUID;
 BEGIN
   INSERT INTO auth.users (email) VALUES
     ('s1@phc-sa.com'),('s2@phc-sa.com'),('bd@phc-sa.com'),
@@ -34,38 +41,53 @@ BEGIN
 
   INSERT INTO storage.buckets (id, name, public) VALUES ('attachments','attachments',false)
     ON CONFLICT (id) DO NOTHING;
+  INSERT INTO storage.buckets (id, name, public) VALUES ('imports','imports',false)
+    ON CONFLICT (id) DO NOTHING;
 
-  -- The static-folder shapes that exist in production today…
+  -- Five objects, uploaded by bd. Under Phase 6 the PATH no longer decides
+  -- anything — the registry does — so these are deliberately flat names with no
+  -- entity id embedded, to prove the link is what grants access.
   INSERT INTO storage.objects (bucket_id, name, owner) VALUES
-    ('attachments', 'inbox/1785659980582-BOQ.xlsx',      u_bd),
-    ('attachments', 'rfq/1784812295891-Overall_BOQ.xlsx', u_bd),
-    ('attachments', 'contracts/1790000000000-signed.pdf', u_bd);
+    ('attachments', 'ari/mine.pdf',     u_bd),
+    ('attachments', 'ari/theirs.pdf',   u_bd),
+    ('attachments', 'ari/inbox.xlsx',   u_bd),
+    ('attachments', 'ari/contract.pdf', u_bd),
+    ('attachments', 'ari/orphan.pdf',   u_bd);
+  INSERT INTO storage.objects (bucket_id, name, owner) VALUES
+    ('imports', 'ari/other-bucket.csv', u_bd);
 
-  -- …and the two shapes that DO carry an entity id.
-  INSERT INTO storage.objects (bucket_id, name, owner) VALUES
-    ('attachments', 'evidence/'||o_mine::text||'/award-letter.pdf',   u_bd),
-    ('attachments', 'evidence/'||o_theirs::text||'/their-letter.pdf', u_bd);
+  INSERT INTO public.documents (storage_path, original_filename, uploaded_by) VALUES
+    ('ari/mine.pdf','mine.pdf',u_bd)     RETURNING id INTO d_mine;
+  INSERT INTO public.documents (storage_path, original_filename, uploaded_by) VALUES
+    ('ari/theirs.pdf','theirs.pdf',u_bd) RETURNING id INTO d_theirs;
+  INSERT INTO public.documents (storage_path, original_filename, uploaded_by) VALUES
+    ('ari/inbox.xlsx','inbox.xlsx',u_bd) RETURNING id INTO d_inbox;
+  INSERT INTO public.documents (storage_path, original_filename, uploaded_by) VALUES
+    ('ari/contract.pdf','contract.pdf',u_bd) RETURNING id INTO d_contract;
+  -- Unlinked and NOT legacy: the fail-closed case.
+  INSERT INTO public.documents (storage_path, original_filename, uploaded_by) VALUES
+    ('ari/orphan.pdf','orphan.pdf',u_bd) RETURNING id INTO d_orphan;
+
+  INSERT INTO public.document_links (document_id, entity_type, entity_id, linked_by) VALUES
+    (d_mine,   'opportunity', o_mine,   u_bd),
+    (d_theirs, 'opportunity', o_theirs, u_bd);
+
+  -- An inbox item and a contract, so the non-opportunity branches are exercised.
+  INSERT INTO public.inbox_items (project_name, source_type, created_by)
+    VALUES ('ARI intake','manual_rfq',u_bd);
+  INSERT INTO public.document_links (document_id, entity_type, entity_id, linked_by)
+  SELECT d_inbox, 'inbox_item', id, u_bd FROM public.inbox_items WHERE project_name='ARI intake';
+
+  INSERT INTO public.contracts (opportunity_id, created_by) VALUES (o_mine, u_bd);
+  INSERT INTO public.document_links (document_id, entity_type, entity_id, linked_by)
+  SELECT d_contract, 'contract', id, u_bd FROM public.contracts WHERE opportunity_id=o_mine;
 END $$;
-
-SELECT id AS s1  FROM auth.users WHERE email='s1@phc-sa.com'  \gset
-SELECT id AS s2  FROM auth.users WHERE email='s2@phc-sa.com'  \gset
-SELECT id AS bd  FROM auth.users WHERE email='bd@phc-sa.com'  \gset
-SELECT id AS adm FROM auth.users WHERE email='adm@phc-sa.com' \gset
-SELECT id AS vw  FROM auth.users WHERE email='vw@phc-sa.com'  \gset
--- Resolved as owner into a temp table: after SET ROLE, opportunities RLS hides
--- these rows until a test.uid is set, and psql variables are not expanded
--- inside a dollar-quoted DO body.
-CREATE TEMP TABLE probe_paths AS
-SELECT
-  (SELECT 'evidence/'||id::text||'/award-letter.pdf' FROM public.opportunities WHERE project_name='S1 deal') AS pmine,
-  (SELECT 'evidence/'||id::text||'/their-letter.pdf' FROM public.opportunities WHERE project_name='S2 deal') AS ptheirs;
-GRANT SELECT ON probe_paths TO rls_tester;
 
 SET ROLE rls_tester;
 
 DO $$
 DECLARE
-  n INT; s1 UUID; s2 UUID; bd UUID; adm UUID; vw UUID; fin UUID; mine TEXT; theirs TEXT;
+  n INT; s1 UUID; s2 UUID; bd UUID; adm UUID; vw UUID; fin UUID;
 BEGIN
   SELECT id INTO s1  FROM auth.users WHERE email='s1@phc-sa.com';
   SELECT id INTO s2  FROM auth.users WHERE email='s2@phc-sa.com';
@@ -73,67 +95,72 @@ BEGIN
   SELECT id INTO adm FROM auth.users WHERE email='adm@phc-sa.com';
   SELECT id INTO vw  FROM auth.users WHERE email='vw@phc-sa.com';
   SELECT id INTO fin FROM auth.users WHERE email='fin@phc-sa.com';
-  SELECT pmine, ptheirs INTO mine, theirs FROM probe_paths;
 
   -- ===== salesperson 1 =====
   PERFORM set_config('test.uid', s1::text, false);
 
-  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments' AND name=mine;
-  RAISE NOTICE '%  1. salesperson reads a file on an opportunity they OWN (expect 1, got %)',
+  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments' AND name='ari/mine.pdf';
+  RAISE NOTICE '%  1. salesperson reads a file linked to an opportunity they OWN (expect 1, got %)',
     CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
 
-  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments' AND name=theirs;
-  RAISE NOTICE '%  2. salesperson CANNOT read a file on an opportunity they do not own (expect 0, got %)',
+  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments' AND name='ari/theirs.pdf';
+  RAISE NOTICE '%  2. salesperson CANNOT read a file linked to an opportunity they do not own (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
-  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments' AND name LIKE 'inbox/%';
-  RAISE NOTICE '%  3. salesperson cannot read a static-folder file they did not upload (expect 0, got %)',
+  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments' AND name='ari/inbox.xlsx';
+  RAISE NOTICE '%  3. salesperson cannot read an intake file they neither uploaded nor own (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
+
+  -- The contract hangs off THEIR opportunity, so the contract branch must
+  -- follow the same stake through to the deal.
+  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments' AND name='ari/contract.pdf';
+  RAISE NOTICE '%  4. salesperson reads a contract file on their own deal (expect 1, got %)',
+    CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
 
   SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments';
-  RAISE NOTICE '%  4. salesperson sees ONLY their own entity file (expect 1, got %)',
-    CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
+  RAISE NOTICE '%  5. salesperson sees ONLY those two (expect 2, got %)',
+    CASE WHEN n=2 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== the uploader always reads their own =====
   PERFORM set_config('test.uid', bd::text, false);
   SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments';
-  RAISE NOTICE '%  5. bd_manager (uploader + pipeline role) reads all 5 (got %)',
+  RAISE NOTICE '%  6. bd_manager (uploader of all five) reads all 5 (got %)',
     CASE WHEN n=5 THEN 'PASS' ELSE 'FAIL' END, n;
 
-  -- ===== finance: contracts are their work =====
+  -- ===== finance: linked documents yes, unlinked non-legacy no =====
   PERFORM set_config('test.uid', fin::text, false);
   SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments';
-  RAISE NOTICE '%  6. finance_manager retains access (expect 5, got %)',
-    CASE WHEN n=5 THEN 'PASS' ELSE 'FAIL' END, n;
+  RAISE NOTICE '%  7. finance_manager reads the 4 LINKED documents, not the unlinked one (expect 4, got %)',
+    CASE WHEN n=4 THEN 'PASS' ELSE 'FAIL' END, n;
 
-  -- ===== the two tightenings =====
+  -- This is the Phase 6 tightening that did not exist before: a document that
+  -- is attached to nothing grants nothing by role.
+  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments' AND name='ari/orphan.pdf';
+  RAISE NOTICE '%  8. an unlinked, non-legacy document is invisible even to a document role (expect 0, got %)',
+    CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
+
+  -- ===== the two tightenings carried over from migration 109 =====
   PERFORM set_config('test.uid', adm::text, false);
   SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments';
-  RAISE NOTICE '%  7. system_admin ALONE reads nothing (expect 0, got %)',
+  RAISE NOTICE '%  9. system_admin ALONE reads nothing (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   PERFORM set_config('test.uid', vw::text, false);
   SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments';
-  RAISE NOTICE '%  8. viewer reads nothing (expect 0, got %)',
+  RAISE NOTICE '% 10. viewer reads nothing (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== anon =====
   PERFORM set_config('test.uid', '', false);
   SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='attachments';
-  RAISE NOTICE '%  9. unauthenticated reads nothing (expect 0, got %)',
+  RAISE NOTICE '% 11. unauthenticated reads nothing (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== the policy must not leak across buckets =====
   PERFORM set_config('test.uid', bd::text, false);
-  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='imports';
-  RAISE NOTICE '% 10. the attachments policy grants nothing in other buckets (expect 0, got %)',
+  SELECT count(*) INTO n FROM storage.objects WHERE bucket_id='imports' AND name='ari/other-bucket.csv';
+  RAISE NOTICE '% 12. the attachments policy grants nothing in other buckets (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
-
-  -- ===== fails closed on a malformed path =====
-  RAISE NOTICE '% 11. a non-uuid entity segment grants nothing',
-    CASE WHEN public.attachment_entity_visible('evidence/not-a-uuid/x.pdf', s1) = false THEN 'PASS' ELSE 'FAIL' END;
-  RAISE NOTICE '% 12. an unrecognised folder grants nothing',
-    CASE WHEN public.attachment_entity_visible('random/whatever.pdf', s1) = false THEN 'PASS' ELSE 'FAIL' END;
 
   -- ===== the helper must not quietly readmit system_admin =====
   RAISE NOTICE '% 13. can_read_attachments excludes system_admin and viewer',
@@ -143,6 +170,12 @@ BEGIN
     CASE WHEN public.can_read_attachments(bd) AND public.can_read_attachments(fin)
          THEN 'PASS' ELSE 'FAIL' END;
 
+  -- ===== the staging helper is gone, not merely unused =====
+  SELECT count(*) INTO n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+   WHERE ns.nspname='public' AND p.proname='attachment_entity_visible';
+  RAISE NOTICE '% 15. the migration-109 path-parsing helper was dropped, not left wired-in (expect 0, got %)',
+    CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
+
   RESET ROLE;
-  RAISE NOTICE '--- attachment read isolation: done ---';
+  RAISE NOTICE '--- attachment read isolation (Phase 6 registry): done ---';
 END $$;

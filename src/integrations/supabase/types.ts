@@ -39,6 +39,142 @@ export type Database = {
   }
   public: {
     Tables: {
+      // ─── Phase 6 (document registry) — HAND-SPLICED ──────────────────────
+      // Migrations 111-113 are not applied to the remote project yet, so
+      // `supabase gen types --project-id` cannot see them. The blocks below were
+      // generated from the local migration replay and spliced in unmodified —
+      // nothing else in this file was touched, because the replay environment
+      // also reports stub artefacts that production does not have.
+      //
+      // AFTER APPLYING 111-113: regenerate normally, drop this marker, and
+      // re-append the hand-written block at the end of the file.
+      documents: {
+        Row: {
+          captured_lat: number | null
+          captured_lon: number | null
+          checksum: string | null
+          created_at: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          doc_type: Database["public"]["Enums"]["document_type"]
+          id: string
+          is_legacy: boolean
+          mime_type: string | null
+          notes: string | null
+          original_filename: string
+          size_bytes: number | null
+          storage_bucket: string
+          storage_path: string
+          superseded_at: string | null
+          superseded_by: string | null
+          title: string | null
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          captured_lat?: number | null
+          captured_lon?: number | null
+          checksum?: string | null
+          created_at?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          is_legacy?: boolean
+          mime_type?: string | null
+          notes?: string | null
+          original_filename: string
+          size_bytes?: number | null
+          storage_bucket?: string
+          storage_path: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+          title?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          captured_lat?: number | null
+          captured_lon?: number | null
+          checksum?: string | null
+          created_at?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          is_legacy?: boolean
+          mime_type?: string | null
+          notes?: string | null
+          original_filename?: string
+          size_bytes?: number | null
+          storage_bucket?: string
+          storage_path?: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+          title?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_links: {
+        Row: {
+          document_id: string
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["document_entity_type"]
+          id: string
+          link_role: string | null
+          linked_at: string
+          linked_by: string | null
+          unlinked_at: string | null
+          unlinked_by: string | null
+        }
+        Insert: {
+          document_id: string
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["document_entity_type"]
+          id?: string
+          link_role?: string | null
+          linked_at?: string
+          linked_by?: string | null
+          unlinked_at?: string | null
+          unlinked_by?: string | null
+        }
+        Update: {
+          document_id?: string
+          entity_id?: string
+          entity_type?: Database["public"]["Enums"]["document_entity_type"]
+          id?: string
+          link_role?: string | null
+          linked_at?: string
+          linked_by?: string | null
+          unlinked_at?: string | null
+          unlinked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_links_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
@@ -4963,6 +5099,21 @@ export type Database = {
       }
     }
     Views: {
+      document_backfill_status: {
+        Row: {
+          active_links: number | null
+          derived_path: string | null
+          now_registered: boolean | null
+          outcome: string | null
+          raw_value: string | null
+          reason: string | null
+          record_id: string | null
+          reported_at: string | null
+          source_column: string | null
+          source_table: string | null
+        }
+        Relationships: []
+      }
       vendors_full: {
         Row: {
           city: string | null
@@ -4988,12 +5139,32 @@ export type Database = {
       }
     }
     Functions: {
-      ai_output_entity_still_owned: {
-        Args: { _entity_id: string; _entity_type: string; _user_id: string }
+      can_read_document: {
+        Args: { _document_id: string; _user_id: string }
         Returns: boolean
       }
-      attachment_entity_visible: {
-        Args: { _path: string; _user_id: string }
+      document_entity_grants: {
+        Args: {
+          _entity_id: string
+          _entity_type: Database["public"]["Enums"]["document_entity_type"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      register_legacy_documents: {
+        Args: never
+        Returns: {
+          linked: number
+          registered: number
+          unlinked_orphans: number
+        }[]
+      }
+      storage_object_readable: {
+        Args: { _bucket: string; _path: string; _user_id: string }
+        Returns: boolean
+      }
+      ai_output_entity_still_owned: {
+        Args: { _entity_id: string; _entity_type: string; _user_id: string }
         Returns: boolean
       }
       can_access_import_batch: {
@@ -5127,6 +5298,26 @@ export type Database = {
       }
     }
     Enums: {
+      document_entity_type:
+        | "opportunity"
+        | "rfq"
+        | "tender"
+        | "project"
+        | "contract"
+        | "boq"
+        | "quotation"
+        | "inbox_item"
+      document_type:
+        | "boq"
+        | "drawing"
+        | "contract"
+        | "quotation"
+        | "photo"
+        | "award_letter"
+        | "submission"
+        | "correspondence"
+        | "report"
+        | "other"
       account_status: "pending_review" | "active" | "dormant" | "do_not_target"
       action_type:
         | "request_boq"
@@ -5536,6 +5727,28 @@ export const Constants = {
   },
   public: {
     Enums: {
+      document_entity_type: [
+        "opportunity",
+        "rfq",
+        "tender",
+        "project",
+        "contract",
+        "boq",
+        "quotation",
+        "inbox_item",
+      ],
+      document_type: [
+        "boq",
+        "drawing",
+        "contract",
+        "quotation",
+        "photo",
+        "award_letter",
+        "submission",
+        "correspondence",
+        "report",
+        "other",
+      ],
       account_status: ["pending_review", "active", "dormant", "do_not_target"],
       action_type: [
         "request_boq",

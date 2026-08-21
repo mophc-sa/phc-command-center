@@ -727,6 +727,30 @@ and the 90-day tender review. Both are calculated for display but never raised a
 Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
 and the 90-day tender review. Both are calculated for display but never raised as queue items.
 
+### Files on a record (not yet live)
+Opportunities and projects gain a **Files** section. Upload a BOQ, a drawing, a
+signed contract or a site photo; each file shows its type, size, date and who
+uploaded it. Photos appear as a gallery in the same panel — they are documents
+whose type happens to be an image, not a separate album.
+
+Three things worth knowing about how it behaves:
+
+**Replacing rather than re-uploading.** Use the replace button on a file and the
+new upload is recorded as its successor. The old version stays and stays
+openable; the version list shows the chain. Uploading a second file with the
+same name does *not* overwrite the first — it never did since 2026-08-21, and
+now the replacement is recorded rather than merely refused.
+
+**Removing hides, it does not destroy.** A removed file stops opening and
+disappears from the list, but the record of it — who uploaded it, when, who
+removed it — remains. There is no permanent delete in this release. Detaching is
+different again: it removes the file from *this* record while leaving it
+attached wherever else it belongs.
+
+**Who sees it.** A file is visible to whoever can reach a record it is attached
+to. Attach the same file to both an RFQ and its opportunity and both teams see
+it; attach it to nothing and only you do.
+
 ### Who can open an attachment
 Since **2026-08-21**, a file in the attachments bucket is readable only if you uploaded it,
 your role handles documents (managing director, general manager, CEO, sales manager, BD
@@ -816,6 +840,8 @@ Listed so nobody works around a problem that no longer exists:
 Behaviour verified against source, the test suite (969 passing), and a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
 
 **Phase 4 is live** — the notifications migration was applied on 2026-08-20 and the frontend deployed at `6ce2a37`.
+
+**Phase 6 (Files / Photos / Location) is not yet live.** The Files section, the document registry and the site-coordinate fields are on a branch; the migrations are not applied to production.
 
 **Attachment access isolation is live** — applied and deployed on 2026-08-21 at `ad41ccf` (PR #196).
 

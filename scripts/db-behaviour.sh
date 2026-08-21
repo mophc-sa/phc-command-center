@@ -83,7 +83,11 @@ CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::
 CREATE TABLE storage.buckets (id text PRIMARY KEY, name text, public boolean DEFAULT false,
   file_size_limit bigint, allowed_mime_types text[], owner uuid, created_at timestamptz DEFAULT now());
 CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  bucket_id text, name text, owner uuid, metadata jsonb);
+  bucket_id text, name text, owner uuid, metadata jsonb,
+  -- Real storage.objects has these; the Phase 6 backfill reads created_at to
+  -- date a registry row, and a stub without it fails at replay rather than in
+  -- a test, which is a confusing way to find out.
+  created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
 -- Real Supabase ships storage.objects with RLS ON. Without this the stub makes
 -- every storage policy inert, and a policy test would pass vacuously.
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
@@ -178,7 +182,11 @@ CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::
 CREATE TABLE storage.buckets (id text PRIMARY KEY, name text, public boolean DEFAULT false,
   file_size_limit bigint, allowed_mime_types text[], owner uuid, created_at timestamptz DEFAULT now());
 CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  bucket_id text, name text, owner uuid, metadata jsonb);
+  bucket_id text, name text, owner uuid, metadata jsonb,
+  -- Real storage.objects has these; the Phase 6 backfill reads created_at to
+  -- date a registry row, and a stub without it fails at replay rather than in
+  -- a test, which is a confusing way to find out.
+  created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
 -- Real Supabase ships storage.objects with RLS ON. Without this the stub makes
 -- every storage policy inert, and a policy test would pass vacuously.
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
@@ -209,6 +217,12 @@ run_suite tests/db-behaviour/phase5_won_lost_timestamps.sql run
 run_suite tests/db-behaviour/attachment_read_isolation.sql run
 run_suite tests/db-behaviour/attachment_backfill_policy.sql run
 run_suite tests/db-behaviour/contract_security.sql run
+
+# Phase 6 last: the lifecycle suite calls register_legacy_documents(), which
+# sweeps every unregistered object in the database — including the fixtures the
+# suites above created. Running it earlier would change their counts.
+run_suite tests/db-behaviour/phase6_document_security.sql run
+run_suite tests/db-behaviour/phase6_document_lifecycle.sql run
 
 echo ""
 echo "─────────────────────────────────────────"
