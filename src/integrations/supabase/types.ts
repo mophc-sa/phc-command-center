@@ -39,6 +39,92 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_interactions: {
+        Row: {
+          company_id: string
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          feedback: string | null
+          id: string
+          interaction_date: string
+          interaction_type: string
+          next_action: string | null
+          next_action_due: string | null
+          outcome: string | null
+          priority: string | null
+          source_batch_id: string | null
+          source_row_id: string | null
+          summary: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          feedback?: string | null
+          id?: string
+          interaction_date: string
+          interaction_type: string
+          next_action?: string | null
+          next_action_due?: string | null
+          outcome?: string | null
+          priority?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          summary: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          feedback?: string | null
+          id?: string
+          interaction_date?: string
+          interaction_type?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          outcome?: string | null
+          priority?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          summary?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_interactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_interactions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_interactions_source_batch_id_fkey"
+            columns: ["source_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_interactions_source_row_id_fkey"
+            columns: ["source_row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
@@ -1465,6 +1551,133 @@ export type Database = {
           source_table?: string
         }
         Relationships: []
+      }
+      document_links: {
+        Row: {
+          document_id: string
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["document_entity_type"]
+          id: string
+          link_role: string | null
+          linked_at: string
+          linked_by: string | null
+          unlinked_at: string | null
+          unlinked_by: string | null
+        }
+        Insert: {
+          document_id: string
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["document_entity_type"]
+          id?: string
+          link_role?: string | null
+          linked_at?: string
+          linked_by?: string | null
+          unlinked_at?: string | null
+          unlinked_by?: string | null
+        }
+        Update: {
+          document_id?: string
+          entity_id?: string
+          entity_type?: Database["public"]["Enums"]["document_entity_type"]
+          id?: string
+          link_role?: string | null
+          linked_at?: string
+          linked_by?: string | null
+          unlinked_at?: string | null
+          unlinked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_links_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          captured_lat: number | null
+          captured_lon: number | null
+          checksum: string | null
+          created_at: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          doc_type: Database["public"]["Enums"]["document_type"]
+          id: string
+          is_legacy: boolean
+          mime_type: string | null
+          notes: string | null
+          original_filename: string
+          size_bytes: number | null
+          storage_bucket: string
+          storage_path: string
+          superseded_at: string | null
+          superseded_by: string | null
+          title: string | null
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          captured_lat?: number | null
+          captured_lon?: number | null
+          checksum?: string | null
+          created_at?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          is_legacy?: boolean
+          mime_type?: string | null
+          notes?: string | null
+          original_filename: string
+          size_bytes?: number | null
+          storage_bucket?: string
+          storage_path: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+          title?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          captured_lat?: number | null
+          captured_lon?: number | null
+          checksum?: string | null
+          created_at?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          is_legacy?: boolean
+          mime_type?: string | null
+          notes?: string | null
+          original_filename?: string
+          size_bytes?: number | null
+          storage_bucket?: string
+          storage_path?: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+          title?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       duplicate_group_members: {
         Row: {
@@ -3807,6 +4020,9 @@ export type Database = {
           project_stage: Database["public"]["Enums"]["project_stage"]
           sector: string | null
           signage_package_status: Database["public"]["Enums"]["signage_package_status"]
+          site_address: string | null
+          site_latitude: number | null
+          site_longitude: number | null
           source: string | null
           source_confidence: Database["public"]["Enums"]["confidence_level"]
           total_value: number | null
@@ -3833,6 +4049,9 @@ export type Database = {
           project_stage?: Database["public"]["Enums"]["project_stage"]
           sector?: string | null
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
+          site_address?: string | null
+          site_latitude?: number | null
+          site_longitude?: number | null
           source?: string | null
           source_confidence?: Database["public"]["Enums"]["confidence_level"]
           total_value?: number | null
@@ -3859,6 +4078,9 @@ export type Database = {
           project_stage?: Database["public"]["Enums"]["project_stage"]
           sector?: string | null
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
+          site_address?: string | null
+          site_latitude?: number | null
+          site_longitude?: number | null
           source?: string | null
           source_confidence?: Database["public"]["Enums"]["confidence_level"]
           total_value?: number | null
@@ -3971,6 +4193,86 @@ export type Database = {
             columns: ["import_id"]
             isOneToOne: false
             referencedRelation: "protenders_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_updates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          next_action: string | null
+          next_action_due: string | null
+          opportunity_id: string | null
+          quotation_id: string | null
+          source_batch_id: string | null
+          source_row_id: string | null
+          status_after: string | null
+          status_before: string | null
+          summary: string
+          update_date: string
+          update_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          opportunity_id?: string | null
+          quotation_id?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          status_after?: string | null
+          status_before?: string | null
+          summary: string
+          update_date: string
+          update_type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          opportunity_id?: string | null
+          quotation_id?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          status_after?: string | null
+          status_before?: string | null
+          summary?: string
+          update_date?: string
+          update_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_updates_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_updates_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_updates_source_batch_id_fkey"
+            columns: ["source_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_updates_source_row_id_fkey"
+            columns: ["source_row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
             referencedColumns: ["id"]
           },
         ]
@@ -4353,6 +4655,85 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_actuals_monthly: {
+        Row: {
+          actual_value: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          is_legacy_aggregate: boolean
+          metric_type: string
+          month: number
+          notes: string | null
+          owner_id: string | null
+          source_batch_id: string | null
+          source_profile_id: string | null
+          source_row_id: string | null
+          team_label: string | null
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          actual_value?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          is_legacy_aggregate?: boolean
+          metric_type: string
+          month: number
+          notes?: string | null
+          owner_id?: string | null
+          source_batch_id?: string | null
+          source_profile_id?: string | null
+          source_row_id?: string | null
+          team_label?: string | null
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          actual_value?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          is_legacy_aggregate?: boolean
+          metric_type?: string
+          month?: number
+          notes?: string | null
+          owner_id?: string | null
+          source_batch_id?: string | null
+          source_profile_id?: string | null
+          source_row_id?: string | null
+          team_label?: string | null
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_actuals_monthly_source_batch_id_fkey"
+            columns: ["source_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_actuals_monthly_source_profile_id_fkey"
+            columns: ["source_profile_id"]
+            isOneToOne: false
+            referencedRelation: "import_source_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_actuals_monthly_source_row_id_fkey"
+            columns: ["source_row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
             referencedColumns: ["id"]
           },
         ]
@@ -4963,6 +5344,21 @@ export type Database = {
       }
     }
     Views: {
+      document_backfill_status: {
+        Row: {
+          active_links: number | null
+          derived_path: string | null
+          now_registered: boolean | null
+          outcome: string | null
+          raw_value: string | null
+          reason: string | null
+          record_id: string | null
+          reported_at: string | null
+          source_column: string | null
+          source_table: string | null
+        }
+        Relationships: []
+      }
       vendors_full: {
         Row: {
           city: string | null
@@ -4992,10 +5388,6 @@ export type Database = {
         Args: { _entity_id: string; _entity_type: string; _user_id: string }
         Returns: boolean
       }
-      attachment_entity_visible: {
-        Args: { _path: string; _user_id: string }
-        Returns: boolean
-      }
       can_access_import_batch: {
         Args: { _batch_uuid: string }
         Returns: boolean
@@ -5010,6 +5402,10 @@ export type Database = {
           _responsible_user_id: string
           _user_id: string
         }
+        Returns: boolean
+      }
+      can_read_document: {
+        Args: { _document_id: string; _user_id: string }
         Returns: boolean
       }
       can_review_intake: { Args: { _user_id: string }; Returns: boolean }
@@ -5037,6 +5433,14 @@ export type Database = {
       }
       derive_attachment_path: { Args: { _value: string }; Returns: string }
       dismiss_notification: { Args: { _id: string }; Returns: boolean }
+      document_entity_grants: {
+        Args: {
+          _entity_id: string
+          _entity_type: Database["public"]["Enums"]["document_entity_type"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       emit_notification: {
         Args: {
           _body: string
@@ -5111,6 +5515,14 @@ export type Database = {
       notify_overdue_items: { Args: never; Returns: number }
       project_has_valid_boq: { Args: { _project_id: string }; Returns: boolean }
       project_number_denied_message: { Args: never; Returns: string }
+      register_legacy_documents: {
+        Args: never
+        Returns: {
+          linked: number
+          registered: number
+          unlinked_orphans: number
+        }[]
+      }
       rerun_attachment_backfill: {
         Args: never
         Returns: {
@@ -5124,6 +5536,10 @@ export type Database = {
           raised: number
           run_id: string
         }[]
+      }
+      storage_object_readable: {
+        Args: { _bucket: string; _path: string; _user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
@@ -5200,6 +5616,26 @@ export type Database = {
         | "unknown_authority"
       contact_confidence_level: "high" | "medium" | "low"
       contact_location: "site_office" | "head_office" | "unknown"
+      document_entity_type:
+        | "opportunity"
+        | "rfq"
+        | "tender"
+        | "project"
+        | "contract"
+        | "boq"
+        | "quotation"
+        | "inbox_item"
+      document_type:
+        | "boq"
+        | "drawing"
+        | "contract"
+        | "quotation"
+        | "photo"
+        | "award_letter"
+        | "submission"
+        | "correspondence"
+        | "report"
+        | "other"
       exclusion_reason:
         | "no_signage_package"
         | "low_commercial_value"
@@ -5617,6 +6053,28 @@ export const Constants = {
       ],
       contact_confidence_level: ["high", "medium", "low"],
       contact_location: ["site_office", "head_office", "unknown"],
+      document_entity_type: [
+        "opportunity",
+        "rfq",
+        "tender",
+        "project",
+        "contract",
+        "boq",
+        "quotation",
+        "inbox_item",
+      ],
+      document_type: [
+        "boq",
+        "drawing",
+        "contract",
+        "quotation",
+        "photo",
+        "award_letter",
+        "submission",
+        "correspondence",
+        "report",
+        "other",
+      ],
       exclusion_reason: [
         "no_signage_package",
         "low_commercial_value",

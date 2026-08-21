@@ -27,6 +27,7 @@ import {
   type OpportunityFactsRow,
   type StageTransitionRow,
   type TimelineFilter,
+  type DocumentTimelineRow,
 } from "@/lib/opportunity-timeline";
 import { humanize } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ const FILTERS: Array<{ key: TimelineFilter; en: string; ar: string }> = [
   { key: "approvals", en: "Approvals", ar: "الاعتمادات" },
   { key: "communication", en: "Communication", ar: "التواصل" },
   { key: "commercial", en: "Commercial", ar: "التجاري" },
+  { key: "documents", en: "Documents", ar: "المستندات" },
 ];
 
 export function OpportunityTimeline({ opportunityId }: { opportunityId: string }) {
@@ -48,7 +50,7 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
     staleTime: 30_000,
     enabled: !!opportunityId,
     queryFn: async () => {
-      const [opp, transitions, approvals, followUps, intake, profiles] = await Promise.all([
+      const [opp, transitions, approvals, followUps, intake, profiles, docLinks] = await Promise.all([
         supabase
           .from("opportunities")
           .select(
@@ -78,6 +80,15 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
           )
           .eq("converted_record_id", opportunityId),
         supabase.from("profiles").select("id, full_name, email"),
+        // Phase 6. Joined server-side and flattened below, so the document
+        // history costs one more query in a batch that already runs six —
+        // not one per file.
+        supabase
+          .from("document_links")
+          .select("entity_type, entity_id, linked_by, linked_at, documents!inner(id, original_filename, title, doc_type, mime_type, uploaded_by, uploaded_at, superseded_by, superseded_at, deleted_by, deleted_at)")
+          .eq("entity_type", "opportunity")
+          .eq("entity_id", opportunityId)
+          .is("unlinked_at", null),
       ]);
 
       return {
@@ -87,6 +98,16 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
         followUps: (followUps.data ?? []) as unknown as FollowUpRow[],
         intake: (intake.data ?? []) as unknown as IntakeRow[],
         names: new Map((profiles.data ?? []).map((p) => [p.id, p.full_name || p.email || p.id.slice(0, 8)])),
+        documents: ((docLinks.data ?? []) as unknown as Array<{
+          entity_type: string; entity_id: string; linked_by: string | null; linked_at: string;
+          documents: Omit<DocumentTimelineRow, "link_entity_type" | "link_entity_id" | "linked_by" | "linked_at">;
+        }>).map((l) => ({
+          ...l.documents,
+          link_entity_type: l.entity_type,
+          link_entity_id: l.entity_id,
+          linked_by: l.linked_by,
+          linked_at: l.linked_at,
+        })) as DocumentTimelineRow[],
       };
     },
   });
@@ -100,6 +121,7 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
           followUps: data?.followUps,
           intake: data?.intake,
           opportunity: data?.opportunity ?? null,
+          documents: data?.documents,
         },
         { filter },
       ),

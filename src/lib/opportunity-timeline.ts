@@ -27,7 +27,7 @@
 // Pure. See opportunity-timeline.test.ts.
 // =============================================================================
 
-export type TimelineCategory = "sales" | "approvals" | "communication" | "commercial";
+export type TimelineCategory = "sales" | "approvals" | "communication" | "commercial" | "documents";
 
 export type TimelineEvent = {
   id: string;
@@ -122,6 +122,7 @@ export type TimelineSources = {
   approvals?: ApprovalRow[];
   followUps?: FollowUpRow[];
   opportunity?: OpportunityFactsRow | null;
+  documents?: DocumentTimelineRow[];
 };
 
 // ---- Projection -------------------------------------------------------------
@@ -398,6 +399,131 @@ function opportunityFactEvents(o: OpportunityFactsRow): TimelineEvent[] {
   return out;
 }
 
+/**
+ * Documents attached to this record (Phase 6).
+ *
+ * A projection like every other source here — the registry already records who
+ * uploaded what and when, so there is nothing to write a second time. The
+ * document lifecycle produces up to four moments from two rows:
+ *
+ *   uploaded    documents.uploaded_at
+ *   linked      document_links.linked_at, only when it differs from the upload
+ *   superseded  documents.superseded_at
+ *   deleted     documents.deleted_at
+ *
+ * A photo is not a fifth kind of thing; it is an upload whose document is an
+ * image, and it says so in the title so the timeline reads naturally.
+ */
+export type DocumentTimelineRow = {
+  id: string;
+  original_filename: string;
+  title: string | null;
+  doc_type: string;
+  mime_type: string | null;
+  uploaded_by: string | null;
+  uploaded_at: string;
+  superseded_by: string | null;
+  superseded_at: string | null;
+  deleted_by: string | null;
+  deleted_at: string | null;
+  /** From the link row for THIS entity. */
+  link_entity_type: string;
+  link_entity_id: string;
+  linked_by: string | null;
+  linked_at: string;
+};
+
+const IMAGE_MIME = /^image\//;
+
+function documentEvents(rows: DocumentTimelineRow[]): TimelineEvent[] {
+  const out: TimelineEvent[] = [];
+
+  for (const d of rows) {
+    const name = d.title ?? d.original_filename;
+    const photo = d.doc_type === "photo" || (!!d.mime_type && IMAGE_MIME.test(d.mime_type));
+    // Deep link to the record the file hangs off, which is where the Files
+    // panel that can actually open it lives. The timeline never links to a
+    // signed URL — those are minted on click, by design (D25).
+    const href =
+      d.link_entity_type === "opportunity" ? `/opportunities/${d.link_entity_id}`
+      : d.link_entity_type === "project"   ? `/projects/${d.link_entity_id}`
+      : null;
+
+    out.push({
+      id: `document:uploaded:${d.id}`,
+      at: d.uploaded_at,
+      category: "documents",
+      type: photo ? "photo_added" : "document_uploaded",
+      title: photo ? `Photo added — ${name}` : `Document uploaded — ${name}`,
+      detail: d.doc_type !== "other" ? d.doc_type.replace(/_/g, " ") : null,
+      actorId: d.uploaded_by,
+      from: null,
+      to: null,
+      source: "documents",
+      evidence: null,
+      href,
+    });
+
+    // Attaching an existing file to a second record is its own event. Suppressed
+    // when it is the same moment as the upload, which is the common case and
+    // would otherwise double every row.
+    if (Math.abs(new Date(d.linked_at).getTime() - new Date(d.uploaded_at).getTime()) > 1000) {
+      out.push({
+        id: `document:linked:${d.id}:${d.link_entity_id}`,
+        at: d.linked_at,
+        category: "documents",
+        type: "document_linked",
+        title: `Document linked — ${name}`,
+        detail: null,
+        actorId: d.linked_by,
+        from: null,
+        to: null,
+        source: "document_links",
+        evidence: null,
+        href,
+      });
+    }
+
+    if (d.superseded_at) {
+      out.push({
+        id: `document:superseded:${d.id}`,
+        at: d.superseded_at,
+        category: "documents",
+        type: "document_superseded",
+        title: `Document replaced — ${name}`,
+        detail: null,
+        // The registry records when a version was replaced but not by whom;
+        // null rather than a guess, the same rule the rest of this file follows.
+        actorId: null,
+        from: null,
+        to: null,
+        source: "documents",
+        evidence: null,
+        href,
+      });
+    }
+
+    if (d.deleted_at) {
+      out.push({
+        id: `document:deleted:${d.id}`,
+        at: d.deleted_at,
+        category: "documents",
+        type: "document_deleted",
+        title: `Document removed — ${name}`,
+        detail: null,
+        actorId: d.deleted_by,
+        from: null,
+        to: null,
+        source: "documents",
+        evidence: null,
+        href,
+      });
+    }
+  }
+
+  return out;
+}
+
 // ---- Assembly ---------------------------------------------------------------
 
 /**
@@ -440,6 +566,7 @@ export function buildTimeline(
     ...approvalEvents(sources.approvals ?? []),
     ...followUpEvents(sources.followUps ?? []),
     ...(sources.opportunity ? opportunityFactEvents(sources.opportunity) : []),
+    ...documentEvents(sources.documents ?? []),
   ];
 
   const deduped = opts.dedupe === false ? all : dedupeEvents(all);

@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { uploadAttachment } from "@/lib/storage-actions";
+import { signAttachment, uploadAttachment } from "@/lib/storage-actions";
 
 type Uuid = string;
 
@@ -12,14 +12,17 @@ export function validateProjectCoverFile(file: File): { ok: true } | { ok: false
   return { ok: true };
 }
 
-// projects.cover_image_path stores a private-bucket storage path, not a
-// URL — re-sign on every read so display never depends on a signed URL
-// that was already stale by the time it was stored.
+// projects.cover_image_path stores a private-bucket storage path, not a URL —
+// re-signed on every read so display never depends on a link that was already
+// stale by the time it was stored.
+//
+// This used to mint its own seven-day signature. Nothing stored it, so it was
+// never the D25 defect, but it left a second TTL in the codebase contradicting
+// the ten-minute one — and the next person to copy an example would have had a
+// coin flip over which was current. It now goes through the same helper as
+// everything else.
 export async function getProjectCoverUrl(path: string | null): Promise<string | null> {
-  if (!path) return null;
-  const { data, error } = await supabase.storage.from("attachments").createSignedUrl(path, 60 * 60 * 24 * 7);
-  if (error) return null;
-  return data?.signedUrl ?? null;
+  return signAttachment(path ?? "");
 }
 
 export async function uploadProjectCover(projectId: Uuid, file: File): Promise<string> {

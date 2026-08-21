@@ -11,6 +11,7 @@ import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { OpportunityTimeline } from "@/components/phc/OpportunityTimeline";
+import { DocumentsPanel } from "@/components/phc/DocumentsPanel";
 import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import {
@@ -1003,6 +1004,14 @@ function OpportunityDetail() {
           })}
         </div>
       </Panel>
+      )}
+
+      {/* 4b. FILES — the Phase 6 registry. Sits beside Evidence rather than
+          replacing it: evidence_sources carries confidence and source_type that
+          a document row does not, so folding one into the other would lose
+          fields Phase 3 relies on. */}
+      {show("evidence") && (
+        <DocumentsPanel entity={{ type: "opportunity", id }} />
       )}
 
       {/* 4. EVIDENCE */}
