@@ -233,77 +233,79 @@ async function run_boq_extraction(
     }));
   }
 
-  // Check if a boqs record already exists for this opportunity
-  // Note: boqs uses 'related_opportunity_id'; status enum: estimated_scope | verified | partially_verified | missing
-  // title is NOT NULL so provide a default; estimated_value stores total
-  const { data: existingBoq } = await svc
-    .from("boqs")
+  // ---- Stage only. Never write the canonical BOQ. --------------------------
+  //
+  // This used to find the one boqs row for the opportunity, DELETE every
+  // boq_items row under it, and re-insert the parsed lines. Two problems, and
+  // they compound: the insert named a column `unit` that boq_items does not
+  // have, so it always failed — while the delete before it succeeded. On a BOQ
+  // that already had priced lines the result was every line gone and nothing
+  // put back, because these are four separate PostgREST calls and not one
+  // transaction. It only looked harmless because boq_items was empty.
+  //
+  // Extraction is a proposal, not a commercial decision. It now lands in the
+  // staging tables that have existed for exactly this since the AI pipeline was
+  // built, and a human promotes lines into a BOQ. The database enforces the
+  // same rule independently — boq_history_is_immutable() refuses the delete
+  // even for the service role — so a stale deployment of this function cannot
+  // destroy anything either.
+  const { data: extraction, error: exErr } = await svc
+    .from("boq_extractions")
+    .insert({
+      related_opportunity_id: opportunityId,
+      source_file_url: (payload.file_path as string) ?? null,
+      source_type: payload.file_path ? "file_import" : "inline_rows",
+      status: "pending_review",
+      uploaded_by: caller.userId,
+      notes: `${rows.length} line(s) parsed. Awaiting human promotion into a BOQ.`,
+    })
     .select("id")
-    .eq("related_opportunity_id", opportunityId)
-    .maybeSingle();
-
-  let boqId: string;
-
-  if (!existingBoq) {
-    const { data: newBoq, error: boqErr } = await svc
-      .from("boqs")
-      .insert({
-        related_opportunity_id: opportunityId,
-        title: "Imported BOQ",
-        status: "estimated_scope",
-        currency: "SAR",
-        source: "file_import",
-        source_confidence: "medium",
-        created_by: caller.userId,
-      })
-      .select("id")
-      .single();
-    if (boqErr || !newBoq) return err(`Failed to create BOQ: ${boqErr?.message ?? "unknown"}`, 500);
-    boqId = (newBoq as { id: string }).id;
-  } else {
-    boqId = (existingBoq as { id: string }).id;
+    .single();
+  if (exErr || !extraction) {
+    return err(`Failed to stage extraction: ${exErr?.message ?? "unknown"}`, 500);
   }
+  const extractionId = (extraction as { id: string }).id;
 
-  // Clean re-import: delete existing items for this BOQ
-  await svc.from("boq_items").delete().eq("boq_id", boqId);
-
-  // Map parsed rows to boq_items schema:
-  // boq_items uses: sign_type (NOT NULL), unit_rate, quantity, unit, item_source, sort_order
-  // description → sign_type, item_code → item_source, unit_price → unit_rate
-  const totalValue = rows.reduce((sum, r) => sum + r.quantity * r.unit_price, 0);
-
+  // `unit` is a real column here, unlike on boq_items — this is what the parsed
+  // unit was always meant to be written to.
   if (rows.length > 0) {
-    await svc.from("boq_items").insert(
-      rows.map((r, idx) => ({
-        boq_id: boqId,
-        sign_type: r.description ?? r.item_code ?? "Unknown",
-        item_source: r.item_code ?? null,
-        unit: r.unit ?? null,
+    const { error: itemsErr } = await svc.from("extracted_boq_items").insert(
+      rows.map((r) => ({
+        extraction_id: extractionId,
+        item_description: r.description ?? null,
+        sign_type: r.description ?? r.item_code ?? null,
         quantity: r.quantity,
-        unit_rate: r.unit_price,
-        cost_estimate: r.quantity * r.unit_price,
-        sort_order: idx + 1,
-        confidence: "medium" as const,
+        unit: r.unit ?? null,
+        // Flagged when the parse produced no price or no quantity — the two
+        // things a reviewer most needs to look at before promoting a line.
+        uncertain: !r.unit_price || !r.quantity,
+        source_ref: r.item_code ?? null,
       })),
     );
+    if (itemsErr) return err(`Failed to stage extracted lines: ${itemsErr.message}`, 500);
   }
 
-  // Update BOQ estimated_value and updated_at
-  await svc
-    .from("boqs")
-    .update({ estimated_value: totalValue, updated_at: new Date().toISOString() })
-    .eq("id", boqId);
+  const parsedTotal = rows.reduce((sum, r) => sum + r.quantity * r.unit_price, 0);
 
   await auditLog(
     svc,
     caller.userId,
-    "ai.boq_extraction",
-    "boq",
-    boqId,
-    { items: rows.length, total_value: totalValue },
+    "ai.boq_extraction_staged",
+    "opportunity",
+    opportunityId,
+    { extraction_id: extractionId, items: rows.length, parsed_total: parsedTotal, committed: false },
     caller.roles,
   );
-  return json({ ok: true, boq_id: boqId, items_count: rows.length, total_value: totalValue });
+
+  return json({
+    ok: true,
+    staged: true,
+    extraction_id: extractionId,
+    items_count: rows.length,
+    parsed_total: parsedTotal,
+    // Said plainly so no caller mistakes staging for a commit.
+    message: "Lines staged for review. No BOQ was created or modified.",
+  });
 }
 
 async function run_contact_mapping(
