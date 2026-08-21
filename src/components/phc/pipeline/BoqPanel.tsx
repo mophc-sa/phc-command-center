@@ -40,6 +40,14 @@ export function BoqPanel() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<BoqStatus | "all">("all");
 
+  // `boqs.estimated_value`, `boq_items.unit_rate` and `boq_items.cost_estimate`
+  // are revoked from the `authenticated` role — cost is not a column anyone
+  // reads directly any more. `select("*")` therefore returns the BOQ without
+  // them, and the two numbers this panel needs come from views that gate
+  // themselves: boq_sales_totals for the selling headline (anyone who may see
+  // the BOQ) and boq_item_costs for the rate column (estimation, finance,
+  // MD/GM/CEO only). For everyone else boq_item_costs is simply empty, so the
+  // rate column renders as "—" rather than erroring.
   const { data: boqs = [], isLoading } = useQuery({
     queryKey: ["boqs"],
     queryFn: async () =>
@@ -50,6 +58,27 @@ export function BoqPanel() {
           .order("updated_at", { ascending: false })
       ).data ?? [],
   });
+
+  const { data: sellingTotals = [] } = useQuery({
+    queryKey: ["boq-sales-totals"],
+    queryFn: async () => (await supabase.from("boq_sales_totals").select("*")).data ?? [],
+  });
+  const sellingByBoq = useMemo(
+    () => new Map(sellingTotals.map((r: any) => [r.boq_id, Number(r.selling_total ?? 0)])),
+    [sellingTotals],
+  );
+
+  // One query for the whole panel rather than one per BOQ. Empty for anyone
+  // without cost authority, which is the answer, not a failure.
+  const { data: costLines = [] } = useQuery({
+    queryKey: ["boq-item-costs"],
+    queryFn: async () => (await supabase.from("boq_item_costs").select("*")).data ?? [],
+  });
+  const rateByItem = useMemo(
+    () => new Map(costLines.map((r: any) => [r.id, r.unit_rate])),
+    [costLines],
+  );
+  const canSeeCost = costLines.length > 0;
 
   const { data: opps = [] } = useQuery({
     queryKey: ["opps-for-boq"],
@@ -74,9 +103,12 @@ export function BoqPanel() {
     const verified = boqs.filter((b: any) => b.status === "verified").length;
     const estimated = boqs.filter((b: any) => b.status === "estimated_scope").length;
     const missing = boqs.filter((b: any) => b.status === "missing").length;
-    const totalValue = boqs.reduce((s: number, b: any) => s + (b.estimated_value ?? 0), 0);
+    // Selling, not cost. boqs.estimated_value used to be the headline here, but
+    // the AI extractor writes it as SUM(quantity * unit_rate) — a cost roll-up
+    // wearing a neutral name — so it is no longer readable and no longer shown.
+    const totalValue = boqs.reduce((s: number, b: any) => s + (sellingByBoq.get(b.id) ?? 0), 0);
     return { total: boqs.length, verified, estimated, missing, totalValue };
-  }, [boqs]);
+  }, [boqs, sellingByBoq]);
 
   return (
     <div>
@@ -165,7 +197,7 @@ export function BoqPanel() {
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="num text-end text-sm font-semibold text-foreground" data-tabular="true">
-                      {formatCurrency(b.estimated_value, lang, b.currency)}
+                      {formatCurrency(sellingByBoq.get(b.id) ?? null, lang, b.currency)}
                     </div>
                     <button
                       onClick={() => setAddItemFor(b.id)}
@@ -197,7 +229,9 @@ export function BoqPanel() {
                               <th className="py-2 text-start font-medium">{t("field_material")}</th>
                               <th className="py-2 text-start font-medium">{t("field_location")}</th>
                               <th className="py-2 text-end font-medium">{t("field_quantity")}</th>
-                              <th className="py-2 text-end font-medium">{t("field_unit_rate")}</th>
+                              {canSeeCost ? (
+                                <th className="py-2 text-end font-medium">{t("field_unit_rate")}</th>
+                              ) : null}
                             </tr>
                           </thead>
                           <tbody>
@@ -210,9 +244,11 @@ export function BoqPanel() {
                                 <td className="num py-2 text-end" data-tabular="true">
                                   {formatNumber(it.quantity, lang)}
                                 </td>
-                                <td className="num py-2 text-end" data-tabular="true">
-                                  {formatCurrency(it.unit_rate, lang)}
-                                </td>
+                                {canSeeCost ? (
+                                  <td className="num py-2 text-end" data-tabular="true">
+                                    {formatCurrency(rateByItem.get(it.id) ?? null, lang)}
+                                  </td>
+                                ) : null}
                               </tr>
                             ))}
                           </tbody>
