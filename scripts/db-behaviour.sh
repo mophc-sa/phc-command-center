@@ -51,6 +51,14 @@ psql_ -q \
   -c "CREATE ROLE anon;" -c "CREATE ROLE supabase_auth_admin;" \
   -c "CREATE ROLE rls_tester;" >/dev/null 2>&1
 
+# rls_tester must BE authenticated, not merely resemble it. PostgREST runs every
+# signed-in request as the `authenticated` role, and most policies in this schema
+# are scoped `TO authenticated` — a tester outside that role matches no policy at
+# all and sees zero rows. An isolation check then passes for the wrong reason,
+# and would keep passing if the policy were deleted outright. Found while
+# measuring query plans: `opportunities` returned nothing to its own owner.
+psql_ -q -c "GRANT authenticated TO rls_tester;" >/dev/null 2>&1
+
 psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS extensions;
@@ -200,6 +208,7 @@ run_suite tests/db-behaviour/phase5_project_number_boq.sql run
 run_suite tests/db-behaviour/phase5_won_lost_timestamps.sql run
 run_suite tests/db-behaviour/attachment_read_isolation.sql run
 run_suite tests/db-behaviour/attachment_backfill_policy.sql run
+run_suite tests/db-behaviour/contract_security.sql run
 
 echo ""
 echo "─────────────────────────────────────────"
