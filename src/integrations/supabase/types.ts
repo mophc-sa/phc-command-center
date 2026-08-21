@@ -1121,6 +1121,20 @@ export type Database = {
             foreignKeyName: "boq_items_boq_id_fkey"
             columns: ["boq_id"]
             isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
             referencedRelation: "boqs"
             referencedColumns: ["id"]
           },
@@ -4346,6 +4360,20 @@ export type Database = {
             foreignKeyName: "quotations_boq_id_fkey"
             columns: ["boq_id"]
             isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "quotations_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "quotations_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
             referencedRelation: "boqs"
             referencedColumns: ["id"]
           },
@@ -5344,6 +5372,79 @@ export type Database = {
       }
     }
     Views: {
+      boq_cost_totals: {
+        Row: {
+          boq_id: string | null
+          cost_total: number | null
+          lines_cost_total: number | null
+          lines_selling_total: number | null
+          related_opportunity_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_item_costs: {
+        Row: {
+          boq_id: string | null
+          cost_estimate: number | null
+          id: string | null
+          margin_pct: number | null
+          margin_value: number | null
+          quantity: number | null
+          selling_price: number | null
+          sign_type: string | null
+          sort_order: number | null
+          unit_rate: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_sales_totals: {
+        Row: {
+          boq_id: string | null
+          currency: string | null
+          line_count: number | null
+          related_opportunity_id: string | null
+          selling_total: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_backfill_status: {
         Row: {
           active_links: number | null
@@ -5395,6 +5496,11 @@ export type Database = {
       can_edit_rfq_number: { Args: { _user_id: string }; Returns: boolean }
       can_edit_total_value: { Args: { _user_id: string }; Returns: boolean }
       can_read_attachments: { Args: { _user_id: string }; Returns: boolean }
+      can_read_boq: {
+        Args: { _opportunity_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_commercial_cost: { Args: { _user_id: string }; Returns: boolean }
       can_read_contract: {
         Args: {
           _created_by: string
