@@ -1,9 +1,20 @@
 name: Deploy Cloudflare Worker
 
+# MANUAL ONLY — there is deliberately no `push` trigger.
+#
+# This workflow used to carry `push: branches: [main]`, which meant every
+# merged PR cut over agent.phc-sa.com with no human in the loop. That
+# contradicted the project's own written rule: docs/deployment-governance.md
+# says "Every production change requires an explicit approval gate" and
+# "production deployment must remain manual and approval-gated", and CLAUDE.md
+# says deployments "must never be triggered automatically by merging to main".
+#
+# It went unnoticed because it was harmless for a while — the PRs that merged
+# were migrations and tests, so the redeployed bundle was identical. The first
+# PR carrying frontend changes would have shipped straight to production on
+# merge. Merging is now decoupled from deploying: CI still runs on every push
+# to main (see ci.yml); shipping is a separate, deliberate act.
 on:
-  # Auto-deploy to production on every merge to main.
-  push:
-    branches: [main]
   # Manual dispatch: choose canary (version upload, no traffic cut) or
   # production (full cutover to agent.phc-sa.com).
   workflow_dispatch:
@@ -16,25 +27,31 @@ on:
         options:
           - canary
           - production
+      confirm:
+        # A dropdown left on the wrong option is one click from a live
+        # cutover. Production additionally requires typing the domain, so
+        # deploying production is something you can only do on purpose.
+        description: 'To deploy production, type: agent.phc-sa.com'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  # One deployment per target at a time. Push-triggered runs use
-  # 'production'; manual canary runs are separate.
-  group: cloudflare-${{ github.event_name == 'push' && 'production' || inputs.target }}
+  # One deployment per target at a time; canary and production are separate.
+  group: cloudflare-${{ inputs.target }}
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy ${{ github.event_name == 'push' && 'production (auto)' || inputs.target }}
+    name: Deploy ${{ inputs.target }}
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production-cloudflare
     env:
-      # Push → always production. Manual dispatch → use the chosen target.
-      DEPLOY_TARGET: ${{ github.event_name == 'push' && 'production' || inputs.target }}
+      DEPLOY_TARGET: ${{ inputs.target }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
       SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
@@ -48,6 +65,34 @@ jobs:
       WRANGLER_VERSION: 4.112.0
 
     steps:
+      # Defence in depth. Removing the `push` trigger is the actual fix; this
+      # step is what fails loudly if anyone ever adds an automatic trigger
+      # back, instead of the deployment quietly succeeding again.
+      - name: Refuse any non-manual trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]; then
+            echo "Production deploys are manual only. This run was triggered by '${GITHUB_EVENT_NAME}'." >&2
+            echo "See docs/deployment-governance.md — merging to main must not deploy." >&2
+            exit 1
+          fi
+          echo "Trigger is workflow_dispatch."
+
+      - name: Require explicit confirmation for production
+        if: inputs.target == 'production'
+        shell: bash
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [ "${CONFIRM}" != "${DNS_RECORD_NAME}" ]; then
+            echo "Production cutover requires typing '${DNS_RECORD_NAME}' in the confirm field." >&2
+            echo "Received: '${CONFIRM:-<empty>}'" >&2
+            exit 1
+          fi
+          echo "Production cutover confirmed by ${GITHUB_ACTOR}."
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
