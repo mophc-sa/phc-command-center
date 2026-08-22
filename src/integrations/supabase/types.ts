@@ -1140,6 +1140,174 @@ export type Database = {
           },
         ]
       }
+      boq_lines: {
+        Row: {
+          created_at: string
+          description: string | null
+          dimensions: string | null
+          finish: string | null
+          id: string
+          illumination: string | null
+          item_source: string | null
+          line_number: number | null
+          line_total: number | null
+          location: string | null
+          material: string | null
+          mounting: string | null
+          quantity: number
+          revision_id: string
+          selling_price: number | null
+          sign_type: string
+          sort_order: number | null
+          unit: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          dimensions?: string | null
+          finish?: string | null
+          id?: string
+          illumination?: string | null
+          item_source?: string | null
+          line_number?: number | null
+          line_total?: number | null
+          location?: string | null
+          material?: string | null
+          mounting?: string | null
+          quantity?: number
+          revision_id: string
+          selling_price?: number | null
+          sign_type: string
+          sort_order?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          dimensions?: string | null
+          finish?: string | null
+          id?: string
+          illumination?: string | null
+          item_source?: string | null
+          line_number?: number | null
+          line_total?: number | null
+          location?: string | null
+          material?: string | null
+          mounting?: string | null
+          quantity?: number
+          revision_id?: string
+          selling_price?: number | null
+          sign_type?: string
+          sort_order?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_revisions: {
+        Row: {
+          boq_id: string
+          created_at: string
+          created_by: string | null
+          frozen_at: string | null
+          frozen_by: string | null
+          id: string
+          is_current: boolean
+          notes: string | null
+          revision_number: number
+          source_ref: string | null
+          source_type: Database["public"]["Enums"]["boq_source_type"]
+          status: Database["public"]["Enums"]["boq_revision_status"]
+          superseded_at: string | null
+          superseded_by: string | null
+        }
+        Insert: {
+          boq_id: string
+          created_at?: string
+          created_by?: string | null
+          frozen_at?: string | null
+          frozen_by?: string | null
+          id?: string
+          is_current?: boolean
+          notes?: string | null
+          revision_number: number
+          source_ref?: string | null
+          source_type?: Database["public"]["Enums"]["boq_source_type"]
+          status?: Database["public"]["Enums"]["boq_revision_status"]
+          superseded_at?: string | null
+          superseded_by?: string | null
+        }
+        Update: {
+          boq_id?: string
+          created_at?: string
+          created_by?: string | null
+          frozen_at?: string | null
+          frozen_by?: string | null
+          id?: string
+          is_current?: boolean
+          notes?: string | null
+          revision_number?: number
+          source_ref?: string | null
+          source_type?: Database["public"]["Enums"]["boq_source_type"]
+          status?: Database["public"]["Enums"]["boq_revision_status"]
+          superseded_at?: string | null
+          superseded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boqs: {
         Row: {
           assumptions: string | null
@@ -1765,6 +1933,63 @@ export type Database = {
             columns: ["run_id"]
             isOneToOne: false
             referencedRelation: "ai_agent_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estimations: {
+        Row: {
+          boq_revision_id: string
+          cost_total: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          installation_cost: number | null
+          notes: string | null
+          overhead_pct: number | null
+          submitted_at: string | null
+          submitted_by: string | null
+          wastage_pct: number | null
+        }
+        Insert: {
+          boq_revision_id: string
+          cost_total?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installation_cost?: number | null
+          notes?: string | null
+          overhead_pct?: number | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          wastage_pct?: number | null
+        }
+        Update: {
+          boq_revision_id?: string
+          cost_total?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installation_cost?: number | null
+          notes?: string | null
+          overhead_pct?: number | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          wastage_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
             referencedColumns: ["id"]
           },
         ]
@@ -3334,6 +3559,74 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_prices: {
+        Row: {
+          commercial_reviewed_at: string | null
+          commercial_reviewed_by: string | null
+          created_at: string
+          estimation_id: string
+          finance_reviewed_at: string | null
+          finance_reviewed_by: string | null
+          gm_decided_at: string | null
+          gm_decided_by: string | null
+          id: string
+          margin_percentage: number | null
+          margin_value: number | null
+          proposed_at: string | null
+          proposed_by: string | null
+          proposed_price: number | null
+          return_reason: string | null
+          status: Database["public"]["Enums"]["internal_price_status"]
+          updated_at: string
+        }
+        Insert: {
+          commercial_reviewed_at?: string | null
+          commercial_reviewed_by?: string | null
+          created_at?: string
+          estimation_id: string
+          finance_reviewed_at?: string | null
+          finance_reviewed_by?: string | null
+          gm_decided_at?: string | null
+          gm_decided_by?: string | null
+          id?: string
+          margin_percentage?: number | null
+          margin_value?: number | null
+          proposed_at?: string | null
+          proposed_by?: string | null
+          proposed_price?: number | null
+          return_reason?: string | null
+          status?: Database["public"]["Enums"]["internal_price_status"]
+          updated_at?: string
+        }
+        Update: {
+          commercial_reviewed_at?: string | null
+          commercial_reviewed_by?: string | null
+          created_at?: string
+          estimation_id?: string
+          finance_reviewed_at?: string | null
+          finance_reviewed_by?: string | null
+          gm_decided_at?: string | null
+          gm_decided_by?: string | null
+          id?: string
+          margin_percentage?: number | null
+          margin_value?: number | null
+          proposed_at?: string | null
+          proposed_by?: string | null
+          proposed_price?: number | null
+          return_reason?: string | null
+          status?: Database["public"]["Enums"]["internal_price_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_chunks: {
         Row: {
           content: string
@@ -4107,6 +4400,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      price_authority_delegations: {
+        Row: {
+          created_at: string
+          expires_at: string
+          grantee_id: string
+          grantor_id: string
+          id: string
+          reason: string
+          revoked_at: string | null
+          revoked_by: string | null
+          starts_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          grantee_id: string
+          grantor_id: string
+          id?: string
+          reason: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          starts_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          grantee_id?: string
+          grantor_id?: string
+          id?: string
+          reason?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          starts_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -5706,6 +6035,99 @@ export type Database = {
           },
         ]
       }
+      boq_line_costs: {
+        Row: {
+          id: string | null
+          line_number: number | null
+          line_total: number | null
+          margin_pct: number | null
+          margin_value: number | null
+          quantity: number | null
+          revision_id: string | null
+          selling_price: number | null
+          sign_type: string | null
+          unit: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          id?: string | null
+          line_number?: number | null
+          line_total?: number | null
+          margin_pct?: never
+          margin_value?: never
+          quantity?: number | null
+          revision_id?: string | null
+          selling_price?: number | null
+          sign_type?: string | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          id?: string | null
+          line_number?: number | null
+          line_total?: number | null
+          margin_pct?: never
+          margin_value?: never
+          quantity?: number | null
+          revision_id?: string | null
+          selling_price?: number | null
+          sign_type?: string | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_revision_sales_totals: {
+        Row: {
+          boq_id: string | null
+          frozen_at: string | null
+          is_current: boolean | null
+          line_count: number | null
+          revision_id: string | null
+          revision_number: number | null
+          selling_total: number | null
+          source_type: Database["public"]["Enums"]["boq_source_type"] | null
+          status: Database["public"]["Enums"]["boq_revision_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boq_sales_totals: {
         Row: {
           boq_id: string | null
@@ -5818,6 +6240,53 @@ export type Database = {
           },
         ]
       }
+      internal_price_summary: {
+        Row: {
+          boq_revision_id: string | null
+          commercial_reviewed_at: string | null
+          commercial_reviewed_by: string | null
+          cost_total: number | null
+          estimation_id: string | null
+          finance_reviewed_at: string | null
+          finance_reviewed_by: string | null
+          gm_decided_at: string | null
+          gm_decided_by: string | null
+          id: string | null
+          installation_cost: number | null
+          margin_percentage: number | null
+          margin_value: number | null
+          overhead_pct: number | null
+          proposed_at: string | null
+          proposed_by: string | null
+          proposed_price: number | null
+          return_reason: string | null
+          status: Database["public"]["Enums"]["internal_price_status"] | null
+          wastage_pct: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendors_full: {
         Row: {
           city: string | null
@@ -5847,15 +6316,24 @@ export type Database = {
         Args: { _entity_id: string; _entity_type: string; _user_id: string }
         Returns: boolean
       }
+      boq_revision_is_frozen: {
+        Args: { _revision_id: string }
+        Returns: boolean
+      }
       can_access_import_batch: {
         Args: { _batch_uuid: string }
         Returns: boolean
       }
+      can_approve_final_price: { Args: { _user_id: string }; Returns: boolean }
       can_edit_rfq_number: { Args: { _user_id: string }; Returns: boolean }
       can_edit_total_value: { Args: { _user_id: string }; Returns: boolean }
       can_read_attachments: { Args: { _user_id: string }; Returns: boolean }
       can_read_boq: {
         Args: { _opportunity_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_boq_revision: {
+        Args: { _revision_id: string; _user_id: string }
         Returns: boolean
       }
       can_read_commercial_cost: { Args: { _user_id: string }; Returns: boolean }
@@ -6088,6 +6566,13 @@ export type Database = {
         | "outreach_draft"
         | "qualification_brief"
         | "discovery_research_brief"
+      boq_revision_status:
+        | "draft"
+        | "estimated_scope"
+        | "partially_verified"
+        | "verified"
+        | "superseded"
+      boq_source_type: "manual" | "ai_extraction" | "historical_import"
       boq_status:
         | "verified"
         | "partially_verified"
@@ -6120,6 +6605,7 @@ export type Database = {
         | "boq"
         | "quotation"
         | "inbox_item"
+        | "boq_revision"
       document_type:
         | "boq"
         | "drawing"
@@ -6213,6 +6699,15 @@ export type Database = {
         | "sent_to_missing_data"
         | "marked_duplicate"
         | "archived"
+      internal_price_status:
+        | "draft"
+        | "cost_complete"
+        | "internal_price_proposed"
+        | "commercial_review"
+        | "finance_review"
+        | "gm_pending"
+        | "gm_approved"
+        | "returned"
       lead_stage:
         | "detected"
         | "duplicate_check"
@@ -6522,6 +7017,14 @@ export const Constants = {
         "qualification_brief",
         "discovery_research_brief",
       ],
+      boq_revision_status: [
+        "draft",
+        "estimated_scope",
+        "partially_verified",
+        "verified",
+        "superseded",
+      ],
+      boq_source_type: ["manual", "ai_extraction", "historical_import"],
       boq_status: [
         "verified",
         "partially_verified",
@@ -6557,6 +7060,7 @@ export const Constants = {
         "boq",
         "quotation",
         "inbox_item",
+        "boq_revision",
       ],
       document_type: [
         "boq",
@@ -6660,6 +7164,16 @@ export const Constants = {
         "sent_to_missing_data",
         "marked_duplicate",
         "archived",
+      ],
+      internal_price_status: [
+        "draft",
+        "cost_complete",
+        "internal_price_proposed",
+        "commercial_review",
+        "finance_review",
+        "gm_pending",
+        "gm_approved",
+        "returned",
       ],
       lead_stage: [
         "detected",

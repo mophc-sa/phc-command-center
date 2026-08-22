@@ -255,6 +255,8 @@ run_suite tests/db-behaviour/phase6_document_security.sql run
 run_suite tests/db-behaviour/phase6_document_lifecycle.sql run
 run_suite tests/db-behaviour/commercial_read_isolation.sql run
 run_suite tests/db-behaviour/historical_sales_staging.sql run
+run_suite tests/db-behaviour/phase7a_boq_revisions.sql run
+run_suite tests/db-behaviour/phase7a_pricing_workflow.sql run
 
 echo ""
 echo "─────────────────────────────────────────"
