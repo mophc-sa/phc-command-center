@@ -5,7 +5,8 @@
 
 import { describe, expect, it } from "bun:test";
 import {
-  EMPTY_FILTERS, filterHistorical, ownerOptions, qualityFlags, statusOptions, summarise,
+  EMPTY_FILTERS, EXPORT_COLUMNS, exportFilename, filterHistorical, ownerOptions,
+  qualityFlags, statusOptions, summarise, toCsv,
   type HistoricalSaleRow,
 } from "./historical-sales";
 
@@ -117,5 +118,65 @@ describe("filter options come from the data, not a hardcoded list", () => {
 
   it("statuses exclude the undecided ones — there is nothing to filter to", () => {
     expect(statusOptions([row({ status_canonical: null })])).toHaveLength(0);
+  });
+});
+
+describe("CSV export", () => {
+  const rows = [
+    base,
+    row({ sales_code: "OM24199", client: 'Almabani, "Group"', project: "Line 1\nLine 2",
+          status_canonical: null, status: "DECLINE", amount: null, date_submitted: null,
+          route: "tender", owner: "OM — legacy owner" }),
+  ];
+
+  it("exports exactly the eight approved columns, in order", () => {
+    const header = toCsv([]).split("\r\n")[0];
+    expect(header).toBe("Sales Code,Client,Project,Status,Amount,Submission Date,Route,Legacy Owner");
+    expect(EXPORT_COLUMNS).toHaveLength(8);
+  });
+
+  it("leaks nothing the table does not show", () => {
+    const csv = toCsv(rows);
+    // update_log is prose that breaks a spreadsheet; ids mean nothing outside.
+    for (const forbidden of ["row_id", "search_text", "update_log", "company_id", "email_subject"]) {
+      expect(csv).not.toContain(forbidden);
+    }
+  });
+
+  it("quotes commas, quotes and newlines so a cell cannot break the file", () => {
+    const line = toCsv([rows[1]]).split("\r\n")[1];
+    expect(line).toContain('"Almabani, ""Group"""');
+    expect(line).toContain('"Line 1\nLine 2"');
+  });
+
+  it("writes the amount as a bare number, because the first thing anyone does is sum it", () => {
+    const line = toCsv([base]).split("\r\n")[1];
+    expect(line).toContain("18801940");
+    expect(line).not.toContain("SAR");
+    expect(line).not.toContain("18,801,940");
+  });
+
+  it("falls back to the raw status when nothing canonical was decided", () => {
+    expect(toCsv([rows[1]]).split("\r\n")[1]).toContain("DECLINE");
+  });
+
+  it("writes an empty cell for a missing amount rather than a zero", () => {
+    const cells = toCsv([rows[1]]).split("\r\n")[1].split(",");
+    // Sales Code, Client(quoted), Project(quoted), Status, Amount — the amount
+    // cell must be empty, never "0", which would invent a free job.
+    expect(toCsv([rows[1]])).not.toMatch(/DECLINE,0,/);
+    expect(cells.length).toBeGreaterThan(0);
+  });
+
+  it("exports exactly the rows it is given — the caller filters, not the exporter", () => {
+    const filtered = filterHistorical(rows, { ...EMPTY_FILTERS, route: "tender" });
+    const csv = toCsv(filtered);
+    expect(csv.trim().split("\r\n")).toHaveLength(2);  // header + 1
+    expect(csv).toContain("OM24199");
+    expect(csv).not.toContain("AH25081");
+  });
+
+  it("names the file with the date and the row count", () => {
+    expect(exportFilename("2026-08-22", 679)).toBe("phc-historical-sales-archive_2026-08-22_679-records.csv");
   });
 });

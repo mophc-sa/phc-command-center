@@ -73,11 +73,34 @@ describe("security stays in the database", () => {
   });
 });
 
-describe("the badges the business asked for", () => {
-  it("marks records historical and not converted", () => {
-    expect(view).toMatch(/Read-only historical records/);
-    expect(view).toMatch(/Not converted to opportunities or quotations/);
-    expect(view).toMatch(/Historical/);
+describe("naming and badges", () => {
+  it("uses the approved banner verbatim", () => {
+    expect(view).toContain(
+      "Historical Sales Archive 2022–2026. Read-only records. Not converted to opportunities or quotations.",
+    );
+  });
+
+  it("is named Archive, not just Historical Sales", () => {
+    expect(view).toContain("Historical Sales Archive");
+    expect(mgmt).toContain("Historical Sales Archive");
+  });
+
+  it("every row carries a Historical badge, not only the banner", () => {
+    // A screenshot of one row has to say what it is too.
+    const rowFn = view.slice(view.indexOf("function Row("));
+    expect(rowFn).toMatch(/"Historical"/);
+  });
+
+  it("presents quality neutrally — a state of the record, never an error", () => {
+    expect(view).toContain("Data Quality");
+    expect(view).toContain("records have no amount");
+    expect(view).toContain("records have no mapped owner");
+    expect(view).toContain("records are not matched to a company");
+    expect(view).toContain("records have an unparsed code");
+    // The word that would blame the archive for the paperwork. Checked against
+    // code only — a comment explaining why "errors" is the wrong word is not a
+    // violation of it.
+    expect(code(view)).not.toMatch(/\berrors?\b/i);
   });
 
   it("surfaces the four quality indicators", () => {
@@ -90,6 +113,27 @@ describe("the badges the business asked for", () => {
     for (const k of ["q", "status", "route", "owner", "minAmount", "maxAmount", "fromDate", "toDate"]) {
       expect(lib).toContain(`${k}:`);
     }
+  });
+});
+
+describe("CSV export", () => {
+  it("exports from the filtered rows, so the file matches the screen", () => {
+    // downloadCsv takes the already-filtered array; a second filter inside the
+    // exporter is how a file quietly ships more than the person was looking at.
+    expect(view).toContain("downloadCsv(filtered)");
+    // Only the call site matters; the definition's own parameter is named rows.
+    const callSites = [...view.matchAll(/onClick=\{\(\) => downloadCsv\((\w+)\)/g)].map((m) => m[1]);
+    expect(callSites).toEqual(["filtered"]);
+  });
+
+  it("is a download, not a mutation", () => {
+    const fn = view.slice(view.indexOf("function downloadCsv"));
+    expect(fn).toContain("URL.createObjectURL");
+    expect(fn).not.toMatch(/\.insert\(|\.update\(|\.delete\(|supabase/);
+  });
+
+  it("prepends a BOM so Arabic client names survive Excel", () => {
+    expect(view).toContain("\\uFEFF");
   });
 });
 

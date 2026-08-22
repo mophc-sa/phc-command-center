@@ -1,5 +1,5 @@
 // =============================================================================
-// Historical Sales — a tab inside Sales Management, not a module.
+// Historical Sales Archive — a tab inside Sales Management, not a module.
 //
 // The 679 records are history, not pipeline. Giving them their own destination
 // in the sidebar would put an archive next to the live CRM and invite people to
@@ -15,23 +15,33 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Archive, AlertTriangle, Search, X } from "lucide-react";
+import { Archive, AlertTriangle, Download, Search, X } from "lucide-react";
 import { Panel } from "@/components/phc/Panel";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { Input } from "@/components/ui/input";
 import { formatCurrency, formatNumber, useI18n } from "@/lib/i18n";
 import {
-  EMPTY_FILTERS, filterHistorical, getHistoricalQuality, listHistoricalSales,
-  ownerOptions, qualityFlags, statusOptions, summarise,
+  EMPTY_FILTERS, exportFilename, filterHistorical, getHistoricalQuality, listHistoricalSales,
+  ownerOptions, qualityFlags, statusOptions, summarise, toCsv,
   type HistoricalFilters, type HistoricalSaleRow, type QualityFlag,
 } from "@/lib/historical-sales";
 
+// Neutral by design. These describe the state of a 2022-2026 spreadsheet, not
+// a fault in the import — "92 records have no amount" is a fact about the
+// source; "92 errors" would blame the archive for the paperwork.
 const FLAG_LABEL: Record<QualityFlag, { en: string; ar: string }> = {
-  missing_owner:     { en: "No mapped owner",   ar: "بلا مالك مرتبط" },
-  missing_amount:    { en: "No amount",         ar: "بلا قيمة" },
-  unmatched_company: { en: "Company unmatched", ar: "شركة غير مطابقة" },
-  unparsed_code:     { en: "Code unparsed",     ar: "رمز غير مفهوم" },
+  missing_owner:     { en: "Missing Owner",      ar: "بلا مالك مرتبط" },
+  missing_amount:    { en: "Missing Amount",     ar: "بلا قيمة" },
+  unmatched_company: { en: "Unmatched Company",  ar: "شركة غير مطابقة" },
+  unparsed_code:     { en: "Unparsed Code",      ar: "رمز غير مقروء" },
+};
+
+const FLAG_SENTENCE: Record<QualityFlag, (n: string, ar: boolean) => string> = {
+  missing_owner:     (n, ar) => (ar ? `${n} سجل بلا مالك مرتبط بحساب`   : `${n} records have no mapped owner`),
+  missing_amount:    (n, ar) => (ar ? `${n} سجل بلا قيمة`               : `${n} records have no amount`),
+  unmatched_company: (n, ar) => (ar ? `${n} سجل غير مرتبط بشركة`        : `${n} records are not matched to a company`),
+  unparsed_code:     (n, ar) => (ar ? `${n} سجل برمز غير مقروء`         : `${n} records have an unparsed code`),
 };
 
 export function HistoricalSalesView() {
@@ -71,7 +81,7 @@ export function HistoricalSalesView() {
   if (rows.length === 0) {
     return (
       <EmptyState
-        title={ar ? "لا سجلات تاريخية متاحة" : "No historical records available"}
+        title={ar ? "أرشيف المبيعات التاريخية غير متاح" : "Historical Sales Archive not available"}
         description={ar
           ? "الأرشيف التاريخي غير متاح لدورك، أو لم يُحمَّل بعد."
           : "The historical archive is either not loaded yet, or not available to your role."}
@@ -86,8 +96,8 @@ export function HistoricalSalesView() {
         <Archive className="h-4 w-4 shrink-0 text-amber-light" aria-hidden="true" />
         <span className="text-xs text-amber-light">
           {ar
-            ? "سجلات تاريخية للقراءة فقط (2022–2026). لم تُحوَّل إلى فرص أو عروض أسعار في النظام."
-            : "Read-only historical records (2022–2026). Not converted to opportunities or quotations."}
+            ? "أرشيف المبيعات التاريخية 2022–2026. سجلات للقراءة فقط. لم تُحوَّل إلى فرص أو عروض أسعار."
+            : "Historical Sales Archive 2022–2026. Read-only records. Not converted to opportunities or quotations."}
         </span>
       </div>
 
@@ -104,7 +114,8 @@ export function HistoricalSalesView() {
       {/* Quality indicators. Clickable, because a count nobody can act on is
           decoration — each one filters the table to the rows it counts. */}
       {quality ? (
-        <Panel title={ar ? "جودة البيانات" : "Data quality"} subtitle={ar ? "اضغط للتصفية" : "Click to filter"}>
+        <Panel title={ar ? "جودة البيانات" : "Data Quality"}
+               subtitle={ar ? "حالة السجل المصدر — اضغط للتصفية" : "The state of the source record — click to filter"}>
           <div className="flex flex-wrap gap-2">
             <QualityChip flag="missing_owner"     n={quality.owners_legacy_only}     active={f.flag === "missing_owner"}     onClick={() => set("flag", f.flag === "missing_owner" ? "" : "missing_owner")} lang={lang} />
             <QualityChip flag="missing_amount"    n={quality.amounts_absent}         active={f.flag === "missing_amount"}    onClick={() => set("flag", f.flag === "missing_amount" ? "" : "missing_amount")} lang={lang} />
@@ -164,8 +175,21 @@ export function HistoricalSalesView() {
 
       {/* Results */}
       <Panel
-        title={ar ? "السجلات التاريخية" : "Historical records"}
+        title={ar ? "سجلات الأرشيف" : "Archive records"}
         subtitle={`${formatNumber(filtered.length, lang)} / ${formatNumber(rows.length, lang)}`}
+        action={
+          <button
+            type="button"
+            disabled={filtered.length === 0}
+            onClick={() => downloadCsv(filtered)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            {ar
+              ? `تصدير CSV (${formatNumber(filtered.length, lang)})`
+              : `Export CSV (${formatNumber(filtered.length, lang)})`}
+          </button>
+        }
       >
         {filtered.length === 0 ? (
           <EmptyState
@@ -279,7 +303,8 @@ function QualityChip({ flag, n, active, onClick, lang }: {
         active ? "border-amber/60 bg-amber/20 text-amber-light" : "border-border bg-surface-2 text-muted-foreground hover:text-foreground"
       }`}
     >
-      {FLAG_LABEL[flag][lang === "ar" ? "ar" : "en"]}: {n}
+      <span className="font-medium">{FLAG_LABEL[flag][lang === "ar" ? "ar" : "en"]}</span>
+      <span className="ms-1 opacity-80">· {FLAG_SENTENCE[flag](n.toLocaleString(lang === "ar" ? "ar-SA" : "en-GB"), lang === "ar")}</span>
     </button>
   );
 }
@@ -323,4 +348,26 @@ function DateField({ label, value, onChange }: { label: string; value: string | 
       <Input className="h-8 text-xs" type="date" value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} />
     </label>
   );
+}
+
+/**
+ * Hand the filtered rows to the browser as a file.
+ *
+ * Takes the already-filtered array, so the export cannot disagree with the
+ * table — there is one filtering path and both the screen and the file are
+ * downstream of it. A second filter here is how an export quietly ships more
+ * than the person was looking at.
+ *
+ * A BOM is prepended because Excel reads a UTF-8 CSV as Latin-1 without one,
+ * and Arabic client names would arrive as mojibake — which is most of this file.
+ */
+function downloadCsv(rows: HistoricalSaleRow[]) {
+  const today = new Date().toISOString().slice(0, 10);
+  const blob = new Blob(["\uFEFF" + toCsv(rows)], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = exportFilename(today, rows.length);
+  a.click();
+  URL.revokeObjectURL(url);
 }

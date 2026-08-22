@@ -235,7 +235,7 @@ function SalesManagement() {
           <button key={k} onClick={() => setTab(k)} className={pill(tab === k)}>
             {k === "team" ? (lang === "ar" ? "الفريق اليوم" : "Team today")
               : k === "strategic" ? (lang === "ar" ? "استراتيجي ومناقصات" : "Strategic & tenders")
-              : k === "historical" ? (lang === "ar" ? "المبيعات التاريخية" : "Historical sales")
+              : k === "historical" ? (lang === "ar" ? "أرشيف المبيعات التاريخية" : "Historical Sales Archive")
               : (lang === "ar" ? "الملخص التنفيذي" : "Executive")}
           </button>
         ))}

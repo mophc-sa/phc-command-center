@@ -184,6 +184,63 @@ export function summarise(rows: HistoricalSaleRow[]) {
   };
 }
 
+// ---- CSV export -------------------------------------------------------------
+
+/**
+ * The eight columns the business asked to export, in order.
+ *
+ * Deliberately a subset of what the archive holds: `update_log` is prose that
+ * breaks a spreadsheet, and the internal ids mean nothing outside this system.
+ * What leaves is what a person sees on screen.
+ */
+export const EXPORT_COLUMNS = [
+  "Sales Code", "Client", "Project", "Status", "Amount", "Submission Date", "Route", "Legacy Owner",
+] as const;
+
+/** RFC 4180 quoting: double the quotes, wrap anything that could break a cell. */
+function csvCell(v: string | number | null | undefined): string {
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/**
+ * Build the CSV for whatever is currently filtered.
+ *
+ * Takes the already-filtered rows rather than rows plus filters, so the export
+ * cannot disagree with the table: there is only one filtering path and both the
+ * screen and the file are downstream of it.
+ *
+ * Amount is written as a bare number with no thousands separator and no
+ * currency symbol — a formatted string is text to a spreadsheet, and the first
+ * thing anyone does with this file is sum a column. Currency is not a column
+ * because the archive is entirely SAR and a constant column is noise; the
+ * filename carries the context instead.
+ */
+export function toCsv(rows: HistoricalSaleRow[]): string {
+  const lines = [EXPORT_COLUMNS.join(",")];
+  for (const r of rows) {
+    lines.push([
+      csvCell(r.sales_code),
+      csvCell(r.client),
+      csvCell(r.project),
+      // The raw status when nothing canonical was decided, so the export says
+      // what the spreadsheet said rather than inventing a blank.
+      csvCell(r.status_canonical ?? r.status),
+      csvCell(r.amount),
+      csvCell(r.date_submitted),
+      csvCell(r.route),
+      csvCell(r.owner),
+    ].join(","));
+  }
+  // Trailing newline: without it some tools drop the last row.
+  return lines.join("\r\n") + "\r\n";
+}
+
+export function exportFilename(today: string, count: number): string {
+  return `phc-historical-sales-archive_${today}_${count}-records.csv`;
+}
+
 /** Distinct owner prefixes present, for the filter dropdown. */
 export function ownerOptions(rows: HistoricalSaleRow[]): Array<{ prefix: string; label: string; count: number }> {
   const m = new Map<string, { label: string; count: number }>();
