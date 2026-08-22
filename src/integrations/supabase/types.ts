@@ -5588,6 +5588,184 @@ export type Database = {
           },
         ]
       }
+      supplier_quote_lines: {
+        Row: {
+          alternate_spec: string | null
+          boq_line_id: string
+          created_at: string
+          id: string
+          is_selected: boolean
+          lead_time_days: number | null
+          line_cost: number | null
+          quantity: number | null
+          selected_at: string | null
+          selected_by: string | null
+          selection_note: string | null
+          supplier_quote_id: string
+          unit_cost: number | null
+        }
+        Insert: {
+          alternate_spec?: string | null
+          boq_line_id: string
+          created_at?: string
+          id?: string
+          is_selected?: boolean
+          lead_time_days?: number | null
+          line_cost?: number | null
+          quantity?: number | null
+          selected_at?: string | null
+          selected_by?: string | null
+          selection_note?: string | null
+          supplier_quote_id: string
+          unit_cost?: number | null
+        }
+        Update: {
+          alternate_spec?: string | null
+          boq_line_id?: string
+          created_at?: string
+          id?: string
+          is_selected?: boolean
+          lead_time_days?: number | null
+          line_cost?: number | null
+          quantity?: number | null
+          selected_at?: string | null
+          selected_by?: string | null
+          selection_note?: string | null
+          supplier_quote_id?: string
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_line_costs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_supplier_quote_id_fkey"
+            columns: ["supplier_quote_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_quotes: {
+        Row: {
+          boq_revision_id: string
+          cancel_reason: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          frozen_at: string | null
+          frozen_by: string | null
+          id: string
+          is_current: boolean
+          lead_time_days: number | null
+          notes: string | null
+          payment_terms: string | null
+          response_received_at: string | null
+          revision_number: number
+          rfq_reference: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["supplier_quote_status"]
+          supersedes_id: string | null
+          updated_at: string
+          valid_until: string | null
+          vendor_id: string
+        }
+        Insert: {
+          boq_revision_id: string
+          cancel_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          frozen_at?: string | null
+          frozen_by?: string | null
+          id?: string
+          is_current?: boolean
+          lead_time_days?: number | null
+          notes?: string | null
+          payment_terms?: string | null
+          response_received_at?: string | null
+          revision_number?: number
+          rfq_reference?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["supplier_quote_status"]
+          supersedes_id?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          vendor_id: string
+        }
+        Update: {
+          boq_revision_id?: string
+          cancel_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          frozen_at?: string | null
+          frozen_by?: string | null
+          id?: string
+          is_current?: boolean
+          lead_time_days?: number | null
+          notes?: string | null
+          payment_terms?: string | null
+          response_received_at?: string | null
+          revision_number?: number
+          rfq_reference?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["supplier_quote_status"]
+          supersedes_id?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_quotes_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors_full"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           completed_at: string | null
@@ -5894,6 +6072,7 @@ export type Database = {
           lead_time: string | null
           materials: string | null
           name: string
+          name_normalized: string | null
           portal_url: string | null
           previous_projects: string | null
           qualification_files: string | null
@@ -5912,6 +6091,7 @@ export type Database = {
           lead_time?: string | null
           materials?: string | null
           name: string
+          name_normalized?: string | null
           portal_url?: string | null
           previous_projects?: string | null
           qualification_files?: string | null
@@ -5930,6 +6110,7 @@ export type Database = {
           lead_time?: string | null
           materials?: string | null
           name?: string
+          name_normalized?: string | null
           portal_url?: string | null
           previous_projects?: string | null
           qualification_files?: string | null
@@ -6287,6 +6468,134 @@ export type Database = {
           },
         ]
       }
+      supplier_comparison: {
+        Row: {
+          average_unit_cost: number | null
+          boq_line_id: string | null
+          has_selection: boolean | null
+          highest_unit_cost: number | null
+          lowest_unit_cost: number | null
+          quotes_received: number | null
+          revision_id: string | null
+          selected_unit_cost: number | null
+          selected_vendor: string | null
+          sign_type: string | null
+          spread: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_line_costs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_quote_costs: {
+        Row: {
+          alternate_spec: string | null
+          boq_line_id: string | null
+          boq_revision_id: string | null
+          currency: string | null
+          id: string | null
+          is_current: boolean | null
+          is_selected: boolean | null
+          lead_time_days: number | null
+          line_cost: number | null
+          quantity: number | null
+          revision_number: number | null
+          selected_at: string | null
+          selected_by: string | null
+          selection_note: string | null
+          status: Database["public"]["Enums"]["supplier_quote_status"] | null
+          supplier_quote_id: string | null
+          unit_cost: number | null
+          vendor_id: string | null
+          vendor_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_line_costs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_supplier_quote_id_fkey"
+            columns: ["supplier_quote_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors_full"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_duplicate_candidates: {
+        Row: {
+          name_normalized: string | null
+          vendor_count: number | null
+          vendor_ids: string[] | null
+          vendor_names: string[] | null
+        }
+        Relationships: []
+      }
       vendors_full: {
         Row: {
           city: string | null
@@ -6462,6 +6771,7 @@ export type Database = {
           title: string
         }[]
       }
+      normalize_vendor_name: { Args: { _name: string }; Returns: string }
       notify_overdue_items: { Args: never; Returns: number }
       parse_historical_amount: { Args: { _v: string }; Returns: number }
       parse_historical_date: { Args: { _v: string }; Returns: string }
@@ -6820,6 +7130,15 @@ export type Database = {
         | "unknown"
         | "not_applicable"
         | "no_package_identified"
+      supplier_quote_status:
+        | "draft"
+        | "sent"
+        | "responses_received"
+        | "evaluation"
+        | "selected"
+        | "frozen"
+        | "cancelled"
+        | "superseded"
       target_period: "monthly" | "quarterly" | "annual"
       tender_stage:
         | "tender_identified"
@@ -7296,6 +7615,16 @@ export const Constants = {
         "unknown",
         "not_applicable",
         "no_package_identified",
+      ],
+      supplier_quote_status: [
+        "draft",
+        "sent",
+        "responses_received",
+        "evaluation",
+        "selected",
+        "frozen",
+        "cancelled",
+        "superseded",
       ],
       target_period: ["monthly", "quarterly", "annual"],
       tender_stage: [
