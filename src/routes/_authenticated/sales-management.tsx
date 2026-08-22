@@ -27,7 +27,8 @@ import { KpiTile } from "@/components/phc/KpiTile";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { formatCurrency, formatNumber, useI18n } from "@/lib/i18n";
 import {
-  canApproveCommercialAction, canReviewIntake, isBdOrSalesOps, isExecutive, isSalesManager,
+  canApproveCommercialAction, canReviewIntake, isBdOrSalesOps, isEstimationManager,
+  isExecutive, isFinanceManager, isSalesManager, isSalesperson,
 } from "@/lib/roles";
 import {
   concentrationBy, executiveKpis, lostByReason, lostByStage,
@@ -41,6 +42,7 @@ import {
   type FollowUpRow as TimelineFollowUpRow,
   type StageTransitionRow,
 } from "@/lib/opportunity-timeline";
+import { HistoricalSalesView } from "@/components/phc/HistoricalSalesView";
 import { memberSummary, needsAttention, summarySentence, teamDay, teamWorkload } from "@/lib/team-dashboard";
 import { humanize } from "@/lib/utils";
 
@@ -53,7 +55,7 @@ export const Route = createFileRoute("/_authenticated/sales-management")({
   component: SalesManagement,
 });
 
-type TabKey = "team" | "strategic" | "executive";
+type TabKey = "team" | "strategic" | "executive" | "historical";
 type RangeKey = "month" | "quarter" | "ytd";
 
 function periodFor(range: RangeKey, today: string): Period {
@@ -76,10 +78,20 @@ function SalesManagement() {
   const canTeam = isSalesManager(roles) || isExecutive(roles);
   const canStrategic = isBdOrSalesOps(roles) || isExecutive(roles);
   const canExec = isExecutive(roles);
+  // The historical archive is wider than the management tabs on purpose: it is
+  // the team's own past work, and a salesperson needs it as much as a manager.
+  // The gate that matters is can_read_historical_sales() in the database, which
+  // admits the sales team plus estimation and finance and refuses viewer and
+  // system_admin-alone. This mirrors it so the tab does not appear to someone
+  // who would then be shown an empty table.
+  const canHistorical =
+    isSalesperson(roles) || isBdOrSalesOps(roles) || isSalesManager(roles) ||
+    isExecutive(roles) || isEstimationManager(roles) || isFinanceManager(roles);
   const allowed: TabKey[] = [
     ...(canTeam ? (["team"] as TabKey[]) : []),
     ...(canStrategic ? (["strategic"] as TabKey[]) : []),
     ...(canExec ? (["executive"] as TabKey[]) : []),
+    ...(canHistorical ? (["historical"] as TabKey[]) : []),
   ];
   const tab: TabKey = (allowed.includes(tabParam as TabKey) ? tabParam : allowed[0]) as TabKey;
   const range = (["month", "quarter", "ytd"].includes(rangeParam) ? rangeParam : "month") as RangeKey;
@@ -223,6 +235,7 @@ function SalesManagement() {
           <button key={k} onClick={() => setTab(k)} className={pill(tab === k)}>
             {k === "team" ? (lang === "ar" ? "الفريق اليوم" : "Team today")
               : k === "strategic" ? (lang === "ar" ? "استراتيجي ومناقصات" : "Strategic & tenders")
+              : k === "historical" ? (lang === "ar" ? "المبيعات التاريخية" : "Historical sales")
               : (lang === "ar" ? "الملخص التنفيذي" : "Executive")}
           </button>
         ))}
@@ -245,6 +258,10 @@ function SalesManagement() {
           targetTotal={(data?.targets ?? []).reduce((s: number, x: Record<string, unknown>) => s + Number(x.sales_target ?? 0), 0)}
           opps={opps} ctx={ctx}
         />
+      ) : tab === "historical" ? (
+        // Read-only archive. No props: it owns its own query and its own
+        // filters, and there is nothing on this page for it to coordinate with.
+        <HistoricalSalesView />
       ) : tab === "strategic" ? (
         <StrategicView lang={lang} kpis={kpis} opps={opps} ctx={ctx} tenders={data?.tenders ?? []} nameOf={nameOf} today={today} />
       ) : (
