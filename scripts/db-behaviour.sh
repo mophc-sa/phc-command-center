@@ -98,6 +98,16 @@ SQL
 
 echo "▸ replaying migrations…"
 APPLIED=0
+# Real Supabase ships ALTER DEFAULT PRIVILEGES granting new public tables to
+# anon/authenticated/service_role. Without it, a table a migration creates with
+# no explicit GRANT is unreachable here but reachable in production — so a
+# policy test either fails spuriously or passes because the role saw nothing.
+psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+SQL
+
 for f in supabase/migrations/*.sql; do
   # --single-transaction mirrors how the Supabase CLI applies each file, so a
   # statement that is illegal inside a transaction fails here too.
@@ -116,7 +126,12 @@ echo "  ✅ $APPLIED / $TOTAL migrations applied"
 # the tables at all and every check would pass vacuously.
 psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
 GRANT USAGE ON SCHEMA public, auth TO rls_tester;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rls_tester;
+-- Deliberately NOT a blanket grant to rls_tester. PostgREST holds table and
+-- COLUMN privileges only through the `authenticated` role, which rls_tester is
+-- a member of, so granting it separately would paper over exactly the thing a
+-- column-privilege test needs to see: it made a revoked `unit_rate` selectable
+-- again and two isolation checks passed for the wrong reason.
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM rls_tester;
 GRANT SELECT ON auth.users TO rls_tester;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO rls_tester;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO rls_tester;
@@ -194,6 +209,16 @@ CREATE TABLE vault.secrets (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text, secret text, created_at timestamptz DEFAULT now());
 CREATE TABLE vault.decrypted_secrets (id uuid, name text, decrypted_secret text);
 SQL
+# Real Supabase ships ALTER DEFAULT PRIVILEGES granting new public tables to
+# anon/authenticated/service_role. Without it, a table a migration creates with
+# no explicit GRANT is unreachable here but reachable in production — so a
+# policy test either fails spuriously or passes because the role saw nothing.
+psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+SQL
+
 for f in supabase/migrations/*.sql; do
   psql_ -d phc -q -v ON_ERROR_STOP=1 --single-transaction < "$f" >/dev/null 2>&1 || {
     echo "✗ replay failed on $(basename "$f")"; exit 1; }
@@ -204,7 +229,12 @@ done
 # schema auth" rather than actually testing the policy.
 psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
 GRANT USAGE ON SCHEMA public, auth, storage TO rls_tester;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rls_tester;
+-- Deliberately NOT a blanket grant to rls_tester. PostgREST holds table and
+-- COLUMN privileges only through the `authenticated` role, which rls_tester is
+-- a member of, so granting it separately would paper over exactly the thing a
+-- column-privilege test needs to see: it made a revoked `unit_rate` selectable
+-- again and two isolation checks passed for the wrong reason.
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM rls_tester;
 GRANT SELECT ON auth.users TO rls_tester;
 GRANT SELECT ON ALL TABLES IN SCHEMA storage TO rls_tester;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO rls_tester;
@@ -223,6 +253,8 @@ run_suite tests/db-behaviour/contract_security.sql run
 # suites above created. Running it earlier would change their counts.
 run_suite tests/db-behaviour/phase6_document_security.sql run
 run_suite tests/db-behaviour/phase6_document_lifecycle.sql run
+run_suite tests/db-behaviour/commercial_read_isolation.sql run
+run_suite tests/db-behaviour/historical_sales_staging.sql run
 
 echo ""
 echo "─────────────────────────────────────────"

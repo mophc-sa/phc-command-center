@@ -1121,6 +1121,20 @@ export type Database = {
             foreignKeyName: "boq_items_boq_id_fkey"
             columns: ["boq_id"]
             isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
             referencedRelation: "boqs"
             referencedColumns: ["id"]
           },
@@ -1907,6 +1921,285 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      historical_sales_batches: {
+        Row: {
+          header_rows: number
+          id: string
+          loaded_at: string
+          loaded_by: string | null
+          notes: string | null
+          source_file: string
+          source_rows: number | null
+          source_sha256: string | null
+          status: string
+        }
+        Insert: {
+          header_rows?: number
+          id?: string
+          loaded_at?: string
+          loaded_by?: string | null
+          notes?: string | null
+          source_file: string
+          source_rows?: number | null
+          source_sha256?: string | null
+          status?: string
+        }
+        Update: {
+          header_rows?: number
+          id?: string
+          loaded_at?: string
+          loaded_by?: string | null
+          notes?: string | null
+          source_file?: string
+          source_rows?: number | null
+          source_sha256?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      historical_sales_company_candidates: {
+        Row: {
+          batch_id: string
+          id: string
+          occurrences: number
+          raw_name: string
+          resolved: boolean
+          suggested_company_id: string | null
+          suggestion_basis: string | null
+        }
+        Insert: {
+          batch_id: string
+          id?: string
+          occurrences?: number
+          raw_name: string
+          resolved?: boolean
+          suggested_company_id?: string | null
+          suggestion_basis?: string | null
+        }
+        Update: {
+          batch_id?: string
+          id?: string
+          occurrences?: number
+          raw_name?: string
+          resolved?: boolean
+          suggested_company_id?: string | null
+          suggestion_basis?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_sales_company_candidates_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_company_candidates_suggested_company_id_fkey"
+            columns: ["suggested_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_mapped: {
+        Row: {
+          amount_excl_vat: number | null
+          amount_raw: string | null
+          amount_unparsed: boolean
+          base_code: string | null
+          batch_id: string
+          client_name_raw: string | null
+          code_placeholder: boolean
+          code_unparsed: boolean
+          company_id: string | null
+          company_matched: boolean
+          contact_email: string | null
+          contact_mobile: string | null
+          contact_name: string | null
+          currency: string
+          date_received: string | null
+          date_submitted: string | null
+          mapped_at: string
+          owner_label: string | null
+          owner_prefix: string | null
+          owner_user_id: string | null
+          project_location: string | null
+          project_name_raw: string | null
+          revision_no: number | null
+          route: string | null
+          row_id: string
+          sales_code_raw: string | null
+          status_canonical: string | null
+          status_needs_decision: boolean
+          status_raw: string | null
+          variant: string | null
+        }
+        Insert: {
+          amount_excl_vat?: number | null
+          amount_raw?: string | null
+          amount_unparsed?: boolean
+          base_code?: string | null
+          batch_id: string
+          client_name_raw?: string | null
+          code_placeholder?: boolean
+          code_unparsed?: boolean
+          company_id?: string | null
+          company_matched?: boolean
+          contact_email?: string | null
+          contact_mobile?: string | null
+          contact_name?: string | null
+          currency?: string
+          date_received?: string | null
+          date_submitted?: string | null
+          mapped_at?: string
+          owner_label?: string | null
+          owner_prefix?: string | null
+          owner_user_id?: string | null
+          project_location?: string | null
+          project_name_raw?: string | null
+          revision_no?: number | null
+          route?: string | null
+          row_id: string
+          sales_code_raw?: string | null
+          status_canonical?: string | null
+          status_needs_decision?: boolean
+          status_raw?: string | null
+          variant?: string | null
+        }
+        Update: {
+          amount_excl_vat?: number | null
+          amount_raw?: string | null
+          amount_unparsed?: boolean
+          base_code?: string | null
+          batch_id?: string
+          client_name_raw?: string | null
+          code_placeholder?: boolean
+          code_unparsed?: boolean
+          company_id?: string | null
+          company_matched?: boolean
+          contact_email?: string | null
+          contact_mobile?: string | null
+          contact_name?: string | null
+          currency?: string
+          date_received?: string | null
+          date_submitted?: string | null
+          mapped_at?: string
+          owner_label?: string | null
+          owner_prefix?: string | null
+          owner_user_id?: string | null
+          project_location?: string | null
+          project_name_raw?: string | null
+          revision_no?: number | null
+          route?: string | null
+          row_id?: string
+          sales_code_raw?: string | null
+          status_canonical?: string | null
+          status_needs_decision?: boolean
+          status_raw?: string | null
+          variant?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_sales_mapped_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_mapped_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_mapped_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_owner_map: {
+        Row: {
+          legacy_label: string
+          note: string | null
+          prefix: string
+          user_id: string | null
+        }
+        Insert: {
+          legacy_label: string
+          note?: string | null
+          prefix: string
+          user_id?: string | null
+        }
+        Update: {
+          legacy_label?: string
+          note?: string | null
+          prefix?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      historical_sales_rows: {
+        Row: {
+          batch_id: string
+          id: string
+          loaded_at: string
+          raw: Json
+          row_number: number
+        }
+        Insert: {
+          batch_id: string
+          id?: string
+          loaded_at?: string
+          raw: Json
+          row_number: number
+        }
+        Update: {
+          batch_id?: string
+          id?: string
+          loaded_at?: string
+          raw?: Json
+          row_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_sales_rows_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_status_map: {
+        Row: {
+          canonical_status: string | null
+          is_terminal: boolean
+          needs_decision: boolean
+          note: string
+          source_status: string
+        }
+        Insert: {
+          canonical_status?: string | null
+          is_terminal?: boolean
+          needs_decision?: boolean
+          note: string
+          source_status: string
+        }
+        Update: {
+          canonical_status?: string | null
+          is_terminal?: boolean
+          needs_decision?: boolean
+          note?: string
+          source_status?: string
+        }
+        Relationships: []
       }
       import_approval_queue: {
         Row: {
@@ -4346,6 +4639,20 @@ export type Database = {
             foreignKeyName: "quotations_boq_id_fkey"
             columns: ["boq_id"]
             isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "quotations_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "quotations_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
             referencedRelation: "boqs"
             referencedColumns: ["id"]
           },
@@ -5344,6 +5651,79 @@ export type Database = {
       }
     }
     Views: {
+      boq_cost_totals: {
+        Row: {
+          boq_id: string | null
+          cost_total: number | null
+          lines_cost_total: number | null
+          lines_selling_total: number | null
+          related_opportunity_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_item_costs: {
+        Row: {
+          boq_id: string | null
+          cost_estimate: number | null
+          id: string | null
+          margin_pct: number | null
+          margin_value: number | null
+          quantity: number | null
+          selling_price: number | null
+          sign_type: string | null
+          sort_order: number | null
+          unit_rate: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_sales_totals: {
+        Row: {
+          boq_id: string | null
+          currency: string | null
+          line_count: number | null
+          related_opportunity_id: string | null
+          selling_total: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_backfill_status: {
         Row: {
           active_links: number | null
@@ -5358,6 +5738,85 @@ export type Database = {
           source_table: string | null
         }
         Relationships: []
+      }
+      historical_sales_quality: {
+        Row: {
+          amounts_absent: number | null
+          amounts_unparsed: number | null
+          batch_id: string | null
+          codes_placeholder: number | null
+          codes_unparsed: number | null
+          companies_unmatched: number | null
+          owners_legacy_only: number | null
+          revisions: number | null
+          route_unknown: number | null
+          statuses_needing_decision: number | null
+          submission_dates_missing: number | null
+          total_amount_excl_vat: number | null
+          total_rows: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_sales_mapped_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_search: {
+        Row: {
+          amount: number | null
+          base_code: string | null
+          batch_id: string | null
+          client: string | null
+          company_id: string | null
+          company_matched: boolean | null
+          contact_name: string | null
+          currency: string | null
+          date_received: string | null
+          date_submitted: string | null
+          email_subject: string | null
+          location: string | null
+          owner: string | null
+          owner_prefix: string | null
+          owner_user_id: string | null
+          project: string | null
+          revision_no: number | null
+          route: string | null
+          row_id: string | null
+          row_number: number | null
+          sales_code: string | null
+          search_text: string | null
+          status: string | null
+          status_canonical: string | null
+          update_log: string | null
+          variant: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_sales_mapped_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_mapped_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_mapped_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vendors_full: {
         Row: {
@@ -5395,6 +5854,11 @@ export type Database = {
       can_edit_rfq_number: { Args: { _user_id: string }; Returns: boolean }
       can_edit_total_value: { Args: { _user_id: string }; Returns: boolean }
       can_read_attachments: { Args: { _user_id: string }; Returns: boolean }
+      can_read_boq: {
+        Args: { _opportunity_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_commercial_cost: { Args: { _user_id: string }; Returns: boolean }
       can_read_contract: {
         Args: {
           _created_by: string
@@ -5406,6 +5870,10 @@ export type Database = {
       }
       can_read_document: {
         Args: { _document_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_historical_sales: {
+        Args: { _user_id: string }
         Returns: boolean
       }
       can_review_intake: { Args: { _user_id: string }; Returns: boolean }
@@ -5489,6 +5957,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      historical_raw_get: {
+        Args: { _pattern: string; _raw: Json }
+        Returns: string
+      }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
       is_commercial_manager: { Args: { _user_id: string }; Returns: boolean }
       is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
@@ -5513,6 +5985,19 @@ export type Database = {
         }[]
       }
       notify_overdue_items: { Args: never; Returns: number }
+      parse_historical_amount: { Args: { _v: string }; Returns: number }
+      parse_historical_date: { Args: { _v: string }; Returns: string }
+      parse_historical_route: { Args: { _v: string }; Returns: string }
+      parse_historical_sales_code: {
+        Args: { _v: string }
+        Returns: {
+          base_code: string
+          is_placeholder: boolean
+          parsed: boolean
+          revision_no: number
+          variant: string
+        }[]
+      }
       project_has_valid_boq: { Args: { _project_id: string }; Returns: boolean }
       project_number_denied_message: { Args: never; Returns: string }
       register_legacy_documents: {
@@ -5521,6 +6006,16 @@ export type Database = {
           linked: number
           registered: number
           unlinked_orphans: number
+        }[]
+      }
+      remap_historical_sales: {
+        Args: { _batch_id: string }
+        Returns: {
+          amounts_unparsed: number
+          codes_unparsed: number
+          companies_unmatched: number
+          owners_unmatched: number
+          rows_mapped: number
         }[]
       }
       rerun_attachment_backfill: {

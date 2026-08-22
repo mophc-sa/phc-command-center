@@ -73,7 +73,14 @@ describe("the three management views exist and are role-gated", () => {
     expect(s).toContain("isBdOrSalesOps(roles)");
     expect(s).toContain("isExecutive(roles)");
     // A platform administrator must not appear anywhere in the visibility rule.
-    const gate = s.slice(s.indexOf("const canTeam"), s.indexOf("const tab:"));
+    // Comments are stripped first: the assertion is about what the gate DOES,
+    // and a comment explaining why admins are excluded is the opposite of a
+    // violation. Phase 7 added exactly such a comment and tripped this.
+    const gate = s
+      .slice(s.indexOf("const canTeam"), s.indexOf("const tab:"))
+      .split("\n")
+      .filter((l) => !l.trim().startsWith("//"))
+      .join("\n");
     expect(gate).not.toContain("isSystemAdmin");
     expect(gate).not.toContain("system_admin");
   });
