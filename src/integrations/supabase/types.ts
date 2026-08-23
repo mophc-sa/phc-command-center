@@ -6007,6 +6007,42 @@ export type Database = {
         }
         Relationships: []
       }
+      sla_policies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          escalate_to_role: Database["public"]["Enums"]["app_role"] | null
+          id: string
+          rationale: string | null
+          subject: Database["public"]["Enums"]["sla_subject"]
+          threshold_days: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          escalate_to_role?: Database["public"]["Enums"]["app_role"] | null
+          id?: string
+          rationale?: string | null
+          subject: Database["public"]["Enums"]["sla_subject"]
+          threshold_days: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          escalate_to_role?: Database["public"]["Enums"]["app_role"] | null
+          id?: string
+          rationale?: string | null
+          subject?: Database["public"]["Enums"]["sla_subject"]
+          threshold_days?: number
+        }
+        Relationships: []
+      }
       snapshot_versions: {
         Row: {
           agent_name: string
@@ -7163,6 +7199,18 @@ export type Database = {
           },
         ]
       }
+      automation_health: {
+        Row: {
+          hours_since_last: number | null
+          last_error: string | null
+          last_finished_at: string | null
+          last_started_at: string | null
+          looks_stalled: boolean | null
+          runs_with_errors: number | null
+          trigger: string | null
+        }
+        Relationships: []
+      }
       boq_cost_totals: {
         Row: {
           boq_id: string | null
@@ -7887,6 +7935,18 @@ export type Database = {
         }
         Relationships: []
       }
+      sla_breaches: {
+        Row: {
+          days_overdue: number | null
+          detail: string | null
+          opportunity_id: string | null
+          owner_id: string | null
+          record_id: string | null
+          subject: Database["public"]["Enums"]["sla_subject"] | null
+          threshold_days: number | null
+        }
+        Relationships: []
+      }
       supplier_comparison: {
         Row: {
           average_unit_cost: number | null
@@ -8131,6 +8191,15 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_read_opportunity_flag: {
+        Args: {
+          _action_owner_id: string
+          _linked_record_id: string
+          _linked_record_type: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       can_read_quotation: {
         Args: { _quotation_id: string; _user_id: string }
         Returns: boolean
@@ -8160,6 +8229,10 @@ export type Database = {
         }[]
       }
       current_margin_floor: { Args: never; Returns: number }
+      current_sla_days: {
+        Args: { _subject: Database["public"]["Enums"]["sla_subject"] }
+        Returns: number
+      }
       derive_attachment_path: { Args: { _value: string }; Returns: string }
       dismiss_notification: { Args: { _id: string }; Returns: boolean }
       document_entity_grants: {
@@ -8650,6 +8723,13 @@ export type Database = {
         | "unknown"
         | "not_applicable"
         | "no_package_identified"
+      sla_subject:
+        | "stalled_deal"
+        | "follow_up"
+        | "commitment"
+        | "price_review"
+        | "lead_review"
+        | "quotation_validity"
       supplier_quote_status:
         | "draft"
         | "sent"
@@ -9154,6 +9234,14 @@ export const Constants = {
         "unknown",
         "not_applicable",
         "no_package_identified",
+      ],
+      sla_subject: [
+        "stalled_deal",
+        "follow_up",
+        "commitment",
+        "price_review",
+        "lead_review",
+        "quotation_validity",
       ],
       supplier_quote_status: [
         "draft",
