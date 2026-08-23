@@ -57,6 +57,23 @@ const IGNORABLE = [
   /\[vite\]/i,
 ];
 
+/**
+ * Wait until React has hydrated, before clicking anything.
+ *
+ * `domcontentloaded` fires while the server HTML is on screen and the handlers
+ * are not attached yet, so a click lands on a button that looks real and does
+ * nothing. Both interaction tests here failed that way while the app was
+ * working perfectly — and an earlier debug run passed only because enumerating
+ * the buttons first happened to burn enough time for hydration to finish.
+ */
+async function hydrated(page: Page) {
+  await page.waitForLoadState("networkidle").catch(() => { /* long-poll is fine */ });
+  // The language toggle is rendered by React on every page shell; once it
+  // responds to the accessibility tree the tree is live, not server HTML.
+  await page.getByRole("button").first().waitFor({ state: "visible", timeout: 15_000 });
+  await page.waitForTimeout(500);
+}
+
 function collect(page: Page) {
   const errors: string[] = [];
   const failed: string[] = [];
@@ -114,7 +131,26 @@ test.describe("the sign-in page is usable", () => {
     await page.goto("/auth", { waitUntil: "domcontentloaded" });
     await expect(page.locator('input[type="email"], input[name="email"]').first()).toBeVisible();
     await expect(page.locator('input[type="password"]').first()).toBeVisible();
-    await expect(page.locator('button[type="submit"], button:has-text("Sign in")').first()).toBeVisible();
+    // Matched by accessible name, not by [type="submit"]. The Sign in button
+    // carries no explicit type attribute — inside a form the browser default
+    // already makes it the submit button, so the attribute selector finds
+    // nothing while the form works perfectly. A first version of this test
+    // used it and reported a bug that did not exist.
+    await expect(page.getByRole("button", { name: /sign in|تسجيل الدخول/i })).toBeVisible();
+  });
+
+  test("no button inside the form can submit it by accident", async ({ page }) => {
+    // The flip side of relying on the default: any button dropped inside the
+    // form becomes a submit button unless someone types type="button". Today
+    // only Sign in should submit; Forgot password sets it explicitly. A new
+    // control added without that attribute would silently submit the login
+    // form, and this is the check that would catch it.
+    await page.goto("/auth", { waitUntil: "domcontentloaded" });
+    const submitters = await page.evaluate(() =>
+      [...document.querySelectorAll("form button")]
+        .filter((b) => (b as HTMLButtonElement).type === "submit")
+        .map((b) => (b.textContent ?? "").trim()));
+    expect(submitters).toHaveLength(1);
   });
 
   test("rejects a bad password without crashing the page", async ({ page }) => {
@@ -122,26 +158,49 @@ test.describe("the sign-in page is usable", () => {
     // leaves a blank screen and no way back.
     const { errors } = collect(page);
     await page.goto("/auth", { waitUntil: "domcontentloaded" });
+    await hydrated(page);
     await page.locator('input[type="email"], input[name="email"]').first()
       .fill("definitely-not-a-user@example.invalid");
     await page.locator('input[type="password"]').first().fill("wrong-password-on-purpose");
-    await page.locator('button[type="submit"]').first().click();
+    await page.getByRole("button", { name: /sign in|تسجيل الدخول/i }).click();
 
-    await page.waitForTimeout(3000);
+    // Wait FOR the toast rather than sleeping and reading the body: the toast
+    // auto-dismisses after a few seconds, so a fixed pause raced it and read a
+    // page where the message had already gone. Silently doing nothing is the
+    // worse failure — the user retypes the same password thinking they
+    // mistyped it — so this asserts the message appears, not that it lingers.
+    await expect(page.getByText(/incorrect|invalid|غير صحيح|خطأ/i).first())
+      .toBeVisible({ timeout: 15_000 });
+
     expect(page.url(), "a failed sign-in must not navigate away").toMatch(/\/auth/);
     const text = (await page.locator("body").innerText().catch(() => "")).trim();
     expect(text.length, "page went blank after a failed sign-in").toBeGreaterThan(0);
-    expect(errors, "console errors during a failed sign-in").toEqual([]);
+    // A 400 here is the auth server correctly rejecting the credentials — the
+    // point of the test. Ignored only in this test, not globally: a 400 on a
+    // page that is not deliberately sending bad input is a real bug.
+    const unexpected = errors.filter((e) => !/status of 400/i.test(e));
+    expect(unexpected, "unexpected console errors during a failed sign-in").toEqual([]);
   });
 });
 
 test.describe("bilingual and responsive", () => {
-  test("the document declares a language and a direction", async ({ page }) => {
+  test("switching to Arabic flips the document to RTL", async ({ page }) => {
+    // The whole layout mirrors off this attribute. If the toggle changed the
+    // strings but not dir, every Arabic screen would read left-to-right and
+    // look subtly wrong in a way no unit test notices.
     await page.goto("/auth", { waitUntil: "domcontentloaded" });
-    const lang = await page.locator("html").getAttribute("lang");
-    expect(lang, "html lang attribute").toBeTruthy();
-    const dir = await page.locator("html").getAttribute("dir");
-    expect(["ltr", "rtl", null]).toContain(dir);
+    expect(await page.locator("html").getAttribute("lang")).toBe("en");
+    // getAttribute, not .dir: the property reports "ltr" by default while the
+    // ATTRIBUTE is absent until the app sets it for Arabic. Asserting "ltr"
+    // here failed against a page that was working correctly — the same
+    // property-versus-attribute trap as button[type="submit"] above.
+    const dirBefore = await page.locator("html").getAttribute("dir");
+    expect(["ltr", null]).toContain(dirBefore);
+
+    await hydrated(page);
+    await page.getByRole("button", { name: /language|AR/i }).first().click();
+    await expect(page.locator("html")).toHaveAttribute("dir", "rtl", { timeout: 5000 });
+    expect(await page.locator("html").getAttribute("lang")).toBe("ar");
   });
 
   test("survives a phone viewport without horizontal overflow", async ({ page }) => {
