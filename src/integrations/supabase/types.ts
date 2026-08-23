@@ -310,6 +310,13 @@ export type Database = {
             foreignKeyName: "ai_agent_feedback_recommendation_id_fkey"
             columns: ["recommendation_id"]
             isOneToOne: false
+            referencedRelation: "ai_advice_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_feedback_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
             referencedRelation: "ai_recommendations"
             referencedColumns: ["id"]
           },
@@ -575,6 +582,13 @@ export type Database = {
             foreignKeyName: "ai_evidence_items_recommendation_id_fkey"
             columns: ["recommendation_id"]
             isOneToOne: false
+            referencedRelation: "ai_advice_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evidence_items_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
             referencedRelation: "ai_recommendations"
             referencedColumns: ["id"]
           },
@@ -585,6 +599,9 @@ export type Database = {
           agent_key: string
           confidence: number | null
           created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
           entity_id: string | null
           entity_type: string | null
           generated_by: string
@@ -604,6 +621,9 @@ export type Database = {
           agent_key: string
           confidence?: number | null
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           entity_id?: string | null
           entity_type?: string | null
           generated_by?: string
@@ -623,6 +643,9 @@ export type Database = {
           agent_key?: string
           confidence?: number | null
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           entity_id?: string | null
           entity_type?: string | null
           generated_by?: string
@@ -3975,6 +3998,13 @@ export type Database = {
             foreignKeyName: "lead_scores_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "lead_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_scores_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
@@ -3995,7 +4025,9 @@ export type Database = {
           converted_opportunity_id: string | null
           created_at: string
           created_by: string | null
+          dedupe_key: string | null
           duplicate_of: string | null
+          duplicate_of_lead_id: string | null
           estimated_value: number | null
           extra_data: Json | null
           id: string
@@ -4010,6 +4042,9 @@ export type Database = {
             | null
           rejection_reason: string | null
           research_notes: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           signage_potential:
             | Database["public"]["Enums"]["confidence_level"]
             | null
@@ -4024,7 +4059,9 @@ export type Database = {
           converted_opportunity_id?: string | null
           created_at?: string
           created_by?: string | null
+          dedupe_key?: string | null
           duplicate_of?: string | null
+          duplicate_of_lead_id?: string | null
           estimated_value?: number | null
           extra_data?: Json | null
           id?: string
@@ -4039,6 +4076,9 @@ export type Database = {
             | null
           rejection_reason?: string | null
           research_notes?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           signage_potential?:
             | Database["public"]["Enums"]["confidence_level"]
             | null
@@ -4053,7 +4093,9 @@ export type Database = {
           converted_opportunity_id?: string | null
           created_at?: string
           created_by?: string | null
+          dedupe_key?: string | null
           duplicate_of?: string | null
+          duplicate_of_lead_id?: string | null
           estimated_value?: number | null
           extra_data?: Json | null
           id?: string
@@ -4068,6 +4110,9 @@ export type Database = {
             | null
           rejection_reason?: string | null
           research_notes?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           signage_potential?:
             | Database["public"]["Enums"]["confidence_level"]
             | null
@@ -4102,6 +4147,20 @@ export type Database = {
             columns: ["duplicate_of"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_duplicate_of_lead_id_fkey"
+            columns: ["duplicate_of_lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_duplicate_of_lead_id_fkey"
+            columns: ["duplicate_of_lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
         ]
@@ -5566,6 +5625,13 @@ export type Database = {
             foreignKeyName: "recommendations_related_lead_id_fkey"
             columns: ["related_lead_id"]
             isOneToOne: false
+            referencedRelation: "lead_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendations_related_lead_id_fkey"
+            columns: ["related_lead_id"]
+            isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
@@ -6698,6 +6764,66 @@ export type Database = {
       }
     }
     Views: {
+      ai_advice_queue: {
+        Row: {
+          agent_key: string | null
+          confidence: number | null
+          created_at: string | null
+          days_open: number | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string | null
+          missing_data: string[] | null
+          rationale: string | null
+          recommendation: string | null
+          severity: string | null
+          status: string | null
+          suggested_action: string | null
+          title: string | null
+        }
+        Insert: {
+          agent_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          days_open?: never
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string | null
+          missing_data?: string[] | null
+          rationale?: string | null
+          recommendation?: string | null
+          severity?: string | null
+          status?: string | null
+          suggested_action?: string | null
+          title?: string | null
+        }
+        Update: {
+          agent_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          days_open?: never
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string | null
+          missing_data?: string[] | null
+          rationale?: string | null
+          recommendation?: string | null
+          severity?: string | null
+          status?: string | null
+          suggested_action?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
       analytics_scope_opportunities: {
         Row: {
           action_priority: Database["public"]["Enums"]["priority_tier"] | null
@@ -7540,6 +7666,83 @@ export type Database = {
           },
         ]
       }
+      lead_duplicate_candidates: {
+        Row: {
+          already_linked: boolean | null
+          dedupe_key: string | null
+          lead_count: number | null
+          lead_ids: string[] | null
+          project_names: string[] | null
+          sources: string[] | null
+        }
+        Relationships: []
+      }
+      lead_review_queue: {
+        Row: {
+          created_at: string | null
+          days_waiting: number | null
+          estimated_value: number | null
+          has_duplicate_candidates: boolean | null
+          id: string | null
+          is_marked_duplicate: boolean | null
+          lead_score: number | null
+          lead_stage: Database["public"]["Enums"]["lead_stage"] | null
+          location: string | null
+          main_contractor_guess: string | null
+          owner_id: string | null
+          project_name: string | null
+          reviewed: boolean | null
+          signage_potential:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source: string | null
+          source_approved: boolean | null
+          source_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days_waiting?: never
+          estimated_value?: number | null
+          has_duplicate_candidates?: never
+          id?: string | null
+          is_marked_duplicate?: never
+          lead_score?: number | null
+          lead_stage?: Database["public"]["Enums"]["lead_stage"] | null
+          location?: string | null
+          main_contractor_guess?: string | null
+          owner_id?: string | null
+          project_name?: string | null
+          reviewed?: never
+          signage_potential?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source?: string | null
+          source_approved?: never
+          source_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days_waiting?: never
+          estimated_value?: number | null
+          has_duplicate_candidates?: never
+          id?: string | null
+          is_marked_duplicate?: never
+          lead_score?: number | null
+          lead_stage?: Database["public"]["Enums"]["lead_stage"] | null
+          location?: string | null
+          main_contractor_guess?: string | null
+          owner_id?: string | null
+          project_name?: string | null
+          reviewed?: never
+          signage_potential?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source?: string | null
+          source_approved?: never
+          source_url?: string | null
+        }
+        Relationships: []
+      }
       loss_analysis: {
         Row: {
           deals: number | null
@@ -7897,6 +8100,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_read_ai_recommendation: {
+        Args: { _entity_id: string; _entity_type: string; _user_id: string }
+        Returns: boolean
+      }
       can_read_attachments: { Args: { _user_id: string }; Returns: boolean }
       can_read_boq: {
         Args: { _opportunity_id: string; _user_id: string }
@@ -8043,6 +8250,10 @@ export type Database = {
           title: string
         }[]
       }
+      normalize_lead_key: {
+        Args: { _location: string; _project_name: string }
+        Returns: string
+      }
       normalize_vendor_name: { Args: { _name: string }; Returns: string }
       notify_overdue_items: { Args: never; Returns: number }
       opportunity_value: {
@@ -8107,6 +8318,10 @@ export type Database = {
           raised: number
           run_id: string
         }[]
+      }
+      source_is_approved_for_agents: {
+        Args: { _source: string }
+        Returns: boolean
       }
       storage_object_readable: {
         Args: { _bucket: string; _path: string; _user_id: string }
