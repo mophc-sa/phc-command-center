@@ -1,7 +1,10 @@
 -- RLS Role Matrix — comprehensive allow/deny coverage
 --
 -- Role capability model:
---   viewer        read-only on most tables; no writes
+--   viewer        read-only, and on far less than it once was. Excluded from
+--                 attachments, contracts, commercial cost, sales analytics,
+--                 activities, tasks, flags, AI advice, vendors and leads.
+--                 Treat "viewer can read X" as something to justify, not assume.
 --   salesperson   read all; INSERT on core CRM; UPDATE own records only; no DELETE
 --   bd_manager    pipeline operator — INSERT + UPDATE; no DELETE
 --   sales_manager commercial manager + platform admin — full access; DELETE via API only
@@ -167,9 +170,22 @@ select throws_ok(
 select set_config('request.jwt.claims',
   '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
 
+-- Changed in Phase 12 (migration 20260904100000), deliberately.
+--
+-- `leads` was one of nine tables found with a blanket is_active_user() read.
+-- It is now scoped to is_sales_contributor(), which is wider than the lead's
+-- owner — a shared pool only prevents two people ringing the same contractor
+-- if the team can see it — but excludes viewer, estimation, finance and
+-- system_admin, none of whom prospect.
+--
+-- This contradicts the "read-only on most tables" line at the top of this file,
+-- and the line was already out of date: viewer is excluded from attachments
+-- (D24), contracts, commercial cost, sales analytics, activities, tasks,
+-- opportunity flags, AI advice and vendors. A lead carries estimated_value and
+-- research_notes, which is commercial prospecting material, not reference data.
 select is(
   (select count(*)::integer from public.leads where project_name = 'fixture-lead'),
-  1, 'B1: viewer can read a lead');
+  0, 'B1: viewer cannot read a lead');
 
 select throws_ok(
   $$insert into public.leads (project_name) values ('viewer-must-not-create-lead')$$,
