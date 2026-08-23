@@ -261,6 +261,9 @@ run_suite tests/db-behaviour/phase7b_supplier_costing.sql run
 run_suite tests/db-behaviour/phase7c_quotation_revisions.sql run
 run_suite tests/db-behaviour/phase7d_historical_promotion.sql run
 run_suite tests/db-behaviour/phase8_margin_integrity.sql run
+run_suite tests/db-behaviour/phase9_commitments.sql run
+run_suite tests/db-behaviour/activity_read_isolation.sql run
+run_suite tests/db-behaviour/phase10_management_intelligence.sql run
 
 echo ""
 echo "─────────────────────────────────────────"
