@@ -62,21 +62,36 @@ const PROTECTED_ROUTES = [
  * of staying silently switched off.
  */
 let configured: boolean | null = null;
-async function appIsConfigured(page: Page, baseURL?: string): Promise<boolean> {
+
+const UNCONFIGURED = /Missing Supabase environment variable/i;
+
+async function appIsConfigured(page: Page): Promise<boolean> {
   if (configured !== null) return configured;
+
+  // Loaded in a real browser, not fetched as HTML. The missing-config error is
+  // thrown at RUNTIME by the client bundle, so the server response looks
+  // perfectly clean — a first version of this probe checked the HTML, saw
+  // nothing wrong, and let every test run straight into the failure it was
+  // meant to prevent.
+  const seen: string[] = [];
+  const onConsole = (m: ConsoleMessage) => { if (m.type() === "error") seen.push(m.text()); };
+  const onError = (e: Error) => seen.push(e.message);
+  page.on("console", onConsole);
+  page.on("pageerror", onError);
   try {
-    const res = await page.request.get(`${baseURL ?? ""}/auth`);
-    const html = await res.text();
-    configured = !/Missing Supabase environment variable/i.test(html);
-  } catch {
-    configured = false;
-  }
+    await page.goto("/auth", { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(2000);
+  } catch { /* an unreachable target is also "not configured" */ }
+  page.off("console", onConsole);
+  page.off("pageerror", onError);
+
+  configured = !seen.some((e) => UNCONFIGURED.test(e));
   return configured;
 }
 
 /** Skips the test, with a reason, when the target app has no backend config. */
-async function requireConfigured(page: Page, baseURL?: string) {
-  const ok = await appIsConfigured(page, baseURL);
+async function requireConfigured(page: Page) {
+  const ok = await appIsConfigured(page);
   test.skip(!ok,
     "target app has no Supabase configuration — this sweep needs a deployed, configured environment " +
     "(run with PLAYWRIGHT_BASE_URL=https://agent.phc-sa.com)");
@@ -130,8 +145,8 @@ function collect(page: Page) {
 
 test.describe("public routes load cleanly", () => {
   for (const route of PUBLIC_ROUTES) {
-    test(`${route} renders without a client-side error`, async ({ page, baseURL }) => {
-    await requireConfigured(page, baseURL);
+    test(`${route} renders without a client-side error`, async ({ page }) => {
+    await requireConfigured(page);
       const { errors, failed } = collect(page);
       const res = await page.goto(route, { waitUntil: "domcontentloaded" });
 
@@ -150,8 +165,8 @@ test.describe("public routes load cleanly", () => {
 
 test.describe("protected routes refuse an anonymous visitor", () => {
   for (const route of PROTECTED_ROUTES) {
-    test(`${route} redirects to sign-in`, async ({ page, baseURL }) => {
-    await requireConfigured(page, baseURL);
+    test(`${route} redirects to sign-in`, async ({ page }) => {
+    await requireConfigured(page);
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("networkidle").catch(() => {});
 
@@ -163,8 +178,8 @@ test.describe("protected routes refuse an anonymous visitor", () => {
 });
 
 test.describe("the sign-in page is usable", () => {
-  test("offers an email and password field and a submit control", async ({ page, baseURL }) => {
-    await requireConfigured(page, baseURL);
+  test("offers an email and password field and a submit control", async ({ page }) => {
+    await requireConfigured(page);
     await page.goto("/auth", { waitUntil: "domcontentloaded" });
     await expect(page.locator('input[type="email"], input[name="email"]').first()).toBeVisible();
     await expect(page.locator('input[type="password"]').first()).toBeVisible();
@@ -176,8 +191,8 @@ test.describe("the sign-in page is usable", () => {
     await expect(page.getByRole("button", { name: /sign in|تسجيل الدخول/i })).toBeVisible();
   });
 
-  test("no button inside the form can submit it by accident", async ({ page, baseURL }) => {
-    await requireConfigured(page, baseURL);
+  test("no button inside the form can submit it by accident", async ({ page }) => {
+    await requireConfigured(page);
     // The flip side of relying on the default: any button dropped inside the
     // form becomes a submit button unless someone types type="button". Today
     // only Sign in should submit; Forgot password sets it explicitly. A new
@@ -191,8 +206,8 @@ test.describe("the sign-in page is usable", () => {
     expect(submitters).toHaveLength(1);
   });
 
-  test("rejects a bad password without crashing the page", async ({ page, baseURL }) => {
-    await requireConfigured(page, baseURL);
+  test("rejects a bad password without crashing the page", async ({ page }) => {
+    await requireConfigured(page);
     // The failure path matters as much as the happy one: a thrown error here
     // leaves a blank screen and no way back.
     const { errors } = collect(page);
@@ -223,8 +238,8 @@ test.describe("the sign-in page is usable", () => {
 });
 
 test.describe("bilingual and responsive", () => {
-  test("switching to Arabic flips the document to RTL", async ({ page, baseURL }) => {
-    await requireConfigured(page, baseURL);
+  test("switching to Arabic flips the document to RTL", async ({ page }) => {
+    await requireConfigured(page);
     // The whole layout mirrors off this attribute. If the toggle changed the
     // strings but not dir, every Arabic screen would read left-to-right and
     // look subtly wrong in a way no unit test notices.
@@ -243,8 +258,8 @@ test.describe("bilingual and responsive", () => {
     expect(await page.locator("html").getAttribute("lang")).toBe("ar");
   });
 
-  test("survives a phone viewport without horizontal overflow", async ({ page, baseURL }) => {
-    await requireConfigured(page, baseURL);
+  test("survives a phone viewport without horizontal overflow", async ({ page }) => {
+    await requireConfigured(page);
     // Horizontal scroll on a phone is the single most common RTL/layout
     // regression and it never shows up on a desktop run.
     await page.setViewportSize({ width: 390, height: 844 });
@@ -257,8 +272,8 @@ test.describe("bilingual and responsive", () => {
 });
 
 test.describe("the shell does not leak what it should not", () => {
-  test("no Supabase service key or bearer token reaches the page source", async ({ page, baseURL }) => {
-    await requireConfigured(page, baseURL);
+  test("no Supabase service key or bearer token reaches the page source", async ({ page }) => {
+    await requireConfigured(page);
     const res = await page.goto("/auth", { waitUntil: "domcontentloaded" });
     const html = (await res?.text()) ?? "";
     // The publishable/anon key is expected client-side. A service-role JWT is
