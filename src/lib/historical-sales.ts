@@ -263,3 +263,73 @@ export function statusOptions(rows: HistoricalSaleRow[]): Array<{ value: string;
   }
   return [...m.entries()].map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count);
 }
+
+// ---- Year view -------------------------------------------------------------
+
+/**
+ * Which years the archive actually covers, newest first, with a count.
+ *
+ * Derived from the data rather than hardcoded: the import spans 2021-2026 today
+ * and will span more next year, and a fixed list would quietly stop offering
+ * the current one — the year people most want.
+ *
+ * Falls back to the received date when a record was never submitted, so a live
+ * enquiry still lands in the year it arrived rather than in "no date".
+ */
+export function yearOptions(rows: HistoricalSaleRow[]): Array<{ year: string; count: number }> {
+  const m = new Map<string, number>();
+  for (const r of rows) {
+    const d = r.date_submitted ?? r.date_received;
+    const y = d ? d.slice(0, 4) : "";
+    if (!y) continue;
+    m.set(y, (m.get(y) ?? 0) + 1);
+  }
+  return [...m.entries()]
+    .map(([year, count]) => ({ year, count }))
+    .sort((a, b) => b.year.localeCompare(a.year));
+}
+
+/** The from/to pair that selects one calendar year. */
+export function yearRange(year: string): { fromDate: string; toDate: string } {
+  return { fromDate: `${year}-01-01`, toDate: `${year}-12-31` };
+}
+
+/**
+ * The year currently selected by the filters, or "" when the range is not
+ * exactly one calendar year. Read back from the dates rather than stored
+ * separately, so a hand-edited date range and the year buttons can never
+ * disagree about what is on screen.
+ */
+export function selectedYear(f: Pick<HistoricalFilters, "fromDate" | "toDate">): string {
+  if (!f.fromDate || !f.toDate) return "";
+  const y = f.fromDate.slice(0, 4);
+  const r = yearRange(y);
+  return f.fromDate === r.fromDate && f.toDate === r.toDate ? y : "";
+}
+
+/**
+ * Status breakdown for whatever is on screen, ordered by value.
+ *
+ * Value, not count: a year with forty small losses and two large wins is a good
+ * year, and ordering by count would put the losses at the top and say the
+ * opposite. Records with no decided status are surfaced as "undecided" rather
+ * than dropped — how much of the book is unclassified is itself the finding.
+ */
+export function statusBreakdown(rows: HistoricalSaleRow[]): Array<{
+  status: string; count: number; total: number; valued: number;
+}> {
+  const m = new Map<string, { count: number; total: number; valued: number }>();
+  for (const r of rows) {
+    const k = r.status_canonical ?? "undecided";
+    const e = m.get(k) ?? { count: 0, total: 0, valued: 0 };
+    e.count += 1;
+    if (r.amount !== null && r.amount !== undefined) {
+      e.total += r.amount;
+      e.valued += 1;
+    }
+    m.set(k, e);
+  }
+  return [...m.entries()]
+    .map(([status, v]) => ({ status, ...v }))
+    .sort((a, b) => b.total - a.total || b.count - a.count);
+}

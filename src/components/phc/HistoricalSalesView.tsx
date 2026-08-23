@@ -24,6 +24,7 @@ import { formatCurrency, formatNumber, useI18n } from "@/lib/i18n";
 import {
   EMPTY_FILTERS, exportFilename, filterHistorical, getHistoricalQuality, listHistoricalSales,
   ownerOptions, qualityFlags, statusOptions, summarise, toCsv,
+  yearOptions, yearRange, selectedYear, statusBreakdown,
   type HistoricalFilters, type HistoricalSaleRow, type QualityFlag,
 } from "@/lib/historical-sales";
 
@@ -66,6 +67,9 @@ export function HistoricalSalesView() {
   const sum = useMemo(() => summarise(filtered), [filtered]);
   const owners = useMemo(() => ownerOptions(rows), [rows]);
   const statuses = useMemo(() => statusOptions(rows), [rows]);
+  const years = useMemo(() => yearOptions(rows), [rows]);
+  const activeYear = selectedYear(f);
+  const byStatus = useMemo(() => statusBreakdown(filtered), [filtered]);
   const set = <K extends keyof HistoricalFilters>(k: K, v: HistoricalFilters[K]) => setF((p) => ({ ...p, [k]: v }));
   const dirty = JSON.stringify(f) !== JSON.stringify(EMPTY_FILTERS);
 
@@ -110,6 +114,44 @@ export function HistoricalSalesView() {
         <Stat label={ar ? "مكسوبة" : "Won"} value={formatNumber(sum.won, lang)} tone="won" />
         <Stat label={ar ? "مفقودة" : "Lost"} value={formatNumber(sum.lost, lang)} tone="lost" />
       </div>
+
+      {/* Status breakdown for what is on screen. Ordered by value, not count:
+          a year with forty small losses and two large wins is a good year, and
+          ordering by count would put the losses first and say the opposite.
+          Clickable, so the breakdown is also the way in. */}
+      {byStatus.length > 1 ? (
+        <Panel
+          title={activeYear
+            ? (ar ? `حسب الحالة · ${activeYear}` : `By status · ${activeYear}`)
+            : (ar ? "حسب الحالة" : "By status")}
+          subtitle={ar ? "اضغط للتصفية" : "Click to filter"}
+        >
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {byStatus.map((b) => {
+              const undecided = b.status === "undecided";
+              const on = !undecided && f.status === b.status;
+              return (
+                <button
+                  key={b.status}
+                  type="button"
+                  onClick={() => { if (!undecided) set("status", on ? "" : b.status); }}
+                  disabled={undecided}
+                  className={`rounded-lg border p-2.5 text-start transition-colors ${
+                    on ? "border-primary/40 bg-primary/10" : "border-border hover:bg-surface-2/50"
+                  } ${undecided ? "cursor-default opacity-80" : ""}`}
+                >
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{b.status}</div>
+                  <div className="mt-0.5 text-sm font-medium">{formatNumber(b.count, lang)}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {formatCurrency(b.total, lang, "SAR")}
+                    {b.valued < b.count ? <span> · {b.valued}/{b.count}</span> : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </Panel>
+      ) : null}
 
       {/* Quality indicators. Clickable, because a count nobody can act on is
           decoration — each one filters the table to the rows it counts. */}
@@ -161,6 +203,38 @@ export function HistoricalSalesView() {
           <DateField label={ar ? "من تاريخ التقديم" : "Submitted from"} value={f.fromDate} onChange={(v) => set("fromDate", v)} />
           <DateField label={ar ? "إلى تاريخ التقديم" : "Submitted to"} value={f.toDate} onChange={(v) => set("toDate", v)} />
         </div>
+
+        {/* Year — the question people actually arrive with is "how did 2026
+            go", and answering it through two date pickers made it a chore
+            nobody did. Derived from the data, so next year appears on its own. */}
+        {years.length > 1 ? (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              {ar ? "السنة" : "Year"}
+            </span>
+            <button
+              type="button"
+              onClick={() => setF((p) => ({ ...p, fromDate: null, toDate: null }))}
+              className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+                activeYear === "" ? "border-primary/40 bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {ar ? "الكل" : "All"}
+            </button>
+            {years.map((y) => (
+              <button
+                key={y.year}
+                type="button"
+                onClick={() => setF((p) => ({ ...p, ...yearRange(y.year) }))}
+                className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+                  activeYear === y.year ? "border-primary/40 bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {y.year} <span className="text-muted-foreground">({y.count})</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         {dirty ? (
           <button
             type="button"
