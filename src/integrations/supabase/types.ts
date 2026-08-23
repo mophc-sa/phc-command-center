@@ -2147,6 +2147,106 @@ export type Database = {
           },
         ]
       }
+      historical_promotion_requests: {
+        Row: {
+          amount_absent_reason: string | null
+          amount_excl_vat: number | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          decision_notes: string | null
+          id: string
+          mapping_notes: string | null
+          owner_user_id: string | null
+          project_name: string | null
+          promoted_at: string | null
+          promoted_by: string | null
+          promoted_opportunity_id: string | null
+          rejection_reason: string | null
+          requested_at: string | null
+          requested_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          row_id: string
+          status: Database["public"]["Enums"]["historical_promotion_status"]
+          status_canonical: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_absent_reason?: string | null
+          amount_excl_vat?: number | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          decision_notes?: string | null
+          id?: string
+          mapping_notes?: string | null
+          owner_user_id?: string | null
+          project_name?: string | null
+          promoted_at?: string | null
+          promoted_by?: string | null
+          promoted_opportunity_id?: string | null
+          rejection_reason?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          row_id: string
+          status?: Database["public"]["Enums"]["historical_promotion_status"]
+          status_canonical?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_absent_reason?: string | null
+          amount_excl_vat?: number | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          decision_notes?: string | null
+          id?: string
+          mapping_notes?: string | null
+          owner_user_id?: string | null
+          project_name?: string | null
+          promoted_at?: string | null
+          promoted_by?: string | null
+          promoted_opportunity_id?: string | null
+          rejection_reason?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          row_id?: string
+          status?: Database["public"]["Enums"]["historical_promotion_status"]
+          status_canonical?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_promotion_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historical_sales_batches: {
         Row: {
           header_rows: number
@@ -3561,6 +3661,7 @@ export type Database = {
       }
       internal_prices: {
         Row: {
+          below_floor_justification: string | null
           commercial_reviewed_at: string | null
           commercial_reviewed_by: string | null
           created_at: string
@@ -3580,6 +3681,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          below_floor_justification?: string | null
           commercial_reviewed_at?: string | null
           commercial_reviewed_by?: string | null
           created_at?: string
@@ -3599,6 +3701,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          below_floor_justification?: string | null
           commercial_reviewed_at?: string | null
           commercial_reviewed_by?: string | null
           created_at?: string
@@ -3618,6 +3721,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimation_cost_reconciliation"
+            referencedColumns: ["estimation_id"]
+          },
           {
             foreignKeyName: "internal_prices_estimation_id_fkey"
             columns: ["estimation_id"]
@@ -3818,6 +3928,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      margin_policies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          min_margin_pct: number
+          rationale: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          min_margin_pct: number
+          rationale?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          min_margin_pct?: number
+          rationale?: string | null
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -4815,6 +4955,156 @@ export type Database = {
             columns: ["import_id"]
             isOneToOne: false
             referencedRelation: "protenders_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_revisions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          boq_revision_id: string | null
+          client_reference: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          delivery_terms: string | null
+          id: string
+          internal_price_id: string | null
+          is_current: boolean
+          issued_at: string | null
+          payment_terms: string | null
+          quotation_id: string
+          return_reason: string | null
+          revision_number: number
+          scope_summary: string | null
+          status: Database["public"]["Enums"]["quotation_revision_status"]
+          submitted_at: string | null
+          submitted_by: string | null
+          subtotal_excl_vat: number
+          supersedes_id: string | null
+          total_incl_vat: number | null
+          updated_at: string
+          valid_until: string | null
+          vat_amount: number | null
+          vat_rate: number
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          boq_revision_id?: string | null
+          client_reference?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          delivery_terms?: string | null
+          id?: string
+          internal_price_id?: string | null
+          is_current?: boolean
+          issued_at?: string | null
+          payment_terms?: string | null
+          quotation_id: string
+          return_reason?: string | null
+          revision_number?: number
+          scope_summary?: string | null
+          status?: Database["public"]["Enums"]["quotation_revision_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          subtotal_excl_vat: number
+          supersedes_id?: string | null
+          total_incl_vat?: number | null
+          updated_at?: string
+          valid_until?: string | null
+          vat_amount?: number | null
+          vat_rate?: number
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          boq_revision_id?: string | null
+          client_reference?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          delivery_terms?: string | null
+          id?: string
+          internal_price_id?: string | null
+          is_current?: boolean
+          issued_at?: string | null
+          payment_terms?: string | null
+          quotation_id?: string
+          return_reason?: string | null
+          revision_number?: number
+          scope_summary?: string | null
+          status?: Database["public"]["Enums"]["quotation_revision_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          subtotal_excl_vat?: number
+          supersedes_id?: string | null
+          total_incl_vat?: number | null
+          updated_at?: string
+          valid_until?: string | null
+          vat_amount?: number | null
+          vat_rate?: number
+          withdrawn_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_revisions_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_internal_price_id_fkey"
+            columns: ["internal_price_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_review_queue"
+            referencedColumns: ["internal_price_id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_internal_price_id_fkey"
+            columns: ["internal_price_id"]
+            isOneToOne: false
+            referencedRelation: "internal_price_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_internal_price_id_fkey"
+            columns: ["internal_price_id"]
+            isOneToOne: false
+            referencedRelation: "internal_prices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_current_revision"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_revisions"
             referencedColumns: ["id"]
           },
         ]
@@ -6327,6 +6617,58 @@ export type Database = {
           },
         ]
       }
+      commercial_review_queue: {
+        Row: {
+          awaiting: string | null
+          boq_revision_id: string | null
+          commercial_reviewed_at: string | null
+          days_waiting: number | null
+          estimation_id: string | null
+          finance_reviewed_at: string | null
+          internal_price_id: string | null
+          proposed_at: string | null
+          related_opportunity_id: string | null
+          status: Database["public"]["Enums"]["internal_price_status"] | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimation_cost_reconciliation"
+            referencedColumns: ["estimation_id"]
+          },
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_backfill_status: {
         Row: {
           active_links: number | null
@@ -6341,6 +6683,85 @@ export type Database = {
           source_table: string | null
         }
         Relationships: []
+      }
+      estimation_cost_reconciliation: {
+        Row: {
+          boq_revision_id: string | null
+          cost_basis: number | null
+          estimation_id: string | null
+          installation_cost: number | null
+          overhead_pct: number | null
+          selected_lines: number | null
+          supplier_cost: number | null
+          typed_cost_total: number | null
+          typed_vs_supplier_pct: number | null
+          wastage_pct: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_promotion_queue: {
+        Row: {
+          amount_excl_vat: number | null
+          archive_amount: number | null
+          client_name_raw: string | null
+          company_id: string | null
+          missing_mappings: string[] | null
+          owner_label: string | null
+          owner_prefix: string | null
+          owner_user_id: string | null
+          project_name: string | null
+          project_name_raw: string | null
+          promoted_at: string | null
+          promoted_opportunity_id: string | null
+          request_id: string | null
+          requested_at: string | null
+          reviewed_at: string | null
+          row_id: string | null
+          sales_code_raw: string | null
+          status:
+            | Database["public"]["Enums"]["historical_promotion_status"]
+            | null
+          status_canonical: string | null
+          status_raw: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_promotion_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       historical_sales_quality: {
         Row: {
@@ -6463,7 +6884,51 @@ export type Database = {
             foreignKeyName: "internal_prices_estimation_id_fkey"
             columns: ["estimation_id"]
             isOneToOne: false
+            referencedRelation: "estimation_cost_reconciliation"
+            referencedColumns: ["estimation_id"]
+          },
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
             referencedRelation: "estimations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_current_revision: {
+        Row: {
+          approved_at: string | null
+          currency: string | null
+          issued_at: string | null
+          quotation_id: string | null
+          quote_number: string | null
+          related_opportunity_id: string | null
+          revision_id: string | null
+          revision_number: number | null
+          status:
+            | Database["public"]["Enums"]["quotation_revision_status"]
+            | null
+          submitted_at: string | null
+          subtotal_excl_vat: number | null
+          total_incl_vat: number | null
+          valid_until: string | null
+          vat_amount: number | null
+          vat_rate: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_revisions_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
@@ -6634,6 +7099,10 @@ export type Database = {
         Returns: boolean
       }
       can_approve_final_price: { Args: { _user_id: string }; Returns: boolean }
+      can_approve_historical_promotion: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_edit_rfq_number: { Args: { _user_id: string }; Returns: boolean }
       can_edit_total_value: { Args: { _user_id: string }; Returns: boolean }
       can_read_attachments: { Args: { _user_id: string }; Returns: boolean }
@@ -6663,6 +7132,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_read_quotation: {
+        Args: { _quotation_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_review_intake: { Args: { _user_id: string }; Returns: boolean }
       can_use_discussion: { Args: { _user_id: string }; Returns: boolean }
       can_view_all_sales_data: { Args: { _user_id: string }; Returns: boolean }
@@ -6686,6 +7159,7 @@ export type Database = {
           request_trace_id: string
         }[]
       }
+      current_margin_floor: { Args: never; Returns: number }
       derive_attachment_path: { Args: { _value: string }; Returns: string }
       dismiss_notification: { Args: { _id: string }; Returns: boolean }
       document_entity_grants: {
@@ -6726,6 +7200,10 @@ export type Database = {
         }
         Returns: number
       }
+      estimation_cost_basis: {
+        Args: { _estimation_id: string }
+        Returns: number
+      }
       execute_approved_record_delete: {
         Args: { _actor_id: string; _approval_id: string }
         Returns: Json
@@ -6754,6 +7232,7 @@ export type Database = {
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_sales_contributor: { Args: { _user_id: string }; Returns: boolean }
       issue_project_number: { Args: { _project_id: string }; Returns: string }
+      jsonb_has_money_key: { Args: { _payload: Json }; Returns: boolean }
       mark_all_notifications_read: { Args: never; Returns: number }
       mark_notifications_read: { Args: { _ids: string[] }; Returns: number }
       match_knowledge: {
@@ -6788,6 +7267,7 @@ export type Database = {
       }
       project_has_valid_boq: { Args: { _project_id: string }; Returns: boolean }
       project_number_denied_message: { Args: never; Returns: string }
+      promote_historical_row: { Args: { _request_id: string }; Returns: string }
       register_legacy_documents: {
         Args: never
         Returns: {
@@ -6916,6 +7396,7 @@ export type Database = {
         | "quotation"
         | "inbox_item"
         | "boq_revision"
+        | "quotation_revision"
       document_type:
         | "boq"
         | "drawing"
@@ -6952,6 +7433,13 @@ export type Database = {
         | "completed"
         | "cancelled"
       handover_status: "pending" | "ready" | "handed_over"
+      historical_promotion_status:
+        | "draft"
+        | "pending_review"
+        | "approved"
+        | "rejected"
+        | "promoted"
+        | "cancelled"
       inbox_classification:
         | "unclassified"
         | "company"
@@ -7089,6 +7577,13 @@ export type Database = {
         | "inactive_tier_a_opportunity"
         | "contract_evidence_missing"
         | "submission_pending_on"
+      quotation_revision_status:
+        | "draft"
+        | "pending_approval"
+        | "approved"
+        | "submitted"
+        | "superseded"
+        | "withdrawn"
       quotation_status:
         | "draft"
         | "under_internal_review"
@@ -7380,6 +7875,7 @@ export const Constants = {
         "quotation",
         "inbox_item",
         "boq_revision",
+        "quotation_revision",
       ],
       document_type: [
         "boq",
@@ -7421,6 +7917,14 @@ export const Constants = {
         "cancelled",
       ],
       handover_status: ["pending", "ready", "handed_over"],
+      historical_promotion_status: [
+        "draft",
+        "pending_review",
+        "approved",
+        "rejected",
+        "promoted",
+        "cancelled",
+      ],
       inbox_classification: [
         "unclassified",
         "company",
@@ -7570,6 +8074,14 @@ export const Constants = {
         "inactive_tier_a_opportunity",
         "contract_evidence_missing",
         "submission_pending_on",
+      ],
+      quotation_revision_status: [
+        "draft",
+        "pending_approval",
+        "approved",
+        "submitted",
+        "superseded",
+        "withdrawn",
       ],
       quotation_status: [
         "draft",

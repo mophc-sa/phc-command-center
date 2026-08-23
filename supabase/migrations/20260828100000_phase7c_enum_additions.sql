@@ -1,0 +1,22 @@
+-- =========================================================
+-- PHASE 7C (1/3) — enum additions, alone in their own migration.
+--
+-- WHY THIS FILE EXISTS AT ALL
+-- ---------------------------
+-- Postgres refuses to USE a new enum value in the same transaction that added
+-- it. Migration 2 needs 'quotation_revision' inside a CASE branch and a policy
+-- predicate, so the value has to land and commit first. Folding these two
+-- lines into the next migration fails with "unsafe use of new value of enum
+-- type" — this split is the fix, not a stylistic choice.
+--
+-- Enum values cannot be dropped. Anything added here is permanent, so both
+-- values below are ones Phase 7C actually uses.
+--
+-- LOCAL ONLY — not applied to any remote project by this change.
+-- =========================================================
+
+-- A quotation revision holds documents of its own: the issued PDF, the signed
+-- copy, the client's markup. Attaching those to the parent quotation instead
+-- would lose which revision each belongs to, which is the whole point of
+-- revisioning the quotation.
+ALTER TYPE public.document_entity_type ADD VALUE IF NOT EXISTS 'quotation_revision';
