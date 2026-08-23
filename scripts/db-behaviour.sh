@@ -111,14 +111,14 @@ APPLIED=0
 # no explicit GRANT is unreachable here but reachable in production — so a
 # policy test either fails spuriously or passes because the role saw nothing.
 psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
--- Deliberately NOT granting anon here. An earlier version included it and made
--- security_baseline.test.sql fail locally on "anon has no direct DML grants",
--- a failure the stub invented rather than found: the same suite passes against
--- a real Supabase in CI. A harness that is more permissive than production
--- turns a real assertion into noise.
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated, service_role;
+-- anon is included because real Supabase grants it too — that is precisely the
+-- exposure migration 20260908100000 exists to remove, and a harness that never
+-- grants it could not tell whether the revoke works or the grant was simply
+-- never there. Leaving it out briefly also made security_baseline fail on a
+-- problem the stub had invented rather than found.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
 SQL
 
 for f in supabase/migrations/*.sql; do
@@ -231,14 +231,14 @@ SQL
 # no explicit GRANT is unreachable here but reachable in production — so a
 # policy test either fails spuriously or passes because the role saw nothing.
 psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
--- Deliberately NOT granting anon here. An earlier version included it and made
--- security_baseline.test.sql fail locally on "anon has no direct DML grants",
--- a failure the stub invented rather than found: the same suite passes against
--- a real Supabase in CI. A harness that is more permissive than production
--- turns a real assertion into noise.
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated, service_role;
+-- anon is included because real Supabase grants it too — that is precisely the
+-- exposure migration 20260908100000 exists to remove, and a harness that never
+-- grants it could not tell whether the revoke works or the grant was simply
+-- never there. Leaving it out briefly also made security_baseline fail on a
+-- problem the stub had invented rather than found.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
 SQL
 
 for f in supabase/migrations/*.sql; do
@@ -290,6 +290,7 @@ run_suite tests/db-behaviour/phase11_ai_advisory.sql run
 run_suite tests/db-behaviour/phase12_lead_discovery.sql run
 run_suite tests/db-behaviour/phase13_sla_and_alerts.sql run
 run_suite tests/db-behaviour/open_table_reads.sql run
+run_suite tests/db-behaviour/anon_write_surface.sql run
 
 # ─────────────────────────────────────────────────────────────────────────────
 # The pgTAP security suites.
