@@ -12,6 +12,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { OpportunityTimeline } from "@/components/phc/OpportunityTimeline";
 import { DocumentsPanel } from "@/components/phc/DocumentsPanel";
+import { CommitmentsPanel } from "@/components/phc/CommitmentsPanel";
 import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import {
@@ -1012,6 +1013,13 @@ function OpportunityDetail() {
           fields Phase 3 relies on. */}
       {show("evidence") && (
         <DocumentsPanel entity={{ type: "opportunity", id }} />
+      )}
+
+      {/* 4c. COMMITMENTS — Phase 9. Placed with the deal's working material
+          rather than in the timeline: a promise is something still owed, and
+          the timeline is a record of what already happened. */}
+      {show("evidence") && (
+        <CommitmentsPanel opportunityId={id} companyId={o.company_id} />
       )}
 
       {/* 4. EVIDENCE */}
