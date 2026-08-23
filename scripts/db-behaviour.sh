@@ -267,6 +267,7 @@ run_suite tests/db-behaviour/phase10_management_intelligence.sql run
 run_suite tests/db-behaviour/phase11_ai_advisory.sql run
 run_suite tests/db-behaviour/phase12_lead_discovery.sql run
 run_suite tests/db-behaviour/phase13_sla_and_alerts.sql run
+run_suite tests/db-behaviour/open_table_reads.sql run
 
 echo ""
 echo "─────────────────────────────────────────"

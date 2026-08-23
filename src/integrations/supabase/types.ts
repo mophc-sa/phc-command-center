@@ -8200,6 +8200,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_read_project: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_read_quotation: {
         Args: { _quotation_id: string; _user_id: string }
         Returns: boolean
