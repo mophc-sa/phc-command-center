@@ -152,7 +152,21 @@ function DataImportLanding() {
         } else if (r.detected_entity_type && valid.includes(r.detected_entity_type as ImportTargetEntity)) {
           detectedEntity = r.detected_entity_type as ImportTargetEntity;
         }
-        await updateBatch(batch.id, { target_entity: detectedEntity, source_type: r.detected_source_kind ?? "unknown" });
+        // The classifier reports what the WORKBOOK is ("client_relations",
+        // "protenders_leads", …). That is not source_type, which records how
+        // the data ARRIVED and is constrained to file/api/manual — writing the
+        // kind there failed import_batches_source_type_check and killed every
+        // AI-classified upload. The batch already carries source_type 'file'
+        // by default, which is true, so the kind is kept as classifier
+        // metadata rather than forced into a column that means something else.
+        await updateBatch(batch.id, {
+          target_entity: detectedEntity,
+          structure_analysis: {
+            detected_source_kind: r.detected_source_kind ?? null,
+            detected_entity_type: r.detected_entity_type ?? null,
+            classified_at: new Date().toISOString(),
+          },
+        });
       }
 
       // 3. AI field mapping
