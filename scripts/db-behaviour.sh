@@ -67,17 +67,25 @@ CREATE SCHEMA IF NOT EXISTS vault;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Mirrors the auth.users columns the pgTAP suites insert. A thinner stub made
+-- rls_role_matrix.test.sql abort on instance_id before a single assertion ran,
+-- which from the outside reads identically to "nothing failed".
 CREATE TABLE auth.users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text,
+  instance_id uuid, aud text, role text, email_confirmed_at timestamptz,
   raw_user_meta_data jsonb DEFAULT '{}'::jsonb,
   raw_app_meta_data  jsonb DEFAULT '{}'::jsonb,
-  encrypted_password text, created_at timestamptz DEFAULT now());
+  encrypted_password text,
+  created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
 
 -- Settable per session, so a test can act as different users and as the
 -- service role (empty = auth.uid() IS NULL, which is how cron and the Edge
 -- Function reach the database).
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
-  $$ SELECT NULLIF(current_setting('test.uid', true), '')::uuid $$;
+  $$ SELECT COALESCE(
+       NULLIF(current_setting('test.uid', true), '')::uuid,
+       NULLIF(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub', '')::uuid
+     ) $$;
 CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::jsonb $$;
 
 CREATE TABLE storage.buckets (id text PRIMARY KEY, name text, public boolean DEFAULT false,
@@ -103,9 +111,14 @@ APPLIED=0
 # no explicit GRANT is unreachable here but reachable in production — so a
 # policy test either fails spuriously or passes because the role saw nothing.
 psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+-- Deliberately NOT granting anon here. An earlier version included it and made
+-- security_baseline.test.sql fail locally on "anon has no direct DML grants",
+-- a failure the stub invented rather than found: the same suite passes against
+-- a real Supabase in CI. A harness that is more permissive than production
+-- turns a real assertion into noise.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated, service_role;
 SQL
 
 for f in supabase/migrations/*.sql; do
@@ -189,10 +202,14 @@ CREATE SCHEMA IF NOT EXISTS vault;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE auth.users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text,
+  instance_id uuid, aud text, role text, email_confirmed_at timestamptz,
   raw_user_meta_data jsonb DEFAULT '{}'::jsonb, raw_app_meta_data jsonb DEFAULT '{}'::jsonb,
-  encrypted_password text, created_at timestamptz DEFAULT now());
+  encrypted_password text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
-  $$ SELECT NULLIF(current_setting('test.uid', true), '')::uuid $$;
+  $$ SELECT COALESCE(
+       NULLIF(current_setting('test.uid', true), '')::uuid,
+       NULLIF(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub', '')::uuid
+     ) $$;
 CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::jsonb $$;
 CREATE TABLE storage.buckets (id text PRIMARY KEY, name text, public boolean DEFAULT false,
   file_size_limit bigint, allowed_mime_types text[], owner uuid, created_at timestamptz DEFAULT now());
@@ -214,9 +231,14 @@ SQL
 # no explicit GRANT is unreachable here but reachable in production — so a
 # policy test either fails spuriously or passes because the role saw nothing.
 psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+-- Deliberately NOT granting anon here. An earlier version included it and made
+-- security_baseline.test.sql fail locally on "anon has no direct DML grants",
+-- a failure the stub invented rather than found: the same suite passes against
+-- a real Supabase in CI. A harness that is more permissive than production
+-- turns a real assertion into noise.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated, service_role;
 SQL
 
 for f in supabase/migrations/*.sql; do
@@ -268,6 +290,62 @@ run_suite tests/db-behaviour/phase11_ai_advisory.sql run
 run_suite tests/db-behaviour/phase12_lead_discovery.sql run
 run_suite tests/db-behaviour/phase13_sla_and_alerts.sql run
 run_suite tests/db-behaviour/open_table_reads.sql run
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The pgTAP security suites.
+#
+# WHY THESE ARE HERE NOW
+# CI runs `supabase test db` over supabase/tests/*.test.sql and this script did
+# not. That gap was not theoretical: a Phase 12 trigger refused the pgTAP
+# fixture's own lead insert, so all 30 subtests died before running — while this
+# harness reported 669/669 green. Two rounds of red CI on a pushed branch is a
+# slow way to learn something a local run should have said in ninety seconds.
+#
+# `supabase test db` needs the whole local Supabase stack, which frequently
+# collides with another project's ports on a dev machine. Installing pgTAP into
+# the throwaway container and running the same files through psql gives the same
+# answer without the stack.
+echo ""
+echo "▸ installing pgTAP for the security suites…"
+if docker exec "$C" bash -c "apt-get update -qq && apt-get install -y -qq postgresql-15-pgtap" >/dev/null 2>&1; then
+  # Installed into public so its functions resolve without a search_path
+  # change. The baseline suite asks for it "with schema extensions", but
+  # IF NOT EXISTS makes that a no-op once it is already present.
+  psql_ -d phc -q -c "CREATE EXTENSION IF NOT EXISTS pgtap;" >/dev/null 2>&1
+
+  for f in supabase/tests/*.test.sql; do
+    [ -e "$f" ] || continue
+    echo ""
+    echo "▸ $(basename "$f")  (pgTAP)"
+    # -t -A so pgTAP's result rows come out as raw TAP ("ok 1 - ...") at
+    # column 0. Without them psql renders a bordered table and every
+    # "^not ok" grep silently matches nothing, which reads as a clean run.
+    out=$(psql_ -d phc -q -t -A -v ON_ERROR_STOP=0 < "$f" 2>&1)
+
+    # pgTAP reports failures as lines beginning "not ok". A suite that aborts
+    # early emits none at all, so an empty result is treated as a failure the
+    # same way the behavioural suites are.
+    nok=$(echo "$out" | grep -c "^not ok" || true)
+    ok=$(echo "$out"  | grep -c "^ok "    || true)
+    echo "$out" | grep -E "^not ok|^# +Failed test|^# +have|^# +want" | head -12 | sed 's/^/  /'
+
+    if [ "$ok" -eq 0 ] && [ "$nok" -eq 0 ]; then
+      echo "  ✗ produced no assertions — treating as a failure"
+      echo "$out" | grep -E "^ERROR|^psql.*ERROR" | head -3 | sed 's/^/    /'
+      FAIL=$((FAIL + 1)); FAILED_SUITES="$FAILED_SUITES $(basename "$f")"
+    else
+      echo "  $ok passed, $nok failed"
+      PASS=$((PASS + ok)); FAIL=$((FAIL + nok))
+      [ "$nok" -gt 0 ] && FAILED_SUITES="$FAILED_SUITES $(basename "$f")"
+    fi
+  done
+else
+  # Loud, not silent. A skipped security suite that prints nothing is how this
+  # gap survived in the first place.
+  echo "  ✗ could not install pgTAP — the security suites did NOT run"
+  echo "    (they still run in CI; this local pass is incomplete)"
+  FAIL=$((FAIL + 1)); FAILED_SUITES="$FAILED_SUITES pgtap-unavailable"
+fi
 
 echo ""
 echo "─────────────────────────────────────────"
