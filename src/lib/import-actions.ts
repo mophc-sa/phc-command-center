@@ -235,9 +235,24 @@ export const SOURCE_KIND_ROUTING: Record<string, { primary: ImportTargetEntity; 
   unknown:              { primary: "companies",    destinations: ["companies"] },
 };
 
+/**
+ * How the data arrived — NOT what the workbook is about.
+ *
+ * The database constrains this to exactly these three, and the type says so.
+ * It was previously widened to `string`, which let the AI's workbook
+ * classification ("client_relations", "protenders_leads", …) be written here;
+ * the constraint rejected every one of them and the whole upload failed with
+ * `import_batches_source_type_check`. A bare string could not catch that at
+ * compile time — this union can.
+ */
+export type ImportSourceType = "file" | "api" | "manual";
+
 export async function updateBatch(
   id: string,
-  patch: Partial<Pick<ImportBatch, "target_entity" | "notes" | "file_name"> & { source_type: string }>,
+  patch: Partial<
+    Pick<ImportBatch, "target_entity" | "notes" | "file_name">
+    & { source_type: ImportSourceType; structure_analysis: Record<string, unknown> }
+  >,
 ): Promise<void> {
   const { error } = await db.from("import_batches").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
