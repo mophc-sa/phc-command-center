@@ -25,7 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   createBatch, listBatches, uploadImportFile, parseFile, listSourceProfiles,
-  callImportAgent, saveMappings, validateBatch, detectDuplicates,
+  callImportAgent, saveMappings, validateBatch, detectDuplicates, autoApproveCandidates,
   saveReadinessChecklist, approveBatch, dryRunCommit, generateCandidates,
   updateBatch, getTargetColumns, EXTRA_DATA_SENTINEL,
   SOURCE_KIND_ROUTING,
@@ -235,15 +235,28 @@ function DataImportLanding() {
       setAutoStep("Running dry run…");
       await dryRunCommit(batch.id);
 
-      setAutoStep("Preparing records for review…");
+      setAutoStep("Preparing records…");
       await generateCandidates(batch.id);
+
+      // Approve every candidate, by explicit instruction. needs_review,
+      // conflict and duplicate reach the CRM unreviewed along with the rest.
+      // What is NOT given up is traceability: each uncertain candidate is
+      // stamped with why it was uncertain before approval, so after the commit
+      // the risky writes can be found and rolled back individually rather than
+      // being indistinguishable from the safe ones.
+      setAutoStep("Approving records…");
+      const decision = await autoApproveCandidates(batch.id);
 
       setNewOpen(false);
       setNewFile(null);
       qc.invalidateQueries({ queryKey: ["import-batches"] });
       const routing = SOURCE_KIND_ROUTING[classResult.ok ? ((classResult.result as any).detected_source_kind ?? "unknown") : "unknown"];
       const destLabel = routing ? routing.destinations.join(", ") : detectedEntity;
-      toast.success(`Ready for review → ${destLabel}. Review the Candidates tab, then approve and commit.`);
+      toast.success(
+        decision.flagged === 0
+          ? `${decision.approved} records approved → ${destLabel}. One approval commits them.`
+          : `${decision.approved} approved → ${destLabel}. ${decision.flagged} are unverified and marked — one approval commits all of them.`,
+      );
       navigate({ to: "/data-import/$batchId", params: { batchId: batch.id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("di_import_failed"));
