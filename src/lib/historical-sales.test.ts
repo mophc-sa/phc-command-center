@@ -7,6 +7,7 @@ import { describe, expect, it } from "bun:test";
 import {
   EMPTY_FILTERS, EXPORT_COLUMNS, exportFilename, filterHistorical, ownerOptions,
   qualityFlags, statusOptions, summarise, toCsv,
+  yearOptions, yearRange, selectedYear, statusBreakdown,
   type HistoricalSaleRow,
 } from "./historical-sales";
 
@@ -178,5 +179,103 @@ describe("CSV export", () => {
 
   it("names the file with the date and the row count", () => {
     expect(exportFilename("2026-08-22", 679)).toBe("phc-historical-sales-archive_2026-08-22_679-records.csv");
+  });
+});
+
+// ---- The year view, added so "how did 2026 go" is one click ----------------
+
+describe("years come from the data, not a hardcoded list", () => {
+  const rows = [
+    row({ date_submitted: "2026-02-01" }),
+    row({ date_submitted: "2026-11-30" }),
+    row({ date_submitted: "2024-06-01" }),
+    // Never submitted: should still land in the year it arrived, not in nothing.
+    row({ date_submitted: null, date_received: "2025-03-03" }),
+    // No date at all: excluded rather than bucketed under a guess.
+    row({ date_submitted: null, date_received: null }),
+  ];
+
+  it("lists the years present, newest first, with counts", () => {
+    expect(yearOptions(rows)).toEqual([
+      { year: "2026", count: 2 },
+      { year: "2025", count: 1 },
+      { year: "2024", count: 1 },
+    ]);
+  });
+
+  it("a record with no date anywhere is not invented into a year", () => {
+    expect(yearOptions(rows).reduce((n, y) => n + y.count, 0)).toBe(4);
+  });
+
+  it("an empty archive offers no years rather than throwing", () => {
+    expect(yearOptions([])).toEqual([]);
+  });
+});
+
+describe("selecting a year is expressed as a date range", () => {
+  it("covers the whole calendar year inclusively", () => {
+    expect(yearRange("2026")).toEqual({ fromDate: "2026-01-01", toDate: "2026-12-31" });
+  });
+
+  it("reads the year back from the filters", () => {
+    expect(selectedYear(yearRange("2026"))).toBe("2026");
+  });
+
+  // The year buttons and the date pickers write the same two fields, so the
+  // selected year is derived rather than stored — otherwise a hand-edited date
+  // could leave a year highlighted that no longer matches what is on screen.
+  it("reports no year when the range is not exactly one year", () => {
+    expect(selectedYear({ fromDate: "2026-01-01", toDate: "2026-06-30" })).toBe("");
+    expect(selectedYear({ fromDate: "2025-01-01", toDate: "2026-12-31" })).toBe("");
+    expect(selectedYear({ fromDate: null, toDate: null })).toBe("");
+    expect(selectedYear({ fromDate: "2026-01-01", toDate: null })).toBe("");
+  });
+
+  it("round-trips a filtered year back to exactly its own rows", () => {
+    const rows = [
+      row({ date_submitted: "2026-01-01" }),
+      row({ date_submitted: "2026-12-31" }),
+      row({ date_submitted: "2025-12-31" }),
+      row({ date_submitted: "2027-01-01" }),
+    ];
+    const f = { ...EMPTY_FILTERS, ...yearRange("2026") };
+    expect(filterHistorical(rows, f)).toHaveLength(2);
+  });
+});
+
+describe("the status breakdown orders by value, not by count", () => {
+  const rows = [
+    row({ status_canonical: "lost", amount: 1_000 }),
+    row({ status_canonical: "lost", amount: 1_000 }),
+    row({ status_canonical: "lost", amount: 1_000 }),
+    row({ status_canonical: "won",  amount: 900_000 }),
+  ];
+
+  it("puts the larger value first even though it has fewer records", () => {
+    // Three small losses and one big win is a good period; ordering by count
+    // would head the panel with "lost" and say the opposite.
+    expect(statusBreakdown(rows).map((b) => b.status)).toEqual(["won", "lost"]);
+  });
+
+  it("reports count and value separately", () => {
+    const [won, lost] = statusBreakdown(rows);
+    expect(won).toEqual({ status: "won", count: 1, total: 900_000, valued: 1 });
+    expect(lost).toEqual({ status: "lost", count: 3, total: 3_000, valued: 3 });
+  });
+
+  it("counts a record with no amount without inventing a zero", () => {
+    const b = statusBreakdown([
+      row({ status_canonical: "submitted", amount: 5_000 }),
+      row({ status_canonical: "submitted", amount: null }),
+    ])[0];
+    expect(b.count).toBe(2);
+    expect(b.valued).toBe(1);
+    expect(b.total).toBe(5_000);
+  });
+
+  it("surfaces undecided records rather than dropping them", () => {
+    // How much of the book is unclassified is the finding, not noise to hide.
+    const b = statusBreakdown([row({ status_canonical: null, amount: 10 })]);
+    expect(b).toEqual([{ status: "undecided", count: 1, total: 10, valued: 1 }]);
   });
 });
