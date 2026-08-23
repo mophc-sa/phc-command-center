@@ -77,7 +77,19 @@ BEGIN
       VALUES ('random-blog.example', 'Scraped Thing', 'Riyadh');
     RAISE NOTICE 'FAIL 5. an agent ingested from an unapproved source';
   EXCEPTION WHEN insufficient_privilege THEN
-    RAISE NOTICE 'PASS 5. an agent cannot ingest from an unapproved source';
+    RAISE NOTICE 'PASS 5. unattributed ingestion from an unapproved source is refused';
+  END;
+
+  -- The discriminator is the ABSENCE of an author, not the connection. A seed,
+  -- a migration or the pgTAP suite all connect without a JWT and are not
+  -- agents; naming a human author is what says somebody is accountable.
+  BEGIN
+    INSERT INTO public.leads (source, project_name, created_by)
+      VALUES ('random-blog.example', 'Hand-entered over a service connection',
+              (SELECT id FROM auth.users WHERE email='ld_s1@phc-sa.com'));
+    RAISE NOTICE 'PASS 5b. an attributed lead is accepted whatever the source';
+  EXCEPTION WHEN others THEN
+    RAISE NOTICE 'FAIL 5b. an attributed lead was refused: %', SQLERRM;
   END;
 
   BEGIN
