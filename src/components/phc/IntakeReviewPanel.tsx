@@ -13,17 +13,17 @@
 //
 // Authority is enforced by the protect_intake_review trigger. This component
 // hides what a user cannot do; the database is what prevents it.
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CheckCircle2, HelpCircle, Eye, XCircle, RotateCcw } from "lucide-react";
+import { CheckCircle2, HelpCircle, Eye, XCircle, RotateCcw, ChevronRight, Check, Minus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Panel } from "@/components/phc/Panel";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { SkeletonTable } from "@/components/phc/Skeleton";
-import { useI18n } from "@/lib/i18n";
+import { formatCurrency, useI18n } from "@/lib/i18n";
 import { invalidateSalesData } from "@/lib/invalidate-sales";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canReviewIntake } from "@/lib/roles";
@@ -36,6 +36,114 @@ import {
   resubmitIntake,
   type IntakeReviewState,
 } from "@/lib/inbox-actions";
+
+/**
+ * What a reviewer needs in order to decide, laid out in the four groups the
+ * decision actually turns on.
+ *
+ * Empty fields are shown as "not recorded" rather than hidden. A blank Scope
+ * is itself a reason to send a request back for information, and a layout that
+ * silently omits it makes the gap invisible at exactly the moment somebody is
+ * deciding whether the request is complete enough to price.
+ */
+function IntakeDetail({ r }: { r: any }) {
+  const { t, lang } = useI18n();
+  const dash = t("rev_details_none");
+
+  const Field = ({ label, value }: { label: string; value: unknown }) => {
+    const empty = value === null || value === undefined || String(value).trim() === "";
+    return (
+      <div className="min-w-0">
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+        <div className={`text-[12px] ${empty ? "text-muted-foreground italic" : "text-foreground"}`}>
+          {empty ? dash : String(value)}
+        </div>
+      </div>
+    );
+  };
+
+  const Group = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div>
+      <div className="mb-1.5 text-[11px] font-medium text-foreground">{title}</div>
+      <div className="grid gap-2.5 sm:grid-cols-2">{children}</div>
+    </div>
+  );
+
+  // Three booleans, rendered as present/absent rather than true/false. These
+  // were already being fetched by the queue and never shown, and "no BOQ" is
+  // the single most common reason a request is not ready for pricing.
+  const docs: Array<[string, boolean]> = [
+    [t("ibx_has_boq"), r.has_boq === true],
+    [t("ibx_has_drawings"), r.has_drawings === true],
+    [t("ibx_has_specs"), r.has_specs === true],
+  ];
+
+  const money = (v: unknown) =>
+    v === null || v === undefined || v === ""
+      ? null
+      : formatCurrency(Number(v), lang, "SAR");
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Group title={t("rev_details_scope")}>
+        <Field label={t("ibx_scope")} value={r.scope} />
+        <Field
+          label={t("ibx_scope_type")}
+          value={r.scope_type ? t(`ibx_scope_${r.scope_type}` as never) : null}
+        />
+        <Field label={t("ibx_estimated_value")} value={money(r.estimated_value)} />
+        <Field label={t("ibx_project_number")} value={r.project_number} />
+        <Field label={t("ibx_client_rfq_ref")} value={r.client_rfq_reference} />
+      </Group>
+
+      <Group title={t("rev_details_docs")}>
+        <div className="col-span-full flex flex-wrap gap-1.5">
+          {docs.every(([, got]) => !got) ? (
+            <span className="text-[12px] italic text-muted-foreground">{t("rev_details_no_docs")}</span>
+          ) : (
+            docs.map(([label, got]) => (
+              <span
+                key={label}
+                className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] ${
+                  got ? "border-success/40 text-success" : "border-border text-muted-foreground"
+                }`}
+              >
+                {got ? <Check className="h-3 w-3" aria-hidden="true" /> : <Minus className="h-3 w-3" aria-hidden="true" />}
+                {label}
+              </span>
+            ))
+          )}
+        </div>
+        <Field label={t("ibx_evidence_url")} value={r.evidence_url} />
+        <Field label={t("ibx_deadline")} value={r.deadline} />
+      </Group>
+
+      <Group title={t("rev_details_parties")}>
+        <Field
+          label={t("ibx_client_type")}
+          value={r.client_type ? t(`ibx_client_type_${r.client_type}` as never) : null}
+        />
+        <Field label={t("ibx_main_contractor")} value={r.main_contractor} />
+        <Field label={t("ibx_consultant")} value={r.consultant} />
+        <Field label={t("ibx_contact_name")} value={r.contact_name} />
+        <Field label={t("ibx_email")} value={r.email} />
+        <Field label={t("ibx_phone")} value={r.phone} />
+        <Field label={t("ibx_location_city")} value={r.location_city || r.location} />
+      </Group>
+
+      <Group title={t("rev_details_origin")}>
+        <Field
+          label={t("ibx_project_type")}
+          value={r.project_type ? t(`ibx_project_type_${r.project_type}` as never) : null}
+        />
+        <Field label={t("ibx_source_name")} value={r.source_name} />
+        <Field label={t("ibx_date_received")} value={r.date_received} />
+        <Field label={t("ibx_internal_rfq_ref")} value={r.internal_rfq_reference} />
+        <Field label={t("ibx_notes")} value={r.notes} />
+      </Group>
+    </div>
+  );
+}
 
 const REVIEW_TONE: Record<IntakeReviewState, "attention" | "positive" | "danger" | "muted" | "neutral"> = {
   pending_review: "attention",
@@ -51,6 +159,7 @@ export function IntakeReviewPanel() {
   const qc = useQueryClient();
   const canReview = canReviewIntake(roles);
 
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [infoFor, setInfoFor] = useState<any>(null);
   const [rejectFor, setRejectFor] = useState<any>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -64,8 +173,19 @@ export function IntakeReviewPanel() {
       (
         await supabase
           .from("inbox_items")
+          // Widened for the expandable detail. Approving for pricing creates an
+          // opportunity and hands the file to Commercial, and this queue used
+          // to show four fields out of the fifty-five the record carries —
+          // has_boq / has_drawings / has_specs were already being fetched and
+          // then never rendered, which is the whole point of the decision.
           .select(
-            "id, project_name, company_name, request_type, review_state, deadline, has_boq, has_drawings, has_specs, info_required_items, info_comment, info_due_date, reject_reason, resubmit_count, created_at",
+            "id, project_name, company_name, request_type, review_state, deadline, " +
+            "has_boq, has_drawings, has_specs, info_required_items, info_comment, " +
+            "info_due_date, resubmit_count, created_at, " +
+            "scope, scope_type, estimated_value, contact_name, email, phone, " +
+            "main_contractor, consultant, client_type, location, location_city, " +
+            "notes, evidence_url, client_rfq_reference, internal_rfq_reference, " +
+            "project_number, date_received, source_name, project_type",
           )
           .in("review_state", ["pending_review", "need_information"])
           .order("created_at", { ascending: true })
@@ -142,13 +262,36 @@ export function IntakeReviewPanel() {
                 const state = r.review_state as IntakeReviewState;
                 const disabled = busy === r.id;
                 return (
-                  <tr key={r.id} className="border-b border-border/50">
+                  <Fragment key={r.id}>
+                  <tr className="border-b border-border/50">
                     <td className="px-3 py-2.5">
-                      <div className="font-medium text-foreground">{r.project_name || "—"}</div>
-                      <div className="text-[11px] text-muted-foreground">{r.company_name || "—"}</div>
+                      {/* The row IS the disclosure. A review queue is worked
+                          top to bottom; sending someone to a detail page and
+                          back for each of ten requests loses their place every
+                          time. */}
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(expanded === r.id ? null : r.id)}
+                        aria-expanded={expanded === r.id}
+                        aria-controls={`intake-detail-${r.id}`}
+                        className="flex items-start gap-1.5 text-start hover:underline"
+                      >
+                        <ChevronRight
+                          className={`mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform rtl:-scale-x-100 ${expanded === r.id ? "rotate-90" : ""}`}
+                          aria-hidden="true"
+                        />
+                        <span>
+                          <span className="block font-medium text-foreground">{r.project_name || "—"}</span>
+                          <span className="block text-[11px] text-muted-foreground">{r.company_name || "—"}</span>
+                        </span>
+                      </button>
+                      <span className="sr-only">
+                        {expanded === r.id ? t("rev_hide_details") : t("rev_show_details")}
+                      </span>
                       {state === "need_information" && (
                         <div className="mt-1 text-[11px] text-amber-light">
                           {(r.info_required_items ?? []).join(" · ") || r.info_comment}
+                          {r.info_due_date && ` · ${t("ibx_info_due")}: ${r.info_due_date}`}
                           {r.resubmit_count > 0 && ` · ${t("rev_resubmit_count")}: ${r.resubmit_count}`}
                         </div>
                       )}
@@ -206,6 +349,14 @@ export function IntakeReviewPanel() {
                       </div>
                     </td>
                   </tr>
+                  {expanded === r.id && (
+                    <tr id={`intake-detail-${r.id}`} className="border-b border-border/50 bg-surface-2/40">
+                      <td colSpan={5} className="px-3 py-3">
+                        <IntakeDetail r={r} />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>
