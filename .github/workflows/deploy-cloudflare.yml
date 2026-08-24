@@ -169,6 +169,31 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          # A canary run succeeds only when the canary was actually reachable.
+          #
+          # Two things have to be true and they are easy to conflate. An upload
+          # SUCCEEDING is not a canary EXISTING: `versions upload` stores a
+          # version and routes no traffic, so a Worker Version ID proves the
+          # bundle was accepted and nothing more. Verification needs an
+          # isolated origin to talk to.
+          #
+          # This step therefore still fails without a preview URL — but for a
+          # stated reason, which is the part that was broken. It used to do:
+          #
+          #   canary_url="$(grep -Eo '…workers\.dev' <<<"$output" | tail -1)"
+          #   if [ -z "$canary_url" ]; then echo "…no canary URL" >&2; exit 1; fi
+          #
+          # grep exits 1 on no match, pipefail propagates it through `| tail`,
+          # and set -e aborts one line BEFORE the `if`. The diagnostic was
+          # unreachable. Two runs on 2026-08-24 (32708950147, 32713121104)
+          # failed with a clean upload, a valid version id and no message at
+          # all, and cost two diagnostic cycles to explain.
+          #
+          # So every grep feeding a variable carries `|| true`, and the two
+          # failure modes now say which one happened: the upload did not
+          # complete, or it completed and could not be verified. A green tick
+          # here means an origin answered — never merely that bytes landed.
           output="$(bunx wrangler@${WRANGLER_VERSION} versions upload \
             --config .output/server/wrangler.json \
             --name "$WORKER_NAME" \
@@ -176,13 +201,44 @@ jobs:
             --keep-vars \
             --message "Canary ${GITHUB_SHA}")"
           printf '%s\n' "$output"
-          canary_url="$(grep -Eo 'https://[^[:space:]]+\.workers\.dev' <<<"$output" | tail -1)"
-          if [ -z "$canary_url" ]; then
-            echo "Wrangler did not return a canary URL" >&2
+
+          # `|| true` on every grep below: no-match is exit 1, and under
+          # pipefail that aborts the step before it can say anything.
+          version_id="$(grep -Eo 'Worker Version ID: [0-9a-f-]+' <<<"$output" | tail -1 | awk '{print $NF}' || true)"
+          if [ -z "$version_id" ]; then
+            echo "wrangler reported no Worker Version ID — the upload did not complete." >&2
             exit 1
           fi
+          echo "Canary version uploaded: ${version_id}"
+
+          canary_url="$(grep -Eo 'https://[^[:space:]]+\.workers\.dev' <<<"$output" | tail -1 || true)"
+          if [ -z "$canary_url" ]; then
+            echo "::error title=Canary version uploaded but NOT verifiable::Version ${version_id} uploaded, but Cloudflare returned no *.workers.dev preview URL, so there is no isolated origin to health-check. Enable Preview URLs for ${WORKER_NAME} (Settings -> Domains & Routes) — it is a separate setting from the workers.dev subdomain. The version routes no traffic and production is unaffected."
+            {
+              echo "### Canary version uploaded but NOT verifiable"
+              echo ""
+              echo "- version: \`${version_id}\` (uploaded, routes no traffic)"
+              echo "- url: **none** — Cloudflare returned no preview URL"
+              echo "- health check: **not performed**"
+              echo ""
+              echo "**Preview URLs must be enabled** for \`${WORKER_NAME}\` (Settings -> Domains & Routes),"
+              echo "which is a separate setting from the workers.dev subdomain."
+              echo ""
+              echo "An upload is not a canary. Failing here rather than reporting success keeps"
+              echo "\"canary passed\" meaning an origin answered."
+            } >>"$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
           curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "${canary_url}/auth" >/dev/null
           echo "Canary health check passed: ${canary_url}/auth"
+          {
+            echo "### Canary deployed and verified"
+            echo ""
+            echo "- version: \`${version_id}\`"
+            echo "- url: ${canary_url}"
+            echo "- health check: \`${canary_url}/auth\` responded"
+          } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Snapshot production DNS for rollback
         if: env.DEPLOY_TARGET == 'production'
