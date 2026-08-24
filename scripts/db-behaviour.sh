@@ -292,6 +292,7 @@ run_suite tests/db-behaviour/phase13_sla_and_alerts.sql run
 run_suite tests/db-behaviour/open_table_reads.sql run
 run_suite tests/db-behaviour/anon_write_surface.sql run
 run_suite tests/db-behaviour/score_integrity.sql run
+run_suite tests/db-behaviour/deal_attached_reads.sql run
 
 # ─────────────────────────────────────────────────────────────────────────────
 # The pgTAP security suites.
