@@ -5,7 +5,7 @@ export interface SalesOsRouterDependencies {
   readonly corsHeaders: HeadersInit;
   readonly errorResponse: (message: string, status?: number) => Response;
   readonly resolveCaller: (authorization: string | null) => Promise<SalesOsCaller>;
-  readonly createContext: (caller: SalesOsCaller) => SalesOsContext;
+  readonly createContext: (caller: SalesOsCaller, authorization: string) => SalesOsContext;
 }
 
 export function createSalesOsRequestHandler(
@@ -35,9 +35,10 @@ export function createSalesOsRequestHandler(
     const handler = dependencies.handlers[action];
     if (!handler) return dependencies.errorResponse(`Unknown action: ${action}`, 404);
 
+    const authorization = request.headers.get("Authorization");
     let caller: SalesOsCaller;
     try {
-      caller = await dependencies.resolveCaller(request.headers.get("Authorization"));
+      caller = await dependencies.resolveCaller(authorization);
     } catch (error) {
       const authError = error as { status?: number; message?: string };
       return dependencies.errorResponse(
@@ -47,7 +48,7 @@ export function createSalesOsRequestHandler(
     }
 
     try {
-      return await handler(body.payload ?? {}, dependencies.createContext(caller));
+      return await handler(body.payload ?? {}, dependencies.createContext(caller, authorization!));
     } catch (error) {
       return dependencies.errorResponse(
         error instanceof Error ? error.message : "Internal error",

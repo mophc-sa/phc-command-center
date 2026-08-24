@@ -43,6 +43,13 @@ export type HistoricalSaleRow = {
   update_log: string | null;
   row_number: number;
   search_text: string | null;
+  // Added by 20260911120000. The archive stays read-only — these are read from
+  // the promotion queue beside it, so a row can say what became of it without
+  // anything being stamped on the record itself.
+  promotion_status: string;
+  promoted_opportunity_id: string | null;
+  promoted_quotation_id: string | null;
+  collision_class: string | null;
 };
 
 export type HistoricalQuality = {
