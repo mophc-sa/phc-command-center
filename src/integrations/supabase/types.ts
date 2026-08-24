@@ -8164,6 +8164,15 @@ export type Database = {
         Args: { _entity_id: string; _entity_type: string; _user_id: string }
         Returns: boolean
       }
+      can_read_approval: {
+        Args: {
+          _assigned_approver: string
+          _related_opportunity_id: string
+          _requested_by: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       can_read_attachments: { Args: { _user_id: string }; Returns: boolean }
       can_read_boq: {
         Args: { _opportunity_id: string; _user_id: string }
@@ -8198,6 +8207,10 @@ export type Database = {
           _linked_record_type: string
           _user_id: string
         }
+        Returns: boolean
+      }
+      can_read_opportunity_record: {
+        Args: { _opportunity_id: string; _user_id: string }
         Returns: boolean
       }
       can_read_project: {
