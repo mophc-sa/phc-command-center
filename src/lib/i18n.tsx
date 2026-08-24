@@ -1513,6 +1513,23 @@ export const strings = {
   rev_rejected_done: { en: "Request rejected.", ar: "رُفض الطلب." },
   rev_resubmit_count: { en: "Resubmissions", ar: "مرات إعادة الإرسال" },
   rev_ai_recommendation: { en: "AI qualification note", ar: "ملاحظة تأهيل من الذكاء" },
+  // Expandable detail on a review row. Approving for pricing creates an
+  // opportunity and moves the file to Commercial, and the queue showed four
+  // fields out of the fifty-five the record carries — has_boq among them was
+  // even being fetched and then not rendered.
+  rev_show_details: { en: "Show details", ar: "عرض التفاصيل" },
+  rev_hide_details: { en: "Hide details", ar: "إخفاء التفاصيل" },
+  rev_details_scope: { en: "Scope & value", ar: "النطاق والقيمة" },
+  rev_details_docs: { en: "Documents received", ar: "الوثائق المستلمة" },
+  rev_details_parties: { en: "Parties & contact", ar: "الأطراف وجهة الاتصال" },
+  rev_details_origin: { en: "Origin", ar: "المصدر" },
+  rev_details_none: { en: "Not recorded", ar: "غير مُسجَّل" },
+  rev_details_no_docs: { en: "No documents recorded", ar: "لا وثائق مُسجَّلة" },
+  ibx_notes: { en: "Notes", ar: "ملاحظات" },
+  ibx_main_contractor: { en: "Main Contractor", ar: "المقاول الرئيسي" },
+  ibx_email: { en: "Email", ar: "البريد الإلكتروني" },
+  ibx_phone: { en: "Phone", ar: "الهاتف" },
+  ibx_info_due: { en: "Information due", ar: "موعد استلام الناقص" },
 
   cmd_placeholder: { en: "Search records, pages…", ar: "ابحث في السجلات والصفحات…" },
   cmd_no_results: { en: "No results found.", ar: "لا نتائج." },
