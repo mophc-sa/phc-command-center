@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.15"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -2335,6 +2330,7 @@ export type Database = {
           created_by: string | null
           currency: string
           decision_notes: string | null
+          duplicate_reviewed: boolean
           id: string
           mapping_notes: string | null
           owner_user_id: string | null
@@ -2342,6 +2338,7 @@ export type Database = {
           promoted_at: string | null
           promoted_by: string | null
           promoted_opportunity_id: string | null
+          promoted_quotation_id: string | null
           rejection_reason: string | null
           requested_at: string | null
           requested_by: string | null
@@ -2351,6 +2348,9 @@ export type Database = {
           status: Database["public"]["Enums"]["historical_promotion_status"]
           status_canonical: string | null
           updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           amount_absent_reason?: string | null
@@ -2360,6 +2360,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           decision_notes?: string | null
+          duplicate_reviewed?: boolean
           id?: string
           mapping_notes?: string | null
           owner_user_id?: string | null
@@ -2367,6 +2368,7 @@ export type Database = {
           promoted_at?: string | null
           promoted_by?: string | null
           promoted_opportunity_id?: string | null
+          promoted_quotation_id?: string | null
           rejection_reason?: string | null
           requested_at?: string | null
           requested_by?: string | null
@@ -2376,6 +2378,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["historical_promotion_status"]
           status_canonical?: string | null
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           amount_absent_reason?: string | null
@@ -2385,6 +2390,7 @@ export type Database = {
           created_by?: string | null
           currency?: string
           decision_notes?: string | null
+          duplicate_reviewed?: boolean
           id?: string
           mapping_notes?: string | null
           owner_user_id?: string | null
@@ -2392,6 +2398,7 @@ export type Database = {
           promoted_at?: string | null
           promoted_by?: string | null
           promoted_opportunity_id?: string | null
+          promoted_quotation_id?: string | null
           rejection_reason?: string | null
           requested_at?: string | null
           requested_by?: string | null
@@ -2401,6 +2408,9 @@ export type Database = {
           status?: Database["public"]["Enums"]["historical_promotion_status"]
           status_canonical?: string | null
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -2422,6 +2432,13 @@ export type Database = {
             columns: ["promoted_opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_quotation_id_fkey"
+            columns: ["promoted_quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
             referencedColumns: ["id"]
           },
           {
@@ -2532,6 +2549,7 @@ export type Database = {
           currency: string
           date_received: string | null
           date_submitted: string | null
+          follow_up_raw: string | null
           mapped_at: string
           owner_label: string | null
           owner_prefix: string | null
@@ -2564,6 +2582,7 @@ export type Database = {
           currency?: string
           date_received?: string | null
           date_submitted?: string | null
+          follow_up_raw?: string | null
           mapped_at?: string
           owner_label?: string | null
           owner_prefix?: string | null
@@ -2596,6 +2615,7 @@ export type Database = {
           currency?: string
           date_received?: string | null
           date_submitted?: string | null
+          follow_up_raw?: string | null
           mapped_at?: string
           owner_label?: string | null
           owner_prefix?: string | null
@@ -2690,24 +2710,33 @@ export type Database = {
       }
       historical_sales_status_map: {
         Row: {
+          canonical_handoff_status: string | null
+          canonical_sales_stage: string | null
           canonical_status: string | null
           is_terminal: boolean
           needs_decision: boolean
           note: string
+          promotable_active: boolean
           source_status: string
         }
         Insert: {
+          canonical_handoff_status?: string | null
+          canonical_sales_stage?: string | null
           canonical_status?: string | null
           is_terminal?: boolean
           needs_decision?: boolean
           note: string
+          promotable_active?: boolean
           source_status: string
         }
         Update: {
+          canonical_handoff_status?: string | null
+          canonical_sales_stage?: string | null
           canonical_status?: string | null
           is_terminal?: boolean
           needs_decision?: boolean
           note?: string
+          promotable_active?: boolean
           source_status?: string
         }
         Relationships: []
@@ -5460,9 +5489,12 @@ export type Database = {
           created_by: string | null
           currency: string
           extra_data: Json | null
+          historical_row_id: string | null
           id: string
+          is_historical: boolean
           issued_date: string | null
           last_follow_up_at: string | null
+          legacy_sales_code: string | null
           notes: string | null
           owner_id: string | null
           pdf_url: string | null
@@ -5481,9 +5513,12 @@ export type Database = {
           created_by?: string | null
           currency?: string
           extra_data?: Json | null
+          historical_row_id?: string | null
           id?: string
+          is_historical?: boolean
           issued_date?: string | null
           last_follow_up_at?: string | null
+          legacy_sales_code?: string | null
           notes?: string | null
           owner_id?: string | null
           pdf_url?: string | null
@@ -5502,9 +5537,12 @@ export type Database = {
           created_by?: string | null
           currency?: string
           extra_data?: Json | null
+          historical_row_id?: string | null
           id?: string
+          is_historical?: boolean
           issued_date?: string | null
           last_follow_up_at?: string | null
+          legacy_sales_code?: string | null
           notes?: string | null
           owner_id?: string | null
           pdf_url?: string | null
@@ -5537,6 +5575,13 @@ export type Database = {
             columns: ["boq_id"]
             isOneToOne: false
             referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_historical_row_id_fkey"
+            columns: ["historical_row_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_rows"
             referencedColumns: ["id"]
           },
           {
@@ -7581,6 +7626,79 @@ export type Database = {
           },
         ]
       }
+      historical_sales_followup_conflicts: {
+        Row: {
+          amount_excl_vat: number | null
+          client_name_raw: string | null
+          conflict: string | null
+          date_submitted: string | null
+          follow_up_raw: string | null
+          project_name_raw: string | null
+          row_id: string | null
+          row_number: number | null
+          sales_code_raw: string | null
+          status_raw: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_sales_mapped_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_promotion_status: {
+        Row: {
+          amount_excl_vat: number | null
+          client_name_raw: string | null
+          collision_class: string | null
+          is_live_in_crm: boolean | null
+          project_name_raw: string | null
+          promoted_at: string | null
+          promoted_opportunity_id: string | null
+          promoted_quotation_id: string | null
+          promotion_request_id: string | null
+          promotion_status: string | null
+          row_id: string | null
+          row_number: number | null
+          sales_code_raw: string | null
+          status_raw: string | null
+          void_reason: string | null
+          voided_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_quotation_id_fkey"
+            columns: ["promoted_quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_mapped_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       historical_sales_quality: {
         Row: {
           amounts_absent: number | null
@@ -7613,6 +7731,7 @@ export type Database = {
           base_code: string | null
           batch_id: string | null
           client: string | null
+          collision_class: string | null
           company_id: string | null
           company_matched: boolean | null
           contact_name: string | null
@@ -7620,11 +7739,15 @@ export type Database = {
           date_received: string | null
           date_submitted: string | null
           email_subject: string | null
+          follow_up: string | null
           location: string | null
           owner: string | null
           owner_prefix: string | null
           owner_user_id: string | null
           project: string | null
+          promoted_opportunity_id: string | null
+          promoted_quotation_id: string | null
+          promotion_status: string | null
           revision_no: number | null
           route: string | null
           row_id: string | null
@@ -7637,6 +7760,27 @@ export type Database = {
           variant: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_quotation_id_fkey"
+            columns: ["promoted_quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "historical_sales_mapped_batch_id_fkey"
             columns: ["batch_id"]
@@ -8312,6 +8456,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      historical_collision_class: { Args: { _row_id: string }; Returns: string }
+      historical_quote_number: { Args: { _row_id: string }; Returns: string }
       historical_raw_get: {
         Args: { _pattern: string; _raw: Json }
         Returns: string
@@ -8323,6 +8469,10 @@ export type Database = {
       is_sales_contributor: { Args: { _user_id: string }; Returns: boolean }
       issue_project_number: { Args: { _project_id: string }; Returns: string }
       jsonb_has_money_key: { Args: { _payload: Json }; Returns: boolean }
+      link_historical_owner: {
+        Args: { _email: string; _label: string; _note: string; _prefix: string }
+        Returns: boolean
+      }
       mark_all_notifications_read: { Args: never; Returns: number }
       mark_notifications_read: { Args: { _ids: string[] }; Returns: number }
       match_knowledge: {
@@ -8416,6 +8566,10 @@ export type Database = {
       storage_object_readable: {
         Args: { _bucket: string; _path: string; _user_id: string }
         Returns: boolean
+      }
+      void_historical_promotion: {
+        Args: { _reason: string; _request_id: string }
+        Returns: string
       }
     }
     Enums: {
@@ -8554,6 +8708,7 @@ export type Database = {
         | "approved"
         | "rejected"
         | "promoted"
+        | "voided"
         | "cancelled"
       inbox_classification:
         | "unclassified"
@@ -9047,6 +9202,7 @@ export const Constants = {
         "approved",
         "rejected",
         "promoted",
+        "voided",
         "cancelled",
       ],
       inbox_classification: [

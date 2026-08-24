@@ -118,20 +118,31 @@ export function resolveCanonicalStage(row: {
   sales_stage?: string | null;
   stage?: string | null;
 }): CanonicalStageResult {
+  const legacy = row.stage;
+
+  // Archived is a record-lifecycle state, not a pipeline position — so it is
+  // checked BEFORE sales_stage, not after.
+  //
+  // It used to be checked last, which made the branch unreachable for exactly
+  // the rows that need it: archiving an opportunity leaves sales_stage alone
+  // (deliberately — the history should still read correctly), so a row with
+  // stage='archived' and sales_stage='jih' resolved to `jih` and kept counting
+  // in every KPI. `stage='archived'` is the soft-delete for an opportunity —
+  // 20260711160000 skipped adding archived_at columns for that reason and
+  // record-lifecycle.ts refuses hard deletes in favour of it — so a
+  // soft-delete that does not remove the record from the numbers is not a
+  // soft-delete at all. Voiding a historical promotion relies on this.
+  if (legacy === "archived") return { stage: null, source: "none" };
+
   const sales = row.sales_stage;
   if (sales && (CANONICAL_STAGES as readonly string[]).includes(sales)) {
     return { stage: sales as CanonicalStage, source: "sales_stage" };
   }
 
-  const legacy = row.stage;
-
   // `stage` is authoritative for exactly these two — applySalesStage keeps them
   // in sync, so a won/lost here is a real outcome, not a guess.
   if (legacy === "won") return { stage: "won", source: "legacy_terminal" };
   if (legacy === "lost") return { stage: "lost", source: "legacy_terminal" };
-
-  // Archived is a record-lifecycle state, not a pipeline position.
-  if (legacy === "archived") return { stage: null, source: "none" };
 
   // Everything else is a generic CRM bucket that carries no reliable
   // information about commercial position. Placing it at the pipeline entry

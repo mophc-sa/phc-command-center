@@ -97,6 +97,9 @@ export type DrilldownTarget = {
 
 // ---- Value resolution -------------------------------------------------------
 
+/** Just the three money columns — see opportunityValue. */
+export type OppValueFields = Pick<OppRow, "contract_value" | "quotation_value" | "estimated_value_max">;
+
 /**
  * The money figure for an opportunity, most-committed first.
  *
@@ -104,8 +107,12 @@ export type DrilldownTarget = {
  * quoted; estimated_value_max is a guess. Returning null (not 0) when all three
  * are absent matters: a deal with no value is not a deal worth nothing, and
  * summing it as 0 silently understates the pipeline.
+ *
+ * Takes only those three fields rather than a whole OppRow. Every caller that
+ * merely wants the money — computeJihPipelineTotal among them — would otherwise
+ * have to fetch and pass an `id` it has no use for.
  */
-export function opportunityValue(o: OppRow): number | null {
+export function opportunityValue(o: OppValueFields): number | null {
   for (const v of [o.contract_value, o.quotation_value, o.estimated_value_max]) {
     if (v === null || v === undefined || v === "") continue;
     const n = Number(v);

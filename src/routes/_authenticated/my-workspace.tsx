@@ -225,7 +225,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   const { data: jihPipeline = [] } = useQuery({
     queryKey: ["ws-jih-pipeline", uid], enabled: !!uid,
-    queryFn: async () => (await supabase.from("opportunities").select("id, project_name, sales_stage, estimated_value_max, currency, win_confidence, last_activity_at").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("opportunities").select("id, project_name, stage, sales_stage, estimated_value_max, quotation_value, contract_value, currency, win_confidence, last_activity_at").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [],
   });
 
   const { data: activeTenders = [] } = useQuery({
@@ -808,7 +808,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
     queryKey: ["ws-urgent-quotations", uid], enabled: !!uid,
     queryFn: async () => { const sevenDaysOut = new Date(); sevenDaysOut.setDate(sevenDaysOut.getDate() + 7); return (await supabase.from("quotations").select("id, related_opportunity_id, status, valid_until, value, currency").eq("owner_id", uid).in("status", ["approved_for_submission", "submitted", "follow_up"]).lte("valid_until", sevenDaysOut.toISOString().slice(0, 10)).order("valid_until", { ascending: true })).data ?? []; },
   });
-  const { data: jihOpps = [] } = useQuery({ queryKey: ["ws-jih", uid], enabled: !!uid, queryFn: async () => (await supabase.from("opportunities").select("id, project_name, sales_stage, estimated_value_max, currency, win_confidence").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [] });
+  const { data: jihOpps = [] } = useQuery({ queryKey: ["ws-jih", uid], enabled: !!uid, queryFn: async () => (await supabase.from("opportunities").select("id, project_name, stage, sales_stage, estimated_value_max, quotation_value, contract_value, currency, win_confidence").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [] });
 
   if (isLoading || !data) return <SkeletonChart kpis={4} charts={2} />;
 

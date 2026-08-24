@@ -37,12 +37,25 @@ BEGIN
 
   INSERT INTO public.historical_sales_batches (source_file, source_sha256, loaded_by)
     VALUES ('d7.csv', repeat('d',64), sm) RETURNING id INTO bat;
+  -- The raw rows use the real spreadsheet column names, embedded newline and
+  -- all. They were minimal stubs until promotion started reading the derived
+  -- mapping for route, sales code, submission date and status — a deliberate
+  -- change (a promotion has to know what it is promoting), and this fixture
+  -- has to carry enough for the parser to produce one.
   INSERT INTO public.historical_sales_rows (batch_id, row_number, raw)
-    VALUES (bat, 1, '{"SALES CODE":"D7-001","CLIENT":"D7 Contracting"}'::jsonb) RETURNING id INTO row1;
+    VALUES (bat, 1, jsonb_build_object('SALES CODE','DS26001','CLIENT COMPANY','D7 Contracting',
+      'PROJECT NAME','D7 Tower Signage','AMOUNT','250000','QUOTATION '||chr(10)||'STATUS','SUBMITTED',
+      'SUBMISSION DATE','2/20/2026','JIH / TENDER','JIH')) RETURNING id INTO row1;
   INSERT INTO public.historical_sales_rows (batch_id, row_number, raw)
-    VALUES (bat, 2, '{"SALES CODE":"D7-002"}'::jsonb) RETURNING id INTO row2;
+    VALUES (bat, 2, jsonb_build_object('SALES CODE','DS26002','CLIENT COMPANY','D7 Contracting',
+      'PROJECT NAME','D7 Second','AMOUNT','120000','QUOTATION '||chr(10)||'STATUS','SUBMITTED',
+      'SUBMISSION DATE','2/21/2026','JIH / TENDER','JIH')) RETURNING id INTO row2;
   INSERT INTO public.historical_sales_rows (batch_id, row_number, raw)
-    VALUES (bat, 3, '{"SALES CODE":"D7-003"}'::jsonb) RETURNING id INTO row3;
+    VALUES (bat, 3, jsonb_build_object('SALES CODE','DS26003','CLIENT COMPANY','D7 Contracting',
+      'PROJECT NAME','D7 Third','AMOUNT','130000','QUOTATION '||chr(10)||'STATUS','SUBMITTED',
+      'SUBMISSION DATE','2/22/2026','JIH / TENDER','JIH')) RETURNING id INTO row3;
+
+  PERFORM public.remap_historical_sales(bat);
 END $$;
 
 CREATE TEMP TABLE d7 AS SELECT
@@ -186,14 +199,30 @@ BEGIN
   SELECT count(*) INTO n FROM public.companies WHERE name='D7 Contracting';
   RAISE NOTICE '% 20. no duplicate company was invented (expect 1, got %)',
     CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
+  -- This asserted "no quotation was fabricated (expect 0)" until promotion was
+  -- given an explicit historical-quotation path. Creating one is now the point:
+  -- an archive record IS a quotation — number, value, status, issue date — and
+  -- without it "submitted quotations" cannot be counted and a rep has nothing
+  -- to carry on from. What must still never be fabricated is the GOVERNANCE
+  -- around it, so the assertion moved from "no quotation" to "exactly one,
+  -- flagged as historical, with no invented Phase 7C revision behind it".
   SELECT count(*) INTO n FROM public.quotations WHERE related_opportunity_id=opp;
-  RAISE NOTICE '% 21. no quotation was fabricated (expect 0, got %)',
+  RAISE NOTICE '% 21. exactly one historical quotation is created (expect 1, got %)',
+    CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
+  SELECT count(*) INTO n FROM public.quotations
+   WHERE related_opportunity_id=opp AND is_historical AND historical_row_id = row1;
+  RAISE NOTICE '% 21b. it is flagged historical and points at its archive row (expect 1, got %)',
+    CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
+  SELECT count(*) INTO n FROM public.quotation_revisions qr
+    JOIN public.quotations q ON q.id = qr.quotation_id
+   WHERE q.related_opportunity_id = opp;
+  RAISE NOTICE '% 21c. no Phase 7C revision was invented to get it through the gates (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== the archive is untouched =====
   SELECT raw INTO before_raw FROM public.historical_sales_rows WHERE id=row1;
   RAISE NOTICE '% 22. the archive row still reads exactly as loaded (%)',
-    CASE WHEN before_raw->>'SALES CODE' = 'D7-001' THEN 'PASS' ELSE 'FAIL' END,
+    CASE WHEN before_raw->>'SALES CODE' = 'DS26001' THEN 'PASS' ELSE 'FAIL' END,
     coalesce(before_raw->>'SALES CODE','null');
   SELECT count(*) INTO n FROM information_schema.columns
    WHERE table_schema='public' AND table_name='historical_sales_rows'
