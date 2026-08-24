@@ -49,6 +49,18 @@ const ELIGIBLE_COLUMNS =
 
 type Row = Record<string, unknown>;
 
+/**
+ * The sales-code flags, read from historical_sales_mapped.
+ *
+ * They are NOT on historical_sales_search, and they are NOT re-derived here
+ * from the code string. parse_historical_sales_code() owns the rule for what
+ * counts as a placeholder, and putting a second copy of that regex in
+ * TypeScript would create exactly the drift this whole change exists to close.
+ * The columns are read from the same table promote_historical_row() reads,
+ * under the same RLS gate.
+ */
+type CodeFlags = { placeholder: boolean; unparsed: boolean; hasCode: boolean };
+
 const PROMOTABLE_COLLISIONS = new Set([
   "NO_COLLISION",
   "DISTINCT_BUSINESS_PURSUIT",
@@ -79,7 +91,11 @@ function businessYear(r: Row): number | null {
  * re-tests every one of them and is the thing that actually refuses. It exists
  * so the UI can say why a row is not promotable without attempting it.
  */
-function ineligibleReasons(r: Row, promotableStatuses: Set<string>): string[] {
+function ineligibleReasons(
+  r: Row,
+  promotableStatuses: Set<string>,
+  flags: CodeFlags | undefined,
+): string[] {
   const reasons: string[] = [];
   if (businessYear(r) !== 2026) reasons.push("not_2026");
   if (!promotableStatuses.has(String(r.status ?? "").trim().toUpperCase())) reasons.push("status_not_active");
@@ -88,11 +104,58 @@ function ineligibleReasons(r: Row, promotableStatuses: Set<string>): string[] {
   if (r.amount === null || r.amount === undefined) reasons.push("no_amount");
   if (!r.route) reasons.push("route_undetermined");
   if (!r.date_submitted) reasons.push("no_submission_date");
+
+  // The sales code. These three were missing, and the gap was not academic:
+  // preflight reported 49 eligible records on 2026-08-24 where the database
+  // would promote 45. The four extra all carried a bare owner prefix — `FA`,
+  // `OM` — as their sales code, which is a placeholder the spreadsheet used
+  // and not a quotation number. 48 archive rows share five such values, so
+  // promoting them would merge unrelated jobs under one code.
+  //
+  // The manifest gate caught it and refused the batch, which is the only
+  // reason nothing was written. Without these checks the batch would have run
+  // 45 promotions and then hit hard refusals from promote_historical_row(),
+  // leaving a half-promoted batch.
+  //
+  // A missing flags row means the archive row has no derived mapping at all,
+  // which promote_historical_row() also refuses ("run remap_historical_sales()
+  // first"). Treated as unmappable rather than silently passed.
+  if (!flags) {
+    reasons.push("no_mapping");
+  } else {
+    if (!flags.hasCode) reasons.push("missing_sales_code");
+    if (flags.placeholder) reasons.push("code_placeholder");
+    if (flags.unparsed) reasons.push("code_unparsed");
+  }
+
   if (!PROMOTABLE_COLLISIONS.has(String(r.collision_class ?? ""))) {
     reasons.push(`collision_${String(r.collision_class ?? "unknown").toLowerCase()}`);
   }
   if (r.promotion_status === "promoted") reasons.push("already_promoted");
   return reasons;
+}
+
+/**
+ * Reads the code flags for the rows under consideration. One query for the
+ * whole batch rather than one per row — the preflight is called with 679 rows
+ * behind it and an N+1 here would be the slowest thing in the endpoint.
+ */
+async function codeFlags(ctx: SalesOsContext, rowId: string | null): Promise<Map<string, CodeFlags>> {
+  let q = ctx.asCaller
+    .from("historical_sales_mapped")
+    .select("row_id,code_placeholder,code_unparsed,sales_code_raw");
+  if (rowId) q = q.eq("row_id", rowId);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  const out = new Map<string, CodeFlags>();
+  for (const m of (data ?? []) as Row[]) {
+    out.set(String(m.row_id), {
+      placeholder: m.code_placeholder === true,
+      unparsed: m.code_unparsed === true,
+      hasCode: String(m.sales_code_raw ?? "").trim() !== "",
+    });
+  }
+  return out;
 }
 
 /** Statuses the database currently allows into the live pipeline. Read, never assumed. */
@@ -120,8 +183,10 @@ async function preflight_historical_promotion(
   if (rowId !== null && !UUID.test(rowId)) return err("rowId must be a uuid");
 
   let statuses: Set<string>;
+  let flags: Map<string, CodeFlags>;
   try {
     statuses = await promotableStatuses(ctx);
+    flags = await codeFlags(ctx, rowId);
   } catch (e) {
     return err(`Cannot read the promotion rules: ${(e as Error).message}`, 403);
   }
@@ -137,7 +202,7 @@ async function preflight_historical_promotion(
 
   if (rowId) {
     if (rows.length === 0) return err("Archive row not found, or not readable by you", 404);
-    const reasons = ineligibleReasons(rows[0], statuses);
+    const reasons = ineligibleReasons(rows[0], statuses, flags.get(rowId));
     return json({
       rowId,
       eligible: reasons.length === 0,
@@ -147,7 +212,9 @@ async function preflight_historical_promotion(
     });
   }
 
-  const eligible = rows.filter((r) => ineligibleReasons(r, statuses).length === 0);
+  const eligible = rows.filter(
+    (r) => ineligibleReasons(r, statuses, flags.get(String(r.row_id))).length === 0,
+  );
   // Sorted so two callers comparing the same batch compare the same string.
   const rowIds = eligible.map((r) => String(r.row_id)).sort();
   const totalValue = eligible.reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
