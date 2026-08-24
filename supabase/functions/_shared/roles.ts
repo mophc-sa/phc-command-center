@@ -79,6 +79,20 @@ const PIPELINE_OPERATORS: AppRole[] = [
 
 // ---- Capability helpers -----------------------------------------------------
 export const canApproveCommercialAction = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
+
+/**
+ * Turning a read-only archive row into a live opportunity.
+ *
+ * A deliberate mirror of can_approve_historical_promotion() in
+ * 20260829100000 — sales_manager, bd_manager, general_manager and nothing
+ * else. Notably NOT system_admin: an operator is not a commercial
+ * decision-maker, and the database says so too. This helper only produces a
+ * clean 403 before the round trip; the database remains the authority and
+ * refuses the call regardless of what the backend believes.
+ */
+export const canApproveHistoricalPromotion = (r: RoleInput) =>
+  inGroup(r, ["sales_manager", "bd_manager", "general_manager"]);
+
 export const canAssignOwner = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
 export const canChangeCommercialStage = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
 export const canRunSensitiveSalesAction = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);

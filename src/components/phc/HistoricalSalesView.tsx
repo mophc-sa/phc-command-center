@@ -7,15 +7,35 @@
 // Sales Management is already where someone goes to look across deals rather
 // than work one, so this belongs there.
 //
-// Strictly read-only. The staging tables carry no INSERT/UPDATE/DELETE policy,
-// so there is no action to offer and none is rendered — no convert button, no
-// edit, no link-to-opportunity. When promotion into canonical entities is
-// approved it will be a separate, deliberate flow.
+// The ARCHIVE is still strictly read-only: the staging tables carry no
+// INSERT/UPDATE/DELETE policy and nothing here writes to them. What this view
+// now also does is show what became of each row, and — for sales leadership
+// only — offer promotion into the live CRM.
+//
+// Promotion never touches the archive. It creates canonical records beside it
+// and links them through the promotion queue, which is why a promoted row can
+// display an opportunity and a quotation while its source record is byte-for-
+// byte what the 2022-2026 spreadsheet said.
+//
+// Two controls, deliberately unequal:
+//
+//   Promote          one eligible record, on demand.
+//   Activate batch   the approved 2026 activation, and ONLY that. It refuses
+//                    unless the server's live eligible set is exactly the
+//                    approved manifest — same count, same total, same row ids.
+//                    Promoting "whatever qualifies right now" is how an
+//                    approved batch of 45 quietly becomes an unreviewed 51.
 // =============================================================================
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Archive, AlertTriangle, Download, Search, X } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Archive, AlertTriangle, Download, Search, X, Rocket, CheckCircle2, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canApproveHistoricalPromotion } from "@/lib/roles";
+import {
+  ACTIVATION_MANIFEST, checkAgainstManifest, preflightBatch, promoteRow, runApprovedBatch,
+  type BatchOutcome, type BatchProgress,
+} from "@/lib/historical-promotion-actions";
 import { Panel } from "@/components/phc/Panel";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
@@ -63,6 +83,78 @@ export function HistoricalSalesView() {
     staleTime: 10 * 60_000,
   });
 
+  // ---- promotion ---------------------------------------------------------
+  // The button is hidden for anyone the database would refuse anyway. That is
+  // presentation, not protection: sales-os-api re-checks, and
+  // promote_historical_row() checks again against auth.uid(). A salesperson who
+  // called the endpoint by hand would still be refused.
+  const { roles } = useAuth();
+  const canPromote = canApproveHistoricalPromotion(roles);
+  const queryClient = useQueryClient();
+  const [busyRowId, setBusyRowId] = useState<string | null>(null);
+  const [batchState, setBatchState] = useState<
+    | { phase: "idle" }
+    | { phase: "checking" }
+    | { phase: "blocked"; differences: string[]; live: { count: number; totalValue: number } }
+    | { phase: "confirm"; rowIds: string[]; count: number; totalValue: number }
+    | { phase: "running"; done: number; total: number }
+    | { phase: "done"; outcome: BatchOutcome }
+    | { phase: "failed"; message: string }
+  >({ phase: "idle" });
+
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ["historical-sales"] });
+    void queryClient.invalidateQueries({ queryKey: ["historical-sales-quality"] });
+  };
+
+  async function promoteOne(rowId: string) {
+    setBusyRowId(rowId);
+    try {
+      await promoteRow(rowId);
+      refresh();
+    } catch (e) {
+      setBatchState({ phase: "failed", message: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusyRowId(null);
+    }
+  }
+
+  // Never promotes on this click. It asks the server what is currently
+  // eligible, compares that to the approved manifest, and only then offers a
+  // confirmation. A drifted batch stops here.
+  async function checkBatch() {
+    setBatchState({ phase: "checking" });
+    try {
+      const live = await preflightBatch();
+      const check = checkAgainstManifest(live);
+      if (!check.matches) {
+        setBatchState({
+          phase: "blocked",
+          differences: check.differences,
+          live: { count: live.count, totalValue: live.totalValue },
+        });
+        return;
+      }
+      setBatchState({
+        phase: "confirm",
+        rowIds: check.approvedRowIds,
+        count: live.count,
+        totalValue: live.totalValue,
+      });
+    } catch (e) {
+      setBatchState({ phase: "failed", message: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  async function runBatch(rowIds: string[]) {
+    setBatchState({ phase: "running", done: 0, total: rowIds.length });
+    const outcome = await runApprovedBatch(rowIds, (p: BatchProgress) =>
+      setBatchState({ phase: "running", done: p.index + 1, total: p.total }),
+    );
+    setBatchState({ phase: "done", outcome });
+    refresh();
+  }
+
   const filtered = useMemo(() => filterHistorical(rows, f), [rows, f]);
   const sum = useMemo(() => summarise(filtered), [filtered]);
   const owners = useMemo(() => ownerOptions(rows), [rows]);
@@ -104,6 +196,116 @@ export function HistoricalSalesView() {
             : "Historical Sales Archive 2022–2026. Read-only records. Not converted to opportunities or quotations."}
         </span>
       </div>
+
+      {/* ---- Approved batch activation, sales leadership only ---------------
+          Nothing here selects records. The manifest fixes which 45 rows are
+          approved; the server says which are currently eligible; activation
+          happens only when those two agree exactly. */}
+      {canPromote ? (
+        <div className="rounded-lg border border-border bg-surface-1 px-3 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Rocket className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+              <span className="text-xs font-medium">
+                {ar ? "تفعيل دفعة 2026 المعتمدة" : "Activate approved 2026 batch"}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {ar
+                  ? `${formatNumber(ACTIVATION_MANIFEST.count, lang)} سجل · ${formatCurrency(ACTIVATION_MANIFEST.totalValueExclVat, lang, ACTIVATION_MANIFEST.currency)}`
+                  : `${formatNumber(ACTIVATION_MANIFEST.count, lang)} records · ${formatCurrency(ACTIVATION_MANIFEST.totalValueExclVat, lang, ACTIVATION_MANIFEST.currency)}`}
+              </span>
+            </div>
+            {batchState.phase === "idle" || batchState.phase === "blocked" || batchState.phase === "failed" ? (
+              <button
+                type="button" onClick={checkBatch}
+                className="rounded border border-border px-2 py-1 text-[11px] hover:bg-surface-2"
+              >
+                {ar ? "تحقّق من الدفعة" : "Check batch"}
+              </button>
+            ) : null}
+          </div>
+
+          {batchState.phase === "checking" ? (
+            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+              {ar ? "يُقارن مع المانيفست المعتمد…" : "Comparing against the approved manifest…"}
+            </p>
+          ) : null}
+
+          {batchState.phase === "blocked" ? (
+            <div className="mt-2 rounded border border-amber/40 bg-amber/10 px-2 py-1.5">
+              <p className="text-[11px] font-medium text-amber-light">
+                {ar ? "التفعيل مرفوض — الدفعة الحالية لا تطابق المعتمدة." : "Activation refused — the live batch is not the approved one."}
+              </p>
+              <ul className="mt-1 list-disc ps-4 text-[11px] text-amber-light">
+                {batchState.differences.map((d) => <li key={d}>{d}</li>)}
+              </ul>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {ar
+                  ? "بيانات الإنتاج تغيّرت منذ الاعتماد. يلزم إعادة اعتماد الدفعة."
+                  : "Production data has moved since approval. The batch needs re-approving before it can run."}
+              </p>
+            </div>
+          ) : null}
+
+          {batchState.phase === "confirm" ? (
+            <div className="mt-2 rounded border border-border bg-surface-2 px-2 py-1.5">
+              <p className="text-[11px]">
+                {ar
+                  ? `تطابق تام. سيتم إنشاء ${formatNumber(batchState.count, lang)} فرصة و${formatNumber(batchState.count, lang)} عرض سعر تاريخي بقيمة ${formatCurrency(batchState.totalValue, lang, "SAR")}. الأرشيف لا يتغيّر.`
+                  : `Exact match. This creates ${formatNumber(batchState.count, lang)} opportunities and ${formatNumber(batchState.count, lang)} historical quotations worth ${formatCurrency(batchState.totalValue, lang, "SAR")}. The archive is not modified.`}
+              </p>
+              <div className="mt-1.5 flex gap-2">
+                <button
+                  type="button" onClick={() => void runBatch(batchState.rowIds)}
+                  className="rounded bg-primary px-2 py-1 text-[11px] text-primary-foreground hover:opacity-90"
+                >
+                  {ar ? "تأكيد التفعيل" : "Confirm activation"}
+                </button>
+                <button
+                  type="button" onClick={() => setBatchState({ phase: "idle" })}
+                  className="rounded border border-border px-2 py-1 text-[11px] hover:bg-surface-2"
+                >
+                  {ar ? "إلغاء" : "Cancel"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {batchState.phase === "running" ? (
+            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+              {ar
+                ? `جارٍ الترقية ${formatNumber(batchState.done, lang)} من ${formatNumber(batchState.total, lang)}…`
+                : `Promoting ${formatNumber(batchState.done, lang)} of ${formatNumber(batchState.total, lang)}…`}
+            </p>
+          ) : null}
+
+          {batchState.phase === "done" ? (
+            <div className="mt-2 text-[11px]">
+              <p className={batchState.outcome.failed.length ? "text-amber-light" : "text-success"}>
+                {ar
+                  ? `اكتمل: ${formatNumber(batchState.outcome.promoted.length, lang)} مُرقّى · ${formatNumber(batchState.outcome.failed.length, lang)} مرفوض`
+                  : `Finished: ${formatNumber(batchState.outcome.promoted.length, lang)} promoted · ${formatNumber(batchState.outcome.failed.length, lang)} refused`}
+              </p>
+              {batchState.outcome.stoppedEarly ? (
+                <p className="text-amber-light">
+                  {ar
+                    ? "توقّفت الدفعة بعد إخفاقين متتاليين — يُرجّح خلل عام لا بيانات مصدر."
+                    : "Stopped after two consecutive failures — that pattern points at the mechanism, not the source data."}
+                </p>
+              ) : null}
+              {batchState.outcome.failed.slice(0, 5).map((x) => (
+                <p key={x.rowId} className="text-muted-foreground">{x.rowId.slice(0, 8)}: {x.error}</p>
+              ))}
+            </div>
+          ) : null}
+
+          {batchState.phase === "failed" ? (
+            <p className="mt-2 text-[11px] text-destructive">{batchState.message}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* Totals for what is on screen, not the whole archive. */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
@@ -282,11 +484,17 @@ export function HistoricalSalesView() {
                   <th className="py-2 text-start font-medium">{ar ? "الحالة" : "Status"}</th>
                   <th className="py-2 text-end font-medium">{ar ? "القيمة" : "Amount"}</th>
                   <th className="py-2 text-start font-medium">{ar ? "تاريخ التقديم" : "Submitted"}</th>
+                  <th className="py-2 text-start font-medium">{ar ? "الترقية" : "Promotion"}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.slice(0, 300).map((r) => (
-                  <Row key={r.row_id} r={r} lang={lang} ar={ar} fmtDate={fmtDate} />
+                  <Row
+                    key={r.row_id} r={r} lang={lang} ar={ar} fmtDate={fmtDate}
+                    canPromote={canPromote}
+                    onPromote={promoteOne}
+                    busy={busyRowId === r.row_id}
+                  />
                 ))}
               </tbody>
             </table>
@@ -304,10 +512,12 @@ export function HistoricalSalesView() {
   );
 }
 
-function Row({ r, lang, ar, fmtDate }: {
+function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
   r: HistoricalSaleRow; lang: "en" | "ar"; ar: boolean; fmtDate: (s: string | null) => string;
+  canPromote: boolean; onPromote: (rowId: string) => void; busy: boolean;
 }) {
   const flags = qualityFlags(r);
+  const promoted = r.promotion_status === "promoted";
   return (
     <tr className="border-b border-border/40 align-top text-foreground">
       <td className="py-2">
@@ -350,6 +560,40 @@ function Row({ r, lang, ar, fmtDate }: {
             <AlertTriangle className="h-3 w-3" aria-hidden="true" />
             {flags.length}
           </span>
+        ) : null}
+      </td>
+      {/* What became of this row. Visible to everyone who may read the archive:
+          seeing that a deal is already live is how the same job stops being
+          worked twice, and it discloses nothing the pipeline would not. */}
+      <td className="py-2">
+        {promoted ? (
+          <span className="flex items-center gap-1 text-[10px] text-success" title={ar ? "مُرقّى إلى النظام الحي" : "Promoted into the live CRM"}>
+            <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+            {ar ? "في النظام" : "In CRM"}
+          </span>
+        ) : r.promotion_status === "voided" ? (
+          <span className="text-[10px] text-muted-foreground">{ar ? "أُلغيت الترقية" : "Promotion voided"}</span>
+        ) : r.promotion_status !== "not_promoted" ? (
+          <span className="text-[10px] text-muted-foreground">{r.promotion_status}</span>
+        ) : canPromote ? (
+          <button
+            type="button"
+            onClick={() => onPromote(r.row_id)}
+            disabled={busy}
+            className="rounded border border-border px-1.5 py-0.5 text-[10px] hover:bg-surface-2 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : (ar ? "ترقية" : "Promote")}
+          </button>
+        ) : (
+          <span className="text-[10px] text-muted-foreground">—</span>
+        )}
+        {promoted && r.promoted_opportunity_id ? (
+          <a
+            href={`/opportunities/${r.promoted_opportunity_id}`}
+            className="mt-0.5 block text-[10px] text-primary underline-offset-2 hover:underline"
+          >
+            {ar ? "فتح الفرصة" : "Open opportunity"}
+          </a>
         ) : null}
       </td>
     </tr>

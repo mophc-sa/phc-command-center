@@ -97,10 +97,18 @@ describe("naming and badges", () => {
     expect(view).toContain("records have no mapped owner");
     expect(view).toContain("records are not matched to a company");
     expect(view).toContain("records have an unparsed code");
-    // The word that would blame the archive for the paperwork. Checked against
-    // code only — a comment explaining why "errors" is the wrong word is not a
-    // violation of it.
-    expect(code(view)).not.toMatch(/\berrors?\b/i);
+    // The word that would blame the archive for the paperwork.
+    //
+    // Checked against USER-FACING STRINGS only. It used to scan the whole file
+    // with comments stripped, which was fine while the view rendered nothing
+    // but archive data — then promotion arrived and `e instanceof Error` and a
+    // `failed[].error` field tripped a guard that was never about JavaScript
+    // vocabulary. Widening the exemption would have gutted it; narrowing it to
+    // the text a person actually reads keeps it pointed at the thing it was
+    // written to catch.
+    const userFacing = [...code(view).matchAll(/"([^"\n]*)"/g)].map((m) => m[1]);
+    const offending = userFacing.filter((lit) => /\berrors?\b/i.test(lit));
+    expect(offending).toEqual([]);
   });
 
   it("surfaces the four quality indicators", () => {
