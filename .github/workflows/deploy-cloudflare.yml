@@ -169,6 +169,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          # The upload is the deployment; everything after it is verification.
+          #
+          # This step used to do two things wrong, and they compounded. It
+          # required a *.workers.dev URL in wrangler's stdout and failed hard
+          # without one — but a Worker served only through a custom domain
+          # emits no preview URL unless Preview URLs is enabled for it, which
+          # is a separate setting from the workers.dev subdomain. And the
+          # `grep` that looked for the URL was unguarded under `set -e` with
+          # `pipefail`, so a no-match exit 1 killed the script one line BEFORE
+          # the `if` that would have explained why. Two canary runs failed on
+          # 2026-08-24 with a successful upload, a valid version id, and no
+          # message at all.
+          #
+          # So: the version id is what proves the upload worked, and it is
+          # required. The preview URL is a bonus — used for a real health check
+          # when Cloudflare provides one, and reported as a warning when it
+          # does not. A canary that uploaded correctly should not be recorded
+          # as a failed deployment because an optional URL was absent.
           output="$(bunx wrangler@${WRANGLER_VERSION} versions upload \
             --config .output/server/wrangler.json \
             --name "$WORKER_NAME" \
@@ -176,13 +195,40 @@ jobs:
             --keep-vars \
             --message "Canary ${GITHUB_SHA}")"
           printf '%s\n' "$output"
-          canary_url="$(grep -Eo 'https://[^[:space:]]+\.workers\.dev' <<<"$output" | tail -1)"
-          if [ -z "$canary_url" ]; then
-            echo "Wrangler did not return a canary URL" >&2
+
+          # `|| true` on every grep below: no-match is exit 1, and under
+          # pipefail that aborts the step before it can say anything.
+          version_id="$(grep -Eo 'Worker Version ID: [0-9a-f-]+' <<<"$output" | tail -1 | awk '{print $NF}' || true)"
+          if [ -z "$version_id" ]; then
+            echo "wrangler reported no Worker Version ID — the upload did not complete." >&2
             exit 1
           fi
-          curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "${canary_url}/auth" >/dev/null
-          echo "Canary health check passed: ${canary_url}/auth"
+          echo "Canary version uploaded: ${version_id}"
+
+          canary_url="$(grep -Eo 'https://[^[:space:]]+\.workers\.dev' <<<"$output" | tail -1 || true)"
+          if [ -n "$canary_url" ]; then
+            curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 5 "${canary_url}/auth" >/dev/null
+            echo "Canary health check passed: ${canary_url}/auth"
+            {
+              echo "### Canary deployed"
+              echo ""
+              echo "- version: \`${version_id}\`"
+              echo "- url: ${canary_url}"
+              echo "- health check: \`${canary_url}/auth\` responded"
+            } >>"$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=No canary preview URL::Version ${version_id} uploaded, but Cloudflare returned no *.workers.dev preview URL. Enable Preview URLs for ${WORKER_NAME} (Settings -> Domains & Routes) to get an isolated canary origin. No health check was performed."
+            {
+              echo "### Canary uploaded, not verifiable"
+              echo ""
+              echo "- version: \`${version_id}\`"
+              echo "- url: none — Preview URLs appears to be disabled for \`${WORKER_NAME}\`"
+              echo "- health check: **not performed**"
+              echo ""
+              echo "The version exists and routes no traffic. There is no isolated origin to test against,"
+              echo "so treat this as an upload, not as a verified canary."
+            } >>"$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Snapshot production DNS for rollback
         if: env.DEPLOY_TARGET == 'production'

@@ -74,6 +74,72 @@ describe("no workflow deploys to production without a human", () => {
   });
 });
 
+describe("the canary step survives a Worker with no preview URL", () => {
+  // Two canary runs failed on 2026-08-24 with a successful upload, a valid
+  // Worker Version ID, and no error message whatsoever. Two separate defects
+  // in one step produced that:
+  //
+  //   1. it treated a *.workers.dev URL as mandatory, but a Worker served only
+  //      through a custom domain emits none unless Preview URLs is enabled —
+  //      a different setting from the workers.dev subdomain
+  //   2. the grep that looked for the URL was unguarded under `set -e` with
+  //      `pipefail`, so no-match (exit 1) killed the script one line BEFORE
+  //      the `if` that would have explained it
+  //
+  // The second is why the first cost two diagnostic cycles.
+  const step = (() => {
+    const from = deploy.indexOf("- name: Upload canary version");
+    const to = deploy.indexOf("- name: Snapshot production DNS");
+    return deploy.slice(from, to);
+  })();
+
+  it("finds the canary step", () => {
+    expect(step.length).toBeGreaterThan(0);
+  });
+
+  it("requires the version id, which is what proves the upload happened", () => {
+    expect(step).toContain("Worker Version ID");
+    expect(step).toMatch(/if \[ -z "\$version_id" \]; then[\s\S]*?exit 1/);
+  });
+
+  it("treats the preview URL as optional, not mandatory", () => {
+    // A canary that uploaded correctly must not be recorded as a failed
+    // deployment because an optional URL was absent.
+    expect(step).not.toMatch(/if \[ -z "\$canary_url" \][\s\S]{0,120}exit 1/);
+    expect(step).toContain("::warning");
+  });
+
+  it("guards every grep against no-match under set -e", () => {
+    // The defect that hid the other defect. Each grep feeding a variable must
+    // tolerate no-match, or the step dies before it can report anything.
+    const greps = step.split("\n").filter((l) => l.includes("grep -Eo") && l.includes("=\"$("));
+    expect(greps.length).toBeGreaterThan(0);
+    for (const line of greps) {
+      expect(line, `unguarded grep will abort under set -e: ${line.trim()}`).toContain("|| true");
+    }
+  });
+
+  it("still health-checks when a URL is available", () => {
+    // Dropping the check along with the hard failure would trade a false
+    // negative for no verification at all.
+    expect(step).toMatch(/if \[ -n "\$canary_url" \]/);
+    expect(step).toContain("curl --fail");
+    expect(step).toContain("/auth");
+  });
+
+  it("says plainly that no health check ran when there is no URL", () => {
+    // The failure mode to avoid now is the opposite one: a green tick that
+    // looks like a verified canary when nothing was actually reachable.
+    expect(step).toMatch(/not performed|No canary preview URL/i);
+  });
+
+  it("does not deploy or route traffic — upload only", () => {
+    expect(step).toContain("versions upload");
+    expect(step).not.toContain("versions deploy");
+    expect(step).not.toContain("triggers deploy");
+  });
+});
+
 describe("no other workflow deploys on merge", () => {
   const OTHERS = readdirSync(WORKFLOWS).filter((f) => f !== DEPLOY && /\.ya?ml$/.test(f));
 
