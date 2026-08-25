@@ -20,6 +20,7 @@ import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 import { getProjectCoverUrl, uploadProjectCover, validateProjectCoverFile } from "@/lib/project-cover-actions";
 import { ProjectKanban } from "@/components/phc/ProjectKanban";
 import { ProjectBudget } from "@/components/phc/ProjectBudget";
+import { DocumentsPanel } from "@/components/phc/DocumentsPanel";
 
 export const Route = createFileRoute("/_authenticated/projects/$id")({
   head: () => ({ meta: [{ title: "Project — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -253,6 +254,7 @@ function ProjectDetail() {
           <TabsTrigger value="pipeline">{lang === "ar" ? "خط سير العمل" : "Job Pipeline"}</TabsTrigger>
           <TabsTrigger value="budget">{lang === "ar" ? "الميزانية" : "Budget"}</TabsTrigger>
           <TabsTrigger value="opportunities">{t("crm_linked_opportunities")} ({oppCount})</TabsTrigger>
+          <TabsTrigger value="files">{t("doc_files")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -279,6 +281,12 @@ function ProjectDetail() {
           <Panel title={lang === "ar" ? "الميزانية" : "Budget"}>
             <ProjectBudget projectId={p.id} canEdit={canEditBudget} />
           </Panel>
+        </TabsContent>
+
+        <TabsContent value="files">
+          {/* Site photos and project documents are the same records — see
+              DocumentsPanel. A project is where photos actually accumulate. */}
+          <DocumentsPanel entity={{ type: "project", id }} />
         </TabsContent>
 
         <TabsContent value="opportunities">

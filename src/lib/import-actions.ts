@@ -235,9 +235,24 @@ export const SOURCE_KIND_ROUTING: Record<string, { primary: ImportTargetEntity; 
   unknown:              { primary: "companies",    destinations: ["companies"] },
 };
 
+/**
+ * How the data arrived — NOT what the workbook is about.
+ *
+ * The database constrains this to exactly these three, and the type says so.
+ * It was previously widened to `string`, which let the AI's workbook
+ * classification ("client_relations", "protenders_leads", …) be written here;
+ * the constraint rejected every one of them and the whole upload failed with
+ * `import_batches_source_type_check`. A bare string could not catch that at
+ * compile time — this union can.
+ */
+export type ImportSourceType = "file" | "api" | "manual";
+
 export async function updateBatch(
   id: string,
-  patch: Partial<Pick<ImportBatch, "target_entity" | "notes" | "file_name"> & { source_type: string }>,
+  patch: Partial<
+    Pick<ImportBatch, "target_entity" | "notes" | "file_name">
+    & { source_type: ImportSourceType; structure_analysis: Record<string, unknown> }
+  >,
 ): Promise<void> {
   const { error } = await db.from("import_batches").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
@@ -944,6 +959,155 @@ export async function updateCandidateReview(
     .update({ review_status, review_note: review_note ?? null, reviewed_at: new Date().toISOString() })
     .eq("id", candidateId);
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Approve every candidate in the batch, without a human.
+ *
+ * THE POLICY IS "APPROVE EVERYTHING", BY EXPLICIT INSTRUCTION
+ * ----------------------------------------------------------
+ * An earlier version held back the three actions that mean the pipeline could
+ * not decide — needs_review, conflict, duplicate — on the reasoning that a
+ * wrongly merged record costs far more to unpick than one left waiting. The
+ * owner was shown that trade-off and chose full automation anyway. This
+ * implements what was asked for, not a quieter version of it.
+ *
+ * WHAT THAT COSTS, WRITTEN DOWN SO IT IS NOT A SURPRISE
+ * ----------------------------------------------------
+ * Candidates flagged duplicate or conflict now reach the CRM unreviewed. Some
+ * of those will be wrong: the same company under two spellings, an update
+ * applied to the wrong existing row. Nothing downstream will notice.
+ *
+ * So the one thing this does NOT give up is traceability. Every candidate the
+ * pipeline was unsure about is stamped with WHY it was unsure, in review_note,
+ * before being approved. After a commit, the risky writes are a query away
+ * rather than indistinguishable from the safe ones — which is the difference
+ * between rolling back six records and rolling back the batch.
+ *
+ * rollbackBatch() reverses only what this pipeline itself wrote, so a bad
+ * import is recoverable. That is what makes this survivable.
+ */
+export const AUTO_APPROVE_ACTIONS = [
+  "create", "update", "no_change", "needs_review", "conflict", "duplicate",
+] as const;
+
+/** Zero: nothing is held back on confidence. See the note above. */
+export const AUTO_APPROVE_MIN_CONFIDENCE = 0;
+
+/** Below this, a candidate is approved but flagged in its note as uncertain. */
+export const LOW_CONFIDENCE_MARK = 0.8;
+
+/** Actions that mean the pipeline could not decide — approved, but marked. */
+export const UNCERTAIN_ACTIONS = ["needs_review", "conflict", "duplicate"] as const;
+
+export type AutoApprovalResult = {
+  approved: number;
+  held: number;
+  total: number;
+  /** Approved despite the pipeline being unsure — findable after the commit. */
+  flagged: number;
+  flaggedReasons: { ambiguousAction: number; lowConfidence: number; noConfidence: number };
+};
+
+export async function autoApproveCandidates(
+  batchId: string,
+  opts: { minConfidence?: number } = {},
+): Promise<AutoApprovalResult> {
+  if (!batchId) throw new Error("Missing batch");
+  const floor = opts.minConfidence ?? AUTO_APPROVE_MIN_CONFIDENCE;
+
+  const candidates = await listCandidates(batchId);
+  const decided = classifyForAutoApproval(candidates, floor);
+  const stamp = new Date().toISOString();
+
+  // Grouped by note so the reason survives the commit. One bulk write per
+  // group rather than per row: a 1,600-row workbook would otherwise be 1,600
+  // round trips, and a partial failure would leave the batch unreadable.
+  for (const [note, ids] of decided.approveGroups) {
+    const { error } = await db.from("import_record_candidates")
+      .update({ review_status: "approved", reviewed_at: stamp, review_note: note })
+      .in("id", ids);
+    if (error) throw new Error(error.message);
+  }
+  if (decided.hold.length) {
+    const { error } = await db.from("import_record_candidates")
+      .update({ review_status: "needs_review", reviewed_at: stamp,
+                review_note: "Held: below the configured confidence floor" })
+      .in("id", decided.hold);
+    if (error) throw new Error(error.message);
+  }
+
+  return {
+    approved: decided.approve.length,
+    held: decided.hold.length,
+    total: candidates.length,
+    flagged: decided.flagged.length,
+    flaggedReasons: decided.reasons,
+  };
+}
+
+/**
+ * The decision itself, pure, so the policy is testable without a database.
+ *
+ * Returns the approvals grouped by the note they should carry, so an uncertain
+ * candidate is still traceable once it has been written.
+ */
+export function classifyForAutoApproval(
+  candidates: Pick<ImportRecordCandidate, "id" | "proposed_action" | "confidence">[],
+  floor = AUTO_APPROVE_MIN_CONFIDENCE,
+): {
+  approve: string[];
+  approveGroups: Array<[string, string[]]>;
+  hold: string[];
+  flagged: string[];
+  reasons: { ambiguousAction: number; lowConfidence: number; noConfidence: number };
+} {
+  const approve: string[] = [];
+  const hold: string[] = [];
+  const flagged: string[] = [];
+  const groups = new Map<string, string[]>();
+  const reasons = { ambiguousAction: 0, lowConfidence: 0, noConfidence: 0 };
+
+  const put = (note: string, id: string) => {
+    const g = groups.get(note) ?? [];
+    g.push(id);
+    groups.set(note, g);
+    approve.push(id);
+  };
+
+  for (const c of candidates) {
+    if (!(AUTO_APPROVE_ACTIONS as readonly string[]).includes(c.proposed_action)) {
+      hold.push(c.id);
+      continue;
+    }
+    // A floor of 0 never holds anything; a caller can still raise it.
+    if (floor > 0 && (c.confidence ?? 0) < floor) {
+      hold.push(c.id);
+      continue;
+    }
+
+    const why: string[] = [];
+    if ((UNCERTAIN_ACTIONS as readonly string[]).includes(c.proposed_action)) {
+      why.push(c.proposed_action);
+      reasons.ambiguousAction += 1;
+    }
+    if (c.confidence === null || c.confidence === undefined) {
+      why.push("no confidence score");
+      reasons.noConfidence += 1;
+    } else if (c.confidence < LOW_CONFIDENCE_MARK) {
+      why.push(`confidence ${Math.round(c.confidence * 100)}%`);
+      reasons.lowConfidence += 1;
+    }
+
+    if (why.length) {
+      flagged.push(c.id);
+      put(`Auto-approved, UNVERIFIED — ${why.join("; ")}. Check before relying on this record.`, c.id);
+    } else {
+      put("Auto-approved: unambiguous", c.id);
+    }
+  }
+
+  return { approve, approveGroups: [...groups.entries()], hold, flagged, reasons };
 }
 
 /** Run the contact_mapping AI agent on an import batch */

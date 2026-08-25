@@ -193,7 +193,10 @@ export async function uploadEvidenceFile(input: {
   if (clientError) throw new Error(clientError);
 
   const uploaded_by = await currentUserId();
-  const { url } = await uploadAttachment(`evidence/${input.opportunityId}`, input.file);
+  // Store the path in vault_path (which exists for exactly this) and leave
+  // source_url null — an expiring signed URL in a business column is what this
+  // hotfix exists to stop.
+  const { path } = await uploadAttachment(`evidence/${input.opportunityId}`, input.file);
 
   const { data, error } = await supabase
     .from("evidence_sources")
@@ -201,7 +204,10 @@ export async function uploadEvidenceFile(input: {
       related_opportunity_id: input.opportunityId,
       source_type: "file_upload",
       source_title: input.file.name,
-      source_url: url,
+      // vault_path exists for exactly this. An expiring signed URL in
+      // source_url is what this hotfix set out to stop.
+      source_url: null,
+      vault_path: path,
       confidence_level: "medium",
       file_size: input.file.size,
       file_type: input.file.type || null,

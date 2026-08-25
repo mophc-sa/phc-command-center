@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { authErrorMessage } from "@/lib/auth-error-messages";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -52,7 +53,7 @@ function MfaVerifyPage() {
         }
         setFactorId(verified.id);
       } catch (err: unknown) {
-        if (!cancelled) setPrepError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setPrepError(authErrorMessage(err, lang));
       } finally {
         if (!cancelled) setPreparing(false);
       }
@@ -70,7 +71,7 @@ function MfaVerifyPage() {
       if (error) throw error;
       nav({ to: "/", replace: true });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : (lang === "ar" ? "رمز غير صحيح" : "Invalid code");
+      const msg = authErrorMessage(err, lang);
       toast.error(msg);
       setCode("");
     } finally {

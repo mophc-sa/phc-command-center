@@ -22,6 +22,7 @@ import { Route as AuthenticatedTendersRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedTenderConversionRouteImport } from './routes/_authenticated/tender-conversion'
 import { Route as AuthenticatedTargetsRouteImport } from './routes/_authenticated/targets'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSalesManagementRouteImport } from './routes/_authenticated/sales-management'
 import { Route as AuthenticatedRfqJihRouteImport } from './routes/_authenticated/rfq-jih'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedReferenceLibraryRouteImport } from './routes/_authenticated/reference-library'
@@ -120,6 +121,12 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSalesManagementRoute =
+  AuthenticatedSalesManagementRouteImport.update({
+    id: '/sales-management',
+    path: '/sales-management',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRfqJihRoute = AuthenticatedRfqJihRouteImport.update({
   id: '/rfq-jih',
   path: '/rfq-jih',
@@ -327,6 +334,7 @@ export interface FileRoutesByFullPath {
   '/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rfq-jih': typeof AuthenticatedRfqJihRoute
+  '/sales-management': typeof AuthenticatedSalesManagementRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/targets': typeof AuthenticatedTargetsRoute
   '/tender-conversion': typeof AuthenticatedTenderConversionRoute
@@ -371,6 +379,7 @@ export interface FileRoutesByTo {
   '/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/rfq-jih': typeof AuthenticatedRfqJihRoute
+  '/sales-management': typeof AuthenticatedSalesManagementRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/targets': typeof AuthenticatedTargetsRoute
   '/tender-conversion': typeof AuthenticatedTenderConversionRoute
@@ -419,6 +428,7 @@ export interface FileRoutesById {
   '/_authenticated/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/rfq-jih': typeof AuthenticatedRfqJihRoute
+  '/_authenticated/sales-management': typeof AuthenticatedSalesManagementRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/targets': typeof AuthenticatedTargetsRoute
   '/_authenticated/tender-conversion': typeof AuthenticatedTenderConversionRoute
@@ -467,6 +477,7 @@ export interface FileRouteTypes {
     | '/reference-library'
     | '/reports'
     | '/rfq-jih'
+    | '/sales-management'
     | '/settings'
     | '/targets'
     | '/tender-conversion'
@@ -511,6 +522,7 @@ export interface FileRouteTypes {
     | '/reference-library'
     | '/reports'
     | '/rfq-jih'
+    | '/sales-management'
     | '/settings'
     | '/targets'
     | '/tender-conversion'
@@ -558,6 +570,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reference-library'
     | '/_authenticated/reports'
     | '/_authenticated/rfq-jih'
+    | '/_authenticated/sales-management'
     | '/_authenticated/settings'
     | '/_authenticated/targets'
     | '/_authenticated/tender-conversion'
@@ -681,6 +694,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sales-management': {
+      id: '/_authenticated/sales-management'
+      path: '/sales-management'
+      fullPath: '/sales-management'
+      preLoaderRoute: typeof AuthenticatedSalesManagementRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/rfq-jih': {
@@ -962,6 +982,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedReferenceLibraryRoute: typeof AuthenticatedReferenceLibraryRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedRfqJihRoute: typeof AuthenticatedRfqJihRoute
+  AuthenticatedSalesManagementRoute: typeof AuthenticatedSalesManagementRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTargetsRoute: typeof AuthenticatedTargetsRoute
   AuthenticatedTenderConversionRoute: typeof AuthenticatedTenderConversionRoute
@@ -994,6 +1015,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedReferenceLibraryRoute: AuthenticatedReferenceLibraryRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedRfqJihRoute: AuthenticatedRfqJihRoute,
+  AuthenticatedSalesManagementRoute: AuthenticatedSalesManagementRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTargetsRoute: AuthenticatedTargetsRoute,
   AuthenticatedTenderConversionRoute: AuthenticatedTenderConversionRoute,

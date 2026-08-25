@@ -179,15 +179,28 @@ export function referenceContent(r: Record<string, unknown>): string {
 }
 
 // ---- Direct RFQ / JIH workflow ----
+// MUST stay identical to TRANSITIONS in src/lib/workflow-actions.ts.
+//
+// Phase 3 (2026-08-18): `jih_bafo` and `contract_signed` were missing here
+// while the client map offered both. The picker showed them, the user clicked,
+// and this map answered 409 "Transition jih -> jih_bafo is not allowed" — two
+// of the PRD's canonical stages (§17) were unreachable in practice.
+//
+// This is the exact failure the TENDER map's comment below describes, which
+// was found and fixed for tenders and guarded by a contract test that diffs
+// the two maps. The sales maps never got the same treatment. They do now —
+// see sales-transitions.contract.test.ts.
 export const SALES_TRANSITIONS: Record<string, string[]> = {
   rfq_received: ["jih", "lost", "on_hold"],
-  jih: ["under_negotiation", "verbally_awarded", "lost", "on_hold"],
+  jih: ["jih_bafo", "under_negotiation", "verbally_awarded", "lost", "on_hold"],
+  jih_bafo: ["under_negotiation", "verbally_awarded", "lost", "on_hold"],
   under_negotiation: ["verbally_awarded", "lost", "on_hold"],
   verbally_awarded: ["contract_received", "lost", "on_hold"],
-  contract_received: ["won", "on_hold"],
+  contract_received: ["contract_signed", "won", "on_hold"],
+  contract_signed: ["won", "on_hold"],
   won: [],
   lost: [],
-  on_hold: ["jih", "under_negotiation", "verbally_awarded", "rfq_received"],
+  on_hold: ["jih", "jih_bafo", "under_negotiation", "verbally_awarded", "rfq_received"],
 };
 // Stages that require manager sign-off (salespeople may only request them).
 export const SALES_GATED = new Set(["verbally_awarded", "contract_received", "won"]);
@@ -312,14 +325,33 @@ export async function applySalesStage(
     patch.contract_received_date =
       fields.contract_received_date ?? new Date().toISOString().slice(0, 10);
   }
+  if (toStage === "contract_signed") {
+    patch.contract_signed_date = fields.contract_signed_date ?? new Date().toISOString().slice(0, 10);
+  }
   if (toStage === "won") {
     patch.stage = "won";
+    // PRD §47-48: only Won enters the official awarded figure and the target,
+    // and Won starts the PROJECT handover — a different track entirely.
     patch.handover_status = "pending";
+    // commercial_handoff_status is deliberately NOT touched here.
+    //
+    // An earlier version of this set it to "with_commercial" on Won. That was
+    // wrong: commercial_handoff_status models the PRICING cycle that runs
+    // BEFORE a deal is won (with_sales -> ... -> submitted -> waiting_client).
+    // Setting it on Won pushed a closed deal back into the pricing queue and
+    // made "waiting on Commercial to price it" indistinguishable from "already
+    // sold". Won is a Sales outcome; what happens after it is the project
+    // handover above, and the Contract / Project Handover phase owns that.
   }
   if (toStage === "lost") {
     patch.stage = "lost";
     patch.loss_reason = fields.loss_reason;
     patch.loss_notes = fields.loss_notes ?? null;
+    // Optional context (PRD §4). Not required — a loss is often recorded
+    // before anyone knows who won — but worth capturing when it is known,
+    // and `from` is the only moment the stage it died at is still available.
+    patch.lost_to_competitor = fields.lost_to_competitor ?? null;
+    patch.lost_at_stage = from;
   }
   if (toStage === "on_hold") {
     patch.hold_reason = fields.hold_reason;
@@ -370,18 +402,36 @@ export async function executeTenderConversion(
   actorId: string,
   approvalId: string | null = null,
 ): Promise<{ id: string }> {
+  // Duplicate protection (PRD §3). The conversion has two callers — the
+  // approval engine and the legacy handler — so the guard cannot live in one
+  // of them. A unique partial index on opportunities.source_tender_id is the
+  // real enforcement; this check exists to fail with a sentence a human can
+  // read instead of a constraint violation.
+  if (tender.converted_opportunity_id) {
+    throw new Error("This tender has already been converted to a JIH opportunity");
+  }
+
+  // The winning contractor is whoever the tender was awarded to. It was
+  // already carried as main_contractor_id; winning_contractor_id names it for
+  // what it is, so a later phase does not have to infer intent from a
+  // general-purpose column.
+  const winner = tender.winning_contractor_id ?? tender.main_contractor_id ?? null;
+
   const { data: opp, error } = await svc
     .from("opportunities")
     .insert({
       project_name: tender.tender_name,
       project_id: tender.project_id,
-      main_contractor_id: tender.main_contractor_id,
-      company_id: tender.main_contractor_id,
+      main_contractor_id: winner,
+      company_id: winner,
       estimated_value_max: tender.estimated_project_value,
       flow_type: "tender_converted",
       sales_stage: "jih",
       stage: "qualification",
       pipeline_step: "qualified_lead",
+      // The back-link. Without it a converted JIH had no route to the tender
+      // history that produced it — the forward link only pointed one way.
+      source_tender_id: tender.id,
       owner_id: tender.tender_owner_id ?? actorId,
       created_by: actorId,
     })

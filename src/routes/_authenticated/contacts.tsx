@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Users } from "lucide-react";
@@ -16,6 +16,12 @@ import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
 
 export const Route = createFileRoute("/_authenticated/contacts")({
+  // `?q=` lets the command palette deep-link straight to a named contact.
+  // Contacts have no detail route, so a search hit pre-filters this list
+  // instead of dropping the user on the full roster (QA 2026-08-10 ISSUE-001).
+  validateSearch: (s: Record<string, unknown>) => ({
+    q: typeof s.q === "string" ? s.q : "",
+  }),
   head: () => ({ meta: [{ title: "Contacts — PHC" }, { name: "robots", content: "noindex" }] }),
   component: ContactsPage,
 });
@@ -43,8 +49,15 @@ function ContactsPage() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [creatingCompanyFor, setCreatingCompanyFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
-  const [query, setQuery] = useState("");
+  const { q: initialQuery } = Route.useSearch();
+  const [query, setQuery] = useState(initialQuery);
   const [authFilter, setAuthFilter] = useState<ContactAuthority | "all">("all");
+  // Arriving from the command palette while already on this page changes only
+  // the search param — the component stays mounted, so useState's initial
+  // value alone would silently ignore the new query.
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
   const [showArchived, setShowArchived] = useState(false);
 
   const { data: contacts = [], isLoading } = useQuery({

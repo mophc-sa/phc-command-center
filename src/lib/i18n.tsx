@@ -19,6 +19,7 @@ export const strings = {
   nav_boq: { en: "BOQ Center", ar: "مركز الـ BOQ" },
   nav_targets: { en: "Targets & Performance", ar: "الأهداف والأداء" },
   nav_reports: { en: "Reports", ar: "التقارير" },
+  nav_sales_management: { en: "Sales Management", ar: "إدارة المبيعات" },
   nav_agent_activity: { en: "Agent Activity", ar: "نشاط الوكيل" },
   nav_settings: { en: "Settings", ar: "الإعدادات" },
   nav_admin_settings: { en: "Admin Settings", ar: "إعدادات المسؤول" },
@@ -38,8 +39,15 @@ export const strings = {
   nav_tender_conversion: { en: "Tender Conversion", ar: "تحويل المناقصات" },
   nav_lead_tender_inbox: { en: "Lead & Tender Inbox", ar: "صندوق العملاء والمناقصات" },
 
+  // Phase 1 navigation (PRD 2026-08-12 target architecture).
+  navgroup_sales: { en: "Sales", ar: "المبيعات" },
+  nav_awarded_projects: { en: "Awarded Projects", ar: "المشاريع المرساة" },
+  nav_ai_configuration: { en: "AI Configuration", ar: "إعداد الذكاء" },
+  nav_ai_audit: { en: "AI Audit", ar: "تدقيق الذكاء" },
+
   // Sidebar / nav groups
   navgroup_overview: { en: "Overview", ar: "نظرة عامة" },
+  navgroup_home: { en: "Home", ar: "الرئيسية" },
   navgroup_crm: { en: "CRM", ar: "إدارة العلاقات" },
   navgroup_production: { en: "Production", ar: "الإنتاج" },
   navgroup_pipeline: { en: "Pipeline", ar: "خط المبيعات" },
@@ -191,6 +199,7 @@ export const strings = {
   acty_no_next_action: { en: "No Next Action", ar: "بلا إجراء تالٍ" },
   acty_inactive_tier_a_opportunity: { en: "Inactive Tier A Opportunity", ar: "فرصة طبقة أ خاملة" },
   acty_contract_evidence_missing: { en: "Contract Evidence Missing", ar: "دليل عقد ناقص" },
+  acty_submission_pending_on: { en: "Submission waiting on you", ar: "تسليم بانتظارك" },
 
   // Sales Action Queue — related record type labels
   acrt_opportunity: { en: "Opportunity", ar: "فرصة" },
@@ -218,6 +227,35 @@ export const strings = {
   ibx_estimated_value: { en: "Estimated Value", ar: "القيمة التقديرية" },
   ibx_deadline: { en: "Deadline", ar: "الموعد النهائي" },
   ibx_evidence_url: { en: "Evidence URL / Attachment", ar: "رابط الدليل / المرفق" },
+  doc_files: { en: "Files", ar: "الملفات" },
+  doc_documents: { en: "Documents", ar: "المستندات" },
+  doc_photos: { en: "Photos", ar: "الصور" },
+  doc_upload: { en: "Upload", ar: "رفع ملف" },
+  doc_uploading: { en: "Uploading…", ar: "جارٍ الرفع…" },
+  doc_uploaded: { en: "File uploaded", ar: "تم رفع الملف" },
+  doc_deleted: { en: "File removed", ar: "أُزيل الملف" },
+  doc_unlinked: { en: "File detached from this record", ar: "فُصل الملف عن هذا السجل" },
+  doc_none: { en: "No files yet", ar: "لا ملفات بعد" },
+  doc_none_hint: {
+    en: "Upload a BOQ, a drawing, a signed contract or a site photo. Files attached here are visible to whoever can see this record.",
+    ar: "ارفع BOQ أو مخططًا أو عقدًا موقّعًا أو صورة موقع. الملفات المرفقة هنا يراها من يرى هذا السجل.",
+  },
+  doc_count: { en: "{n} file(s)", ar: "{n} ملف" },
+  doc_versions: { en: "Versions", ar: "الإصدارات" },
+  doc_supersede: { en: "Replace with a new version", ar: "استبدال بإصدار جديد" },
+  doc_replacing: { en: "Next upload replaces the selected file", ar: "الرفع القادم يستبدل الملف المحدد" },
+  doc_superseded: { en: "Replaced by a newer version", ar: "استُبدل بإصدار أحدث" },
+  doc_single_version: { en: "Only one version", ar: "إصدار واحد فقط" },
+  doc_this_one: { en: "current", ar: "الحالي" },
+  doc_unlink: { en: "Detach from this record", ar: "فصل عن هذا السجل" },
+  doc_delete: { en: "Remove", ar: "إزالة" },
+  doc_title_placeholder: { en: "Title (optional)", ar: "عنوان (اختياري)" },
+  doc_err_file_too_large: { en: "File is larger than 25MB.", ar: "حجم الملف يتجاوز 25 ميغابايت." },
+  doc_err_file_type_not_allowed: { en: "That file type is not accepted.", ar: "نوع الملف غير مقبول." },
+  attachment_unavailable: {
+    en: "This attachment could not be opened — the file is missing or you do not have access.",
+    ar: "تعذّر فتح المرفق — الملف غير موجود أو لا تملك صلاحية الوصول إليه.",
+  },
   ibx_assigned_owner: { en: "Assigned Owner", ar: "المسؤول المعيّن" },
   ibx_follow_up_date: { en: "Follow-up Date", ar: "تاريخ المتابعة" },
   ibx_classify: { en: "Classify", ar: "تصنيف" },
@@ -606,6 +644,14 @@ export const strings = {
   empty_approvals: {
     en: "No opportunities are awaiting approval.",
     ar: "لا توجد فرص بانتظار الاعتماد.",
+  },
+  // Single-record context. The approvals *list* string above was being reused
+  // on an individual opportunity's detail page, where "No opportunities are
+  // awaiting approval" reads as a statement about the whole pipeline rather
+  // than about the record on screen (QA 2026-08-10 ISSUE-007).
+  empty_approvals_record: {
+    en: "This opportunity has no approval requests yet.",
+    ar: "لا توجد طلبات اعتماد على هذه الفرصة حتى الآن.",
   },
   empty_discovery: {
     en: "No new discovery candidates need qualification today.",
@@ -1332,6 +1378,159 @@ export const strings = {
   navgroup_resources: { en: "Resources", ar: "الموارد" },
 
   // Command Palette
+  // Agent Activity / AI Agents / Data Import.
+  // QA 2026-08-10 (ISSUE-005): these three pages rendered most of their chrome
+  // as hardcoded English under Arabic headings — /agent-activity measured 196
+  // Latin words against 97 Arabic. Translations below are curated, not machine
+  // output. Agent run summaries stay untranslated on purpose: they are row data
+  // written by the agents, not UI strings.
+  aa_eyebrow_governance: { en: "Governance", ar: "الحوكمة" },
+  aa_project_radar: { en: "Project Radar", ar: "رادار المشاريع" },
+  aa_scan_pipeline: { en: "Scan Pipeline", ar: "افحص خط المبيعات" },
+  aa_scanning: { en: "Running…", ar: "جارٍ التشغيل…" },
+  aa_radar_hint: {
+    en: 'Click "Scan Pipeline" to run the Project Radar agent.',
+    ar: 'اضغط "افحص خط المبيعات" لتشغيل وكيل رادار المشاريع.',
+  },
+  aa_kpi_runs: { en: "Runs (recent 200)", ar: "التشغيلات (آخر 200)" },
+  aa_kpi_completed: { en: "Completed", ar: "مكتملة" },
+  aa_kpi_not_configured: { en: "Not configured", ar: "غير مُهيأة" },
+  aa_kpi_errors: { en: "Errors", ar: "أخطاء" },
+  aa_runs_last_7: { en: "Runs — last 7 days", ar: "التشغيلات — آخر 7 أيام" },
+  aa_search_placeholder: { en: "Search agent, summary", ar: "ابحث في الوكلاء والملخصات" },
+  aa_all_agents: { en: "All agents", ar: "كل الوكلاء" },
+  aa_tab_batch_runs: { en: "Batch Runs", ar: "التشغيلات الدفعية" },
+  aa_tab_ai_outputs: { en: "AI Outputs", ar: "مخرجات الذكاء" },
+  aa_empty_outputs: { en: "No AI agent outputs yet.", ar: "لا توجد مخرجات للوكلاء حتى الآن." },
+  aa_scanned_suffix: { en: "scanned", ar: "سجل مفحوص" },
+  aa_recommendations_suffix: { en: "recommendations", ar: "توصية" },
+  aa_status_all: { en: "All", ar: "الكل" },
+  aa_status_running: { en: "Running", ar: "قيد التشغيل" },
+  aa_status_completed: { en: "Completed", ar: "مكتملة" },
+  aa_status_failed: { en: "Failed", ar: "فاشلة" },
+  aa_status_not_configured: { en: "Not configured", ar: "غير مُهيأة" },
+
+  ag_eyebrow_intelligence: { en: "Intelligence", ar: "الذكاء" },
+  ag_title: { en: "AI Agents", ar: "وكلاء الذكاء" },
+  ag_description: {
+    en: "Real-data agents. Every recommendation shows its evidence; nothing is applied automatically.",
+    ar: "وكلاء تعمل على بيانات حقيقية. كل توصية تعرض دليلها، ولا يُطبَّق شيء تلقائياً.",
+  },
+  ag_run_agents: { en: "Run agents", ar: "تشغيل الوكلاء" },
+  ag_lead_scoring: { en: "Lead Scoring", ar: "تقييم العملاء المحتملين" },
+  ag_duplicate_detection: { en: "Duplicate Detection", ar: "كشف التكرار" },
+  ag_weekly_report: { en: "Weekly Report", ar: "التقرير الأسبوعي" },
+  ag_recommendations: { en: "Recommendations", ar: "التوصيات" },
+  ag_empty_recommendations: {
+    en: "No pending recommendations. Run an agent to generate evidence-backed suggestions.",
+    ar: "لا توجد توصيات معلّقة. شغّل وكيلاً لتوليد اقتراحات مدعومة بالأدلة.",
+  },
+  ag_recent_runs: { en: "Recent runs", ar: "آخر التشغيلات" },
+
+  di_eyebrow_data: { en: "Data", ar: "البيانات" },
+  di_title: { en: "Import Center", ar: "مركز الاستيراد" },
+  di_description: {
+    en: "Upload and map structured data files into PHC.",
+    ar: "ارفع ملفات البيانات المنظّمة وطابق أعمدتها داخل PHC.",
+  },
+  di_new_import: { en: "New Import", ar: "استيراد جديد" },
+  di_choose_file_first: { en: "Choose a file first", ar: "اختر ملفاً أولاً" },
+  di_import_failed: { en: "Import failed", ar: "فشل الاستيراد" },
+  di_empty_active: { en: "No active imports.", ar: "لا توجد عمليات استيراد نشطة." },
+  di_empty_active_hint: {
+    en: "Start one with New Import above.",
+    ar: "ابدأ واحدة عبر «استيراد جديد» بالأعلى.",
+  },
+  di_empty_profiles: {
+    en: "No recurring source profiles yet.",
+    ar: "لا توجد ملفات مصادر متكررة حتى الآن.",
+  },
+  di_empty_profiles_hint: {
+    en: "Source profiles are created automatically when the AI classifies a recurring upload pattern.",
+    ar: "تُنشأ ملفات المصادر تلقائياً عندما يصنّف الذكاء نمط رفع متكرراً.",
+  },
+  di_empty_processed: { en: "No processed batches yet.", ar: "لا توجد دفعات معالَجة حتى الآن." },
+  di_status_uploading: { en: "Uploading…", ar: "جارٍ الرفع…" },
+  di_status_parsing: { en: "Parsing…", ar: "جارٍ التحليل…" },
+  di_status_map_columns: { en: "Map Columns", ar: "مطابقة الأعمدة" },
+  di_status_validating: { en: "Validating", ar: "قيد التحقق" },
+  di_status_duplicate_review: { en: "Review Duplicates", ar: "مراجعة التكرارات" },
+  di_status_pending_approval: { en: "Needs Approval", ar: "بانتظار الاعتماد" },
+  di_status_approved: { en: "Approved", ar: "معتمَدة" },
+  di_status_dry_run: { en: "Dry Run", ar: "تشغيل تجريبي" },
+  di_status_committed: { en: "Committed", ar: "مُثبَّتة" },
+  di_status_rolled_back: { en: "Rolled Back", ar: "متراجَع عنها" },
+  di_status_failed: { en: "Failed", ar: "فاشلة" },
+  di_status_cancelled: { en: "Cancelled", ar: "ملغاة" },
+
+  // Phase 2 — Intake & Opportunity Review (PRD 2026-08-12 §11-19).
+  ibx_request_type: { en: "Request Type", ar: "نوع الطلب" },
+  ibx_request_type_jih: { en: "JIH — contractor already has the job", ar: "JIH — المقاول يملك المشروع" },
+  ibx_request_type_tender_contractor: { en: "Tender — contractors bidding", ar: "مناقصة — مقاولون يتنافسون" },
+  ibx_request_type_tender_government: { en: "Tender — government / owner, pre-award", ar: "مناقصة — جهة حكومية/مالك، قبل الترسية" },
+  ibx_request_type_unknown: { en: "Unknown / insufficient information", ar: "غير محدد / معلومات غير كافية" },
+  ibx_owner_entity: { en: "Owner / government entity", ar: "المالك / الجهة الحكومية" },
+  ibx_client_rfq_ref: { en: "Client RFQ reference", ar: "مرجع طلب العميل" },
+  ibx_internal_rfq_ref: { en: "Internal RFQ reference", ar: "المرجع الداخلي" },
+  ibx_has_boq: { en: "BOQ received", ar: "وصل جدول الكميات" },
+  ibx_has_drawings: { en: "Drawings received", ar: "وصلت المخططات" },
+  ibx_has_specs: { en: "Specifications received", ar: "وصلت المواصفات" },
+  intake_sent_for_review: { en: "Request saved and sent for review.", ar: "حُفظ الطلب وأُرسل للمراجعة." },
+
+  // Review gate
+  rev_queue_title: { en: "Opportunity Review", ar: "مراجعة الفرص" },
+  rev_queue_intro: {
+    en: "Every new request is reviewed here before it can go to pricing.",
+    ar: "كل طلب جديد يُراجَع هنا قبل أن ينتقل إلى التسعير.",
+  },
+  rev_state_pending_review: { en: "Pending review", ar: "بانتظار المراجعة" },
+  rev_state_approved_for_pricing: { en: "Approved for pricing", ar: "معتمَد للتسعير" },
+  rev_state_need_information: { en: "Needs information", ar: "بحاجة إلى معلومات" },
+  rev_state_monitored: { en: "Monitored", ar: "تحت المراقبة" },
+  rev_state_rejected: { en: "Rejected", ar: "مرفوض" },
+  rev_approve: { en: "Approve for Pricing", ar: "اعتماد للتسعير" },
+  rev_need_info: { en: "Need Information", ar: "طلب معلومات" },
+  rev_monitor: { en: "Monitor", ar: "مراقبة" },
+  rev_reject: { en: "Reject", ar: "رفض" },
+  rev_resubmit: { en: "Resubmit for review", ar: "إعادة الإرسال للمراجعة" },
+  rev_required_items: { en: "What is missing", ar: "ما الناقص" },
+  rev_required_items_hint: { en: "One per line", ar: "بند في كل سطر" },
+  rev_comment: { en: "Comment", ar: "ملاحظة" },
+  rev_responsible: { en: "Responsible", ar: "المسؤول" },
+  rev_due_date: { en: "Due date", ar: "تاريخ الاستحقاق" },
+  rev_reject_reason: { en: "Reason for rejection", ar: "سبب الرفض" },
+  rev_no_authority: {
+    en: "Only a Sales Manager or BD Manager can decide a review.",
+    ar: "المراجعة من صلاحية مدير المبيعات أو مدير التطوير فقط.",
+  },
+  rev_empty: { en: "No requests are waiting for review.", ar: "لا توجد طلبات بانتظار المراجعة." },
+  rev_approved_routed_jih: { en: "Approved — routed to the opportunity pipeline.", ar: "اعتُمد — وُجّه إلى خط الفرص." },
+  rev_approved_routed_tender: { en: "Approved — routed to the tender board.", ar: "اعتُمد — وُجّه إلى لوحة المناقصات." },
+  rev_approved_no_route: { en: "Approved, but the request type is unknown — set it, then route.", ar: "اعتُمد، لكن نوع الطلب غير محدد — حدّده ثم وجّه." },
+  rev_resubmitted: { en: "Sent back for review.", ar: "أُعيد إرساله للمراجعة." },
+  rev_info_requested: { en: "Information requested.", ar: "طُلبت المعلومات." },
+  rev_monitored_done: { en: "Moved to monitoring.", ar: "نُقل إلى المراقبة." },
+  rev_rejected_done: { en: "Request rejected.", ar: "رُفض الطلب." },
+  rev_resubmit_count: { en: "Resubmissions", ar: "مرات إعادة الإرسال" },
+  rev_ai_recommendation: { en: "AI qualification note", ar: "ملاحظة تأهيل من الذكاء" },
+  // Expandable detail on a review row. Approving for pricing creates an
+  // opportunity and moves the file to Commercial, and the queue showed four
+  // fields out of the fifty-five the record carries — has_boq among them was
+  // even being fetched and then not rendered.
+  rev_show_details: { en: "Show details", ar: "عرض التفاصيل" },
+  rev_hide_details: { en: "Hide details", ar: "إخفاء التفاصيل" },
+  rev_details_scope: { en: "Scope & value", ar: "النطاق والقيمة" },
+  rev_details_docs: { en: "Documents received", ar: "الوثائق المستلمة" },
+  rev_details_parties: { en: "Parties & contact", ar: "الأطراف وجهة الاتصال" },
+  rev_details_origin: { en: "Origin", ar: "المصدر" },
+  rev_details_none: { en: "Not recorded", ar: "غير مُسجَّل" },
+  rev_details_no_docs: { en: "No documents recorded", ar: "لا وثائق مُسجَّلة" },
+  ibx_notes: { en: "Notes", ar: "ملاحظات" },
+  ibx_main_contractor: { en: "Main Contractor", ar: "المقاول الرئيسي" },
+  ibx_email: { en: "Email", ar: "البريد الإلكتروني" },
+  ibx_phone: { en: "Phone", ar: "الهاتف" },
+  ibx_info_due: { en: "Information due", ar: "موعد استلام الناقص" },
+
   cmd_placeholder: { en: "Search records, pages…", ar: "ابحث في السجلات والصفحات…" },
   cmd_no_results: { en: "No results found.", ar: "لا نتائج." },
   cmd_pages: { en: "Pages", ar: "الصفحات" },
@@ -1344,7 +1543,48 @@ export const strings = {
   notif_empty: { en: "You're all caught up", ar: "لا إشعارات جديدة" },
   notif_empty_desc: { en: "Approvals, assignments, and alerts will appear here.", ar: "ستظهر هنا الاعتمادات والتكليفات والتنبيهات." },
   notif_mark_all_read: { en: "Mark all read", ar: "وسم الكل كمقروء" },
-  notif_coming_soon: { en: "Live notifications coming soon", ar: "الإشعارات الفعلية قادمة قريباً" },
+  notif_dismiss: { en: "Dismiss", ar: "إخفاء" },
+
+  // Notification types (Phase 4). Keys are notif_type_<notification_type>.
+  notif_type_intake_review_requested: { en: "Intake review", ar: "مراجعة طلب" },
+  notif_type_intake_need_information: { en: "Information requested", ar: "معلومات مطلوبة" },
+  notif_type_intake_resubmitted: { en: "Resubmitted", ar: "أُعيد الإرسال" },
+  notif_type_intake_approved: { en: "Approved for pricing", ar: "معتمد للتسعير" },
+  notif_type_intake_rejected: { en: "Request rejected", ar: "طلب مرفوض" },
+  notif_type_intake_assigned: { en: "Request assigned", ar: "طلب مُسند إليك" },
+  notif_type_approval_requested: { en: "Approval requested", ar: "طلب اعتماد" },
+  notif_type_approval_approved: { en: "Approved", ar: "تم الاعتماد" },
+  notif_type_approval_rejected: { en: "Returned", ar: "أُعيد الطلب" },
+  notif_type_stage_changed: { en: "Stage changed", ar: "تغيّرت المرحلة" },
+  notif_type_handoff_changed: { en: "Commercial handoff", ar: "التسليم التجاري" },
+  notif_type_assigned: { en: "Assigned to you", ar: "مُسند إليك" },
+  notif_type_item_overdue: { en: "Overdue", ar: "متأخر" },
+
+  // ---- Action Center (Phase 4 unified queue) ----
+  ac_scope_mine: { en: "Mine", ar: "مهامي" },
+  ac_scope_team: { en: "Team", ar: "الفريق" },
+  ac_scope_all: { en: "All", ar: "الكل" },
+  ac_urgency_all: { en: "Any time", ar: "أي وقت" },
+  ac_urgency_overdue: { en: "Overdue", ar: "متأخر" },
+  ac_urgency_due_today: { en: "Due today", ar: "مستحق اليوم" },
+  ac_urgency_upcoming: { en: "Upcoming", ar: "قادم" },
+  ac_filter_priority: { en: "Priority", ar: "الأولوية" },
+  ac_filter_entity: { en: "Record type", ar: "نوع السجل" },
+  ac_filter_owner: { en: "Owner", ar: "المسؤول" },
+  ac_source_flag: { en: "Queue", ar: "قائمة الإجراءات" },
+  ac_source_task: { en: "Task", ar: "مهمة" },
+  ac_source_follow_up: { en: "Follow-up", ar: "متابعة" },
+  ac_source_approval: { en: "Approval", ar: "اعتماد" },
+  ac_source_intake_review: { en: "Intake", ar: "طلب وارد" },
+  ac_kpi_blocking: { en: "Blocking", ar: "معطِّل" },
+  ac_kpi_due_today: { en: "Due today", ar: "مستحق اليوم" },
+  ac_why: { en: "Why", ar: "السبب" },
+
+  // ---- My Workspace — today panel ----
+  ws_today_title: { en: "What needs you today", ar: "ما يحتاجك اليوم" },
+  ws_today_desc: { en: "Your highest-priority work across every queue.", ar: "أعلى أعمالك أولوية من كل القوائم." },
+  ws_today_empty: { en: "Nothing needs you right now", ar: "لا شيء يحتاجك الآن" },
+  ws_today_all: { en: "Open Action Center", ar: "فتح مركز الإجراءات" },
 
   // Quick Actions menu
   nav_quick_actions: { en: "Quick Actions", ar: "الإجراءات السريعة" },
@@ -1366,6 +1606,8 @@ export const strings = {
 } satisfies Dict;
 
 type Key = keyof typeof strings;
+/** Public alias so callers can type maps of translation keys. */
+export type StringKey = Key;
 
 type Ctx = {
   lang: Lang;

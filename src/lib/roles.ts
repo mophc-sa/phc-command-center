@@ -96,6 +96,20 @@ const PIPELINE_OPERATORS: AppRole[] = [
 // ---- Capability helpers -----------------------------------------------------
 // Commercial authority — deliberately EXCLUDES system_admin.
 export const canApproveCommercialAction = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
+
+/**
+ * Turning a read-only archive row into a live opportunity.
+ *
+ * A deliberate mirror of can_approve_historical_promotion() in
+ * 20260829100000 — sales_manager, bd_manager, general_manager and nothing
+ * else. Notably NOT system_admin: an operator is not a commercial
+ * decision-maker, and the database says so too. This helper only produces a
+ * clean 403 before the round trip; the database remains the authority and
+ * refuses the call regardless of what the backend believes.
+ */
+export const canApproveHistoricalPromotion = (r: RoleInput) =>
+  inGroup(r, ["sales_manager", "bd_manager", "general_manager"]);
+
 export const canAssignOwner = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
 export const canChangeCommercialStage = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
 export const canRunSensitiveSalesAction = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
@@ -133,12 +147,18 @@ export const canCreateSalesRecords = (r: RoleInput) =>
 export const canExecuteDelete = (r: RoleInput) => inGroup(r, ["system_admin", "bd_manager"]);
 
 // Total Value (RFQ/opportunity) edit authority — per client spec
-// (2026-07-27): Finance Manager, BD Manager, System Admin only. Deliberately
-// NOT the general COMMERCIAL_MANAGERS set (sales_manager/executives are
-// excluded here even though they hold broader commercial authority
-// elsewhere) — this is a narrower, spec-specific grant.
+// (2026-07-27): Finance Manager and BD Manager. Deliberately NOT the general
+// COMMERCIAL_MANAGERS set (sales_manager/executives are excluded here even
+// though they hold broader commercial authority elsewhere) — this is a
+// narrower, spec-specific grant.
+//
+// Phase 1 governance (PRD 2026-08-12 §111–114): `system_admin` was removed
+// from this list. Total Value is the commercial number the whole pipeline is
+// judged on; platform administration is not a reason to be able to set it.
+// An administrator who genuinely needs it holds finance_manager or
+// bd_manager as a second role, and the authority comes from that role.
 export const canEditTotalValue = (r: RoleInput) =>
-  inGroup(r, ["finance_manager", "bd_manager", "system_admin"]);
+  inGroup(r, ["finance_manager", "bd_manager"]);
 
 // Manual RFQ-number entry/edit authority — per client spec (2026-07-27):
 // "Account Manager" (this codebase's existing term for the role is
@@ -166,20 +186,42 @@ export const canViewAllSalesData = (r: RoleInput) =>
 export const canUseDiscussion = (r: RoleInput) =>
   inGroup(r, ["general_manager", "sales_manager", "bd_manager", "system_admin"]);
 
+// ---- Intake / Opportunity Review (Phase 2) ----------------------------------
+// PRD 2026-08-12 §15: a new request is reviewed by the Sales Manager OR the BD
+// Manager before it can go to pricing — either one alone is sufficient, they do
+// not both have to sign. Executives are included because they outrank both and
+// already hold every commercial approval in this system.
+//
+// `system_admin` is deliberately absent, for the same reason it is absent from
+// the BAFO chain: approving a request for pricing is a commercial judgement,
+// not platform administration. Mirrors the DB helper
+// public.can_review_intake(uuid), which enforces this server-side.
+export const canReviewIntake = (r: RoleInput) =>
+  inGroup(r, ["sales_manager", "bd_manager", ...ROLE_GROUPS.executive]);
+
 // ---- BAFO / commercial-discount approval chain ------------------------------
 // Client spec (2026-07-27), section 12's proposed 4-step approval chain
 // (a salesperson/BD rep negotiates and requests; these four decide, in
 // order). Each mirrors a same-named DB helper used by bafo_requests'
 // step-gating trigger — see 20260727220000_bafo_approval_chain.sql.
+//
+// Phase 1 governance (PRD 2026-08-12 §111–114): `system_admin` held ALL FOUR
+// steps as a "platform-admin override". One account with only that role could
+// therefore originate a discount request and approve every check on it — the
+// four-step control enforced an order, not four independent judgements. The
+// override is removed at every step. A user who legitimately decides one of
+// these holds the matching business role, and the authority comes from there;
+// because roles are additive, `system_admin` + `finance_manager` still passes
+// the finance step, and passes it *as* finance_manager.
 export const canRequestBafo = (r: RoleInput) => canCreateSalesRecords(r);
 export const canReviewBafoCommercial = (r: RoleInput) =>
-  inGroup(r, ["bd_manager", "sales_manager", "system_admin"]);
+  inGroup(r, ["bd_manager", "sales_manager"]);
 export const canApproveBafoCost = (r: RoleInput) =>
-  inGroup(r, ["estimation_manager", "system_admin"]);
+  inGroup(r, ["estimation_manager"]);
 export const canApproveBafoFinance = (r: RoleInput) =>
-  inGroup(r, ["finance_manager", "system_admin"]);
+  inGroup(r, ["finance_manager"]);
 export const canApproveBafoFinal = (r: RoleInput) =>
-  inGroup(r, [...ROLE_GROUPS.executive, ...ROLE_GROUPS.systemAdmin]);
+  inGroup(r, ROLE_GROUPS.executive);
 
 // ---- Mandatory MFA (2026-08-02 security hardening) ---------------------------
 // General Manager, Finance Manager, Sales Manager, System Administrator, and

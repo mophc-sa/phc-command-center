@@ -2,6 +2,8 @@
 // Extracted from the dashboard route so they can be unit-tested in isolation.
 // No Supabase, no React, no side-effects.
 
+import { opportunityValue } from "@/lib/sales-kpis";
+
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
 /**
@@ -141,13 +143,32 @@ export type TenderPipelineRow = {
  * Returns the total active JIH pipeline value.
  * Includes: jih, jih_bafo, verbally_awarded, contract_received, contract_signed.
  * Excludes: won (already awarded), lost, on_hold.
+ *
+ * The figure comes from opportunityValue() — contract, else quotation, else the
+ * top of the estimate — which is the same precedence the SQL views use through
+ * opportunity_value(). This previously summed `estimated_value_max` alone, and
+ * that was the one reader in the system that disagreed with every other: a deal
+ * carrying a real quoted figure and no estimate counted as zero here while
+ * Sales Management reported it in full. This drives My Workspace, so the
+ * salesperson's own screen was the one showing the wrong number.
+ *
+ * Nothing was copied into estimated_value_max to paper over it — duplicating a
+ * value into a second column to satisfy one caller is how two dashboards start
+ * reporting different totals for the same pipeline.
  */
 export function computeJihPipelineTotal(
-  opps: Array<{ sales_stage: string | null; estimated_value_max: number | null }>,
+  opps: Array<{
+    stage?: string | null;
+    sales_stage: string | null;
+    estimated_value_max?: number | string | null;
+    quotation_value?: number | string | null;
+    contract_value?: number | string | null;
+  }>,
 ): number {
   return opps
+    .filter(o => o.stage !== "archived")
     .filter(o => o.sales_stage !== null && JIH_ACTIVE_STAGES.has(o.sales_stage))
-    .reduce((sum, o) => sum + (o.estimated_value_max || 0), 0);
+    .reduce((sum, o) => sum + (opportunityValue(o) ?? 0), 0);
 }
 
 /**

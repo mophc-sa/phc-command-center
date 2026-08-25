@@ -8,9 +8,11 @@ import {
   Award, CheckCheck, Clock, Plus, ChevronDown, ChevronRight, AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveCanonicalStage, CANONICAL_ACTIVE_STAGES } from "@/lib/stage-canonical";
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { TodayPanel } from "@/components/phc/TodayPanel";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -52,6 +54,27 @@ function monthStart() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 function yearStart() { return `${new Date().getFullYear()}-01-01`; }
+
+// Phase 1 — canonical stage.
+//
+// These four lists used to filter on the legacy `stage` column server-side
+// (`.eq("stage","won")` / `.not("stage","in","(won,lost,archived)")`), while
+// Command Center, Reports and the Opportunities list had already moved to
+// `sales_stage`. My Workspace and the management views therefore disagreed
+// about the same deal — a verbal award reads `verbally_awarded` in
+// `sales_stage` but still sits under `quotation` in `stage`.
+//
+// The filter cannot simply be swapped to `.eq("sales_stage","won")`
+// server-side: `sales_stage` is nullable, and rows created before it existed
+// carry only the legacy value. resolveCanonicalStage() encodes that fallback
+// (legacy is authoritative for won/lost, inferred otherwise), so filtering
+// runs through it in the client — the same approach opportunities.index.tsx
+// already uses. Volume is bounded: every one of these queries is scoped to a
+// single owner.
+type StageBearing = { sales_stage?: string | null; stage?: string | null };
+const isCanonicallyWon = (o: StageBearing) => resolveCanonicalStage(o).stage === "won";
+const isCanonicallyActive = (o: StageBearing) =>
+  (CANONICAL_ACTIVE_STAGES as readonly string[]).includes(resolveCanonicalStage(o).stage ?? "");
 
 const STAGE_ACTION: Record<string, { en: string; ar: string }> = {
   jih: { en: "Complete proposal / negotiation to reach BAFO", ar: "إتمام العرض أو التفاوض للوصول إلى BAFO" },
@@ -126,8 +149,18 @@ const PIPELINE_STAGES: Array<{
 function WorkspacePage() {
   const { user, roles } = useAuth();
   const uid = user?.id ?? "";
-  if (isSalesperson(roles)) return <SalespersonDashboard uid={uid} user={user} />;
-  return <ExistingWorkspaceContent uid={uid} user={user} />;
+  // Phase 4: every role opens on the same question — what needs me today —
+  // then falls through to the dashboard their role already had.
+  return (
+    <>
+      <TodayPanel uid={uid} />
+      {isSalesperson(roles) ? (
+        <SalespersonDashboard uid={uid} user={user} />
+      ) : (
+        <ExistingWorkspaceContent uid={uid} user={user} />
+      )}
+    </>
+  );
 }
 
 // ─── Salesperson Dashboard ────────────────────────────────────────────────────
@@ -182,7 +215,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   const { data: awardedOpps = [], isLoading: loadingAwarded } = useQuery({
     queryKey: ["ws-awarded-full", uid], enabled: !!uid,
-    queryFn: async () => (await supabase.from("opportunities").select("id, project_name, client, main_contractor, estimated_value_max, contract_value, currency, updated_at, sales_stage, stage").eq("owner_id", uid).eq("stage", "won").gte("updated_at", yearStart()).order("updated_at", { ascending: false })).data ?? [],
+    queryFn: async () => ((await supabase.from("opportunities").select("id, project_name, client, main_contractor, estimated_value_max, contract_value, currency, updated_at, sales_stage, stage").eq("owner_id", uid).gte("updated_at", yearStart()).order("updated_at", { ascending: false })).data ?? []).filter(isCanonicallyWon),
   });
 
   const { data: stageOpps = [] } = useQuery({
@@ -192,7 +225,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   const { data: jihPipeline = [] } = useQuery({
     queryKey: ["ws-jih-pipeline", uid], enabled: !!uid,
-    queryFn: async () => (await supabase.from("opportunities").select("id, project_name, sales_stage, estimated_value_max, currency, win_confidence, last_activity_at").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("opportunities").select("id, project_name, stage, sales_stage, estimated_value_max, quotation_value, contract_value, currency, win_confidence, last_activity_at").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [],
   });
 
   const { data: activeTenders = [] } = useQuery({
@@ -227,7 +260,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   const { data: myOpps = [] } = useQuery({
     queryKey: ["ws-myopps-min", uid], enabled: !!uid,
-    queryFn: async () => (await supabase.from("opportunities").select("id, project_name").eq("owner_id", uid).not("stage", "in", "(won,lost,archived)").order("project_name")).data ?? [],
+    queryFn: async () => ((await supabase.from("opportunities").select("id, project_name, stage, sales_stage").eq("owner_id", uid).order("project_name")).data ?? []).filter(isCanonicallyActive),
   });
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -754,7 +787,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
       const [target, accounts, opps, followups, tasks, activities, approvals] = await Promise.all([
         supabase.from("sales_targets").select("*").eq("user_id", uid).eq("period_start", monthStart()).maybeSingle(),
         supabase.from("companies").select("id, name, company_type, account_status").eq("account_owner_id", uid).order("updated_at", { ascending: false }),
-        supabase.from("opportunities").select("id, project_name, stage, tier, pipeline_step, estimated_value_max, currency, owner_id").eq("owner_id", uid).not("stage", "in", "(won,lost,archived)").order("updated_at", { ascending: false }),
+        supabase.from("opportunities").select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_max, currency, owner_id").eq("owner_id", uid).order("updated_at", { ascending: false }),
         supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, notes").eq("owner_id", uid).neq("status", "completed").order("due_date", { ascending: true }),
         supabase.from("tasks").select("id, title, due_date, status").eq("owner_id", uid).neq("status", "done").order("due_date", { ascending: true }),
         supabase.from("activities").select("id, activity_type, summary, occurred_at, related_opportunity_id").eq("owner_id", uid).order("occurred_at", { ascending: false }).limit(12),
@@ -770,12 +803,12 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
   const { data: flags = [] } = useQuery({ queryKey: ["ws-flags", uid, myOppIds.length], enabled: !!uid && myOppIds.length > 0, queryFn: async () => (await supabase.from("opportunity_flags").select("*").in("status", ACTIVE_FLAG_STATUSES).eq("linked_record_type", "opportunity").in("linked_record_id", myOppIds).order("created_at", { ascending: false })).data ?? [] });
   const { data: myRfqs = [] } = useQuery({ queryKey: ["ws-rfqs", uid], enabled: !!uid, queryFn: async () => (await supabase.from("rfqs").select("id, rfq_number, status, estimated_value, response_due_date").eq("sales_owner_id", uid).eq("status", "open").order("response_due_date", { ascending: true })).data ?? [] });
   const { data: myTenders = [] } = useQuery({ queryKey: ["ws-tenders", uid], enabled: !!uid, queryFn: async () => (await supabase.from("tenders").select("id, tender_name, tender_stage, tender_priority_classification, estimated_project_value, expected_award_date").eq("tender_owner_id", uid).not("tender_stage", "in", "(converted_to_jih,tender_lost_or_archived)").order("expected_award_date", { ascending: true })).data ?? [] });
-  const { data: awardedOpps = [] } = useQuery({ queryKey: ["ws-awarded", uid], enabled: !!uid, queryFn: async () => (await supabase.from("opportunities").select("id, project_name, estimated_value_max, contract_value, currency, sales_stage, stage, updated_at").eq("owner_id", uid).eq("stage", "won").gte("updated_at", yearStart()).order("updated_at", { ascending: false })).data ?? [] });
+  const { data: awardedOpps = [] } = useQuery({ queryKey: ["ws-awarded", uid], enabled: !!uid, queryFn: async () => ((await supabase.from("opportunities").select("id, project_name, estimated_value_max, contract_value, currency, sales_stage, stage, updated_at").eq("owner_id", uid).gte("updated_at", yearStart()).order("updated_at", { ascending: false })).data ?? []).filter(isCanonicallyWon) });
   const { data: urgentQuotations = [] } = useQuery({
     queryKey: ["ws-urgent-quotations", uid], enabled: !!uid,
     queryFn: async () => { const sevenDaysOut = new Date(); sevenDaysOut.setDate(sevenDaysOut.getDate() + 7); return (await supabase.from("quotations").select("id, related_opportunity_id, status, valid_until, value, currency").eq("owner_id", uid).in("status", ["approved_for_submission", "submitted", "follow_up"]).lte("valid_until", sevenDaysOut.toISOString().slice(0, 10)).order("valid_until", { ascending: true })).data ?? []; },
   });
-  const { data: jihOpps = [] } = useQuery({ queryKey: ["ws-jih", uid], enabled: !!uid, queryFn: async () => (await supabase.from("opportunities").select("id, project_name, sales_stage, estimated_value_max, currency, win_confidence").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [] });
+  const { data: jihOpps = [] } = useQuery({ queryKey: ["ws-jih", uid], enabled: !!uid, queryFn: async () => (await supabase.from("opportunities").select("id, project_name, stage, sales_stage, estimated_value_max, quotation_value, contract_value, currency, win_confidence").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [] });
 
   if (isLoading || !data) return <SkeletonChart kpis={4} charts={2} />;
 

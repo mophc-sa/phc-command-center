@@ -55,3 +55,7 @@ test-results/
 /exports*/
 tests/e2e/setup/.auth.json
 .gstack/
+
+# /qa browser sweep output — screenshots and reports accumulate per run
+.gstack/qa-reports/
+test-results/

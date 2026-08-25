@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { authErrorMessage } from "@/lib/auth-error-messages";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -70,8 +71,7 @@ function AuthPage() {
         setMode("pending");
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t("error_generic");
-      toast.error(msg);
+      toast.error(authErrorMessage(err, lang));
     } finally {
       setBusy(false);
       setCaptchaToken(undefined);
@@ -89,8 +89,7 @@ function AuthPage() {
       if (error) throw error;
       setMode("forgot_sent");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t("error_generic");
-      toast.error(msg);
+      toast.error(authErrorMessage(err, lang));
     } finally {
       setBusy(false);
       setCaptchaToken(undefined);

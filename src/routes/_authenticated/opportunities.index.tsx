@@ -9,6 +9,7 @@ import {
   CANONICAL_STAGES,
   canonicalStageLabelKey,
 } from "@/lib/stage-canonical";
+import { describeFilters, hasActiveFilters, matchesStageFilter, parseOpportunitySearch } from "@/lib/drilldown";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
 import { PageHeader } from "@/components/phc/PageHeader";
@@ -25,15 +26,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { humanize } from "@/lib/utils";
-import { IntakeHubTabs } from "@/components/phc/IntakeHubTabs";
 
 export const Route = createFileRoute("/_authenticated/opportunities/")({
-  validateSearch: (s: Record<string, unknown>) => ({
-    q:     typeof s.q === "string" ? s.q : "",
-    stage: typeof s.stage === "string" ? s.stage : "all",
-    tier:  typeof s.tier === "string" ? s.tier : "all",
-    view:  s.view === "cards" ? "cards" as const : "table" as const,
-  }),
+  // Phase 5: parsed by the shared drilldown contract so a KPI link and this
+  // page cannot disagree about what a filter means. `owner`, `from` and `to`
+  // were added because a KPI scoped by salesperson or period has nowhere to put
+  // that context otherwise.
+  validateSearch: (s: Record<string, unknown>): {
+    q: string; stage: string; tier: string; view: "table" | "cards";
+    // Optional so the many existing <Link to="/opportunities"> callers that
+    // pass only the original four params keep type-checking.
+    owner?: string; from?: string; to?: string;
+  } => parseOpportunitySearch(s),
   head: () => ({
     meta: [
       { title: "Opportunities — PHC" },
@@ -52,12 +56,17 @@ const CLOSED = ["won", "lost", "archived"];
 function OppList() {
   const { t, lang } = useI18n();
   const navigate = useNavigate();
-  const { q: search, stage, tier, view } = Route.useSearch();
+  const routeSearch = Route.useSearch();
+  const { q: search, stage, tier, view } = routeSearch;
 
-  const setSearch = (v: string) => navigate({ to: ".", search: { q: v, stage, tier, view }, replace: true });
-  const setStage  = (v: string) => navigate({ to: ".", search: { q: search, stage: v, tier, view }, replace: true });
-  const setTier   = (v: string) => navigate({ to: ".", search: { q: search, stage, tier: v, view }, replace: true });
-  const setView   = (v: "cards" | "table") => navigate({ to: ".", search: { q: search, stage, tier, view: v }, replace: true });
+  // Every setter spreads the current search, so changing one filter never
+  // silently drops the owner or date range a drilldown arrived with.
+  const patch = (next: Partial<ReturnType<typeof parseOpportunitySearch>>) =>
+    navigate({ to: ".", search: { ...routeSearch, ...next }, replace: true });
+  const setSearch = (v: string) => patch({ q: v });
+  const setStage  = (v: string) => patch({ stage: v });
+  const setTier   = (v: string) => patch({ tier: v });
+  const setView   = (v: "cards" | "cards" | "table") => patch({ view: v as "cards" | "table" });
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["opps"],
@@ -85,8 +94,25 @@ function OppList() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const rows = data.filter((o: any) => {
-      if (stage !== "all" && resolveCanonicalStage(o).stage !== stage) return false;
+      // Shared with the KPI engine, so "open" here means exactly what "open"
+      // meant in the number that linked here.
+      if (!matchesStageFilter(o, stage)) return false;
       if (tier !== "all" && o.tier !== tier) return false;
+      if (routeSearch.owner && routeSearch.owner !== "all" && o.owner_id !== routeSearch.owner) return false;
+      if (routeSearch.from || routeSearch.to) {
+        // The period bounds whichever date the arriving KPI was measured on:
+        // won and lost are events, everything else is a current-state snapshot
+        // and must not be narrowed by a range.
+        const canonical = resolveCanonicalStage(o).stage;
+        const d =
+          canonical === "won" || canonical === "lost"
+            ? (o.updated_at ?? null)
+            : null;
+        if (d !== null) {
+          if (routeSearch.from && d < routeSearch.from) return false;
+          if (routeSearch.to && d >= routeSearch.to) return false;
+        }
+      }
       if (!q) return true;
       return [o.project_name, o.client, o.main_contractor, o.location, o.sector]
         .filter(Boolean)
@@ -135,7 +161,6 @@ function OppList() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <IntakeHubTabs active="opportunities" />
       <PageHeader
         eyebrow={lang === "ar" ? "خط الأنابيب" : "Pipeline"}
         title={t("nav_opportunities")}

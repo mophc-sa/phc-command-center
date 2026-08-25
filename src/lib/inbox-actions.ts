@@ -70,6 +70,14 @@ export type InboxItemInput = {
   phone?: string;
   email?: string;
   clientType?: InboxClientType;
+  /** Phase 2: the four PRD request types. `projectType` is derived from it. */
+  requestType?: IntakeRequestType;
+  ownerEntity?: string;
+  clientRfqReference?: string;
+  internalRfqReference?: string;
+  hasBoq?: boolean;
+  hasDrawings?: boolean;
+  hasSpecs?: boolean;
   projectType?: InboxProjectType;
   projectName?: string;
   projectNumber?: string;
@@ -137,7 +145,16 @@ export async function createInboxItem(input: InboxItemInput) {
       phone: input.phone ?? null,
       email: input.email ?? null,
       client_type: input.clientType ?? null,
-      project_type: input.projectType ?? null,
+      request_type: input.requestType ?? null,
+      owner_entity: input.ownerEntity ?? null,
+      client_rfq_reference: input.clientRfqReference ?? null,
+      internal_rfq_reference: input.internalRfqReference ?? null,
+      has_boq: input.hasBoq ?? false,
+      has_drawings: input.hasDrawings ?? false,
+      has_specs: input.hasSpecs ?? false,
+      // Derived, never asked twice: the four request types collapse onto the
+      // two legacy tracks that the conversion path already understands.
+      project_type: input.projectType ?? legacyProjectTypeFor(input.requestType) ?? null,
       project_name: input.projectName ?? null,
       project_number: input.projectNumber ?? null,
       rfq_from: input.rfqFrom ?? null,
@@ -198,19 +215,22 @@ export type IntakeRouteResult =
  * it, and the item is left for manual conversion rather than being rolled back.
  */
 export async function createInboxItemAndRoute(input: InboxItemInput): Promise<IntakeRouteResult> {
+  // Phase 2 changed what this does, deliberately.
+  //
+  // It used to route the item the instant it was saved — convertInboxToRfq or
+  // convertInboxToTender fired straight out of the form (D10/D11). That solved
+  // Faisal's four-screen intake, and it is still the right shape for the
+  // requester: one form, one save.
+  //
+  // But it meant nothing was ever reviewed before entering the pipeline. PRD
+  // 2026-08-12 §15 puts a Sales Manager / BD Manager gate in front of pricing,
+  // so the save now stops at `pending_review` and the SAME routing runs on
+  // approval instead — see approveIntakeForPricing(). The requester's
+  // experience is unchanged; the record just waits for a decision.
+  //
+  // The name is kept because it is the form's entry point and the routing is
+  // still what it ultimately causes, one decision later.
   const item = await createInboxItem(input);
-  const classification = item.classification as InboxClassification;
-
-  if (classification === "rfq") {
-    const res = await convertInboxToRfq(item.id, {});
-    return { routed: "rfq", inboxItemId: item.id, opportunityId: res.opportunityId, rfqId: res.rfqId };
-  }
-
-  if (classification === "tender") {
-    const tender = await convertInboxToTender(item.id, {});
-    return { routed: "tender", inboxItemId: item.id, tenderId: tender.id };
-  }
-
   return { routed: "none", inboxItemId: item.id };
 }
 
@@ -591,4 +611,188 @@ export async function archiveInboxItem(id: Uuid, reason: string) {
   if (error) throw error;
   await auditInbox("inbox_item.archived", id, { reason });
   return data;
+}
+
+// ── Phase 2 — Opportunity Review gate ───────────────────────────────────────
+//
+// PRD 2026-08-12 §15-19. Before Phase 2 an intake item routed itself the
+// instant it was saved: createInboxItemAndRoute() called convertInboxToRfq or
+// convertInboxToTender immediately (D10/D11). That was right for the problem it
+// solved — Faisal's four-screen intake — but it meant nothing was ever reviewed
+// before it entered the pipeline.
+//
+// The routing itself is unchanged and still reused verbatim. What changed is
+// WHEN it runs: on approval, not on save. `approveIntakeForPricing` is the only
+// caller now, so the "one form, routed automatically" property is preserved for
+// the reviewer instead of the requester.
+//
+// Authority is enforced in the database (protect_intake_review trigger,
+// 20260818090000). These helpers mirror it so the UI can hide what a user
+// cannot do; the trigger is what actually prevents it.
+
+export const INTAKE_REQUEST_TYPES = [
+  "jih",
+  "tender_contractor",
+  "tender_government",
+  "unknown",
+] as const;
+export type IntakeRequestType = (typeof INTAKE_REQUEST_TYPES)[number];
+
+export const INTAKE_REVIEW_STATES = [
+  "pending_review",
+  "approved_for_pricing",
+  "need_information",
+  "monitored",
+  "rejected",
+] as const;
+export type IntakeReviewState = (typeof INTAKE_REVIEW_STATES)[number];
+
+/**
+ * Which track a request belongs on.
+ *
+ * Both tender subtypes route to the tender board — the distinction is
+ * commercial, not structural: a government/owner pre-award tender means the
+ * main contract itself is not yet let, so there is no contractor to quote to
+ * yet. Keeping them apart at intake is what lets the board tell "chasing a
+ * contractor who is bidding" from "watching a project that has no contractor".
+ */
+export function trackForRequestType(rt: IntakeRequestType | null | undefined): "jih" | "tender" | "none" {
+  if (rt === "jih") return "jih";
+  if (rt === "tender_contractor" || rt === "tender_government") return "tender";
+  return "none";
+}
+
+/** Legacy `project_type` value for a request type — keeps the existing
+ *  conversion path, which reads project_type, working unchanged. */
+export function legacyProjectTypeFor(rt: IntakeRequestType | null | undefined): InboxProjectType | null {
+  const track = trackForRequestType(rt);
+  return track === "none" ? null : (track as InboxProjectType);
+}
+
+export type IntakeReviewDecision =
+  | { decision: "approve" }
+  | { decision: "monitor"; notes?: string }
+  | { decision: "reject"; reason: string }
+  | {
+      decision: "need_information";
+      requiredItems: string[];
+      comment?: string;
+      responsibleId?: Uuid | null;
+      dueDate?: string | null;
+    };
+
+async function setReviewState(id: Uuid, patch: Record<string, unknown>, auditAction: string) {
+  const { data, error } = await supabase
+    .from("inbox_items")
+    .update(patch as never)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  await auditInbox(auditAction, id, patch);
+  return data;
+}
+
+/**
+ * Approve for Pricing — the only path that routes a request onto a track.
+ *
+ * Reuses convertInboxToRfq / convertInboxToTender untouched. `routed: "none"`
+ * is a real outcome, not a failure: an approved request with no usable type
+ * still needs a human to say which track it belongs on.
+ */
+export async function approveIntakeForPricing(id: Uuid): Promise<IntakeRouteResult> {
+  const { data: item, error } = await supabase
+    .from("inbox_items")
+    .select("id, request_type, project_type, project_name, converted_record_id")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+
+  if (item.converted_record_id) {
+    throw new Error("This request has already been converted.");
+  }
+
+  // The state change is written first, so the trigger's authority check runs
+  // before anything is created. A rejected caller creates no records.
+  await setReviewState(id, { review_state: "approved_for_pricing" }, "intake.review.approved");
+
+  const track = trackForRequestType(
+    (item.request_type as IntakeRequestType | null) ??
+      (item.project_type === "tender" ? "tender_contractor" : item.project_type === "jih" ? "jih" : "unknown"),
+  );
+
+  if (track === "jih") {
+    const res = await convertInboxToRfq(id, {});
+    // "Approve for Pricing" is the natural entry into the commercial pricing
+    // cycle (PRD §19-20) — the decision is literally "this is ready to be
+    // priced". The opportunity therefore starts at `with_commercial` rather
+    // than the `with_sales` default.
+    //
+    // This, not Won, is where the file moves to Commercial. Won is the far end
+    // of the deal and leaves the pricing cycle alone.
+    await supabase
+      .from("opportunities")
+      .update({
+        commercial_handoff_status: "with_commercial",
+        commercial_handoff_at: new Date().toISOString(),
+      })
+      .eq("id", res.opportunityId);
+    return { routed: "rfq", inboxItemId: id, opportunityId: res.opportunityId, rfqId: res.rfqId };
+  }
+  if (track === "tender") {
+    const tender = await convertInboxToTender(id, {});
+    return { routed: "tender", inboxItemId: id, tenderId: tender.id };
+  }
+  return { routed: "none", inboxItemId: id };
+}
+
+/** Need Information — hands the request back with what is missing and who owes it. */
+export async function requestIntakeInformation(
+  id: Uuid,
+  input: { requiredItems: string[]; comment?: string; responsibleId?: Uuid | null; dueDate?: string | null },
+) {
+  const items = input.requiredItems.map((s) => s.trim()).filter(Boolean);
+  if (items.length === 0 && !input.comment?.trim()) {
+    throw new Error("Say what is missing, or leave a comment.");
+  }
+  return setReviewState(
+    id,
+    {
+      review_state: "need_information",
+      info_required_items: items,
+      info_comment: input.comment?.trim() || null,
+      info_responsible_id: input.responsibleId ?? null,
+      info_due_date: input.dueDate ?? null,
+      info_requested_at: new Date().toISOString(),
+    },
+    "intake.review.information_requested",
+  );
+}
+
+/** Resubmit — the requester's move, not the reviewer's. Puts it back in the queue. */
+export async function resubmitIntake(id: Uuid, note?: string) {
+  return setReviewState(
+    id,
+    { review_state: "pending_review", review_notes: note?.trim() || null },
+    "intake.review.resubmitted",
+  );
+}
+
+/** Monitor — real but not actionable yet. Stays visible, does not enter pricing. */
+export async function monitorIntake(id: Uuid, notes?: string) {
+  return setReviewState(
+    id,
+    { review_state: "monitored", review_notes: notes?.trim() || null },
+    "intake.review.monitored",
+  );
+}
+
+/** Reject — closes the request. The reason is mandatory, in the DB too. */
+export async function rejectIntake(id: Uuid, reason: string) {
+  if (!reason.trim()) throw new Error("A rejected request must carry a reason.");
+  return setReviewState(
+    id,
+    { review_state: "rejected", reject_reason: reason.trim() },
+    "intake.review.rejected",
+  );
 }

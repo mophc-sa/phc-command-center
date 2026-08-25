@@ -4,11 +4,15 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { updateRfqDetails } from "@/lib/rfq-actions";
+import { invalidateSalesData } from "@/lib/invalidate-sales";
 import { useI18n, formatCurrency, formatNumber, type Lang } from "@/lib/i18n";
 import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
+import { OpportunityTimeline } from "@/components/phc/OpportunityTimeline";
+import { DocumentsPanel } from "@/components/phc/DocumentsPanel";
+import { CommitmentsPanel } from "@/components/phc/CommitmentsPanel";
 import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import {
@@ -55,6 +59,7 @@ import {
   type MentionPurpose,
 } from "@/lib/opportunity-collab-actions";
 import { Upload, Paperclip } from "lucide-react";
+import { AttachmentLink } from "@/components/phc/AttachmentLink";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
@@ -262,6 +267,10 @@ function OpportunityDetail() {
     qc.invalidateQueries({ queryKey: ["opp-discussion", id] });
     qc.invalidateQueries({ queryKey: ["opp-contracts", id] });
     qc.invalidateQueries({ queryKey: ["cc-metrics"] });
+    // The keys above cover this record's own panels. A stage or approval change
+    // here is also visible on Opportunities, Command Center and My Workspace,
+    // which read the same rows under different keys.
+    invalidateSalesData(qc);
     qc.invalidateQueries({ queryKey: ["all-followups"] });
     qc.invalidateQueries({ queryKey: ["approvals"] });
   };
@@ -479,7 +488,7 @@ function OpportunityDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("rfqs")
-        .select("id, classification, rfq_number, response_due_date, notes, document_url, assigned_to")
+        .select("id, classification, rfq_number, response_due_date, notes, document_url, document_storage_path, assigned_to")
         .eq("opportunity_id", id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -729,16 +738,13 @@ function OpportunityDetail() {
             />
             <DataField label={t("wf_notes")} value={rfqQ.data.notes} />
           </div>
-          {rfqQ.data.document_url ? (
-            <a
-              href={rfqQ.data.document_url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-block text-xs text-amber-light underline underline-offset-2"
-            >
-              {t("ibx_evidence_url")}
-            </a>
-          ) : null}
+          <AttachmentLink
+            storagePath={rfqQ.data.document_storage_path}
+            legacyUrl={rfqQ.data.document_url}
+            className="mt-3 inline-block text-xs text-amber-light underline underline-offset-2"
+          >
+            {t("ibx_evidence_url")}
+          </AttachmentLink>
 
           <ActionDialog
             open={submissionOpen}
@@ -1001,6 +1007,21 @@ function OpportunityDetail() {
       </Panel>
       )}
 
+      {/* 4b. FILES — the Phase 6 registry. Sits beside Evidence rather than
+          replacing it: evidence_sources carries confidence and source_type that
+          a document row does not, so folding one into the other would lose
+          fields Phase 3 relies on. */}
+      {show("evidence") && (
+        <DocumentsPanel entity={{ type: "opportunity", id }} />
+      )}
+
+      {/* 4c. COMMITMENTS — Phase 9. Placed with the deal's working material
+          rather than in the timeline: a promise is something still owed, and
+          the timeline is a record of what already happened. */}
+      {show("evidence") && (
+        <CommitmentsPanel opportunityId={id} companyId={o.company_id} />
+      )}
+
       {/* 4. EVIDENCE */}
       {show("evidence") && (
       <Panel
@@ -1060,18 +1081,15 @@ function OpportunityDetail() {
                     ) : null}
                   </div>
                 </div>
-                {e.source_url ? (
-                  <a
-                    href={e.source_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(evt) => evt.stopPropagation()}
-                    title={t("evidence_download")}
+                <span onClick={(evt) => evt.stopPropagation()}>
+                  <AttachmentLink
+                    storagePath={e.vault_path}
+                    legacyUrl={e.source_url}
                     className="inline-flex items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground"
                   >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                ) : null}
+                    <ExternalLink className="h-3.5 w-3.5" aria-label={t("evidence_download")} />
+                  </AttachmentLink>
+                </span>
               </li>
             ))}
           </ul>
@@ -1196,7 +1214,7 @@ function OpportunityDetail() {
             ))}
           </ul>
         ) : (
-          <EmptyState message={t("empty_approvals")} />
+          <EmptyState message={t("empty_approvals_record")} />
         )}
       </Panel>
       )}
@@ -1413,11 +1431,9 @@ function OpportunityDetail() {
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                     {responsible ? <span>{t("contract_responsible")}: {responsible.full_name ?? responsible.email}</span> : null}
-                    {c.document_url ? (
-                      <a href={c.document_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-amber-light hover:underline">
-                        <Paperclip className="h-3 w-3" /> {t("contract_document")}
-                      </a>
-                    ) : null}
+                    <AttachmentLink legacyUrl={c.document_url} className="inline-flex items-center gap-1 text-amber-light hover:underline">
+                      <Paperclip className="h-3 w-3" /> {t("contract_document")}
+                    </AttachmentLink>
                   </div>
                   {c.notes ? <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">{c.notes}</p> : null}
                   {canManageContract ? (
@@ -1797,6 +1813,13 @@ function OpportunityDetail() {
       <Panel title={t("comm_history")}>
         <CommunicationTimeline filter={{ opportunityId: o.id }} />
       </Panel>
+
+      {/* 7e. FULL LIFECYCLE TIMELINE — Phase 5.
+           CommunicationTimeline above covers contact history only. This is the
+           whole story: intake, review, stage moves, approvals, tender lineage,
+           award, contract and commercial handoff, projected from the tables
+           that already record them rather than a duplicate history of its own. */}
+      <OpportunityTimeline opportunityId={o.id} />
 
       {/* Evidence viewer */}
       <EvidenceViewer
@@ -2217,16 +2240,15 @@ function EvidenceViewer({
           ) : null}
         </div>
         <div className="flex items-center justify-between gap-2 border-t border-border/70 px-5 py-3">
-          {evidence.source_url ? (
-            <a
-              href={evidence.source_url}
-              target="_blank"
-              rel="noreferrer"
+          {evidence.vault_path || evidence.source_url ? (
+            <AttachmentLink
+              storagePath={evidence.vault_path}
+              legacyUrl={evidence.source_url}
               className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs text-amber-light hover:bg-amber/20"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               {t("evidence_open_source")}
-            </a>
+            </AttachmentLink>
           ) : (
             <span className="text-xs text-muted-foreground">{t("evidence_no_url")}</span>
           )}

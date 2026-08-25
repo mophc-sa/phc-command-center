@@ -121,6 +121,23 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Toasts anchor to the side opposite the brand mark. The position was pinned
+ * to "top-right" regardless of direction, so in Arabic (RTL) — where the PHC
+ * logo sits top-right — an error toast landed straight on top of the logo
+ * (QA 2026-08-10 ISSUE-009).
+ */
+function DirectionAwareToaster() {
+  const { lang } = useI18n();
+  return (
+    <Toaster
+      richColors
+      position={lang === "ar" ? "top-left" : "top-right"}
+      theme="light"
+    />
+  );
+}
+
 /** Syncs <html dir> and <html lang> to the active i18n language. */
 function HtmlDirSync() {
   const { lang } = useI18n();
@@ -143,7 +160,7 @@ function RootComponent() {
         <HtmlDirSync />
         <AuthProvider>
           <Outlet />
-          <Toaster richColors position="top-right" theme="light" />
+          <DirectionAwareToaster />
         </AuthProvider>
       </I18nProvider>
     </QueryClientProvider>

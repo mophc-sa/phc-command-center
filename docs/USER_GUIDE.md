@@ -70,14 +70,14 @@ There are 11 roles. **A user can hold more than one** — permissions are additi
 | `sales_ops` | عمليات المبيعات | Data quality, pipeline hygiene |
 | `finance_manager` | المدير المالي | Values, margins, finance approval |
 | `estimation_manager` | مدير التقدير | Cost approval on discounts |
+| `salesperson` | مندوب مبيعات | Owns their own deals end to end |
+| `viewer` | مطّلع | Read only |
+| `ceo` | — | Legacy. Kept only for existing data |
 
 > **Finance and Estimation are one person at PHC — Ahmed Zaid.** The system keeps them
 > as separate roles because they answer different questions ("is this above our cost?"
 > versus "does this fit our margin?"), and one person can answer both. So the BAFO chain
 > below is four steps but **three people**: requester → Zaid (two steps) → executive.
-| `salesperson` | مندوب مبيعات | Owns their own deals end to end |
-| `viewer` | مطّلع | Read only |
-| `ceo` | — | Legacy. Kept only for existing data |
 
 ### The permissions that matter day to day
 
@@ -86,16 +86,23 @@ There are 11 roles. **A user can hold more than one** — permissions are additi
 | Create records (leads, contacts, RFQs, opportunities, follow-ups) | Everyone except `viewer` and `system_admin` |
 | **See other people's deals** | Everyone **except `salesperson`** — a salesperson sees only their own |
 | Move an opportunity to Verbally Awarded / Contract Received / Won | `sales_manager` + executives. Others may only **request** it |
-| Edit **Total Value** | `finance_manager`, `bd_manager`, `system_admin` **only** |
+| Edit **Total Value** | `finance_manager`, `bd_manager` **only** |
 | Edit the **RFQ number** | `sales_manager`, `bd_manager`, `system_admin` **only** |
 | Use **Discussion** on an opportunity | `general_manager`, `sales_manager`, `bd_manager`, `system_admin` |
 | Assign an owner to a deal | `sales_manager` + executives |
 | Execute a delete | `system_admin`, `bd_manager` — **and only after someone else approved it** |
+| **BAFO / discount approval (4 steps)** | Each step needs its own business role. **`system_admin` alone can decide none of them** |
 | Review AI output | `system_admin` + commercial managers |
 
 > **Note the deliberate split:** `system_admin` can run the platform but **cannot approve a
 > commercial decision**. A commercial manager can approve deals but cannot administer the
 > platform. This separation is intentional — don't work around it by stacking roles.
+>
+> Since **2026-08-12** this holds in the database, not only in the interface. `system_admin`
+> previously carried an override on all four BAFO steps and on Total Value, so a single
+> administrator could approve an entire discount alone. If you hold `system_admin` **and** a
+> business role, the authority comes from the business role — and the audit trail records it
+> that way.
 
 ---
 
@@ -222,7 +229,29 @@ Everything else is optional and can be filled in later.
 **Other useful fields at intake:** Source · Client type · RFQ from · Scope · Location ·
 Deadline · **Evidence** (paste the email link, or attach a file — both work) · Assigned owner.
 
-### Step 2 — Save. That's it.
+### Step 2 — Save. It goes for review.
+
+**Changed 2026-08-18.** Saving no longer creates the opportunity or the tender
+straight away. The request lands in **Opportunity Review** at the top of Intake,
+and a **Sales Manager or BD Manager** decides what happens to it. Either one of
+them alone is enough — they do not both have to sign.
+
+| Decision | What happens |
+|---|---|
+| **Approve for Pricing** | Exactly what used to happen on save: a JIH request becomes an opportunity with its RFQ; a tender goes to the Tender board. |
+| **Need Information** | Comes back to you with what is missing, who owes it, and by when. Fix it and press **Resubmit** — you do not need a manager to hand it back. |
+| **Monitor** | Real, but nothing to do yet. It stays visible and out of the pipeline. |
+| **Reject** | Closed, with a reason. The reason is required. |
+
+Everything you type is still one form and one save. The only change is that a
+second pair of eyes sees it before it becomes a live deal.
+
+**Request type now has four options,** not two: JIH · Tender (contractors
+bidding) · Tender (government/owner, pre-award) · Unknown. Both tender types go
+to the same board — the split tells a contractor you can quote today apart from
+a project whose main contract has not been let yet.
+
+### Step 2b — the old behaviour
 
 There is no separate classify step and no separate convert step for a routable entry. Saving
 the form does all of it:
@@ -254,6 +283,8 @@ Open the opportunity and use **Edit** on the **Submission** panel. You can chang
   price from Estimation before the quotation can go out, put them here: they get notified,
   and the deal stays yours.
 - **Attachment or link** — add the revised RFQ, a drawing, anything that arrived later.
+  Uploaded files open in a new tab when you click them; the link is generated at that
+  moment and is not stored, so nothing you attach today stops working next week.
 - **Notes** — anything worth saying about this submission.
 
 The RFQ number, the company and the contact are not editable here. Those identify the
@@ -433,31 +464,88 @@ Old tenders are not allowed to sit active forever.
 
 ## 7. Page-by-page guide
 
-### Workspace — مساحة العمل
+### Home — الرئيسية
 
 | Page | Use it for |
 |---|---|
-| **My Workspace** `/my-workspace` | Your personal command centre. Target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups, urgent submissions, awarded / final negotiation / verbally awarded panels. **A salesperson's home base.** |
-| **Action Required** `/action-center` | Your work queue. Every automated flag raised against your records. Managers also get the **Run Automations** button here. |
+| **Command Center** `/command-center` | Org-wide executive view. Opens with **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention. |
+| **My Workspace** `/my-workspace` | Your personal command centre. Opens with **What needs you today** — one ranked list of your highest-priority work drawn from every queue. Below it, the dashboard your role already had: target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups and submissions. **A salesperson's home base.** |
+| **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
+| **Approvals** `/approvals` | One decision desk for all three approval workflows: **intake review**, the **BAFO chain** (showing which of the four steps is waiting and on which role), and record approvals — verbal award, contract, won, deletion, sure-win. |
+| **Notifications** (bell) | Opens the drawer, not a page. Shows **what happened**: unread count on the bell, mark-one/mark-all read, dismiss, and a deep link to the record. Distinct from actions — see Section 7b. |
 
-### Pipeline — خط المبيعات
+### 7a. What counts as a sale
+
+Three numbers get confused constantly, so the system keeps them apart:
+
+| | What it means | Counts toward target? |
+|---|---|---|
+| **Won** | `sales_stage = won`. The deal is ours. | **Yes — only this** |
+| **Late-stage exposure** | Verbally awarded, contract received, contract signed. | **No.** These can still be lost |
+| **Weighted forecast** | Open pipeline × probability | **No.** An estimate, not money |
+
+**Win rate is Won ÷ (Won + Lost).** Open deals are not in the denominator, and it
+is never calculated from quotations. If nothing has closed yet the system says so
+rather than showing 0%.
+
+**Probability** comes from the manager's number when one is recorded, and from AI
+only when it is not — labelled "AI-estimated" so you always know which you are
+looking at. The two are shown side by side and never averaged. A deal nobody has
+scored is reported as **Unscored** and left out of the forecast entirely.
+
+### 7b. Actions vs notifications — they are not the same thing
+
+The two are easy to confuse, and the system treats them differently on purpose.
+
+| | Action | Notification |
+|---|---|---|
+| Answers | *What do I need to do?* | *What happened?* |
+| Lives in | Action Center, My Workspace | The bell drawer |
+| Lifecycle | Open → in progress → done / dismissed | Unread → read → dismissed |
+| Disappears when | The underlying work is finished | You read or dismiss it |
+
+**You will not be notified twice about the same thing.** A notification is raised
+once per *occurrence*, not once per day. An item that stays overdue for a month
+notifies you the day it goes late and then stays quiet. You get a fresh one only
+when something genuinely changes: a new stage, a new decision, a new assignee, a
+resubmission, or a due date that moved and then passed again.
+
+You are also never notified about your own action — moving your own opportunity
+to the next stage does not ping you about it.
+
+**Overdue alerts** arrive from the nightly automation run (07:00 Riyadh), the same
+job that fills the Action Center. Only tier A and B items raise one — tier C would
+be noise — and only if they lapsed within the last week, so switching this on does
+not dredge up work that went late months ago.
+
+### Sales — المبيعات
+
+Four destinations, and only four. As of **2026-08-12** this group is the whole of Sales.
 
 | Page | Use it for |
 |---|---|
-| **Pipeline Overview** `/command-center` | Org-wide executive view. Pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention. |
 | **Intake** `/lead-tender-inbox` | The triage queue for entries that couldn't route themselves. Classify and convert them here. Entries with a project type and name never appear — they went straight to their track. |
 | **Opportunities** `/opportunities` | Every JIH opportunity. Card or table view, filter by stage and tier. |
 | **Tender Monitor** `/tenders` | Every tender, with urgency KPIs and age tracking. |
+| **Awarded Projects** | Not a separate page — the Opportunities list filtered to **won**. Same records, same filters, one place. |
 
-### Execution — التنفيذ
+> **Inbox, Opportunities and Quotations used to show each other as tabs.** That strip is
+> gone. Each page is now one thing, which is the point of the cleanup.
 
-| Page | Use it for |
+### Pages that left the sidebar — and still work
+
+Nothing was deleted. These keep their data and their URLs; they are reachable by direct
+link, by bookmark, and from **⌘K** search. They left the sidebar because they are a view
+of something else, an action inside a record, or they belong to a section not built yet.
+
+| Page | Where it went |
 |---|---|
-| **Approvals** `/approvals` | The decision desk. Verbal award, contract, won, BAFO, deletion, sure-win requests. |
-| **Follow-ups** `/follow-ups` | Every scheduled touchpoint. Complete, reschedule, or draft a message with AI. |
-| **Quotations** `/quotations` | All quotations and BOQ, in tabs. Per-row AI commercial risk assessment. |
-| **Award & Contract Queue** `/award-queue` | Deals near or at award, sorted by time in stage. Verbal-no-contract, contract received, awaiting handover, high value. |
-| **Tender Conversion** `/tender-conversion` | The conversion review queue. |
+| **Quotations** `/quotations` | Moves to Commercial & Finance when that section exists. Until then: ⌘K or the direct link. All three tabs (Quotations, RFQ & JIH, BOQ) still work. |
+| **Follow-ups** `/follow-ups` | A follow-up is an action on a record. It appears in My Workspace, on the opportunity, and in Action Required. Also in the header's quick-actions menu. |
+| **Targets** `/targets` | The number belongs next to the work it judges — My Workspace, Command Center, Admin Settings. |
+| **Award & Contract Queue** `/award-queue` | Replaced in the sidebar by **Awarded Projects**, the filtered Opportunities view. The page itself still works. |
+| **Tender Conversion** `/tender-conversion` | Becomes an action inside the tender. The queue page still works. |
+| **AI Agents / Agent Activity** | Now **AI Configuration** and **AI Audit**, under the collapsed Admin group. |
 
 ### CRM — إدارة العلاقات
 
@@ -500,6 +588,18 @@ project does **not** create a duplicate.
 | **Data Import** `/data-import` | *(admin only)* Spreadsheet import: map columns → preview → validate → error report → commit. |
 | **Admin Settings** `/admin-settings` | *(admin only)* Users, roles, status. |
 | **Settings** `/settings` | Your own profile, language, MFA. |
+
+### Finding anything fast — ⌘K
+
+Press **⌘K** (or **Ctrl+K**) anywhere in the app to open search. Type two characters or more
+and it looks across **opportunities, projects, accounts and contacts** as well as page names,
+in Arabic or English. Pick a result and it takes you straight to that record.
+
+Contacts have no page of their own, so a contact hit opens the Contacts list already filtered
+to that name — the address bar shows `\u200E/contacts?q=…`, which you can bookmark or send to someone.
+
+With the box empty you get your pinned and recently opened records instead. If nothing matches,
+it says so.
 
 ### Inside an opportunity
 
@@ -635,6 +735,50 @@ and the 90-day tender review. Both are calculated for display but never raised a
 Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
 and the 90-day tender review. Both are calculated for display but never raised as queue items.
 
+### Files on a record (not yet live)
+Opportunities and projects gain a **Files** section. Upload a BOQ, a drawing, a
+signed contract or a site photo; each file shows its type, size, date and who
+uploaded it. Photos appear as a gallery in the same panel — they are documents
+whose type happens to be an image, not a separate album.
+
+Three things worth knowing about how it behaves:
+
+**Replacing rather than re-uploading.** Use the replace button on a file and the
+new upload is recorded as its successor. The old version stays and stays
+openable; the version list shows the chain. Uploading a second file with the
+same name does *not* overwrite the first — it never did since 2026-08-21, and
+now the replacement is recorded rather than merely refused.
+
+**Removing hides, it does not destroy.** A removed file stops opening and
+disappears from the list, but the record of it — who uploaded it, when, who
+removed it — remains. There is no permanent delete in this release. Detaching is
+different again: it removes the file from *this* record while leaving it
+attached wherever else it belongs.
+
+**Who sees it.** A file is visible to whoever can reach a record it is attached
+to. Attach the same file to both an RFQ and its opportunity and both teams see
+it; attach it to nothing and only you do.
+
+### Who can open an attachment
+Since **2026-08-21**, a file in the attachments bucket is readable only if you uploaded it,
+your role handles documents (managing director, general manager, CEO, sales manager, BD
+manager, sales ops, finance manager, estimation manager), or you can already see the
+opportunity or project it belongs to. Before that date **every signed-in account could read
+every file**, including `viewer`.
+
+Two consequences you may notice. A salesperson no longer sees attachments on opportunities
+that are not theirs — that is the fix, not a fault. And `system_admin` alone does not grant
+access: administering the system is not a reason to read commercial documents, so an admin
+who also needs the files needs a second role.
+
+### Two old attachments and one orphan
+Files uploaded before this date were stored as a link that expires after seven days, so a few
+old ones died quietly. Two were recovered automatically and open again. Three references
+could not be recovered and were **not** guessed at: two are Google Drive links (an external
+link is not an internal document) and one field holds an email address rather than a file.
+They are listed in `document_backfill_report` for someone to sort out. One uploaded file that
+no record points at is listed there too — reported, not deleted.
+
 ### Records created before 2026-08-06
 `RFQ-2026-0001` through `0004` predate the intake rewrite. They have no opportunity attached
 and no JIH/Tender classification, because the flow that created them didn't produce those.
@@ -642,6 +786,12 @@ They are not broken, just incomplete — a manager can attach them if they still
 
 `RFQ-2026-0001` also carries a deadline in the year 275760, from before date validation
 existed. It is invisible to every deadline queue until someone sets the real date.
+
+### The Opportunity Review gate is built but not yet live in production
+Phase 2's review gate needs a database migration that **has not been applied to
+production yet**. Until it is, the system still behaves the old way: saving a request
+converts it immediately, with no review step. Everything described in Step 2 above is
+in the code and tested, and starts working the moment the migration is approved.
 
 ### Known gaps against the target design
 Not yet built: a separate opportunity *condition* field (Dormant / Cancelled), separate
@@ -664,6 +814,25 @@ Listed so nobody works around a problem that no longer exists:
 | Management pages read the legacy stage, so a verbal award showed as "Quotation" | Fixed — Command Center, Reports and the opportunities list all read the canonical stage |
 | Closing a flag re-raised it on the next automation run | Fixed — flags are keyed to the occurrence, so a dismissed one stays dismissed |
 | Reminders only appeared when a manager remembered to press a button | Fixed — the engine runs nightly at 07:00 AST |
+| Global search (⌘K) found pages and accounts but never opportunities, projects or contacts | Fixed — all four are searchable, and contacts were added |
+| Search showed a blank panel when nothing matched, with no message | Fixed — it says "No results found." / "لا نتائج." |
+| A bookmark to `/boq` or `/rfq-jih` opened a white screen | Fixed — both land on the matching Quotations tab |
+| A failed sign-in showed "Invalid login credentials" in English on the Arabic UI | Fixed — every auth message is bilingual |
+| Agent Activity, AI Agents and Data Import were mostly English in Arabic mode | Fixed — the page chrome is translated (agent names and agent-written summaries stay as-is, they are data) |
+| The error toast covered the PHC logo in Arabic | Fixed — it now anchors to the side opposite the logo |
+| Inbox, Opportunities and Quotations each showed the other two as tabs | Fixed — the duplicated strip is gone; each page is one thing |
+| My Workspace and the management dashboards could disagree about a deal's stage | Fixed — every view now resolves the same canonical stage |
+| A System Administrator could approve all four BAFO steps alone | Fixed — each step needs its own business role, enforced in the database |
+| Nothing reviewed a request before it entered the pipeline | Fixed — Opportunity Review gates every request, enforced in the database |
+| Picking **JIH BAFO** or **Contract Signed** failed with an error | Fixed — the server rejected two stages the screen offered; both are reachable now |
+| Action Center showed only automation flags — tasks, follow-ups, approvals and intake reviews were invisible there | Fixed — one queue over all five sources, with Mine / Team / overdue / priority filters |
+| Approvals showed only record approvals; intake reviews and BAFO steps lived elsewhere | Fixed — one decision desk covering all three workflows |
+| The bell counted every open item, so it never reached zero and stopped meaning anything | Fixed — it counts **unread** notifications, and you can mark read or dismiss |
+| **The nightly automation stopped raising anything on 2026-08-07 and nobody noticed for two weeks** | Fixed — a rule referenced a flag type that was never added to the database, and the error rolled back the whole run. The Action Center's apparent quiet was a crash, not calm |
+| Nothing told you an important item had gone past its due date | Fixed — tier A/B items that lapse raise one notification, once |
+| KPIs were computed three different ways, and a deal at JIH BAFO was counted in none of them | Fixed — one canonical engine reading `sales_stage`, so every screen agrees |
+| Forecast quietly weighted unscored deals at 20%, inventing pipeline out of nothing | Fixed — unscored deals are excluded and counted separately, never assumed |
+| You could not tell where a number came from | Fixed — every KPI shows its formula, source, filters and record count, and clicks through to the records |
 
 ---
 
@@ -675,6 +844,14 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-06, `main` @ `5a36e09`.
-Behaviour verified against source, a live browser pass, and the production database.
+*Reflects the system as at 2026-08-20, branch `feat/phase-5-sales-management` (base `main` @ `6ce2a37`).
+Behaviour verified against source, the test suite (969 passing), and a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
+
+**Phase 4 is live** — the notifications migration was applied on 2026-08-20 and the frontend deployed at `6ce2a37`.
+
+**Phase 6 (Files / Photos / Location) is not yet live.** The Files section, the document registry and the site-coordinate fields are on a branch; the migrations are not applied to production.
+
+**Attachment access isolation is live** — applied and deployed on 2026-08-21 at `ad41ccf` (PR #196).
+
+**Phase 5 is not yet live.** The canonical KPI engine, drilldown, timeline, entry presets and AI discipline layer are code-only and ship with the next deploy. The NO BOQ / NO PROJECT NUMBER rule exists only as a local migration and is **not** applied to production — see Section 10.
 Update this file when the workflow changes.*

@@ -11,6 +11,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { NewIntakeDialog } from "@/components/phc/NewIntakeDialog";
+import { IntakeReviewPanel } from "@/components/phc/IntakeReviewPanel";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { listTeamMembers } from "@/lib/opportunity-actions";
@@ -24,7 +25,6 @@ import {
   type InboxClassification, type DuplicateCandidate,
 } from "@/lib/inbox-actions";
 import { humanize } from "@/lib/utils";
-import { IntakeHubTabs } from "@/components/phc/IntakeHubTabs";
 
 export const Route = createFileRoute("/_authenticated/lead-tender-inbox")({
   head: () => ({ meta: [{ title: "Lead & Tender Inbox — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -138,9 +138,8 @@ function LeadTenderInbox() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <IntakeHubTabs active="requests" />
       <PageHeader
-        eyebrow="Execution"
+        eyebrow={t("navgroup_sales")}
         title={t("ibx_title")}
         description={t("ibx_intro")}
         actions={
@@ -152,6 +151,10 @@ function LeadTenderInbox() {
           </div>
         }
       />
+
+      {/* Phase 2: the review gate sits above the raw inbox, because deciding
+          what enters the pipeline is now the first job on this page. */}
+      <IntakeReviewPanel />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard label={t("ibx_title")} value={kpis.total} icon={<InboxIcon className="h-3.5 w-3.5" />} />

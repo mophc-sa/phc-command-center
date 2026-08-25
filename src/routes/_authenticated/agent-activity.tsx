@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, type StringKey } from "@/lib/i18n";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ActionDialog } from "@/components/phc/ActionDialog";
@@ -27,6 +27,16 @@ export const Route = createFileRoute("/_authenticated/agent-activity")({
 });
 
 type Status = "all" | "running" | "completed" | "failed" | "not_configured";
+
+// The status chips used to render `s.replaceAll("_", " ")`, i.e. raw English
+// enum values, on the Arabic UI too (QA 2026-08-10 ISSUE-005).
+const AGENT_STATUS_LABEL: Record<Status, StringKey> = {
+  all: "aa_status_all",
+  running: "aa_status_running",
+  completed: "aa_status_completed",
+  failed: "aa_status_failed",
+  not_configured: "aa_status_not_configured",
+};
 
 function statusTone(s: string): "positive" | "attention" | "danger" | "muted" | "neutral" {
   if (s === "completed") return "positive";
@@ -187,13 +197,13 @@ function AgentActivityPage() {
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
-        eyebrow="Governance"
+        eyebrow={t("aa_eyebrow_governance")}
         title={t("nav_agent_activity")}
         description="Operational intelligence: every agent run, filtered by module, status, and time."
       />
 
       {canRun ? (
-        <Panel title="Project Radar" className="mb-6">
+        <Panel title={t("aa_project_radar")} className="mb-6">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -202,7 +212,7 @@ function AgentActivityPage() {
                 className="inline-flex items-center gap-1.5 rounded-md border border-won/40 bg-won/10 px-3 py-1.5 text-xs text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
               >
                 <Activity className="h-3.5 w-3.5" />
-                {radarRunning ? "Running…" : "Scan Pipeline"}
+                {radarRunning ? t("aa_scanning") : t("aa_scan_pipeline")}
               </button>
               {radarScore !== null && (
                 <span className="rounded-md border border-won/30 bg-won/10 px-3 py-1 text-xs font-medium text-won">
@@ -284,10 +294,10 @@ function AgentActivityPage() {
         {lang === "ar" ? "الفحص الدفعي (نظام أقدم)" : "Batch Scans (legacy system)"}
       </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Runs (recent 200)" value={kpis.total} icon={<Activity className="h-3.5 w-3.5" />} />
-        <KpiCard label="Completed" value={kpis.completed} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
-        <KpiCard label="Not configured" value={kpis.notConfigured} icon={<PauseCircle className="h-3.5 w-3.5" />} />
-        <KpiCard label="Errors" value={kpis.errors} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
+        <KpiCard label={t("aa_kpi_runs")} value={kpis.total} icon={<Activity className="h-3.5 w-3.5" />} />
+        <KpiCard label={t("aa_kpi_completed")} value={kpis.completed} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
+        <KpiCard label={t("aa_kpi_not_configured")} value={kpis.notConfigured} icon={<PauseCircle className="h-3.5 w-3.5" />} />
+        <KpiCard label={t("aa_kpi_errors")} value={kpis.errors} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
       </div>
 
       {/* Per-request orchestrator system (ai-orchestrator / ai_agent_outputs)
@@ -306,7 +316,7 @@ function AgentActivityPage() {
       </div>
 
       <div className="mb-6">
-        <ChartFrame title="Runs — last 7 days">
+        <ChartFrame title={t("aa_runs_last_7")}>
           {hasTrendData ? (
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
@@ -332,7 +342,7 @@ function AgentActivityPage() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search agent, summary"
+          placeholder={t("aa_search_placeholder")}
           className="w-full max-w-xs rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
         />
         <div className="flex flex-wrap items-center gap-2">
@@ -341,7 +351,7 @@ function AgentActivityPage() {
             onChange={(e) => setAgent(e.target.value)}
             className="rounded-md border border-border bg-surface/60 px-2.5 py-1.5 text-xs text-foreground focus:border-border-strong focus:outline-none"
           >
-            <option value="all">All agents</option>
+            <option value="all">{t("aa_all_agents")}</option>
             {agents.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
           <div className="flex flex-wrap gap-1">
@@ -351,7 +361,7 @@ function AgentActivityPage() {
                 onClick={() => setStatus(s)}
                 className={`rounded-full border px-3 py-1.5 text-xs ${status === s ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
               >
-                {s === "all" ? "All" : s.replaceAll("_", " ")}
+                {t(AGENT_STATUS_LABEL[s])}
               </button>
             ))}
           </div>
@@ -360,8 +370,8 @@ function AgentActivityPage() {
 
       <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as "runs" | "outputs")}>
         <TabsList className="mb-4">
-          <TabsTrigger value="runs">Batch Runs</TabsTrigger>
-          <TabsTrigger value="outputs">AI Outputs</TabsTrigger>
+          <TabsTrigger value="runs">{t("aa_tab_batch_runs")}</TabsTrigger>
+          <TabsTrigger value="outputs">{t("aa_tab_ai_outputs")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="runs">
@@ -376,14 +386,14 @@ function AgentActivityPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <StatusPill tone={statusTone(r.status)}>{r.status?.replaceAll("_", " ") ?? "—"}</StatusPill>
+                        <StatusPill tone={statusTone(r.status)}>{r.status && AGENT_STATUS_LABEL[r.status as Status] ? t(AGENT_STATUS_LABEL[r.status as Status]) : (r.status ?? "—")}</StatusPill>
                         <span className="truncate text-sm font-medium text-foreground">{r.agent_key}</span>
                       </div>
                       {r.summary ? <div className="mt-1 text-xs text-muted-foreground">{r.summary}</div> : null}
                       {(r.records_scanned != null || r.recommendations_created != null) ? (
                         <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-                          {r.records_scanned != null ? <span className="num" data-tabular="true">{r.records_scanned} scanned</span> : null}
-                          {r.recommendations_created != null ? <span className="num" data-tabular="true">{r.recommendations_created} recommendations</span> : null}
+                          {r.records_scanned != null ? <span className="num" data-tabular="true">{r.records_scanned} {t("aa_scanned_suffix")}</span> : null}
+                          {r.recommendations_created != null ? <span className="num" data-tabular="true">{r.recommendations_created} {t("aa_recommendations_suffix")}</span> : null}
                         </div>
                       ) : null}
                     </div>
@@ -401,7 +411,7 @@ function AgentActivityPage() {
           {outputsLoading ? (
             <SkeletonTable rows={6} />
           ) : outputs.length === 0 ? (
-            <EmptyState message="No AI agent outputs yet." />
+            <EmptyState message={t("aa_empty_outputs")} />
           ) : (
             <ol className="space-y-2">
               {outputs.map((o: any) => (
@@ -410,7 +420,7 @@ function AgentActivityPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <StatusPill tone={o.status === "accepted" ? "positive" : o.status === "rejected" ? "danger" : "attention"}>
-                          {o.status?.replaceAll("_", " ") ?? "—"}
+                          {o.status && AGENT_STATUS_LABEL[o.status as Status] ? t(AGENT_STATUS_LABEL[o.status as Status]) : (o.status ?? "—")}
                         </StatusPill>
                         <span className="truncate text-sm font-medium text-foreground">{o.agent_key}</span>
                         {o.output_type ? <StatusPill tone="muted">{o.output_type}</StatusPill> : null}

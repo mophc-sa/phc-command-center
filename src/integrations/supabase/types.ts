@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -39,6 +34,92 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_interactions: {
+        Row: {
+          company_id: string
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          feedback: string | null
+          id: string
+          interaction_date: string
+          interaction_type: string
+          next_action: string | null
+          next_action_due: string | null
+          outcome: string | null
+          priority: string | null
+          source_batch_id: string | null
+          source_row_id: string | null
+          summary: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          feedback?: string | null
+          id?: string
+          interaction_date: string
+          interaction_type: string
+          next_action?: string | null
+          next_action_due?: string | null
+          outcome?: string | null
+          priority?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          summary: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          feedback?: string | null
+          id?: string
+          interaction_date?: string
+          interaction_type?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          outcome?: string | null
+          priority?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          summary?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_interactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_interactions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_interactions_source_batch_id_fkey"
+            columns: ["source_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_interactions_source_row_id_fkey"
+            columns: ["source_row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activities: {
         Row: {
           activity_type: Database["public"]["Enums"]["activity_type"]
@@ -110,6 +191,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
             referencedColumns: ["id"]
           },
           {
@@ -213,6 +301,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_agent_feedback_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_advice_queue"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ai_agent_feedback_recommendation_id_fkey"
             columns: ["recommendation_id"]
@@ -482,6 +577,13 @@ export type Database = {
             foreignKeyName: "ai_evidence_items_recommendation_id_fkey"
             columns: ["recommendation_id"]
             isOneToOne: false
+            referencedRelation: "ai_advice_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_evidence_items_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
             referencedRelation: "ai_recommendations"
             referencedColumns: ["id"]
           },
@@ -492,6 +594,9 @@ export type Database = {
           agent_key: string
           confidence: number | null
           created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
           entity_id: string | null
           entity_type: string | null
           generated_by: string
@@ -511,6 +616,9 @@ export type Database = {
           agent_key: string
           confidence?: number | null
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           entity_id?: string | null
           entity_type?: string | null
           generated_by?: string
@@ -530,6 +638,9 @@ export type Database = {
           agent_key?: string
           confidence?: number | null
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           entity_id?: string | null
           entity_type?: string | null
           generated_by?: string
@@ -639,6 +750,13 @@ export type Database = {
             foreignKeyName: "approvals_related_opportunity_id_fkey"
             columns: ["related_opportunity_id"]
             isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approvals_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
@@ -685,6 +803,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "artifacts_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "artifacts_related_opportunity_id_fkey"
             columns: ["related_opportunity_id"]
@@ -753,6 +878,7 @@ export type Database = {
           error: string | null
           finished_at: string | null
           id: string
+          notified: number | null
           raised: number | null
           started_at: string
           trigger: string
@@ -761,6 +887,7 @@ export type Database = {
           error?: string | null
           finished_at?: string | null
           id?: string
+          notified?: number | null
           raised?: number | null
           started_at?: string
           trigger?: string
@@ -769,6 +896,7 @@ export type Database = {
           error?: string | null
           finished_at?: string | null
           id?: string
+          notified?: number | null
           raised?: number | null
           started_at?: string
           trigger?: string
@@ -916,6 +1044,13 @@ export type Database = {
             foreignKeyName: "bafo_requests_opportunity_id_fkey"
             columns: ["opportunity_id"]
             isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bafo_requests_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
@@ -960,6 +1095,13 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "boq_extractions_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "boq_extractions_related_opportunity_id_fkey"
             columns: ["related_opportunity_id"]
@@ -1032,7 +1174,189 @@ export type Database = {
             foreignKeyName: "boq_items_boq_id_fkey"
             columns: ["boq_id"]
             isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
             referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_lines: {
+        Row: {
+          created_at: string
+          description: string | null
+          dimensions: string | null
+          finish: string | null
+          id: string
+          illumination: string | null
+          item_source: string | null
+          line_number: number | null
+          line_total: number | null
+          location: string | null
+          material: string | null
+          mounting: string | null
+          quantity: number
+          revision_id: string
+          selling_price: number | null
+          sign_type: string
+          sort_order: number | null
+          unit: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          dimensions?: string | null
+          finish?: string | null
+          id?: string
+          illumination?: string | null
+          item_source?: string | null
+          line_number?: number | null
+          line_total?: number | null
+          location?: string | null
+          material?: string | null
+          mounting?: string | null
+          quantity?: number
+          revision_id: string
+          selling_price?: number | null
+          sign_type: string
+          sort_order?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          dimensions?: string | null
+          finish?: string | null
+          id?: string
+          illumination?: string | null
+          item_source?: string | null
+          line_number?: number | null
+          line_total?: number | null
+          location?: string | null
+          material?: string | null
+          mounting?: string | null
+          quantity?: number
+          revision_id?: string
+          selling_price?: number | null
+          sign_type?: string
+          sort_order?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_revisions: {
+        Row: {
+          boq_id: string
+          created_at: string
+          created_by: string | null
+          frozen_at: string | null
+          frozen_by: string | null
+          id: string
+          is_current: boolean
+          notes: string | null
+          revision_number: number
+          source_ref: string | null
+          source_type: Database["public"]["Enums"]["boq_source_type"]
+          status: Database["public"]["Enums"]["boq_revision_status"]
+          superseded_at: string | null
+          superseded_by: string | null
+        }
+        Insert: {
+          boq_id: string
+          created_at?: string
+          created_by?: string | null
+          frozen_at?: string | null
+          frozen_by?: string | null
+          id?: string
+          is_current?: boolean
+          notes?: string | null
+          revision_number: number
+          source_ref?: string | null
+          source_type?: Database["public"]["Enums"]["boq_source_type"]
+          status?: Database["public"]["Enums"]["boq_revision_status"]
+          superseded_at?: string | null
+          superseded_by?: string | null
+        }
+        Update: {
+          boq_id?: string
+          created_at?: string
+          created_by?: string | null
+          frozen_at?: string | null
+          frozen_by?: string | null
+          id?: string
+          is_current?: boolean
+          notes?: string | null
+          revision_number?: number
+          source_ref?: string | null
+          source_type?: Database["public"]["Enums"]["boq_source_type"]
+          status?: Database["public"]["Enums"]["boq_revision_status"]
+          superseded_at?: string | null
+          superseded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
             referencedColumns: ["id"]
           },
         ]
@@ -1097,6 +1421,13 @@ export type Database = {
             foreignKeyName: "boqs_related_opportunity_id_fkey"
             columns: ["related_opportunity_id"]
             isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
@@ -1155,6 +1486,99 @@ export type Database = {
           severity?: string | null
         }
         Relationships: []
+      }
+      commitments: {
+        Row: {
+          closed_at: string | null
+          closed_by: string | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          direction: Database["public"]["Enums"]["commitment_direction"]
+          due_date: string
+          id: string
+          opportunity_id: string
+          outcome_note: string | null
+          owner_id: string | null
+          source_activity_id: string | null
+          status: Database["public"]["Enums"]["commitment_status"]
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          direction: Database["public"]["Enums"]["commitment_direction"]
+          due_date: string
+          id?: string
+          opportunity_id: string
+          outcome_note?: string | null
+          owner_id?: string | null
+          source_activity_id?: string | null
+          status?: Database["public"]["Enums"]["commitment_status"]
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closed_by?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          direction?: Database["public"]["Enums"]["commitment_direction"]
+          due_date?: string
+          id?: string
+          opportunity_id?: string
+          outcome_note?: string | null
+          owner_id?: string | null
+          source_activity_id?: string | null
+          status?: Database["public"]["Enums"]["commitment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commitments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitments_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitments_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitments_source_activity_id_fkey"
+            columns: ["source_activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       communication_templates: {
         Row: {
@@ -1422,7 +1846,177 @@ export type Database = {
             foreignKeyName: "contracts_opportunity_id_fkey"
             columns: ["opportunity_id"]
             isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_backfill_report: {
+        Row: {
+          derived_path: string | null
+          id: string
+          outcome: string
+          raw_value: string | null
+          reason: string
+          record_id: string
+          reported_at: string
+          source_column: string
+          source_table: string
+        }
+        Insert: {
+          derived_path?: string | null
+          id?: string
+          outcome: string
+          raw_value?: string | null
+          reason: string
+          record_id: string
+          reported_at?: string
+          source_column: string
+          source_table: string
+        }
+        Update: {
+          derived_path?: string | null
+          id?: string
+          outcome?: string
+          raw_value?: string | null
+          reason?: string
+          record_id?: string
+          reported_at?: string
+          source_column?: string
+          source_table?: string
+        }
+        Relationships: []
+      }
+      document_links: {
+        Row: {
+          document_id: string
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["document_entity_type"]
+          id: string
+          link_role: string | null
+          linked_at: string
+          linked_by: string | null
+          unlinked_at: string | null
+          unlinked_by: string | null
+        }
+        Insert: {
+          document_id: string
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["document_entity_type"]
+          id?: string
+          link_role?: string | null
+          linked_at?: string
+          linked_by?: string | null
+          unlinked_at?: string | null
+          unlinked_by?: string | null
+        }
+        Update: {
+          document_id?: string
+          entity_id?: string
+          entity_type?: Database["public"]["Enums"]["document_entity_type"]
+          id?: string
+          link_role?: string | null
+          linked_at?: string
+          linked_by?: string | null
+          unlinked_at?: string | null
+          unlinked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_links_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          captured_lat: number | null
+          captured_lon: number | null
+          checksum: string | null
+          created_at: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          doc_type: Database["public"]["Enums"]["document_type"]
+          id: string
+          is_legacy: boolean
+          mime_type: string | null
+          notes: string | null
+          original_filename: string
+          size_bytes: number | null
+          storage_bucket: string
+          storage_path: string
+          superseded_at: string | null
+          superseded_by: string | null
+          title: string | null
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          captured_lat?: number | null
+          captured_lon?: number | null
+          checksum?: string | null
+          created_at?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          is_legacy?: boolean
+          mime_type?: string | null
+          notes?: string | null
+          original_filename: string
+          size_bytes?: number | null
+          storage_bucket?: string
+          storage_path: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+          title?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          captured_lat?: number | null
+          captured_lon?: number | null
+          checksum?: string | null
+          created_at?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          doc_type?: Database["public"]["Enums"]["document_type"]
+          id?: string
+          is_legacy?: boolean
+          mime_type?: string | null
+          notes?: string | null
+          original_filename?: string
+          size_bytes?: number | null
+          storage_bucket?: string
+          storage_path?: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+          title?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "documents"
             referencedColumns: ["id"]
           },
         ]
@@ -1503,6 +2097,63 @@ export type Database = {
           },
         ]
       }
+      estimations: {
+        Row: {
+          boq_revision_id: string
+          cost_total: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          installation_cost: number | null
+          notes: string | null
+          overhead_pct: number | null
+          submitted_at: string | null
+          submitted_by: string | null
+          wastage_pct: number | null
+        }
+        Insert: {
+          boq_revision_id: string
+          cost_total?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installation_cost?: number | null
+          notes?: string | null
+          overhead_pct?: number | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          wastage_pct?: number | null
+        }
+        Update: {
+          boq_revision_id?: string
+          cost_total?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installation_cost?: number | null
+          notes?: string | null
+          overhead_pct?: number | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          wastage_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       evidence_sources: {
         Row: {
           confidence_level: Database["public"]["Enums"]["confidence_level"]
@@ -1550,6 +2201,13 @@ export type Database = {
           vault_path?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "evidence_sources_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "evidence_sources_related_opportunity_id_fkey"
             columns: ["related_opportunity_id"]
@@ -1651,10 +2309,437 @@ export type Database = {
             foreignKeyName: "follow_ups_opportunity_id_fkey"
             columns: ["opportunity_id"]
             isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_ups_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
+      }
+      historical_promotion_requests: {
+        Row: {
+          amount_absent_reason: string | null
+          amount_excl_vat: number | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          decision_notes: string | null
+          duplicate_reviewed: boolean
+          id: string
+          mapping_notes: string | null
+          owner_user_id: string | null
+          project_name: string | null
+          promoted_at: string | null
+          promoted_by: string | null
+          promoted_opportunity_id: string | null
+          promoted_quotation_id: string | null
+          rejection_reason: string | null
+          requested_at: string | null
+          requested_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          row_id: string
+          status: Database["public"]["Enums"]["historical_promotion_status"]
+          status_canonical: string | null
+          updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          amount_absent_reason?: string | null
+          amount_excl_vat?: number | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          decision_notes?: string | null
+          duplicate_reviewed?: boolean
+          id?: string
+          mapping_notes?: string | null
+          owner_user_id?: string | null
+          project_name?: string | null
+          promoted_at?: string | null
+          promoted_by?: string | null
+          promoted_opportunity_id?: string | null
+          promoted_quotation_id?: string | null
+          rejection_reason?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          row_id: string
+          status?: Database["public"]["Enums"]["historical_promotion_status"]
+          status_canonical?: string | null
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          amount_absent_reason?: string | null
+          amount_excl_vat?: number | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          decision_notes?: string | null
+          duplicate_reviewed?: boolean
+          id?: string
+          mapping_notes?: string | null
+          owner_user_id?: string | null
+          project_name?: string | null
+          promoted_at?: string | null
+          promoted_by?: string | null
+          promoted_opportunity_id?: string | null
+          promoted_quotation_id?: string | null
+          rejection_reason?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          row_id?: string
+          status?: Database["public"]["Enums"]["historical_promotion_status"]
+          status_canonical?: string | null
+          updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_promotion_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_quotation_id_fkey"
+            columns: ["promoted_quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_batches: {
+        Row: {
+          header_rows: number
+          id: string
+          loaded_at: string
+          loaded_by: string | null
+          notes: string | null
+          source_file: string
+          source_rows: number | null
+          source_sha256: string | null
+          status: string
+        }
+        Insert: {
+          header_rows?: number
+          id?: string
+          loaded_at?: string
+          loaded_by?: string | null
+          notes?: string | null
+          source_file: string
+          source_rows?: number | null
+          source_sha256?: string | null
+          status?: string
+        }
+        Update: {
+          header_rows?: number
+          id?: string
+          loaded_at?: string
+          loaded_by?: string | null
+          notes?: string | null
+          source_file?: string
+          source_rows?: number | null
+          source_sha256?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      historical_sales_company_candidates: {
+        Row: {
+          batch_id: string
+          id: string
+          occurrences: number
+          raw_name: string
+          resolved: boolean
+          suggested_company_id: string | null
+          suggestion_basis: string | null
+        }
+        Insert: {
+          batch_id: string
+          id?: string
+          occurrences?: number
+          raw_name: string
+          resolved?: boolean
+          suggested_company_id?: string | null
+          suggestion_basis?: string | null
+        }
+        Update: {
+          batch_id?: string
+          id?: string
+          occurrences?: number
+          raw_name?: string
+          resolved?: boolean
+          suggested_company_id?: string | null
+          suggestion_basis?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_sales_company_candidates_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_company_candidates_suggested_company_id_fkey"
+            columns: ["suggested_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_mapped: {
+        Row: {
+          amount_excl_vat: number | null
+          amount_raw: string | null
+          amount_unparsed: boolean
+          base_code: string | null
+          batch_id: string
+          client_name_raw: string | null
+          code_placeholder: boolean
+          code_unparsed: boolean
+          company_id: string | null
+          company_matched: boolean
+          contact_email: string | null
+          contact_mobile: string | null
+          contact_name: string | null
+          currency: string
+          date_received: string | null
+          date_submitted: string | null
+          follow_up_raw: string | null
+          mapped_at: string
+          owner_label: string | null
+          owner_prefix: string | null
+          owner_user_id: string | null
+          project_location: string | null
+          project_name_raw: string | null
+          revision_no: number | null
+          route: string | null
+          row_id: string
+          sales_code_raw: string | null
+          status_canonical: string | null
+          status_needs_decision: boolean
+          status_raw: string | null
+          variant: string | null
+        }
+        Insert: {
+          amount_excl_vat?: number | null
+          amount_raw?: string | null
+          amount_unparsed?: boolean
+          base_code?: string | null
+          batch_id: string
+          client_name_raw?: string | null
+          code_placeholder?: boolean
+          code_unparsed?: boolean
+          company_id?: string | null
+          company_matched?: boolean
+          contact_email?: string | null
+          contact_mobile?: string | null
+          contact_name?: string | null
+          currency?: string
+          date_received?: string | null
+          date_submitted?: string | null
+          follow_up_raw?: string | null
+          mapped_at?: string
+          owner_label?: string | null
+          owner_prefix?: string | null
+          owner_user_id?: string | null
+          project_location?: string | null
+          project_name_raw?: string | null
+          revision_no?: number | null
+          route?: string | null
+          row_id: string
+          sales_code_raw?: string | null
+          status_canonical?: string | null
+          status_needs_decision?: boolean
+          status_raw?: string | null
+          variant?: string | null
+        }
+        Update: {
+          amount_excl_vat?: number | null
+          amount_raw?: string | null
+          amount_unparsed?: boolean
+          base_code?: string | null
+          batch_id?: string
+          client_name_raw?: string | null
+          code_placeholder?: boolean
+          code_unparsed?: boolean
+          company_id?: string | null
+          company_matched?: boolean
+          contact_email?: string | null
+          contact_mobile?: string | null
+          contact_name?: string | null
+          currency?: string
+          date_received?: string | null
+          date_submitted?: string | null
+          follow_up_raw?: string | null
+          mapped_at?: string
+          owner_label?: string | null
+          owner_prefix?: string | null
+          owner_user_id?: string | null
+          project_location?: string | null
+          project_name_raw?: string | null
+          revision_no?: number | null
+          route?: string | null
+          row_id?: string
+          sales_code_raw?: string | null
+          status_canonical?: string | null
+          status_needs_decision?: boolean
+          status_raw?: string | null
+          variant?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_sales_mapped_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_mapped_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_mapped_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_owner_map: {
+        Row: {
+          legacy_label: string
+          note: string | null
+          prefix: string
+          user_id: string | null
+        }
+        Insert: {
+          legacy_label: string
+          note?: string | null
+          prefix: string
+          user_id?: string | null
+        }
+        Update: {
+          legacy_label?: string
+          note?: string | null
+          prefix?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      historical_sales_rows: {
+        Row: {
+          batch_id: string
+          id: string
+          loaded_at: string
+          raw: Json
+          row_number: number
+        }
+        Insert: {
+          batch_id: string
+          id?: string
+          loaded_at?: string
+          raw: Json
+          row_number: number
+        }
+        Update: {
+          batch_id?: string
+          id?: string
+          loaded_at?: string
+          raw?: Json
+          row_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_sales_rows_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_status_map: {
+        Row: {
+          canonical_handoff_status: string | null
+          canonical_sales_stage: string | null
+          canonical_status: string | null
+          is_terminal: boolean
+          needs_decision: boolean
+          note: string
+          promotable_active: boolean
+          source_status: string
+        }
+        Insert: {
+          canonical_handoff_status?: string | null
+          canonical_sales_stage?: string | null
+          canonical_status?: string | null
+          is_terminal?: boolean
+          needs_decision?: boolean
+          note: string
+          promotable_active?: boolean
+          source_status: string
+        }
+        Update: {
+          canonical_handoff_status?: string | null
+          canonical_sales_stage?: string | null
+          canonical_status?: string | null
+          is_terminal?: boolean
+          needs_decision?: boolean
+          note?: string
+          promotable_active?: boolean
+          source_status?: string
+        }
+        Relationships: []
       }
       import_approval_queue: {
         Row: {
@@ -2608,6 +3693,7 @@ export type Database = {
           assigned_owner_id: string | null
           classification: Database["public"]["Enums"]["inbox_classification"]
           client_owner: string | null
+          client_rfq_reference: string | null
           client_type: Database["public"]["Enums"]["inbox_client_type"] | null
           company_name: string | null
           consultant: string | null
@@ -2622,19 +3708,38 @@ export type Database = {
           duplicate_of_type: string | null
           email: string | null
           estimated_value: number | null
+          evidence_storage_path: string | null
           evidence_url: string | null
           follow_up_date: string | null
+          has_boq: boolean
+          has_drawings: boolean
+          has_specs: boolean
           id: string
+          info_comment: string | null
+          info_due_date: string | null
+          info_requested_at: string | null
+          info_required_items: string[] | null
+          info_responsible_id: string | null
+          internal_rfq_reference: string | null
           location: string | null
           location_city: Database["public"]["Enums"]["inbox_location"] | null
           main_contractor: string | null
           missing_data_reason: string | null
           next_action: string | null
           notes: string | null
+          owner_entity: string | null
           phone: string | null
           project_name: string | null
           project_number: string | null
           project_type: Database["public"]["Enums"]["inbox_project_type"] | null
+          reject_reason: string | null
+          request_type: string | null
+          resubmit_count: number
+          resubmitted_at: string | null
+          review_notes: string | null
+          review_state: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           rfq_from: Database["public"]["Enums"]["inbox_rfq_from"] | null
           scope: string | null
           scope_type: Database["public"]["Enums"]["inbox_scope"] | null
@@ -2648,6 +3753,7 @@ export type Database = {
           assigned_owner_id?: string | null
           classification?: Database["public"]["Enums"]["inbox_classification"]
           client_owner?: string | null
+          client_rfq_reference?: string | null
           client_type?: Database["public"]["Enums"]["inbox_client_type"] | null
           company_name?: string | null
           consultant?: string | null
@@ -2662,21 +3768,40 @@ export type Database = {
           duplicate_of_type?: string | null
           email?: string | null
           estimated_value?: number | null
+          evidence_storage_path?: string | null
           evidence_url?: string | null
           follow_up_date?: string | null
+          has_boq?: boolean
+          has_drawings?: boolean
+          has_specs?: boolean
           id?: string
+          info_comment?: string | null
+          info_due_date?: string | null
+          info_requested_at?: string | null
+          info_required_items?: string[] | null
+          info_responsible_id?: string | null
+          internal_rfq_reference?: string | null
           location?: string | null
           location_city?: Database["public"]["Enums"]["inbox_location"] | null
           main_contractor?: string | null
           missing_data_reason?: string | null
           next_action?: string | null
           notes?: string | null
+          owner_entity?: string | null
           phone?: string | null
           project_name?: string | null
           project_number?: string | null
           project_type?:
             | Database["public"]["Enums"]["inbox_project_type"]
             | null
+          reject_reason?: string | null
+          request_type?: string | null
+          resubmit_count?: number
+          resubmitted_at?: string | null
+          review_notes?: string | null
+          review_state?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           rfq_from?: Database["public"]["Enums"]["inbox_rfq_from"] | null
           scope?: string | null
           scope_type?: Database["public"]["Enums"]["inbox_scope"] | null
@@ -2690,6 +3815,7 @@ export type Database = {
           assigned_owner_id?: string | null
           classification?: Database["public"]["Enums"]["inbox_classification"]
           client_owner?: string | null
+          client_rfq_reference?: string | null
           client_type?: Database["public"]["Enums"]["inbox_client_type"] | null
           company_name?: string | null
           consultant?: string | null
@@ -2704,21 +3830,40 @@ export type Database = {
           duplicate_of_type?: string | null
           email?: string | null
           estimated_value?: number | null
+          evidence_storage_path?: string | null
           evidence_url?: string | null
           follow_up_date?: string | null
+          has_boq?: boolean
+          has_drawings?: boolean
+          has_specs?: boolean
           id?: string
+          info_comment?: string | null
+          info_due_date?: string | null
+          info_requested_at?: string | null
+          info_required_items?: string[] | null
+          info_responsible_id?: string | null
+          internal_rfq_reference?: string | null
           location?: string | null
           location_city?: Database["public"]["Enums"]["inbox_location"] | null
           main_contractor?: string | null
           missing_data_reason?: string | null
           next_action?: string | null
           notes?: string | null
+          owner_entity?: string | null
           phone?: string | null
           project_name?: string | null
           project_number?: string | null
           project_type?:
             | Database["public"]["Enums"]["inbox_project_type"]
             | null
+          reject_reason?: string | null
+          request_type?: string | null
+          resubmit_count?: number
+          resubmitted_at?: string | null
+          review_notes?: string | null
+          review_state?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           rfq_from?: Database["public"]["Enums"]["inbox_rfq_from"] | null
           scope?: string | null
           scope_type?: Database["public"]["Enums"]["inbox_scope"] | null
@@ -2728,6 +3873,84 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      internal_prices: {
+        Row: {
+          below_floor_justification: string | null
+          commercial_reviewed_at: string | null
+          commercial_reviewed_by: string | null
+          created_at: string
+          estimation_id: string
+          finance_reviewed_at: string | null
+          finance_reviewed_by: string | null
+          gm_decided_at: string | null
+          gm_decided_by: string | null
+          id: string
+          margin_percentage: number | null
+          margin_value: number | null
+          proposed_at: string | null
+          proposed_by: string | null
+          proposed_price: number | null
+          return_reason: string | null
+          status: Database["public"]["Enums"]["internal_price_status"]
+          updated_at: string
+        }
+        Insert: {
+          below_floor_justification?: string | null
+          commercial_reviewed_at?: string | null
+          commercial_reviewed_by?: string | null
+          created_at?: string
+          estimation_id: string
+          finance_reviewed_at?: string | null
+          finance_reviewed_by?: string | null
+          gm_decided_at?: string | null
+          gm_decided_by?: string | null
+          id?: string
+          margin_percentage?: number | null
+          margin_value?: number | null
+          proposed_at?: string | null
+          proposed_by?: string | null
+          proposed_price?: number | null
+          return_reason?: string | null
+          status?: Database["public"]["Enums"]["internal_price_status"]
+          updated_at?: string
+        }
+        Update: {
+          below_floor_justification?: string | null
+          commercial_reviewed_at?: string | null
+          commercial_reviewed_by?: string | null
+          created_at?: string
+          estimation_id?: string
+          finance_reviewed_at?: string | null
+          finance_reviewed_by?: string | null
+          gm_decided_at?: string | null
+          gm_decided_by?: string | null
+          id?: string
+          margin_percentage?: number | null
+          margin_value?: number | null
+          proposed_at?: string | null
+          proposed_by?: string | null
+          proposed_price?: number | null
+          return_reason?: string | null
+          status?: Database["public"]["Enums"]["internal_price_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimation_cost_reconciliation"
+            referencedColumns: ["estimation_id"]
+          },
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       knowledge_chunks: {
         Row: {
@@ -2804,6 +4027,13 @@ export type Database = {
             foreignKeyName: "lead_scores_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "lead_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_scores_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
           },
@@ -2824,7 +4054,9 @@ export type Database = {
           converted_opportunity_id: string | null
           created_at: string
           created_by: string | null
+          dedupe_key: string | null
           duplicate_of: string | null
+          duplicate_of_lead_id: string | null
           estimated_value: number | null
           extra_data: Json | null
           id: string
@@ -2839,6 +4071,9 @@ export type Database = {
             | null
           rejection_reason: string | null
           research_notes: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           signage_potential:
             | Database["public"]["Enums"]["confidence_level"]
             | null
@@ -2853,7 +4088,9 @@ export type Database = {
           converted_opportunity_id?: string | null
           created_at?: string
           created_by?: string | null
+          dedupe_key?: string | null
           duplicate_of?: string | null
+          duplicate_of_lead_id?: string | null
           estimated_value?: number | null
           extra_data?: Json | null
           id?: string
@@ -2868,6 +4105,9 @@ export type Database = {
             | null
           rejection_reason?: string | null
           research_notes?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           signage_potential?:
             | Database["public"]["Enums"]["confidence_level"]
             | null
@@ -2882,7 +4122,9 @@ export type Database = {
           converted_opportunity_id?: string | null
           created_at?: string
           created_by?: string | null
+          dedupe_key?: string | null
           duplicate_of?: string | null
+          duplicate_of_lead_id?: string | null
           estimated_value?: number | null
           extra_data?: Json | null
           id?: string
@@ -2897,6 +4139,9 @@ export type Database = {
             | null
           rejection_reason?: string | null
           research_notes?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           signage_potential?:
             | Database["public"]["Enums"]["confidence_level"]
             | null
@@ -2909,7 +4154,21 @@ export type Database = {
             foreignKeyName: "leads_converted_opportunity_id_fkey"
             columns: ["converted_opportunity_id"]
             isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_converted_opportunity_id_fkey"
+            columns: ["converted_opportunity_id"]
+            isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_duplicate_of_fkey"
+            columns: ["duplicate_of"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
             referencedColumns: ["id"]
           },
           {
@@ -2919,7 +4178,105 @@ export type Database = {
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "leads_duplicate_of_lead_id_fkey"
+            columns: ["duplicate_of_lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_duplicate_of_lead_id_fkey"
+            columns: ["duplicate_of_lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      margin_policies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          min_margin_pct: number
+          rationale: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          min_margin_pct: number
+          rationale?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          min_margin_pct?: number
+          rationale?: string | null
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          dedupe_key: string
+          dismissed_at: string | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          metadata: Json | null
+          notification_type: string
+          read_at: string | null
+          recipient_user_id: string
+          severity: string
+          source_event: string
+          source_event_id: string | null
+          title: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          dedupe_key: string
+          dismissed_at?: string | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          notification_type: string
+          read_at?: string | null
+          recipient_user_id: string
+          severity?: string
+          source_event: string
+          source_event_id?: string | null
+          title: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          dedupe_key?: string
+          dismissed_at?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          notification_type?: string
+          read_at?: string | null
+          recipient_user_id?: string
+          severity?: string
+          source_event?: string
+          source_event_id?: string | null
+          title?: string
+        }
+        Relationships: []
       }
       operations_handovers: {
         Row: {
@@ -2966,6 +4323,13 @@ export type Database = {
             foreignKeyName: "operations_handovers_opportunity_id_fkey"
             columns: ["opportunity_id"]
             isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operations_handovers_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
@@ -2980,9 +4344,14 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           client: string | null
+          commercial_handoff_at: string | null
+          commercial_handoff_by: string | null
+          commercial_handoff_note: string | null
+          commercial_handoff_status: string
           company_id: string | null
           contract_received_date: string | null
           contract_reference_number: string | null
+          contract_signed_date: string | null
           contract_value: number | null
           contractor_decision_maker: string | null
           created_at: string
@@ -3000,11 +4369,18 @@ export type Database = {
           handover_status: Database["public"]["Enums"]["handover_status"] | null
           hold_reason: string | null
           hold_review_date: string | null
+          human_probability_at: string | null
+          human_probability_by: string | null
+          human_probability_reason: string | null
+          human_win_probability: number | null
           id: string
           last_activity_at: string | null
           location: string | null
           loss_notes: string | null
           loss_reason: string | null
+          lost_at: string | null
+          lost_at_stage: string | null
+          lost_to_competitor: string | null
           main_contractor: string | null
           main_contractor_confirmed: boolean
           main_contractor_id: string | null
@@ -3041,6 +4417,7 @@ export type Database = {
           signage_package_confidence: Database["public"]["Enums"]["confidence_level"]
           signage_package_status: Database["public"]["Enums"]["signage_package_status"]
           source_confidence: Database["public"]["Enums"]["confidence_level"]
+          source_tender_id: string | null
           stage: Database["public"]["Enums"]["opportunity_stage"]
           strategic_value: string | null
           technical_notes: string | null
@@ -3052,6 +4429,7 @@ export type Database = {
           verbal_award_evidence: string | null
           verbal_award_method: string | null
           win_confidence: Database["public"]["Enums"]["win_confidence"] | null
+          won_at: string | null
         }
         Insert: {
           action_priority?: Database["public"]["Enums"]["priority_tier"] | null
@@ -3061,9 +4439,14 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           client?: string | null
+          commercial_handoff_at?: string | null
+          commercial_handoff_by?: string | null
+          commercial_handoff_note?: string | null
+          commercial_handoff_status?: string
           company_id?: string | null
           contract_received_date?: string | null
           contract_reference_number?: string | null
+          contract_signed_date?: string | null
           contract_value?: number | null
           contractor_decision_maker?: string | null
           created_at?: string
@@ -3083,11 +4466,18 @@ export type Database = {
             | null
           hold_reason?: string | null
           hold_review_date?: string | null
+          human_probability_at?: string | null
+          human_probability_by?: string | null
+          human_probability_reason?: string | null
+          human_win_probability?: number | null
           id?: string
           last_activity_at?: string | null
           location?: string | null
           loss_notes?: string | null
           loss_reason?: string | null
+          lost_at?: string | null
+          lost_at_stage?: string | null
+          lost_to_competitor?: string | null
           main_contractor?: string | null
           main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
@@ -3124,6 +4514,7 @@ export type Database = {
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
           source_confidence?: Database["public"]["Enums"]["confidence_level"]
+          source_tender_id?: string | null
           stage?: Database["public"]["Enums"]["opportunity_stage"]
           strategic_value?: string | null
           technical_notes?: string | null
@@ -3135,6 +4526,7 @@ export type Database = {
           verbal_award_evidence?: string | null
           verbal_award_method?: string | null
           win_confidence?: Database["public"]["Enums"]["win_confidence"] | null
+          won_at?: string | null
         }
         Update: {
           action_priority?: Database["public"]["Enums"]["priority_tier"] | null
@@ -3144,9 +4536,14 @@ export type Database = {
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
           client?: string | null
+          commercial_handoff_at?: string | null
+          commercial_handoff_by?: string | null
+          commercial_handoff_note?: string | null
+          commercial_handoff_status?: string
           company_id?: string | null
           contract_received_date?: string | null
           contract_reference_number?: string | null
+          contract_signed_date?: string | null
           contract_value?: number | null
           contractor_decision_maker?: string | null
           created_at?: string
@@ -3166,11 +4563,18 @@ export type Database = {
             | null
           hold_reason?: string | null
           hold_review_date?: string | null
+          human_probability_at?: string | null
+          human_probability_by?: string | null
+          human_probability_reason?: string | null
+          human_win_probability?: number | null
           id?: string
           last_activity_at?: string | null
           location?: string | null
           loss_notes?: string | null
           loss_reason?: string | null
+          lost_at?: string | null
+          lost_at_stage?: string | null
+          lost_to_competitor?: string | null
           main_contractor?: string | null
           main_contractor_confirmed?: boolean
           main_contractor_id?: string | null
@@ -3207,6 +4611,7 @@ export type Database = {
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
           source_confidence?: Database["public"]["Enums"]["confidence_level"]
+          source_tender_id?: string | null
           stage?: Database["public"]["Enums"]["opportunity_stage"]
           strategic_value?: string | null
           technical_notes?: string | null
@@ -3218,6 +4623,7 @@ export type Database = {
           verbal_award_evidence?: string | null
           verbal_award_method?: string | null
           win_confidence?: Database["public"]["Enums"]["win_confidence"] | null
+          won_at?: string | null
         }
         Relationships: [
           {
@@ -3239,6 +4645,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_source_tender_id_fkey"
+            columns: ["source_tender_id"]
+            isOneToOne: false
+            referencedRelation: "tenders"
             referencedColumns: ["id"]
           },
         ]
@@ -3281,6 +4694,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "opportunity_discussions_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "opportunity_discussions_opportunity_id_fkey"
             columns: ["opportunity_id"]
@@ -3395,10 +4815,53 @@ export type Database = {
             foreignKeyName: "opportunity_milestones_opportunity_id_fkey"
             columns: ["opportunity_id"]
             isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_milestones_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
+      }
+      price_authority_delegations: {
+        Row: {
+          created_at: string
+          expires_at: string
+          grantee_id: string
+          grantor_id: string
+          id: string
+          reason: string
+          revoked_at: string | null
+          revoked_by: string | null
+          starts_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          grantee_id: string
+          grantor_id: string
+          id?: string
+          reason: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          starts_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          grantee_id?: string
+          grantor_id?: string
+          id?: string
+          reason?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          starts_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -3605,6 +5068,9 @@ export type Database = {
           project_stage: Database["public"]["Enums"]["project_stage"]
           sector: string | null
           signage_package_status: Database["public"]["Enums"]["signage_package_status"]
+          site_address: string | null
+          site_latitude: number | null
+          site_longitude: number | null
           source: string | null
           source_confidence: Database["public"]["Enums"]["confidence_level"]
           total_value: number | null
@@ -3631,6 +5097,9 @@ export type Database = {
           project_stage?: Database["public"]["Enums"]["project_stage"]
           sector?: string | null
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
+          site_address?: string | null
+          site_latitude?: number | null
+          site_longitude?: number | null
           source?: string | null
           source_confidence?: Database["public"]["Enums"]["confidence_level"]
           total_value?: number | null
@@ -3657,6 +5126,9 @@ export type Database = {
           project_stage?: Database["public"]["Enums"]["project_stage"]
           sector?: string | null
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
+          site_address?: string | null
+          site_latitude?: number | null
+          site_longitude?: number | null
           source?: string | null
           source_confidence?: Database["public"]["Enums"]["confidence_level"]
           total_value?: number | null
@@ -3773,6 +5245,243 @@ export type Database = {
           },
         ]
       }
+      quotation_revisions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          boq_revision_id: string | null
+          client_reference: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          delivery_terms: string | null
+          id: string
+          internal_price_id: string | null
+          is_current: boolean
+          issued_at: string | null
+          payment_terms: string | null
+          quotation_id: string
+          return_reason: string | null
+          revision_number: number
+          scope_summary: string | null
+          status: Database["public"]["Enums"]["quotation_revision_status"]
+          submitted_at: string | null
+          submitted_by: string | null
+          subtotal_excl_vat: number
+          supersedes_id: string | null
+          total_incl_vat: number | null
+          updated_at: string
+          valid_until: string | null
+          vat_amount: number | null
+          vat_rate: number
+          withdrawn_reason: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          boq_revision_id?: string | null
+          client_reference?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          delivery_terms?: string | null
+          id?: string
+          internal_price_id?: string | null
+          is_current?: boolean
+          issued_at?: string | null
+          payment_terms?: string | null
+          quotation_id: string
+          return_reason?: string | null
+          revision_number?: number
+          scope_summary?: string | null
+          status?: Database["public"]["Enums"]["quotation_revision_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          subtotal_excl_vat: number
+          supersedes_id?: string | null
+          total_incl_vat?: number | null
+          updated_at?: string
+          valid_until?: string | null
+          vat_amount?: number | null
+          vat_rate?: number
+          withdrawn_reason?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          boq_revision_id?: string | null
+          client_reference?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          delivery_terms?: string | null
+          id?: string
+          internal_price_id?: string | null
+          is_current?: boolean
+          issued_at?: string | null
+          payment_terms?: string | null
+          quotation_id?: string
+          return_reason?: string | null
+          revision_number?: number
+          scope_summary?: string | null
+          status?: Database["public"]["Enums"]["quotation_revision_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          subtotal_excl_vat?: number
+          supersedes_id?: string | null
+          total_incl_vat?: number | null
+          updated_at?: string
+          valid_until?: string | null
+          vat_amount?: number | null
+          vat_rate?: number
+          withdrawn_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_revisions_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_internal_price_id_fkey"
+            columns: ["internal_price_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_review_queue"
+            referencedColumns: ["internal_price_id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_internal_price_id_fkey"
+            columns: ["internal_price_id"]
+            isOneToOne: false
+            referencedRelation: "internal_price_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_internal_price_id_fkey"
+            columns: ["internal_price_id"]
+            isOneToOne: false
+            referencedRelation: "internal_prices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_current_revision"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "quotation_revisions_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "quotation_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_updates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          next_action: string | null
+          next_action_due: string | null
+          opportunity_id: string | null
+          quotation_id: string | null
+          source_batch_id: string | null
+          source_row_id: string | null
+          status_after: string | null
+          status_before: string | null
+          summary: string
+          update_date: string
+          update_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          opportunity_id?: string | null
+          quotation_id?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          status_after?: string | null
+          status_before?: string | null
+          summary: string
+          update_date: string
+          update_type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          next_action?: string | null
+          next_action_due?: string | null
+          opportunity_id?: string | null
+          quotation_id?: string | null
+          source_batch_id?: string | null
+          source_row_id?: string | null
+          status_after?: string | null
+          status_before?: string | null
+          summary?: string
+          update_date?: string
+          update_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_updates_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_updates_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_updates_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_updates_source_batch_id_fkey"
+            columns: ["source_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_updates_source_row_id_fkey"
+            columns: ["source_row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quotations: {
         Row: {
           boq_id: string | null
@@ -3780,9 +5489,12 @@ export type Database = {
           created_by: string | null
           currency: string
           extra_data: Json | null
+          historical_row_id: string | null
           id: string
+          is_historical: boolean
           issued_date: string | null
           last_follow_up_at: string | null
+          legacy_sales_code: string | null
           notes: string | null
           owner_id: string | null
           pdf_url: string | null
@@ -3801,9 +5513,12 @@ export type Database = {
           created_by?: string | null
           currency?: string
           extra_data?: Json | null
+          historical_row_id?: string | null
           id?: string
+          is_historical?: boolean
           issued_date?: string | null
           last_follow_up_at?: string | null
+          legacy_sales_code?: string | null
           notes?: string | null
           owner_id?: string | null
           pdf_url?: string | null
@@ -3822,9 +5537,12 @@ export type Database = {
           created_by?: string | null
           currency?: string
           extra_data?: Json | null
+          historical_row_id?: string | null
           id?: string
+          is_historical?: boolean
           issued_date?: string | null
           last_follow_up_at?: string | null
+          legacy_sales_code?: string | null
           notes?: string | null
           owner_id?: string | null
           pdf_url?: string | null
@@ -3842,7 +5560,35 @@ export type Database = {
             foreignKeyName: "quotations_boq_id_fkey"
             columns: ["boq_id"]
             isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "quotations_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "quotations_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
             referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_historical_row_id_fkey"
+            columns: ["historical_row_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
             referencedColumns: ["id"]
           },
           {
@@ -3924,7 +5670,21 @@ export type Database = {
             foreignKeyName: "recommendations_related_lead_id_fkey"
             columns: ["related_lead_id"]
             isOneToOne: false
+            referencedRelation: "lead_review_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendations_related_lead_id_fkey"
+            columns: ["related_lead_id"]
+            isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recommendations_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
             referencedColumns: ["id"]
           },
           {
@@ -4021,6 +5781,7 @@ export type Database = {
           conversion_reason: string | null
           created_at: string
           created_by: string | null
+          document_storage_path: string | null
           document_url: string | null
           estimated_signage_value: number | null
           estimated_value: number | null
@@ -4057,6 +5818,7 @@ export type Database = {
           conversion_reason?: string | null
           created_at?: string
           created_by?: string | null
+          document_storage_path?: string | null
           document_url?: string | null
           estimated_signage_value?: number | null
           estimated_value?: number | null
@@ -4093,6 +5855,7 @@ export type Database = {
           conversion_reason?: string | null
           created_at?: string
           created_by?: string | null
+          document_storage_path?: string | null
           document_url?: string | null
           estimated_signage_value?: number | null
           estimated_value?: number | null
@@ -4140,6 +5903,13 @@ export type Database = {
             foreignKeyName: "rfqs_opportunity_id_fkey"
             columns: ["opportunity_id"]
             isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rfqs_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
@@ -4148,6 +5918,85 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_actuals_monthly: {
+        Row: {
+          actual_value: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          id: string
+          is_legacy_aggregate: boolean
+          metric_type: string
+          month: number
+          notes: string | null
+          owner_id: string | null
+          source_batch_id: string | null
+          source_profile_id: string | null
+          source_row_id: string | null
+          team_label: string | null
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          actual_value?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          is_legacy_aggregate?: boolean
+          metric_type: string
+          month: number
+          notes?: string | null
+          owner_id?: string | null
+          source_batch_id?: string | null
+          source_profile_id?: string | null
+          source_row_id?: string | null
+          team_label?: string | null
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          actual_value?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          id?: string
+          is_legacy_aggregate?: boolean
+          metric_type?: string
+          month?: number
+          notes?: string | null
+          owner_id?: string | null
+          source_batch_id?: string | null
+          source_profile_id?: string | null
+          source_row_id?: string | null
+          team_label?: string | null
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_actuals_monthly_source_batch_id_fkey"
+            columns: ["source_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_actuals_monthly_source_profile_id_fkey"
+            columns: ["source_profile_id"]
+            isOneToOne: false
+            referencedRelation: "import_source_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_actuals_monthly_source_row_id_fkey"
+            columns: ["source_row_id"]
+            isOneToOne: false
+            referencedRelation: "import_rows"
             referencedColumns: ["id"]
           },
         ]
@@ -4200,6 +6049,42 @@ export type Database = {
           sales_target?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      sla_policies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          escalate_to_role: Database["public"]["Enums"]["app_role"] | null
+          id: string
+          rationale: string | null
+          subject: Database["public"]["Enums"]["sla_subject"]
+          threshold_days: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          escalate_to_role?: Database["public"]["Enums"]["app_role"] | null
+          id?: string
+          rationale?: string | null
+          subject: Database["public"]["Enums"]["sla_subject"]
+          threshold_days: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          escalate_to_role?: Database["public"]["Enums"]["app_role"] | null
+          id?: string
+          rationale?: string | null
+          subject?: Database["public"]["Enums"]["sla_subject"]
+          threshold_days?: number
         }
         Relationships: []
       }
@@ -4361,7 +6246,192 @@ export type Database = {
             foreignKeyName: "stakeholders_opportunity_id_fkey"
             columns: ["opportunity_id"]
             isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stakeholders_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_quote_lines: {
+        Row: {
+          alternate_spec: string | null
+          boq_line_id: string
+          created_at: string
+          id: string
+          is_selected: boolean
+          lead_time_days: number | null
+          line_cost: number | null
+          quantity: number | null
+          selected_at: string | null
+          selected_by: string | null
+          selection_note: string | null
+          supplier_quote_id: string
+          unit_cost: number | null
+        }
+        Insert: {
+          alternate_spec?: string | null
+          boq_line_id: string
+          created_at?: string
+          id?: string
+          is_selected?: boolean
+          lead_time_days?: number | null
+          line_cost?: number | null
+          quantity?: number | null
+          selected_at?: string | null
+          selected_by?: string | null
+          selection_note?: string | null
+          supplier_quote_id: string
+          unit_cost?: number | null
+        }
+        Update: {
+          alternate_spec?: string | null
+          boq_line_id?: string
+          created_at?: string
+          id?: string
+          is_selected?: boolean
+          lead_time_days?: number | null
+          line_cost?: number | null
+          quantity?: number | null
+          selected_at?: string | null
+          selected_by?: string | null
+          selection_note?: string | null
+          supplier_quote_id?: string
+          unit_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_line_costs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_supplier_quote_id_fkey"
+            columns: ["supplier_quote_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_quotes: {
+        Row: {
+          boq_revision_id: string
+          cancel_reason: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          frozen_at: string | null
+          frozen_by: string | null
+          id: string
+          is_current: boolean
+          lead_time_days: number | null
+          notes: string | null
+          payment_terms: string | null
+          response_received_at: string | null
+          revision_number: number
+          rfq_reference: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["supplier_quote_status"]
+          supersedes_id: string | null
+          updated_at: string
+          valid_until: string | null
+          vendor_id: string
+        }
+        Insert: {
+          boq_revision_id: string
+          cancel_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          frozen_at?: string | null
+          frozen_by?: string | null
+          id?: string
+          is_current?: boolean
+          lead_time_days?: number | null
+          notes?: string | null
+          payment_terms?: string | null
+          response_received_at?: string | null
+          revision_number?: number
+          rfq_reference?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["supplier_quote_status"]
+          supersedes_id?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          vendor_id: string
+        }
+        Update: {
+          boq_revision_id?: string
+          cancel_reason?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          frozen_at?: string | null
+          frozen_by?: string | null
+          id?: string
+          is_current?: boolean
+          lead_time_days?: number | null
+          notes?: string | null
+          payment_terms?: string | null
+          response_received_at?: string | null
+          revision_number?: number
+          rfq_reference?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["supplier_quote_status"]
+          supersedes_id?: string | null
+          updated_at?: string
+          valid_until?: string | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_quotes_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors_full"
             referencedColumns: ["id"]
           },
         ]
@@ -4410,6 +6480,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_related_opportunity_id_fkey"
             columns: ["related_opportunity_id"]
@@ -4485,6 +6562,8 @@ export type Database = {
           award_evidence: string | null
           below_300k_exception_approval_id: string | null
           contact_plan_ready: boolean
+          contractor_award_date: string | null
+          contractor_award_evidence: string | null
           conversion_reason: string | null
           converted_opportunity_id: string | null
           created_at: string
@@ -4512,7 +6591,10 @@ export type Database = {
             | Database["public"]["Enums"]["priority_tier"]
             | null
           tender_stage: Database["public"]["Enums"]["tender_stage"]
+          tender_subtype: string | null
           updated_at: string
+          winning_contractor_id: string | null
+          winning_contractor_name: string | null
         }
         Insert: {
           archive_reason?: string | null
@@ -4521,6 +6603,8 @@ export type Database = {
           award_evidence?: string | null
           below_300k_exception_approval_id?: string | null
           contact_plan_ready?: boolean
+          contractor_award_date?: string | null
+          contractor_award_evidence?: string | null
           conversion_reason?: string | null
           converted_opportunity_id?: string | null
           created_at?: string
@@ -4548,7 +6632,10 @@ export type Database = {
             | Database["public"]["Enums"]["priority_tier"]
             | null
           tender_stage?: Database["public"]["Enums"]["tender_stage"]
+          tender_subtype?: string | null
           updated_at?: string
+          winning_contractor_id?: string | null
+          winning_contractor_name?: string | null
         }
         Update: {
           archive_reason?: string | null
@@ -4557,6 +6644,8 @@ export type Database = {
           award_evidence?: string | null
           below_300k_exception_approval_id?: string | null
           contact_plan_ready?: boolean
+          contractor_award_date?: string | null
+          contractor_award_evidence?: string | null
           conversion_reason?: string | null
           converted_opportunity_id?: string | null
           created_at?: string
@@ -4584,7 +6673,10 @@ export type Database = {
             | Database["public"]["Enums"]["priority_tier"]
             | null
           tender_stage?: Database["public"]["Enums"]["tender_stage"]
+          tender_subtype?: string | null
           updated_at?: string
+          winning_contractor_id?: string | null
+          winning_contractor_name?: string | null
         }
         Relationships: [
           {
@@ -4592,6 +6684,13 @@ export type Database = {
             columns: ["below_300k_exception_approval_id"]
             isOneToOne: false
             referencedRelation: "approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenders_converted_opportunity_id_fkey"
+            columns: ["converted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
             referencedColumns: ["id"]
           },
           {
@@ -4613,6 +6712,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenders_winning_contractor_id_fkey"
+            columns: ["winning_contractor_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -4650,6 +6756,7 @@ export type Database = {
           lead_time: string | null
           materials: string | null
           name: string
+          name_normalized: string | null
           portal_url: string | null
           previous_projects: string | null
           qualification_files: string | null
@@ -4668,6 +6775,7 @@ export type Database = {
           lead_time?: string | null
           materials?: string | null
           name: string
+          name_normalized?: string | null
           portal_url?: string | null
           previous_projects?: string | null
           qualification_files?: string | null
@@ -4686,6 +6794,7 @@ export type Database = {
           lead_time?: string | null
           materials?: string | null
           name?: string
+          name_normalized?: string | null
           portal_url?: string | null
           previous_projects?: string | null
           qualification_files?: string | null
@@ -4736,6 +6845,1409 @@ export type Database = {
       }
     }
     Views: {
+      ai_advice_queue: {
+        Row: {
+          agent_key: string | null
+          confidence: number | null
+          created_at: string | null
+          days_open: number | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string | null
+          missing_data: string[] | null
+          rationale: string | null
+          recommendation: string | null
+          severity: string | null
+          status: string | null
+          suggested_action: string | null
+          title: string | null
+        }
+        Insert: {
+          agent_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          days_open?: never
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string | null
+          missing_data?: string[] | null
+          rationale?: string | null
+          recommendation?: string | null
+          severity?: string | null
+          status?: string | null
+          suggested_action?: string | null
+          title?: string | null
+        }
+        Update: {
+          agent_key?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          days_open?: never
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string | null
+          missing_data?: string[] | null
+          rationale?: string | null
+          recommendation?: string | null
+          severity?: string | null
+          status?: string | null
+          suggested_action?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
+      analytics_scope_opportunities: {
+        Row: {
+          action_priority: Database["public"]["Enums"]["priority_tier"] | null
+          action_required: boolean | null
+          agent_reasoning: string | null
+          agent_recommendation:
+            | Database["public"]["Enums"]["approval_recommendation"]
+            | null
+          client: string | null
+          commercial_handoff_at: string | null
+          commercial_handoff_by: string | null
+          commercial_handoff_note: string | null
+          commercial_handoff_status: string | null
+          company_id: string | null
+          contract_received_date: string | null
+          contract_reference_number: string | null
+          contract_signed_date: string | null
+          contract_value: number | null
+          contractor_decision_maker: string | null
+          created_at: string | null
+          created_by: string | null
+          currency: string | null
+          estimated_value_max: number | null
+          estimated_value_min: number | null
+          evidence_count: number | null
+          exclusion_reason:
+            | Database["public"]["Enums"]["exclusion_reason"]
+            | null
+          expected_contract_date: string | null
+          extra_data: Json | null
+          flow_type: Database["public"]["Enums"]["flow_type"] | null
+          handover_status: Database["public"]["Enums"]["handover_status"] | null
+          hold_reason: string | null
+          hold_review_date: string | null
+          human_probability_at: string | null
+          human_probability_by: string | null
+          human_probability_reason: string | null
+          human_win_probability: number | null
+          id: string | null
+          last_activity_at: string | null
+          location: string | null
+          loss_notes: string | null
+          loss_reason: string | null
+          lost_at: string | null
+          lost_at_stage: string | null
+          lost_to_competitor: string | null
+          main_contractor: string | null
+          main_contractor_confirmed: boolean | null
+          main_contractor_id: string | null
+          management_review_reason: string | null
+          next_action: string | null
+          next_action_due: string | null
+          owner_id: string | null
+          package_budget_confirmed: boolean | null
+          person_in_charge_id: string | null
+          person_in_charge_note: string | null
+          pipeline_step: Database["public"]["Enums"]["pipeline_step"] | null
+          prequalification_status: string | null
+          project_id: string | null
+          project_name: string | null
+          project_stage: Database["public"]["Enums"]["project_stage"] | null
+          quotation_value: number | null
+          sales_stage: Database["public"]["Enums"]["sales_stage"] | null
+          score: number | null
+          score_confidence:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          score_manual_override: boolean | null
+          score_missing_data: string[] | null
+          score_override_reason: string | null
+          score_reasons: string[] | null
+          score_recommended_action: string | null
+          score_risk_flags: string[] | null
+          score_tier:
+            | Database["public"]["Enums"]["opportunity_score_tier"]
+            | null
+          scored_at: string | null
+          scored_by: string | null
+          sector: string | null
+          signage_package_confidence:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          signage_package_status:
+            | Database["public"]["Enums"]["signage_package_status"]
+            | null
+          source_confidence:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source_tender_id: string | null
+          stage: Database["public"]["Enums"]["opportunity_stage"] | null
+          strategic_value: string | null
+          technical_notes: string | null
+          tier: Database["public"]["Enums"]["priority_tier"] | null
+          updated_at: string | null
+          verbal_award_contact_name: string | null
+          verbal_award_contact_title: string | null
+          verbal_award_date: string | null
+          verbal_award_evidence: string | null
+          verbal_award_method: string | null
+          win_confidence: Database["public"]["Enums"]["win_confidence"] | null
+          won_at: string | null
+        }
+        Insert: {
+          action_priority?: Database["public"]["Enums"]["priority_tier"] | null
+          action_required?: boolean | null
+          agent_reasoning?: string | null
+          agent_recommendation?:
+            | Database["public"]["Enums"]["approval_recommendation"]
+            | null
+          client?: string | null
+          commercial_handoff_at?: string | null
+          commercial_handoff_by?: string | null
+          commercial_handoff_note?: string | null
+          commercial_handoff_status?: string | null
+          company_id?: string | null
+          contract_received_date?: string | null
+          contract_reference_number?: string | null
+          contract_signed_date?: string | null
+          contract_value?: number | null
+          contractor_decision_maker?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          estimated_value_max?: number | null
+          estimated_value_min?: number | null
+          evidence_count?: number | null
+          exclusion_reason?:
+            | Database["public"]["Enums"]["exclusion_reason"]
+            | null
+          expected_contract_date?: string | null
+          extra_data?: Json | null
+          flow_type?: Database["public"]["Enums"]["flow_type"] | null
+          handover_status?:
+            | Database["public"]["Enums"]["handover_status"]
+            | null
+          hold_reason?: string | null
+          hold_review_date?: string | null
+          human_probability_at?: string | null
+          human_probability_by?: string | null
+          human_probability_reason?: string | null
+          human_win_probability?: number | null
+          id?: string | null
+          last_activity_at?: string | null
+          location?: string | null
+          loss_notes?: string | null
+          loss_reason?: string | null
+          lost_at?: string | null
+          lost_at_stage?: string | null
+          lost_to_competitor?: string | null
+          main_contractor?: string | null
+          main_contractor_confirmed?: boolean | null
+          main_contractor_id?: string | null
+          management_review_reason?: string | null
+          next_action?: string | null
+          next_action_due?: string | null
+          owner_id?: string | null
+          package_budget_confirmed?: boolean | null
+          person_in_charge_id?: string | null
+          person_in_charge_note?: string | null
+          pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
+          prequalification_status?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
+          quotation_value?: number | null
+          sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
+          score?: number | null
+          score_confidence?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          score_manual_override?: boolean | null
+          score_missing_data?: string[] | null
+          score_override_reason?: string | null
+          score_reasons?: string[] | null
+          score_recommended_action?: string | null
+          score_risk_flags?: string[] | null
+          score_tier?:
+            | Database["public"]["Enums"]["opportunity_score_tier"]
+            | null
+          scored_at?: string | null
+          scored_by?: string | null
+          sector?: string | null
+          signage_package_confidence?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          signage_package_status?:
+            | Database["public"]["Enums"]["signage_package_status"]
+            | null
+          source_confidence?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source_tender_id?: string | null
+          stage?: Database["public"]["Enums"]["opportunity_stage"] | null
+          strategic_value?: string | null
+          technical_notes?: string | null
+          tier?: Database["public"]["Enums"]["priority_tier"] | null
+          updated_at?: string | null
+          verbal_award_contact_name?: string | null
+          verbal_award_contact_title?: string | null
+          verbal_award_date?: string | null
+          verbal_award_evidence?: string | null
+          verbal_award_method?: string | null
+          win_confidence?: Database["public"]["Enums"]["win_confidence"] | null
+          won_at?: string | null
+        }
+        Update: {
+          action_priority?: Database["public"]["Enums"]["priority_tier"] | null
+          action_required?: boolean | null
+          agent_reasoning?: string | null
+          agent_recommendation?:
+            | Database["public"]["Enums"]["approval_recommendation"]
+            | null
+          client?: string | null
+          commercial_handoff_at?: string | null
+          commercial_handoff_by?: string | null
+          commercial_handoff_note?: string | null
+          commercial_handoff_status?: string | null
+          company_id?: string | null
+          contract_received_date?: string | null
+          contract_reference_number?: string | null
+          contract_signed_date?: string | null
+          contract_value?: number | null
+          contractor_decision_maker?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency?: string | null
+          estimated_value_max?: number | null
+          estimated_value_min?: number | null
+          evidence_count?: number | null
+          exclusion_reason?:
+            | Database["public"]["Enums"]["exclusion_reason"]
+            | null
+          expected_contract_date?: string | null
+          extra_data?: Json | null
+          flow_type?: Database["public"]["Enums"]["flow_type"] | null
+          handover_status?:
+            | Database["public"]["Enums"]["handover_status"]
+            | null
+          hold_reason?: string | null
+          hold_review_date?: string | null
+          human_probability_at?: string | null
+          human_probability_by?: string | null
+          human_probability_reason?: string | null
+          human_win_probability?: number | null
+          id?: string | null
+          last_activity_at?: string | null
+          location?: string | null
+          loss_notes?: string | null
+          loss_reason?: string | null
+          lost_at?: string | null
+          lost_at_stage?: string | null
+          lost_to_competitor?: string | null
+          main_contractor?: string | null
+          main_contractor_confirmed?: boolean | null
+          main_contractor_id?: string | null
+          management_review_reason?: string | null
+          next_action?: string | null
+          next_action_due?: string | null
+          owner_id?: string | null
+          package_budget_confirmed?: boolean | null
+          person_in_charge_id?: string | null
+          person_in_charge_note?: string | null
+          pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
+          prequalification_status?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
+          quotation_value?: number | null
+          sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
+          score?: number | null
+          score_confidence?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          score_manual_override?: boolean | null
+          score_missing_data?: string[] | null
+          score_override_reason?: string | null
+          score_reasons?: string[] | null
+          score_recommended_action?: string | null
+          score_risk_flags?: string[] | null
+          score_tier?:
+            | Database["public"]["Enums"]["opportunity_score_tier"]
+            | null
+          scored_at?: string | null
+          scored_by?: string | null
+          sector?: string | null
+          signage_package_confidence?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          signage_package_status?:
+            | Database["public"]["Enums"]["signage_package_status"]
+            | null
+          source_confidence?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source_tender_id?: string | null
+          stage?: Database["public"]["Enums"]["opportunity_stage"] | null
+          strategic_value?: string | null
+          technical_notes?: string | null
+          tier?: Database["public"]["Enums"]["priority_tier"] | null
+          updated_at?: string | null
+          verbal_award_contact_name?: string | null
+          verbal_award_contact_title?: string | null
+          verbal_award_date?: string | null
+          verbal_award_evidence?: string | null
+          verbal_award_method?: string | null
+          win_confidence?: Database["public"]["Enums"]["win_confidence"] | null
+          won_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_main_contractor_id_fkey"
+            columns: ["main_contractor_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_source_tender_id_fkey"
+            columns: ["source_tender_id"]
+            isOneToOne: false
+            referencedRelation: "tenders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_health: {
+        Row: {
+          hours_since_last: number | null
+          last_error: string | null
+          last_finished_at: string | null
+          last_started_at: string | null
+          looks_stalled: boolean | null
+          runs_with_errors: number | null
+          trigger: string | null
+        }
+        Relationships: []
+      }
+      boq_cost_totals: {
+        Row: {
+          boq_id: string | null
+          cost_total: number | null
+          lines_cost_total: number | null
+          lines_selling_total: number | null
+          related_opportunity_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_item_costs: {
+        Row: {
+          boq_id: string | null
+          cost_estimate: number | null
+          id: string | null
+          margin_pct: number | null
+          margin_value: number | null
+          quantity: number | null
+          selling_price: number | null
+          sign_type: string | null
+          sort_order: number | null
+          unit_rate: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_items_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_line_costs: {
+        Row: {
+          id: string | null
+          line_number: number | null
+          line_total: number | null
+          margin_pct: number | null
+          margin_value: number | null
+          quantity: number | null
+          revision_id: string | null
+          selling_price: number | null
+          sign_type: string | null
+          unit: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          id?: string | null
+          line_number?: number | null
+          line_total?: number | null
+          margin_pct?: never
+          margin_value?: never
+          quantity?: number | null
+          revision_id?: string | null
+          selling_price?: number | null
+          sign_type?: string | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          id?: string | null
+          line_number?: number | null
+          line_total?: number | null
+          margin_pct?: never
+          margin_value?: never
+          quantity?: number | null
+          revision_id?: string | null
+          selling_price?: number | null
+          sign_type?: string | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_revision_sales_totals: {
+        Row: {
+          boq_id: string | null
+          frozen_at: string | null
+          is_current: boolean | null
+          line_count: number | null
+          revision_id: string | null
+          revision_number: number | null
+          selling_total: number | null
+          source_type: Database["public"]["Enums"]["boq_source_type"] | null
+          status: Database["public"]["Enums"]["boq_revision_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_cost_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boq_sales_totals"
+            referencedColumns: ["boq_id"]
+          },
+          {
+            foreignKeyName: "boq_revisions_boq_id_fkey"
+            columns: ["boq_id"]
+            isOneToOne: false
+            referencedRelation: "boqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_sales_totals: {
+        Row: {
+          boq_id: string | null
+          currency: string | null
+          line_count: number | null
+          related_opportunity_id: string | null
+          selling_total: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commercial_review_queue: {
+        Row: {
+          awaiting: string | null
+          boq_revision_id: string | null
+          commercial_reviewed_at: string | null
+          days_waiting: number | null
+          estimation_id: string | null
+          finance_reviewed_at: string | null
+          internal_price_id: string | null
+          proposed_at: string | null
+          related_opportunity_id: string | null
+          status: Database["public"]["Enums"]["internal_price_status"] | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boqs_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimation_cost_reconciliation"
+            referencedColumns: ["estimation_id"]
+          },
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_log: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          kind: string | null
+          occurred_at: string | null
+          opportunity_id: string | null
+          owner_id: string | null
+          source: string | null
+          state: string | null
+          summary: string | null
+        }
+        Relationships: []
+      }
+      conversion_summary: {
+        Row: {
+          avg_days_to_win: number | null
+          lost: number | null
+          open_deals: number | null
+          owner_id: string | null
+          total_deals: number | null
+          win_rate_pct: number | null
+          won: number | null
+          won_value: number | null
+        }
+        Relationships: []
+      }
+      document_backfill_status: {
+        Row: {
+          active_links: number | null
+          derived_path: string | null
+          now_registered: boolean | null
+          outcome: string | null
+          raw_value: string | null
+          reason: string | null
+          record_id: string | null
+          reported_at: string | null
+          source_column: string | null
+          source_table: string | null
+        }
+        Relationships: []
+      }
+      estimation_cost_reconciliation: {
+        Row: {
+          boq_revision_id: string | null
+          cost_basis: number | null
+          estimation_id: string | null
+          installation_cost: number | null
+          overhead_pct: number | null
+          selected_lines: number | null
+          supplier_cost: number | null
+          typed_cost_total: number | null
+          typed_vs_supplier_pct: number | null
+          wastage_pct: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_promotion_queue: {
+        Row: {
+          amount_excl_vat: number | null
+          archive_amount: number | null
+          client_name_raw: string | null
+          company_id: string | null
+          missing_mappings: string[] | null
+          owner_label: string | null
+          owner_prefix: string | null
+          owner_user_id: string | null
+          project_name: string | null
+          project_name_raw: string | null
+          promoted_at: string | null
+          promoted_opportunity_id: string | null
+          request_id: string | null
+          requested_at: string | null
+          reviewed_at: string | null
+          row_id: string | null
+          sales_code_raw: string | null
+          status:
+            | Database["public"]["Enums"]["historical_promotion_status"]
+            | null
+          status_canonical: string | null
+          status_raw: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_promotion_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_followup_conflicts: {
+        Row: {
+          amount_excl_vat: number | null
+          client_name_raw: string | null
+          conflict: string | null
+          date_submitted: string | null
+          follow_up_raw: string | null
+          project_name_raw: string | null
+          row_id: string | null
+          row_number: number | null
+          sales_code_raw: string | null
+          status_raw: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_sales_mapped_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_promotion_status: {
+        Row: {
+          amount_excl_vat: number | null
+          client_name_raw: string | null
+          collision_class: string | null
+          is_live_in_crm: boolean | null
+          project_name_raw: string | null
+          promoted_at: string | null
+          promoted_opportunity_id: string | null
+          promoted_quotation_id: string | null
+          promotion_request_id: string | null
+          promotion_status: string | null
+          row_id: string | null
+          row_number: number | null
+          sales_code_raw: string | null
+          status_raw: string | null
+          void_reason: string | null
+          voided_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_quotation_id_fkey"
+            columns: ["promoted_quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_mapped_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_quality: {
+        Row: {
+          amounts_absent: number | null
+          amounts_unparsed: number | null
+          batch_id: string | null
+          codes_placeholder: number | null
+          codes_unparsed: number | null
+          companies_unmatched: number | null
+          owners_legacy_only: number | null
+          revisions: number | null
+          route_unknown: number | null
+          statuses_needing_decision: number | null
+          submission_dates_missing: number | null
+          total_amount_excl_vat: number | null
+          total_rows: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_sales_mapped_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historical_sales_search: {
+        Row: {
+          amount: number | null
+          base_code: string | null
+          batch_id: string | null
+          client: string | null
+          collision_class: string | null
+          company_id: string | null
+          company_matched: boolean | null
+          contact_name: string | null
+          currency: string | null
+          date_received: string | null
+          date_submitted: string | null
+          email_subject: string | null
+          follow_up: string | null
+          location: string | null
+          owner: string | null
+          owner_prefix: string | null
+          owner_user_id: string | null
+          project: string | null
+          promoted_opportunity_id: string | null
+          promoted_quotation_id: string | null
+          promotion_status: string | null
+          revision_no: number | null
+          route: string | null
+          row_id: string | null
+          row_number: number | null
+          sales_code: string | null
+          search_text: string | null
+          status: string | null
+          status_canonical: string | null
+          update_log: string | null
+          variant: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_opportunity_id_fkey"
+            columns: ["promoted_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_promotion_requests_promoted_quotation_id_fkey"
+            columns: ["promoted_quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_mapped_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "historical_sales_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_mapped_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historical_sales_mapped_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: true
+            referencedRelation: "historical_sales_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_price_summary: {
+        Row: {
+          boq_revision_id: string | null
+          commercial_reviewed_at: string | null
+          commercial_reviewed_by: string | null
+          cost_total: number | null
+          estimation_id: string | null
+          finance_reviewed_at: string | null
+          finance_reviewed_by: string | null
+          gm_decided_at: string | null
+          gm_decided_by: string | null
+          id: string | null
+          installation_cost: number | null
+          margin_percentage: number | null
+          margin_value: number | null
+          overhead_pct: number | null
+          proposed_at: string | null
+          proposed_by: string | null
+          proposed_price: number | null
+          return_reason: string | null
+          status: Database["public"]["Enums"]["internal_price_status"] | null
+          wastage_pct: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "estimations_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimation_cost_reconciliation"
+            referencedColumns: ["estimation_id"]
+          },
+          {
+            foreignKeyName: "internal_prices_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_duplicate_candidates: {
+        Row: {
+          already_linked: boolean | null
+          dedupe_key: string | null
+          lead_count: number | null
+          lead_ids: string[] | null
+          project_names: string[] | null
+          sources: string[] | null
+        }
+        Relationships: []
+      }
+      lead_review_queue: {
+        Row: {
+          created_at: string | null
+          days_waiting: number | null
+          estimated_value: number | null
+          has_duplicate_candidates: boolean | null
+          id: string | null
+          is_marked_duplicate: boolean | null
+          lead_score: number | null
+          lead_stage: Database["public"]["Enums"]["lead_stage"] | null
+          location: string | null
+          main_contractor_guess: string | null
+          owner_id: string | null
+          project_name: string | null
+          reviewed: boolean | null
+          signage_potential:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source: string | null
+          source_approved: boolean | null
+          source_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days_waiting?: never
+          estimated_value?: number | null
+          has_duplicate_candidates?: never
+          id?: string | null
+          is_marked_duplicate?: never
+          lead_score?: number | null
+          lead_stage?: Database["public"]["Enums"]["lead_stage"] | null
+          location?: string | null
+          main_contractor_guess?: string | null
+          owner_id?: string | null
+          project_name?: string | null
+          reviewed?: never
+          signage_potential?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source?: string | null
+          source_approved?: never
+          source_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days_waiting?: never
+          estimated_value?: number | null
+          has_duplicate_candidates?: never
+          id?: string | null
+          is_marked_duplicate?: never
+          lead_score?: number | null
+          lead_stage?: Database["public"]["Enums"]["lead_stage"] | null
+          location?: string | null
+          main_contractor_guess?: string | null
+          owner_id?: string | null
+          project_name?: string | null
+          reviewed?: never
+          signage_potential?:
+            | Database["public"]["Enums"]["confidence_level"]
+            | null
+          source?: string | null
+          source_approved?: never
+          source_url?: string | null
+        }
+        Relationships: []
+      }
+      loss_analysis: {
+        Row: {
+          deals: number | null
+          loss_reason: string | null
+          lost_at_stage: string | null
+          lost_to_a_named_competitor: number | null
+          lost_value: number | null
+        }
+        Relationships: []
+      }
+      opportunity_next_action: {
+        Row: {
+          days_until_due: number | null
+          description: string | null
+          due_date: string | null
+          is_overdue: boolean | null
+          opportunity_id: string | null
+          owner_id: string | null
+          source: string | null
+          source_id: string | null
+        }
+        Relationships: []
+      }
+      overdue_commitments: {
+        Row: {
+          company_id: string | null
+          days_overdue: number | null
+          description: string | null
+          direction: Database["public"]["Enums"]["commitment_direction"] | null
+          due_date: string | null
+          id: string | null
+          opportunity_id: string | null
+          owner_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          days_overdue?: never
+          description?: string | null
+          direction?: Database["public"]["Enums"]["commitment_direction"] | null
+          due_date?: string | null
+          id?: string | null
+          opportunity_id?: string | null
+          owner_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          days_overdue?: never
+          description?: string | null
+          direction?: Database["public"]["Enums"]["commitment_direction"] | null
+          due_date?: string | null
+          id?: string | null
+          opportunity_id?: string | null
+          owner_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commitments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitments_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitments_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_by_stage: {
+        Row: {
+          average_deal: number | null
+          deals: number | null
+          my_deals: number | null
+          pipeline_value: number | null
+          sales_stage: Database["public"]["Enums"]["sales_stage"] | null
+          stalled: number | null
+        }
+        Relationships: []
+      }
+      quotation_current_revision: {
+        Row: {
+          approved_at: string | null
+          currency: string | null
+          issued_at: string | null
+          quotation_id: string | null
+          quote_number: string | null
+          related_opportunity_id: string | null
+          revision_id: string | null
+          revision_number: number | null
+          status:
+            | Database["public"]["Enums"]["quotation_revision_status"]
+            | null
+          submitted_at: string | null
+          subtotal_excl_vat: number | null
+          total_incl_vat: number | null
+          valid_until: string | null
+          vat_amount: number | null
+          vat_rate: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_revisions_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_forecast: {
+        Row: {
+          deals: number | null
+          forecast_month: string | null
+          gross_value: number | null
+          owner_id: string | null
+          undated_deals: number | null
+          weighted_value: number | null
+        }
+        Relationships: []
+      }
+      sla_breaches: {
+        Row: {
+          days_overdue: number | null
+          detail: string | null
+          opportunity_id: string | null
+          owner_id: string | null
+          record_id: string | null
+          subject: Database["public"]["Enums"]["sla_subject"] | null
+          threshold_days: number | null
+        }
+        Relationships: []
+      }
+      supplier_comparison: {
+        Row: {
+          average_unit_cost: number | null
+          boq_line_id: string | null
+          has_selection: boolean | null
+          highest_unit_cost: number | null
+          lowest_unit_cost: number | null
+          quotes_received: number | null
+          revision_id: string | null
+          selected_unit_cost: number | null
+          selected_vendor: string | null
+          sign_type: string | null
+          spread: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "boq_lines_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_line_costs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_quote_costs: {
+        Row: {
+          alternate_spec: string | null
+          boq_line_id: string | null
+          boq_revision_id: string | null
+          currency: string | null
+          id: string | null
+          is_current: boolean | null
+          is_selected: boolean | null
+          lead_time_days: number | null
+          line_cost: number | null
+          quantity: number | null
+          revision_number: number | null
+          selected_at: string | null
+          selected_by: string | null
+          selection_note: string | null
+          status: Database["public"]["Enums"]["supplier_quote_status"] | null
+          supplier_quote_id: string | null
+          unit_cost: number | null
+          vendor_id: string | null
+          vendor_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_line_costs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quote_lines_supplier_quote_id_fkey"
+            columns: ["supplier_quote_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_quotes_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors_full"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      target_vs_actual: {
+        Row: {
+          attainment_pct: number | null
+          period_end: string | null
+          period_start: string | null
+          period_type: Database["public"]["Enums"]["target_period"] | null
+          pipeline_target: number | null
+          quotation_target: number | null
+          sales_target: number | null
+          target_id: string | null
+          user_id: string | null
+          won_deals: number | null
+          won_value: number | null
+        }
+        Relationships: []
+      }
+      team_performance: {
+        Row: {
+          last_activity_at: string | null
+          lost_deals: number | null
+          open_deals: number | null
+          open_value: number | null
+          owner_id: string | null
+          stalled_deals: number | null
+          won_deals: number | null
+          won_value: number | null
+        }
+        Relationships: []
+      }
+      vendor_duplicate_candidates: {
+        Row: {
+          name_normalized: string | null
+          vendor_count: number | null
+          vendor_ids: string[] | null
+          vendor_names: string[] | null
+        }
+        Relationships: []
+      }
       vendors_full: {
         Row: {
           city: string | null
@@ -4765,14 +8277,99 @@ export type Database = {
         Args: { _entity_id: string; _entity_type: string; _user_id: string }
         Returns: boolean
       }
+      boq_revision_is_frozen: {
+        Args: { _revision_id: string }
+        Returns: boolean
+      }
       can_access_import_batch: {
         Args: { _batch_uuid: string }
         Returns: boolean
       }
+      can_approve_final_price: { Args: { _user_id: string }; Returns: boolean }
+      can_approve_historical_promotion: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_edit_rfq_number: { Args: { _user_id: string }; Returns: boolean }
       can_edit_total_value: { Args: { _user_id: string }; Returns: boolean }
+      can_read_activity: {
+        Args: {
+          _company_id: string
+          _created_by: string
+          _opportunity_id: string
+          _owner_id: string
+          _rfq_id: string
+          _tender_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      can_read_ai_recommendation: {
+        Args: { _entity_id: string; _entity_type: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_approval: {
+        Args: {
+          _assigned_approver: string
+          _related_opportunity_id: string
+          _requested_by: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      can_read_attachments: { Args: { _user_id: string }; Returns: boolean }
+      can_read_boq: {
+        Args: { _opportunity_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_boq_revision: {
+        Args: { _revision_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_commercial_cost: { Args: { _user_id: string }; Returns: boolean }
+      can_read_contract: {
+        Args: {
+          _created_by: string
+          _opportunity_id: string
+          _responsible_user_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      can_read_document: {
+        Args: { _document_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_historical_sales: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      can_read_opportunity_flag: {
+        Args: {
+          _action_owner_id: string
+          _linked_record_id: string
+          _linked_record_type: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      can_read_opportunity_record: {
+        Args: { _opportunity_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_project: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_quotation: {
+        Args: { _quotation_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_read_sales_analytics: { Args: { _user_id: string }; Returns: boolean }
+      can_review_intake: { Args: { _user_id: string }; Returns: boolean }
       can_use_discussion: { Args: { _user_id: string }; Returns: boolean }
       can_view_all_sales_data: { Args: { _user_id: string }; Returns: boolean }
+      can_write_contract: { Args: { _user_id: string }; Returns: boolean }
       claim_ai_agent_request: {
         Args: {
           _agent_key: string
@@ -4792,6 +8389,55 @@ export type Database = {
           request_trace_id: string
         }[]
       }
+      current_margin_floor: { Args: never; Returns: number }
+      current_sla_days: {
+        Args: { _subject: Database["public"]["Enums"]["sla_subject"] }
+        Returns: number
+      }
+      derive_attachment_path: { Args: { _value: string }; Returns: string }
+      dismiss_notification: { Args: { _id: string }; Returns: boolean }
+      document_entity_grants: {
+        Args: {
+          _entity_id: string
+          _entity_type: Database["public"]["Enums"]["document_entity_type"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      emit_notification: {
+        Args: {
+          _body: string
+          _dedupe_key: string
+          _entity_id: string
+          _entity_type: string
+          _metadata?: Json
+          _recipient: string
+          _severity: string
+          _source_event: string
+          _title: string
+          _type: string
+        }
+        Returns: string
+      }
+      emit_notification_to_roles: {
+        Args: {
+          _body: string
+          _dedupe_key: string
+          _entity_id: string
+          _entity_type: string
+          _metadata?: Json
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _severity: string
+          _source_event: string
+          _title: string
+          _type: string
+        }
+        Returns: number
+      }
+      estimation_cost_basis: {
+        Args: { _estimation_id: string }
+        Returns: number
+      }
       execute_approved_record_delete: {
         Args: { _actor_id: string; _approval_id: string }
         Returns: Json
@@ -4810,11 +8456,25 @@ export type Database = {
         }
         Returns: boolean
       }
+      historical_collision_class: { Args: { _row_id: string }; Returns: string }
+      historical_quote_number: { Args: { _row_id: string }; Returns: string }
+      historical_raw_get: {
+        Args: { _pattern: string; _raw: Json }
+        Returns: string
+      }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
       is_commercial_manager: { Args: { _user_id: string }; Returns: boolean }
       is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_sales_contributor: { Args: { _user_id: string }; Returns: boolean }
+      issue_project_number: { Args: { _project_id: string }; Returns: string }
+      jsonb_has_money_key: { Args: { _payload: Json }; Returns: boolean }
+      link_historical_owner: {
+        Args: { _email: string; _label: string; _note: string; _prefix: string }
+        Returns: boolean
+      }
+      mark_all_notifications_read: { Args: never; Returns: number }
+      mark_notifications_read: { Args: { _ids: string[] }; Returns: number }
       match_knowledge: {
         Args: {
           filter_source_type?: string
@@ -4830,12 +8490,86 @@ export type Database = {
           title: string
         }[]
       }
+      normalize_lead_key: {
+        Args: { _location: string; _project_name: string }
+        Returns: string
+      }
+      normalize_vendor_name: { Args: { _name: string }; Returns: string }
+      notify_overdue_items: { Args: never; Returns: number }
+      opportunity_value: {
+        Args: {
+          _contract_value: number
+          _estimated_value_max: number
+          _quotation_value: number
+        }
+        Returns: number
+      }
+      opportunity_win_weight: {
+        Args: {
+          _confidence: Database["public"]["Enums"]["win_confidence"]
+          _human_probability: number
+        }
+        Returns: number
+      }
+      parse_historical_amount: { Args: { _v: string }; Returns: number }
+      parse_historical_date: { Args: { _v: string }; Returns: string }
+      parse_historical_route: { Args: { _v: string }; Returns: string }
+      parse_historical_sales_code: {
+        Args: { _v: string }
+        Returns: {
+          base_code: string
+          is_placeholder: boolean
+          parsed: boolean
+          revision_no: number
+          variant: string
+        }[]
+      }
+      project_has_valid_boq: { Args: { _project_id: string }; Returns: boolean }
+      project_number_denied_message: { Args: never; Returns: string }
+      promote_historical_row: { Args: { _request_id: string }; Returns: string }
+      register_legacy_documents: {
+        Args: never
+        Returns: {
+          linked: number
+          registered: number
+          unlinked_orphans: number
+        }[]
+      }
+      remap_historical_sales: {
+        Args: { _batch_id: string }
+        Returns: {
+          amounts_unparsed: number
+          codes_unparsed: number
+          companies_unmatched: number
+          owners_unmatched: number
+          rows_mapped: number
+        }[]
+      }
+      rerun_attachment_backfill: {
+        Args: never
+        Returns: {
+          recovered: number
+          reported: number
+        }[]
+      }
       run_sales_automations: {
         Args: { _trigger?: string }
         Returns: {
           raised: number
           run_id: string
         }[]
+      }
+      source_is_approved_for_agents: {
+        Args: { _source: string }
+        Returns: boolean
+      }
+      storage_object_readable: {
+        Args: { _bucket: string; _path: string; _user_id: string }
+        Returns: boolean
+      }
+      void_historical_promotion: {
+        Args: { _reason: string; _request_id: string }
+        Returns: string
       }
     }
     Enums: {
@@ -4889,11 +8623,20 @@ export type Database = {
         | "outreach_draft"
         | "qualification_brief"
         | "discovery_research_brief"
+      boq_revision_status:
+        | "draft"
+        | "estimated_scope"
+        | "partially_verified"
+        | "verified"
+        | "superseded"
+      boq_source_type: "manual" | "ai_extraction" | "historical_import"
       boq_status:
         | "verified"
         | "partially_verified"
         | "estimated_scope"
         | "missing"
+      commitment_direction: "we_owe_client" | "client_owes_us"
+      commitment_status: "open" | "met" | "missed" | "waived" | "cancelled"
       company_type:
         | "main_contractor"
         | "developer"
@@ -4912,6 +8655,28 @@ export type Database = {
         | "unknown_authority"
       contact_confidence_level: "high" | "medium" | "low"
       contact_location: "site_office" | "head_office" | "unknown"
+      document_entity_type:
+        | "opportunity"
+        | "rfq"
+        | "tender"
+        | "project"
+        | "contract"
+        | "boq"
+        | "quotation"
+        | "inbox_item"
+        | "boq_revision"
+        | "quotation_revision"
+      document_type:
+        | "boq"
+        | "drawing"
+        | "contract"
+        | "quotation"
+        | "photo"
+        | "award_letter"
+        | "submission"
+        | "correspondence"
+        | "report"
+        | "other"
       exclusion_reason:
         | "no_signage_package"
         | "low_commercial_value"
@@ -4937,6 +8702,14 @@ export type Database = {
         | "completed"
         | "cancelled"
       handover_status: "pending" | "ready" | "handed_over"
+      historical_promotion_status:
+        | "draft"
+        | "pending_review"
+        | "approved"
+        | "rejected"
+        | "promoted"
+        | "voided"
+        | "cancelled"
       inbox_classification:
         | "unclassified"
         | "company"
@@ -4994,6 +8767,15 @@ export type Database = {
         | "sent_to_missing_data"
         | "marked_duplicate"
         | "archived"
+      internal_price_status:
+        | "draft"
+        | "cost_complete"
+        | "internal_price_proposed"
+        | "commercial_review"
+        | "finance_review"
+        | "gm_pending"
+        | "gm_approved"
+        | "returned"
       lead_stage:
         | "detected"
         | "duplicate_check"
@@ -5064,6 +8846,14 @@ export type Database = {
         | "no_next_action"
         | "inactive_tier_a_opportunity"
         | "contract_evidence_missing"
+        | "submission_pending_on"
+      quotation_revision_status:
+        | "draft"
+        | "pending_approval"
+        | "approved"
+        | "submitted"
+        | "superseded"
+        | "withdrawn"
       quotation_status:
         | "draft"
         | "under_internal_review"
@@ -5105,6 +8895,22 @@ export type Database = {
         | "unknown"
         | "not_applicable"
         | "no_package_identified"
+      sla_subject:
+        | "stalled_deal"
+        | "follow_up"
+        | "commitment"
+        | "price_review"
+        | "lead_review"
+        | "quotation_validity"
+      supplier_quote_status:
+        | "draft"
+        | "sent"
+        | "responses_received"
+        | "evaluation"
+        | "selected"
+        | "frozen"
+        | "cancelled"
+        | "superseded"
       target_period: "monthly" | "quarterly" | "annual"
       tender_stage:
         | "tender_identified"
@@ -5302,12 +9108,22 @@ export const Constants = {
         "qualification_brief",
         "discovery_research_brief",
       ],
+      boq_revision_status: [
+        "draft",
+        "estimated_scope",
+        "partially_verified",
+        "verified",
+        "superseded",
+      ],
+      boq_source_type: ["manual", "ai_extraction", "historical_import"],
       boq_status: [
         "verified",
         "partially_verified",
         "estimated_scope",
         "missing",
       ],
+      commitment_direction: ["we_owe_client", "client_owes_us"],
+      commitment_status: ["open", "met", "missed", "waived", "cancelled"],
       company_type: [
         "main_contractor",
         "developer",
@@ -5328,6 +9144,30 @@ export const Constants = {
       ],
       contact_confidence_level: ["high", "medium", "low"],
       contact_location: ["site_office", "head_office", "unknown"],
+      document_entity_type: [
+        "opportunity",
+        "rfq",
+        "tender",
+        "project",
+        "contract",
+        "boq",
+        "quotation",
+        "inbox_item",
+        "boq_revision",
+        "quotation_revision",
+      ],
+      document_type: [
+        "boq",
+        "drawing",
+        "contract",
+        "quotation",
+        "photo",
+        "award_letter",
+        "submission",
+        "correspondence",
+        "report",
+        "other",
+      ],
       exclusion_reason: [
         "no_signage_package",
         "low_commercial_value",
@@ -5356,6 +9196,15 @@ export const Constants = {
         "cancelled",
       ],
       handover_status: ["pending", "ready", "handed_over"],
+      historical_promotion_status: [
+        "draft",
+        "pending_review",
+        "approved",
+        "rejected",
+        "promoted",
+        "voided",
+        "cancelled",
+      ],
       inbox_classification: [
         "unclassified",
         "company",
@@ -5418,6 +9267,16 @@ export const Constants = {
         "sent_to_missing_data",
         "marked_duplicate",
         "archived",
+      ],
+      internal_price_status: [
+        "draft",
+        "cost_complete",
+        "internal_price_proposed",
+        "commercial_review",
+        "finance_review",
+        "gm_pending",
+        "gm_approved",
+        "returned",
       ],
       lead_stage: [
         "detected",
@@ -5494,6 +9353,15 @@ export const Constants = {
         "no_next_action",
         "inactive_tier_a_opportunity",
         "contract_evidence_missing",
+        "submission_pending_on",
+      ],
+      quotation_revision_status: [
+        "draft",
+        "pending_approval",
+        "approved",
+        "submitted",
+        "superseded",
+        "withdrawn",
       ],
       quotation_status: [
         "draft",
@@ -5539,6 +9407,24 @@ export const Constants = {
         "unknown",
         "not_applicable",
         "no_package_identified",
+      ],
+      sla_subject: [
+        "stalled_deal",
+        "follow_up",
+        "commitment",
+        "price_review",
+        "lead_review",
+        "quotation_validity",
+      ],
+      supplier_quote_status: [
+        "draft",
+        "sent",
+        "responses_received",
+        "evaluation",
+        "selected",
+        "frozen",
+        "cancelled",
+        "superseded",
       ],
       target_period: ["monthly", "quarterly", "annual"],
       tender_stage: [

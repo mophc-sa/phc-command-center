@@ -7,6 +7,7 @@ import { canViewSalesAdmin, canCreateSalesRecords, ALL_ROLES, type AppRole } fro
 import { usePinnedRecords, type PinnedRecord } from "@/hooks/usePinnedRecords";
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
+import { badgeLabel, unreadCount } from "@/lib/notifications";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { requiresMfa } from "@/lib/roles";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
@@ -28,9 +29,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Gauge,
   LayoutDashboard,
   FolderKanban,
-  CalendarClock,
   Inbox,
   ShieldCheck,
   LineChart,
@@ -41,8 +42,6 @@ import {
   LogOut,
   Bell,
   ShieldAlert,
-  FileText,
-  Target,
   Building2,
   Contact2,
   Landmark,
@@ -52,11 +51,11 @@ import {
   Bot,
   BookOpen,
   Gavel,
-  GitMerge,
   Award,
   BellRing,
   DatabaseZap,
   Mailbox,
+  CalendarClock,
   Search,
   Plus,
   ChevronDown,
@@ -72,6 +71,8 @@ const phcLogo = { url: "/phc-logo.png" };
 type NavLink = {
   kind: "link";
   to: string;
+  /** Search params for view-style entries (e.g. Awarded Projects = won filter). */
+  search?: Record<string, string>;
   key: string;
   icon: LucideIcon;
   requireAdmin?: boolean;
@@ -95,35 +96,47 @@ type NavGroup = {
 
 // ── Navigation architecture ────────────────────────────────────────────────
 
+// Phase 1 (PRD 2026-08-12, "Existing Pages — Final Decision"): SALES carries
+// exactly four destinations. Everything a salesperson used to reach through a
+// duplicated tab or a standalone queue is now either a filtered view of one of
+// these four, or an action inside a record.
+//
+// Routes are NOT deleted when they leave this list — /quotations, /follow-ups,
+// /targets, /award-queue and /tender-conversion all keep working, keep their
+// data, and stay reachable by direct link and from the ⌘K palette (which
+// indexes every page in PAGES, see CommandPalette.tsx). Nav membership and
+// route existence are separate concerns; only nav membership changed here.
 const NAV_GROUPS: NavGroup[] = [
   {
-    key: "navgroup_workspace",
-    fallback: "Workspace",
+    // HOME in the PRD's target architecture: where you look to decide what to
+    // do next, before you go looking for a record.
+    key: "navgroup_home",
+    fallback: "Home",
     items: [
-      { kind: "link",   to: "/my-workspace",      key: "nav_my_day",        icon: Briefcase },
-      { kind: "link",   to: "/action-center",      key: "nav_action_center", icon: BellRing },
-      { kind: "button", action: "notifications",   key: "nav_notifications", icon: Bell },
+      { kind: "link",   to: "/command-center",   key: "nav_command_center",    icon: LayoutDashboard },
+      { kind: "link",   to: "/my-workspace",     key: "nav_my_day",            icon: Briefcase },
+      { kind: "link",   to: "/action-center",    key: "nav_action_center",     icon: BellRing },
+      { kind: "link",   to: "/approvals",        key: "nav_approvals",         icon: ShieldCheck },
+      { kind: "button", action: "notifications", key: "nav_notifications",     icon: Bell },
     ],
   },
   {
-    key: "navgroup_pipeline",
-    fallback: "Pipeline",
+    key: "navgroup_sales",
+    fallback: "Sales",
     items: [
-      { kind: "link", to: "/command-center",    key: "nav_pipeline_overview", icon: LayoutDashboard },
-      { kind: "link", to: "/lead-tender-inbox", key: "nav_intake",            icon: Mailbox },
-      { kind: "link", to: "/opportunities",     key: "nav_opportunities",     icon: FolderKanban },
-      { kind: "link", to: "/tenders",           key: "nav_tenders",           icon: Gavel },
-    ],
-  },
-  {
-    key: "navgroup_execution",
-    fallback: "Execution",
-    items: [
-      { kind: "link", to: "/approvals",         key: "nav_approvals",         icon: ShieldCheck },
-      { kind: "link", to: "/follow-ups",        key: "nav_follow_ups",        icon: CalendarClock },
-      { kind: "link", to: "/quotations",        key: "nav_quotations",        icon: FileText },
-      { kind: "link", to: "/award-queue",       key: "nav_awards",            icon: Award },
-      { kind: "link", to: "/tender-conversion", key: "nav_conversion_queue",  icon: GitMerge },
+      { kind: "link", to: "/lead-tender-inbox", key: "nav_intake",        icon: Mailbox },
+      { kind: "link", to: "/opportunities",     key: "nav_opportunities", icon: FolderKanban },
+      { kind: "link", to: "/tenders",           key: "nav_tenders",       icon: Gavel },
+      // Awarded Projects is a VIEW, not an entity: the Opportunities list
+      // filtered to the canonical won stage. /award-queue still exists and
+      // still works; it is simply no longer presented as its own module.
+      {
+        kind: "link",
+        to: "/opportunities",
+        search: { q: "", stage: "won", tier: "all", view: "table" },
+        key: "nav_awarded_projects",
+        icon: Award,
+      },
     ],
   },
   {
@@ -146,11 +159,17 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // Targets left this group in Phase 1. It was never a destination people
+    // browsed to — the number that matters shows up in My Workspace, Command
+    // Center and Admin Settings, next to the work it judges. /targets still
+    // exists and still works.
     key: "navgroup_reports",
     fallback: "Reports & Analysis",
     items: [
+      // Phase 5: the management surface. Role-gated inside — a viewer with no
+      // commercial role gets an explanation, not a blank page.
+      { kind: "link", to: "/sales-management", key: "nav_sales_management", icon: Gauge },
       { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart },
-      { kind: "link", to: "/targets", key: "nav_targets", icon: Target },
     ],
   },
   {
@@ -164,12 +183,16 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // AI Configuration (/ai-agents) and AI Audit (/agent-activity) are out of
+    // the primary business navigation and live here, under a collapsed Admin
+    // group — the placement the PRD asks for. They are administration
+    // surfaces, not places a salesperson works.
     key: "navgroup_admin",
     fallback: "Admin",
     collapsible: true,
     items: [
-      { kind: "link", to: "/ai-agents",       key: "nav_ai_agents",       icon: Bot },
-      { kind: "link", to: "/agent-activity",  key: "nav_agent_activity",  icon: Activity },
+      { kind: "link", to: "/ai-agents",       key: "nav_ai_configuration", icon: Bot },
+      { kind: "link", to: "/agent-activity",  key: "nav_ai_audit",         icon: Activity },
       { kind: "link", to: "/data-import",     key: "nav_data_import",     icon: DatabaseZap, requireAdmin: true },
       { kind: "link", to: "/admin-settings",  key: "nav_admin_settings",  icon: ShieldAlert, requireAdmin: true },
       { kind: "link", to: "/settings",        key: "nav_settings",        icon: Settings },
@@ -197,6 +220,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const nav_ = useNavigate();
   const qc = useQueryClient();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  // A nav entry that is a *filtered view* of another entry (Awarded Projects
+  // vs Opportunities) needs to know whether its own filter is the one applied.
+  // Select a PRIMITIVE: a selector returning a fresh object/Map every call has
+  // no stable identity, which makes useRouterState re-render on every store
+  // read and can spin into a render loop.
+  const currentStage = useRouterState({
+    select: (s) => String((s.location.search as Record<string, unknown> | undefined)?.stage ?? ""),
+  });
 
   const canAdmin = canViewSalesAdmin(roles);
   // Same authority as every other record-creation entry point: pipeline
@@ -214,7 +245,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [newIntakeOpen, setNewIntakeOpen] = useState(false);
 
   const { data: notifItems = [] } = useNotifications();
-  const notifCount = notifItems.length;
+  // Badge on UNREAD, not on total. Before Phase 4 the bell counted every
+  // currently-open item, so it never reached zero and stopped meaning anything.
+  const notifCount = unreadCount(notifItems);
 
   const isOnAdminRoute = ADMIN_ROUTE_PREFIXES.some((prefix) => path.startsWith(prefix));
   const [adminOpen, setAdminOpen] = useState(() => canAdmin || isOnAdminRoute);
@@ -294,17 +327,29 @@ export function AppShell({ children }: { children: ReactNode }) {
       );
     }
 
-    // Regular link
-    const active = isActive(n.to);
+    // Regular link.
+    // Two entries can share a path when one of them is a filtered view of the
+    // other (Opportunities and Awarded Projects both live on /opportunities).
+    // The React key therefore comes from n.key, and a filtered entry is only
+    // "active" when its filter is the one currently applied — otherwise both
+    // rows would highlight together.
+    const filterMatches = n.search
+      ? currentStage === (n.search.stage ?? "")
+      : currentStage === "" || currentStage === "all";
+    const active = isActive(n.to) && filterMatches;
     return (
       <Link
-        key={n.to}
+        key={n.key}
         to={n.to}
+        search={n.search as never}
         onClick={() => setMobileOpen(false)}
         className={cn(
           "group relative flex items-center gap-3 rounded-full px-3 py-[7px] text-[13px] transition-all duration-150",
+          // Selected = solid black pill, white label. This was
+          // bg-sidebar-accent, which is pure white — on a near-white sidebar the
+          // current page was effectively unmarked.
           active
-            ? "bg-sidebar-accent text-foreground shadow-sm"
+            ? "bg-sidebar-active text-sidebar-active-foreground shadow-sm"
             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
         )}
       >
@@ -312,7 +357,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           className={cn(
             "h-[15px] w-[15px] shrink-0 transition-colors",
             active
-              ? "text-foreground"
+              ? "text-sidebar-active-foreground"
               : "text-muted-foreground/80 group-hover:text-foreground",
           )}
           strokeWidth={1.75}
@@ -615,8 +660,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {notifCount > 0 && (
                   <span
                     aria-hidden="true"
-                    className="absolute end-1 top-1 h-1.5 w-1.5 rounded-full bg-amber"
-                  />
+                    className="num absolute -end-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-amber px-1 text-[9px] font-semibold leading-none text-black"
+                  >
+                    {badgeLabel(notifCount)}
+                  </span>
                 )}
               </button>
             </div>

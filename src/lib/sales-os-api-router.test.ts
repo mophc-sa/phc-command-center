@@ -26,8 +26,14 @@ function makeRouter(handler?: SalesOsHandler) {
       authCalls += 1;
       return caller;
     },
-    createContext: (resolvedCaller) =>
-      createSalesOsContext(resolvedCaller, () => ({ marker: "svc" }) as never, audit as never),
+    createContext: (resolvedCaller, authorization) =>
+      createSalesOsContext(
+        resolvedCaller,
+        authorization,
+        () => ({ marker: "svc" }) as never,
+        () => ({ marker: "user" }) as never,
+        audit as never,
+      ),
   });
   return { route, authCalls: () => authCalls };
 }
@@ -130,14 +136,43 @@ test("service client creation stays lazy and is cached per request context", () 
   const serviceClient = { marker: "svc" };
   const context = createSalesOsContext(
     caller,
+    "Bearer token",
     () => {
       creations += 1;
       return serviceClient as never;
     },
+    () => ({ marker: "user" }) as never,
     audit as never,
   );
   expect(creations).toBe(0);
   expect(context.svc).toBe(serviceClient);
   expect(context.svc).toBe(serviceClient);
   expect(creations).toBe(1);
+});
+
+test("the caller-scoped client is lazy, cached, and built from the caller's own header", () => {
+  // The context now hands out two clients and they must not be confusable.
+  // `asCaller` carries the real JWT — it is what lets auth.uid() be a person
+  // inside promote_historical_row(); `svc` bypasses RLS entirely. A handler
+  // reaching for the wrong one is the whole risk this feature introduces.
+  let userCreations = 0;
+  let seenAuth: string | null = null;
+  const userScoped = { marker: "user" };
+  const context = createSalesOsContext(
+    caller,
+    "Bearer real-caller-jwt",
+    () => ({ marker: "svc" }) as never,
+    (authorization: string) => {
+      userCreations += 1;
+      seenAuth = authorization;
+      return userScoped as never;
+    },
+    audit as never,
+  );
+  expect(userCreations).toBe(0);
+  expect(context.asCaller).toBe(userScoped);
+  expect(context.asCaller).toBe(userScoped);
+  expect(userCreations).toBe(1);
+  expect(seenAuth).toBe("Bearer real-caller-jwt");
+  expect(context.asCaller).not.toBe(context.svc);
 });
