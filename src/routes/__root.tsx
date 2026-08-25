@@ -11,7 +11,14 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { installGlobalErrorReporting, reportError } from "../lib/error-reporting";
-import { isStaleChunkError, shouldAutoReload, RELOAD_MARKER_KEY } from "@/lib/chunk-reload";
+import {
+  bustedUrl,
+  cleanUrl,
+  isBustedUrl,
+  isStaleChunkError,
+  shouldAutoReload,
+  RELOAD_MARKER_KEY,
+} from "@/lib/chunk-reload";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { AuthProvider } from "@/hooks/useSupabaseAuth";
 import { Toaster } from "@/components/ui/sonner";
@@ -53,8 +60,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     if (!stale || typeof window === "undefined") return;
     const marker = window.sessionStorage.getItem(RELOAD_MARKER_KEY);
     if (!shouldAutoReload(Date.now(), marker)) return;
-    window.sessionStorage.setItem(RELOAD_MARKER_KEY, String(Date.now()));
-    window.location.reload();
+    const stamp = Date.now();
+    window.sessionStorage.setItem(RELOAD_MARKER_KEY, String(stamp));
+    // Not location.reload(): that revalidates nothing and can return the same
+    // stale document that caused the failure. A one-shot parameter guarantees
+    // a fresh one; the document's own no-cache header is the real fix and this
+    // is the belt for a CDN edge or a browser that ignores it.
+    window.location.replace(bustedUrl(window.location.href, stamp));
   }, [stale]);
 
   useEffect(() => {
@@ -100,7 +112,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           <button
             onClick={() => {
               // Retrying a dead chunk URL just fails again — reload instead.
-              if (stale) { window.location.reload(); return; }
+              if (stale) {
+                window.location.replace(bustedUrl(window.location.href, Date.now()));
+                return;
+              }
               router.invalidate();
               reset();
             }}
@@ -200,6 +215,17 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useEffect(() => {
     installGlobalErrorReporting();
+  }, []);
+
+  // The app rendered, so a recovery that got us here worked. Take the
+  // cache-busting parameter back out of the address bar — replaceState, so it
+  // leaves no history entry and Back still goes where the user expects — and
+  // clear the guard so a genuinely new deploy can recover again immediately
+  // rather than waiting out the 30-second window.
+  useEffect(() => {
+    if (typeof window === "undefined" || !isBustedUrl(window.location.href)) return;
+    window.sessionStorage.removeItem(RELOAD_MARKER_KEY);
+    window.history.replaceState(window.history.state, "", cleanUrl(window.location.href));
   }, []);
   return (
     <QueryClientProvider client={queryClient}>
