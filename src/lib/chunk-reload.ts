@@ -65,3 +65,37 @@ export function shouldAutoReload(now: number, marker: string | null): boolean {
   if (at > now) return true;
   return now - at > RELOAD_GUARD_MS;
 }
+
+/**
+ * A reload that cannot be answered from cache.
+ *
+ * location.reload() revalidates nothing on its own. Before the document
+ * started sending `Cache-Control: no-cache` it could return the very same
+ * stale HTML that caused the failure — the recovery would fire, land on the
+ * identical page, fail again, and the loop guard would stop it at the "new
+ * version" message with the user no better off.
+ *
+ * The header is the real fix. This is the belt: a one-shot cache-busting
+ * parameter guarantees a fresh document even from a CDN edge or a browser
+ * that ignores the header, and it is stripped from the URL bar afterwards so
+ * nobody bookmarks it.
+ */
+export const CACHE_BUST_PARAM = "__v";
+
+export function bustedUrl(href: string, stamp: number): string {
+  const url = new URL(href);
+  url.searchParams.set(CACHE_BUST_PARAM, String(stamp));
+  return url.toString();
+}
+
+/** True when this load came from a cache-busting reload we triggered. */
+export function isBustedUrl(href: string): boolean {
+  return new URL(href).searchParams.has(CACHE_BUST_PARAM);
+}
+
+/** The same URL without our parameter, for putting back in the address bar. */
+export function cleanUrl(href: string): string {
+  const url = new URL(href);
+  url.searchParams.delete(CACHE_BUST_PARAM);
+  return url.toString();
+}

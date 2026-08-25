@@ -1,7 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import {
+  bustedUrl,
+  cleanUrl,
+  isBustedUrl,
   isStaleChunkError,
   shouldAutoReload,
+  CACHE_BUST_PARAM,
   RELOAD_GUARD_MS,
 } from "@/lib/chunk-reload";
 
@@ -71,5 +75,57 @@ describe("shouldAutoReload — recover once, never loop", () => {
     // A blocked user who can never recover is worse than one extra reload.
     expect(shouldAutoReload(NOW, "not-a-number")).toBe(true);
     expect(shouldAutoReload(NOW, String(NOW + 60_000))).toBe(true);
+  });
+});
+
+// =============================================================================
+// Reported 2026-08-25: the "A new version was released" screen kept coming
+// back instead of recovering. The detector and the guard were both right; the
+// reload was not.
+//
+// The document was served with NO Cache-Control at all — only /assets/* had a
+// rule — so browsers cached it heuristically and location.reload() returned
+// the same stale HTML, naming the same dead chunk hashes. Recovery fired,
+// landed on the identical page, failed again, and the guard stopped it at the
+// message. The header is the fix; a cache-busting parameter is the belt.
+// =============================================================================
+describe("a recovery reload cannot be answered from cache", () => {
+  const STAMP = 1_770_000_000_000;
+
+  it("adds a parameter the cache cannot have seen", () => {
+    const out = bustedUrl("https://agent.phc-sa.com/my-workspace", STAMP);
+    expect(out).toContain(`${CACHE_BUST_PARAM}=${STAMP}`);
+    expect(isBustedUrl(out)).toBe(true);
+  });
+
+  it("keeps the path and every parameter the user was on", () => {
+    const out = bustedUrl("https://agent.phc-sa.com/opportunities?stage=open&owner=u1", STAMP);
+    const url = new URL(out);
+    expect(url.pathname).toBe("/opportunities");
+    expect(url.searchParams.get("stage")).toBe("open");
+    expect(url.searchParams.get("owner")).toBe("u1");
+  });
+
+  it("takes the parameter back out once the app has loaded", () => {
+    const busted = bustedUrl("https://agent.phc-sa.com/opportunities?stage=open", STAMP);
+    const cleaned = cleanUrl(busted);
+    expect(isBustedUrl(cleaned)).toBe(false);
+    expect(cleaned).toBe("https://agent.phc-sa.com/opportunities?stage=open");
+  });
+
+  it("does not mistake an ordinary URL for a recovery", () => {
+    for (const href of [
+      "https://agent.phc-sa.com/",
+      "https://agent.phc-sa.com/opportunities?stage=open",
+      "https://agent.phc-sa.com/x?v=1",
+    ]) {
+      expect(isBustedUrl(href), href).toBe(false);
+    }
+  });
+
+  it("replaces its own parameter rather than stacking them", () => {
+    const once = bustedUrl("https://agent.phc-sa.com/a", STAMP);
+    const twice = bustedUrl(once, STAMP + 1);
+    expect(new URL(twice).searchParams.getAll(CACHE_BUST_PARAM)).toEqual([String(STAMP + 1)]);
   });
 });

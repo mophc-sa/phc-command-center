@@ -26,8 +26,33 @@ type ServerEntry = {
 const CONTENT_SECURITY_POLICY =
   "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.lovable.dev https://challenges.cloudflare.com https://cloudflareinsights.com";
 
+/**
+ * The document must never be served from cache without checking.
+ *
+ * Assets are content-hashed and marked immutable, which is right. The HTML that
+ * POINTS at them was sent with no Cache-Control at all, so browsers fell back
+ * to heuristic caching and kept serving yesterday's document — which names
+ * yesterday's chunk hashes. After a deploy those 404, the route fails to load,
+ * and the recovery in __root.tsx cannot help either: its location.reload()
+ * revalidates nothing, so it fetches the same cached HTML, fails again, and
+ * the loop guard stops it at "A new version was released". The user is then
+ * stuck until they hard-reload, which nothing tells them to do.
+ *
+ * `no-cache` does not mean "do not store" — it means "always revalidate".
+ * Unchanged HTML still comes back as a 304, so this costs one conditional
+ * request per navigation and removes the whole failure mode.
+ *
+ * Deliberately scoped to HTML: hashed assets keep their immutable year.
+ */
+function withCacheHeaders(response: Response, headers: Headers): void {
+  const contentType = headers.get("content-type") ?? response.headers.get("content-type") ?? "";
+  if (!contentType.includes("text/html")) return;
+  headers.set("Cache-Control", "no-cache, must-revalidate");
+}
+
 function withSecurityHeaders(request: Request, response: Response): Response {
   const headers = new Headers(response.headers);
+  withCacheHeaders(response, headers);
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("X-Frame-Options", "DENY");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
