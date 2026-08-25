@@ -6,6 +6,7 @@ import {
   describeFilters,
   hasActiveFilters,
   isStageGroup,
+  matchesOpportunitySearch,
   matchesStageFilter,
   parseOpportunitySearch,
 } from "@/lib/drilldown";
@@ -198,5 +199,81 @@ describe("filter description", () => {
     expect(hasActiveFilters(DEFAULT_SEARCH)).toBe(false);
     expect(describeFilters(DEFAULT_SEARCH)).toEqual([]);
     expect(hasActiveFilters({ ...DEFAULT_SEARCH, stage: "won" })).toBe(true);
+  });
+});
+
+// =============================================================================
+// The list page's own predicate.
+//
+// These replace a source-text contract test that asserted the string
+// "routeSearch.owner" appeared in opportunities.index.tsx. That test passed
+// while the page's useMemo omitted owner/from/to from its dependency array,
+// so the filter never re-ran when a drilldown changed only those. Asserting on
+// behaviour instead of on source text is the whole point.
+// =============================================================================
+describe("matchesOpportunitySearch — the opportunity list's predicate", () => {
+  const row = (over: Partial<Parameters<typeof matchesOpportunitySearch>[0]> = {}) => ({
+    sales_stage: "jih",
+    owner_id: "u1",
+    tier: "A",
+    updated_at: "2026-08-05",
+    project_name: "Riyadh Tower",
+    client: "Acme",
+    ...over,
+  });
+
+  it("narrows by owner", () => {
+    const s = { ...DEFAULT_SEARCH, owner: "u1" };
+    expect(matchesOpportunitySearch(row(), s)).toBe(true);
+    expect(matchesOpportunitySearch(row({ owner_id: "u2" }), s)).toBe(false);
+  });
+
+  it("treats owner 'all' as no owner filter", () => {
+    expect(matchesOpportunitySearch(row({ owner_id: "u9" }), DEFAULT_SEARCH)).toBe(true);
+  });
+
+  it("narrows by tier", () => {
+    expect(matchesOpportunitySearch(row(), { ...DEFAULT_SEARCH, tier: "B" })).toBe(false);
+    expect(matchesOpportunitySearch(row(), { ...DEFAULT_SEARCH, tier: "A" })).toBe(true);
+  });
+
+  it("searches the text fields case-insensitively", () => {
+    expect(matchesOpportunitySearch(row(), { ...DEFAULT_SEARCH, q: "riyadh" })).toBe(true);
+    expect(matchesOpportunitySearch(row(), { ...DEFAULT_SEARCH, q: "jeddah" })).toBe(false);
+  });
+
+  // Won and lost are events and carry a date; everything else is a snapshot of
+  // current state, so a period from a drilldown must not narrow it.
+  it("bounds won/lost rows by the period", () => {
+    const s = { ...DEFAULT_SEARCH, stage: "won", from: "2026-08-01", to: "2026-09-01" };
+    expect(matchesOpportunitySearch(row({ sales_stage: "won", updated_at: "2026-08-05" }), s)).toBe(true);
+    expect(matchesOpportunitySearch(row({ sales_stage: "won", updated_at: "2026-07-05" }), s)).toBe(false);
+  });
+
+  it("does not bound a snapshot stage by the period", () => {
+    const s = { ...DEFAULT_SEARCH, stage: "open", from: "2026-08-01", to: "2026-09-01" };
+    expect(matchesOpportunitySearch(row({ sales_stage: "jih", updated_at: "2026-01-01" }), s)).toBe(true);
+  });
+
+  it("combines every filter", () => {
+    const s = { ...DEFAULT_SEARCH, stage: "open", owner: "u1", tier: "A", q: "riyadh" };
+    expect(matchesOpportunitySearch(row(), s)).toBe(true);
+    expect(matchesOpportunitySearch(row({ owner_id: "u2" }), s)).toBe(false);
+  });
+});
+
+describe("clearing filters escapes a drilldown completely", () => {
+  // The empty-state's "clear filters" reset only q/stage/tier, leaving the
+  // owner and date range a drilldown arrived with still applied — so the list
+  // stayed empty and there was no way out of it from the page.
+  it("DEFAULT_SEARCH clears owner and the date range too", () => {
+    expect(hasActiveFilters(DEFAULT_SEARCH)).toBe(false);
+    expect(DEFAULT_SEARCH.owner).toBe("all");
+    expect(DEFAULT_SEARCH.from).toBe("");
+    expect(DEFAULT_SEARCH.to).toBe("");
+  });
+
+  it("an owner-only drilldown still counts as filtered", () => {
+    expect(hasActiveFilters({ ...DEFAULT_SEARCH, owner: "u1" })).toBe(true);
   });
 });

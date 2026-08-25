@@ -1,11 +1,11 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, type LinkProps } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CalendarClock, ListChecks, BellRing, ShieldCheck, Sparkles, FileText,
-  Award, CheckCheck, Clock, Plus, ChevronDown, ChevronRight, AlertTriangle,
+  CalendarClock, Sparkles, FileText,
+  CheckCheck, Plus, ChevronDown, ChevronRight, AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveCanonicalStage, CANONICAL_ACTIVE_STAGES } from "@/lib/stage-canonical";
@@ -24,13 +24,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RecommendationCard } from "@/components/phc/RecommendationCard";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TabsTrigger } from "@/components/ui/tabs";
 import { useI18n, formatCurrency, formatNumber, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { isSalesperson } from "@/lib/roles";
 import { logActivity, type ActivityType } from "@/lib/activity-actions";
 import { ACTIVE_FLAG_STATUSES } from "@/lib/workflow-actions";
-import { acceptRecommendation, dismissRecommendation } from "@/lib/recommendation-actions";
 import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions";
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
@@ -680,7 +679,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         <div className="flex items-center justify-center gap-3 pt-1">
           <Link
             to="/opportunities"
-            search={{} as any}
+            search={{}}
             className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/5 px-5 text-[12px] font-medium text-amber-light transition-colors hover:bg-amber/10"
           >
             {lang === "ar" ? "عرض كل الفرص (JIH)" : "View All JIH"} <ChevronRight className="h-3.5 w-3.5" />
@@ -925,7 +924,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
       {/* Nav links + Summary of Leads */}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-border/60 bg-surface/40 p-4 space-y-2">
-          <StageDashLink label={lang === "ar" ? "نظرة خط المبيعات" : "Pipeline Overview"} count={data.opps.length} to="/pipeline-overview" tone="neutral" />
+          <StageDashLink label={lang === "ar" ? "نظرة خط المبيعات" : "Pipeline Overview"} count={data.opps.length} to="/command-center" tone="neutral" />
           <StageDashLink label={lang === "ar" ? "قرارات بانتظار الموافقة" : "Pending Approvals"} count={myApprovals.length} to="/approvals" tone="attention" />
           <StageDashLink label={lang === "ar" ? "مناقصاتي النشطة" : "Active Tenders"} count={myTenders.length} to="/tenders" tone="neutral" />
           <StageDashLink label={lang === "ar" ? "بنود تتطلب إجراء" : "Action Required"} count={missingDataFlags.length} to="/opportunities" tone="neutral" />
@@ -1154,7 +1153,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
 
         {/* View All buttons */}
         <div className="flex items-center justify-center gap-3 pt-1">
-          <Link to="/opportunities" search={{} as any} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-won-border bg-won-surface px-5 text-[12px] font-medium text-won transition-colors hover:bg-won-surface/80">
+          <Link to="/opportunities" search={{}} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-won-border bg-won-surface px-5 text-[12px] font-medium text-won transition-colors hover:bg-won-surface/80">
             {lang === "ar" ? "عرض كل الفرص" : "View All Opportunities"} <ChevronRight className="h-3.5 w-3.5" />
           </Link>
           <Link to="/tenders" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
@@ -1441,7 +1440,12 @@ function StageDashLink({
 }: {
   label: string;
   count: number;
-  to: string;
+  // Was `string`, and the <Link> below cast it to `any`. That cast is what let
+  // `to="/pipeline-overview"` — a route that has never existed — ship as the
+  // first tile on this dashboard: TanStack Router types `to` against the
+  // generated route tree, and the cast threw that check away. Typed against
+  // the route tree, a bad path is now a build error.
+  to: LinkProps["to"];
   tone: "positive" | "attention" | "neutral";
 }) {
   const borderCls =
@@ -1458,7 +1462,7 @@ function StageDashLink({
         : "bg-surface-2/60 text-foreground";
   return (
     <Link
-      to={to as any}
+      to={to}
       className={`flex items-center justify-between rounded-lg border px-4 py-3 text-[13px] font-medium text-foreground transition-colors ${borderCls}`}
     >
       <span>{label}</span>

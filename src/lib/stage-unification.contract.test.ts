@@ -79,4 +79,14 @@ describe("management views resolve stage canonically", () => {
       expect([file, (await read(file)).includes("sales_stage")]).toEqual([file, true]);
     }
   });
+  // `groupByCanonicalStage` returns `inferredCount` — how many bars rest on a
+  // stage that had to be guessed because the row carries no sales_stage. The
+  // dashboard computed it on every render and rendered it nowhere, so a chart
+  // built partly from inference was indistinguishable from one built from
+  // recorded data. The count's own arithmetic is tested in stage-canonical.test.ts;
+  // this asserts it actually reaches the screen.
+  test("command-center discloses how many bars rest on an inferred stage", async () => {
+    const src = await read("src/routes/_authenticated/command-center.tsx");
+    expect(src).toContain("inferredCount > 0");
+  });
 });
