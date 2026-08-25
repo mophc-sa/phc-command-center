@@ -14,6 +14,7 @@ import { NewIntakeDialog } from "@/components/phc/NewIntakeDialog";
 import { IntakeReviewPanel } from "@/components/phc/IntakeReviewPanel";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
+import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import { createCompany } from "@/lib/crm-actions";
 import {
@@ -56,7 +57,7 @@ function DuplicateWarning({ checking, candidates, t }: { checking: boolean; cand
 
 function LeadTenderInbox() {
   const { t, lang } = useI18n();
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
   const uid = user?.id ?? "";
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -198,7 +199,25 @@ function LeadTenderInbox() {
             <div key={x.id} className="rounded-md border border-border/70 bg-background/40 px-3 py-2.5">
               <div className="flex items-start justify-between gap-2">
                 <span className="truncate text-sm font-medium text-foreground">{x.company_name || x.project_name || x.contact_name || t("wf_source")}</span>
-                <StatusPill tone={statusTone(x.status)}>{t(`ibxst_${x.status}` as never)}</StatusPill>
+                <div className="flex shrink-0 items-center gap-1">
+                  <StatusPill tone={statusTone(x.status)}>{t(`ibxst_${x.status}` as never)}</StatusPill>
+                  {/* inbox_items is one of the five DELETABLE_ENTITY_TYPES, and
+                      the request → manager approval → atomic execute flow has
+                      been built and wired since Sprint 8 — but no page mounted
+                      the menu, so nothing could reach it. A row could only be
+                      classified, converted or archived, and only while its
+                      status was new or in_review; after that it had no actions
+                      at all and no way out of the list.
+                      inbox_items is not in ARCHIVABLE_ENTITY_TYPES, so this
+                      renders Request Delete alone and does not duplicate the
+                      archive button below. */}
+                  <RecordLifecycleMenu
+                    entityType="inbox_items"
+                    entityId={x.id}
+                    roles={roles}
+                    onDone={refresh}
+                  />
+                </div>
               </div>
               <div className="mt-0.5 text-[11px] text-muted-foreground">{t(`src_${x.source_type}` as never)}{x.source_name ? ` · ${x.source_name}` : ""}</div>
               {x.project_name && x.company_name ? <div className="mt-1 truncate text-[11px] text-muted-foreground">{t("label_project")}: {x.project_name}</div> : null}

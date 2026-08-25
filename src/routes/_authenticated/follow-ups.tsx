@@ -12,6 +12,8 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatNumber } from "@/lib/i18n";
 import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions";
 import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
+import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
+import { useAuth } from "@/hooks/useSupabaseAuth";
 import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/follow-ups")({
@@ -24,6 +26,7 @@ type Bucket = "overdue" | "today" | "upcoming";
 function FollowUpsPage() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
+  const { roles } = useAuth();
   const [completeFor, setCompleteFor] = useState<{ id: string; oppId: string } | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<{ id: string; oppId: string; currentDate: string } | null>(null);
   const [bucket, setBucket] = useState<Bucket | "all">("all");
@@ -159,6 +162,21 @@ function FollowUpsPage() {
                     >
                       <CheckCheck className="h-3.5 w-3.5" />
                     </button>
+                    {/* follow_ups is DELETABLE, but nothing mounted the menu, so
+                        a follow-up raised in error could only be rescheduled
+                        forever or completed with a fictional outcome. The menu
+                        opens the request → approval → atomic execute path that
+                        has existed since Sprint 8. */}
+                    <RecordLifecycleMenu
+                      entityType="follow_ups"
+                      entityId={f.id}
+                      roles={roles}
+                      onDone={() => {
+                        qc.invalidateQueries({ queryKey: ["all-followups"] });
+                        qc.invalidateQueries({ queryKey: ["cc-core"] });
+                        qc.invalidateQueries({ queryKey: ["workspace"] });
+                      }}
+                    />
                   </div>
                 </div>
               </li>
