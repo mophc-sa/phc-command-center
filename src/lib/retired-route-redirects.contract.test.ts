@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { parsePipelineSearch } from "@/lib/pipeline-tabs";
 
 const root = join(import.meta.dir, "../..");
 
@@ -53,9 +54,22 @@ describe("retired /boq and /rfq-jih routes redirect without blanking the page", 
     });
   }
 
+  // This used to grep quotations.tsx for the strings `s.tab === "rfq_jih"` and
+  // `s.tab === "boq"`. That proves the comparisons are written; it cannot say
+  // what the parser returns, and it stays green if a tab is added to the UI and
+  // not to the parser. Whether a redirect's tab actually round-trips is now
+  // asserted by calling the parser, in pipeline-tabs.test.ts.
   test("the /quotations route still accepts both retired tabs", () => {
+    for (const tab of ["rfq_jih", "boq"] as const) {
+      expect(parsePipelineSearch({ tab })).toEqual({ tab });
+    }
+  });
+
+  // What is left here is the wiring fact a grep can genuinely prove: the route
+  // hands parsing to the shared parser rather than re-deriving it inline, which
+  // is how the two drifted apart in the first place.
+  test("the route delegates parsing instead of re-deriving it", () => {
     const source = readFileSync(join(root, "src/routes/_authenticated/quotations.tsx"), "utf8");
-    expect(source).toContain('s.tab === "rfq_jih"');
-    expect(source).toContain('s.tab === "boq"');
+    expect(source).toContain("validateSearch: parsePipelineSearch");
   });
 });
