@@ -9,6 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { resolveCanonicalStage } from "@/lib/stage-canonical";
 
 const root = join(import.meta.dir, "../..");
 const read = (rel: string) => readFileSync(join(root, rel), "utf8");
@@ -141,15 +142,38 @@ describe("canonical stage — every sales and management view agrees", () => {
 
   test("stage-canonical no longer claims it is unused", () => {
     const src = read("src/lib/stage-canonical.ts");
+    // The stale-comment guard is the useful half and stays: the header used to
+    // say nothing imported this, and that had stopped being true.
     expect(src).not.toContain("Nothing in the UI imports this yet");
-    expect(src).toContain("my-workspace.tsx");
+    // The other half used to assert the comment mentions "my-workspace.tsx",
+    // which guards the prose about the relationship rather than the
+    // relationship. Renaming the page, or dropping the import while leaving the
+    // sentence in place, both slipped past it. Check the import instead.
+    expect(read("src/routes/_authenticated/my-workspace.tsx")).toContain(
+      'from "@/lib/stage-canonical"',
+    );
   });
 
-  test("stage and pipeline_step are retained as deprecated, not deleted", () => {
-    // Phase 1 explicitly does not drop them.
-    const src = read("src/lib/stage-canonical.ts");
-    expect(src.toLowerCase()).toContain("deprecated");
-    expect(src).toContain("pipeline_step");
+  // This used to assert that the word "deprecated" and the string
+  // "pipeline_step" appear somewhere in stage-canonical.ts. Both only ever
+  // appear there in comments, so the test passed on prose: deleting the legacy
+  // fallback while leaving the header intact would not have failed it, and
+  // rewording the header would have failed it for no reason.
+  //
+  // What "retained, not deleted" actually means is testable, so it is tested.
+  test("the legacy stage column is still honoured, not just documented", () => {
+    // A row predating sales_stage resolves through the legacy terminal path.
+    expect(resolveCanonicalStage({ sales_stage: null, stage: "won" })).toEqual({
+      stage: "won",
+      source: "legacy_terminal",
+    });
+  });
+
+  test("pipeline_step still exists on the opportunities row type", () => {
+    // A schema fact, so it is checked against the generated types rather than
+    // against a sentence in a module that never references the column.
+    const types = read("src/integrations/supabase/types.ts");
+    expect(types).toContain("pipeline_step");
   });
 });
 
