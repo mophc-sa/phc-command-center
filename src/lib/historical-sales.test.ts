@@ -212,34 +212,20 @@ describe("years come from the data, not a hardcoded list", () => {
   });
 });
 
-describe("selecting a year is expressed as a date range", () => {
-  it("covers the whole calendar year inclusively", () => {
-    expect(yearRange("2026")).toEqual({ fromDate: "2026-01-01", toDate: "2026-12-31" });
+describe("selecting a year is its own filter, not a submitted-date range", () => {
+  // It used to be encoded as fromDate/toDate and read back from them, so that
+  // a hand-edited range and the year buttons could not disagree. That coupling
+  // is what broke: yearOptions counted by submitted-or-received and the range
+  // filtered by submitted alone, so "2026 (78)" opened 76. The two questions
+  // are separate — which year is this filed under, versus when was it
+  // submitted — so they get separate fields and cannot drift again.
+  it("reads the year back from its own field", () => {
+    expect(selectedYear({ ...EMPTY_FILTERS, year: "2026" })).toBe("2026");
+    expect(selectedYear(EMPTY_FILTERS)).toBe("");
   });
 
-  it("reads the year back from the filters", () => {
-    expect(selectedYear(yearRange("2026"))).toBe("2026");
-  });
-
-  // The year buttons and the date pickers write the same two fields, so the
-  // selected year is derived rather than stored — otherwise a hand-edited date
-  // could leave a year highlighted that no longer matches what is on screen.
-  it("reports no year when the range is not exactly one year", () => {
-    expect(selectedYear({ fromDate: "2026-01-01", toDate: "2026-06-30" })).toBe("");
-    expect(selectedYear({ fromDate: "2025-01-01", toDate: "2026-12-31" })).toBe("");
-    expect(selectedYear({ fromDate: null, toDate: null })).toBe("");
-    expect(selectedYear({ fromDate: "2026-01-01", toDate: null })).toBe("");
-  });
-
-  it("round-trips a filtered year back to exactly its own rows", () => {
-    const rows = [
-      row({ date_submitted: "2026-01-01" }),
-      row({ date_submitted: "2026-12-31" }),
-      row({ date_submitted: "2025-12-31" }),
-      row({ date_submitted: "2027-01-01" }),
-    ];
-    const f = { ...EMPTY_FILTERS, ...yearRange("2026") };
-    expect(filterHistorical(rows, f)).toHaveLength(2);
+  it("a typed submitted range no longer lights up a year button", () => {
+    expect(selectedYear({ ...EMPTY_FILTERS, fromDate: "2026-01-01", toDate: "2026-12-31" })).toBe("");
   });
 });
 
@@ -277,5 +263,69 @@ describe("the status breakdown orders by value, not by count", () => {
     // How much of the book is unclassified is the finding, not noise to hide.
     const b = statusBreakdown([row({ status_canonical: null, amount: 10 })]);
     expect(b).toEqual([{ status: "undecided", count: 1, total: 10, valued: 1 }]);
+  });
+});
+
+// =============================================================================
+// Found reviewing the Historical Sales Archive against the 2026 data,
+// 2026-08-25. The year chip read "2026 (78)"; clicking it returned 76.
+//
+// Two deliberate decisions collided. yearOptions() falls back to date_received
+// for a record that was never submitted, on purpose, so an enquiry lands in
+// the year it arrived. Selecting a year applied a SUBMITTED date range, also
+// on purpose, which drops rows with no submission date. Neither was an
+// oversight; nobody had noticed they cannot both be true of one field.
+//
+// The year is now its own filter using one shared date rule, so both intents
+// survive and the count cannot disagree with its result again.
+// =============================================================================
+describe("the year count and the year filter agree", () => {
+  const at = (row_id: string, submitted: string | null, received: string | null): HistoricalSaleRow =>
+    ({ ...base, row_id, date_submitted: submitted, date_received: received });
+
+  const rows: HistoricalSaleRow[] = [
+    at("a", "2026-03-01", "2026-02-01"),
+    at("b", null, "2026-05-10"), // arrived in 2026, never submitted
+    at("c", null, "2026-07-22"), // the second one
+    at("d", "2025-11-01", "2025-10-01"),
+    at("e", null, null),          // no date at all
+  ];
+
+  const inYear = (year: string) =>
+    filterHistorical(rows, { ...EMPTY_FILTERS, year }).map((r) => r.row_id);
+
+  it("still counts a record that arrived but was never submitted", () => {
+    expect(yearOptions(rows).find((o) => o.year === "2026")?.count).toBe(3);
+  });
+
+  it("now returns every record it counted", () => {
+    // Was ["a"]: b and c were counted by the chip and filtered away by it.
+    expect(inYear("2026")).toEqual(["a", "b", "c"]);
+  });
+
+  // The invariant. It is broken again the moment the two sides read different
+  // dates, which is exactly how this started.
+  it("every year the facet offers returns exactly that many rows", () => {
+    for (const { year, count } of yearOptions(rows)) {
+      expect(inYear(year).length, `year ${year}`).toBe(count);
+    }
+  });
+
+  it("does not leak a record into a neighbouring year", () => {
+    expect(inYear("2025")).toEqual(["d"]);
+  });
+
+  it("a record with no date at all belongs to no year", () => {
+    expect(inYear("2026")).not.toContain("e");
+    expect(yearOptions(rows).some((o) => o.year === "")).toBe(false);
+  });
+
+  // The year buttons and the SUBMITTED inputs are now independent, so picking
+  // a year no longer silently discards a range the user typed.
+  it("choosing a year leaves a typed submitted range alone", () => {
+    const both = filterHistorical(rows, {
+      ...EMPTY_FILTERS, year: "2026", fromDate: "2026-03-01",
+    }).map((r) => r.row_id);
+    expect(both).toEqual(["a"]);
   });
 });

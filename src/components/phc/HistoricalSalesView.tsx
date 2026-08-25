@@ -44,7 +44,7 @@ import { formatCurrency, formatNumber, useI18n } from "@/lib/i18n";
 import {
   EMPTY_FILTERS, exportFilename, filterHistorical, getHistoricalQuality, listHistoricalSales,
   ownerOptions, qualityFlags, statusOptions, summarise, toCsv,
-  yearOptions, yearRange, selectedYear, statusBreakdown,
+  yearOptions, selectedYear, statusBreakdown,
   type HistoricalFilters, type HistoricalSaleRow, type QualityFlag,
 } from "@/lib/historical-sales";
 
@@ -416,7 +416,7 @@ export function HistoricalSalesView() {
             </span>
             <button
               type="button"
-              onClick={() => setF((p) => ({ ...p, fromDate: null, toDate: null }))}
+              onClick={() => setF((p) => ({ ...p, year: "" }))}
               className={`rounded-md border px-2 py-1 text-xs transition-colors ${
                 activeYear === "" ? "border-primary/40 bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground"
               }`}
@@ -427,7 +427,7 @@ export function HistoricalSalesView() {
               <button
                 key={y.year}
                 type="button"
-                onClick={() => setF((p) => ({ ...p, ...yearRange(y.year) }))}
+                onClick={() => setF((p) => ({ ...p, year: y.year }))}
                 className={`rounded-md border px-2 py-1 text-xs transition-colors ${
                   activeYear === y.year ? "border-primary/40 bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground"
                 }`}

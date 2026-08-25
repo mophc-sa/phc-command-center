@@ -138,11 +138,18 @@ export type HistoricalFilters = {
   fromDate: string | null;   // submission date, inclusive
   toDate: string | null;
   flag: QualityFlag | "";    // show only rows carrying this problem
+  /**
+   * The YEAR buttons. Its own field, because it asks a different question from
+   * the SUBMITTED FROM/TO inputs: which year is this record FILED under, not
+   * when was it submitted. Sharing fromDate/toDate made the two disagree —
+   * see archiveYearDate.
+   */
+  year: string;
 };
 
 export const EMPTY_FILTERS: HistoricalFilters = {
   q: "", status: "", route: "", owner: "",
-  minAmount: null, maxAmount: null, fromDate: null, toDate: null, flag: "",
+  minAmount: null, maxAmount: null, fromDate: null, toDate: null, flag: "", year: "",
 };
 
 /**
@@ -169,8 +176,16 @@ export function filterHistorical(rows: HistoricalSaleRow[], f: HistoricalFilters
     // as zero — 92 rows have no figure and they are not cheap deals.
     if (f.minAmount !== null && (r.amount === null || r.amount < f.minAmount)) return false;
     if (f.maxAmount !== null && (r.amount === null || r.amount > f.maxAmount)) return false;
+    // SUBMITTED FROM / TO mean exactly that: a record with no submission date
+    // was never submitted, so it is not "submitted after 2020". Deliberate,
+    // and covered by "a date filter excludes rows with no submission date".
     if (f.fromDate && (!r.date_submitted || r.date_submitted < f.fromDate)) return false;
     if (f.toDate && (!r.date_submitted || r.date_submitted > f.toDate)) return false;
+
+    if (f.year) {
+      const d = archiveYearDate(r);
+      if (!d || d.slice(0, 4) !== f.year) return false;
+    }
     if (f.flag && !qualityFlags(r).includes(f.flag)) return false;
     return true;
   });
@@ -283,10 +298,23 @@ export function statusOptions(rows: HistoricalSaleRow[]): Array<{ value: string;
  * Falls back to the received date when a record was never submitted, so a live
  * enquiry still lands in the year it arrived rather than in "no date".
  */
+/**
+ * The year a record is FILED under: submitted when there is one, received
+ * otherwise, so an enquiry that arrived and was never submitted lands in the
+ * year it arrived rather than in "no date". yearOptions counts by this and the
+ * year filter selects by it — one rule, so the chip and its result cannot
+ * disagree.
+ */
+export function archiveYearDate(
+  r: Pick<HistoricalSaleRow, "date_submitted" | "date_received">,
+): string | null {
+  return r.date_submitted ?? r.date_received ?? null;
+}
+
 export function yearOptions(rows: HistoricalSaleRow[]): Array<{ year: string; count: number }> {
   const m = new Map<string, number>();
   for (const r of rows) {
-    const d = r.date_submitted ?? r.date_received;
+    const d = archiveYearDate(r);
     const y = d ? d.slice(0, 4) : "";
     if (!y) continue;
     m.set(y, (m.get(y) ?? 0) + 1);
@@ -307,12 +335,10 @@ export function yearRange(year: string): { fromDate: string; toDate: string } {
  * separately, so a hand-edited date range and the year buttons can never
  * disagree about what is on screen.
  */
-export function selectedYear(f: Pick<HistoricalFilters, "fromDate" | "toDate">): string {
-  if (!f.fromDate || !f.toDate) return "";
-  const y = f.fromDate.slice(0, 4);
-  const r = yearRange(y);
-  return f.fromDate === r.fromDate && f.toDate === r.toDate ? y : "";
+export function selectedYear(f: Pick<HistoricalFilters, "year">): string {
+  return f.year;
 }
+
 
 /**
  * Status breakdown for whatever is on screen, ordered by value.
