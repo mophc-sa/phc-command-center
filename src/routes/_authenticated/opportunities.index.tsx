@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, type SearchSchemaInput } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, LayoutGrid, Rows3, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
@@ -9,7 +9,14 @@ import {
   CANONICAL_STAGES,
   canonicalStageLabelKey,
 } from "@/lib/stage-canonical";
-import { describeFilters, hasActiveFilters, matchesStageFilter, parseOpportunitySearch } from "@/lib/drilldown";
+import type { OpportunitySearch } from "@/lib/drilldown";
+import {
+  DEFAULT_SEARCH,
+  describeFilters,
+  hasActiveFilters,
+  matchesOpportunitySearch,
+  parseOpportunitySearch,
+} from "@/lib/drilldown";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
 import { PageHeader } from "@/components/phc/PageHeader";
@@ -32,12 +39,15 @@ export const Route = createFileRoute("/_authenticated/opportunities/")({
   // page cannot disagree about what a filter means. `owner`, `from` and `to`
   // were added because a KPI scoped by salesperson or period has nowhere to put
   // that context otherwise.
-  validateSearch: (s: Record<string, unknown>): {
-    q: string; stage: string; tier: string; view: "table" | "cards";
-    // Optional so the many existing <Link to="/opportunities"> callers that
-    // pass only the original four params keep type-checking.
-    owner?: string; from?: string; to?: string;
-  } => parseOpportunitySearch(s),
+  //
+  // `SearchSchemaInput` splits the two directions apart: links may pass any
+  // subset (the many existing <Link to="/opportunities"> callers send only the
+  // original four), while `useSearch()` gets the parser's complete, defaulted
+  // object back. Declaring owner/from/to optional on the OUTPUT — the previous
+  // shape — was what pushed the page into `routeSearch.owner && ...` guards
+  // and let them drift out of the filter's dependency array.
+  validateSearch: (s: Record<string, unknown> & SearchSchemaInput): OpportunitySearch =>
+    parseOpportunitySearch(s),
   head: () => ({
     meta: [
       { title: "Opportunities — PHC" },
@@ -51,7 +61,6 @@ export const Route = createFileRoute("/_authenticated/opportunities/")({
 // The filter offers the real PHC pipeline, not the generic CRM buckets. It used
 // to list discovery/qualification/preparation/... — stages a salesperson never
 // sees anywhere else in the app, and which no longer matched what the rows show.
-const CLOSED = ["won", "lost", "archived"];
 
 function OppList() {
   const { t, lang } = useI18n();
@@ -67,6 +76,13 @@ function OppList() {
   const setStage  = (v: string) => patch({ stage: v });
   const setTier   = (v: string) => patch({ tier: v });
   const setView   = (v: "cards" | "cards" | "table") => patch({ view: v as "cards" | "table" });
+
+  // Resets every field, not just the three with controls on this page. A
+  // drilldown can arrive carrying an owner and a date range that have no
+  // visible control, so clearing only q/stage/tier left the list narrowed by
+  // filters the user could neither see nor remove.
+  const clearFilters = () =>
+    navigate({ to: ".", search: { ...DEFAULT_SEARCH, view }, replace: true });
 
   const { data = [], isLoading } = useQuery({
     queryKey: ["opps"],
@@ -92,32 +108,10 @@ function OppList() {
     [...(o.quotations ?? [])].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0] ?? null;
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const rows = data.filter((o: any) => {
-      // Shared with the KPI engine, so "open" here means exactly what "open"
-      // meant in the number that linked here.
-      if (!matchesStageFilter(o, stage)) return false;
-      if (tier !== "all" && o.tier !== tier) return false;
-      if (routeSearch.owner && routeSearch.owner !== "all" && o.owner_id !== routeSearch.owner) return false;
-      if (routeSearch.from || routeSearch.to) {
-        // The period bounds whichever date the arriving KPI was measured on:
-        // won and lost are events, everything else is a current-state snapshot
-        // and must not be narrowed by a range.
-        const canonical = resolveCanonicalStage(o).stage;
-        const d =
-          canonical === "won" || canonical === "lost"
-            ? (o.updated_at ?? null)
-            : null;
-        if (d !== null) {
-          if (routeSearch.from && d < routeSearch.from) return false;
-          if (routeSearch.to && d >= routeSearch.to) return false;
-        }
-      }
-      if (!q) return true;
-      return [o.project_name, o.client, o.main_contractor, o.location, o.sector]
-        .filter(Boolean)
-        .some((f: string) => f.toLowerCase().includes(q));
-    });
+    // One shared predicate with the KPI engine, so "open" here means exactly
+    // what "open" meant in the number that linked here — and so the owner and
+    // period a drilldown arrives with cannot be quietly ignored.
+    const rows = data.filter((o: any) => matchesOpportunitySearch(o, routeSearch));
     if (!sort) return rows;
     const sortValue = (o: any): string | number => {
       const rfq = latestRfq(o);
@@ -139,7 +133,7 @@ function OppList() {
       return sort.dir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [data, search, stage, tier, sort]);
+  }, [data, routeSearch, sort]);
 
   // Canonical stage. `stage` and `sales_stage` only agree at won/lost, so the
   // KPI strip on this page could disagree with My Workspace for the same deal.
@@ -221,6 +215,32 @@ function OppList() {
         </div>
       </div>
 
+      {/* A drilldown can scope this list by owner and by period — neither of
+          which has a control in the toolbar above. Without this the list just
+          looked short, with no way to tell why. describeFilters/hasActiveFilters
+          were already imported for exactly this and had never been rendered. */}
+      {hasActiveFilters(routeSearch) && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-surface/40 px-3 py-2">
+          <span className="text-[11px] font-medium text-muted-foreground">
+            {lang === "ar" ? "مُصفّى حسب" : "Filtered by"}
+          </span>
+          {describeFilters(routeSearch).map((label) => (
+            <span
+              key={label}
+              className="rounded-full border border-border/70 bg-background/50 px-2 py-0.5 text-[11px] text-foreground"
+            >
+              {label}
+            </span>
+          ))}
+          <button
+            onClick={clearFilters}
+            className="ms-auto text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            {t("empty_clear_filters")}
+          </button>
+        </div>
+      )}
+
       {isLoading ? (
         <SkeletonTable rows={8} />
       ) : data.length === 0 ? (
@@ -230,7 +250,7 @@ function OppList() {
           variant="no-results"
           title={t("empty_title_no_results")}
           description={t("empty_desc_no_results")}
-          secondaryAction={{ label: t("empty_clear_filters"), onClick: () => { setSearch(""); setStage("all"); setTier("all"); } }}
+          secondaryAction={{ label: t("empty_clear_filters"), onClick: clearFilters }}
         />
       ) : view === "cards" ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

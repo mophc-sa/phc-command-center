@@ -517,7 +517,7 @@ Four destinations, and only four. As of **2026-08-12** this group is the whole o
 | Page | Use it for |
 |---|---|
 | **Intake** `/lead-tender-inbox` | The triage queue for entries that couldn't route themselves. Classify and convert them here. Entries with a project type and name never appear — they went straight to their track. |
-| **Opportunities** `/opportunities` | Every JIH opportunity. Card or table view, filter by stage and tier. |
+| **Opportunities** `/opportunities` | Every JIH opportunity. Card or table view, filter by stage and tier. Arriving from a dashboard number also scopes the list by **salesperson** and **period** — neither has a dropdown here, so a bar above the list names every filter that is active, and **Clear filters** removes all of them, including the two that arrived in the link. |
 | **Tender Monitor** `/tenders` | Every tender, with urgency KPIs and age tracking. |
 | **Awarded Projects** | Not a separate page — the Opportunities list filtered to **won**. Same records, same filters, one place. |
 
@@ -724,9 +724,6 @@ follow-up and you get a fresh flag, because that is genuinely a new situation.
 Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
 and the 90-day tender review. Both are calculated for display but never raised as queue items.
 
-Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
-and the 90-day tender review. Both are calculated for display but never raised as queue items.
-
 ### Files on a record (not yet live)
 Opportunities and projects gain a **Files** section. Upload a BOQ, a drawing, a
 signed contract or a site photo; each file shows its type, size, date and who
@@ -819,6 +816,10 @@ Listed so nobody works around a problem that no longer exists:
 | Picking **JIH BAFO** or **Contract Signed** failed with an error | Fixed — the server rejected two stages the screen offered; both are reachable now |
 | Action Center showed only automation flags — tasks, follow-ups, approvals and intake reviews were invisible there | Fixed — one queue over all five sources, with Mine / Team / overdue / priority filters |
 | Approvals showed only record approvals; intake reviews and BAFO steps lived elsewhere | Fixed — one decision desk covering all three workflows |
+| The **Pipeline Overview** tile on My Workspace led to a page that does not exist | Fixed — it opens the Command Center, and link targets are now checked against the route list at build time |
+| Opening the Opportunities list from a dashboard number, then from a different salesperson's number, kept showing the first one's deals | Fixed — the list now re-filters whenever the link's salesperson or period changes |
+| A list opened from a dashboard number could not be un-filtered: **Clear filters** left the salesperson and the period applied | Fixed — clearing removes every filter, and a bar now names the ones that arrived in the link |
+| The pipeline-by-stage chart counted deals whose stage had to be guessed, without saying so | Fixed — the chart heading shows how many bars rest on an inferred stage |
 | The bell counted every open item, so it never reached zero and stopped meaning anything | Fixed — it counts **unread** notifications, and you can mark read or dismiss |
 | **The nightly automation stopped raising anything on 2026-08-07 and nobody noticed for two weeks** | Fixed — a rule referenced a flag type that was never added to the database, and the error rolled back the whole run. The Action Center's apparent quiet was a crash, not calm |
 | Nothing told you an important item had gone past its due date | Fixed — tier A/B items that lapse raise one notification, once |
@@ -836,8 +837,10 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-20, branch `feat/phase-5-sales-management` (base `main` @ `6ce2a37`).
-Behaviour verified against source, the test suite (969 passing), and a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
+*Reflects the system as at 2026-08-25, branch `main` @ `869a829`.
+Behaviour verified against source and the test suite (1,707 passing), plus a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
+
+Of the four fixes added to the table above on 2026-08-25, three are drilldown behaviour and land with Phase 5, which is still unshipped — those were never visible in production. The fourth is not: the **Pipeline Overview** tile has pointed at a route that does not exist since PR #68, so that tile has been dead on My Workspace for every user since that release.
 
 **Phase 4 is live** — the notifications migration was applied on 2026-08-20 and the frontend deployed at `6ce2a37`.
 
