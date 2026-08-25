@@ -100,6 +100,18 @@ describe("every masterlist column that carries data is reachable", () => {
     expect(body).not.toContain("m.contact_mobile");
   });
 
+  // The real mistake was not the ordering — it was rebuilding this view from
+  // the ORIGINAL definition in 20260825100000 while the live one lives in
+  // 20260911120000, which had added five columns. Dropping those is what
+  // Postgres refused, twice. These five are the tell: if a future edit copies
+  // a stale definition again, this fails before CI has to.
+  it("keeps the columns the promotion-hardening migration added", () => {
+    for (const col of ["follow_up", "promotion_status", "promoted_opportunity_id",
+                       "promoted_quotation_id", "collision_class"]) {
+      expect(sql, col).toContain(col);
+    }
+  });
+
   it("keeps every column the view already exposed", () => {
     for (const col of ["sales_code", "base_code", "owner_prefix", "company_matched",
                        "status_canonical", "amount", "date_received", "date_submitted",
