@@ -126,14 +126,29 @@ export function hasActiveFilters(s: OpportunitySearch): boolean {
   return s.q !== "" || s.stage !== "all" || s.tier !== "all" || s.owner !== "all" || s.from !== "" || s.to !== "";
 }
 
-/** Short human summary of what is being filtered, for the list header. */
-export function describeFilters(s: OpportunitySearch): string[] {
-  const out: string[] = [];
-  if (s.stage !== "all") out.push(`Stage: ${s.stage.replace(/_/g, " ")}`);
-  if (s.tier !== "all") out.push(`Tier ${s.tier}`);
-  if (s.owner !== "all") out.push("Owner: selected");
-  if (s.from && s.to) out.push(`${s.from} → ${s.to}`);
-  if (s.q) out.push(`Search: “${s.q}”`);
+/**
+ * What is being filtered, as data rather than as English prose.
+ *
+ * It used to return ready-made strings ("Stage: late stage", "Owner: selected").
+ * That was fine while nothing rendered it, but the moment the list started
+ * showing these as chips it put untranslated English into an Arabic-first UI.
+ * Returning the parts lets the component translate them, and keeps this module
+ * free of the i18n dependency.
+ */
+export type FilterChip =
+  | { kind: "stage"; stage: string }
+  | { kind: "tier"; tier: string }
+  | { kind: "owner" }
+  | { kind: "period"; from: string; to: string }
+  | { kind: "query"; q: string };
+
+export function describeFilters(s: OpportunitySearch): FilterChip[] {
+  const out: FilterChip[] = [];
+  if (s.stage !== "all") out.push({ kind: "stage", stage: s.stage });
+  if (s.tier !== "all") out.push({ kind: "tier", tier: s.tier });
+  if (s.owner !== "all") out.push({ kind: "owner" });
+  if (s.from && s.to) out.push({ kind: "period", from: s.from, to: s.to });
+  if (s.q) out.push({ kind: "query", q: s.q });
   return out;
 }
 

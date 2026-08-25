@@ -41,12 +41,17 @@ import {
  * What a reviewer needs in order to decide, laid out in the four groups the
  * decision actually turns on.
  *
+ * Exported because the Lead & Tender Inbox cards below the review queue show
+ * the SAME entity and ask for the same kind of judgement (classify, convert,
+ * mark duplicate). Two detail renderers over one table would drift; this is
+ * the one.
+ *
  * Empty fields are shown as "not recorded" rather than hidden. A blank Scope
  * is itself a reason to send a request back for information, and a layout that
  * silently omits it makes the gap invisible at exactly the moment somebody is
  * deciding whether the request is complete enough to price.
  */
-function IntakeDetail({ r }: { r: any }) {
+export function IntakeDetail({ r }: { r: any }) {
   const { t, lang } = useI18n();
   const dash = t("rev_details_none");
 

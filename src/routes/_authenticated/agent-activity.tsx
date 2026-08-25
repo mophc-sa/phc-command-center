@@ -106,10 +106,25 @@ function AgentActivityPage() {
 
   const outputsKpis = useMemo(() => {
     const total = outputs.length;
-    const pending = outputs.filter((o: any) => o.status === "pending_review").length;
+    const isPending = (o: any) => o.status === "pending_review";
+    const reviewable = (o: any) =>
+      (REVIEWABLE_AGENT_KEYS as readonly string[]).includes(o.agent_key);
+
+    // "Pending review" used to count EVERY row still sitting at
+    // pending_review, which made the number disagree with the page under it:
+    // the row only gets Accept/Reject if its agent is in
+    // REVIEWABLE_AGENT_KEYS, and most are not. Measured on production
+    // 2026-08-25: 70 pending, of which 67 came from import-pipeline agents
+    // (old_data_classifier 38, workbook_classifier 14, semantic_field_mapper
+    // 9, import_routing_reviewer 4, entity_extractor 2). Those are consumed
+    // inline by the import batch screen the moment they return and nothing
+    // ever advances their status, so they are traces, not decisions — and a
+    // queue nobody can drain reads as a 70-item backlog that is not there.
+    const awaitingReview = outputs.filter((o: any) => isPending(o) && reviewable(o)).length;
+    const informational = outputs.filter((o: any) => isPending(o) && !reviewable(o)).length;
     const accepted = outputs.filter((o: any) => o.status === "accepted").length;
     const rejected = outputs.filter((o: any) => o.status === "rejected").length;
-    return { total, pending, accepted, rejected };
+    return { total, awaitingReview, informational, accepted, rejected };
   }, [outputs]);
 
   const agents = useMemo(() => Array.from(new Set(rows.map((r: any) => r.agent_key).filter(Boolean))), [rows]);
@@ -310,9 +325,23 @@ function AgentActivityPage() {
       </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label={lang === "ar" ? "إجمالي (آخر 200)" : "Total (recent 200)"} value={outputsKpis.total} icon={<Activity className="h-3.5 w-3.5" />} />
-        <KpiCard label={lang === "ar" ? "بانتظار المراجعة" : "Pending review"} value={outputsKpis.pending} icon={<PauseCircle className="h-3.5 w-3.5" />} />
+        <KpiCard
+          label={lang === "ar" ? "بانتظار قرارك" : "Awaiting your decision"}
+          value={outputsKpis.awaitingReview}
+          hint={lang === "ar"
+            ? "مخرجات تملك زرَّي قبول ورفض في القائمة أدناه"
+            : "Outputs with Accept / Reject in the list below"}
+          icon={<PauseCircle className="h-3.5 w-3.5" />}
+        />
+        <KpiCard
+          label={lang === "ar" ? "آثار تشغيل" : "Run traces"}
+          value={outputsKpis.informational}
+          hint={lang === "ar"
+            ? "استُهلكت داخل تدفّقها (الاستيراد غالبًا) ولا تنتظر قرارًا"
+            : "Consumed inside their own flow, mostly import — no decision pending"}
+          icon={<Activity className="h-3.5 w-3.5" />}
+        />
         <KpiCard label={lang === "ar" ? "مقبول" : "Accepted"} value={outputsKpis.accepted} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
-        <KpiCard label={lang === "ar" ? "مرفوض" : "Rejected"} value={outputsKpis.rejected} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
       </div>
 
       <div className="mb-6">
