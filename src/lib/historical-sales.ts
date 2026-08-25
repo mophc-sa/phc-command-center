@@ -41,6 +41,14 @@ export type HistoricalSaleRow = {
   contact_name: string | null;
   email_subject: string | null;
   update_log: string | null;
+  /**
+   * The last two masterlist columns carrying data — DESIGNATION (589 of 679
+   * rows) and LAST UPDATE (483 of 679). Both were stored in raw from day one
+   * and read by nothing. LAST UPDATE is text, not a date: 85 of its values are
+   * notes people typed into a date column, and casting would drop them.
+   */
+  contact_designation: string | null;
+  last_update_note: string | null;
   row_number: number;
   search_text: string | null;
   // Added by 20260911120000. The archive stays read-only — these are read from
