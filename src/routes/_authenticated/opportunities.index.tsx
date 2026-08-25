@@ -66,7 +66,7 @@ export const Route = createFileRoute("/_authenticated/opportunities/")({
 // sees anywhere else in the app, and which no longer matched what the rows show.
 
 // The stage groups a drilldown can arrive with, in the order they read.
-const STAGE_GROUP_FILTERS = ["open", "late_stage", "closed"] as const;
+const STAGE_GROUP_FILTERS = ["open", "late_stage", "awarded", "closed"] as const;
 
 /** One label for a stage filter, whether it names a group or a single stage. */
 function stageFilterLabel(stage: string, t: (k: string) => string): string {
@@ -168,10 +168,22 @@ function OppList() {
 
   return (
     <div className="mx-auto max-w-7xl">
+      {/* Awarded Projects is this same list under a stage filter, and it said
+          "Opportunities — every opportunity" over a list of four. Naming the
+          view is what tells someone the filter took effect rather than the
+          page being broken (client feedback 2026-08-25). */}
       <PageHeader
         eyebrow={lang === "ar" ? "خط الأنابيب" : "Pipeline"}
-        title={t("nav_opportunities")}
-        description={lang === "ar" ? "كل الفرص، حالتها، ومالكها والقيمة التجارية." : "Every opportunity, its stage, owner, and commercial value."}
+        title={routeSearch.stage === "awarded" ? t("nav_awarded_projects") : t("nav_opportunities")}
+        description={
+          routeSearch.stage === "awarded"
+            ? lang === "ar"
+              ? "كل ما أُرسي علينا — من الترسية الشفهية حتى توقيع العقد."
+              : "Everything awarded to us — from the verbal award through to a signed contract."
+            : lang === "ar"
+              ? "كل الفرص، حالتها، ومالكها والقيمة التجارية."
+              : "Every opportunity, its stage, owner, and commercial value."
+        }
       />
 
       <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

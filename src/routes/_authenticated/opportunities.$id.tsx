@@ -808,7 +808,18 @@ function OpportunityDetail() {
         const clientContact =
           (stakeholdersQ.data ?? []).find((s: any) => !!s.email) ?? (stakeholdersQ.data ?? [])[0] ?? null;
         const companyName = o.company?.name ?? o.client ?? clientContact?.organization ?? null;
-        const classification = rfqQ.data?.classification === "jih" ? "JIH" : rfqQ.data?.classification === "tender" ? "Tender" : null;
+        // "other" is one of the three values the column's CHECK constraint
+        // allows and one of the three the edit dialog offers; leaving it out of
+        // this map made a deliberate choice render as "—", indistinguishable
+        // from never having been asked.
+        const classification =
+          rfqQ.data?.classification === "jih"
+            ? t("class_jih")
+            : rfqQ.data?.classification === "tender"
+              ? t("class_tender")
+              : rfqQ.data?.classification === "other"
+                ? t("class_other")
+                : null;
         const salesCode = rfqQ.data?.rfq_number ?? null;
         return (
           <Panel
@@ -847,6 +858,21 @@ function OpportunityDetail() {
                 { key: "contactEmail", type: "text", label: t("email"), defaultValue: clientContact?.email ?? "" },
                 { key: "companyName", type: "text", label: t("label_company_name"), defaultValue: companyName ?? "" },
                 { key: "location", type: "text", label: t("label_location"), defaultValue: o.location ?? "" },
+                // Client feedback 2026-08-25: "I edited client details, but there
+                // was no option to edit JIH or Tender." The card showed the field
+                // and the dialog did not offer it.
+                {
+                  key: "classification",
+                  type: "select",
+                  label: t("label_jih_or_tender"),
+                  options: [
+                    { value: "", label: "—" },
+                    { value: "jih", label: t("class_jih") },
+                    { value: "tender", label: t("class_tender") },
+                    { value: "other", label: t("class_other") },
+                  ],
+                  defaultValue: rfqQ.data?.classification ?? "",
+                },
               ]}
               onSubmit={async (v) => {
                 try {
@@ -858,10 +884,16 @@ function OpportunityDetail() {
                     contactEmail: v.contactEmail,
                     companyName: v.companyName,
                     location: v.location,
+                    classification: v.classification,
+                    existingRfqId: rfqQ.data?.id ?? null,
                   });
                   toast.success(t("crm_saved"));
                   setClientDetailsOpen(false);
                   invalidate();
+                  // The classification lives on the RFQ, which `invalidate()`
+                  // does not cover — without this the card still reads "—"
+                  // after a save that succeeded.
+                  qc.invalidateQueries({ queryKey: ["opp-rfq", id] });
                 } catch (e) {
                   toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
                 }

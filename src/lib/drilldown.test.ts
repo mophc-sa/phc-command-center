@@ -39,6 +39,21 @@ describe("stage filter vocabulary", () => {
     expect(matchesStageFilter({ sales_stage: "jih" }, "late_stage")).toBe(false);
   });
 
+  // The Awarded Projects nav entry is this filter and nothing else, so these
+  // four stages ARE the feature. Pointing it at `won` alone showed "No results"
+  // to a team that had just won eight deals (client feedback 2026-08-25).
+  it("the awarded group covers a verbal award through to won", () => {
+    for (const s of ["verbally_awarded", "contract_received", "contract_signed", "won"]) {
+      expect(matchesStageFilter({ sales_stage: s }, "awarded")).toBe(true);
+    }
+  });
+
+  it("awarded excludes work still being competed for, and anything lost", () => {
+    for (const s of ["rfq_received", "jih", "jih_bafo", "under_negotiation", "on_hold", "lost"]) {
+      expect(matchesStageFilter({ sales_stage: s }, "awarded")).toBe(false);
+    }
+  });
+
   it("resolves the canonical stage, so a legacy won row still matches", () => {
     expect(matchesStageFilter({ stage: "won" }, "won")).toBe(true);
     expect(matchesStageFilter({ stage: "won" }, "closed")).toBe(true);
@@ -297,7 +312,7 @@ describe("every stage a drilldown can emit is offered by the filter", () => {
   // Mirrors STAGE_GROUP_FILTERS in opportunities.index.tsx. Kept as a literal
   // so that dropping one from the dropdown fails here rather than silently
   // reintroducing the blank control.
-  const OFFERED_GROUPS = ["open", "late_stage", "closed"];
+  const OFFERED_GROUPS = ["open", "late_stage", "awarded", "closed"];
 
   it("offers every group in the shared vocabulary", () => {
     const groups = Object.keys(STAGE_GROUPS).filter((g) => g !== "all");

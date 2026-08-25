@@ -765,6 +765,9 @@ export const strings = {
   label_contact_number: { en: "Contact Number", ar: "رقم التواصل" },
   label_company_name: { en: "Company Name", ar: "اسم الشركة" },
   label_jih_or_tender: { en: "JIH or Tender", ar: "JIH أو منافسة" },
+  class_jih: { en: "JIH", ar: "JIH" },
+  class_tender: { en: "Tender", ar: "منافسة" },
+  class_other: { en: "Other", ar: "أخرى" },
   section_qualification: { en: "Qualification & Signage Package", ar: "التأهيل وحزمة اللوحات" },
   section_stakeholders: { en: "Stakeholders", ar: "أصحاب القرار" },
   section_technical_notes: { en: "Technical Notes", ar: "ملاحظات فنية" },
@@ -1186,6 +1189,7 @@ export const strings = {
   filter_stage_open: { en: "Open pipeline", ar: "خط الأنابيب المفتوح" },
   filter_stage_closed: { en: "Closed (won or lost)", ar: "مغلقة (ربح أو خسارة)" },
   filter_stage_late_stage: { en: "Late stage", ar: "المراحل المتأخرة" },
+  filter_stage_awarded: { en: "Awarded", ar: "مُرسَاة" },
   filter_group_heading: { en: "Groups", ar: "مجموعات" },
   filter_stage_heading: { en: "Stages", ar: "المراحل" },
   // Active-filter chips.

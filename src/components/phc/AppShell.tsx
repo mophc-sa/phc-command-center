@@ -133,12 +133,17 @@ const NAV_GROUPS: NavGroup[] = [
       { kind: "link", to: "/opportunities",     key: "nav_opportunities", icon: FolderKanban },
       { kind: "link", to: "/tenders",           key: "nav_tenders",       icon: Gavel },
       // Awarded Projects is a VIEW, not an entity: the Opportunities list
-      // filtered to the canonical won stage. /award-queue still exists and
-      // still works; it is simply no longer presented as its own module.
+      // filtered to the awarded stages. /award-queue still exists and still
+      // works; it is simply no longer presented as its own module.
       {
         kind: "link",
         to: "/opportunities",
-        search: { q: "", stage: "won", tier: "all", view: "table" },
+        // "won" alone is the LAST stage of an award, not the whole of it. A JIH
+        // marked awarded sits at verbally_awarded and moves through
+        // contract_received / contract_signed before anyone writes won — so this
+        // entry showed "No results" to the very people who had just won the
+        // work (client feedback 2026-08-25). `awarded` covers all four.
+        search: { q: "", stage: "awarded", tier: "all", view: "table" },
         key: "nav_awarded_projects",
         icon: Award,
       },

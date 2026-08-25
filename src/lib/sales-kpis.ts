@@ -161,6 +161,23 @@ export const LATE_STAGE_EXPOSURE: CanonicalStage[] = [
   "contract_signed",
 ];
 
+/**
+ * Awarded work — what the business calls "we won it", which is broader than the
+ * `won` stage alone.
+ *
+ * Client feedback 2026-08-25: the Awarded Projects nav entry pointed at
+ * `stage=won` and showed "No results", because a JIH marked awarded lands on
+ * `verbally_awarded` and then walks through contract_received and
+ * contract_signed. Only the final administrative step writes `won`. Someone
+ * looking for the deals they had just won was told there weren't any.
+ *
+ * This set is deliberately NOT the same thing as revenue: LATE_STAGE_EXPOSURE
+ * exists precisely because a verbal award can still be lost, and the KPIs that
+ * report money keep using WON_STAGES. This is a *list filter* — "show me the
+ * work we've been awarded" — not a revenue definition.
+ */
+export const AWARDED_STAGES: CanonicalStage[] = [...LATE_STAGE_EXPOSURE, ...WON_STAGES];
+
 const inStages = (o: OppRow, set: CanonicalStage[]) => {
   const s = canonicalStageOf(o);
   return s !== null && set.includes(s);
