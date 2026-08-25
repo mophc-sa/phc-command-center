@@ -74,6 +74,11 @@ There are 11 roles. **A user can hold more than one** — permissions are additi
 | `viewer` | مطّلع | Read only |
 | `ceo` | — | Legacy. Kept only for existing data |
 
+> **Finance and Estimation are one person at PHC — Ahmed Zaid.** The system keeps them
+> as separate roles because they answer different questions ("is this above our cost?"
+> versus "does this fit our margin?"), and one person can answer both. So the BAFO chain
+> below is four steps but **three people**: requester → Zaid (two steps) → executive.
+
 ### The permissions that matter day to day
 
 | Action | Who |
@@ -390,6 +395,9 @@ flowchart LR
 ```
 
 The order is enforced by the database. Step 3 cannot happen before step 2.
+
+Steps 2 and 3 are both Ahmed Zaid, who holds Finance and Estimation. The independent
+check is step 4.
 
 ### Step 8 — Award and handover
 
