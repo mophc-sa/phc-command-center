@@ -1,4 +1,4 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate, type LinkProps } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
@@ -70,7 +70,12 @@ const phcLogo = { url: "/phc-logo.png" };
 
 type NavLink = {
   kind: "link";
-  to: string;
+  // Typed against the generated route tree rather than `string`. A plain
+  // `string` here means the sidebar — every user's primary way through the
+  // app — is the one place a link to a route that does not exist compiles
+  // cleanly. That is exactly how "/pipeline-overview" survived on the
+  // workspace dashboard.
+  to: LinkProps["to"];
   /** Search params for view-style entries (e.g. Awarded Projects = won filter). */
   search?: Record<string, string>;
   key: string;
@@ -336,7 +341,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     const filterMatches = n.search
       ? currentStage === (n.search.stage ?? "")
       : currentStage === "" || currentStage === "all";
-    const active = isActive(n.to) && filterMatches;
+    const active = isActive(n.to ?? "") && filterMatches;
     return (
       <Link
         key={n.key}

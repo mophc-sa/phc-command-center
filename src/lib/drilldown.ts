@@ -161,3 +161,57 @@ export function applySearch<T extends { owner_id?: string | null; sales_stage?: 
     return true;
   });
 }
+
+/**
+ * The opportunity list's row predicate.
+ *
+ * This lived inline inside `opportunities.index.tsx`'s `useMemo`, which is how
+ * it drifted: the memo read `owner`, `from` and `to` off the search object but
+ * listed neither in its dependency array, so a drilldown that changed only the
+ * salesperson or the period re-rendered with the PREVIOUS filter's rows. The
+ * page showed one owner's deals under another owner's URL.
+ *
+ * It is deliberately NOT `applySearch` above. The two differ on purpose:
+ * `applySearch` expresses "this KPI is a snapshot" by having the caller omit
+ * the date accessor, and drops rows whose accessor returns null. The list gets
+ * one mixed set of rows and has to decide per row, because only won and lost
+ * carry an event date — every other stage is a snapshot of current state and a
+ * period must not narrow it. Collapsing them would change behaviour, so they
+ * stay separate and both are tested.
+ */
+export function matchesOpportunitySearch(
+  o: {
+    owner_id?: string | null;
+    sales_stage?: string | null;
+    stage?: string | null;
+    tier?: string | null;
+    updated_at?: string | null;
+    project_name?: string | null;
+    client?: string | null;
+    main_contractor?: string | null;
+    location?: string | null;
+    sector?: string | null;
+  },
+  s: OpportunitySearch,
+): boolean {
+  if (!matchesStageFilter(o, s.stage)) return false;
+  if (s.tier !== "all" && o.tier !== s.tier) return false;
+  if (s.owner && s.owner !== "all" && o.owner_id !== s.owner) return false;
+
+  if (s.from || s.to) {
+    // Won and lost are events, so they are bounded by the period. Everything
+    // else is a current-state snapshot and must not be narrowed by a range.
+    const canonical = resolveCanonicalStage(o).stage;
+    const d = canonical === "won" || canonical === "lost" ? (o.updated_at ?? null) : null;
+    if (d !== null) {
+      if (s.from && d < s.from) return false;
+      if (s.to && d >= s.to) return false;
+    }
+  }
+
+  const q = s.q.trim().toLowerCase();
+  if (!q) return true;
+  return [o.project_name, o.client, o.main_contractor, o.location, o.sector]
+    .filter(Boolean)
+    .some((f) => (f as string).toLowerCase().includes(q));
+}
