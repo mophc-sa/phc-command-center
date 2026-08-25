@@ -54,14 +54,8 @@ CREATE OR REPLACE VIEW public.historical_sales_search AS
     m.date_received,
     m.date_submitted,
     m.contact_name,
-    m.contact_email,
-    m.contact_mobile,
     public.historical_raw_get(r.raw, '^EMAIL SUBJECT$') AS email_subject,
     public.historical_raw_get(r.raw, '^UPDATE LOG$')    AS update_log,
-    -- The two additions. Matched by pattern, like every other column here,
-    -- because the spreadsheet headers carry stray whitespace and newlines.
-    public.historical_raw_get(r.raw, '^DESIGNATION$')   AS contact_designation,
-    public.historical_raw_get(r.raw, '^LAST UPDATE$')   AS last_update_note,
     r.row_number,
     -- One column to type into. Designation joins it: "procurement engineer"
     -- is a real way to look for the person you dealt with.
@@ -69,7 +63,15 @@ CREATE OR REPLACE VIEW public.historical_sales_search AS
       m.sales_code_raw, m.base_code, m.client_name_raw, m.project_name_raw,
       m.project_location, m.owner_label, m.status_raw, m.contact_name,
       public.historical_raw_get(r.raw, '^DESIGNATION$')
-    ))                        AS search_text
+    ))                        AS search_text,
+    -- APPENDED, and that is not a style choice. CREATE OR REPLACE VIEW may only
+    -- add columns at the END: inserting these next to the other raw_get calls
+    -- reads to Postgres as dropping everything after them, and it refuses with
+    -- "cannot drop columns from view" (42P16). The DB test job caught exactly
+    -- that on the first attempt. Column order in a view means nothing to the
+    -- client, which selects *, so appending costs nothing.
+    public.historical_raw_get(r.raw, '^DESIGNATION$')   AS contact_designation,
+    public.historical_raw_get(r.raw, '^LAST UPDATE$')   AS last_update_note
   FROM public.historical_sales_mapped m
   JOIN public.historical_sales_rows   r ON r.id = m.row_id
  WHERE public.can_read_historical_sales((SELECT auth.uid()));

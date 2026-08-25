@@ -78,6 +78,28 @@ describe("every masterlist column that carries data is reachable", () => {
     expect(body).not.toMatch(/DROP\s+(TABLE|VIEW|COLUMN|FUNCTION)/i);
   });
 
+  // CREATE OR REPLACE VIEW may only ADD columns, and only at the end. The
+  // first version of this migration put the two new ones next to the other
+  // raw_get calls, mid-list, and Postgres rejected the whole thing with
+  // "cannot drop columns from view" (42P16). Nothing in the unit suite could
+  // see that — the DB test job caught it. This pins the ordering so the next
+  // edit does not rediscover it.
+  it("appends the new columns after every pre-existing one", () => {
+    const body = code(sql);
+    const searchAt = body.indexOf("AS search_text");
+    for (const col of ["AS contact_designation", "AS last_update_note"]) {
+      expect(body.indexOf(col), col).toBeGreaterThan(searchAt);
+    }
+  });
+
+  it("does not add columns this change was not about", () => {
+    // contact_email and contact_mobile were never in this view. Adding them
+    // mid-list is what triggered 42P16 the first time.
+    const body = code(sql);
+    expect(body).not.toContain("m.contact_email");
+    expect(body).not.toContain("m.contact_mobile");
+  });
+
   it("keeps every column the view already exposed", () => {
     for (const col of ["sales_code", "base_code", "owner_prefix", "company_matched",
                        "status_canonical", "amount", "date_received", "date_submitted",
