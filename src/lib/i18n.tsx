@@ -818,6 +818,20 @@ export const strings = {
   score_none: { en: "None", ar: "لا شيء" },
 
   label_project: { en: "Project", ar: "المشروع" },
+  // Client feedback 2026-08-25: the Opportunity Review table's columns should
+  // read PROJECT NAME · PROJECT CODE · REQUEST TYPE · DEADLINE · STATUS.
+  label_project_name: { en: "Project Name", ar: "اسم المشروع" },
+  label_project_code: { en: "Project Code", ar: "كود المشروع" },
+  rev_edit_project_details: { en: "Edit project details", ar: "تعديل بيانات المشروع" },
+  rev_edit_project_details_desc: {
+    en: "Correct what the request got wrong before it goes to pricing.",
+    ar: "صحّح ما ورد خطأً في الطلب قبل أن ينتقل إلى التسعير.",
+  },
+  rev_edit_saved: { en: "Project details updated.", ar: "حُدِّثت بيانات المشروع." },
+  rev_edit_value_invalid: {
+    en: "Estimated value must be a number, or left empty.",
+    ar: "القيمة التقديرية يجب أن تكون رقمًا، أو تُترك فارغة.",
+  },
   label_client: { en: "Client", ar: "العميل" },
   label_contractor: { en: "Main Contractor", ar: "المقاول الرئيسي" },
   label_location: { en: "Location", ar: "الموقع" },
@@ -1494,6 +1508,16 @@ export const strings = {
   ibx_request_type_tender_contractor: { en: "Tender — contractors bidding", ar: "مناقصة — مقاولون يتنافسون" },
   ibx_request_type_tender_government: { en: "Tender — government / owner, pre-award", ar: "مناقصة — جهة حكومية/مالك، قبل الترسية" },
   ibx_request_type_unknown: { en: "Unknown / insufficient information", ar: "غير محدد / معلومات غير كافية" },
+  // Client feedback 2026-08-25: the Opportunity Review table should say "JIH"
+  // or "Tender" and nothing more — "no need to expand the meaning, it's better
+  // to simplify". The long labels above stay, because they are what the New
+  // Intake dropdown offers, and there the distinction is the whole point:
+  // shortened, tender_contractor and tender_government would both read
+  // "Tender" and become unpickable.
+  ibx_rtype_short_jih: { en: "JIH", ar: "JIH" },
+  ibx_rtype_short_tender_contractor: { en: "Tender", ar: "مناقصة" },
+  ibx_rtype_short_tender_government: { en: "Tender", ar: "مناقصة" },
+  ibx_rtype_short_unknown: { en: "—", ar: "—" },
   ibx_owner_entity: { en: "Owner / government entity", ar: "المالك / الجهة الحكومية" },
   ibx_client_rfq_ref: { en: "Client RFQ reference", ar: "مرجع طلب العميل" },
   ibx_internal_rfq_ref: { en: "Internal RFQ reference", ar: "المرجع الداخلي" },
