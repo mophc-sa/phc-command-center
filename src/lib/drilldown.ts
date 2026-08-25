@@ -17,7 +17,7 @@
 // =============================================================================
 
 import { resolveCanonicalStage, type CanonicalStage } from "@/lib/stage-canonical";
-import { LATE_STAGE_EXPOSURE, OPEN_STAGES, type Period } from "@/lib/sales-kpis";
+import { AWARDED_STAGES, LATE_STAGE_EXPOSURE, OPEN_STAGES, type Period } from "@/lib/sales-kpis";
 
 /**
  * Group filters that are not themselves canonical stages. They exist because
@@ -29,6 +29,7 @@ export const STAGE_GROUPS = {
   open: OPEN_STAGES,
   closed: ["won", "lost"] as CanonicalStage[],
   late_stage: LATE_STAGE_EXPOSURE,
+  awarded: AWARDED_STAGES,
 } as const;
 
 export type StageGroup = keyof typeof STAGE_GROUPS;

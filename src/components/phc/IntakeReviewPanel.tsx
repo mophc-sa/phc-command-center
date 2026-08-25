@@ -16,12 +16,13 @@
 import { Fragment, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CheckCircle2, HelpCircle, Eye, XCircle, RotateCcw, ChevronRight, Check, Minus } from "lucide-react";
+import { CheckCircle2, HelpCircle, Eye, XCircle, RotateCcw, ChevronRight, Check, Minus, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Panel } from "@/components/phc/Panel";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
+import { updateInboxItem } from "@/lib/inbox-actions";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { formatCurrency, useI18n } from "@/lib/i18n";
 import { invalidateSalesData } from "@/lib/invalidate-sales";
@@ -167,6 +168,7 @@ export function IntakeReviewPanel() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [infoFor, setInfoFor] = useState<any>(null);
   const [rejectFor, setRejectFor] = useState<any>(null);
+  const [editFor, setEditFor] = useState<any>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const { data: teamMembers = [] } = useQuery({ queryKey: ["team-members-min"], queryFn: listTeamMembers });
@@ -255,10 +257,18 @@ export function IntakeReviewPanel() {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border text-start text-[11px] uppercase tracking-wide text-muted-foreground">
-                <th className="px-3 py-2 text-start">{t("label_project")}</th>
+                {/* Client feedback 2026-08-25: these five, in this order. Project
+                    Code is new — the number was already fetched and only shown
+                    once the row was expanded, so a reviewer scanning the queue
+                    could not tell two similarly-named projects apart. The last
+                    header said "Pending review", which is a STATE, not a column
+                    name — and it sat above a cell that could say something else
+                    entirely. */}
+                <th className="px-3 py-2 text-start">{t("label_project_name" as never)}</th>
+                <th className="px-3 py-2 text-start">{t("label_project_code" as never)}</th>
                 <th className="px-3 py-2 text-start">{t("ibx_request_type")}</th>
                 <th className="px-3 py-2 text-start">{t("ibx_deadline")}</th>
-                <th className="px-3 py-2 text-start">{t("rev_state_pending_review")}</th>
+                <th className="px-3 py-2 text-start">{t("label_status")}</th>
                 <th className="px-3 py-2 text-end">—</th>
               </tr>
             </thead>
@@ -301,8 +311,11 @@ export function IntakeReviewPanel() {
                         </div>
                       )}
                     </td>
+                    <td className="px-3 py-2.5 num" data-tabular="true">
+                      {r.project_number || "—"}
+                    </td>
                     <td className="px-3 py-2.5">
-                      {r.request_type ? t(`ibx_request_type_${r.request_type}` as never) : "—"}
+                      {r.request_type ? t(`ibx_rtype_short_${r.request_type}` as never) : "—"}
                     </td>
                     <td className="px-3 py-2.5 num" data-tabular="true">{r.deadline ?? "—"}</td>
                     <td className="px-3 py-2.5">
@@ -356,7 +369,25 @@ export function IntakeReviewPanel() {
                   </tr>
                   {expanded === r.id && (
                     <tr id={`intake-detail-${r.id}`} className="border-b border-border/50 bg-surface-2/40">
-                      <td colSpan={5} className="px-3 py-3">
+                      {/* 6, not 5 — Project Code was added above. A short colSpan
+                          leaves the detail panel one column narrow and pushes an
+                          empty cell onto the end of the row. */}
+                      <td colSpan={6} className="px-3 py-3">
+                        <div className="mb-2 flex justify-end">
+                          {/* Client feedback 2026-08-25: "ADD EDIT PROJECT DETAILS".
+                              A reviewer who spots a wrong deadline or a missing
+                              scope could read it here and had no way to correct
+                              it — the only actions were approve, reject, ask for
+                              information, or monitor. */}
+                          <button
+                            type="button"
+                            onClick={() => setEditFor(r)}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                          >
+                            <Pencil className="h-3 w-3" aria-hidden="true" />
+                            {t("rev_edit_project_details" as never)}
+                          </button>
+                        </div>
                         <IntakeDetail r={r} />
                       </td>
                     </tr>
@@ -414,6 +445,52 @@ export function IntakeReviewPanel() {
           await run(id, () => rejectIntake(id, v.reason ?? ""), t("rev_rejected_done"));
         }}
       />
+
+      {/* Client feedback 2026-08-25: a reviewer could see a wrong deadline or a
+          missing scope in the detail panel and had no way to fix it. These are
+          the fields the review decision actually turns on — the ones the panel
+          above prints as "Not recorded" — not the whole record. */}
+      <ActionDialog
+        open={!!editFor}
+        onOpenChange={(v) => !v && setEditFor(null)}
+        title={t("rev_edit_project_details" as never)}
+        description={t("rev_edit_project_details_desc" as never)}
+        submitLabel={t("action_save")}
+        fields={[
+          { key: "project_name", type: "text", label: t("label_project_name" as never), defaultValue: editFor?.project_name ?? "" },
+          { key: "scope", type: "textarea", label: t("ibx_scope"), defaultValue: editFor?.scope ?? "" },
+          { key: "estimated_value", type: "text", label: t("ibx_estimated_value"), defaultValue: editFor?.estimated_value != null ? String(editFor.estimated_value) : "" },
+          { key: "deadline", type: "date", label: t("ibx_deadline"), defaultValue: editFor?.deadline ?? "" },
+          { key: "main_contractor", type: "text", label: t("ibx_main_contractor"), defaultValue: editFor?.main_contractor ?? "" },
+          { key: "consultant", type: "text", label: t("ibx_consultant"), defaultValue: editFor?.consultant ?? "" },
+          { key: "notes", type: "textarea", label: t("ibx_notes"), defaultValue: editFor?.notes ?? "" },
+        ]}
+        onSubmit={async (v) => {
+          const id = editFor.id;
+          const num = String(v.estimated_value ?? "").trim();
+          // An empty value clears the field; a non-numeric one is refused rather
+          // than silently written as null, which would read as "no value known".
+          let estimated: number | null = null;
+          if (num !== "") {
+            const parsed = Number(num.replace(/,/g, ""));
+            if (!Number.isFinite(parsed)) throw new Error(t("rev_edit_value_invalid" as never));
+            estimated = parsed;
+          }
+          await updateInboxItem(id, {
+            project_name: String(v.project_name ?? "").trim() || null,
+            scope: String(v.scope ?? "").trim() || null,
+            estimated_value: estimated,
+            deadline: String(v.deadline ?? "").trim() || null,
+            main_contractor: String(v.main_contractor ?? "").trim() || null,
+            consultant: String(v.consultant ?? "").trim() || null,
+            notes: String(v.notes ?? "").trim() || null,
+          });
+          toast.success(t("rev_edit_saved" as never));
+          setEditFor(null);
+          qc.invalidateQueries({ queryKey: ["intake-review-queue"] });
+        }}
+      />
+
     </Panel>
   );
 }

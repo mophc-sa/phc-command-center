@@ -353,6 +353,10 @@ export async function upsertClientDetails(input: {
   contactEmail?: string | null;
   companyName?: string | null;
   location?: string | null;
+  /** "jih" | "tender" | "other", or "" to leave it unset. */
+  classification?: string | null;
+  /** The RFQ this opportunity already has, if any. */
+  existingRfqId?: string | null;
 }) {
   // 1. Stakeholder (contact person) — update in place if one already exists
   // for this opportunity, else create it.
@@ -401,6 +405,38 @@ export async function upsertClientDetails(input: {
   if (Object.keys(oppPatch).length > 0) {
     const { error } = await supabase.from("opportunities").update(oppPatch as never).eq("id", input.opportunityId);
     if (error) throw error;
+  }
+
+  // 4. JIH or Tender.
+  //
+  // Client feedback 2026-08-25: this field was READ-ONLY on the detail page and
+  // showed "—" on records that plainly are a JIH. It lives on the RFQ, not on
+  // the opportunity — every screen that displays it (this card, the pipeline
+  // list's "JIH / Tender" column, the archive's route filter) reads
+  // rfqs.classification, so writing it anywhere else would put a second answer
+  // next to the first.
+  //
+  // An opportunity with no RFQ row therefore has nowhere to hold the answer,
+  // and those were exactly the records showing "—". We create the row rather
+  // than refuse the edit: the columns beyond the link are all nullable, so what
+  // is written is precisely what the user stated and nothing invented.
+  if (input.classification !== undefined && input.classification !== null && input.classification !== "") {
+    const classification = input.classification;
+    if (input.existingRfqId) {
+      const { error } = await supabase
+        .from("rfqs")
+        .update({ classification } as never)
+        .eq("id", input.existingRfqId);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from("rfqs").insert({
+        opportunity_id: input.opportunityId,
+        classification,
+        ...(companyId ? { company_id: companyId } : {}),
+        created_by: await currentUserId(),
+      } as never);
+      if (error) throw error;
+    }
   }
 
   await audit("client_details.updated", "opportunity", input.opportunityId, input);

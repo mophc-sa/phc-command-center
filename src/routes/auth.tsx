@@ -218,20 +218,13 @@ function AuthPage() {
             <div className="mt-6 text-[10px] font-semibold uppercase tracking-[var(--tracking-caps)] text-muted-foreground">
               {lang === "ar" ? "بي إتش سي · مركز القيادة" : "PHC · Command Center"}
             </div>
+            {/* Client feedback 2026-08-25: "architecture" reads as DESIGN, and PHC
+                does not sell design — it engineers, fabricates and manufactures.
+                Replaced with the one standard tagline they gave, used verbatim
+                and unbroken, because a tagline split across two lines stops
+                being one line. */}
             <h2 className="mt-4 max-w-md text-3xl font-semibold leading-tight tracking-tight text-foreground">
-              {lang === "ar" ? (
-                <>
-                  هندسة صامتة،
-                  <br />
-                  وضوح تشغيلي.
-                </>
-              ) : (
-                <>
-                  Silent architecture,
-                  <br />
-                  operational clarity.
-                </>
-              )}
+              {lang === "ar" ? "وضوحٌ يُصنَع ويُركَّب." : "Clarity built into place."}
             </h2>
           </div>
           <div className="max-w-md text-sm leading-relaxed text-muted-foreground">

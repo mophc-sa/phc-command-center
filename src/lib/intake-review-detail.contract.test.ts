@@ -54,8 +54,16 @@ describe("a reviewer can open a request without leaving the queue", () => {
     expect(body).toMatch(/setExpanded\(expanded === r\.id \? null : r\.id\)/);
   });
 
-  it("the detail row spans the table", () => {
-    expect(body).toContain("colSpan={5}");
+  // Pinning the literal 5 meant every new column broke this test with a number
+  // to bump rather than a fault to fix — and a colSpan left BEHIND the header
+  // count would have passed just as readily had someone bumped the wrong one.
+  // Derive it from the header instead: the detail row must span every column
+  // the table actually renders.
+  it("the detail row spans every column the header declares", () => {
+    const head = body.slice(body.indexOf("<thead>"), body.indexOf("</thead>"));
+    const columns = (head.match(/<th\b/g) ?? []).length;
+    expect(columns).toBeGreaterThan(0);
+    expect(body).toContain(`colSpan={${columns}}`);
   });
 
   it("keys the pair on a Fragment, not the inner rows", () => {

@@ -62,11 +62,17 @@ describe("management views resolve stage canonically", () => {
     expect(src).not.toMatch(/o\.stage === s/);
   });
 
-  test("the opportunities list computes its KPIs canonically", async () => {
+  test("the opportunities list computes no KPI of its own", async () => {
     const src = await read("src/routes/_authenticated/opportunities.index.tsx");
-    expect(src).toContain("resolveCanonicalStage");
-    // The win-rate and open-pipeline counters used to key off the legacy column.
+    // This used to require `resolveCanonicalStage` in the file, because the
+    // page counted open deals and closed deals itself and had been doing it off
+    // the legacy `stage` column. It no longer counts anything: the strip comes
+    // whole from the shared engine, which resolves canonically for every screen
+    // at once. Requiring the helper by name would now fail a page that got
+    // strictly safer, so the assertion follows the intent instead.
+    expect(src).toContain("commercialBookKpis");
     expect(src).not.toMatch(/CLOSED\.includes\(o\.stage\)/);
+    expect(src).not.toMatch(/o\.stage === ["'](won|lost)["']/);
   });
 
   test("My Workspace and Award Queue still read sales_stage directly", async () => {

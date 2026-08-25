@@ -48,9 +48,16 @@ describe("Sales navigation carries exactly the four PRD destinations", () => {
       APP_SHELL.indexOf('key: "navgroup_sales"'),
       APP_SHELL.indexOf('key: "navgroup_crm"'),
     );
-    const awarded = group.slice(group.indexOf("nav_awarded_projects") - 400, group.indexOf("nav_awarded_projects"));
+    // Slice from the entry's own opening brace rather than a fixed number of
+    // characters back — a comment added above the entry used to push the `to:`
+    // out of a 400-char window and fail this for a reason unrelated to nav.
+    const end = group.indexOf("nav_awarded_projects");
+    const awarded = group.slice(group.lastIndexOf("kind: \"link\"", end), end);
     expect(awarded).toContain('to: "/opportunities"');
-    expect(awarded).toContain('stage: "won"');
+    // Not `won`. A JIH marked awarded stops at verbally_awarded and only
+    // reaches `won` after the contract is administratively closed, so the
+    // entry pointed at an empty list for the whole period that matters.
+    expect(awarded).toContain('stage: "awarded"');
     // Not pointed at the retired standalone queue.
     expect(group).not.toContain('to: "/award-queue"');
   });

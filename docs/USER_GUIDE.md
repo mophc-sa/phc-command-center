@@ -246,6 +246,19 @@ them alone is enough — they do not both have to sign.
 Everything you type is still one form and one save. The only change is that a
 second pair of eyes sees it before it becomes a live deal.
 
+**A reviewer can now correct the request instead of bouncing it back.** Since
+**2026-08-25**, opening a row in the queue offers **Edit project details** —
+project name, scope, estimated value, deadline, main contractor, consultant and
+notes. A wrong deadline or a missing scope no longer costs a round trip through
+**Need Information**; use that decision for what only the requester can supply.
+
+The queue's columns are **Project Name · Project Code · Request Type · Deadline
+· Status**. Project code is the same number the request carries, now visible
+without opening the row — two similarly-named projects were indistinguishable
+while scanning. Request type reads **JIH** or **Tender** in the table; the New
+Intake form still names the four types in full, because that is where you are
+choosing between them.
+
 **Request type now has four options,** not two: JIH · Tender (contractors
 bidding) · Tender (government/owner, pre-award) · Unknown. Both tender types go
 to the same board — the split tells a contractor you can quote today apart from
@@ -525,9 +538,9 @@ Four destinations, and only four. As of **2026-08-12** this group is the whole o
 | Page | Use it for |
 |---|---|
 | **Intake** `/lead-tender-inbox` | The triage queue for entries that couldn't route themselves. Classify and convert them here. Entries with a project type and name never appear — they went straight to their track. |
-| **Opportunities** `/opportunities` | Every JIH opportunity. Card or table view, filter by stage and tier. Arriving from a dashboard number also scopes the list by **salesperson** and **period** — neither has a dropdown here, so a bar above the list names every filter that is active, and **Clear filters** removes all of them, including the two that arrived in the link. |
+| **Opportunities** `/opportunities` | Every JIH opportunity. Card or table view, filter by stage and tier. Arriving from a dashboard number also scopes the list by **salesperson** and **period** — neither has a dropdown here, so a bar above the list names every filter that is active, and **Clear filters** removes all of them, including the two that arrived in the link. Since **2026-08-25** the strip at the top reads **Target sales · Sales achievement · Need to close · Pending for submission**, with a second row for **Sales project status** — verbally awarded, JIH, tenders, and how many of each are still to be submitted. Every tile explains its own formula and links to the exact records behind it. |
 | **Tender Monitor** `/tenders` | Every tender, with urgency KPIs and age tracking. |
-| **Awarded Projects** | Not a separate page — the Opportunities list filtered to **won**. Same records, same filters, one place. |
+| **Awarded Projects** | Not a separate page — the Opportunities list filtered to **awarded**. Since **2026-08-25** that means verbally awarded, contract received, contract signed *and* won — the four stages an awarded JIH passes through. It previously filtered to `won` alone and showed "No results" for work the team had already won. |
 
 > **Inbox, Opportunities and Quotations used to show each other as tabs.** That strip is
 > gone. Each page is now one thing, which is the point of the cleanup.
@@ -605,6 +618,13 @@ it says so.
 
 The opportunity page is one long timeline you can filter by facet:
 **All · Alert · Evidence · Decision · Assignment · Follow-up · Outcome.**
+
+**Client Details is editable, JIH-or-Tender included.** Until **2026-08-25** the
+card displayed **JIH or Tender** but the Edit dialog did not offer it, so a
+record that plainly is a JIH stayed on "—" with no way to say otherwise. The
+value lives on the RFQ — the same one the Opportunities list's JIH/Tender column
+reads — and an opportunity that has no RFQ yet gets one created when you set it,
+holding nothing but the answer you gave.
 
 Panels you'll use: Alert, Client Details (editable), Qualification, Assignment, Technical
 Notes, **Milestone Checklist** (7 fixed items, independent of stage), Evidence Sources,
@@ -720,6 +740,16 @@ There is no annual target row, no current-month target, and no awarded opportuni
 achievement and remaining all display as zero or blank. **This is missing data, not a broken
 calculation** — the arithmetic has been verified. Someone needs to enter an annual target.
 
+Since **2026-08-25** this also drives the top of the Opportunities page. **Target sales** and
+**Need to close** show a dash there, not a zero, and the tile says why — "no target has been
+set for this period". A dash and a zero are different facts and must not look the same.
+
+### Most opportunities are not classified as JIH or Tender
+The **JIH** and **Tender** counts only add up to the open book once every opportunity has been
+classified, and most have not — the list's JIH/Tender column is largely dashes. The tiles say
+how many are unclassified rather than letting the two figures read as a complete split. Set
+the classification from **Client Details → Edit** on the opportunity.
+
 ### Reminders now fire on their own
 The engine runs **nightly at 07:00 AST**. You no longer have to remember to press anything —
 the queue is populated before the sales day starts. A manager can still run it on demand with
@@ -793,7 +823,7 @@ in the code and tested, and starts working the moment the migration is approved.
 ### Known gaps against the target design
 Not yet built: a separate opportunity *condition* field (Dormant / Cancelled), separate
 technical and commercial proposal statuses, per-stage win probability, a submission calendar,
-dedicated Awarded Projects and Lost/Cancelled pages, and most executive charts (funnel,
+a dedicated Lost/Cancelled page, and most executive charts (funnel,
 pipeline composition, monthly award trend, aging, top opportunities).
 
 ### Fixed since the first version of this guide
@@ -834,6 +864,10 @@ Listed so nobody works around a problem that no longer exists:
 | KPIs were computed three different ways, and a deal at JIH BAFO was counted in none of them | Fixed — one canonical engine reading `sales_stage`, so every screen agrees |
 | Forecast quietly weighted unscored deals at 20%, inventing pipeline out of nothing | Fixed — unscored deals are excluded and counted separately, never assumed |
 | You could not tell where a number came from | Fixed — every KPI shows its formula, source, filters and record count, and clicks through to the records |
+| **Awarded Projects** showed "No results" for work the team had just won | Fixed — it filtered to `won` alone, which is the last administrative step of an award. It now covers verbally awarded, contract received, contract signed and won |
+| A reviewer who spotted a wrong deadline or a missing scope had to bounce the request back to fix it | Fixed — **Edit project details** in Opportunity Review |
+| **JIH or Tender** was shown on the opportunity page but could not be set | Fixed — it is in the Client Details edit dialog, and an opportunity with no RFQ gets one created to hold the answer |
+| The Opportunities strip led with **Tier A** and **Win rate**, both structurally stuck at zero | Fixed — target, achievement, need-to-close and the JIH/Tender split replaced them |
 
 ---
 
@@ -845,8 +879,8 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-25, branch `main` @ `869a829`.
-Behaviour verified against source and the test suite (1,707 passing), plus a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
+*Reflects the system as at 2026-08-25, branch `feat/client-feedback-2026-08-25` @ `e317c5a`.
+Behaviour verified against source and the test suite (1782 passing), plus a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
 
 Of the four fixes added to the table above on 2026-08-25, three are drilldown behaviour and land with Phase 5, which is still unshipped — those were never visible in production. The fourth is not: the **Pipeline Overview** tile has pointed at a route that does not exist since PR #68, so that tile has been dead on My Workspace for every user since that release.
 
@@ -855,6 +889,11 @@ Of the four fixes added to the table above on 2026-08-25, three are drilldown be
 **Phase 6 (Files / Photos / Location) is not yet live.** The Files section, the document registry and the site-coordinate fields are on a branch; the migrations are not applied to production.
 
 **Attachment access isolation is live** — applied and deployed on 2026-08-21 at `ad41ccf` (PR #196).
+
+**The 2026-08-25 client feedback is code-only and not yet deployed.** The sign-in tagline, the
+Opportunity Review columns and editor, the Opportunities KPI strip, the JIH-or-Tender editor
+and the Awarded Projects filter are all on `feat/client-feedback-2026-08-25`. No migration is
+involved — every change is frontend, reading columns that already exist.
 
 **Phase 5 is not yet live.** The canonical KPI engine, drilldown, timeline, entry presets and AI discipline layer are code-only and ship with the next deploy. The NO BOQ / NO PROJECT NUMBER rule exists only as a local migration and is **not** applied to production — see Section 10.
 Update this file when the workflow changes.*

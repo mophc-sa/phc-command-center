@@ -3,12 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, LayoutGrid, Rows3, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  resolveCanonicalStage,
-  CANONICAL_ACTIVE_STAGES,
-  CANONICAL_STAGES,
-  canonicalStageLabelKey,
-} from "@/lib/stage-canonical";
+import { CANONICAL_STAGES, canonicalStageLabelKey } from "@/lib/stage-canonical";
 import type { OpportunitySearch } from "@/lib/drilldown";
 import {
   DEFAULT_SEARCH,
@@ -17,10 +12,11 @@ import {
   matchesOpportunitySearch,
   parseOpportunitySearch,
 } from "@/lib/drilldown";
-import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
+import { useI18n, formatCurrency } from "@/lib/i18n";
 import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
 import { PageHeader } from "@/components/phc/PageHeader";
-import { KpiCard } from "@/components/phc/KpiCard";
+import { KpiTile } from "@/components/phc/KpiTile";
+import { commercialBookKpis, type ClassifiedRow } from "@/lib/sales-kpis";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -66,7 +62,7 @@ export const Route = createFileRoute("/_authenticated/opportunities/")({
 // sees anywhere else in the app, and which no longer matched what the rows show.
 
 // The stage groups a drilldown can arrive with, in the order they read.
-const STAGE_GROUP_FILTERS = ["open", "late_stage", "closed"] as const;
+const STAGE_GROUP_FILTERS = ["open", "late_stage", "awarded", "closed"] as const;
 
 /** One label for a stage filter, whether it names a group or a single stage. */
 function stageFilterLabel(stage: string, t: (k: string) => string): string {
@@ -148,37 +144,91 @@ function OppList() {
     return sorted;
   }, [data, routeSearch, sort]);
 
-  // Canonical stage. `stage` and `sales_stage` only agree at won/lost, so the
-  // KPI strip on this page could disagree with My Workspace for the same deal.
-  const canonical = (o: any) => resolveCanonicalStage(o).stage;
-  const open = data.filter((o) => {
-    const s = canonical(o);
-    return s !== null && (CANONICAL_ACTIVE_STAGES as readonly string[]).includes(s);
+  // The company sales target. Annual first, falling back to the current month
+  // — the same rule Command Center and My Workspace already use, summed across
+  // every rep rather than scoped to one. Nobody has set a company-wide target
+  // row, so the number is the team's targets added up.
+  const { data: teamTarget = null } = useQuery({
+    queryKey: ["opps-team-target"],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const annYear = `${new Date().getFullYear()}-01-01`;
+      const monthStart = `${new Date().toISOString().slice(0, 7)}-01`;
+      const [annual, monthly] = await Promise.all([
+        supabase.from("sales_targets").select("sales_target").eq("period_type", "annual").eq("period_start", annYear),
+        supabase.from("sales_targets").select("sales_target").eq("period_type", "monthly").eq("period_start", monthStart),
+      ]);
+      const sum = (rows: Array<{ sales_target: number | string | null }> | null) =>
+        (rows ?? []).reduce((s, r) => s + Number(r.sales_target ?? 0), 0);
+      const annualSum = sum(annual.data);
+      // 0 is not "a target of zero" — it is "no rows", which must render as a
+      // dash. Returning null here is what makes KpiTile say so.
+      return annualSum > 0 ? annualSum : sum(monthly.data) || null;
+    },
   });
-  const openValue = open.reduce((s, o) => s + (o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0), 0);
-  const tierA = open.filter((o) => o.tier === "A").length;
-  const winRate = (() => {
-    const closed = data.filter((o) => {
-      const s = canonical(o);
-      return s === "won" || s === "lost";
-    });
-    if (closed.length === 0) return 0;
-    return Math.round((closed.filter((o) => canonical(o) === "won").length / closed.length) * 100);
-  })();
+
+  // Every figure in the strip comes from the shared engine, so "open" here
+  // means exactly what "open" means in the number that linked here, and this
+  // page computes no metric of its own.
+  const book = useMemo(
+    () =>
+      commercialBookKpis(
+        data as unknown as ClassifiedRow[],
+        { today: new Date().toISOString().slice(0, 10), period: null },
+        teamTarget,
+      ),
+    [data, teamTarget],
+  );
 
   return (
     <div className="mx-auto max-w-7xl">
+      {/* Awarded Projects is this same list under a stage filter, and it said
+          "Opportunities — every opportunity" over a list of four. Naming the
+          view is what tells someone the filter took effect rather than the
+          page being broken (client feedback 2026-08-25). */}
       <PageHeader
         eyebrow={lang === "ar" ? "خط الأنابيب" : "Pipeline"}
-        title={t("nav_opportunities")}
-        description={lang === "ar" ? "كل الفرص، حالتها، ومالكها والقيمة التجارية." : "Every opportunity, its stage, owner, and commercial value."}
+        title={routeSearch.stage === "awarded" ? t("nav_awarded_projects") : t("nav_opportunities")}
+        description={
+          routeSearch.stage === "awarded"
+            ? lang === "ar"
+              ? "كل ما أُرسي علينا — من الترسية الشفهية حتى توقيع العقد."
+              : "Everything awarded to us — from the verbal award through to a signed contract."
+            : lang === "ar"
+              ? "كل الفرص، حالتها، ومالكها والقيمة التجارية."
+              : "Every opportunity, its stage, owner, and commercial value."
+        }
       />
 
-      <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label={lang === "ar" ? "قيمة مفتوحة" : "Open value"} value={formatCurrency(openValue, lang)} hint={`${formatNumber(open.length, lang)} ${lang === "ar" ? "فرصة" : "opportunities"}`} />
-        <KpiCard label={lang === "ar" ? "الطبقة أ" : "Tier A"} value={formatNumber(tierA, lang)} hint={lang === "ar" ? "أولوية عالية" : "High priority"} />
-        <KpiCard label={lang === "ar" ? "معدل الفوز" : "Win rate"} value={`${winRate}%`} hint={lang === "ar" ? "المغلقة حتى الآن" : "Of closed to date"} />
-        <KpiCard label={lang === "ar" ? "قيد التصفية" : "Showing"} value={formatNumber(filtered.length, lang)} hint={lang === "ar" ? "بعد الفلترة" : "After filters"} />
+      {/* Client feedback 2026-08-25, slide 4. This strip used to lead with Open
+          Value / Tier A / Win Rate / Showing. Two of those were structurally
+          stuck: Tier A read 0 because tiers are unset and Win Rate read 0%
+          because nothing has closed in the system yet — half the width spent
+          telling a manager nothing, twice. The figures below are the ones the
+          team runs on. Each explains itself and links to its own records. */}
+      <section className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiTile kpi={book.target} label={t("kpi_target_sales")} />
+        <KpiTile kpi={book.achievement} label={t("kpi_sales_achievement")} />
+        <KpiTile kpi={book.needToClose} label={t("kpi_need_to_close")} />
+        <KpiTile kpi={book.pendingForSubmission} label={t("kpi_pending_submission")} />
+      </section>
+
+      {/* The book by shape rather than by money: how much is verbally awarded,
+          how it splits between JIH and Tender, and what has not gone out yet.
+          Stage and classification are different axes — a verbally-awarded JIH
+          is counted in both, which is why they sit in one labelled group
+          rather than reading as four slices of a whole. */}
+      <section className="mb-6 rounded-lg border border-border/70 bg-surface/60 p-3">
+        <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {t("kpi_sales_project_status")}
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <KpiTile kpi={book.verballyAwarded} label={t("kpi_verbally_awarded")} />
+          <KpiTile kpi={book.jih} label={t("kpi_jih")} />
+          <KpiTile kpi={book.tenders} label={t("kpi_tenders")} />
+          <KpiTile kpi={book.jihPending} label={t("kpi_jih_pending")} />
+          <KpiTile kpi={book.tenderPending} label={t("kpi_tender_pending")} />
+        </div>
       </section>
 
       {/* Filter bar */}

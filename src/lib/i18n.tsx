@@ -223,7 +223,7 @@ export const strings = {
   ibx_contact_name: { en: "Contact Name", ar: "اسم جهة الاتصال" },
   ibx_client_owner: { en: "Client / Owner", ar: "العميل / المالك" },
   ibx_consultant: { en: "Consultant", ar: "الاستشاري" },
-  ibx_scope: { en: "Scope", ar: "النطاق" },
+  ibx_scope: { en: "Scope notes", ar: "وصف النطاق" },
   ibx_estimated_value: { en: "Estimated Value", ar: "القيمة التقديرية" },
   ibx_deadline: { en: "Deadline", ar: "الموعد النهائي" },
   ibx_evidence_url: { en: "Evidence URL / Attachment", ar: "رابط الدليل / المرفق" },
@@ -428,7 +428,7 @@ export const strings = {
   ibx_rfq_from_consultant: { en: "Consultant", ar: "استشاري" },
   ibx_date_received: { en: "Date Received", ar: "تاريخ الاستلام" },
   // Intake — scope (fixed vocabulary, replaces free-text scope textarea)
-  ibx_scope_type: { en: "Scope", ar: "نطاق العمل" },
+  ibx_scope_type: { en: "Scope of work", ar: "نطاق العمل" },
   ibx_scope_supply_and_installation: { en: "Supply and Installation of Signage", ar: "توريد وتركيب اللوحات" },
   ibx_scope_supply_only_signage: { en: "Supply Only - Signage", ar: "توريد فقط - لوحات" },
   ibx_scope_supply_installation_others: { en: "Supply of Installation (Others)", ar: "توريد التركيب (أخرى)" },
@@ -765,6 +765,13 @@ export const strings = {
   label_contact_number: { en: "Contact Number", ar: "رقم التواصل" },
   label_company_name: { en: "Company Name", ar: "اسم الشركة" },
   label_jih_or_tender: { en: "JIH or Tender", ar: "JIH أو منافسة" },
+  class_jih: { en: "JIH", ar: "JIH" },
+  class_tender: { en: "Tender", ar: "منافسة" },
+  class_other: { en: "Other", ar: "أخرى" },
+  client_details_creates_rfq: {
+    en: "Setting JIH or Tender here creates the submission record for this opportunity and assigns it the next sales code.",
+    ar: "ضبط «JIH أو منافسة» هنا يُنشئ سجل التقديم لهذه الفرصة ويمنحه كود المبيعات التالي.",
+  },
   section_qualification: { en: "Qualification & Signage Package", ar: "التأهيل وحزمة اللوحات" },
   section_stakeholders: { en: "Stakeholders", ar: "أصحاب القرار" },
   section_technical_notes: { en: "Technical Notes", ar: "ملاحظات فنية" },
@@ -818,6 +825,20 @@ export const strings = {
   score_none: { en: "None", ar: "لا شيء" },
 
   label_project: { en: "Project", ar: "المشروع" },
+  // Client feedback 2026-08-25: the Opportunity Review table's columns should
+  // read PROJECT NAME · PROJECT CODE · REQUEST TYPE · DEADLINE · STATUS.
+  label_project_name: { en: "Project Name", ar: "اسم المشروع" },
+  label_project_code: { en: "Project Code", ar: "كود المشروع" },
+  rev_edit_project_details: { en: "Edit project details", ar: "تعديل بيانات المشروع" },
+  rev_edit_project_details_desc: {
+    en: "Correct what the request got wrong before it goes to pricing.",
+    ar: "صحّح ما ورد خطأً في الطلب قبل أن ينتقل إلى التسعير.",
+  },
+  rev_edit_saved: { en: "Project details updated.", ar: "حُدِّثت بيانات المشروع." },
+  rev_edit_value_invalid: {
+    en: "Estimated value must be a number, or left empty.",
+    ar: "القيمة التقديرية يجب أن تكون رقمًا، أو تُترك فارغة.",
+  },
   label_client: { en: "Client", ar: "العميل" },
   label_contractor: { en: "Main Contractor", ar: "المقاول الرئيسي" },
   label_location: { en: "Location", ar: "الموقع" },
@@ -1172,6 +1193,17 @@ export const strings = {
   filter_stage_open: { en: "Open pipeline", ar: "خط الأنابيب المفتوح" },
   filter_stage_closed: { en: "Closed (won or lost)", ar: "مغلقة (ربح أو خسارة)" },
   filter_stage_late_stage: { en: "Late stage", ar: "المراحل المتأخرة" },
+  filter_stage_awarded: { en: "Awarded", ar: "مُرسَاة" },
+  kpi_target_sales: { en: "Target sales", ar: "المستهدف البيعي" },
+  kpi_sales_achievement: { en: "Sales achievement", ar: "المتحقق من المبيعات" },
+  kpi_need_to_close: { en: "Need to close", ar: "المتبقي للإغلاق" },
+  kpi_sales_project_status: { en: "Sales project status", ar: "حالة المشاريع البيعية" },
+  kpi_verbally_awarded: { en: "Verbally awarded", ar: "ترسية شفهية" },
+  kpi_jih: { en: "JIH", ar: "JIH" },
+  kpi_tenders: { en: "Tenders", ar: "المنافسات" },
+  kpi_jih_pending: { en: "JIH pending", ar: "JIH قيد الانتظار" },
+  kpi_tender_pending: { en: "Tender pending", ar: "منافسات قيد الانتظار" },
+  kpi_pending_submission: { en: "Pending for submission", ar: "بانتظار التقديم" },
   filter_group_heading: { en: "Groups", ar: "مجموعات" },
   filter_stage_heading: { en: "Stages", ar: "المراحل" },
   // Active-filter chips.
@@ -1494,6 +1526,16 @@ export const strings = {
   ibx_request_type_tender_contractor: { en: "Tender — contractors bidding", ar: "مناقصة — مقاولون يتنافسون" },
   ibx_request_type_tender_government: { en: "Tender — government / owner, pre-award", ar: "مناقصة — جهة حكومية/مالك، قبل الترسية" },
   ibx_request_type_unknown: { en: "Unknown / insufficient information", ar: "غير محدد / معلومات غير كافية" },
+  // Client feedback 2026-08-25: the Opportunity Review table should say "JIH"
+  // or "Tender" and nothing more — "no need to expand the meaning, it's better
+  // to simplify". The long labels above stay, because they are what the New
+  // Intake dropdown offers, and there the distinction is the whole point:
+  // shortened, tender_contractor and tender_government would both read
+  // "Tender" and become unpickable.
+  ibx_rtype_short_jih: { en: "JIH", ar: "JIH" },
+  ibx_rtype_short_tender_contractor: { en: "Tender", ar: "مناقصة" },
+  ibx_rtype_short_tender_government: { en: "Tender", ar: "مناقصة" },
+  ibx_rtype_short_unknown: { en: "—", ar: "—" },
   ibx_owner_entity: { en: "Owner / government entity", ar: "المالك / الجهة الحكومية" },
   ibx_client_rfq_ref: { en: "Client RFQ reference", ar: "مرجع طلب العميل" },
   ibx_internal_rfq_ref: { en: "Internal RFQ reference", ar: "المرجع الداخلي" },

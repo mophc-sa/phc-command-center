@@ -161,6 +161,23 @@ export const LATE_STAGE_EXPOSURE: CanonicalStage[] = [
   "contract_signed",
 ];
 
+/**
+ * Awarded work — what the business calls "we won it", which is broader than the
+ * `won` stage alone.
+ *
+ * Client feedback 2026-08-25: the Awarded Projects nav entry pointed at
+ * `stage=won` and showed "No results", because a JIH marked awarded lands on
+ * `verbally_awarded` and then walks through contract_received and
+ * contract_signed. Only the final administrative step writes `won`. Someone
+ * looking for the deals they had just won was told there weren't any.
+ *
+ * This set is deliberately NOT the same thing as revenue: LATE_STAGE_EXPOSURE
+ * exists precisely because a verbal award can still be lost, and the KPIs that
+ * report money keep using WON_STAGES. This is a *list filter* — "show me the
+ * work we've been awarded" — not a revenue definition.
+ */
+export const AWARDED_STAGES: CanonicalStage[] = [...LATE_STAGE_EXPOSURE, ...WON_STAGES];
+
 const inStages = (o: OppRow, set: CanonicalStage[]) => {
   const s = canonicalStageOf(o);
   return s !== null && set.includes(s);
@@ -781,5 +798,155 @@ export function executiveKpis(opps: OppRow[], ctx: KpiContext): ExecutiveKpis {
     lossRate: lossRate(opps, ctx),
     lateStageExposure: lateStageExposure(opps, ctx),
     byStage: EXEC_STAGES.map((s) => stageCount(opps, ctx, s)),
+  };
+}
+
+// ---- The commercial book, as the sales team describes it --------------------
+//
+// Client feedback 2026-08-25 (slide 4). The Opportunities page led with Open
+// Value / Tier A / Win Rate / Showing. Two of those were structurally stuck —
+// Tier A read 0 because tiers are unset, Win Rate read 0% because nothing has
+// been closed in the system yet — so the strip spent half its width telling a
+// manager nothing, twice. What was asked for instead is the number set the
+// team actually runs on: the target, what has been won against it, what is
+// still owed, and what is sitting unsubmitted.
+//
+// These read two things the KPI engine did not previously touch: the RFQ's
+// JIH/Tender classification and whether a quotation has gone out. Both are
+// PostgREST embeds the Opportunities list already fetches; the shapes below
+// mirror that query rather than inventing a second one.
+
+export type ClassifiedRow = OppRow & {
+  rfqs?: Array<{ classification?: string | null; created_at?: string | null }> | null;
+  quotations?: Array<{ status?: string | null }> | null;
+};
+
+export type Classification = "jih" | "tender" | "other";
+
+/**
+ * The newest RFQ wins. An opportunity can accumulate more than one — a tender
+ * that was re-issued, an RFQ superseded by a revision — and the current answer
+ * is the latest one, which is the same rule the detail page's card uses.
+ */
+export function classificationOf(o: ClassifiedRow): Classification | null {
+  const rfqs = (o.rfqs ?? []).filter((r) => r?.classification);
+  if (rfqs.length === 0) return null;
+  const newest = rfqs.reduce((a, b) => ((b.created_at ?? "") > (a.created_at ?? "") ? b : a));
+  const c = newest.classification;
+  return c === "jih" || c === "tender" || c === "other" ? c : null;
+}
+
+/**
+ * Statuses that mean the quotation has left the building. Everything before
+ * `submitted` — draft, internal review, approved-for-submission — is work we
+ * still owe the client, which is what "pending for submission" names.
+ *
+ * `lost` and `expired` are included deliberately: they are outcomes OF a
+ * submission. A lost quotation is not a quotation still to be sent.
+ */
+const SUBMITTED_QUOTATION_STATUSES = [
+  "submitted",
+  "follow_up",
+  "negotiation",
+  "revised",
+  "won",
+  "lost",
+  "expired",
+];
+
+export function hasSubmittedQuotation(o: ClassifiedRow): boolean {
+  return (o.quotations ?? []).some((q) => q?.status != null && SUBMITTED_QUOTATION_STATUSES.includes(q.status));
+}
+
+/** Open opportunities where a quotation has not yet gone out. */
+export function pendingSubmissionRows(opps: ClassifiedRow[], ctx: KpiContext): ClassifiedRow[] {
+  return ownerFiltered(opps, ctx).filter((o) => isOpen(o) && !hasSubmittedQuotation(o));
+}
+
+function classificationCount(
+  opps: ClassifiedRow[],
+  ctx: KpiContext,
+  which: Classification,
+): Kpi {
+  const rows = ownerFiltered(opps, ctx).filter((o) => isOpen(o) && classificationOf(o) === which);
+  const unclassified = ownerFiltered(opps, ctx).filter((o) => isOpen(o) && classificationOf(o) === null);
+  return kpi({
+    key: `classification_${which}`,
+    value: rows.length,
+    kind: "count",
+    formula: `Count of open opportunities classified ${which}`,
+    source: "rfqs.classification (newest RFQ per opportunity)",
+    stages: OPEN_STAGES,
+    dateField: null,
+    filters: filterLabels({ ...ctx, period: null }, [`Classification: ${which}`]),
+    recordIds: rows.map((o) => o.id),
+    drilldown: { to: OPP_LIST, search: { stage: "open" } },
+    // Not cosmetic. JIH + Tender only add up to the open book when every
+    // opportunity has been classified, and on 2026-08-25 most had not — the
+    // list's JIH/Tender column was a column of dashes. Saying so is the
+    // difference between "we have 9 JIHs" and "we have at least 9".
+    caveat:
+      unclassified.length > 0
+        ? `${unclassified.length} open opportunit${unclassified.length === 1 ? "y is" : "ies are"} not yet classified as JIH or Tender, and are counted in neither figure`
+        : undefined,
+  });
+}
+
+function pendingCount(opps: ClassifiedRow[], ctx: KpiContext, which: Classification | null): Kpi {
+  const all = pendingSubmissionRows(opps, ctx);
+  const rows = which === null ? all : all.filter((o) => classificationOf(o) === which);
+  const unclassified = all.filter((o) => classificationOf(o) === null);
+  return kpi({
+    key: which === null ? "pending_submission" : `pending_submission_${which}`,
+    value: rows.length,
+    kind: "count",
+    formula:
+      which === null
+        ? "Count of open opportunities with no quotation at submitted or beyond"
+        : `Count of open ${which} opportunities with no quotation at submitted or beyond`,
+    source: "opportunities × quotations.status, rfqs.classification",
+    stages: OPEN_STAGES,
+    dateField: null,
+    filters: filterLabels({ ...ctx, period: null }, ["Quotation: not yet submitted"]),
+    recordIds: rows.map((o) => o.id),
+    drilldown: { to: OPP_LIST, search: { stage: "open" } },
+    caveat:
+      which === null && unclassified.length > 0
+        ? `${unclassified.length} of these ${unclassified.length === 1 ? "is" : "are"} not classified as JIH or Tender, so the two figures below do not sum to this one`
+        : undefined,
+  });
+}
+
+export type CommercialBookKpis = {
+  /** Sales target for the period. Null when nobody has set one. */
+  target: Kpi;
+  /** Won value — what has been achieved against the target. */
+  achievement: Kpi;
+  /** Target minus achievement. */
+  needToClose: Kpi;
+  verballyAwarded: Kpi;
+  jih: Kpi;
+  tenders: Kpi;
+  jihPending: Kpi;
+  tenderPending: Kpi;
+  pendingForSubmission: Kpi;
+};
+
+export function commercialBookKpis(
+  opps: ClassifiedRow[],
+  ctx: KpiContext,
+  targetAmount: number | null,
+): CommercialBookKpis {
+  const targets = targetKpis(opps, ctx, targetAmount);
+  return {
+    target: targets.target,
+    achievement: { ...targets.actual, key: "sales_achievement" },
+    needToClose: { ...targets.gap, key: "need_to_close" },
+    verballyAwarded: stageCount(opps, ctx, "verbally_awarded"),
+    jih: classificationCount(opps, ctx, "jih"),
+    tenders: classificationCount(opps, ctx, "tender"),
+    jihPending: pendingCount(opps, ctx, "jih"),
+    tenderPending: pendingCount(opps, ctx, "tender"),
+    pendingForSubmission: pendingCount(opps, ctx, null),
   };
 }
