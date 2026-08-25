@@ -171,14 +171,46 @@ describe("drilldown is wired end to end", () => {
   it("the list parses the shared search contract", () => {
     const s = read(OPP_LIST);
     expect(s).toContain("parseOpportunitySearch");
-    expect(s).toContain("matchesStageFilter");
   });
 
-  it("the list honours owner and date range from a KPI link", () => {
+  // WHAT THIS USED TO ASSERT, AND WHY IT WAS WORSE
+  // ---------------------------------------------
+  // It asserted the strings "routeSearch.owner" / ".from" / ".to" appeared in
+  // the file. They did — inside a useMemo that listed none of them in its
+  // dependency array, so a drilldown changing only the salesperson or the
+  // period rendered the PREVIOUS filter's rows under the new URL. A grep over
+  // source text cannot see a dependency array, so it passed throughout.
+  //
+  // The filtering behaviour itself is now covered directly, over real rows, by
+  // `matchesOpportunitySearch` in drilldown.test.ts. What is left here is the
+  // one thing genuinely about wiring: the page must delegate to that shared
+  // predicate and hand it the WHOLE search object, rather than re-implementing
+  // the rules inline against a few hand-picked fields — which is exactly how
+  // the two drifted apart in the first place.
+  it("the list delegates filtering to the shared predicate", () => {
     const s = read(OPP_LIST);
-    expect(s).toContain("routeSearch.owner");
-    expect(s).toContain("routeSearch.from");
-    expect(s).toContain("routeSearch.to");
+    expect(s).toContain("matchesOpportunitySearch(o, routeSearch)");
+  });
+
+  it("the filter memo depends on the whole search object", () => {
+    const s = read(OPP_LIST);
+    expect(s).toContain("}, [data, routeSearch, sort]);");
+  });
+
+  // Clearing filters must escape the owner and date range a drilldown arrived
+  // with, not just the three controls the toolbar renders.
+  it("clearing filters resets every field", () => {
+    const s = read(OPP_LIST);
+    expect(s).toContain("...DEFAULT_SEARCH");
+    expect(s).toContain("onClick={clearFilters}");
+  });
+
+  // A drilldown scopes the list by owner and period, neither of which has a
+  // toolbar control. Without this the list just looked short.
+  it("the list shows which filters are active", () => {
+    const s = read(OPP_LIST);
+    expect(s).toContain("hasActiveFilters(routeSearch)");
+    expect(s).toContain("describeFilters(routeSearch)");
   });
 
   // Changing one filter must not silently drop the context a drilldown arrived

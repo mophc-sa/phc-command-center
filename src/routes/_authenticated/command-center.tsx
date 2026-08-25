@@ -86,7 +86,6 @@ export const Route = createFileRoute("/_authenticated/command-center")({
   component: CommandCenter,
 });
 
-const CLOSED = ["won", "lost", "archived"];
 /** Read chart colours from CSS variables so they stay in sync with the design token system. */
 function getCssVar(name: string) {
   if (typeof getComputedStyle === "undefined") return "";
@@ -391,7 +390,22 @@ function CommandCenter() {
       <section className="mt-6 grid gap-3 lg:grid-cols-2">
         <ChartFrame
           title={lang === "ar" ? "قيمة خط الأنابيب حسب المرحلة" : "Pipeline value by stage"}
-          subtitle={lang === "ar" ? "الفرص المفتوحة فقط" : "Open opportunities only"}
+          subtitle={
+            <>
+              {lang === "ar" ? "الفرص المفتوحة فقط" : "Open opportunities only"}
+              {/* The disclosure this number was computed for. `inferredCount`
+                  had been calculated on every render and never rendered, so a
+                  bar built partly from guessed stage positions looked exactly
+                  as solid as one built from recorded ones. */}
+              {inferredCount > 0 && (
+                <span className="ms-2 rounded-full border border-amber/40 bg-amber/10 px-2 py-0.5 text-[10px] font-medium text-amber-light">
+                  {lang === "ar"
+                    ? `${formatNumber(inferredCount, lang)} استُنتجت مرحلتها`
+                    : `${formatNumber(inferredCount, lang)} inferred`}
+                </span>
+              )}
+            </>
+          }
         >
           {openOpps.length === 0 ? (
             <EmptyChart label={lang === "ar" ? "لا توجد فرص مفتوحة" : "No open opportunities yet"} />
