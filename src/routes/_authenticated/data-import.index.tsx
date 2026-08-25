@@ -5,8 +5,7 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
-  Upload, Plus, FileSpreadsheet, Clock, CheckCircle2,
-  Loader2, RefreshCcw, Database, ChevronRight,
+  Archive, ArchiveRestore, CheckCircle2, ChevronRight, Clock, Database, FileSpreadsheet, Loader2, Plus, RefreshCcw, Upload,
 } from "lucide-react";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
+  archiveImportBatch, unarchiveImportBatch,
   createBatch, listBatches, uploadImportFile, parseFile, listSourceProfiles,
   callImportAgent, saveMappings, validateBatch, detectDuplicates, autoApproveCandidates,
   saveReadinessChecklist, approveBatch, dryRunCommit, generateCandidates,
@@ -107,6 +107,17 @@ function DataImportLanding() {
     enabled: canAccess,
     refetchInterval: 30_000,
   });
+
+  // Archiving must not be a one-way disappearance, so the archived set is
+  // listed too. Soft-deleted batches stay hidden — that is a separate,
+  // reason-carrying action.
+  const { data: archivedBatches = [] } = useQuery({
+    queryKey: ["import-batches", { includeArchived: true, includeDeleted: false }],
+    queryFn: () => listBatches({ includeArchived: true, includeDeleted: false }),
+  });
+  const archived = archivedBatches.filter((b) => b.archived_at != null);
+
+  const refreshBatches = () => qc.invalidateQueries({ queryKey: ["import-batches"] });
 
   const { data: profiles = [] } = useQuery<ImportSourceProfile[]>({
     queryKey: ["import-source-profiles"],
@@ -311,6 +322,9 @@ function DataImportLanding() {
           <TabsTrigger value="processed">
             Processed <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px]">{processed.length}</span>
           </TabsTrigger>
+          <TabsTrigger value="archived">
+            {t("di_archived_tab")} <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px]">{archived.length}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="active">
@@ -324,7 +338,7 @@ function DataImportLanding() {
             />
           ) : (
             <div className="space-y-2">
-              {active.map((b) => <BatchCard key={b.id} batch={b} />)}
+              {active.map((b) => <BatchCard key={b.id} batch={b} onArchived={refreshBatches} />)}
             </div>
           )}
         </TabsContent>
@@ -346,7 +360,17 @@ function DataImportLanding() {
             <EmptyState message={t("di_empty_processed")} />
           ) : (
             <div className="space-y-2">
-              {processed.map((b) => <BatchCard key={b.id} batch={b} />)}
+              {processed.map((b) => <BatchCard key={b.id} batch={b} onArchived={refreshBatches} />)}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="archived">
+          {archived.length === 0 ? (
+            <EmptyState message={t("di_empty_archived")} hint={t("di_archived_hint")} />
+          ) : (
+            <div className="space-y-2">
+              {archived.map((b) => <BatchCard key={b.id} batch={b} onArchived={refreshBatches} />)}
             </div>
           )}
         </TabsContent>
@@ -416,9 +440,29 @@ function DataImportLanding() {
 
 // ---------- Batch card --------------------------------------------------------
 
-function BatchCard({ batch }: { batch: ImportBatch }) {
+function BatchCard({ batch, onArchived }: { batch: ImportBatch; onArchived?: () => void }) {
   const tone = statusTone(batch.status);
   const label = useStepLabel()(batch.status);
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const archived = batch.archived_at != null;
+
+  // The whole card is a Link, so the control has to stop the click before the
+  // router sees it.
+  async function toggleArchive(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setBusy(true);
+    try {
+      if (archived) await unarchiveImportBatch(batch.id);
+      else await archiveImportBatch(batch.id);
+      onArchived?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Link
@@ -438,6 +482,25 @@ function BatchCard({ batch }: { batch: ImportBatch }) {
 
       <div className="flex items-center gap-2 shrink-0">
         <StatusPill tone={tone}>{label}</StatusPill>
+        {/* archiveImportBatch/unarchiveImportBatch existed and nothing called
+            them, so a batch that died mid-upload stayed in Active for good.
+            Seven were sitting there on 2026-08-25, the oldest 44 days old, all
+            "Unnamed · 0 rows · Uploading…" — createBatch() writes the row when
+            the dialog opens, before a file is chosen, so every abandoned start
+            leaves one. Archiving is reversible and listBatches already hides
+            archived by default. */}
+        <button
+          type="button"
+          onClick={toggleArchive}
+          disabled={busy}
+          title={archived ? t("di_unarchive") : t("di_archive")}
+          aria-label={archived ? t("di_unarchive") : t("di_archive")}
+          className="grid h-7 w-7 place-items-center rounded-md border border-border/70 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:opacity-40"
+        >
+          {archived
+            ? <ArchiveRestore className="h-3.5 w-3.5" />
+            : <Archive className="h-3.5 w-3.5" />}
+        </button>
         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
       </div>
     </Link>
