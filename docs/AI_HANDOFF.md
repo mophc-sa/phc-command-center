@@ -6,7 +6,13 @@
 2026-08-25
 
 ## Current Branch / Last Commit
-`feat/client-feedback-2026-08-25` @ `e317c5a` — **ثلاث commits، غير مدموجة، غير منشورة.**
+`main` @ `b8ce310` — **مدموج ومنشور على الإنتاج** (PR #233، خمس commits، الفرع محذوف).
+
+**النشر تحقَّق منه:** حزمة الدخول تغيّرت `index-bN9p0r3P` → `index-BgTQr2K3`، و`auth-RuCMJ2uM.js` الحيّة تحوي «Clarity built into place» ولا تحوي الشعار القديم. الشعار ظاهر بصريًا على `agent.phc-sa.com/auth`، والـconsole نظيف.
+
+⚠️ **هدف النشر `canary` يسقط حتميًا** — يفحص الصحة على Preview URL معطَّل في Cloudflare. رسالة الخطأ صريحة: «النسخة لا تُمرّر أي حركة والإنتاج غير متأثر». استخدم `target=production` + `confirm=agent.phc-sa.com` مباشرة حتى تُفعَّل Preview URLs (Settings → Domains & Routes).
+
+⚠️ **تغيير بيانات إنتاج أثناء التحقق:** سجل NEW MURABBA ACTIVATION CENTRE (`93f2455b`) صُنِّف **JIH** وأُنشئ له RFQ بكود `MO-26-0010`. هذا تصحيح الشريحة الخامسة نصًّا، لكنه تغيير حقيقي لا يزول.
 
 ### ملاحظات العميل 2026-08-25 — الست شرائح كلها منفَّذة
 

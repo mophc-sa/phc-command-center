@@ -879,7 +879,7 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-25, branch `feat/client-feedback-2026-08-25` @ `e317c5a`.
+*Reflects the system as at 2026-08-25, branch `main` @ `b8ce310` (deployed).
 Behaviour verified against source and the test suite (1782 passing), plus a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
 
 Of the four fixes added to the table above on 2026-08-25, three are drilldown behaviour and land with Phase 5, which is still unshipped — those were never visible in production. The fourth is not: the **Pipeline Overview** tile has pointed at a route that does not exist since PR #68, so that tile has been dead on My Workspace for every user since that release.
@@ -890,10 +890,9 @@ Of the four fixes added to the table above on 2026-08-25, three are drilldown be
 
 **Attachment access isolation is live** — applied and deployed on 2026-08-21 at `ad41ccf` (PR #196).
 
-**The 2026-08-25 client feedback is code-only and not yet deployed.** The sign-in tagline, the
-Opportunity Review columns and editor, the Opportunities KPI strip, the JIH-or-Tender editor
-and the Awarded Projects filter are all on `feat/client-feedback-2026-08-25`. No migration is
-involved — every change is frontend, reading columns that already exist.
+**The 2026-08-25 client feedback is live.** Merged as PR #233 and deployed to production at
+`b8ce310`. No migration was involved — every change is frontend, reading columns that already
+exist.
 
 **Phase 5 is not yet live.** The canonical KPI engine, drilldown, timeline, entry presets and AI discipline layer are code-only and ship with the next deploy. The NO BOQ / NO PROJECT NUMBER rule exists only as a local migration and is **not** applied to production — see Section 10.
 Update this file when the workflow changes.*
