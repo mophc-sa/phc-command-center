@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useI18n } from "@/lib/i18n";
+import { parsePipelineSearch, type PipelineTab } from "@/lib/pipeline-tabs";
 import { QuotationsPanel } from "@/components/phc/pipeline/QuotationsPanel";
 import { RfqJihPanel } from "@/components/phc/pipeline/RfqJihPanel";
 import { BoqPanel } from "@/components/phc/pipeline/BoqPanel";
@@ -8,12 +9,11 @@ import { BoqPanel } from "@/components/phc/pipeline/BoqPanel";
 // keep only the one that works for sales and estimation monitoring."
 // /rfq-jih and /boq are retired to redirects into this page's tabs — their
 // full content lives on unchanged in src/components/phc/pipeline/*Panel.tsx.
-type PipelineTab = "quotations" | "rfq_jih" | "boq";
-
+// The tab vocabulary and its parser live in @/lib/pipeline-tabs so they can be
+// tested by calling them. They used to be a nested ternary here, guarded only
+// by a contract test grepping this file for `s.tab === "rfq_jih"`.
 export const Route = createFileRoute("/_authenticated/quotations")({
-  validateSearch: (s: Record<string, unknown>) => ({
-    tab: s.tab === "rfq_jih" ? "rfq_jih" as const : s.tab === "boq" ? "boq" as const : "quotations" as const,
-  }),
+  validateSearch: parsePipelineSearch,
   head: () => ({
     meta: [{ title: "Quotations — PHC" }, { name: "robots", content: "noindex" }],
   }),

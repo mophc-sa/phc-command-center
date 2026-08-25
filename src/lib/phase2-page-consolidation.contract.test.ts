@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { actionHref } from "@/lib/action-center";
+import { DEFAULT_PIPELINE_TAB, parsePipelineSearch } from "@/lib/pipeline-tabs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "../..");
@@ -41,8 +42,11 @@ test("/boq redirects to /quotations?tab=boq", () => {
 
 test("/quotations validates the tab search param with a safe default", () => {
   const source = read("src/routes/_authenticated/quotations.tsx");
-  expect(source).toMatch(/validateSearch: \(s: Record<string, unknown>\) => \(\{/);
-  expect(source).toMatch(/tab: s\.tab === "rfq_jih".*s\.tab === "boq".*"quotations" as const/);
+  // The "safe default" half is a behaviour, so it is asserted by calling the
+  // parser rather than by matching the shape of a ternary in the source.
+  expect(parsePipelineSearch({}).tab).toBe(DEFAULT_PIPELINE_TAB);
+  expect(parsePipelineSearch({ tab: "nonsense" }).tab).toBe(DEFAULT_PIPELINE_TAB);
+  expect(source).toContain("validateSearch: parsePipelineSearch");
   expect(source).toMatch(/import \{ QuotationsPanel \} from "@\/components\/phc\/pipeline\/QuotationsPanel";/);
   expect(source).toMatch(/import \{ RfqJihPanel \} from "@\/components\/phc\/pipeline\/RfqJihPanel";/);
   expect(source).toMatch(/import \{ BoqPanel \} from "@\/components\/phc\/pipeline\/BoqPanel";/);
