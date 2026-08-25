@@ -1,0 +1,71 @@
+# =============================================================================
+# Sync bun.lock on Dependabot npm PRs.
+#
+# WHY THIS EXISTS
+# ---------------
+# Dependabot opens npm PRs that change `package.json` and NOTHING ELSE — it has
+# never written a `bun.lock` for this repo (verified on #75, #135 and #183).
+# Every CI job installs with `bun install --frozen-lockfile`, which then fails:
+#
+#     error: lockfile had changes, but lockfile is frozen
+#
+# So no npm dependency PR has been mergeable since 2026-07-26. That is a supply
+# chain problem, not a housekeeping one: security patches arrive as Dependabot
+# PRs and cannot land.
+#
+# Dropping `--frozen-lockfile` would "fix" CI by removing the guarantee that CI
+# installs what the lockfile pins. The lockfile is generated here instead.
+#
+# ⚠️ KNOWN LIMITATION — READ BEFORE RELYING ON THIS
+# --------------------------------------------------
+# A push made with the default GITHUB_TOKEN does NOT trigger further workflow
+# runs. The lockfile lands on the branch, but the red CI run stays red until
+# something re-triggers it. Either:
+#   · a maintainer closes and reopens the PR (cheapest), or
+#   · swap GITHUB_TOKEN below for a PAT / GitHub App token stored as a secret,
+#     which does re-trigger CI.
+# This is deliberate GitHub behaviour to prevent recursive workflow loops.
+# =============================================================================
+name: Dependabot lockfile sync
+
+on:
+  push:
+    branches:
+      - "dependabot/npm_and_yarn/**"
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    # Dependabot branches live in this repo, not a fork, so this is not running
+    # untrusted fork code with write access.
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.14
+
+      # Resolve only. Nothing is executed from the updated dependency tree here,
+      # so a malicious postinstall in a bumped package cannot run in this job.
+      - name: Resolve the lockfile
+        run: bun install --lockfile-only
+
+      - name: Commit bun.lock if it moved
+        run: |
+          if git diff --quiet -- bun.lock; then
+            echo "bun.lock already matches package.json — nothing to do."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bun.lock
+          git commit -m "chore(deps): sync bun.lock with package.json"
+          git push

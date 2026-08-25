@@ -44,4 +44,36 @@
 
 ---
 
+### Dependabot لا يكتب `bun.lock` إطلاقًا — كل PR تبعيات npm محجوب منذ 2026-07-26 (مُشخَّص 2026-08-25)
+- **Symptom:** كل PR من dependabot لتبعيات npm يفشل في `typecheck-build` وَ`Dependency audit` بـ:
+  `error: lockfile had changes, but lockfile is frozen`.
+- **التشخيص الصحيح — وتصحيح لما كان مسجَّلًا:** الـbacklog كان يقول إن «`bun.lock` الذي أنشأه dependabot معطوب». **هذا خطأ.** dependabot **لا يُنشئ `bun.lock` إطلاقًا** — تحقَّقنا من ملفات ثلاثة PRs (`gh pr diff --name-only`): #75 و#135 و#183 كلها تُغيّر **`package.json` وحده**. وكل وظائف CI الخمس تُثبِّت بـ`bun install --frozen-lockfile`، فتفشل حتمًا.
+- **لماذا هذا أخطر من إزعاج:** التصحيحات الأمنية تصل كـPRs من dependabot. حجبها يعني أن الترقيع الأمني التلقائي **معطَّل فعليًا منذ 26 يوليو**.
+- **الإصلاح:** `.github/workflows/dependabot-lockfile.yml` — يعمل على دفعات فروع `dependabot/npm_and_yarn/**`، يشغّل `bun install --lockfile-only` (يحلّ فقط، **لا ينفّذ** أي postinstall من الحزم المُرقّاة) ويلتزم `bun.lock`. **مُثبَت عمليًا:** رفع `globals` في `package.json` وحده ← `--lockfile-only` يُعيد توليد القفل ← `--frozen-lockfile` يقبله.
+- **⚠️ قيد معروف في الإصلاح:** الدفع بـ`GITHUB_TOKEN` الافتراضي **لا يُعيد تشغيل** أي workflow (سلوك مقصود من GitHub لمنع الحلقات). القفل يصل الفرع لكن الـrun الأحمر يبقى أحمر حتى يُغلق أحدهم الـPR ويعيد فتحه، أو يُستبدل الـtoken بـPAT/GitHub App.
+- **Status:** الـworkflow مُضاف محليًا وغير مدفوع بعد.
+
+---
+
+### الترقيات المعلَّقة: #183 يكسر الكود · #135 محجوب بـtypescript-eslint (فُحصت 2026-08-25)
+اختُبر كلاهما فعليًا في worktree معزول على `origin/main`، لا بالتخمين:
+- **#183 (production-dependencies) — لا يُدمج بإصلاح القفل وحده.** يقترح أربع قفزات كبرى كاسرة: `@tanstack/react-table` 8→9 · `recharts` 2→3 · `lucide-react` 0→1 · `react-day-picker` 9→10. النتيجة **30 خطأ نوع في 5 ملفات**: `EntityDataGrid.tsx` (`useReactTable`/`getCoreRowModel` أُعيدت تسميتها في v9)، `GitSyncStatus.tsx` (أيقونة `Github` حُذفت من lucide v1)، `calendar.tsx` (`classNames.table` حُذف في v10)، `chart.tsx` وَ`command-center.tsx` (أنواع Tooltip تغيّرت في recharts v3). **يحتاج ترحيلًا مقصودًا، لا دمجًا.**
+- **#135 (development-dependencies) — أربعة من خمسة آمنة.** الحاجز الوحيد هو `typescript` ^5.8.3 → ^7.0.2: البناء والاختبارات تمرّ، لكن **`eslint` ينهار كليًا**: `typescript-eslint does not support TS 7.0` (يُتتبَّع في typescript-eslint#10940). **تحقَّقنا:** بتثبيت `typescript` على `^5.8.3` وأخذ الأربعة الباقية (`@lovable.dev/vite-tanstack-config` · `@types/node` · `@vitejs/plugin-react` · `globals`) تصبح البوابات الأربع **خضراء بالكامل** (0 أخطاء · 1694 اختبارًا · build).
+- **#182** (توثيق فقط) يفشل في `Dependency audit` وحده لأنه **متأخر 102 commit** — قفله يسبق overrides الأمان (postcss/babel/hono/esbuild). دمج `main` فيه يكفي.
+- **#209** (actions/cache) **أخضر بالكامل** وجاهز للدمج.
+- **Status:** مُشخَّص، لم يُدفع أي شيء.
+
+---
+
+### مسار الـcanary معطَّل — الإنتاج يُنشر بلا فحص صحّة مسبق (رُصد 2026-08-25)
+- **Symptom:** ثلاث محاولات `Deploy Cloudflare Worker` بهدف `canary` فشلت يوم 2026-08-24 بنفس السبب:
+  > Version … uploaded, but Cloudflare returned no `*.workers.dev` preview URL, so there is no isolated origin to health-check.
+- **السبب:** **Preview URLs معطَّلة** للـworker `mophc-sa-phc-command-center`. وهي إعداد منفصل عن نطاق `workers.dev` الفرعي (Cloudflare → Settings → Domains & Routes). **ليست عيبًا برمجيًا** — الرسالة نفسها من PR #212 الذي جعل الـcanary يفشل بصوت عالٍ بدل أن ينجح كذبًا.
+- **الأثر الحقيقي:** `target` في الـworkflow خياران متوازيان (`canary` أو `production`)، لا بوابة متسلسلة — الحارس الوحيد للإنتاج هو كتابة `agent.phc-sa.com` يدويًا. فعمليًا: بعد فشل الـcanary ثلاث مرات، نُشر الإنتاج مباشرة (run 32733690720، وظيفة `Deploy production` وحدها بلا أي وظيفة canary). **مسموح بالتصميم، لكن معناه أن كل نشر إنتاج يجري حاليًا بلا فحص صحّة على أصل معزول.**
+- **الإصلاح:** تفعيل Preview URLs في لوحة Cloudflare — خطوة واحدة، خارج المستودع، تحتاج وصول المالك.
+- **قرار مفتوح (منفصل):** هل يجب أن يكون نجاح الـcanary شرطًا لازمًا قبل الإنتاج بدل كونه خيارًا موازيًا؟
+- **Status:** مُشخَّص. يحتاج إجراءً في Cloudflare لا في الكود.
+
+---
+
 <!-- انسخ كتلة مشكلة جديدة أعلى هذا السطر -->
