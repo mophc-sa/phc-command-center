@@ -1155,6 +1155,17 @@ export const strings = {
   // Opportunity list filters
   filter_search: { en: "Search project, client, contractor…", ar: "ابحث عن مشروع، عميل، مقاول…" },
   filter_all_stages: { en: "All stages", ar: "كل المراحل" },
+  // Import batch lifecycle. archiveImportBatch/unarchiveImportBatch existed
+  // with nothing calling them, so a batch that died mid-upload stayed in
+  // Active permanently.
+  di_archive: { en: "Archive batch", ar: "أرشفة الدفعة" },
+  di_unarchive: { en: "Restore batch", ar: "استعادة الدفعة" },
+  di_archived_tab: { en: "Archived", ar: "المؤرشَفة" },
+  di_empty_archived: { en: "No archived batches.", ar: "لا دفعات مؤرشَفة." },
+  di_archived_hint: {
+    en: "Archived batches stay here and can be restored. Nothing is deleted.",
+    ar: "الدفعات المؤرشَفة تبقى هنا ويمكن استعادتها. لا يُحذف شيء.",
+  },
   // Stage GROUPS. A KPI drilldown filters by a set of stages ("open pipeline"),
   // not a single one, so these belong in the same dropdown as the stages
   // themselves — otherwise arriving from a number leaves the control blank.
