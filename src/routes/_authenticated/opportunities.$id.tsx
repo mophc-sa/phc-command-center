@@ -851,6 +851,13 @@ function OpportunityDetail() {
               open={clientDetailsOpen}
               onOpenChange={setClientDetailsOpen}
               title={t("section_client_details")}
+              // Setting JIH-or-Tender on an opportunity that has no RFQ creates
+              // one, and the database stamps it with the next sales code. That
+              // is the right outcome — a JIH is an RFQ being priced, and the
+              // list's Sales Code column is fed from the same row — but it is a
+              // bigger consequence than "set one field" and should not be
+              // discovered after the fact.
+              description={!rfqQ.data ? t("client_details_creates_rfq" as never) : undefined}
               submitLabel={t("action_save")}
               fields={[
                 { key: "contactName", type: "text", label: t("label_contact_person"), defaultValue: clientContact?.name ?? "" },

@@ -223,7 +223,7 @@ export const strings = {
   ibx_contact_name: { en: "Contact Name", ar: "اسم جهة الاتصال" },
   ibx_client_owner: { en: "Client / Owner", ar: "العميل / المالك" },
   ibx_consultant: { en: "Consultant", ar: "الاستشاري" },
-  ibx_scope: { en: "Scope", ar: "النطاق" },
+  ibx_scope: { en: "Scope notes", ar: "وصف النطاق" },
   ibx_estimated_value: { en: "Estimated Value", ar: "القيمة التقديرية" },
   ibx_deadline: { en: "Deadline", ar: "الموعد النهائي" },
   ibx_evidence_url: { en: "Evidence URL / Attachment", ar: "رابط الدليل / المرفق" },
@@ -428,7 +428,7 @@ export const strings = {
   ibx_rfq_from_consultant: { en: "Consultant", ar: "استشاري" },
   ibx_date_received: { en: "Date Received", ar: "تاريخ الاستلام" },
   // Intake — scope (fixed vocabulary, replaces free-text scope textarea)
-  ibx_scope_type: { en: "Scope", ar: "نطاق العمل" },
+  ibx_scope_type: { en: "Scope of work", ar: "نطاق العمل" },
   ibx_scope_supply_and_installation: { en: "Supply and Installation of Signage", ar: "توريد وتركيب اللوحات" },
   ibx_scope_supply_only_signage: { en: "Supply Only - Signage", ar: "توريد فقط - لوحات" },
   ibx_scope_supply_installation_others: { en: "Supply of Installation (Others)", ar: "توريد التركيب (أخرى)" },
@@ -768,6 +768,10 @@ export const strings = {
   class_jih: { en: "JIH", ar: "JIH" },
   class_tender: { en: "Tender", ar: "منافسة" },
   class_other: { en: "Other", ar: "أخرى" },
+  client_details_creates_rfq: {
+    en: "Setting JIH or Tender here creates the submission record for this opportunity and assigns it the next sales code.",
+    ar: "ضبط «JIH أو منافسة» هنا يُنشئ سجل التقديم لهذه الفرصة ويمنحه كود المبيعات التالي.",
+  },
   section_qualification: { en: "Qualification & Signage Package", ar: "التأهيل وحزمة اللوحات" },
   section_stakeholders: { en: "Stakeholders", ar: "أصحاب القرار" },
   section_technical_notes: { en: "Technical Notes", ar: "ملاحظات فنية" },
