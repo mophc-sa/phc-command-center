@@ -162,6 +162,136 @@ describe("the role gate mirrors the database, and widens nothing", () => {
   });
 });
 
+describe("preflight refuses exactly what the database refuses", () => {
+  // The bug this exists to prevent, in full.
+  //
+  // On 2026-08-24 preflight reported 49 eligible records where
+  // promote_historical_row() would promote 45. The four extra all carried a
+  // bare owner prefix — `FA`, `OM` — as their sales code: a placeholder the
+  // source spreadsheet used, not a quotation number. 48 archive rows share
+  // five such values, so promoting them would merge unrelated jobs.
+  //
+  // The SQL function had refused placeholders since 20260911120000. The
+  // handler simply never asked. Both halves were individually correct and
+  // disagreed with each other, which is why the earlier tests — each checking
+  // one side in isolation — all passed.
+  //
+  // The manifest gate caught it and refused the batch, so nothing was written.
+  // These tests are what stops it recurring: they compare the two rule sets
+  // rather than testing either alone.
+  const sql = read("supabase/migrations/20260911120000_hist_promotion_hardening.sql");
+  // Terminates at `END; $$;` — the function body is a dollar-quoted block, so
+  // matching a bare `$$;` on its own line finds nothing.
+  const promoteFn = sql.match(
+    /CREATE OR REPLACE FUNCTION public\.promote_historical_row[\s\S]*?\nEND; \$\$;/,
+  )?.[0] ?? "";
+  const reasons = code(handler).match(
+    /function ineligibleReasons[\s\S]*?\n}/,
+  )?.[0] ?? "";
+
+  it("finds both rule sets", () => {
+    expect(promoteFn.length).toBeGreaterThan(0);
+    expect(reasons.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * Each SQL refusal, paired with the preflight reason that must mirror it.
+   * `sql` is a fragment of the guard's condition; `reason` is the string the
+   * handler pushes. A refusal the database makes with no counterpart here is
+   * the exact shape of the 49-vs-45 bug.
+   */
+  const PARITY: Array<{ sql: string; reason: string; what: string }> = [
+    { sql: "NOT public.is_active_user(_r.owner_user_id)", reason: "no_mapped_owner",     what: "ownerless or inactive owner" },
+    { sql: "_r.company_id IS NULL",                       reason: "company_unmatched",   what: "no mapped company" },
+    { sql: "_m.code_placeholder",                         reason: "code_placeholder",    what: "bare owner prefix as a sales code" },
+    { sql: "_m.code_unparsed",                            reason: "code_unparsed",       what: "unreadable sales code" },
+    { sql: "_m.sales_code_raw IS NULL",                   reason: "missing_sales_code",  what: "no sales code at all" },
+    { sql: "_m.route IS NULL",                            reason: "route_undetermined",  what: "no JIH/TENDER route" },
+    { sql: "_m.date_submitted IS NULL",                   reason: "no_submission_date",  what: "no evidence a quotation was issued" },
+    { sql: "NOT _sm.promotable_active",                   reason: "status_not_active",   what: "status not promotable in this batch" },
+    { sql: "_r.amount_excl_vat IS NULL",                  reason: "no_amount",           what: "no amount" },
+    { sql: "EXACT_DUPLICATE_REJECTED",                    reason: "collision_",          what: "repeated spreadsheet row" },
+  ];
+
+  for (const { sql: guard, reason, what } of PARITY) {
+    it(`refuses ${what} on both sides`, () => {
+      expect(promoteFn, `SQL no longer guards: ${guard}`).toContain(guard);
+      expect(reasons, `preflight has no reason for: ${guard}`).toContain(reason);
+    });
+  }
+
+  it("a mapping-less archive row is refused, not silently passed", () => {
+    // promote_historical_row() raises "run remap_historical_sales() first".
+    expect(promoteFn).toContain("run remap_historical_sales()");
+    expect(reasons).toContain("no_mapping");
+  });
+
+  it("reads the code flags rather than re-deriving the parser rule", () => {
+    // A second copy of the placeholder regex in TypeScript would be a new
+    // place for the same rule to drift — which is the bug, not the fix.
+    const c = code(handler);
+    expect(c).toContain("historical_sales_mapped");
+    expect(c).toContain("code_placeholder");
+    expect(c).toContain("code_unparsed");
+    expect(c, "the placeholder rule must not be duplicated in TS").not.toMatch(/\^\[A-Z\]\{2\}\$/);
+  });
+
+  it("fetches the flags once for a batch, not once per row", () => {
+    // 679 archive rows behind this endpoint; an N+1 here would be the slowest
+    // thing in it.
+    const fn = code(handler).match(/async function codeFlags[\s\S]*?\n}/)?.[0] ?? "";
+    expect(fn).toContain("if (rowId) q = q.eq(");
+    expect(code(handler).match(/await codeFlags\(/g) ?? []).toHaveLength(1);
+  });
+});
+
+describe("ineligibility rules, exercised directly", () => {
+  // The handler is Deno-only, so the rules are re-stated here against the same
+  // inputs. Not a substitute for the parity test above — that one is what
+  // proves these match the database.
+  type Flags = { placeholder: boolean; unparsed: boolean; hasCode: boolean };
+  const OK: Flags = { placeholder: false, unparsed: false, hasCode: true };
+
+  /** Mirrors ineligibleReasons() for the sales-code branch. */
+  const codeReasons = (f: Flags | undefined): string[] => {
+    if (!f) return ["no_mapping"];
+    const out: string[] = [];
+    if (!f.hasCode) out.push("missing_sales_code");
+    if (f.placeholder) out.push("code_placeholder");
+    if (f.unparsed) out.push("code_unparsed");
+    return out;
+  };
+
+  it("a placeholder code is never eligible", () => {
+    // `FA` and `OM` — the four records that produced 49 instead of 45.
+    expect(codeReasons({ ...OK, placeholder: true })).toContain("code_placeholder");
+  });
+
+  it("an unparsed code is never eligible", () => {
+    expect(codeReasons({ ...OK, unparsed: true })).toContain("code_unparsed");
+  });
+
+  it("a missing sales code is never eligible", () => {
+    expect(codeReasons({ ...OK, hasCode: false })).toContain("missing_sales_code");
+  });
+
+  it("a row with no derived mapping is never eligible", () => {
+    expect(codeReasons(undefined)).toEqual(["no_mapping"]);
+  });
+
+  it("a clean code raises nothing", () => {
+    expect(codeReasons(OK)).toEqual([]);
+  });
+
+  it("reports every applicable reason, not just the first", () => {
+    // A record blocked three ways should say so — one reason at a time turns
+    // remediation into a guessing game.
+    expect(codeReasons({ placeholder: true, unparsed: true, hasCode: false })).toEqual(
+      ["missing_sales_code", "code_placeholder", "code_unparsed"],
+    );
+  });
+});
+
 describe("the manifest is the approval boundary", () => {
   const approved = {
     batch: "t", approvedOn: "t", currency: "SAR",
