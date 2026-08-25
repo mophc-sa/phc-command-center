@@ -28,7 +28,10 @@ import { Link } from "@tanstack/react-router";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -61,6 +64,16 @@ export const Route = createFileRoute("/_authenticated/opportunities/")({
 // The filter offers the real PHC pipeline, not the generic CRM buckets. It used
 // to list discovery/qualification/preparation/... — stages a salesperson never
 // sees anywhere else in the app, and which no longer matched what the rows show.
+
+// The stage groups a drilldown can arrive with, in the order they read.
+const STAGE_GROUP_FILTERS = ["open", "late_stage", "closed"] as const;
+
+/** One label for a stage filter, whether it names a group or a single stage. */
+function stageFilterLabel(stage: string, t: (k: string) => string): string {
+  return (STAGE_GROUP_FILTERS as readonly string[]).includes(stage)
+    ? t(`filter_stage_${stage}`)
+    : t(canonicalStageLabelKey(stage as (typeof CANONICAL_STAGES)[number]));
+}
 
 function OppList() {
   const { t, lang } = useI18n();
@@ -179,13 +192,37 @@ function OppList() {
             className="h-9 w-full rounded-md bg-transparent pe-3 ps-8 text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
+        {/* The groups belong here, not only the individual stages. A KPI is
+            usually defined over a SET of stages — "open pipeline", "late
+            stage", "closed" — and that is what its drilldown puts in the URL.
+            With only `all` + CANONICAL_STAGES as options, arriving from one of
+            those numbers left this control rendering BLANK, because Radix has
+            no item matching the value. Four of the eight KPI drilldowns do
+            exactly that. */}
         <Select value={stage} onValueChange={setStage}>
           <SelectTrigger className="h-9 w-full sm:w-[180px] text-[12px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("filter_all_stages")}</SelectItem>
-            {CANONICAL_STAGES.map((s) => (
-              <SelectItem key={s} value={s}>{t(canonicalStageLabelKey(s))}</SelectItem>
-            ))}
+            <SelectSeparator />
+            {/* Radix requires SelectLabel to sit inside a SelectGroup — outside
+                one it throws and takes the whole page to the error boundary. */}
+            <SelectGroup>
+              <SelectLabel className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                {t("filter_group_heading" as never)}
+              </SelectLabel>
+              {STAGE_GROUP_FILTERS.map((g) => (
+                <SelectItem key={g} value={g}>{t(`filter_stage_${g}` as never)}</SelectItem>
+              ))}
+            </SelectGroup>
+            <SelectSeparator />
+            <SelectGroup>
+              <SelectLabel className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                {t("filter_stage_heading" as never)}
+              </SelectLabel>
+              {CANONICAL_STAGES.map((s) => (
+                <SelectItem key={s} value={s}>{t(canonicalStageLabelKey(s))}</SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
         <Select value={tier} onValueChange={setTier}>
@@ -222,14 +259,22 @@ function OppList() {
       {hasActiveFilters(routeSearch) && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-surface/40 px-3 py-2">
           <span className="text-[11px] font-medium text-muted-foreground">
-            {lang === "ar" ? "مُصفّى حسب" : "Filtered by"}
+            {t("filter_chip_filtered_by" as never)}
           </span>
-          {describeFilters(routeSearch).map((label) => (
+          {describeFilters(routeSearch).map((chip) => (
             <span
-              key={label}
+              key={chip.kind}
               className="rounded-full border border-border/70 bg-background/50 px-2 py-0.5 text-[11px] text-foreground"
             >
-              {label}
+              {chip.kind === "stage"
+                ? `${t("filter_chip_stage" as never)}: ${stageFilterLabel(chip.stage, t as (k: string) => string)}`
+                : chip.kind === "tier"
+                  ? `${t("filter_chip_tier" as never)} ${chip.tier}`
+                  : chip.kind === "owner"
+                    ? t("filter_chip_owner" as never)
+                    : chip.kind === "period"
+                      ? `${chip.from} → ${chip.to}`
+                      : `${t("filter_chip_search" as never)}: “${chip.q}”`}
             </span>
           ))}
           <button

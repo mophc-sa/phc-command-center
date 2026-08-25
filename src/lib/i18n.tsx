@@ -1155,6 +1155,20 @@ export const strings = {
   // Opportunity list filters
   filter_search: { en: "Search project, client, contractor…", ar: "ابحث عن مشروع، عميل، مقاول…" },
   filter_all_stages: { en: "All stages", ar: "كل المراحل" },
+  // Stage GROUPS. A KPI drilldown filters by a set of stages ("open pipeline"),
+  // not a single one, so these belong in the same dropdown as the stages
+  // themselves — otherwise arriving from a number leaves the control blank.
+  filter_stage_open: { en: "Open pipeline", ar: "خط الأنابيب المفتوح" },
+  filter_stage_closed: { en: "Closed (won or lost)", ar: "مغلقة (ربح أو خسارة)" },
+  filter_stage_late_stage: { en: "Late stage", ar: "المراحل المتأخرة" },
+  filter_group_heading: { en: "Groups", ar: "مجموعات" },
+  filter_stage_heading: { en: "Stages", ar: "المراحل" },
+  // Active-filter chips.
+  filter_chip_stage: { en: "Stage", ar: "المرحلة" },
+  filter_chip_tier: { en: "Tier", ar: "الفئة" },
+  filter_chip_owner: { en: "Owner: selected", ar: "المالك: محدَّد" },
+  filter_chip_search: { en: "Search", ar: "بحث" },
+  filter_chip_filtered_by: { en: "Filtered by", ar: "مُصفّى حسب" },
   filter_all_tiers: { en: "All tiers", ar: "كل التصنيفات" },
   filter_no_results: {
     en: "No opportunities match the current filters.",

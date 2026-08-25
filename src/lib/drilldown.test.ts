@@ -6,6 +6,7 @@ import {
   describeFilters,
   hasActiveFilters,
   isStageGroup,
+  STAGE_GROUPS,
   matchesOpportunitySearch,
   matchesStageFilter,
   parseOpportunitySearch,
@@ -190,9 +191,14 @@ describe("KPI drilldown lands on exactly the records that made the number", () =
 describe("filter description", () => {
   it("summarises what is active", () => {
     const d = describeFilters({ ...DEFAULT_SEARCH, stage: "late_stage", owner: "u1", from: "2026-08-01", to: "2026-09-01" });
-    expect(d.join(" | ")).toContain("Stage: late stage");
-    expect(d.join(" | ")).toContain("Owner: selected");
-    expect(d.join(" | ")).toContain("2026-08-01 → 2026-09-01");
+    // Parts, not English prose — the component translates them. Returning
+    // ready-made strings put untranslated English into an Arabic-first UI the
+    // moment these started being rendered.
+    expect(d).toEqual([
+      { kind: "stage", stage: "late_stage" },
+      { kind: "owner" },
+      { kind: "period", from: "2026-08-01", to: "2026-09-01" },
+    ]);
   });
 
   it("knows when nothing is filtered", () => {
@@ -275,5 +281,42 @@ describe("clearing filters escapes a drilldown completely", () => {
 
   it("an owner-only drilldown still counts as filtered", () => {
     expect(hasActiveFilters({ ...DEFAULT_SEARCH, owner: "u1" })).toBe(true);
+  });
+});
+
+// =============================================================================
+// Found by QA against the running app on 2026-08-25.
+//
+// The list's stage <Select> offered `all` plus CANONICAL_STAGES. A KPI is
+// usually defined over a SET of stages, and its drilldown puts that set's name
+// in the URL — so arriving from one of those numbers gave the control a value
+// matching no option, and Radix rendered it BLANK. Four of the eight KPI
+// drilldowns emit a group.
+// =============================================================================
+describe("every stage a drilldown can emit is offered by the filter", () => {
+  // Mirrors STAGE_GROUP_FILTERS in opportunities.index.tsx. Kept as a literal
+  // so that dropping one from the dropdown fails here rather than silently
+  // reintroducing the blank control.
+  const OFFERED_GROUPS = ["open", "late_stage", "closed"];
+
+  it("offers every group in the shared vocabulary", () => {
+    const groups = Object.keys(STAGE_GROUPS).filter((g) => g !== "all");
+    expect(groups.sort()).toEqual([...OFFERED_GROUPS].sort());
+  });
+
+  it("every offered group is a real filter, not a dead option", () => {
+    for (const g of OFFERED_GROUPS) {
+      expect(isStageGroup(g)).toBe(true);
+    }
+  });
+
+  it("a group filter selects rows, so the option is not cosmetic", () => {
+    const rows = [
+      { sales_stage: "jih" },
+      { sales_stage: "won" },
+      { sales_stage: "lost" },
+    ];
+    expect(rows.filter((r) => matchesStageFilter(r, "open")).length).toBe(1);
+    expect(rows.filter((r) => matchesStageFilter(r, "closed")).length).toBe(2);
   });
 });
