@@ -1,0 +1,30 @@
+{
+  "batch": "2026-activation-batch-2",
+  "approvedOn": null,
+  "note": "CANDIDATE, NOT YET APPROVED — approvedOn is null on purpose and must be set by sales leadership before this is used. The 33 records of 2026 outside batch 1 were read from production on 2026-08-25 and filtered by the five conditions promote_historical_row() itself enforces: a mapped company, a real user as owner, a project name, a decided canonical status, and a present amount. 14 pass all five; 19 do not and are listed in the companion report rather than silently dropped. Computed from historical_sales_search, NOT verified by the server preflight, which cannot be reached from a local build (sales-os-api pins CORS to agent.phc-sa.com). Run Check batch from production before activating: the UI refuses a batch whose eligible set is not exactly this one, so a stale manifest stops rather than promoting a different set.",
+  "count": 14,
+  "totalValueExclVat": 26158975.0,
+  "currency": "SAR",
+  "statusBreakdown": {
+    "lost": 7,
+    "submitted": 5,
+    "won": 1,
+    "draft": 1
+  },
+  "historicalRowIds": [
+    "06878bf4-d899-40ee-b14e-9c64228cc1df",
+    "28e4813c-fc73-4886-9be8-0ed17a69d462",
+    "2915c572-c8ba-45eb-9b5c-d9e73256e155",
+    "36f6cf24-a3da-47b1-a422-14c91ad06221",
+    "5940bddb-4eab-44ed-aae0-117a806ed42e",
+    "62a00001-e5be-47ce-86cc-4f637abe0845",
+    "79385d61-960a-4c50-9aa5-30dc2f289f9f",
+    "7aad6038-9369-4f63-8828-3016c82d24f4",
+    "861a246d-d131-4ddf-b76d-ec374621c5a0",
+    "a3873505-0c7e-4eba-b7b2-1dc288c559f4",
+    "b5ea705f-1c4a-49df-8d2b-853bfbd690c0",
+    "d2c9d15b-b7c8-4e07-95c2-c8bdbeace817",
+    "efcd57fd-4f0c-4774-b97c-63759dc2e405",
+    "f3ad0c15-89fd-4c18-a47b-d7433507e17f"
+  ]
+}
