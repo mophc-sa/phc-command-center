@@ -1,11 +1,18 @@
 import { useState, useRef, useMemo } from "react";
 import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
+  useTable,
+  tableFeatures,
+  rowSortingFeature,
+  rowSelectionFeature,
+  globalFilteringFeature,
+  columnFilteringFeature,
+  columnSizingFeature,
+  columnVisibilityFeature,
+  createSortedRowModel,
+  createFilteredRowModel,
   flexRender,
   type ColumnDef,
+  type RowData,
   type SortingState,
   type RowSelectionState,
 } from "@tanstack/react-table";
@@ -14,11 +21,38 @@ import { Input } from "@/components/ui/input";
 import { ChevronUp, ChevronDown, ChevronsUpDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// v9 makes features opt-in and stitches them in statically, so the row models
+// are composed once here rather than passed per-hook-call as v8's
+// get*RowModel() options. Declared at module scope, as the helper's docs
+// require — rebuilding it per render would rebuild the table.
+const gridFeatures = tableFeatures({
+  rowSortingFeature,
+  rowSelectionFeature,
+  globalFilteringFeature,
+  columnFilteringFeature,
+  // Free in v8. In v9 nothing is implicit: header.getSize() needs column
+  // sizing and row.getVisibleCells() needs column visibility, and the table
+  // types simply do not carry those methods until the features are declared.
+  columnSizingFeature,
+  columnVisibilityFeature,
+  sortedRowModel: createSortedRowModel(),
+  filteredRowModel: createFilteredRowModel(),
+});
+
+type GridFeatures = typeof gridFeatures;
+
+/**
+ * v9 threads the enabled feature set through every table type, so a column is
+ * `ColumnDef<TFeatures, TData, TValue>` rather than v8's `ColumnDef<TData,
+ * TValue>`. Callers should not have to name this grid's feature set, so it is
+ * bound here and `GridColumnDef` is what they use.
+ */
+export type GridColumnDef<TData extends RowData> = ColumnDef<GridFeatures, TData, unknown>;
 export type { ColumnDef };
 
-interface EntityDataGridProps<TData> {
+interface EntityDataGridProps<TData extends RowData> {
   data: TData[];
-  columns: ColumnDef<TData, unknown>[];
+  columns: GridColumnDef<TData>[];
   /** Row count estimate used for virtual height. Defaults to data.length. */
   estimatedRowHeight?: number;
   /** Maximum visible height before virtual scroll kicks in (px). Default 520. */
@@ -47,7 +81,7 @@ const DENSITY_PADDING: Record<Density, string> = {
   comfortable: "px-3 py-3",
 };
 
-export function EntityDataGrid<TData>({
+export function EntityDataGrid<TData extends RowData>({
   data,
   columns: columnDefs,
   estimatedRowHeight,
@@ -66,7 +100,7 @@ export function EntityDataGrid<TData>({
 
   const rowHeight = estimatedRowHeight ?? DENSITY_ROW_HEIGHT[density];
 
-  const selectionColumn: ColumnDef<TData, unknown> = useMemo(
+  const selectionColumn: GridColumnDef<TData> = useMemo(
     () => ({
       id: "_select",
       header: ({ table }) => (
@@ -97,7 +131,8 @@ export function EntityDataGrid<TData>({
     [selectable, selectionColumn, columnDefs],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features: gridFeatures,
     data,
     columns,
     state: { sorting, globalFilter: filter, rowSelection },
@@ -113,9 +148,6 @@ export function EntityDataGrid<TData>({
         return next;
       });
     },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
   });
 
   const rows = table.getRowModel().rows;
