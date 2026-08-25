@@ -1,4 +1,7 @@
-import { GitBranch, GitCommit, Github, CheckCircle2, AlertCircle } from "lucide-react";
+// lucide v1 dropped every brand icon, `Github` included, so the badge uses a
+// generic repository mark. GitBranch and GitCommit are already spoken for by
+// the two rows below, and the caption beside this badge names GitHub anyway.
+import { GitBranch, GitCommit, GitGraph, CheckCircle2, AlertCircle } from "lucide-react";
 import { StatusPill } from "./StatusPill";
 import { useI18n } from "@/lib/i18n";
 
@@ -16,7 +19,7 @@ export function GitSyncStatus() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="grid h-9 w-9 place-items-center rounded-md border border-border bg-background">
-            <Github className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <GitGraph className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </div>
           <div>
             <div className="text-sm font-semibold text-foreground">{t("git_sync_title")}</div>

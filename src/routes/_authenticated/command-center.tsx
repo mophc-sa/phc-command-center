@@ -423,7 +423,13 @@ function CommandCenter() {
                   />
                   <Tooltip
                     contentStyle={{ background: CHART_COLORS.surface, border: `1px solid ${CHART_COLORS.border}`, borderRadius: 8, fontSize: 12, color: CHART_COLORS.primary }}
-                    formatter={(v: number, name) => name === "value" ? formatCurrency(v, lang) : formatNumber(v, lang)}
+                    // v3 types the value as ValueType (number | string | array),
+                    // so the old `v: number` annotation no longer matches. The bars
+                    // are numeric; coerce rather than assert.
+                    formatter={(v, name) => {
+                      const n = typeof v === "number" ? v : Number(v);
+                      return name === "value" ? formatCurrency(n, lang) : formatNumber(n, lang);
+                    }}
                     cursor={{ fill: CHART_COLORS.muted }}
                   />
                   <Bar dataKey="value" fill={CHART_COLORS.primary} radius={[4, 4, 0, 0]} maxBarSize={44} />

@@ -3,6 +3,9 @@ import * as RechartsPrimitive from "recharts";
 
 import { cn } from "@/lib/utils";
 
+// recharts does not re-export NameType; it is the series name union.
+type TooltipName = number | string;
+
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
 
@@ -92,17 +95,26 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
-const ChartTooltipContent = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-    React.ComponentProps<"div"> & {
-      hideLabel?: boolean;
-      hideIndicator?: boolean;
-      indicator?: "line" | "dot" | "dashed";
-      nameKey?: string;
-      labelKey?: string;
-    }
->(
+// recharts v3 splits the Tooltip's own props from the props its *content*
+// component receives. `payload`, `label`, `active` and friends are now read
+// from chart context and handed to the content renderer, so they no longer
+// appear on `typeof Tooltip`'s props — hence TooltipContentProps. Partial,
+// because this component is also rendered directly in JSX by callers that
+// supply none of them.
+type ChartTooltipContentProps = Partial<
+  RechartsPrimitive.TooltipContentProps<RechartsPrimitive.TooltipValueType, TooltipName>
+> &
+  Omit<React.ComponentProps<"div">, "content" | "color"> & {
+    hideLabel?: boolean;
+    hideIndicator?: boolean;
+    indicator?: "line" | "dot" | "dashed";
+    nameKey?: string;
+    labelKey?: string;
+    /** Overrides the indicator colour. Not part of v3's content props. */
+    color?: string;
+  };
+
+const ChartTooltipContent = React.forwardRef<HTMLDivElement, ChartTooltipContentProps>(
   (
     {
       active,
@@ -174,7 +186,7 @@ const ChartTooltipContent = React.forwardRef<
 
               return (
                 <div
-                  key={item.dataKey}
+                  key={String(item.dataKey)}
                   className={cn(
                     "flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
                     indicator === "dot" && "items-center",
@@ -243,7 +255,10 @@ const ChartLegend = RechartsPrimitive.Legend;
 const ChartLegendContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> &
-    Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
+    // v3's LegendProps omits `payload` — it is passed to the content component
+    // rather than configured on the Legend — so it is typed here directly.
+    Pick<RechartsPrimitive.LegendProps, "verticalAlign"> & {
+      payload?: ReadonlyArray<RechartsPrimitive.LegendPayload>;
       hideIcon?: boolean;
       nameKey?: string;
     }
