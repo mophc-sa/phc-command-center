@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { installGlobalErrorReporting, reportError } from "../lib/error-reporting";
+import { isStaleChunkError, shouldAutoReload, RELOAD_MARKER_KEY } from "@/lib/chunk-reload";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { AuthProvider } from "@/hooks/useSupabaseAuth";
 import { Toaster } from "@/components/ui/sonner";
@@ -40,32 +41,78 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+
+  // Every route is a hash-named lazy chunk, so a tab left open across a deploy
+  // asks for a filename that no longer exists. That is not a server fault and
+  // retrying cannot fix it: the dead URL is baked into the JS already running,
+  // so router.invalidate() + reset() re-requests the same 404 forever. Only a
+  // reload fetches the new index.html and the new hashes.
+  const stale = isStaleChunkError(error);
+
   useEffect(() => {
+    if (!stale || typeof window === "undefined") return;
+    const marker = window.sessionStorage.getItem(RELOAD_MARKER_KEY);
+    if (!shouldAutoReload(Date.now(), marker)) return;
+    window.sessionStorage.setItem(RELOAD_MARKER_KEY, String(Date.now()));
+    window.location.reload();
+  }, [stale]);
+
+  useEffect(() => {
+    // A stale chunk is a deploy, not an incident. Reporting it would fill
+    // client_errors with one row per open tab per release.
+    if (stale) return;
     reportError(error, { category: "runtime", extra: { boundary: "tanstack_root_error_component" } });
-  }, [error]);
+  }, [error, stale]);
+
+  // The boundary cannot rely on the i18n provider: it renders when the tree
+  // below has already failed. localStorage is the same source the provider
+  // reads, so the message stays in the user's language either way.
+  const ar =
+    typeof window !== "undefined" && window.localStorage.getItem("phc-lang") === "ar";
+
+  const copy = stale
+    ? {
+        eyebrow: ar ? "تحديث" : "Update",
+        title: ar ? "صدر إصدار جديد" : "A new version was released",
+        body: ar
+          ? "هذه الصفحة كانت مفتوحة قبل التحديث. أعِد التحميل للمتابعة من حيث كنت."
+          : "This tab was open before the update. Reload to carry on where you were.",
+        action: ar ? "إعادة التحميل" : "Reload",
+      }
+    : {
+        eyebrow: ar ? "تنبيه" : "Attention",
+        title: ar ? "تعذّر تحميل الصفحة" : "This page didn't load",
+        body: ar
+          ? "حدث خطأ من جانبنا. جرّب مرة أخرى أو عُد إلى الرئيسية."
+          : "Something went wrong on our end. You can try again or head back home.",
+        action: ar ? "حاول مرة أخرى" : "Try again",
+      };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
       <div className="max-w-md text-center">
-        <div className="text-xs uppercase tracking-[0.2em] text-amber">Attention</div>
+        <div className="text-xs uppercase tracking-[0.2em] text-amber">{copy.eyebrow}</div>
         <h1 className="mt-4 text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+          {copy.title}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try again or head back home.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{copy.body}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => { router.invalidate(); reset(); }}
+            onClick={() => {
+              // Retrying a dead chunk URL just fails again — reload instead.
+              if (stale) { window.location.reload(); return; }
+              router.invalidate();
+              reset();
+            }}
             className="inline-flex items-center justify-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:opacity-90"
           >
-            Try again
+            {copy.action}
           </button>
           <a
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           >
-            Go home
+            {ar ? "الرئيسية" : "Go home"}
           </a>
         </div>
       </div>
