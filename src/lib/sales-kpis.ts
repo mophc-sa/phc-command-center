@@ -402,7 +402,19 @@ export function resolveProbability(o: OppRow): ResolvedProbability {
 // ---- KPI builders -----------------------------------------------------------
 
 function kpi(base: Omit<Kpi, "recordCount">): Kpi {
-  return { ...base, recordCount: base.recordIds.length };
+  const recordCount = base.recordIds.length;
+  // A SUM over zero rows is not zero money — there is nothing to add up.
+  //
+  // Found on screen, 2026-08-26: "WON (OFFICIAL) SAR 0 · 0 records" sat a
+  // hundred pixels from "WON · No data yet · 0 records". Same fact, two
+  // renderings, because bucketKpi set its state explicitly and the older
+  // builders let the derivation see a 0 and call it real. §14 says these five
+  // states are standard; two spellings of one state is the defect it names.
+  //
+  // Counts are deliberately untouched: zero open deals IS a count of zero.
+  const state =
+    base.state ?? (base.kind === "currency" && recordCount === 0 ? "no_data" : undefined);
+  return { ...base, recordCount, ...(state ? { state } : {}) };
 }
 
 const sumValues = (rows: OppRow[]) =>

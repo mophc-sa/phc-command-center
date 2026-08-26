@@ -177,6 +177,22 @@ export function stageBaselines(
     const sorted = [...observed].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     const median = sorted.length % 2 === 0 ? Math.round((sorted[mid - 1] + sorted[mid]) / 2) : sorted[mid];
+
+    // A zero-day median is not a measurement, it is an import artifact.
+    //
+    // Seen on screen 2026-08-26: "28 days in rfq_received against a 0-day
+    // baseline". Enough opportunities had been transitioned into and out of
+    // that stage on the SAME DAY — a bulk backfill, not lived history — that
+    // the median came out 0. Every deal older than zero days then cleared the
+    // "too long" bar, which is how a benchmark nobody measured came back in a
+    // new costume after we deleted the 21-day one.
+    //
+    // A stage that genuinely takes no time is not a stage anyone waits in, so
+    // there is nothing for a deal to be late against. Unavailable.
+    if (median < 1) {
+      out.set(stage, { stage, days: null, observations: observed.length, source: "unavailable" });
+      continue;
+    }
     out.set(stage, { stage, days: median, observations: observed.length, source: "median" });
   }
   return out;

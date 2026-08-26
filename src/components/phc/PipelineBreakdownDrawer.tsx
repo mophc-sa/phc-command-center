@@ -162,8 +162,11 @@ export function PipelineBreakdownDrawer({
                 <span className="text-[12px] font-medium text-foreground">{g.key}</span>
                 <span className="num text-[12px] text-foreground" data-tabular="true">
                   {formatCurrency(g.value, lang)}
+                  {/* The middot is load-bearing. Grouped by owner the header
+                      rendered "SAR 34,643,201 19" — a number butted against a
+                      number with only a 0.5rem gap, which reads as one figure. */}
                   <span className="ms-2 text-[11px] text-muted-foreground">
-                    {formatNumber(g.items.length, lang)}
+                    · {formatNumber(g.items.length, lang)}
                     {g.unpriced > 0
                       ? lang === "ar"
                         ? ` · ${g.unpriced} بلا قيمة`

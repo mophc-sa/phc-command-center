@@ -367,6 +367,37 @@ describe("stage aging never manufactures a benchmark", () => {
     expect(b.days).toBe(10);
   });
 
+  it("a zero-day median is an import artifact, not a baseline", () => {
+    // Rendered 2026-08-26: "28 days in rfq_received against a 0-day baseline".
+    // Enough deals had been moved in and out of the stage on one day — a bulk
+    // backfill — that the median was 0, so every deal older than zero days
+    // cleared the "too long" bar. The 21-day fallback we deleted, rebuilt by
+    // the data.
+    const rows: StageTransitionRow[] = [];
+    for (let i = 0; i < 6; i++) {
+      rows.push(spell(`r${i}`, "jih", "2026-01-01T00:00:00Z"));
+      rows.push(spell(`r${i}`, "won", "2026-01-01T06:00:00Z"));
+    }
+    const b = stageBaselines(rows).get("jih")!;
+    expect(b.observations).toBe(6);
+    expect(b.source).toBe("unavailable");
+    expect(b.days).toBeNull();
+  });
+
+  it("and a book with only same-day history cannot stall anything on age", () => {
+    const rows: StageTransitionRow[] = [];
+    for (let i = 0; i < 6; i++) {
+      rows.push(spell(`r${i}`, "jih", "2026-01-01T00:00:00Z"));
+      rows.push(spell(`r${i}`, "won", "2026-01-01T06:00:00Z"));
+    }
+    const items = buildAttention({
+      opportunities: [opp({ id: "a", last_activity_at: "2026-06-01", created_at: "2026-06-01" })],
+      transitions: rows,
+      today: TODAY,
+    });
+    expect(items[0].stalled).toBe(false);
+  });
+
   it("counts only completed spells — a deal still sitting there is not evidence", () => {
     // Otherwise the baseline drifts toward whatever is currently stuck, which
     // is exactly backwards.

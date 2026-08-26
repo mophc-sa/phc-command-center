@@ -388,7 +388,11 @@ function CommandCenter() {
       {
         key: "incomplete",
         label: lang === "ar" ? "بيانات تجارية ناقصة" : "Incomplete commercial data",
-        count: countIssue("unscored") + countIssue("no_next_action"),
+        count: new Set(
+          health
+            .filter((h) => h.issue === "unscored" || h.issue === "no_next_action")
+            .map((h) => h.opportunityId),
+        ).size,
         detail: lang === "ar" ? "بلا احتمالية أو إجراء تالٍ" : "No probability or no next action",
       },
       {
@@ -456,9 +460,10 @@ function CommandCenter() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {/* The one number the whole review started from: "من أين أتت الـ63.4M؟"
               A headline with no way to see its rows is a dead number. */}
-          <button
-            type="button"
-            onClick={() =>
+          <KpiTile
+            kpi={execKpis.openPipeline}
+            label={t("mgmt_open_pipeline" as never)}
+            onOpen={() =>
               setBreakdown({
                 title: t("mgmt_open_pipeline" as never),
                 rows: (data?.opportunities ?? []).filter((o) =>
@@ -466,10 +471,7 @@ function CommandCenter() {
                 ) as unknown as OppRow[],
               })
             }
-            className="text-start"
-          >
-            <KpiTile kpi={execKpis.openPipeline} label={t("mgmt_open_pipeline" as never)} />
-          </button>
+          />
           <KpiTile kpi={forecast.forecast}         label={t("kpi_forecast" as never)} />
           <KpiTile kpi={forecast.target}           label={t("kpi_target_sales" as never)} />
           <KpiTile kpi={forecast.won}              label={lang === "ar" ? "المحقق (Won فقط)" : "Won (official)"} />
@@ -484,7 +486,19 @@ function CommandCenter() {
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {MANAGEMENT_BUCKETS.map((b) => (
-            <KpiTile key={b.key} kpi={buckets[b.key]} label={t(`mgmt_${b.key}` as never)} />
+            <KpiTile
+              key={b.key}
+              kpi={buckets[b.key]}
+              label={t(`mgmt_${b.key}` as never)}
+              // Rendered 2026-08-26: this row's "Open pipeline" and the strip
+              // above it showed the SAME label and the SAME SAR 63,407,478 —
+              // but they are different sets. The strip is every open stage
+              // (OPEN_STAGES, on_hold included); this rung is rfq_received +
+              // jih only. They agree today because nothing has ever advanced
+              // past jih, and would silently disagree the moment one deal did.
+              // Naming the stages is what makes the two readable side by side.
+              hint={(b.stages as readonly string[]).map((st) => t(canonicalStageLabelKey(st as never))).join(" · ")}
+            />
           ))}
         </div>
 
@@ -516,7 +530,13 @@ function CommandCenter() {
                 {formatNumber(roll.count, lang)}
               </div>
               <div className="mt-1 text-[11px] text-muted-foreground">
-                {roll.value > 0 ? formatCurrency(roll.value, lang) : lang === "ar" ? "بلا قيمة مسجَّلة" : "No value recorded"}
+                {roll.count === 0
+                  ? "—"
+                  : roll.value > 0
+                    ? formatCurrency(roll.value, lang)
+                    : lang === "ar"
+                      ? "بلا قيمة مسجَّلة"
+                      : "No value recorded"}
               </div>
             </div>
           ))}
@@ -590,7 +610,10 @@ function CommandCenter() {
       </section>
 
       {/* Charts row 1 */}
-      <section className="mt-6 grid gap-3 lg:grid-cols-2">
+      {/* One chart now, not two: the "Team activity (30 days)" line chart that
+          sat beside this was the widget §15 replaced, and it was still
+          rendering below the Sales Execution table it had been superseded by. */}
+      <section className="mt-6 grid gap-3">
         <ChartFrame
           title={lang === "ar" ? "قيمة خط الأنابيب حسب المرحلة" : "Pipeline value by stage"}
           subtitle={
@@ -642,29 +665,6 @@ function CommandCenter() {
           )}
         </ChartFrame>
 
-        <ChartFrame
-          title={lang === "ar" ? "نشاط الفريق (30 يوم)" : "Team activity (30 days)"}
-          subtitle={lang === "ar" ? "الأنشطة المسجلة يومياً" : "Logged activities per day"}
-        >
-          {activities.length === 0 ? (
-            <EmptyChart label={lang === "ar" ? "لا يوجد نشاط بعد" : "No activity logged yet"} />
-          ) : (
-            <div className={CHART_H}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={activityTrend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                  <CartesianGrid stroke={CHART_COLORS.grid} strokeDasharray="2 4" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: CHART_COLORS.primaryDim, fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
-                  <YAxis tick={{ fill: CHART_COLORS.primaryDim, fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ background: CHART_COLORS.surface, border: `1px solid ${CHART_COLORS.border}`, borderRadius: 8, fontSize: 12, color: CHART_COLORS.primary }}
-                    cursor={{ stroke: CHART_COLORS.grid }}
-                  />
-                  <Line type="monotone" dataKey="count" stroke={CHART_COLORS.primary} strokeWidth={1.75} dot={false} activeDot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </ChartFrame>
       </section>
 
       {/* Charts row 2 */}
@@ -811,8 +811,14 @@ function CommandCenter() {
                   {execution.map((r) => (
                     <tr key={r.ownerId} className="border-b border-border/50">
                       <td className="px-4 py-2.5 text-foreground">{teamName(r.ownerId)}</td>
-                      <td className="num px-3 py-2.5 text-end text-foreground" data-tabular="true">
-                        {formatCurrency(r.openPipeline, lang)}
+                      <td className="num px-3 py-2.5 text-end" data-tabular="true">
+                        {r.openPipeline === null ? (
+                          <span className="text-[11px] text-muted-foreground">
+                            {lang === "ar" ? `بلا قيمة (${r.unpricedCount})` : `No value (${r.unpricedCount})`}
+                          </span>
+                        ) : (
+                          <span className="text-foreground">{formatCurrency(r.openPipeline, lang)}</span>
+                        )}
                       </td>
                       <td className="num px-3 py-2.5 text-end" data-tabular="true">
                         {/* Null, not zero: a book nobody has scored is not a
@@ -828,9 +834,14 @@ function CommandCenter() {
                       <td className="num px-3 py-2.5 text-end text-foreground" data-tabular="true">{formatNumber(r.followUpsDue, lang)}</td>
                       <td className="num px-3 py-2.5 text-end text-foreground" data-tabular="true">{formatNumber(r.meetings, lang)}</td>
                       <td className="num px-3 py-2.5 text-end" data-tabular="true">
-                        <span className={r.stalledValue > 0 ? "text-amber-light" : "text-muted-foreground"}>
-                          {r.stalledValue > 0 ? formatCurrency(r.stalledValue, lang) : "—"}
-                        </span>
+                        {r.stalledCount === 0 ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <span className="text-amber-light">
+                            {formatNumber(r.stalledCount, lang)}
+                            {r.stalledValue > 0 ? ` · ${formatCurrency(r.stalledValue, lang)}` : ""}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}

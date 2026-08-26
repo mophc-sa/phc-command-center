@@ -41,8 +41,11 @@ export type QuotationExecRow = {
 
 export type SalesExecutionRow = {
   ownerId: string;
-  /** Open pipeline value they are carrying. */
-  openPipeline: number;
+  /** Open pipeline value they are carrying, or null when none of their open
+   *  deals carry a value at all — "SAR 0" would say the book is worthless. */
+  openPipeline: number | null;
+  /** Open deals with no value recorded, so the null above is explainable. */
+  unpricedCount: number;
   /**
    * Weighted pipeline, or null when none of their open deals carry a
    * probability. Zero would say the pipeline is worthless; null says we cannot
@@ -58,8 +61,12 @@ export type SalesExecutionRow = {
   /** Value of quotations that actually went out in the period. */
   submittedValue: number;
   wonValue: number;
-  /** Value sitting on deals the attention engine deterministically calls stalled. */
+  /** Value sitting on deals the attention engine calls stalled, and HOW MANY.
+   *  The count is not decoration: on 2026-08-26 four deals were stalled and all
+   *  four were unpriced, so a value-only column read "—" for every rep while
+   *  the roll-up above it said 4. The table flatly contradicted the headline. */
   stalledValue: number;
+  stalledCount: number;
   openCount: number;
 };
 
@@ -102,10 +109,20 @@ export function salesExecution(input: SalesExecutionInput): SalesExecutionRow[] 
       const open = mine.filter(isOpen);
       const scored = open.filter((o) => resolveProbability(o).value !== null);
 
+      // Same borrowed-zero guard the company total carries. One rep with a
+      // single deal scored at 0% among 20 unscored ones summed to 0 and
+      // rendered "SAR 0" — a confident nothing resting on a minority of her
+      // book, which is the exact defect Package A removed from the headline.
+      const weightedTotal = scored.reduce(
+        (s, o) => s + (opportunityValue(o) ?? 0) * (resolveProbability(o).value ?? 0),
+        0,
+      );
+      const unscoredCount = open.length - scored.length;
       const weighted =
-        scored.length === 0
-          ? null
-          : scored.reduce((s, o) => s + (opportunityValue(o) ?? 0) * (resolveProbability(o).value ?? 0), 0);
+        scored.length === 0 || (weightedTotal === 0 && unscoredCount > 0) ? null : weightedTotal;
+
+      const priced = open.filter((o) => opportunityValue(o) !== null);
+      const stalledHits = mine.filter((m) => stalledByOpp.has(m.id));
 
       const myFollowUps = (input.followUps ?? []).filter(
         (f) => (f.owner_id ?? oppOwner.get(f.opportunity_id)) === ownerId,
@@ -121,9 +138,10 @@ export function salesExecution(input: SalesExecutionInput): SalesExecutionRow[] 
 
       return {
         ownerId,
-        openPipeline: open.reduce((s, o) => s + (opportunityValue(o) ?? 0), 0),
+        openPipeline: open.length === 0 ? 0 : priced.length === 0 ? null : priced.reduce((s, o) => s + (opportunityValue(o) ?? 0), 0),
+        unpricedCount: open.length - priced.length,
         weightedPipeline: weighted,
-        unscoredCount: open.length - scored.length,
+        unscoredCount,
         followUpsDue: myFollowUps.filter(
           (f) => f.status !== "completed" && f.status !== "cancelled" && f.due_date <= today,
         ).length,
@@ -138,11 +156,12 @@ export function salesExecution(input: SalesExecutionInput): SalesExecutionRow[] 
           .filter((q) => q.issued_date && inPeriod(q.issued_date, since))
           .reduce((s, q) => s + Number(q.value ?? 0), 0),
         wonValue: mine.filter(isWon).reduce((s, o) => s + (opportunityValue(o) ?? 0), 0),
-        stalledValue: mine.reduce((s, o) => s + (stalledByOpp.get(o.id) ?? 0), 0),
+        stalledValue: stalledHits.reduce((s, m) => s + (stalledByOpp.get(m.id) ?? 0), 0),
+        stalledCount: stalledHits.length,
         openCount: open.length,
       };
     })
     // Largest book first. This is a management read, not a league table — the
     // order says who carries most, not who is best.
-    .sort((a, b) => b.openPipeline - a.openPipeline || a.ownerId.localeCompare(b.ownerId));
+    .sort((a, b) => (b.openPipeline ?? 0) - (a.openPipeline ?? 0) || a.ownerId.localeCompare(b.ownerId));
 }

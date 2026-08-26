@@ -15,6 +15,9 @@ import {
   metricStateOf,
   pipelineCoverage,
   weightedPipeline,
+  wonValue,
+  lostValue,
+  lateStageExposure,
   type OppRow,
 } from "@/lib/sales-kpis";
 import { CANONICAL_STAGES } from "@/lib/stage-canonical";
@@ -208,5 +211,34 @@ describe("metric state derivation", () => {
   it("null with no records is no_data; null with records is not_calculated", () => {
     expect(metricStateOf({ value: null, recordCount: 0, state: undefined })).toBe("no_data");
     expect(metricStateOf({ value: null, recordCount: 9, state: undefined })).toBe("not_calculated");
+  });
+});
+
+describe("one empty state, one spelling (found on screen 2026-08-26)", () => {
+  it("a currency sum over zero records is no_data, not a real zero", () => {
+    // Rendered: "WON (OFFICIAL) SAR 0 · 0 records" a hundred pixels from
+    // "WON · No data yet · 0 records". Same fact, two spellings, because one
+    // builder set state explicitly and the other let a 0 look real.
+    const won = wonValue([], CTX);
+    expect(metricStateOf(won)).toBe("no_data");
+    expect(metricStateOf(lostValue([], CTX))).toBe("no_data");
+    expect(metricStateOf(lateStageExposure([], CTX))).toBe("no_data");
+  });
+
+  it("the bucket and the headline now agree about an empty Won", () => {
+    expect(metricStateOf(wonValue([], CTX))).toBe(metricStateOf(bucketKpi([], CTX, "won")));
+  });
+
+  it("but a currency sum over REAL records stays a real number", () => {
+    const won = wonValue([row({ id: "w", sales_stage: "won", contract_value: 5_000_000 })], CTX);
+    expect(metricStateOf(won)).toBe("ok");
+    expect(won.value).toBe(5_000_000);
+  });
+
+  it("a count of zero over zero records is still a genuine zero", () => {
+    // Counts are untouched by the currency rule: "no open deals" is knowledge.
+    const k = bucketKpi([row({ id: "a", sales_stage: "jih" })], CTX, "contracted");
+    expect(k.kind).toBe("currency");
+    expect(k.value).toBe(0);
   });
 });

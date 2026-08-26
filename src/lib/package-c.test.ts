@@ -231,3 +231,49 @@ describe("sales execution measures outcomes, not keystrokes", () => {
     expect(again.map((r) => r.ownerId)).toEqual(rows.map((r) => r.ownerId));
   });
 });
+
+// ---- Corrections found by looking at the rendered screen, 2026-08-26 --------
+
+describe("defects the rendered Command Center exposed", () => {
+  it("a per-rep weighted zero resting on unscored deals is null, like the headline", () => {
+    // Rendered: "Marie Falome · SAR 0 · SAR 0". The company total had this
+    // guard; the per-rep column did not, so the same defect survived one level
+    // down where it is harder to notice.
+    const rows = salesExecution({
+      opportunities: [
+        o({ id: "a", owner_id: "u1", quotation_value: 900_000, score: 0 }),
+        o({ id: "b", owner_id: "u1", quotation_value: 5_000_000 }),
+      ],
+      today: TODAY,
+    });
+    expect(rows[0].weightedPipeline).toBeNull();
+  });
+
+  it("an unpriced open book reports no value rather than SAR 0", () => {
+    const rows = salesExecution({ opportunities: [o({ id: "a", owner_id: "u1" })], today: TODAY });
+    expect(rows[0].openPipeline).toBeNull();
+    expect(rows[0].unpricedCount).toBe(1);
+  });
+
+  it("a rep with no open deals at all is a real zero", () => {
+    const rows = salesExecution({
+      opportunities: [o({ id: "a", owner_id: "u1", sales_stage: "won", contract_value: 10 })],
+      today: TODAY,
+    });
+    expect(rows[0].openPipeline).toBe(0);
+  });
+
+  it("stalled carries a COUNT, so unpriced stalled work cannot vanish", () => {
+    // Rendered: roll-up said "STALLED 4" while every row of the table said "—",
+    // because all four stalled deals were unpriced and the column showed value
+    // only. The table contradicted the headline above it.
+    const attention = [{ opportunityId: "a", stalled: true, value: null }] as unknown as AttentionItem[];
+    const rows = salesExecution({
+      opportunities: [o({ id: "a", owner_id: "u1" })],
+      attention,
+      today: TODAY,
+    });
+    expect(rows[0].stalledCount).toBe(1);
+    expect(rows[0].stalledValue).toBe(0);
+  });
+});

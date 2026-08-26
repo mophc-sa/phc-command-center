@@ -45,7 +45,27 @@ export function renderValue(k: Kpi, lang: "en" | "ar"): string {
   return formatNumber(k.value, lang);
 }
 
-export function KpiTile({ kpi, label, hint }: { kpi: Kpi; label: string; hint?: string }) {
+export function KpiTile({
+  kpi,
+  label,
+  hint,
+  onOpen,
+}: {
+  kpi: Kpi;
+  label: string;
+  hint?: string;
+  /**
+   * Opens an in-page drill-down instead of navigating.
+   *
+   * It lives here rather than at the call site because a caller that wraps
+   * <KpiTile> in its own <button> produces <button><a></a></button> — invalid
+   * markup where the anchor swallows the click. That is exactly what shipped:
+   * on 2026-08-26 the SAR 63,407,478 tile did nothing when clicked, because
+   * the tile had already rendered a Link for its "add opportunity value" fix.
+   * One interactive element per tile, chosen here.
+   */
+  onOpen?: () => void;
+}) {
   const { t, lang, dir } = useI18n();
   const clickable = kpi.drilldown !== null && kpi.recordCount > 0;
 
@@ -146,6 +166,20 @@ export function KpiTile({ kpi, label, hint }: { kpi: Kpi; label: string; hint?: 
   // markup and the inner one never fires. When a metric cannot be computed the
   // fix takes the tile, because drilling into records that cannot answer the
   // question is not the action the reader needs.
+  // An explicit in-page handler wins: it is the more specific intent, and it
+  // keeps the reader on the dashboard rather than navigating away.
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`${shell} block w-full text-start hover:border-border-strong hover:bg-surface-2/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring`}
+      >
+        {body}
+      </button>
+    );
+  }
+
   const target = kpi.fix
     ? { to: kpi.fix.to, search: kpi.fix.search }
     : clickable
