@@ -44,7 +44,12 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { NeedsAttentionPanel } from "@/components/phc/NeedsAttentionPanel";
 import { buildAttention, dataQuality, summarize, type AttentionOpp } from "@/lib/attention";
-import { buildManagementBrief, withAiCommentary } from "@/lib/sales-ai";
+import {
+  buildManagementBrief,
+  commentaryFromReportInsights,
+  withAiCommentary,
+  type CommentaryState,
+} from "@/lib/sales-ai";
 import { AGGREGATE_ENTITY_ID, runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { ExecutiveBrief } from "@/components/phc/ExecutiveBrief";
 import { DataQualityPanel } from "@/components/phc/DataQualityPanel";
@@ -436,30 +441,33 @@ function CommandCenter() {
     },
   });
 
-  const brief = useMemo(() => {
+  // One mapping, from the authoritative schema's field names, in a pure
+  // function that a test can drive end to end. Reading `insights` /
+  // `recommendations` here — names SalesReportInsightsOutputSchema has never
+  // used — is what let a 200 render nothing at all.
+  //
+  // filterRecommendations (inside withAiCommentary) still drops anything
+  // proposing a forbidden action before it can reach the screen.
+  const { brief, commentaryState } = useMemo(() => {
     const c = commentary.data;
-    if (!c || !c.ok) return deterministicBrief;
-    const out = c.result as { insights?: unknown; recommendations?: unknown } | null;
-    const inferences = Array.isArray(out?.insights)
-      ? (out!.insights as unknown[]).filter((x): x is string => typeof x === "string")
-      : [];
-    // filterRecommendations drops anything proposing a forbidden action before
-    // it can reach the screen — the model cannot suggest its way past the gate.
-    const recommendations = Array.isArray(out?.recommendations)
-      ? (out!.recommendations as unknown[])
-          .filter((x): x is { id?: string; text?: string; proposedAction?: string } => typeof x === "object" && x !== null)
-          .map((r, i) => ({
-            id: String(r.id ?? i),
-            text: String(r.text ?? ""),
-            proposedAction: String(r.proposedAction ?? r.text ?? ""),
-          }))
-      : [];
-    return withAiCommentary(deterministicBrief, {
+    if (!c || !c.ok) {
+      return {
+        brief: deterministicBrief,
+        commentaryState: (commentary.isFetched ? "unavailable" : "ok") as CommentaryState,
+      };
+    }
+    const { inferences, recommendations } = commentaryFromReportInsights(c.result);
+    const merged = withAiCommentary(deterministicBrief, {
       agentKey: "sales_report_insights",
       inferences,
       recommendations,
     }).brief;
-  }, [deterministicBrief, commentary.data]);
+    // A valid response that yields no usable line is its own state. It is not
+    // a failure, and it must not pass for commentary that simply had nothing
+    // to say — that ambiguity is what hid this defect in production.
+    const rendered = merged.needsAttention.length - deterministicBrief.needsAttention.length;
+    return { brief: merged, commentaryState: (rendered > 0 ? "ok" : "empty") as CommentaryState };
+  }, [deterministicBrief, commentary.data, commentary.isFetched]);
 
   // §13 — data quality from the same engine Needs Attention uses, so the two
   // cannot disagree about what is missing.
@@ -615,10 +623,7 @@ function CommandCenter() {
       {/* §11 — the brief leads. It is the one thing a manager can read in
           fifteen seconds, and it stands entirely on counted records. */}
       {isLoading ? null : (
-        <ExecutiveBrief
-          brief={brief}
-          aiUnavailable={commentary.isFetched && !commentary.data}
-        />
+        <ExecutiveBrief brief={brief} commentaryState={commentaryState} />
       )}
 
       <section className="mb-6">

@@ -19,7 +19,13 @@
 import { AlertTriangle, Sparkles } from "lucide-react";
 import { formatCurrency, formatNumber, useI18n } from "@/lib/i18n";
 import type { MessageRef } from "@/lib/messages";
-import { isAiGenerated, PROVENANCE_LABEL, type BriefLine, type ManagementBrief } from "@/lib/sales-ai";
+import {
+  isAiGenerated,
+  PROVENANCE_LABEL,
+  type BriefLine,
+  type CommentaryState,
+  type ManagementBrief,
+} from "@/lib/sales-ai";
 
 function renderRef(ref: MessageRef, t: (k: string) => string, lang: "en" | "ar"): string {
   const MONEY_SLOTS = new Set(["value", "weighted", "open"]);
@@ -68,11 +74,12 @@ function Section({ heading, lines }: { heading: string; lines: BriefLine[] }) {
 
 export function ExecutiveBrief({
   brief,
-  aiUnavailable,
+  commentaryState = "ok",
 }: {
   brief: ManagementBrief;
   /** True when commentary was attempted and did not arrive. The facts stand. */
-  aiUnavailable?: boolean;
+  /** Three states, because "failed" and "returned nothing usable" differ. */
+  commentaryState?: CommentaryState;
 }) {
   const { t, lang } = useI18n();
   return (
@@ -91,10 +98,10 @@ export function ExecutiveBrief({
 
       {/* Stated, not hidden. A brief that silently drops its commentary looks
           the same as one that had nothing to add. */}
-      {aiUnavailable ? (
+      {commentaryState !== "ok" ? (
         <p className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
           <AlertTriangle className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-          {t("brf_ai_unavailable" as never)}
+          {t((commentaryState === "empty" ? "brf_ai_empty" : "brf_ai_unavailable") as never)}
         </p>
       ) : null}
     </section>
