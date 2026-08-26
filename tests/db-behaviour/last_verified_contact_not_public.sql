@@ -112,6 +112,28 @@ BEGIN
   ok := has_function_privilege('authenticated', 'public.run_sales_automations(text)', 'EXECUTE');
   RAISE NOTICE '% 6. run_sales_automations stays closed to authenticated too (expect f, got %)',
     CASE WHEN NOT ok THEN 'PASS' ELSE 'FAIL' END, ok;
+
+  -- The harness itself, under test. rls_tester must hold no DIRECT execute on
+  -- this function: its privilege has to arrive by inheritance from
+  -- `authenticated`, or a revoke from authenticated would leave the suite green
+  -- while production returns 42501. That is not hypothetical — it happened.
+  ok := has_function_privilege('rls_tester', 'public.last_verified_client_contact(uuid)', 'EXECUTE');
+  RAISE NOTICE '% 7. rls_tester can execute it — but only via authenticated (expect t, got %)',
+    CASE WHEN ok THEN 'PASS' ELSE 'FAIL' END, ok;
+
+  ok := EXISTS (SELECT 1 FROM pg_proc p,
+                  aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+                 WHERE p.oid = 'public.last_verified_client_contact(uuid)'::regprocedure
+                   AND a.grantee = 'rls_tester'::regrole AND a.privilege_type = 'EXECUTE');
+  RAISE NOTICE '% 8. …and holds NO direct grant of its own (expect f, got %)',
+    CASE WHEN NOT ok THEN 'PASS' ELSE 'FAIL' END, ok;
+
+  -- The one privilege rls_tester keeps that production authenticated lacks is
+  -- reading auth.users, so fixtures can resolve ids after SET ROLE. Bounded and
+  -- asserted, so it cannot silently grow into something else.
+  ok := has_table_privilege('authenticated', 'auth.users', 'SELECT');
+  RAISE NOTICE '% 9. real authenticated still cannot read auth.users (expect f, got %)',
+    CASE WHEN NOT ok THEN 'PASS' ELSE 'FAIL' END, ok;
 END $$;
 
 -- ===== what must keep working, under a real role =====
@@ -133,23 +155,23 @@ BEGIN
   -- their owner, so revoking the caller's EXECUTE must not have broken them.
   PERFORM set_config('test.uid', own::text, TRUE);
   SELECT count(*) INTO n FROM public.pipeline_by_stage;
-  RAISE NOTICE '% 7. the owner still reads pipeline_by_stage (expect >0, got %)',
+  RAISE NOTICE '% 10. the owner still reads pipeline_by_stage (expect >0, got %)',
     CASE WHEN n>0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- The load-bearing one: this row EXISTS ONLY because the view successfully
   -- called last_verified_client_contact() after the caller's EXECUTE was
   -- revoked. `>= 0` would have passed on a broken view; this cannot.
   SELECT count(*) INTO n FROM public.sla_breaches WHERE subject = 'stalled_deal' AND opportunity_id = o;
-  RAISE NOTICE '% 8. sla_breaches still reaches the function and reports the deal (expect 1, got %)',
+  RAISE NOTICE '% 11. sla_breaches still reaches the function and reports the deal (expect 1, got %)',
     CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
 
   PERFORM set_config('test.uid', mgr::text, TRUE);
   SELECT count(*) INTO n FROM public.pipeline_by_stage;
-  RAISE NOTICE '% 9. sales_manager still reads pipeline_by_stage (expect >0, got %)',
+  RAISE NOTICE '% 12. sales_manager still reads pipeline_by_stage (expect >0, got %)',
     CASE WHEN n>0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   SELECT count(*) INTO n FROM public.sla_breaches WHERE subject = 'stalled_deal' AND opportunity_id = o;
-  RAISE NOTICE '% 10. …and sees the stalled deal through the function path (expect 1, got %)',
+  RAISE NOTICE '% 13. …and sees the stalled deal through the function path (expect 1, got %)',
     CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- viewer sees NOTHING here, and that is the design, not a casualty of the
@@ -159,7 +181,7 @@ BEGIN
   -- for a manager and 0 for a viewer in the same database, same instant.
   PERFORM set_config('test.uid', vw::text, TRUE);
   SELECT count(*) INTO n FROM public.sla_breaches WHERE subject = 'stalled_deal' AND opportunity_id = o;
-  RAISE NOTICE '% 11. viewer is still outside analytics scope (expect 0, got %)',
+  RAISE NOTICE '% 14. viewer is still outside analytics scope (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- The unrelated salesperson is the actual disclosure case: they must not be
@@ -167,7 +189,7 @@ BEGIN
   -- direct route is closed, and the row route was always closed by RLS.
   PERFORM set_config('test.uid', other::text, TRUE);
   SELECT count(*) INTO n FROM public.opportunities WHERE id = o;
-  RAISE NOTICE '% 12. an unrelated salesperson cannot see the deal at all (expect 0, got %)',
+  RAISE NOTICE '% 15. an unrelated salesperson cannot see the deal at all (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- system_admin's row visibility is UNCHANGED, not removed. can_view_all_sales_data()
@@ -179,7 +201,7 @@ BEGIN
   -- phase8_margin_integrity.sql, and is likewise untouched here.
   PERFORM set_config('test.uid', adm::text, TRUE);
   SELECT count(*) INTO n FROM public.opportunities WHERE id = o;
-  RAISE NOTICE '% 13. system_admin visibility is unchanged by this migration (expect 1, got %)',
+  RAISE NOTICE '% 16. system_admin visibility is unchanged by this migration (expect 1, got %)',
     CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
 END $$;
 
@@ -191,9 +213,9 @@ DECLARE rid UUID; raised INT;
 BEGIN
   -- RETURNS TABLE(run_id uuid, raised int) — not a scalar, and not JSON.
   SELECT a.run_id, a.raised INTO rid, raised FROM public.run_sales_automations('test') a;
-  RAISE NOTICE '% 14. the nightly automation still runs after the revoke (expect a run id, got %)',
+  RAISE NOTICE '% 17. the nightly automation still runs after the revoke (expect a run id, got %)',
     CASE WHEN rid IS NOT NULL THEN 'PASS' ELSE 'FAIL' END, rid;
-  RAISE NOTICE '% 15. …and it still evaluates rules rather than erroring out (expect >=0, got %)',
+  RAISE NOTICE '% 18. …and it still evaluates rules rather than erroring out (expect >=0, got %)',
     CASE WHEN raised >= 0 THEN 'PASS' ELSE 'FAIL' END, raised;
 END $$;
 
@@ -217,24 +239,24 @@ BEGIN
 
   PERFORM set_config('test.uid', own::text, TRUE);
   SELECT public.last_verified_client_contact(o) INTO ts;
-  RAISE NOTICE '% 16. the deal owner gets the real timestamp (expect not-null, got %)',
+  RAISE NOTICE '% 19. the deal owner gets the real timestamp (expect not-null, got %)',
     CASE WHEN ts IS NOT NULL THEN 'PASS' ELSE 'FAIL' END, COALESCE(ts::text, 'NULL');
 
   PERFORM set_config('test.uid', mgr::text, TRUE);
   SELECT public.last_verified_client_contact(o) INTO ts;
-  RAISE NOTICE '% 17. a sales_manager gets it too (expect not-null, got %)',
+  RAISE NOTICE '% 20. a sales_manager gets it too (expect not-null, got %)',
     CASE WHEN ts IS NOT NULL THEN 'PASS' ELSE 'FAIL' END, COALESCE(ts::text, 'NULL');
 
   -- The whole point: same call, same UUID, a caller with no right to the deal.
   PERFORM set_config('test.uid', other::text, TRUE);
   SELECT public.last_verified_client_contact(o) INTO ts;
-  RAISE NOTICE '% 18. an unrelated salesperson learns NOTHING (expect NULL, got %)',
+  RAISE NOTICE '% 21. an unrelated salesperson learns NOTHING (expect NULL, got %)',
     CASE WHEN ts IS NULL THEN 'PASS' ELSE 'FAIL' END, COALESCE(ts::text, 'NULL');
 
   -- A UUID that does not exist must be indistinguishable from one that does
   -- but is not theirs — otherwise the function is an existence oracle.
   SELECT public.last_verified_client_contact('11111111-1111-1111-1111-111111111111') INTO ts;
-  RAISE NOTICE '% 19. …and a nonexistent deal answers identically (expect NULL, got %)',
+  RAISE NOTICE '% 22. …and a nonexistent deal answers identically (expect NULL, got %)',
     CASE WHEN ts IS NULL THEN 'PASS' ELSE 'FAIL' END, COALESCE(ts::text, 'NULL');
 
   -- viewer can read opportunity ROWS (can_view_all_sales_data lists it) but is
@@ -242,7 +264,7 @@ BEGIN
   -- as the deliberate outcome, not discovered later as a surprise.
   PERFORM set_config('test.uid', vw::text, TRUE);
   SELECT public.last_verified_client_contact(o) INTO ts;
-  RAISE NOTICE '% 20. viewer gets NULL from the deal-scoped predicate (expect NULL, got %)',
+  RAISE NOTICE '% 23. viewer gets NULL from the deal-scoped predicate (expect NULL, got %)',
     CASE WHEN ts IS NULL THEN 'PASS' ELSE 'FAIL' END, COALESCE(ts::text, 'NULL');
 END $$;
 
