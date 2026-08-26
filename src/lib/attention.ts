@@ -40,7 +40,14 @@ import { msg, type MessageRef } from "@/lib/messages";
 export type AttentionOpp = OppRow & {
   next_action_due?: string | null;
   contractor_decision_maker?: string | null;
+  client?: string | null;
+  main_contractor?: string | null;
+  company?: { name?: string | null } | null;
 };
+
+/** Any of the three columns that can name the client. */
+const companyOf = (o: AttentionOpp) =>
+  o.company?.name?.trim() || o.client?.trim() || o.main_contractor?.trim() || null;
 
 export type FollowUpRow = {
   id: string;
@@ -258,6 +265,9 @@ export function stageAgingFor(
 
 export type ReasonKind =
   | "no_engagement_history"
+  | "missing_value"
+  | "missing_owner"
+  | "missing_company"
   | "follow_up_overdue"
   | "no_next_action"
   | "no_next_action_date"
@@ -300,6 +310,9 @@ export const REASON_CATEGORY: Record<ReasonKind, ReasonCategory> = {
   unscored: "data_quality",
   no_decision_maker: "data_quality",
   no_engagement_history: "data_quality",
+  missing_value: "data_quality",
+  missing_owner: "data_quality",
+  missing_company: "data_quality",
   // A measured duration, judged by nobody yet.
   inactive: "engagement",
 };
@@ -336,6 +349,9 @@ export const RULE_POINTS: Record<ReasonKind, number> = {
   no_next_action_date: 5,
   unscored: 5,
   no_decision_maker: 5,
+  missing_value: 5,
+  missing_owner: 5,
+  missing_company: 5,
 };
 
 /** Extra points for age, so two overdue items of different vintage differ. */
@@ -628,6 +644,13 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
       push("no_decision_maker", msg("rsn_no_decision_maker"));
     }
 
+    // Pure data-quality gaps. Each is a fact about the RECORD, never about the
+    // deal — none of them is categorised as risk, so none can make an
+    // opportunity At Risk on its own.
+    if (value === null) push("missing_value", msg("rsn_missing_value"));
+    if (!o.owner_id) push("missing_owner", msg("rsn_missing_owner"));
+    if (!companyOf(o)) push("missing_company", msg("rsn_missing_company"));
+
     if (reasons.length === 0) continue;
 
     const score =
@@ -696,5 +719,68 @@ export function summarize(items: AttentionItem[]): AttentionSummary {
     stalled: roll((i) => i.stalled),
     closingSoon: roll((i) => i.closingSoon),
     missingNextAction: roll((i) => i.nextAction.status === "missing"),
+  };
+}
+
+// ---- Data Quality (Phase 5.1 §13) ------------------------------------------
+//
+// Derived from the SAME reasons the attention engine already produces, filtered
+// to category "data_quality". That is deliberate and structural: a separate
+// data-quality pass would be a second definition of "missing probability", and
+// the two would drift. It also makes the guarantee the spec asks for impossible
+// to break by accident — Data Quality reads only non-risk categories, so a data
+// gap cannot become At Risk without someone recategorising it on purpose.
+//
+// No score. A composite "CRM health is 61%" needs a weighting nobody has
+// agreed, and an invented weighting is the same defect as an invented SLA
+// wearing a percentage sign. Counts reconcile to records; that is enough to act
+// on, and every count carries the ids behind it.
+
+export type DataQualityIssue = {
+  kind: ReasonKind;
+  count: number;
+  /** The exact opportunities — this is what makes the count auditable. */
+  opportunityIds: string[];
+  /** Value at stake, where the affected records carry one. */
+  value: number;
+};
+
+export type DataQualityReport = {
+  issues: DataQualityIssue[];
+  /** Distinct opportunities with at least one data gap. NOT the sum of counts:
+   *  one opportunity missing three things is one incomplete record. */
+  affectedOpportunities: number;
+  /** Active opportunities considered, so a count reads against a denominator. */
+  totalConsidered: number;
+};
+
+export function dataQuality(items: AttentionItem[], totalConsidered: number): DataQualityReport {
+  const byKind = new Map<ReasonKind, { ids: Set<string>; value: number }>();
+  const affected = new Set<string>();
+
+  for (const item of items) {
+    for (const r of item.reasons) {
+      if (REASON_CATEGORY[r.kind] !== "data_quality") continue;
+      affected.add(item.opportunityId);
+      const entry = byKind.get(r.kind) ?? { ids: new Set<string>(), value: 0 };
+      // A Set, so one opportunity raising the same issue twice cannot inflate
+      // the count — the no-double-counting rule, enforced by the structure.
+      if (!entry.ids.has(item.opportunityId)) entry.value += item.value ?? 0;
+      entry.ids.add(item.opportunityId);
+      byKind.set(r.kind, entry);
+    }
+  }
+
+  return {
+    issues: [...byKind.entries()]
+      .map(([kind, e]) => ({
+        kind,
+        count: e.ids.size,
+        opportunityIds: [...e.ids].sort(),
+        value: e.value,
+      }))
+      .sort((a, b) => b.count - a.count || a.kind.localeCompare(b.kind)),
+    affectedOpportunities: affected.size,
+    totalConsidered,
   };
 }

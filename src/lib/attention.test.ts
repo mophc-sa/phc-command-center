@@ -197,8 +197,12 @@ describe("next action hygiene", () => {
   });
 
   it("a complete, future-dated action on a fully-evidenced deal raises nothing", () => {
+    // "Fully evidenced" now includes the data-quality columns: a value, an
+    // owner and a client. A record missing those is not silent, it is thin.
     const items = buildAttention({
-      opportunities: [opp({ id: "a" })],
+      opportunities: [
+        opp({ id: "a", quotation_value: 1_000_000, owner_id: "u1", client: "ICAD" }),
+      ],
       activities: [met("a", TODAY)],
       today: TODAY,
     });

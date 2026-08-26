@@ -47,6 +47,9 @@ const REASON_LABEL: Record<ReasonKind, { en: string; ar: string }> = {
   high_value_low_probability: { en: "High value, low probability", ar: "قيمة عالية واحتمالية منخفضة" },
   unscored: { en: "No probability", ar: "بلا احتمالية" },
   no_decision_maker: { en: "No decision maker", ar: "بلا صانع قرار" },
+  missing_value: { en: "No value recorded", ar: "بلا قيمة مسجَّلة" },
+  missing_owner: { en: "No owner assigned", ar: "بلا مالك مُسنَد" },
+  missing_company: { en: "No client recorded", ar: "بلا عميل مسجَّل" },
 };
 
 export function NeedsAttentionPanel({ items }: { items: AttentionItem[] }) {

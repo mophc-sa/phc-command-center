@@ -43,7 +43,12 @@ import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { NeedsAttentionPanel } from "@/components/phc/NeedsAttentionPanel";
-import { buildAttention, summarize, type AttentionOpp } from "@/lib/attention";
+import { buildAttention, dataQuality, summarize, type AttentionOpp } from "@/lib/attention";
+import { buildManagementBrief, withAiCommentary } from "@/lib/sales-ai";
+import { runAiAgent } from "@/lib/ai-orchestrator-actions";
+import { ExecutiveBrief } from "@/components/phc/ExecutiveBrief";
+import { DataQualityPanel } from "@/components/phc/DataQualityPanel";
+import { AskAiPanel } from "@/components/phc/AskAiPanel";
 import { buildRfqWorkflow, summarizeByAge, summarizeByState } from "@/lib/rfq-workflow";
 import { salesExecution } from "@/lib/sales-execution";
 import { PipelineBreakdownDrawer } from "@/components/phc/PipelineBreakdownDrawer";
@@ -318,6 +323,73 @@ function CommandCenter() {
   // §C1 — the rows behind the headline. Held as the KPI key so the drawer is
   // handed exactly the records that KPI summed, never its own query.
   const [breakdown, setBreakdown] = useState<null | { title: string; rows: OppRow[] }>(null);
+  const [askOpen, setAskOpen] = useState(false);
+
+  // §11 — the brief. Built from counted records BEFORE any model is consulted,
+  // so it is complete and true whether or not AI is reachable. Commentary, when
+  // it arrives, is appended and labelled; it never replaces a fact.
+  const deterministicBrief = useMemo(
+    () =>
+      buildManagementBrief({
+        opportunities: (data?.opportunities ?? []) as unknown as OppRow[],
+        ctx: { today, period: thisMonth(today) },
+        targetAmount: teamTarget?.total && teamTarget.total > 0 ? teamTarget.total : null,
+      }),
+    [data, today, teamTarget],
+  );
+
+  // A separate query on purpose: a slow or failing model must not hold up the
+  // facts. `retry: false` because a brief nobody is waiting for is not worth
+  // three attempts, and `ok === false` is a normal outcome here, not an error.
+  const commentary = useQuery({
+    queryKey: ["cc-brief-commentary"],
+    staleTime: 900_000,
+    retry: false,
+    enabled: (data?.opportunities ?? []).length > 0,
+    queryFn: async () => {
+      const res = await runAiAgent({
+        agent: "sales_report_insights",
+        entityType: "opportunities",
+        entityId: (data?.opportunities ?? [])[0]?.id ?? "",
+      });
+      return res.ok ? res : null;
+    },
+  });
+
+  const brief = useMemo(() => {
+    const c = commentary.data;
+    if (!c || !c.ok) return deterministicBrief;
+    const out = c.result as { insights?: unknown; recommendations?: unknown } | null;
+    const inferences = Array.isArray(out?.insights)
+      ? (out!.insights as unknown[]).filter((x): x is string => typeof x === "string")
+      : [];
+    // filterRecommendations drops anything proposing a forbidden action before
+    // it can reach the screen — the model cannot suggest its way past the gate.
+    const recommendations = Array.isArray(out?.recommendations)
+      ? (out!.recommendations as unknown[])
+          .filter((x): x is { id?: string; text?: string; proposedAction?: string } => typeof x === "object" && x !== null)
+          .map((r, i) => ({
+            id: String(r.id ?? i),
+            text: String(r.text ?? ""),
+            proposedAction: String(r.proposedAction ?? r.text ?? ""),
+          }))
+      : [];
+    return withAiCommentary(deterministicBrief, {
+      agentKey: "sales_report_insights",
+      inferences,
+      recommendations,
+    }).brief;
+  }, [deterministicBrief, commentary.data]);
+
+  // §13 — data quality from the same engine Needs Attention uses, so the two
+  // cannot disagree about what is missing.
+  const dq = useMemo(() => {
+    const active = ((data?.opportunities ?? []) as unknown as OppRow[]).filter((o) => {
+      const st = resolveCanonicalStage(o).stage;
+      return st !== null && (CANONICAL_ACTIVE_STAGES as readonly string[]).includes(st);
+    }).length;
+    return dataQuality(attention, active);
+  }, [attention, data]);
 
   // §15 — per-owner outcomes. Reuses the attention engine's stalled verdicts
   // rather than recomputing them, so the table and Needs Attention cannot
@@ -445,6 +517,15 @@ function CommandCenter() {
           formula, source, active filters and record ids, and links to exactly
           the records behind the number — the tooltip cannot drift from the
           value because both are read off the same object. */}
+      {/* §11 — the brief leads. It is the one thing a manager can read in
+          fifteen seconds, and it stands entirely on counted records. */}
+      {isLoading ? null : (
+        <ExecutiveBrief
+          brief={brief}
+          aiUnavailable={commentary.isFetched && !commentary.data}
+        />
+      )}
+
       <section className="mb-6">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-[13px] font-semibold text-foreground">
@@ -763,6 +844,29 @@ function CommandCenter() {
         </ChartFrame>
       </section>
 
+
+      {/* §18 — persistent, and it stays out of the way until asked. It is
+          handed ROWS, never a client, so it cannot reach a record the signed-in
+          user could not already open. */}
+      <button
+        type="button"
+        onClick={() => setAskOpen(true)}
+        className="fixed bottom-5 end-5 z-40 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 py-2 text-[12px] font-medium text-foreground shadow-lg transition-colors hover:border-border-strong"
+      >
+        <Sparkles className="h-3.5 w-3.5 text-amber-light" aria-hidden="true" />
+        {t("ask_ai_open" as never)}
+      </button>
+
+      <AskAiPanel
+        open={askOpen}
+        onClose={() => setAskOpen(false)}
+        context={{
+          route: "/command-center",
+          opportunities: (data?.opportunities ?? []) as unknown as AttentionOpp[],
+          today,
+        }}
+      />
+
       <PipelineBreakdownDrawer
         open={breakdown !== null}
         onClose={() => setBreakdown(null)}
@@ -865,6 +969,22 @@ function CommandCenter() {
               </li>
             ))}
           </ul>
+        </ChartFrame>
+      </section>
+
+      {/* §13 — last on the page on purpose: it is hygiene, not today's work. */}
+      <section className="mt-6">
+        <ChartFrame
+          title={t("dq_title" as never)}
+          subtitle={
+            lang === "ar"
+              ? "ثغرات في السجلات — تُحسب على حدة عن المخاطر"
+              : "Gaps in the records — counted separately from risk"
+          }
+          padded={false}
+          bodyClassName="p-0"
+        >
+          {isLoading ? <SkeletonTable rows={4} /> : <DataQualityPanel report={dq} />}
         </ChartFrame>
       </section>
     </div>

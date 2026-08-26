@@ -93,7 +93,7 @@ export function memberSummary(input: {
     approvalsSubmittedToday: myEvents.filter((e) => e.type === "approval_requested").length,
     approvalsDecidedToday: myEvents.filter((e) => e.type.startsWith("approval_") && e.type !== "approval_requested").length,
     opportunitiesWithNoNextAction: health.filter((h) => h.issue === "no_next_action").length,
-    stalledOpportunities: health.filter((h) => h.issue === "stalled").length,
+    stalledOpportunities: health.filter((h) => h.issue === "no_recent_crm_activity").length,
   };
 }
 
@@ -180,7 +180,7 @@ const HEALTH_SEVERITY: Record<HealthFinding["issue"], AttentionSeverity> = {
   // A dated action that has slipped is a worse signal than an undated one is a
   // gap, so this sits a band lower than a missing action outright.
   no_next_action_date: "watch",
-  stalled: "high",
+  no_recent_crm_activity: "watch",
   expected_close_overdue: "critical",
   high_value_low_probability: "high",
   unscored: "watch",
@@ -189,7 +189,7 @@ const HEALTH_SEVERITY: Record<HealthFinding["issue"], AttentionSeverity> = {
 const HEALTH_REASON: Record<HealthFinding["issue"], string> = {
   no_next_action: "No next action set",
   no_next_action_date: "Next action has no date",
-  stalled: "Stalled",
+  no_recent_crm_activity: "No CRM activity logged recently",
   expected_close_overdue: "Expected close date has passed",
   high_value_low_probability: "High value, low probability",
   unscored: "No probability recorded",

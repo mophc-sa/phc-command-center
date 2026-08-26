@@ -1304,6 +1304,91 @@ export const strings = {
   },
   rsn_unscored: { en: "No win probability recorded", ar: "لا احتمالية فوز مسجَّلة" },
   rsn_no_decision_maker: { en: "No decision maker identified", ar: "لم يُحدَّد صانع القرار" },
+  rsn_missing_value: { en: "No opportunity value recorded", ar: "لا قيمة مسجَّلة للفرصة" },
+  rsn_missing_owner: { en: "No sales owner assigned", ar: "لا مالك مبيعات مُسنَد" },
+  rsn_missing_company: { en: "No client or contractor recorded", ar: "لا عميل ولا مقاول مسجَّل" },
+
+  // ---- AI Executive Brief (Phase 5.1 §11) ---------------------------------
+  // Templates. {value} slots receive raw numbers and are formatted by the
+  // presentation layer, so Arabic gets Arabic-Indic digits and ر.س.
+  brf_stage_moves: { en: "{count} opportunities changed stage.", ar: "{count} فرصة غيّرت مرحلتها." },
+  brf_won: { en: "{count} deals won, {value}.", ar: "{count} صفقة رابحة، {value}." },
+  brf_lost: { en: "{count} lost, {value}.", ar: "{count} خاسرة، {value}." },
+  brf_no_movement: {
+    en: "No stage movement or closures recorded in this period.",
+    ar: "لا حركة مراحل ولا إغلاقات مسجَّلة في هذه الفترة.",
+  },
+  brf_issue_expected_close_overdue: {
+    en: "{count} opportunities past their expected close date.",
+    ar: "{count} فرصة تجاوزت تاريخ إغلاقها المتوقَّع.",
+  },
+  brf_issue_no_recent_crm_activity: {
+    en: "{count} opportunities with no CRM activity logged recently.",
+    ar: "{count} فرصة بلا نشاط مسجَّل في النظام مؤخرًا.",
+  },
+  brf_issue_no_next_action: {
+    en: "{count} opportunities with no next action set.",
+    ar: "{count} فرصة بلا إجراء تالٍ محدَّد.",
+  },
+  brf_issue_high_value_low_probability: {
+    en: "{count} opportunities high in value and low in probability.",
+    ar: "{count} فرصة عالية القيمة ومنخفضة الاحتمالية.",
+  },
+  brf_nothing_flagged: {
+    en: "Nothing is flagged by the health checks.",
+    ar: "لا شيء تُشير إليه فحوص السلامة.",
+  },
+  brf_forecast: {
+    en: "Weighted forecast {weighted} from {open} open pipeline.",
+    ar: "تنبؤ مرجَّح {weighted} من خط أنابيب مفتوح {open}.",
+  },
+  brf_forecast_uncomputable: {
+    en: "Weighted forecast cannot be computed — no open deal carries a probability.",
+    ar: "تعذّر حساب التنبؤ المرجَّح — لا صفقة مفتوحة تحمل احتمالية.",
+  },
+  brf_late_stage_exposure: {
+    en: "{value} sits at verbal award or contract stage — exposure, not revenue, and not counted toward target.",
+    ar: "{value} في مرحلة الترسية الشفهية أو العقد — تعرُّض لا إيراد، ولا يُحتسب ضمن المستهدف.",
+  },
+  brf_gap_to_target: { en: "{value} remaining to target.", ar: "{value} متبقٍّ للوصول إلى المستهدف." },
+  brf_target_met: { en: "Target met.", ar: "تحقّق المستهدف." },
+  brf_focus_deal: { en: "{name} — {value}", ar: "{name} — {value}" },
+  brf_no_valued_open: { en: "No valued open opportunities.", ar: "لا فرص مفتوحة ذات قيمة مسجَّلة." },
+  brf_title: { en: "Executive brief", ar: "الموجز التنفيذي" },
+  brf_what_changed: { en: "What changed", ar: "ما الذي تغيّر" },
+  brf_needs_attention: { en: "Needs attention", ar: "يحتاج انتباهًا" },
+  brf_forecast_heading: { en: "Forecast", ar: "التنبؤ" },
+  brf_focus: { en: "Focus", ar: "التركيز" },
+  brf_ai_unavailable: {
+    en: "AI commentary unavailable — the facts below are unaffected.",
+    ar: "تعليق الذكاء الاصطناعي غير متاح — الحقائق أدناه غير متأثرة.",
+  },
+  dq_title: { en: "Data quality", ar: "جودة البيانات" },
+  dq_affected: {
+    en: "{count} of {total} active opportunities have at least one gap",
+    ar: "{count} من {total} فرصة نشطة بها ثغرة واحدة على الأقل",
+  },
+  dq_not_risk: {
+    en: "These are gaps in what we know, not deals in danger — At Risk is counted separately.",
+    ar: "هذه ثغرات فيما نعرفه، لا صفقات في خطر — «معرَّضة للخطر» تُحسب على حدة.",
+  },
+  ask_ai_title: { en: "Ask PHC AI", ar: "اسأل PHC AI" },
+  ask_ai_intro: {
+    en: "Ask about the pipeline you can see. Try one of these:",
+    ar: "اسأل عن خط الأنابيب الذي تراه. جرّب أحد هذه:",
+  },
+  ask_ai_bounded_note: {
+    en: "Answered from a fixed set of filters over records you can already open — no query was generated.",
+    ar: "أُجيب من مجموعة مرشِّحات ثابتة على سجلات تستطيع فتحها أصلًا — لم يُولَّد أي استعلام.",
+  },
+  ask_ai_not_understood: {
+    en: "That is not one of the questions this can answer yet.",
+    ar: "هذا ليس من الأسئلة التي يمكن الإجابة عنها بعد.",
+  },
+  ask_ai_search_instead: { en: "Search records instead →", ar: "ابحث في السجلات بدلًا من ذلك →" },
+  ask_ai_send: { en: "Ask", ar: "اسأل" },
+  ask_ai_open: { en: "Ask PHC AI", ar: "اسأل PHC AI" },
+  cmd_placeholder_ai: { en: "Search or ask PHC AI…", ar: "ابحث أو اسأل PHC AI…" },
   src_baseline: { en: "baseline", ar: "مرجع مقاس" },
   src_sla: { en: "SLA", ar: "اتفاقية مستوى خدمة" },
   kpi_achievement: { en: "Achievement", ar: "نسبة التحقيق" },
@@ -1702,7 +1787,7 @@ export const strings = {
   ibx_phone: { en: "Phone", ar: "الهاتف" },
   ibx_info_due: { en: "Information due", ar: "موعد استلام الناقص" },
 
-  cmd_placeholder: { en: "Search records, pages…", ar: "ابحث في السجلات والصفحات…" },
+  cmd_placeholder: { en: "Search or ask PHC AI…", ar: "ابحث أو اسأل PHC AI…" },
   cmd_no_results: { en: "No results found.", ar: "لا نتائج." },
   cmd_pages: { en: "Pages", ar: "الصفحات" },
   cmd_records: { en: "Records", ar: "السجلات" },

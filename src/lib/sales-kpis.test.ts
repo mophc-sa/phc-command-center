@@ -382,13 +382,18 @@ describe("pipeline health is deterministic", () => {
     expect(f.some((x) => x.issue === "no_next_action")).toBe(true);
   });
 
-  it("flags a stalled deal with the day count", () => {
+  it("flags a record nobody has touched, with the day count", () => {
+    // Renamed from "stalled". This reads last_activity_at, which any logged
+    // activity stamps — notes and unsent drafts included — so it measures
+    // silence in the CRM, not silence with the client. Stalled has one owner
+    // now, and it is the attention engine.
     const f = pipelineHealth(
       [opp({ id: "x", sales_stage: "jih", next_action: "call", last_activity_at: "2026-08-01" })],
       SNAPSHOT,
     );
-    const stalled = f.find((x) => x.issue === "stalled");
-    expect(stalled?.detail).toContain("19 days");
+    const quiet = f.find((x) => x.issue === "no_recent_crm_activity");
+    expect(quiet?.detail).toContain("19 days");
+    expect(f.map((x) => x.issue)).not.toContain("stalled");
   });
 
   it("does not flag a deal that moved yesterday", () => {

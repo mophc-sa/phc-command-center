@@ -25,6 +25,7 @@
 // Pure. See sales-ai.test.ts.
 // =============================================================================
 
+import { msg, type MessageRef } from "@/lib/messages";
 import {
   executiveKpis,
   pipelineHealth,
@@ -39,7 +40,14 @@ export type Provenance = "fact" | "calculated" | "inference" | "recommendation";
 
 export type BriefLine = {
   provenance: Provenance;
-  text: string;
+  /**
+   * A structured fact, or a raw string for AI-produced lines.
+   *
+   * Deterministic lines carry a MessageRef so the brief reads in the viewer's
+   * language; a model's own sentence is already in a language and is passed
+   * through as written. `isAiGenerated` tells the two apart.
+   */
+  text: MessageRef | string;
   /** What backs this line: a table, a formula, or the agent that produced it. */
   basis: string;
   entityId?: string;
@@ -202,7 +210,9 @@ export type ManagementBrief = {
   focus: BriefLine[];
 };
 
-const money = (n: number) => `SAR ${Math.round(n).toLocaleString("en-US")}`;
+// Values travel as NUMBERS. Formatting them here would bake en-US grouping and
+// a Latin "SAR" into a brief the Arabic UI has to render — the same defect the
+// caveats had. The presentation layer formats.
 
 /**
  * Built entirely from counted records. No model is called; the AI layer, when
@@ -224,47 +234,51 @@ export function buildManagementBrief(input: {
   if (moves.length > 0) {
     whatChanged.push({
       provenance: "fact",
-      text: `${moves.length} opportunit${moves.length === 1 ? "y" : "ies"} changed stage.`,
+      text: msg("brf_stage_moves", { count: moves.length }),
       basis: "stage_transition_history",
     });
   }
   if (k.wonValue.recordCount > 0) {
     whatChanged.push({
       provenance: "calculated",
-      text: `${k.wonValue.recordCount} deal${k.wonValue.recordCount === 1 ? "" : "s"} won, ${money(k.wonValue.value ?? 0)}.`,
+      text: msg("brf_won", { count: k.wonValue.recordCount, value: k.wonValue.value ?? 0 }),
       basis: k.wonValue.formula,
     });
   }
   if (k.lostValue.recordCount > 0) {
     whatChanged.push({
       provenance: "calculated",
-      text: `${k.lostValue.recordCount} lost, ${money(k.lostValue.value ?? 0)}.`,
+      text: msg("brf_lost", { count: k.lostValue.recordCount, value: k.lostValue.value ?? 0 }),
       basis: k.lostValue.formula,
     });
   }
   if (whatChanged.length === 0) {
-    whatChanged.push({ provenance: "fact", text: "No stage movement or closures recorded in this period.", basis: "opportunities" });
+    whatChanged.push({ provenance: "fact", text: msg("brf_no_movement"), basis: "opportunities" });
   }
 
   const needsAttention: BriefLine[] = [];
   const byIssue = (issue: string) => health.filter((h) => h.issue === issue);
-  for (const [issue, phrase] of [
-    ["expected_close_overdue", "past their expected close date"],
-    ["stalled", "with no recent activity"],
-    ["no_next_action", "with no next action set"],
-    ["high_value_low_probability", "high value at low probability"],
+  for (const issue of [
+    "expected_close_overdue",
+    "no_recent_crm_activity",
+    "no_next_action",
+    "high_value_low_probability",
   ] as const) {
     const n = byIssue(issue).length;
     if (n > 0) {
       needsAttention.push({
         provenance: "fact",
-        text: `${n} opportunit${n === 1 ? "y" : "ies"} ${phrase}.`,
+        text: msg(`brf_issue_${issue}`, { count: n }),
         basis: "deterministic pipeline health checks",
       });
     }
   }
   if (needsAttention.length === 0) {
-    needsAttention.push({ provenance: "fact", text: "Nothing is flagged by the health checks.", basis: "deterministic pipeline health checks" });
+    needsAttention.push({
+      provenance: "fact",
+      text: msg("brf_nothing_flagged"),
+      basis: "deterministic pipeline health checks",
+    });
   }
 
   const forecast: BriefLine[] = [
@@ -272,8 +286,11 @@ export function buildManagementBrief(input: {
       provenance: "calculated",
       text:
         k.weightedPipeline.value === null
-          ? "Weighted forecast cannot be computed — no open deal carries a probability."
-          : `Weighted forecast ${money(k.weightedPipeline.value)} from ${money(k.openPipeline.value ?? 0)} open pipeline.`,
+          ? msg("brf_forecast_uncomputable")
+          : msg("brf_forecast", {
+              weighted: k.weightedPipeline.value,
+              open: k.openPipeline.value ?? 0,
+            }),
       basis: k.weightedPipeline.formula,
     },
   ];
@@ -283,7 +300,7 @@ export function buildManagementBrief(input: {
     // like every other caveat.
     forecast.push({
       provenance: "fact",
-      text: k.weightedPipeline.caveat.key,
+      text: k.weightedPipeline.caveat,
       basis: "opportunities probability columns",
     });
   }
@@ -291,7 +308,7 @@ export function buildManagementBrief(input: {
   if ((k.lateStageExposure.value ?? 0) > 0) {
     forecast.push({
       provenance: "calculated",
-      text: `${money(k.lateStageExposure.value ?? 0)} sits at verbal award or contract stage — exposure, not revenue, and not counted toward target.`,
+      text: msg("brf_late_stage_exposure", { value: k.lateStageExposure.value ?? 0 }),
       basis: k.lateStageExposure.formula,
     });
   }
@@ -299,7 +316,7 @@ export function buildManagementBrief(input: {
     const gap = Math.max(0, input.targetAmount - (k.wonValue.value ?? 0));
     forecast.push({
       provenance: "calculated",
-      text: gap > 0 ? `${money(gap)} remaining to target.` : "Target met.",
+      text: gap > 0 ? msg("brf_gap_to_target", { value: gap }) : msg("brf_target_met"),
       basis: "max(0, target − won value)",
     });
   }
@@ -313,13 +330,15 @@ export function buildManagementBrief(input: {
     .slice(0, 3)
     .map(({ o, v }) => ({
       provenance: "fact" as const,
-      text: `${o.project_name ?? o.id.slice(0, 8)} — ${money(v)}`,
+      // The project NAME is data and stays exactly as recorded; only the
+      // money around it is formatted for the reader.
+      text: msg("brf_focus_deal", { name: o.project_name ?? o.id.slice(0, 8), value: v }),
       basis: "largest open opportunities by value",
       entityId: o.id,
       href: `/opportunities/${o.id}`,
     }));
   if (focus.length === 0) {
-    focus.push({ provenance: "fact", text: "No valued open opportunities.", basis: "opportunities" });
+    focus.push({ provenance: "fact", text: msg("brf_no_valued_open"), basis: "opportunities" });
   }
 
   return { whatChanged, needsAttention, forecast, focus };

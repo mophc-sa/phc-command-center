@@ -777,7 +777,7 @@ export const lostToCompetitor = (o: OppRow[], c: KpiContext) =>
 export type HealthIssue =
   | "no_next_action"
   | "no_next_action_date"
-  | "stalled"
+  | "no_recent_crm_activity"
   | "expected_close_overdue"
   | "high_value_low_probability"
   | "unscored";
@@ -842,10 +842,27 @@ export function pipelineHealth(
         value,
       });
     }
+    // NOT "stalled". This reads `last_activity_at`, which is stamped by any
+    // logged activity — internal notes and unsent drafts included — so it
+    // measures how long since anyone TOUCHED THE RECORD, not how long since
+    // anyone spoke to the client.
+    //
+    // It used to be reported as `stalled`, against a 14-day threshold this
+    // codebase chose. On 2026-08-26 that had the brief announcing "46 stalled"
+    // three inches above a roll-up reading 0, because the attention engine had
+    // been corrected and this had not. Stalled has ONE owner now — the
+    // attention engine, which requires verified client contact and an approved
+    // SLA — and this reports the weaker fact under its own honest name.
     if (o.last_activity_at) {
       const d = daysBetween(o.last_activity_at, ctx.today);
       if (d >= t.stalledDays) {
-        out.push({ issue: "stalled", opportunityId: o.id, label, detail: `No activity for ${d} days`, value });
+        out.push({
+          issue: "no_recent_crm_activity",
+          opportunityId: o.id,
+          label,
+          detail: `No CRM activity logged for ${d} days`,
+          value,
+        });
       }
     }
     if (o.expected_contract_date && o.expected_contract_date < ctx.today) {
