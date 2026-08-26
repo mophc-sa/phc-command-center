@@ -906,10 +906,9 @@ Of the four fixes added to the table above on 2026-08-25, three are drilldown be
 
 **Attachment access isolation is live** — applied and deployed on 2026-08-21 at `ad41ccf` (PR #196).
 
-**The 2026-08-25 client feedback is code-only and not yet deployed.** The sign-in tagline, the
-Opportunity Review columns and editor, the Opportunities KPI strip, the JIH-or-Tender editor
-and the Awarded Projects filter are all on `feat/client-feedback-2026-08-25`. No migration is
-involved — every change is frontend, reading columns that already exist.
+**The 2026-08-25 client feedback is live.** Merged as PR #233 and deployed to production at
+`b8ce310`. No migration was involved — every change is frontend, reading columns that already
+exist.
 
 The **Phase 5.1** hardening — one shared decision-maker rule, uncapped dashboard reads with a
 visible warning when a ceiling is hit, and the tile ⓘ separated from the drill-down — is on
