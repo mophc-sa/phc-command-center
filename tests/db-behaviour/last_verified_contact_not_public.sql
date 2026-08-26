@@ -18,6 +18,17 @@
 --
 -- The behavioural half — the views and the automation still working — IS run
 -- under a real role, because that is a question about rows, not privileges.
+--
+-- CORRECTED AFTER PRODUCTION 20260917100000
+-- -----------------------------------------
+-- The first version of this file asserted that `authenticated` holds no
+-- EXECUTE. That was the wrong target. Function EXECUTE inside a view is
+-- checked against the CALLER, not the view owner, so revoking it broke
+-- pipeline_by_stage and sla_breaches for every signed-in user — and this
+-- suite did not notice, because the harness grants rls_tester a direct
+-- EXECUTE on every function. authenticated now holds EXECUTE by design and
+-- the function checks visibility itself, so the checks below test the ANSWER
+-- an unauthorized caller gets, not whether they may ask.
 -- =============================================================================
 \set ON_ERROR_STOP on
 \pset pager off
@@ -78,9 +89,11 @@ BEGIN
   RAISE NOTICE '% 2. anon CANNOT execute it (expect f, got %)',
     CASE WHEN NOT ok THEN 'PASS' ELSE 'FAIL' END, ok;
 
+  -- authenticated MUST hold it: the two views call the function, and EXECUTE
+  -- is checked against the caller. Revoking it took both views down.
   ok := has_function_privilege('authenticated', 'public.last_verified_client_contact(uuid)', 'EXECUTE');
-  RAISE NOTICE '% 3. authenticated CANNOT execute it (expect f, got %)',
-    CASE WHEN NOT ok THEN 'PASS' ELSE 'FAIL' END, ok;
+  RAISE NOTICE '% 3. authenticated CAN execute it — the views depend on it (expect t, got %)',
+    CASE WHEN ok THEN 'PASS' ELSE 'FAIL' END, ok;
 
   -- PUBLIC is the one the original migration forgot; it is the reason anon had
   -- access at all, and it is invisible in a dump because it is the default.
@@ -183,3 +196,54 @@ BEGIN
   RAISE NOTICE '% 15. …and it still evaluates rules rather than erroring out (expect >=0, got %)',
     CASE WHEN raised >= 0 THEN 'PASS' ELSE 'FAIL' END, raised;
 END $$;
+
+-- ===== the answer an unauthorized caller gets =====
+--
+-- This is what the revoke in 20260916100000 was standing in for, done in the
+-- place that actually works. It runs under a real uid, so the harness's
+-- blanket EXECUTE grant to rls_tester cannot mask it — the predicate reads
+-- auth.uid(), not the connected role.
+SET ROLE rls_tester;
+
+DO $$
+DECLARE own UUID; other UUID; mgr UUID; vw UUID; o UUID; ts TIMESTAMPTZ;
+BEGIN
+  SELECT id INTO own   FROM auth.users WHERE email='lvc_own@phc-sa.com';
+  SELECT id INTO other FROM auth.users WHERE email='lvc_other@phc-sa.com';
+  SELECT id INTO mgr   FROM auth.users WHERE email='lvc_mgr@phc-sa.com';
+  SELECT id INTO vw    FROM auth.users WHERE email='lvc_vw@phc-sa.com';
+  PERFORM set_config('test.uid', mgr::text, TRUE);
+  SELECT id INTO o FROM public.opportunities WHERE project_name='LVC — private deal';
+
+  PERFORM set_config('test.uid', own::text, TRUE);
+  SELECT public.last_verified_client_contact(o) INTO ts;
+  RAISE NOTICE '% 16. the deal owner gets the real timestamp (expect not-null, got %)',
+    CASE WHEN ts IS NOT NULL THEN 'PASS' ELSE 'FAIL' END, COALESCE(ts::text, 'NULL');
+
+  PERFORM set_config('test.uid', mgr::text, TRUE);
+  SELECT public.last_verified_client_contact(o) INTO ts;
+  RAISE NOTICE '% 17. a sales_manager gets it too (expect not-null, got %)',
+    CASE WHEN ts IS NOT NULL THEN 'PASS' ELSE 'FAIL' END, COALESCE(ts::text, 'NULL');
+
+  -- The whole point: same call, same UUID, a caller with no right to the deal.
+  PERFORM set_config('test.uid', other::text, TRUE);
+  SELECT public.last_verified_client_contact(o) INTO ts;
+  RAISE NOTICE '% 18. an unrelated salesperson learns NOTHING (expect NULL, got %)',
+    CASE WHEN ts IS NULL THEN 'PASS' ELSE 'FAIL' END, COALESCE(ts::text, 'NULL');
+
+  -- A UUID that does not exist must be indistinguishable from one that does
+  -- but is not theirs — otherwise the function is an existence oracle.
+  SELECT public.last_verified_client_contact('11111111-1111-1111-1111-111111111111') INTO ts;
+  RAISE NOTICE '% 19. …and a nonexistent deal answers identically (expect NULL, got %)',
+    CASE WHEN ts IS NULL THEN 'PASS' ELSE 'FAIL' END, COALESCE(ts::text, 'NULL');
+
+  -- viewer can read opportunity ROWS (can_view_all_sales_data lists it) but is
+  -- not a pipeline operator, so the deal-scoped predicate declines. Recorded
+  -- as the deliberate outcome, not discovered later as a surprise.
+  PERFORM set_config('test.uid', vw::text, TRUE);
+  SELECT public.last_verified_client_contact(o) INTO ts;
+  RAISE NOTICE '% 20. viewer gets NULL from the deal-scoped predicate (expect NULL, got %)',
+    CASE WHEN ts IS NULL THEN 'PASS' ELSE 'FAIL' END, COALESCE(ts::text, 'NULL');
+END $$;
+
+RESET ROLE;
