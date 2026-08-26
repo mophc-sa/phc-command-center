@@ -25,7 +25,7 @@ import { computeQuotationWinRatePct } from "@/lib/dashboard-helpers";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline, canReviewAiOutput } from "@/lib/roles";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
-import { runAiAgent } from "@/lib/ai-orchestrator-actions";
+import { AGGREGATE_ENTITY_ID, runAiAgent } from "@/lib/ai-orchestrator-actions";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Reports — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -297,7 +297,7 @@ function ReportsPage() {
 // comment on the project_radar call in agent-activity.tsx for the bug this
 // pattern replaces — a non-UUID placeholder string silently failed schema
 // validation on every call).
-const REPORTS_ENTITY_ID = "00000000-0000-0000-0000-000000000000";
+const REPORTS_ENTITY_ID = AGGREGATE_ENTITY_ID;
 
 function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
   const { roles } = useAuth();

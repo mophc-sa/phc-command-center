@@ -45,7 +45,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { NeedsAttentionPanel } from "@/components/phc/NeedsAttentionPanel";
 import { buildAttention, dataQuality, summarize, type AttentionOpp } from "@/lib/attention";
 import { buildManagementBrief, withAiCommentary } from "@/lib/sales-ai";
-import { runAiAgent } from "@/lib/ai-orchestrator-actions";
+import { AGGREGATE_ENTITY_ID, runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { ExecutiveBrief } from "@/components/phc/ExecutiveBrief";
 import { DataQualityPanel } from "@/components/phc/DataQualityPanel";
 import { AskAiPanel } from "@/components/phc/AskAiPanel";
@@ -420,10 +420,17 @@ function CommandCenter() {
     retry: false,
     enabled: (data?.opportunities ?? []).length > 0,
     queryFn: async () => {
+      // The registry is the authority: sales_report_insights accepts ONLY the
+      // "reports" sentinel entity (ai-guardrails.ts). Sending "opportunities"
+      // with a real deal id returned 400 AI_ENTITY_NOT_ALLOWED on every call,
+      // in production, from the day this shipped — the brief silently fell
+      // back to "AI commentary unavailable" and looked like a provider being
+      // down. The agent summarises an org-wide aggregate, not one deal, which
+      // is exactly what the sentinel means.
       const res = await runAiAgent({
         agent: "sales_report_insights",
-        entityType: "opportunities",
-        entityId: (data?.opportunities ?? [])[0]?.id ?? "",
+        entityType: "reports",
+        entityId: AGGREGATE_ENTITY_ID,
       });
       return res.ok ? res : null;
     },
