@@ -12,6 +12,7 @@
     "test": "bun test",
     "test:e2e": "playwright test",
     "test:e2e:readiness": "bun scripts/verify-e2e-env.ts && playwright test",
+    "test:deno": "deno test --allow-env --allow-net --allow-read supabase/functions/_shared/*.deno-test.ts",
     "test:db": "supabase test db",
     "test:db:behaviour": "bash scripts/db-behaviour.sh",
     "audit:deps": "bun audit --audit-level=high",

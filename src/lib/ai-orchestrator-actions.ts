@@ -14,6 +14,20 @@ export type OrchestratorSuccess = {
 export type OrchestratorFailure = { ok: false; code: string; message: string; traceId: string | null };
 export type OrchestratorResult = OrchestratorSuccess | OrchestratorFailure;
 
+/**
+ * The "no specific record" entity id, for agents whose subject is a whole
+ * dashboard rather than one row.
+ *
+ * `entity_id` is a uuid-typed column, so the sentinel has to BE a uuid — an
+ * earlier placeholder string failed schema validation on every call and the
+ * failure was invisible. project_radar uses the same nil uuid with entityType
+ * "pipeline"; sales_report_insights uses it with entityType "reports".
+ *
+ * It lives here rather than in a route because two pages now send it, and a
+ * second copy is a second thing to get wrong.
+ */
+export const AGGREGATE_ENTITY_ID = "00000000-0000-0000-0000-000000000000";
+
 // The one and only frontend entry point to the AI orchestrator. Mirrors
 // ai-schemas.ts's `.strict()` OrchestratorRequestSchema exactly — do not add
 // fields here beyond what that schema accepts. There is deliberately no

@@ -35,7 +35,7 @@
 // relies on the ai_agent_outputs unique index alone for that (see
 // docs/ai-orchestrator.md's "Concurrent request claiming" section).
 // =============================================================================
-import { corsHeaders } from "../_shared/cors.ts";
+import { corsHeaders, corsHeadersFor } from "../_shared/cors.ts";
 import { json, err } from "../_shared/respond.ts";
 import { resolveCaller, serviceClient, type AppRole } from "../_shared/supabase.ts";
 import { isSystemAdmin } from "../_shared/roles.ts";
@@ -544,7 +544,10 @@ async function handleRequest(req: Request): Promise<Response> {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  // The preflight is where the browser decides, so it echoes the caller's own
+  // origin when that origin is allowed. Body responses keep the static header,
+  // which is correct in any environment serving a single origin.
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeadersFor(req) });
   if (req.method !== "POST") return err("Method not allowed", 405);
   try {
     return await handleRequest(req);

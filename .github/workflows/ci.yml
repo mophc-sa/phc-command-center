@@ -27,7 +27,12 @@ jobs:
       - name: TypeScript check
         run: bun run typecheck
       - name: Supabase Edge Function check
-        run: deno check --import-map supabase/functions/import_map.json supabase/functions/sales-os-api/index.ts
+        run: deno check --import-map supabase/functions/import_map.json supabase/functions/sales-os-api/index.ts supabase/functions/ai-orchestrator/index.ts
+      # Deno's default discovery only finds *_test.ts / *.test.ts, and this
+      # repo names them *.deno-test.ts — so these files existed and never ran.
+      # The CORS allowlist is only a guarantee if something checks it.
+      - name: Supabase Edge Function tests
+        run: deno test --allow-env --allow-net --allow-read supabase/functions/_shared/*.deno-test.ts
       - name: Unit and contract tests
         run: bun run test
       - name: Production build
