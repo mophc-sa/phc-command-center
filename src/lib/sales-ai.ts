@@ -132,6 +132,22 @@ const FORBIDDEN_PATTERNS: Array<{ action: ForbiddenAction; re: RegExp }> = [
 ];
 
 export function checkRecommendation(r: AiRecommendation): RecommendationCheck {
+  // An exact token first. The patterns below are built for model PROSE, and
+  // `\b` cannot match inside `send_email` — the underscore is a word character,
+  // so there is no boundary after "send". A caller handing over the canonical
+  // action name (which a structured tool call naturally would) sailed straight
+  // through every pattern. Cheap to close, and it fails in the safe direction.
+  const exact = (AI_FORBIDDEN_ACTIONS as readonly string[]).find(
+    (a) => r.proposedAction.trim() === a,
+  ) as ForbiddenAction | undefined;
+  if (exact) {
+    return {
+      allowed: false,
+      violated: exact,
+      reason: `AI is advisory only and may not ${exact.replace(/_/g, " ")}. A person decides this.`,
+    };
+  }
+
   const haystack = `${r.text} ${r.proposedAction}`;
   for (const { action, re } of FORBIDDEN_PATTERNS) {
     if (re.test(haystack)) {
