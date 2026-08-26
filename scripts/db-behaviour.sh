@@ -296,6 +296,7 @@ run_suite tests/db-behaviour/open_table_reads.sql run
 run_suite tests/db-behaviour/anon_write_surface.sql run
 run_suite tests/db-behaviour/score_integrity.sql run
 run_suite tests/db-behaviour/deal_attached_reads.sql run
+run_suite tests/db-behaviour/last_verified_contact_not_public.sql run
 
 # ─────────────────────────────────────────────────────────────────────────────
 # The pgTAP security suites.
