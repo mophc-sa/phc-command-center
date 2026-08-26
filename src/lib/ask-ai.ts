@@ -33,7 +33,6 @@ import {
   type AttentionOpp,
   type ReasonKind,
 } from "@/lib/attention";
-import { opportunityValue } from "@/lib/sales-kpis";
 
 export type ManagementIntent =
   | "at_risk"
@@ -216,7 +215,12 @@ export function answerBounded(
     rows: matched.map((i) => ({
       opportunityId: i.opportunityId,
       label: i.label,
-      value: i.value ?? opportunityValue(opportunities.find((o) => o.id === i.opportunityId) ?? { id: "" }),
+      // Was `i.value ?? opportunityValue(opportunities.find(...))` — a linear
+      // scan inside a map, so O(n²) on the search path: 2,400 operations at
+      // today's 49 rows, 400 million at 20,000. The fallback was also dead:
+      // AttentionItem.value IS opportunityValue(o) for the same row, so when it
+      // is null the recomputation returns null too.
+      value: i.value,
       reasons: i.reasons.map((r) => r.kind),
     })),
     matched: matched.length,

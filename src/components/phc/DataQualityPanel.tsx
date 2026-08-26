@@ -35,6 +35,21 @@ export function DataQualityPanel({ report }: { report: DataQualityReport }) {
     );
   }
 
+  // A finding that affects essentially the whole book is not a to-do list, it
+  // is one fact about the dataset. Rendered as six equal rows it reads as six
+  // separate crises; rendered as a banner it reads as what it is — a migration
+  // gap somebody should know about once.
+  //
+  // The fact is unchanged: the count is still exact, still reconciles to
+  // records, still opens them. Only its shape on the page differs. Nothing is
+  // hidden, nothing is recategorised, and it is still not At Risk.
+  const WHOLE_BOOK = 0.9;
+  const isWholeBook = (count: number) =>
+    report.totalConsidered > 0 && count / report.totalConsidered >= WHOLE_BOOK;
+
+  const banners = report.issues.filter((i) => isWholeBook(i.count));
+  const rows = report.issues.filter((i) => !isWholeBook(i.count));
+
   return (
     <div>
       <div className="border-b border-border/50 px-4 py-2.5">
@@ -48,8 +63,29 @@ export function DataQualityPanel({ report }: { report: DataQualityReport }) {
         <p className="mt-0.5 text-[10px] text-muted-foreground">{t("dq_not_risk" as never)}</p>
       </div>
 
+      {banners.map((issue) => (
+        <div key={issue.kind} className="border-b border-border/50 bg-surface-2/30 px-4 py-2.5">
+          <Link
+            to="/opportunities"
+            search={{ stage: "open", missing: issue.kind } as never}
+            className="group flex items-baseline justify-between gap-3"
+          >
+            <span className="text-[12px] text-foreground group-hover:underline">
+              {lang === "ar"
+                ? `${ISSUE_LABEL[issue.kind]?.ar ?? issue.kind} — لكل الفرص النشطة تقريبًا (${formatNumber(issue.count, lang)})`
+                : `${ISSUE_LABEL[issue.kind]?.en ?? issue.kind} — across essentially the whole book (${formatNumber(issue.count, lang)})`}
+            </span>
+          </Link>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
+            {lang === "ar"
+              ? "غياب على مستوى الدفتر كله، لا مهمة لكل صفقة."
+              : "A gap across the dataset, not a task per deal."}
+          </p>
+        </div>
+      ))}
+
       <ul className="divide-y divide-border/50">
-        {report.issues.map((issue) => (
+        {rows.map((issue) => (
           <li key={issue.kind}>
             {/* Every count opens its records. A number nobody can take apart is
                 a number nobody acts on. */}
