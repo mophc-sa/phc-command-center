@@ -225,27 +225,84 @@ describe("At Risk is a named set of reasons, not a mood", () => {
   });
 });
 
-describe("stalled uses real history and real contact", () => {
-  const transitions: StageTransitionRow[] = [
-    { record_type: "opportunity", record_id: "a", from_stage: "rfq_received", to_stage: "jih", created_at: "2026-06-01" },
-  ];
+describe("stalled requires evidence of what 'too long' means", () => {
+  // A baseline needs minBaselineObservations completed spells. This fixture
+  // supplies five 10-day spells for `jih`, so the median is a real 10 days.
+  const withBaseline: StageTransitionRow[] = [];
+  for (let i = 0; i < 5; i++) {
+    withBaseline.push({ record_type: "opportunity", record_id: `hist${i}`, to_stage: "jih", created_at: "2026-01-01T00:00:00Z" });
+    withBaseline.push({ record_type: "opportunity", record_id: `hist${i}`, to_stage: "won", created_at: "2026-01-11T00:00:00Z" });
+  }
+  const entered = (id: string, at: string): StageTransitionRow => ({
+    record_type: "opportunity",
+    record_id: id,
+    to_stage: "jih",
+    created_at: at,
+  });
 
-  it("needs BOTH too-long-in-stage and nothing moving it", () => {
-    // Time alone is not stalled: a deal legitimately sits in pricing while
-    // someone works it. Silence is what turns age into a problem.
-    const busy = buildAttention({
-      opportunities: [opp({ id: "a", last_activity_at: TODAY })],
-      transitions,
-      today: TODAY,
-    });
-    expect(busy.find((i) => i.opportunityId === "a")?.stalled ?? false).toBe(false);
-
-    const silent = buildAttention({
+  it("a valid baseline plus excessive age plus silence IS stalled", () => {
+    const items = buildAttention({
       opportunities: [opp({ id: "a", last_activity_at: "2026-06-05" })],
-      transitions,
+      transitions: [...withBaseline, entered("a", "2026-06-01T00:00:00Z")],
       today: TODAY,
     });
-    expect(silent[0].stalled).toBe(true);
+    expect(items[0].stalled).toBe(true);
+    const r = items[0].reasons.find((x) => x.kind === "stalled")!;
+    expect(r.detail).toContain("10-day baseline");
+  });
+
+  it("time alone is not stalled — a worked deal legitimately sits in pricing", () => {
+    const items = buildAttention({
+      opportunities: [opp({ id: "a", last_activity_at: TODAY })],
+      transitions: [...withBaseline, entered("a", "2026-06-01T00:00:00Z")],
+      today: TODAY,
+    });
+    expect(items.find((i) => i.opportunityId === "a")?.stalled ?? false).toBe(false);
+  });
+
+  it("NO baseline plus enormous age is NOT stalled, however old", () => {
+    // The correction that produced this test: a flat fallback would have made
+    // that invented number the benchmark for the whole book, because
+    // stage_transition_history is sparse and almost every baseline is absent.
+    const items = buildAttention({
+      opportunities: [opp({ id: "a", last_activity_at: "2020-01-01", created_at: "2020-01-01" })],
+      transitions: [],
+      today: TODAY,
+    });
+    expect(items[0].aging.daysInStage).toBeGreaterThan(2000);
+    expect(items[0].aging.baseline?.source).toBe("unavailable");
+    expect(items[0].stalled).toBe(false);
+  });
+
+  it("but that neglected deal still surfaces on the signals that ARE evidence", () => {
+    // Removing the invented benchmark must not make a genuinely abandoned deal
+    // invisible. Silence and a missing action are facts, not inferences.
+    const items = buildAttention({
+      opportunities: [opp({ id: "a", last_activity_at: "2020-01-01", created_at: "2020-01-01", next_action: null })],
+      transitions: [],
+      today: TODAY,
+    });
+    const kinds = items[0].reasons.map((r) => r.kind);
+    expect(kinds).toContain("inactive");
+    expect(kinds).toContain("no_next_action");
+    expect(items[0].atRisk).toBe(true);
+  });
+
+  it("a configured stage SLA counts as evidence in place of a baseline", () => {
+    // Designed for, deliberately unpopulated. When the business sets a real
+    // SLA it becomes a limit on the same footing as a measured median.
+    const items = buildAttention({
+      opportunities: [opp({ id: "a", last_activity_at: "2026-06-05", created_at: "2026-06-01" })],
+      transitions: [],
+      today: TODAY,
+      thresholds: { ...DEFAULT_ATTENTION, stageSla: { jih: 30 } },
+    });
+    expect(items[0].stalled).toBe(true);
+    expect(items[0].reasons.find((r) => r.kind === "stalled")!.detail).toContain("30-day SLA");
+  });
+
+  it("ships with no SLA populated", () => {
+    expect(DEFAULT_ATTENTION.stageSla).toEqual({});
   });
 
   it("a note to ourselves is not client contact", () => {
@@ -254,7 +311,7 @@ describe("stalled uses real history and real contact", () => {
     const items = buildAttention({
       opportunities: [opp({ id: "a", last_activity_at: "2026-06-05" })],
       activities: [note],
-      transitions,
+      transitions: [...withBaseline, entered("a", "2026-06-01T00:00:00Z")],
       today: TODAY,
     });
     expect(items[0].stalled).toBe(true);
@@ -271,7 +328,7 @@ describe("stalled uses real history and real contact", () => {
     const items = buildAttention({
       opportunities: [opp({ id: "a", last_activity_at: "2026-06-05" })],
       activities: [meeting],
-      transitions,
+      transitions: [...withBaseline, entered("a", "2026-06-01T00:00:00Z")],
       today: TODAY,
     });
     expect(items.find((i) => i.opportunityId === "a")?.reasons.map((r) => r.kind) ?? []).not.toContain("inactive");

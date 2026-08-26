@@ -86,20 +86,34 @@ export function isMeaningfulClientActivity(a: ActivityRow): boolean {
 export type AttentionThresholds = HealthThresholds & {
   /** Days of silence before a deal counts as inactive. */
   inactiveDays: number;
-  /** Days in one stage, used only when no baseline is available. */
-  defaultStalledStageDays: number;
   /** An expected close within this many days is "closing soon". */
   closingSoonDays: number;
   /** Completed stage spells needed before a baseline is trustworthy. */
   minBaselineObservations: number;
+  /**
+   * Business-set maximum days in a stage. DELIBERATELY EMPTY.
+   *
+   * This existed briefly as a flat 21-day default, which was a mistake worth
+   * recording: stage_transition_history is sparse today (most opportunities
+   * have never moved), so almost every baseline resolves to "unavailable" and
+   * that 21 would have become the de facto benchmark for the entire book —
+   * an invented duration presented as a measured one, which is the same defect
+   * as the 0.20 forecast weight in a different costume.
+   *
+   * When the business sets real per-stage SLAs they belong here, and a
+   * configured SLA is evidence in the same way a measured baseline is. Until
+   * then a stage with no baseline has no limit, and age alone cannot stall a
+   * deal.
+   */
+  stageSla?: Partial<Record<CanonicalStage, number>>;
 };
 
 export const DEFAULT_ATTENTION: AttentionThresholds = {
   ...DEFAULT_HEALTH,
   inactiveDays: 14,
-  defaultStalledStageDays: 21,
   closingSoonDays: 30,
   minBaselineObservations: 5,
+  stageSla: {},
 };
 
 export function daysBetween(fromIso: string, today: string): number | null {
@@ -449,9 +463,24 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
       });
     }
 
-    // --- stalled (§4): too long in stage AND nothing moving it ---
-    const stageLimit = aging.baseline?.days ?? t.defaultStalledStageDays;
-    const overStage = aging.daysInStage !== null && aging.daysInStage > stageLimit;
+    // --- stalled (§4) ---
+    //
+    // Stage Aging and Stalled are separate on purpose. Aging MEASURES how long
+    // a deal has sat somewhere and is always reportable. Stalled is a business
+    // verdict that the deal has sat there TOO LONG, and "too long" is
+    // meaningless without something to be long relative to.
+    //
+    // So a limit must come from evidence: a measured median, or an SLA the
+    // business actually set. With neither, age alone can never stall a deal —
+    // it is reported as a duration and left to the reader. The other signals
+    // below (silence, missing action, passed close date) fire independently and
+    // are unaffected, so a genuinely neglected deal still surfaces.
+    const slaDays = stage ? (t.stageSla?.[stage] ?? null) : null;
+    const measuredBaseline = aging.baseline?.source === "median" ? aging.baseline.days : null;
+    const stageLimit = slaDays ?? measuredBaseline;
+    const limitSource = slaDays !== null ? "SLA" : "baseline";
+
+    const overStage = stageLimit !== null && aging.daysInStage !== null && aging.daysInStage > stageLimit;
     const nothingMoving =
       (silentDays !== null && silentDays >= t.inactiveDays) ||
       !hasNextAction ||
@@ -460,9 +489,7 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     if (stalled) {
       push(
         "stalled",
-        aging.baseline?.days != null
-          ? `${aging.daysInStage} days in ${stage} against a ${aging.baseline.days}-day baseline, with nothing scheduled`
-          : `${aging.daysInStage} days in ${stage} with nothing scheduled (no baseline available)`,
+        `${aging.daysInStage} days in ${stage} against a ${stageLimit}-day ${limitSource}, with nothing scheduled`,
         { since: aging.enteredAt, ageDays: aging.daysInStage },
       );
     }
