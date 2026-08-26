@@ -42,7 +42,8 @@ import { KpiCard } from "@/components/phc/KpiCard";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
-import { PriorityItem } from "@/components/phc/PriorityItem";
+import { NeedsAttentionPanel } from "@/components/phc/NeedsAttentionPanel";
+import { buildAttention, summarize, type AttentionOpp } from "@/lib/attention";
 import { StatusPill } from "@/components/phc/StatusPill";
 import type { OpportunityRow } from "@/components/phc/OpportunityCard";
 import { humanize } from "@/lib/utils";
@@ -125,19 +126,30 @@ function CommandCenter() {
       since.setDate(since.getDate() - 29);
       const sinceIso = since.toISOString();
 
-      const [opps, followUps, approvals, agentRuns, activities, rfqs] = await Promise.all([
-        supabase.from("opportunities").select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, updated_at, created_at").order("last_activity_at", { ascending: false, nullsFirst: false }).limit(200),
+      const [opps, followUps, approvals, agentRuns, activities, rfqs, transitions] = await Promise.all([
+        supabase.from("opportunities").select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, contractor_decision_maker, updated_at, created_at").order("last_activity_at", { ascending: false, nullsFirst: false }).limit(200),
         supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, owner_id").neq("status", "completed").order("due_date", { ascending: true }).limit(100),
         supabase.from("approvals").select("*").eq("status", "pending"),
         supabase.from("ai_agent_runs").select("*").order("started_at", { ascending: false }).limit(6),
-        supabase.from("activities").select("id, occurred_at").gte("occurred_at", sinceIso),
+        // activity_type + status decide whether a row counts as client contact:
+        // a note is internal and an unsent draft never reached anyone.
+        supabase.from("activities").select("id, related_opportunity_id, activity_type, status, occurred_at").gte("occurred_at", sinceIso),
         supabase.from("rfqs").select("id, status, estimated_value").limit(200),
+        // Stage aging's only honest source. Read wide rather than per-record so
+        // the baselines are computed over the whole book, not one row at a time.
+        supabase
+          .from("stage_transition_history")
+          .select("record_type, record_id, from_stage, to_stage, created_at")
+          .eq("record_type", "opportunity")
+          .order("created_at", { ascending: true })
+          .limit(2000),
       ]);
       return {
         opportunities: (opps.data ?? []) as unknown as OpportunityRow[],
         followUps: followUps.data ?? [],
         approvals: approvals.data ?? [],
         agentRuns: agentRuns.data ?? [],
+        transitions: transitions.data ?? [],
         activities: activities.data ?? [],
         rfqs: rfqs.data ?? [],
       };
@@ -274,34 +286,32 @@ function CommandCenter() {
   }, [rfqs]);
   const rfqTotal = rfqs.length;
 
-  const attention = [
-    ...overdue.slice(0, 3).map((f: any) => {
-      const o = opps.find((x) => x.id === f.opportunity_id);
-      return {
-        key: `fu-${f.id}`,
-        title: o?.project_name ?? "—",
-        subtitle: o?.main_contractor ?? undefined,
-        reason: lang === "ar" ? "متابعة متأخرة" : "Follow-up overdue",
-        due: f.due_date,
-        tier: (o?.tier ?? "B") as "A" | "B" | "C",
-        value: o ? formatCurrency(o.quotation_value ?? o.estimated_value_max, lang, o.currency) : undefined,
-        oppId: o?.id,
-      };
-    }),
-    ...approvals.slice(0, 2).map((a: any) => {
-      const o = opps.find((x) => x.id === a.related_opportunity_id);
-      return {
-        key: `ap-${a.id}`,
-        title: o?.project_name ?? "—",
-        subtitle: o?.client ?? undefined,
-        reason: lang === "ar" ? "بانتظار الاعتماد" : "Awaiting approval",
-        due: undefined as string | undefined,
-        tier: (o?.tier ?? "A") as "A" | "B" | "C",
-        value: o ? formatCurrency(o.estimated_value_max, lang, o.currency) : undefined,
-        oppId: o?.id,
-      };
-    }),
-  ].slice(0, 5);
+  // Phase 5.1 §6/§7/§8. This used to be one row per ISSUE, hard-capped at three
+  // follow-ups plus two approvals, ordered by whatever the query returned. A
+  // deal with two overdue follow-ups appeared twice, and deal value entered the
+  // ranking nowhere at all.
+  const attention = useMemo(
+    () =>
+      buildAttention({
+        opportunities: (data?.opportunities ?? []) as unknown as AttentionOpp[],
+        followUps: (data?.followUps ?? []) as never,
+        activities: ((data?.activities ?? []) as Array<Record<string, unknown>>).map((a) => ({
+          id: String(a.id),
+          // The column is related_opportunity_id — `opportunity_id` exists on
+          // follow_ups but not here, and the generated types caught the slip.
+          opportunity_id: (a.related_opportunity_id as string | null) ?? null,
+          activity_type: (a.activity_type as string | null) ?? null,
+          status: (a.status as string | null) ?? null,
+          // `activities` dates its rows with occurred_at, not created_at.
+          created_at: String(a.occurred_at ?? ""),
+        })),
+        transitions: (data?.transitions ?? []) as never,
+        today: new Date().toISOString().slice(0, 10),
+      }),
+    [data],
+  );
+
+  const attentionSummary = useMemo(() => summarize(attention), [attention]);
 
   // Canonical Phase 5 KPIs. `today` is derived once so every tile shares one
   // period boundary and they cannot disagree about what "this month" means.
@@ -387,8 +397,59 @@ function CommandCenter() {
         </div>
       </section>
 
+      {/* Phase 5.1 §6/§9 — Action Required, and the three risk roll-ups beside
+          it. This sat at the bottom of the page under the charts; it is the one
+          section a sales manager opens the dashboard to read, so it now sits
+          directly under the numbers and above every chart. */}
+      <section className="mt-6">
+        <div className="mb-2 grid gap-3 sm:grid-cols-3">
+          {([
+            ["at_risk", attentionSummary.atRisk, lang === "ar" ? "معرَّضة للخطر" : "At risk"],
+            ["stalled", attentionSummary.stalled, lang === "ar" ? "متوقفة" : "Stalled"],
+            ["closing", attentionSummary.closingSoon, lang === "ar" ? "إغلاق قريب" : "Closing soon"],
+          ] as const).map(([key, roll, label]) => (
+            <div key={key} className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+              <div className="num mt-1 text-[20px] font-semibold leading-none text-foreground" data-tabular="true">
+                {formatNumber(roll.count, lang)}
+              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                {roll.value > 0 ? formatCurrency(roll.value, lang) : lang === "ar" ? "بلا قيمة مسجَّلة" : "No value recorded"}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <ChartFrame
+          title={t("needs_attention")}
+          subtitle={
+            lang === "ar"
+              ? "صف واحد لكل فرصة · اضغط لترى القواعد التي أطلقت التصنيف"
+              : "One row per opportunity · open a row to see which rules fired"
+          }
+          action={
+            <button
+              onClick={() => nav({ to: "/action-center" })}
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/70 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {lang === "ar" ? "الكل" : "View all"} <ArrowRight className="h-3 w-3" />
+            </button>
+          }
+          padded={false}
+          bodyClassName="p-0"
+        >
+          {isLoading ? (
+            <SkeletonTable rows={4} />
+          ) : attention.length === 0 ? (
+            <div className="px-3 py-6"><EmptyState message={t("empty_needs_attention")} /></div>
+          ) : (
+            <NeedsAttentionPanel items={attention.slice(0, 8)} />
+          )}
+        </ChartFrame>
+      </section>
+
       {/* KPI row */}
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard
           label={lang === "ar" ? "الهدف الإجمالي للفريق" : "Team Target"}
           value={teamTarget && teamTarget.total > 0 ? formatCurrency(teamTarget.total, lang, "SAR") : "—"}
@@ -592,43 +653,8 @@ function CommandCenter() {
         </ChartFrame>
       </section>
 
-      {/* Needs Attention + Agent Activity */}
+      {/* Agent Activity */}
       <section className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <ChartFrame
-          title={t("needs_attention")}
-          subtitle={lang === "ar" ? "أولوية للقرار الآن" : "Prioritized for decision now"}
-          action={
-            <button
-              onClick={() => nav({ to: "/action-center" })}
-              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/70 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {lang === "ar" ? "الكل" : "View all"} <ArrowRight className="h-3 w-3" />
-            </button>
-          }
-          padded={false}
-          bodyClassName="p-2"
-        >
-          {isLoading ? (
-            <SkeletonTable rows={3} />
-          ) : attention.length === 0 ? (
-            <div className="px-3 py-6"><EmptyState message={t("empty_needs_attention")} /></div>
-          ) : (
-            attention.map((a) => (
-              <PriorityItem
-                key={a.key}
-                title={a.title}
-                subtitle={a.subtitle}
-                reason={a.reason}
-                tier={a.tier}
-                due={a.due ?? undefined}
-                value={a.value}
-                actionLabel={t("action_review")}
-                onAction={() => a.oppId && nav({ to: "/opportunities/$id", params: { id: a.oppId } })}
-              />
-            ))
-          )}
-        </ChartFrame>
-
         <ChartFrame
           title={t("agent_activity")}
           action={<StatusPill tone="positive"><Sparkles className="h-3 w-3" /> {t("agent_status_running")}</StatusPill>}

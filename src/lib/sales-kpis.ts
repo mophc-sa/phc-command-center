@@ -29,7 +29,7 @@
 // Everything is pure. No Supabase, no React. See sales-kpis.test.ts.
 // =============================================================================
 
-import { resolveCanonicalStage, type CanonicalStage } from "@/lib/stage-canonical";
+import { CANONICAL_ACTIVE_STAGES, resolveCanonicalStage, type CanonicalStage } from "@/lib/stage-canonical";
 
 // ---- Inputs -----------------------------------------------------------------
 
@@ -54,6 +54,9 @@ export type OppRow = {
   source_tender_id?: string | null;
   last_activity_at?: string | null;
   next_action?: string | null;
+  /** On the table since the beginning; missing from this type until Phase 5.1
+   *  §20, which is why "Next Action AND Next Action Date" could not be checked. */
+  next_action_due?: string | null;
   updated_at?: string | null;
   created_at?: string | null;
   // Stamped at the transition by trg_stamp_outcome_dates. NULL = undated.
@@ -762,6 +765,7 @@ export const lostToCompetitor = (o: OppRow[], c: KpiContext) =>
 
 export type HealthIssue =
   | "no_next_action"
+  | "no_next_action_date"
   | "stalled"
   | "expected_close_overdue"
   | "high_value_low_probability"
@@ -806,12 +810,26 @@ export function pipelineHealth(
 ): HealthFinding[] {
   const out: HealthFinding[] = [];
   for (const o of ownerFiltered(opps, ctx).filter(isOpen)) {
+    // on_hold is open pipeline (it still counts as money in play) but it is not
+    // ACTIVE, and demanding a next action on a deliberately parked deal is how
+    // a hygiene queue teaches people to ignore it.
+    const active = CANONICAL_ACTIVE_STAGES.includes(canonicalStageOf(o) as CanonicalStage);
     const label = o.project_name ?? o.id.slice(0, 8);
     const value = opportunityValue(o);
     const prob = resolveProbability(o);
 
-    if (!o.next_action || o.next_action.trim() === "") {
+    // §20 — an action with no date is not a plan, it is a wish. Both halves are
+    // checked, and they are separate findings because they need different fixes.
+    if (active && (!o.next_action || o.next_action.trim() === "")) {
       out.push({ issue: "no_next_action", opportunityId: o.id, label, detail: "No next action set", value });
+    } else if (active && !o.next_action_due || String(o.next_action_due).trim() === "") {
+      out.push({
+        issue: "no_next_action_date",
+        opportunityId: o.id,
+        label,
+        detail: "Next action has no date",
+        value,
+      });
     }
     if (o.last_activity_at) {
       const d = daysBetween(o.last_activity_at, ctx.today);

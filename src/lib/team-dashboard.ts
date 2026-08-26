@@ -177,6 +177,9 @@ export type AttentionItem = {
 
 const HEALTH_SEVERITY: Record<HealthFinding["issue"], AttentionSeverity> = {
   no_next_action: "high",
+  // A dated action that has slipped is a worse signal than an undated one is a
+  // gap, so this sits a band lower than a missing action outright.
+  no_next_action_date: "watch",
   stalled: "high",
   expected_close_overdue: "critical",
   high_value_low_probability: "high",
@@ -185,6 +188,7 @@ const HEALTH_SEVERITY: Record<HealthFinding["issue"], AttentionSeverity> = {
 
 const HEALTH_REASON: Record<HealthFinding["issue"], string> = {
   no_next_action: "No next action set",
+  no_next_action_date: "Next action has no date",
   stalled: "Stalled",
   expected_close_overdue: "Expected close date has passed",
   high_value_low_probability: "High value, low probability",
