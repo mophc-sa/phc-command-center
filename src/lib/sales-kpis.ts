@@ -88,12 +88,71 @@ export type Kpi = {
   drilldown: DrilldownTarget | null;
   /** Set when the number is incomplete or rests on an assumption. */
   caveat?: string;
+  /**
+   * Why the value is what it is. Omit and `metricStateOf` derives it; set it
+   * when the builder knows something the derivation cannot see — chiefly the
+   * difference between "nobody configured a target" and "the inputs are
+   * missing", which both arrive here as value === null.
+   */
+  state?: MetricState;
+  /** Where the reader goes to make this number computable. See MetricFix. */
+  fix?: MetricFix;
 };
 
 export type DrilldownTarget = {
   to: string;
   search: Record<string, string>;
 };
+
+// ---- Metric states (Phase 5.1 §14) -----------------------------------------
+//
+// Five states, because a dashboard that renders all five as "0" or "—" is
+// lying in four of them. The distinctions are not cosmetic:
+//
+//   ok              a real number, INCLUDING a real zero. "We won nothing this
+//                   month" is knowledge, and must not look like ignorance.
+//   no_data         no records at all matched. Nothing to compute over.
+//   not_calculated  records exist, but an input they depend on is missing —
+//                   the 45 opportunities with no probability are this.
+//   not_configured  someone has to set something up first (no target row).
+//   not_applicable  the metric is meaningless in this context.
+//
+// The reason this matters here specifically: on 2026-08-25 the book held 49
+// opportunities with no probability and no target row, so Weighted Pipeline,
+// Forecast and Coverage were all unknowable at once. Rendering that as
+// "SAR 0" told a manager the pipeline was worthless.
+
+export type MetricState =
+  | "ok"
+  | "no_data"
+  | "not_calculated"
+  | "not_configured"
+  | "not_applicable";
+
+/**
+ * Where the reader goes to MAKE this metric computable.
+ *
+ * An empty state that only describes itself is a dead end, and four of them
+ * side by side read as a broken page rather than an unfinished one. Every
+ * not_calculated / not_configured metric carries the link that fills the gap,
+ * scoped to the exact records that are missing the input.
+ */
+export type MetricFix = {
+  /** i18n key for the call to action. */
+  labelKey: string;
+  to: string;
+  search: Record<string, string>;
+};
+
+/**
+ * The state of a metric. Derivation covers the common cases so existing
+ * builders need no change; an explicit `state` always wins.
+ */
+export function metricStateOf(k: Pick<Kpi, "value" | "recordCount" | "state">): MetricState {
+  if (k.state) return k.state;
+  if (k.value !== null) return "ok";
+  return k.recordCount === 0 ? "no_data" : "not_calculated";
+}
 
 // ---- Value resolution -------------------------------------------------------
 
@@ -177,6 +236,47 @@ export const LATE_STAGE_EXPOSURE: CanonicalStage[] = [
  * work we've been awarded" — not a revenue definition.
  */
 export const AWARDED_STAGES: CanonicalStage[] = [...LATE_STAGE_EXPOSURE, ...WON_STAGES];
+
+// ---- The five management buckets (Phase 5.1 §1) ----------------------------
+//
+// Presentation over the canonical stages. This adds no stage, renames no
+// stage, and changes no existing set — CANONICAL_STAGES is untouched.
+//
+// ⚠ NAME COLLISION, READ THIS BEFORE USING EITHER:
+//
+//   LATE_STAGE_EXPOSURE  = verbally_awarded + contract_received + contract_signed
+//                          "awarded but not yet Won" — the PRD §18 exposure
+//                          layer. It answers "how much could still be lost
+//                          after we were told we won?"
+//
+//   MGMT_LATE_STAGE      = jih_bafo + under_negotiation
+//                          "still being competed for, but near the end" — the
+//                          management bucket. It answers "what is in the final
+//                          commercial round?"
+//
+// Two different questions that English calls the same thing. They are NOT
+// interchangeable and neither is wrong; the exposure set keeps its PRD meaning
+// and its `late_stage` drilldown group, and this one is new.
+//
+// The five buckets are mutually exclusive by construction — every canonical
+// stage appears in at most one — which is what makes it safe to add them up.
+// on_hold and lost sit outside deliberately: a paused deal is not a position
+// in the commercial ladder, and a lost one has left it.
+
+export const MGMT_OPEN_PIPELINE: CanonicalStage[] = ["rfq_received", "jih"];
+export const MGMT_LATE_STAGE: CanonicalStage[] = ["jih_bafo", "under_negotiation"];
+export const MGMT_PENDING_CONTRACT: CanonicalStage[] = ["verbally_awarded"];
+export const MGMT_CONTRACTED: CanonicalStage[] = ["contract_received", "contract_signed"];
+
+export const MANAGEMENT_BUCKETS = [
+  { key: "open_pipeline", stages: MGMT_OPEN_PIPELINE },
+  { key: "late_stage", stages: MGMT_LATE_STAGE },
+  { key: "pending_contract", stages: MGMT_PENDING_CONTRACT },
+  { key: "contracted", stages: MGMT_CONTRACTED },
+  { key: "won", stages: WON_STAGES },
+] as const;
+
+export type ManagementBucketKey = (typeof MANAGEMENT_BUCKETS)[number]["key"];
 
 const inStages = (o: OppRow, set: CanonicalStage[]) => {
   const s = canonicalStageOf(o);
@@ -432,9 +532,17 @@ export function weightedPipeline(opps: OppRow[], ctx: KpiContext): Kpi {
     return s + (opportunityValue(o) ?? 0) * p;
   }, 0);
 
+  // "SAR 0" is only honest when zero is what we KNOW. One deal scored at 0%
+  // beside 48 unscored ones sums to 0 and renders as a confident nothing —
+  // which is the exact figure the 2026-08-25 review flagged as making the
+  // pipeline look worthless. A zero total that rests on a minority of the book
+  // is not a zero, it is an absence.
+  const zeroRestingOnIgnorance = scored.length > 0 && total === 0 && unscored > 0;
+  const computable = scored.length > 0 && !zeroRestingOnIgnorance;
+
   return kpi({
     key: "weighted_pipeline",
-    value: scored.length > 0 ? total : null,
+    value: computable ? total : null,
     kind: "currency",
     formula: "Σ (open opportunity value × probability), manager probability preferred over AI",
     source: "opportunities.human_win_probability, else opportunities.score",
@@ -445,10 +553,14 @@ export function weightedPipeline(opps: OppRow[], ctx: KpiContext): Kpi {
     ]),
     recordIds: scored.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "open" } },
+    state: open.length === 0 ? "no_data" : computable ? "ok" : "not_calculated",
     caveat:
       unscored > 0
         ? `${unscored} open ${unscored === 1 ? "deal has" : "deals have"} no probability and are excluded rather than assumed`
         : undefined,
+    ...(unscored > 0
+      ? { fix: { labelKey: "fix_add_probability", to: OPP_LIST, search: { stage: "open", missing: "probability" } } }
+      : {}),
   });
 }
 
@@ -948,5 +1060,130 @@ export function commercialBookKpis(
     jihPending: pendingCount(opps, ctx, "jih"),
     tenderPending: pendingCount(opps, ctx, "tender"),
     pendingForSubmission: pendingCount(opps, ctx, null),
+  };
+}
+
+// ---- Management view of the book (Phase 5.1 §1, §2, §4, §5) ----------------
+
+const FIX_PROBABILITY: MetricFix = {
+  labelKey: "fix_add_probability",
+  to: "/opportunities",
+  search: { stage: "open", missing: "probability" },
+};
+
+const FIX_TARGET: MetricFix = { labelKey: "fix_set_target", to: "/targets", search: {} };
+
+/** Value and count for one management bucket. */
+export function bucketKpi(opps: OppRow[], ctx: KpiContext, bucket: ManagementBucketKey): Kpi {
+  const def = MANAGEMENT_BUCKETS.find((b) => b.key === bucket)!;
+  const rows = ownerFiltered(opps, ctx).filter((o) => inStages(o, def.stages as CanonicalStage[]));
+  const priced = rows.filter((o) => opportunityValue(o) !== null);
+  return kpi({
+    key: `bucket_${bucket}`,
+    // A bucket with rows but no priced row is not worth zero — it is unpriced.
+    value: rows.length === 0 ? 0 : priced.length === 0 ? null : sumValues(priced),
+    kind: "currency",
+    formula: `Σ value of opportunities in ${def.stages.join(" / ")}`,
+    source: "opportunities (contract_value → quotation_value → estimated_value_max)",
+    stages: def.stages as CanonicalStage[],
+    dateField: null,
+    filters: filterLabels({ ...ctx, period: null }, [`Bucket: ${bucket}`]),
+    recordIds: rows.map((o) => o.id),
+    drilldown: { to: OPP_LIST, search: { stage: def.stages.join(",") } },
+    state: rows.length === 0 ? "no_data" : priced.length === 0 ? "not_calculated" : "ok",
+    ...(rows.length > 0 && priced.length < rows.length
+      ? {
+          caveat: `${rows.length - priced.length} of ${rows.length} carry no value and are counted but not summed`,
+          fix: { labelKey: "fix_add_value", to: OPP_LIST, search: { stage: "open", missing: "value" } },
+        }
+      : {}),
+  });
+}
+
+/**
+ * Pipeline coverage — weighted pipeline ÷ target.
+ *
+ * Reported as a multiple (2.0x), not a percentage, because that is how sales
+ * management reads it: "how many times over could the qualified pipeline cover
+ * what we promised?" Below 1.0x the target cannot be met even if every open
+ * deal closes at its stated probability.
+ */
+export function pipelineCoverage(opps: OppRow[], ctx: KpiContext, targetAmount: number | null): Kpi {
+  const weighted = weightedPipeline(opps, ctx);
+  const hasTarget = typeof targetAmount === "number" && targetAmount > 0;
+  const computable = hasTarget && weighted.value !== null;
+
+  return kpi({
+    key: "pipeline_coverage",
+    value: computable ? Math.round((weighted.value! / targetAmount!) * 100) / 100 : null,
+    kind: "count",
+    formula: "Weighted pipeline ÷ sales target, as a multiple",
+    source: "opportunities × probability, sales_targets.sales_target",
+    stages: OPEN_STAGES,
+    dateField: null,
+    filters: filterLabels(ctx),
+    recordIds: weighted.recordIds,
+    drilldown: { to: OPP_LIST, search: { stage: "open" } },
+    // Two different cures, so two different states. Telling a manager to "set a
+    // target" when the real gap is 45 unscored deals wastes the one action
+    // they were willing to take.
+    state: !hasTarget ? "not_configured" : weighted.value === null ? "not_calculated" : "ok",
+    caveat: !hasTarget
+      ? "No sales target set for this period"
+      : weighted.value === null
+        ? weighted.caveat
+        : undefined,
+    ...(!hasTarget ? { fix: FIX_TARGET } : weighted.value === null ? { fix: FIX_PROBABILITY } : {}),
+  });
+}
+
+export type ForecastVsTarget = {
+  target: Kpi;
+  won: Kpi;
+  forecast: Kpi;
+  achievement: Kpi;
+  gap: Kpi;
+  coverage: Kpi;
+};
+
+/**
+ * The six numbers a sales manager runs the month on.
+ *
+ * Forecast is the WEIGHTED pipeline, not the gross — a forecast that ignores
+ * probability is just the pipeline again under a more confident name. Won is
+ * Won only; late-stage exposure is reported separately and never folded in.
+ */
+export function forecastVsTarget(
+  opps: OppRow[],
+  ctx: KpiContext,
+  targetAmount: number | null,
+): ForecastVsTarget {
+  const t = targetKpis(opps, ctx, targetAmount);
+  const weighted = weightedPipeline(opps, ctx);
+  const hasTarget = typeof targetAmount === "number" && targetAmount > 0;
+
+  return {
+    target: {
+      ...t.target,
+      state: hasTarget ? "ok" : "not_configured",
+      ...(hasTarget ? {} : { fix: FIX_TARGET }),
+    },
+    won: { ...t.actual, key: "forecast_won" },
+    forecast: {
+      ...weighted,
+      key: "forecast_value",
+      ...(weighted.value === null ? { fix: FIX_PROBABILITY } : {}),
+    },
+    achievement: {
+      ...t.achievement,
+      state: hasTarget ? "ok" : "not_configured",
+      ...(hasTarget ? {} : { fix: FIX_TARGET }),
+    },
+    gap: {
+      ...t.gap,
+      state: hasTarget ? "ok" : "not_configured",
+      ...(hasTarget ? {} : { fix: FIX_TARGET }),
+    },
+    coverage: pipelineCoverage(opps, ctx, targetAmount),
   };
 }

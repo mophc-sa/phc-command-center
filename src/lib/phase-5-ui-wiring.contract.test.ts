@@ -13,6 +13,13 @@
 // =============================================================================
 
 import { describe, expect, it } from "bun:test";
+import { renderValue } from "@/components/phc/KpiTile";
+import type { Kpi } from "@/lib/sales-kpis";
+
+const BLANK_KPI: Kpi = {
+  key: "t", value: null, kind: "currency", formula: "", source: "",
+  dateField: null, filters: [], recordCount: 0, recordIds: [], drilldown: null,
+};
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,8 +61,36 @@ describe("the KPI engine reaches a screen", () => {
     }
   });
 
-  it("an unknown value renders as a dash, never as zero", () => {
-    expect(read("src/components/phc/KpiTile.tsx")).toContain('if (k.value === null) return "—"');
+  // WHAT THIS USED TO ASSERT, AND WHY IT WAS WORSE
+  // ---------------------------------------------
+  // It grepped the component for the literal `if (k.value === null) return "—"`
+  // — the MECHANISM, not the guarantee. Phase 5.1 §14 replaced the single dash
+  // with four distinct empty labels precisely because one dash could not tell
+  // "nobody set a target" from "45 deals have no probability". The old
+  // assertion would have failed that improvement while still passing against
+  // any component that rendered a dash and then, elsewhere, a zero.
+  //
+  // The guarantee is behavioural, so it is asserted behaviourally.
+  it("an unknown value never renders as a number", () => {
+    for (const state of ["no_data", "not_calculated", "not_configured", "not_applicable"] as const) {
+      const out = renderValue(
+        { ...BLANK_KPI, value: null, state, kind: "currency" }, "en");
+      expect([state, /\d/.test(out)]).toEqual([state, false]);
+    }
+  });
+
+  it("a real zero still renders as zero", () => {
+    // The opposite error: hiding a known zero behind an empty state would make
+    // "we won nothing this month" indistinguishable from "we do not know".
+    expect(renderValue({ ...BLANK_KPI, value: 0, recordCount: 3, kind: "currency" }, "en")).toMatch(/0/);
+  });
+
+  it("each empty state reads differently, in both languages", () => {
+    for (const lang of ["en", "ar"] as const) {
+      const seen = (["no_data", "not_calculated", "not_configured", "not_applicable"] as const).map((state) =>
+        renderValue({ ...BLANK_KPI, value: null, state, kind: "currency" }, lang));
+      expect([lang, new Set(seen).size]).toEqual([lang, 4]);
+    }
   });
 });
 

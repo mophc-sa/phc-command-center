@@ -27,7 +27,15 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { KpiTile } from "@/components/phc/KpiTile";
-import { executiveKpis, thisMonth, type OppRow } from "@/lib/sales-kpis";
+import {
+  MANAGEMENT_BUCKETS,
+  bucketKpi,
+  executiveKpis,
+  forecastVsTarget,
+  thisMonth,
+  type ManagementBucketKey,
+  type OppRow,
+} from "@/lib/sales-kpis";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -305,6 +313,20 @@ function CommandCenter() {
     });
   }, [data]);
 
+  // Phase 5.1 §1/§4/§5. Same rows, same period boundary as execKpis — one
+  // `today` for the whole page so two tiles cannot disagree about the month.
+  const { forecast, buckets } = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = (data?.opportunities ?? []) as unknown as OppRow[];
+    const ctx = { today, period: thisMonth(today) };
+    return {
+      forecast: forecastVsTarget(rows, ctx, teamTarget?.total && teamTarget.total > 0 ? teamTarget.total : null),
+      buckets: Object.fromEntries(
+        MANAGEMENT_BUCKETS.map((b) => [b.key, bucketKpi(rows, ctx, b.key)]),
+      ) as Record<ManagementBucketKey, ReturnType<typeof bucketKpi>>,
+    };
+  }, [data, teamTarget]);
+
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
@@ -331,19 +353,37 @@ function CommandCenter() {
             {lang === "ar" ? "هذا الشهر · اضغط أي رقم لفتح سجلاته" : "This month · click any number to open its records"}
           </span>
         </div>
+        {/* Phase 5.1 §5 — the six numbers the month is run on, first and
+            together. Forecast is the WEIGHTED pipeline: a forecast that ignores
+            probability is the pipeline again under a more confident name. */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <KpiTile kpi={execKpis.openPipeline}     label={t("mgmt_open_pipeline" as never)} />
+          <KpiTile kpi={forecast.forecast}         label={t("kpi_forecast" as never)} />
+          <KpiTile kpi={forecast.target}           label={t("kpi_target_sales" as never)} />
+          <KpiTile kpi={forecast.won}              label={lang === "ar" ? "المحقق (Won فقط)" : "Won (official)"} />
+          <KpiTile kpi={forecast.achievement}      label={t("kpi_achievement" as never)} />
+          <KpiTile kpi={forecast.coverage}         label={t("kpi_coverage" as never)} />
+        </div>
+
+        {/* Phase 5.1 §1 — the commercial ladder. Mutually exclusive by
+            construction, so these add up; on_hold and lost sit outside it. */}
+        <h3 className="mb-2 mt-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {lang === "ar" ? "خط الأنابيب حسب الموقع التجاري" : "Pipeline by commercial position"}
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {MANAGEMENT_BUCKETS.map((b) => (
+            <KpiTile key={b.key} kpi={buckets[b.key]} label={t(`mgmt_${b.key}` as never)} />
+          ))}
+        </div>
+
+        <h3 className="mb-2 mt-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {lang === "ar" ? "النتائج" : "Outcomes"}
+        </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <KpiTile kpi={execKpis.openPipeline}      label={lang === "ar" ? "خط الأنابيب المفتوح" : "Open pipeline"} />
-          <KpiTile kpi={execKpis.weightedPipeline}  label={lang === "ar" ? "المرجّح" : "Weighted pipeline"} />
-          <KpiTile kpi={execKpis.wonValue}          label={lang === "ar" ? "المحقق (Won فقط)" : "Won (official)"} />
           <KpiTile kpi={execKpis.lateStageExposure} label={lang === "ar" ? "تعرض المراحل المتأخرة" : "Late-stage exposure"} />
           <KpiTile kpi={execKpis.winRate}           label={lang === "ar" ? "معدل الفوز" : "Win rate"} />
           <KpiTile kpi={execKpis.lossRate}          label={lang === "ar" ? "معدل الخسارة" : "Loss rate"} />
           <KpiTile kpi={execKpis.lostValue}         label={lang === "ar" ? "قيمة الخسائر" : "Lost value"} />
-          {execKpis.byStage
-            .filter((k) => k.key === "stage_jih_bafo" || k.key === "stage_under_negotiation")
-            .map((k) => (
-              <KpiTile key={k.key} kpi={k} label={k.key === "stage_jih_bafo" ? "JIH BAFO" : (lang === "ar" ? "قيد التفاوض" : "Under negotiation")} />
-            ))}
         </div>
       </section>
 
