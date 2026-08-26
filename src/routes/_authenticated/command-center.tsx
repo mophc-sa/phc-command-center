@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
@@ -19,7 +19,6 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
-  CheckCircle2,
   Clock,
   Sparkles,
   Target,
@@ -27,17 +26,36 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { KpiTile } from "@/components/phc/KpiTile";
-import { executiveKpis, thisMonth, type OppRow } from "@/lib/sales-kpis";
+import {
+  MANAGEMENT_BUCKETS,
+  bucketKpi,
+  executiveKpis,
+  forecastVsTarget,
+  pipelineHealth,
+  thisMonth,
+  type ManagementBucketKey,
+  type OppRow,
+} from "@/lib/sales-kpis";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
-import { PriorityItem } from "@/components/phc/PriorityItem";
+import { NeedsAttentionPanel } from "@/components/phc/NeedsAttentionPanel";
+import { buildAttention, dataQuality, summarize, type AttentionOpp } from "@/lib/attention";
+import { buildManagementBrief, withAiCommentary } from "@/lib/sales-ai";
+import { runAiAgent } from "@/lib/ai-orchestrator-actions";
+import { ExecutiveBrief } from "@/components/phc/ExecutiveBrief";
+import { DataQualityPanel } from "@/components/phc/DataQualityPanel";
+import { AskAiPanel } from "@/components/phc/AskAiPanel";
+import { buildRfqWorkflow, summarizeByAge, summarizeByState } from "@/lib/rfq-workflow";
+import { allComplete, fetchAllRows } from "@/lib/fetch-all";
+import type { StakeholderRow } from "@/lib/stakeholder-roles";
+import { salesExecution } from "@/lib/sales-execution";
+import { PipelineBreakdownDrawer } from "@/components/phc/PipelineBreakdownDrawer";
 import { StatusPill } from "@/components/phc/StatusPill";
 import type { OpportunityRow } from "@/components/phc/OpportunityCard";
-import { humanize } from "@/lib/utils";
 import {
   resolveCanonicalStage,
   groupByCanonicalStage,
@@ -55,6 +73,29 @@ import { isSalesperson, canManageSalesPipeline, isSystemAdmin, isFinanceManager,
 // Scoped to salesperson specifically (not a broader "not a manager" check)
 // so it doesn't disturb the existing "viewer" landing contract in
 // src/routes/index.tsx, which deliberately sends viewer here too.
+// `role_code` does not exist until migration 20260915100000 is applied, and
+// PostgREST answers a select naming an unknown column with 400 — which
+// fetchAllRows raises, which would reject the whole dashboard query and leave
+// the Command Center blank against today's production schema. A comment about
+// deployment order is not a safeguard; this is. Ask for the column, and if the
+// database does not have it yet, ask again without it.
+//
+// The fallback is not a degraded reading, it is the pre-migration reading:
+// effectiveRole() already falls back to the historical `role` text, so
+// decisionMakerState answers exactly as it did before the column existed. The
+// rows are all there either way, so completeness is unaffected.
+const STAKEHOLDER_COLS = "id, opportunity_id, name, role, organization, last_interaction_at";
+
+async function fetchStakeholders() {
+  try {
+    return await fetchAllRows(() =>
+      supabase.from("stakeholders").select(`${STAKEHOLDER_COLS}, role_code`),
+    );
+  } catch {
+    return await fetchAllRows(() => supabase.from("stakeholders").select(STAKEHOLDER_COLS));
+  }
+}
+
 export const Route = createFileRoute("/_authenticated/command-center")({
   beforeLoad: async () => {
     const {
@@ -117,21 +158,65 @@ function CommandCenter() {
       since.setDate(since.getDate() - 29);
       const sinceIso = since.toISOString();
 
-      const [opps, followUps, approvals, agentRuns, activities, rfqs] = await Promise.all([
-        supabase.from("opportunities").select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, updated_at, created_at").order("last_activity_at", { ascending: false, nullsFirst: false }).limit(200),
-        supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, owner_id").neq("status", "completed").order("due_date", { ascending: true }).limit(100),
+      const [opps, followUps, approvals, agentRuns, activities, rfqs, quotations, transitions, stakeholders] = await Promise.all([
+        // Paged to completion, not capped. The old cap here silently
+        // computed every KPI over the first 200 rows: at 201 opportunities the
+        // pipeline total was confidently, precisely wrong with nothing on
+        // screen saying so.
+        fetchAllRows(() =>
+          supabase
+            .from("opportunities")
+            .select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, contractor_decision_maker, updated_at, created_at")
+            .order("last_activity_at", { ascending: false, nullsFirst: false }),
+        ),
+        fetchAllRows(() =>
+          supabase
+            .from("follow_ups")
+            .select("id, opportunity_id, due_date, status, channel, cadence_tier, owner_id")
+            .neq("status", "completed")
+            .order("due_date", { ascending: true }),
+        ),
         supabase.from("approvals").select("*").eq("status", "pending"),
         supabase.from("ai_agent_runs").select("*").order("started_at", { ascending: false }).limit(6),
-        supabase.from("activities").select("id, occurred_at").gte("occurred_at", sinceIso),
-        supabase.from("rfqs").select("id, status, estimated_value").limit(200),
+        // activity_type + status decide whether a row counts as client contact:
+        // a note is internal and an unsent draft never reached anyone.
+        supabase.from("activities").select("id, related_opportunity_id, activity_type, status, occurred_at").gte("occurred_at", sinceIso),
+        fetchAllRows(() =>
+          supabase
+            .from("rfqs")
+            .select("id, rfq_number, status, estimated_value, received_date, response_due_date, opportunity_id, classification"),
+        ),
+        fetchAllRows(() =>
+          supabase.from("quotations").select("id, related_opportunity_id, status, value, issued_date"),
+        ),
+        // Stage aging's only honest source, and the worst of the old caps:
+        // `.limit(2000)` combined with ascending order took the OLDEST 2,000
+        // transitions, so as history grew the stalled baselines would freeze on
+        // ancient rows and quietly stop describing the current book. Paged.
+        fetchAllRows(() =>
+          supabase
+            .from("stage_transition_history")
+            .select("record_type, record_id, from_stage, to_stage, created_at")
+            .eq("record_type", "opportunity")
+            .order("created_at", { ascending: true }),
+        ),
+        // §19 — so "who decides" is answered by the one shared helper rather
+        // than by a single denormalised column.
+        fetchStakeholders(),
       ]);
       return {
-        opportunities: (opps.data ?? []) as unknown as OpportunityRow[],
-        followUps: followUps.data ?? [],
+        opportunities: opps.rows as unknown as OpportunityRow[],
+        followUps: followUps.rows,
+        stakeholders: stakeholders.rows,
+        // One truncated source makes every derived metric unreliable, so
+        // completeness is an AND across the set that feeds the KPIs.
+        complete: allComplete(opps, followUps, rfqs, quotations, stakeholders, transitions),
         approvals: approvals.data ?? [],
         agentRuns: agentRuns.data ?? [],
+        transitions: transitions.rows,
         activities: activities.data ?? [],
-        rfqs: rfqs.data ?? [],
+        rfqs: rfqs.rows,
+        quotations: quotations.rows,
       };
     },
   });
@@ -249,51 +334,220 @@ function CommandCenter() {
     ];
   }, [followUps, today, lang]);
 
-  // RFQ status distribution
-  const rfqStatus = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const r of rfqs as any[]) {
-      const k = (r.status as string) ?? "unknown";
-      map.set(k, (map.get(k) ?? 0) + 1);
-    }
-    const palette = [CHART_COLORS.primary, CHART_COLORS.amber, CHART_COLORS.primaryDim, CHART_COLORS.muted];
-    return Array.from(map.entries()).map(([k, v], i) => ({
-      key: k,
-      label: humanize(k),
-      value: v,
-      color: palette[i % palette.length],
-    }));
-  }, [rfqs]);
+  // Phase 5.1 §16 — RFQ age and derived workflow state.
+  //
+  // The donut this replaces plotted `rfq_status`, which has four values and
+  // three of them are terminal, so a live desk read "Open: 8 — 100%": a chart
+  // of one fact. The useful distinctions come from the quotation chain one join
+  // away, without adding a second lifecycle to keep in sync.
+  const rfqWork = useMemo(
+    () => buildRfqWorkflow(rfqs as never, (data?.quotations ?? []) as never, today),
+    [rfqs, data, today],
+  );
+  const rfqAges = useMemo(() => summarizeByAge(rfqWork), [rfqWork]);
+  const rfqStates = useMemo(() => summarizeByState(rfqWork), [rfqWork]);
+  const rfqOverdue = useMemo(() => rfqWork.filter((r) => r.overdue), [rfqWork]);
   const rfqTotal = rfqs.length;
 
-  const attention = [
-    ...overdue.slice(0, 3).map((f: any) => {
-      const o = opps.find((x) => x.id === f.opportunity_id);
-      return {
-        key: `fu-${f.id}`,
-        title: o?.project_name ?? "—",
-        subtitle: o?.main_contractor ?? undefined,
-        reason: lang === "ar" ? "متابعة متأخرة" : "Follow-up overdue",
-        due: f.due_date,
-        tier: (o?.tier ?? "B") as "A" | "B" | "C",
-        value: o ? formatCurrency(o.quotation_value ?? o.estimated_value_max, lang, o.currency) : undefined,
-        oppId: o?.id,
-      };
-    }),
-    ...approvals.slice(0, 2).map((a: any) => {
-      const o = opps.find((x) => x.id === a.related_opportunity_id);
-      return {
-        key: `ap-${a.id}`,
-        title: o?.project_name ?? "—",
-        subtitle: o?.client ?? undefined,
-        reason: lang === "ar" ? "بانتظار الاعتماد" : "Awaiting approval",
-        due: undefined as string | undefined,
-        tier: (o?.tier ?? "A") as "A" | "B" | "C",
-        value: o ? formatCurrency(o.estimated_value_max, lang, o.currency) : undefined,
-        oppId: o?.id,
-      };
-    }),
-  ].slice(0, 5);
+  // Grouped once, so the decision-maker read is a Map lookup per opportunity
+  // rather than a scan of every stakeholder for every deal.
+  const stakeholdersByOpp = useMemo(() => {
+    const m = new Map<string, StakeholderRow[]>();
+    // `role_code` is optional on this type, and not because the schema is
+    // vague: fetchStakeholders() drops the column when the database predates
+    // 20260915100000. effectiveRole() already reads the historical `role` text
+    // in that case, so a row without it is a complete row, not a broken one.
+    for (const s of (data?.stakeholders ?? []) as Array<StakeholderRow & { opportunity_id?: string | null }>) {
+      const oid = s.opportunity_id;
+      if (!oid) continue;
+      m.set(oid, [...(m.get(oid) ?? []), s]);
+    }
+    return m;
+  }, [data]);
+
+  // Phase 5.1 §6/§7/§8. This used to be one row per ISSUE, hard-capped at three
+  // follow-ups plus two approvals, ordered by whatever the query returned. A
+  // deal with two overdue follow-ups appeared twice, and deal value entered the
+  // ranking nowhere at all.
+  const attention = useMemo(
+    () =>
+      buildAttention({
+        opportunities: (data?.opportunities ?? []) as unknown as AttentionOpp[],
+        followUps: (data?.followUps ?? []) as never,
+        activities: ((data?.activities ?? []) as Array<Record<string, unknown>>).map((a) => ({
+          id: String(a.id),
+          // The column is related_opportunity_id — `opportunity_id` exists on
+          // follow_ups but not here, and the generated types caught the slip.
+          opportunity_id: (a.related_opportunity_id as string | null) ?? null,
+          activity_type: (a.activity_type as string | null) ?? null,
+          status: (a.status as string | null) ?? null,
+          // `activities` dates its rows with occurred_at, not created_at.
+          created_at: String(a.occurred_at ?? ""),
+        })),
+        transitions: (data?.transitions ?? []) as never,
+        stakeholdersByOpp: stakeholdersByOpp,
+        today: new Date().toISOString().slice(0, 10),
+      }),
+    [data, stakeholdersByOpp],
+  );
+
+  const attentionSummary = useMemo(() => summarize(attention), [attention]);
+
+  // §C1 — the rows behind the headline. Held as the KPI key so the drawer is
+  // handed exactly the records that KPI summed, never its own query.
+  const [breakdown, setBreakdown] = useState<null | { title: string; rows: OppRow[] }>(null);
+  const [askOpen, setAskOpen] = useState(false);
+
+  // §11 — the brief. Built from counted records BEFORE any model is consulted,
+  // so it is complete and true whether or not AI is reachable. Commentary, when
+  // it arrives, is appended and labelled; it never replaces a fact.
+  const deterministicBrief = useMemo(
+    () =>
+      buildManagementBrief({
+        opportunities: (data?.opportunities ?? []) as unknown as OppRow[],
+        ctx: { today, period: thisMonth(today) },
+        targetAmount: teamTarget?.total && teamTarget.total > 0 ? teamTarget.total : null,
+      }),
+    [data, today, teamTarget],
+  );
+
+  // A separate query on purpose: a slow or failing model must not hold up the
+  // facts. `retry: false` because a brief nobody is waiting for is not worth
+  // three attempts, and `ok === false` is a normal outcome here, not an error.
+  const commentary = useQuery({
+    queryKey: ["cc-brief-commentary"],
+    staleTime: 900_000,
+    retry: false,
+    enabled: (data?.opportunities ?? []).length > 0,
+    queryFn: async () => {
+      const res = await runAiAgent({
+        agent: "sales_report_insights",
+        entityType: "opportunities",
+        entityId: (data?.opportunities ?? [])[0]?.id ?? "",
+      });
+      return res.ok ? res : null;
+    },
+  });
+
+  const brief = useMemo(() => {
+    const c = commentary.data;
+    if (!c || !c.ok) return deterministicBrief;
+    const out = c.result as { insights?: unknown; recommendations?: unknown } | null;
+    const inferences = Array.isArray(out?.insights)
+      ? (out!.insights as unknown[]).filter((x): x is string => typeof x === "string")
+      : [];
+    // filterRecommendations drops anything proposing a forbidden action before
+    // it can reach the screen — the model cannot suggest its way past the gate.
+    const recommendations = Array.isArray(out?.recommendations)
+      ? (out!.recommendations as unknown[])
+          .filter((x): x is { id?: string; text?: string; proposedAction?: string } => typeof x === "object" && x !== null)
+          .map((r, i) => ({
+            id: String(r.id ?? i),
+            text: String(r.text ?? ""),
+            proposedAction: String(r.proposedAction ?? r.text ?? ""),
+          }))
+      : [];
+    return withAiCommentary(deterministicBrief, {
+      agentKey: "sales_report_insights",
+      inferences,
+      recommendations,
+    }).brief;
+  }, [deterministicBrief, commentary.data]);
+
+  // §13 — data quality from the same engine Needs Attention uses, so the two
+  // cannot disagree about what is missing.
+  const dq = useMemo(() => {
+    const active = ((data?.opportunities ?? []) as unknown as OppRow[]).filter((o) => {
+      const st = resolveCanonicalStage(o).stage;
+      return st !== null && (CANONICAL_ACTIVE_STAGES as readonly string[]).includes(st);
+    }).length;
+    return dataQuality(attention, active);
+  }, [attention, data]);
+
+  // §15 — per-owner outcomes. Reuses the attention engine's stalled verdicts
+  // rather than recomputing them, so the table and Needs Attention cannot
+  // disagree about which deals are stuck.
+  const execution = useMemo(
+    () =>
+      salesExecution({
+        opportunities: (data?.opportunities ?? []) as unknown as OppRow[],
+        followUps: (data?.followUps ?? []) as never,
+        activities: ((data?.activities ?? []) as Array<Record<string, unknown>>).map((a) => ({
+          id: String(a.id),
+          opportunity_id: (a.related_opportunity_id as string | null) ?? null,
+          activity_type: (a.activity_type as string | null) ?? null,
+          status: (a.status as string | null) ?? null,
+          created_at: String(a.occurred_at ?? ""),
+        })),
+        quotations: (data?.quotations ?? []) as never,
+        attention,
+        today,
+        since: new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10),
+      }),
+    [data, attention, today],
+  );
+
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ["cc-team-names"],
+    staleTime: 300_000,
+    queryFn: async () => (await supabase.from("profiles").select("id, full_name, email")).data ?? [],
+  });
+  const teamName = (id: string) => {
+    const m = (teamMembers as Array<{ id: string; full_name?: string | null; email?: string | null }>).find(
+      (x) => x.id === id,
+    );
+    return m?.full_name ?? m?.email ?? id.slice(0, 8);
+  };
+
+  // §12 — business-facing AI insights. Every line is a count the deterministic
+  // engines already produced, which is what lets this panel render unchanged
+  // when no AI provider is reachable.
+  const aiInsights = useMemo(() => {
+    const health = pipelineHealth((data?.opportunities ?? []) as unknown as OppRow[], { today, period: null });
+    const countIssue = (issue: string) => new Set(health.filter((h) => h.issue === issue).map((h) => h.opportunityId)).size;
+    return [
+      {
+        key: "at_risk",
+        label: lang === "ar" ? "فرص معرَّضة للخطر" : "Opportunities at risk",
+        count: attentionSummary.atRisk.count,
+        detail: attentionSummary.atRisk.value > 0 ? formatCurrency(attentionSummary.atRisk.value, lang) : null,
+      },
+      {
+        key: "overdue",
+        label: lang === "ar" ? "متابعات متأخرة" : "Overdue follow-ups",
+        count: overdue.length,
+        detail: null,
+      },
+      {
+        key: "closing",
+        label: lang === "ar" ? "إغلاق خلال ٣٠ يومًا" : "Closing within 30 days",
+        count: attentionSummary.closingSoon.count,
+        detail: attentionSummary.closingSoon.value > 0 ? formatCurrency(attentionSummary.closingSoon.value, lang) : null,
+      },
+      {
+        key: "no_dm",
+        label: lang === "ar" ? "بلا صانع قرار" : "No decision maker identified",
+        count: attention.filter((a) => a.reasons.some((r) => r.kind === "no_decision_maker")).length,
+        detail: null,
+      },
+      {
+        key: "incomplete",
+        label: lang === "ar" ? "بيانات تجارية ناقصة" : "Incomplete commercial data",
+        count: new Set(
+          health
+            .filter((h) => h.issue === "unscored" || h.issue === "no_next_action")
+            .map((h) => h.opportunityId),
+        ).size,
+        detail: lang === "ar" ? "بلا احتمالية أو إجراء تالٍ" : "No probability or no next action",
+      },
+      {
+        key: "rfq_overdue",
+        label: lang === "ar" ? "طلبات تجاوزت موعد الرد" : "RFQs past their response date",
+        count: rfqOverdue.length,
+        detail: null,
+      },
+    ];
+  }, [data, today, lang, attention, attentionSummary, overdue, rfqOverdue]);
 
   // Canonical Phase 5 KPIs. `today` is derived once so every tile shares one
   // period boundary and they cannot disagree about what "this month" means.
@@ -304,6 +558,20 @@ function CommandCenter() {
       period: thisMonth(today),
     });
   }, [data]);
+
+  // Phase 5.1 §1/§4/§5. Same rows, same period boundary as execKpis — one
+  // `today` for the whole page so two tiles cannot disagree about the month.
+  const { forecast, buckets } = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = (data?.opportunities ?? []) as unknown as OppRow[];
+    const ctx = { today, period: thisMonth(today) };
+    return {
+      forecast: forecastVsTarget(rows, ctx, teamTarget?.total && teamTarget.total > 0 ? teamTarget.total : null),
+      buckets: Object.fromEntries(
+        MANAGEMENT_BUCKETS.map((b) => [b.key, bucketKpi(rows, ctx, b.key)]),
+      ) as Record<ManagementBucketKey, ReturnType<typeof bucketKpi>>,
+    };
+  }, [data, teamTarget]);
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -322,6 +590,30 @@ function CommandCenter() {
           formula, source, active filters and record ids, and links to exactly
           the records behind the number — the tooltip cannot drift from the
           value because both are read off the same object. */}
+      {/* The one thing worse than a truncated dataset is a truncated dataset
+          that looks complete. Every KPI below derives from these rows, so if
+          the ceiling stopped the read, the reader is told before they read a
+          single number. */}
+      {data && !data.complete ? (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber/40 bg-amber/10 px-4 py-2.5">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-light" aria-hidden="true" />
+          <p className="text-[12px] text-foreground">
+            {lang === "ar"
+              ? "تجاوز حجم البيانات حدّ القراءة، فالأرقام أدناه محسوبة على جزء من الدفتر لا عليه كاملًا."
+              : "The dataset exceeded the read ceiling, so the figures below are computed over part of the book, not all of it."}
+          </p>
+        </div>
+      ) : null}
+
+      {/* §11 — the brief leads. It is the one thing a manager can read in
+          fifteen seconds, and it stands entirely on counted records. */}
+      {isLoading ? null : (
+        <ExecutiveBrief
+          brief={brief}
+          aiUnavailable={commentary.isFetched && !commentary.data}
+        />
+      )}
+
       <section className="mb-6">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-[13px] font-semibold text-foreground">
@@ -331,24 +623,124 @@ function CommandCenter() {
             {lang === "ar" ? "هذا الشهر · اضغط أي رقم لفتح سجلاته" : "This month · click any number to open its records"}
           </span>
         </div>
+        {/* Phase 5.1 §5 — the six numbers the month is run on, first and
+            together. Forecast is the WEIGHTED pipeline: a forecast that ignores
+            probability is the pipeline again under a more confident name. */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          {/* The one number the whole review started from: "من أين أتت الـ63.4M؟"
+              A headline with no way to see its rows is a dead number. */}
+          <KpiTile
+            kpi={execKpis.openPipeline}
+            label={t("mgmt_open_pipeline" as never)}
+            onOpen={() =>
+              setBreakdown({
+                title: t("mgmt_open_pipeline" as never),
+                rows: (data?.opportunities ?? []).filter((o) =>
+                  execKpis.openPipeline.recordIds.includes(o.id),
+                ) as unknown as OppRow[],
+              })
+            }
+          />
+          <KpiTile kpi={forecast.forecast}         label={t("kpi_forecast" as never)} />
+          <KpiTile kpi={forecast.target}           label={t("kpi_target_sales" as never)} />
+          <KpiTile kpi={forecast.won}              label={lang === "ar" ? "المحقق (Won فقط)" : "Won (official)"} />
+          <KpiTile kpi={forecast.achievement}      label={t("kpi_achievement" as never)} />
+          <KpiTile kpi={forecast.coverage}         label={t("kpi_coverage" as never)} />
+        </div>
+
+        {/* Phase 5.1 §1 — the commercial ladder. Mutually exclusive by
+            construction, so these add up; on_hold and lost sit outside it. */}
+        <h3 className="mb-2 mt-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {lang === "ar" ? "خط الأنابيب حسب الموقع التجاري" : "Pipeline by commercial position"}
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {MANAGEMENT_BUCKETS.map((b) => (
+            <KpiTile
+              key={b.key}
+              kpi={buckets[b.key]}
+              label={t(`mgmt_${b.key}` as never)}
+              // Rendered 2026-08-26: this row's "Open pipeline" and the strip
+              // above it showed the SAME label and the SAME SAR 63,407,478 —
+              // but they are different sets. The strip is every open stage
+              // (OPEN_STAGES, on_hold included); this rung is rfq_received +
+              // jih only. They agree today because nothing has ever advanced
+              // past jih, and would silently disagree the moment one deal did.
+              // Naming the stages is what makes the two readable side by side.
+              hint={(b.stages as readonly string[]).map((st) => t(canonicalStageLabelKey(st as never))).join(" · ")}
+            />
+          ))}
+        </div>
+
+        <h3 className="mb-2 mt-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {lang === "ar" ? "النتائج" : "Outcomes"}
+        </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <KpiTile kpi={execKpis.openPipeline}      label={lang === "ar" ? "خط الأنابيب المفتوح" : "Open pipeline"} />
-          <KpiTile kpi={execKpis.weightedPipeline}  label={lang === "ar" ? "المرجّح" : "Weighted pipeline"} />
-          <KpiTile kpi={execKpis.wonValue}          label={lang === "ar" ? "المحقق (Won فقط)" : "Won (official)"} />
           <KpiTile kpi={execKpis.lateStageExposure} label={lang === "ar" ? "تعرض المراحل المتأخرة" : "Late-stage exposure"} />
           <KpiTile kpi={execKpis.winRate}           label={lang === "ar" ? "معدل الفوز" : "Win rate"} />
           <KpiTile kpi={execKpis.lossRate}          label={lang === "ar" ? "معدل الخسارة" : "Loss rate"} />
           <KpiTile kpi={execKpis.lostValue}         label={lang === "ar" ? "قيمة الخسائر" : "Lost value"} />
-          {execKpis.byStage
-            .filter((k) => k.key === "stage_jih_bafo" || k.key === "stage_under_negotiation")
-            .map((k) => (
-              <KpiTile key={k.key} kpi={k} label={k.key === "stage_jih_bafo" ? "JIH BAFO" : (lang === "ar" ? "قيد التفاوض" : "Under negotiation")} />
-            ))}
         </div>
       </section>
 
+      {/* Phase 5.1 §6/§9 — Action Required, and the three risk roll-ups beside
+          it. This sat at the bottom of the page under the charts; it is the one
+          section a sales manager opens the dashboard to read, so it now sits
+          directly under the numbers and above every chart. */}
+      <section className="mt-6">
+        <div className="mb-2 grid gap-3 sm:grid-cols-3">
+          {([
+            ["at_risk", attentionSummary.atRisk, lang === "ar" ? "معرَّضة للخطر" : "At risk"],
+            ["stalled", attentionSummary.stalled, lang === "ar" ? "متوقفة" : "Stalled"],
+            ["closing", attentionSummary.closingSoon, lang === "ar" ? "إغلاق قريب" : "Closing soon"],
+          ] as const).map(([key, roll, label]) => (
+            <div key={key} className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+              <div className="num mt-1 text-[20px] font-semibold leading-none text-foreground" data-tabular="true">
+                {formatNumber(roll.count, lang)}
+              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                {roll.count === 0
+                  ? "—"
+                  : roll.value > 0
+                    ? formatCurrency(roll.value, lang)
+                    : lang === "ar"
+                      ? "بلا قيمة مسجَّلة"
+                      : "No value recorded"}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <ChartFrame
+          title={t("needs_attention")}
+          subtitle={
+            lang === "ar"
+              ? "صف واحد لكل فرصة · اضغط لترى القواعد التي أطلقت التصنيف"
+              : "One row per opportunity · open a row to see which rules fired"
+          }
+          action={
+            <button
+              onClick={() => nav({ to: "/action-center" })}
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/70 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {lang === "ar" ? "الكل" : "View all"} <ArrowRight className="h-3 w-3" />
+            </button>
+          }
+          padded={false}
+          bodyClassName="p-0"
+        >
+          {isLoading ? (
+            <SkeletonTable rows={4} />
+          ) : attention.length === 0 ? (
+            <div className="px-3 py-6"><EmptyState message={t("empty_needs_attention")} /></div>
+          ) : (
+            <NeedsAttentionPanel items={attention.slice(0, 8)} />
+          )}
+        </ChartFrame>
+      </section>
+
       {/* KPI row */}
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard
           label={lang === "ar" ? "الهدف الإجمالي للفريق" : "Team Target"}
           value={teamTarget && teamTarget.total > 0 ? formatCurrency(teamTarget.total, lang, "SAR") : "—"}
@@ -387,7 +779,10 @@ function CommandCenter() {
       </section>
 
       {/* Charts row 1 */}
-      <section className="mt-6 grid gap-3 lg:grid-cols-2">
+      {/* One chart now, not two: the "Team activity (30 days)" line chart that
+          sat beside this was the widget §15 replaced, and it was still
+          rendering below the Sales Execution table it had been superseded by. */}
+      <section className="mt-6 grid gap-3">
         <ChartFrame
           title={lang === "ar" ? "قيمة خط الأنابيب حسب المرحلة" : "Pipeline value by stage"}
           subtitle={
@@ -439,29 +834,6 @@ function CommandCenter() {
           )}
         </ChartFrame>
 
-        <ChartFrame
-          title={lang === "ar" ? "نشاط الفريق (30 يوم)" : "Team activity (30 days)"}
-          subtitle={lang === "ar" ? "الأنشطة المسجلة يومياً" : "Logged activities per day"}
-        >
-          {activities.length === 0 ? (
-            <EmptyChart label={lang === "ar" ? "لا يوجد نشاط بعد" : "No activity logged yet"} />
-          ) : (
-            <div className={CHART_H}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={activityTrend} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                  <CartesianGrid stroke={CHART_COLORS.grid} strokeDasharray="2 4" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: CHART_COLORS.primaryDim, fontSize: 11 }} tickLine={false} axisLine={false} interval={4} />
-                  <YAxis tick={{ fill: CHART_COLORS.primaryDim, fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ background: CHART_COLORS.surface, border: `1px solid ${CHART_COLORS.border}`, borderRadius: 8, fontSize: 12, color: CHART_COLORS.primary }}
-                    cursor={{ stroke: CHART_COLORS.grid }}
-                  />
-                  <Line type="monotone" dataKey="count" stroke={CHART_COLORS.primary} strokeWidth={1.75} dot={false} activeDot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </ChartFrame>
       </section>
 
       {/* Charts row 2 */}
@@ -510,118 +882,202 @@ function CommandCenter() {
         </ChartFrame>
 
         <ChartFrame
-          title={lang === "ar" ? "توزيع طلبات عروض الأسعار" : "RFQ status distribution"}
-          subtitle={lang === "ar" ? `${rfqTotal} طلب` : `${rfqTotal} RFQs total`}
+          title={lang === "ar" ? "عمر طلبات عروض الأسعار" : "RFQ age"}
+          subtitle={
+            rfqOverdue.length > 0
+              ? lang === "ar"
+                ? `${rfqTotal} طلب · ${rfqOverdue.length} تجاوز موعد الرد بلا تقديم`
+                : `${rfqTotal} RFQs · ${rfqOverdue.length} past the response date with nothing submitted`
+              : lang === "ar" ? `${rfqTotal} طلب` : `${rfqTotal} RFQs`
+          }
         >
           {rfqTotal === 0 ? (
             <EmptyChart label={lang === "ar" ? "لا توجد طلبات بعد" : "No RFQs yet"} />
           ) : (
-            <div className="grid grid-cols-[minmax(0,1fr)_180px] items-center gap-6">
-              <div className="space-y-2.5">
-                {rfqStatus.map((s) => {
-                  const pct = Math.round((s.value / rfqTotal) * 100);
-                  return (
-                    <div key={s.key}>
-                      <div className="mb-1 flex items-center justify-between text-[12px]">
-                        <span className="flex items-center gap-2 text-muted-foreground">
-                          <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
-                          {s.label}
-                        </span>
-                        <span className="num text-foreground" data-tabular="true">{formatNumber(s.value, lang)} · {pct}%</span>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
-                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: s.color }} />
-                      </div>
+            <div className="space-y-4">
+              {/* Age first: it is the only fully derivable RFQ fact, since
+                  received_date is NOT NULL on every row. */}
+              <div className="grid grid-cols-4 gap-2">
+                {rfqAges.map((b) => (
+                  <div key={b.bucket} className="rounded-lg border border-border/70 bg-surface/60 px-2.5 py-2">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {b.bucket === "15+" ? (lang === "ar" ? "+١٥ يوم" : "15+ days") : `${b.bucket}${lang === "ar" ? " يوم" : "d"}`}
                     </div>
-                  );
-                })}
+                    <div className="num mt-0.5 text-[17px] font-semibold leading-none text-foreground" data-tabular="true">
+                      {formatNumber(b.count, lang)}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className={CHART_H_SM}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={rfqStatus} dataKey="value" nameKey="label" innerRadius={44} outerRadius={64} paddingAngle={2} stroke="none">
-                      {rfqStatus.map((s) => (
-                        <Cell key={s.key} fill={s.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
+
+              <div className="space-y-1.5">
+                {rfqStates
+                  .filter((st) => st.count > 0)
+                  .map((st) => (
+                    <div key={st.state} className="flex items-center justify-between text-[12px]">
+                      <span className="text-muted-foreground">{t(`rfqw_${st.state}` as never)}</span>
+                      <span className="num text-foreground" data-tabular="true">{formatNumber(st.count, lang)}</span>
+                    </div>
+                  ))}
               </div>
+
+              {/* The data gap, stated rather than approximated. */}
+              <p className="text-[10px] leading-relaxed text-muted-foreground/70">
+                {lang === "ar"
+                  ? "الحالات مشتقّة من حالة الطلب وسلسلة عروض الأسعار. «بانتظار توضيح» و«معلومات ناقصة» غير معروضتين لأن لا حقل يسجّلهما."
+                  : "States are derived from RFQ status and the quotation chain. \u201CAwaiting clarification\u201D and \u201Cmissing information\u201D are absent because no field records them."}
+              </p>
             </div>
           )}
         </ChartFrame>
       </section>
 
-      {/* Needs Attention + Agent Activity */}
-      <section className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+
+      {/* §18 — persistent, and it stays out of the way until asked. It is
+          handed ROWS, never a client, so it cannot reach a record the signed-in
+          user could not already open. */}
+      <button
+        type="button"
+        onClick={() => setAskOpen(true)}
+        className="fixed bottom-5 end-5 z-40 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 py-2 text-[12px] font-medium text-foreground shadow-lg transition-colors hover:border-border-strong"
+      >
+        <Sparkles className="h-3.5 w-3.5 text-amber-light" aria-hidden="true" />
+        {t("ask_ai_open" as never)}
+      </button>
+
+      <AskAiPanel
+        open={askOpen}
+        onClose={() => setAskOpen(false)}
+        context={{
+          route: "/command-center",
+          opportunities: (data?.opportunities ?? []) as unknown as AttentionOpp[],
+          today,
+        }}
+      />
+
+      <PipelineBreakdownDrawer
+        open={breakdown !== null}
+        onClose={() => setBreakdown(null)}
+        title={breakdown?.title ?? ""}
+        rows={(breakdown?.rows ?? []) as never}
+        ownerName={teamName}
+      />
+
+      {/* Phase 5.1 §12 — AI INSIGHTS, business-facing.
+          This slot held Agent Activity: contact_mapping, data_cleanup,
+          risk_finance, "scaffold — enrichment source not configured". Real
+          information, addressed to a developer, occupying the most valuable
+          column on a sales manager's screen. The audit trail is NOT deleted —
+          /agent-activity already reads the same ai_agent_runs table and is
+          reachable from Admin → AI Audit, role-gated as before.
+
+          What replaces it is deterministic: every line is a count the engines
+          above already computed, so this panel renders identically whether or
+          not an AI provider is reachable. */}
+      {/* minmax(0,1fr) on the SINGLE-column case too, not just lg. A default
+          grid column is auto-sized to max-content, so the 560px-min execution
+          table below stretched the column, the card, and the page — dragging
+          the whole document sideways on a phone instead of scrolling inside
+          its own overflow-x-auto. Verified at 375px in both directions. */}
+      <section className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <ChartFrame
-          title={t("needs_attention")}
-          subtitle={lang === "ar" ? "أولوية للقرار الآن" : "Prioritized for decision now"}
-          action={
-            <button
-              onClick={() => nav({ to: "/action-center" })}
-              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/70 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {lang === "ar" ? "الكل" : "View all"} <ArrowRight className="h-3 w-3" />
-            </button>
+          title={lang === "ar" ? "تنفيذ المبيعات" : "Sales execution"}
+          subtitle={
+            lang === "ar"
+              ? "ما يحمله كل مندوب وما تحرّك — لا عدّ مكالمات"
+              : "What each rep carries and what has moved — not a count of calls"
           }
           padded={false}
-          bodyClassName="p-2"
         >
-          {isLoading ? (
-            <SkeletonTable rows={3} />
-          ) : attention.length === 0 ? (
-            <div className="px-3 py-6"><EmptyState message={t("empty_needs_attention")} /></div>
+          {execution.length === 0 ? (
+            <div className="px-5 py-6"><EmptyState message={lang === "ar" ? "لا فرص مُسنَدة بعد" : "No assigned opportunities yet"} /></div>
           ) : (
-            attention.map((a) => (
-              <PriorityItem
-                key={a.key}
-                title={a.title}
-                subtitle={a.subtitle}
-                reason={a.reason}
-                tier={a.tier}
-                due={a.due ?? undefined}
-                value={a.value}
-                actionLabel={t("action_review")}
-                onAction={() => a.oppId && nav({ to: "/opportunities/$id", params: { id: a.oppId } })}
-              />
-            ))
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-[12px]">
+                <thead>
+                  <tr className="border-b border-border text-start text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <th className="px-4 py-2 text-start">{lang === "ar" ? "المندوب" : "Salesperson"}</th>
+                    <th className="px-3 py-2 text-end">{lang === "ar" ? "مفتوح" : "Open"}</th>
+                    <th className="px-3 py-2 text-end">{lang === "ar" ? "مرجّح" : "Weighted"}</th>
+                    <th className="px-3 py-2 text-end">{lang === "ar" ? "متابعات" : "Follow-ups"}</th>
+                    <th className="px-3 py-2 text-end">{lang === "ar" ? "اجتماعات" : "Meetings"}</th>
+                    <th className="px-3 py-2 text-end">{lang === "ar" ? "متوقفة" : "Stalled"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {execution.map((r) => (
+                    <tr key={r.ownerId} className="border-b border-border/50">
+                      <td className="px-4 py-2.5 text-foreground">{teamName(r.ownerId)}</td>
+                      <td className="num px-3 py-2.5 text-end" data-tabular="true">
+                        {r.openPipeline === null ? (
+                          <span className="text-[11px] text-muted-foreground">
+                            {lang === "ar" ? `بلا قيمة (${r.unpricedCount})` : `No value (${r.unpricedCount})`}
+                          </span>
+                        ) : (
+                          <span className="text-foreground">{formatCurrency(r.openPipeline, lang)}</span>
+                        )}
+                      </td>
+                      <td className="num px-3 py-2.5 text-end" data-tabular="true">
+                        {/* Null, not zero: a book nobody has scored is not a
+                            book worth nothing. Same rule as the company total. */}
+                        {r.weightedPipeline === null ? (
+                          <span className="text-[11px] text-muted-foreground">
+                            {lang === "ar" ? `غير محتسَب (${r.unscoredCount})` : `Not calculated (${r.unscoredCount})`}
+                          </span>
+                        ) : (
+                          <span className="text-foreground">{formatCurrency(r.weightedPipeline, lang)}</span>
+                        )}
+                      </td>
+                      <td className="num px-3 py-2.5 text-end text-foreground" data-tabular="true">{formatNumber(r.followUpsDue, lang)}</td>
+                      <td className="num px-3 py-2.5 text-end text-foreground" data-tabular="true">{formatNumber(r.meetings, lang)}</td>
+                      <td className="num px-3 py-2.5 text-end" data-tabular="true">
+                        {r.stalledCount === 0 ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <span className="text-amber-light">
+                            {formatNumber(r.stalledCount, lang)}
+                            {r.stalledValue > 0 ? ` · ${formatCurrency(r.stalledValue, lang)}` : ""}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </ChartFrame>
 
+        <ChartFrame title={lang === "ar" ? "ملخص الذكاء" : "AI insights"} padded={false}>
+          <ul className="divide-y divide-border/50">
+            {aiInsights.map((i) => (
+              <li key={i.key} className="px-5 py-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[12px] text-foreground">{i.label}</span>
+                  <span className="num shrink-0 text-[13px] font-semibold text-foreground" data-tabular="true">
+                    {i.count === null ? "—" : formatNumber(i.count, lang)}
+                  </span>
+                </div>
+                {i.detail ? <div className="mt-0.5 text-[11px] text-muted-foreground">{i.detail}</div> : null}
+              </li>
+            ))}
+          </ul>
+        </ChartFrame>
+      </section>
+
+      {/* §13 — last on the page on purpose: it is hygiene, not today's work. */}
+      <section className="mt-6">
         <ChartFrame
-          title={t("agent_activity")}
-          action={<StatusPill tone="positive"><Sparkles className="h-3 w-3" /> {t("agent_status_running")}</StatusPill>}
+          title={t("dq_title" as never)}
+          subtitle={
+            lang === "ar"
+              ? "ثغرات في السجلات — تُحسب على حدة عن المخاطر"
+              : "Gaps in the records — counted separately from risk"
+          }
           padded={false}
+          bodyClassName="p-0"
         >
-          {agentRuns.length === 0 ? (
-            <div className="px-5 py-6"><EmptyState message={t("empty_agent_runs")} /></div>
-          ) : (
-            <ol>
-              {agentRuns.map((r: any) => (
-                <li key={r.id} className="flex items-start gap-3 border-t border-border/60 px-5 py-3 first:border-t-0">
-                  <div className="mt-0.5">
-                    {r.status === "failed" || r.status === "error" ? (
-                      <Activity className="h-3.5 w-3.5 text-amber" />
-                    ) : (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="truncate text-[12px] text-foreground">{r.agent_key}</div>
-                      <span className="num shrink-0 text-[10px] text-muted-foreground" data-tabular="true">
-                        {new Date(r.started_at).toLocaleTimeString(lang === "ar" ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    {r.summary ? (
-                      <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{r.summary}</div>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          )}
+          {isLoading ? <SkeletonTable rows={4} /> : <DataQualityPanel report={dq} />}
         </ChartFrame>
       </section>
     </div>

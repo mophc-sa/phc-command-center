@@ -15,6 +15,7 @@ import { DocumentsPanel } from "@/components/phc/DocumentsPanel";
 import { CommitmentsPanel } from "@/components/phc/CommitmentsPanel";
 import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
+import { RelationshipPanel, roleOptions } from "@/components/phc/RelationshipPanel";
 import {
   requestReview,
   scheduleFollowUp,
@@ -172,6 +173,7 @@ function OpportunityDetail() {
   const [scoring, setScoring] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [clientDetailsOpen, setClientDetailsOpen] = useState(false);
+  const [roleFor, setRoleFor] = useState<Record<string, unknown> | null>(null);
   const [submissionOpen, setSubmissionOpen] = useState(false);
   const { user, roles } = useAuth();
   const canScore = canManageSalesPipeline(roles);
@@ -910,6 +912,55 @@ function OpportunityDetail() {
         );
       })()}
 
+
+      {/* §19 — who is on this deal and what each of them is to it. Reads the
+          existing per-opportunity stakeholders; creates no contact. */}
+      {show("alert") && (
+      <Panel title={lang === "ar" ? "أصحاب المصلحة" : "Relationships"}>
+        <RelationshipPanel
+          stakeholders={(stakeholdersQ.data ?? []) as never}
+          contractorDecisionMaker={o.contractor_decision_maker}
+          onEditRole={canEditClientDetails ? (s: Record<string, unknown>) => setRoleFor(s) : undefined}
+        />
+        <ActionDialog
+          open={!!roleFor}
+          onOpenChange={(v) => !v && setRoleFor(null)}
+          title={lang === "ar" ? "دور صاحب المصلحة" : "Stakeholder role"}
+          description={
+            lang === "ar"
+              ? "الدور على هذه الفرصة تحديدًا — نفس الشخص قد يكون له دور آخر في صفقة أخرى."
+              : "The role on THIS opportunity — the same person may hold a different one elsewhere."
+          }
+          submitLabel={t("action_save")}
+          fields={[
+            {
+              key: "role_code",
+              type: "select",
+              label: lang === "ar" ? "الدور" : "Role",
+              options: [{ value: "", label: "—" }, ...roleOptions(lang)],
+              defaultValue: (roleFor as { role_code?: string } | null)?.role_code ?? "",
+            },
+          ]}
+          onSubmit={async (v) => {
+            const target = roleFor as { id: string };
+            // Writes role_code only. The historical `role` text is never
+            // touched — it is the record of what was imported, and rewriting it
+            // would destroy the only evidence of what the source actually said.
+            const { error } = await supabase
+              .from("stakeholders")
+              .update({ role_code: String(v.role_code ?? "") || null } as never)
+              .eq("id", target.id);
+            if (error) {
+              toast.error(error.message);
+              return;
+            }
+            toast.success(t("crm_saved"));
+            setRoleFor(null);
+            qc.invalidateQueries({ queryKey: ["opp-stake", id] });
+          }}
+        />
+      </Panel>
+      )}
 
       {/* 2. QUALIFICATION — under Alert */}
       {show("alert") && (

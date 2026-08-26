@@ -481,7 +481,7 @@ Old tenders are not allowed to sit active forever.
 
 | Page | Use it for |
 |---|---|
-| **Command Center** `/command-center` | Org-wide executive view. Opens with **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention. |
+| **Command Center** `/command-center` | Org-wide executive view. Opens with **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. The ⓘ on a tile explains the number without opening it; the rest of the tile opens the records. Every figure is computed over **the whole book you are permitted to see** — if the dataset were ever too large to read in one go, a warning appears above the figures saying so, and you should not treat them as totals until it clears. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention. |
 | **My Workspace** `/my-workspace` | Your personal command centre. Opens with **What needs you today** — one ranked list of your highest-priority work drawn from every queue. Below it, the dashboard your role already had: target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups and submissions. **A salesperson's home base.** |
 | **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
 | **Approvals** `/approvals` | One decision desk for all three approval workflows: **intake review**, the **BAFO chain** (showing which of the four steps is waiting and on which role), and record approvals — verbal award, contract, won, deletion, sure-win. |
@@ -750,6 +750,22 @@ classified, and most have not — the list's JIH/Tender column is largely dashes
 how many are unclassified rather than letting the two figures read as a complete split. Set
 the classification from **Client Details → Edit** on the opportunity.
 
+### Dashboard figures are no longer capped
+Until **2026-08-26** the Command Center read only the first 200 opportunities (and 100
+follow-ups, 400 quotations) before computing open pipeline, forecast, coverage, At Risk,
+Needs Attention and Data Quality. Below 200 records that is the whole book and every number
+was right; above it the totals would have been quietly short, with nothing on screen saying
+so. All of them now read to completion. A ceiling still exists as a safety limit, but
+reaching it puts a warning **above** the figures rather than leaving a partial total looking
+like a complete one.
+
+### "Decision maker" is answered in one place
+The Relationship panel and Data Quality used to consult different fields, so one could report
+a decision maker on a deal the other listed as missing one. Both now read the same rule: a
+stakeholder holding the role, or the decision-maker name on the opportunity, counts. Where
+nobody has recorded a role we can read, the panel says **"cannot tell from the record"** and
+Data Quality does **not** list it as missing — an unreadable record is not proof of absence.
+
 ### Reminders now fire on their own
 The engine runs **nightly at 07:00 AST**. You no longer have to remember to press anything —
 the queue is populated before the sales day starts. A manager can still run it on demand with
@@ -879,7 +895,7 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-25, branch `feat/client-feedback-2026-08-25` @ `e317c5a`.
+*Reflects the system as at 2026-08-26, branch `feat/phase-5.1-sales-intelligence` @ `09ff485`.
 Behaviour verified against source and the test suite (1782 passing), plus a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
 
 Of the four fixes added to the table above on 2026-08-25, three are drilldown behaviour and land with Phase 5, which is still unshipped — those were never visible in production. The fourth is not: the **Pipeline Overview** tile has pointed at a route that does not exist since PR #68, so that tile has been dead on My Workspace for every user since that release.
@@ -894,6 +910,12 @@ Of the four fixes added to the table above on 2026-08-25, three are drilldown be
 Opportunity Review columns and editor, the Opportunities KPI strip, the JIH-or-Tender editor
 and the Awarded Projects filter are all on `feat/client-feedback-2026-08-25`. No migration is
 involved — every change is frontend, reading columns that already exist.
+
+The **Phase 5.1** hardening — one shared decision-maker rule, uncapped dashboard reads with a
+visible warning when a ceiling is hit, and the tile ⓘ separated from the drill-down — is on
+`feat/phase-5.1-sales-intelligence` and **not yet deployed**. Its three migrations *are* applied to
+production (2026-08-26); the frontend is not, and that order is safe — the dashboard reads
+correctly with or without them.
 
 **Phase 5 is not yet live.** The canonical KPI engine, drilldown, timeline, entry presets and AI discipline layer are code-only and ship with the next deploy. The NO BOQ / NO PROJECT NUMBER rule exists only as a local migration and is **not** applied to production — see Section 10.
 Update this file when the workflow changes.*

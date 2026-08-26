@@ -29,7 +29,8 @@
 // Everything is pure. No Supabase, no React. See sales-kpis.test.ts.
 // =============================================================================
 
-import { resolveCanonicalStage, type CanonicalStage } from "@/lib/stage-canonical";
+import { CANONICAL_ACTIVE_STAGES, resolveCanonicalStage, type CanonicalStage } from "@/lib/stage-canonical";
+import { msg, type MessageRef } from "@/lib/messages";
 
 // ---- Inputs -----------------------------------------------------------------
 
@@ -54,6 +55,9 @@ export type OppRow = {
   source_tender_id?: string | null;
   last_activity_at?: string | null;
   next_action?: string | null;
+  /** On the table since the beginning; missing from this type until Phase 5.1
+   *  §20, which is why "Next Action AND Next Action Date" could not be checked. */
+  next_action_due?: string | null;
   updated_at?: string | null;
   created_at?: string | null;
   // Stamped at the transition by trg_stamp_outcome_dates. NULL = undated.
@@ -86,14 +90,74 @@ export type Kpi = {
   recordIds: string[];
   /** Where a click should go. */
   drilldown: DrilldownTarget | null;
-  /** Set when the number is incomplete or rests on an assumption. */
-  caveat?: string;
+  /** Set when the number is incomplete or rests on an assumption. A structured
+   *  fact, not a sentence — see messages.ts for why. */
+  caveat?: MessageRef;
+  /**
+   * Why the value is what it is. Omit and `metricStateOf` derives it; set it
+   * when the builder knows something the derivation cannot see — chiefly the
+   * difference between "nobody configured a target" and "the inputs are
+   * missing", which both arrive here as value === null.
+   */
+  state?: MetricState;
+  /** Where the reader goes to make this number computable. See MetricFix. */
+  fix?: MetricFix;
 };
 
 export type DrilldownTarget = {
   to: string;
   search: Record<string, string>;
 };
+
+// ---- Metric states (Phase 5.1 §14) -----------------------------------------
+//
+// Five states, because a dashboard that renders all five as "0" or "—" is
+// lying in four of them. The distinctions are not cosmetic:
+//
+//   ok              a real number, INCLUDING a real zero. "We won nothing this
+//                   month" is knowledge, and must not look like ignorance.
+//   no_data         no records at all matched. Nothing to compute over.
+//   not_calculated  records exist, but an input they depend on is missing —
+//                   the 45 opportunities with no probability are this.
+//   not_configured  someone has to set something up first (no target row).
+//   not_applicable  the metric is meaningless in this context.
+//
+// The reason this matters here specifically: on 2026-08-25 the book held 49
+// opportunities with no probability and no target row, so Weighted Pipeline,
+// Forecast and Coverage were all unknowable at once. Rendering that as
+// "SAR 0" told a manager the pipeline was worthless.
+
+export type MetricState =
+  | "ok"
+  | "no_data"
+  | "not_calculated"
+  | "not_configured"
+  | "not_applicable";
+
+/**
+ * Where the reader goes to MAKE this metric computable.
+ *
+ * An empty state that only describes itself is a dead end, and four of them
+ * side by side read as a broken page rather than an unfinished one. Every
+ * not_calculated / not_configured metric carries the link that fills the gap,
+ * scoped to the exact records that are missing the input.
+ */
+export type MetricFix = {
+  /** i18n key for the call to action. */
+  labelKey: string;
+  to: string;
+  search: Record<string, string>;
+};
+
+/**
+ * The state of a metric. Derivation covers the common cases so existing
+ * builders need no change; an explicit `state` always wins.
+ */
+export function metricStateOf(k: Pick<Kpi, "value" | "recordCount" | "state">): MetricState {
+  if (k.state) return k.state;
+  if (k.value !== null) return "ok";
+  return k.recordCount === 0 ? "no_data" : "not_calculated";
+}
 
 // ---- Value resolution -------------------------------------------------------
 
@@ -177,6 +241,47 @@ export const LATE_STAGE_EXPOSURE: CanonicalStage[] = [
  * work we've been awarded" — not a revenue definition.
  */
 export const AWARDED_STAGES: CanonicalStage[] = [...LATE_STAGE_EXPOSURE, ...WON_STAGES];
+
+// ---- The five management buckets (Phase 5.1 §1) ----------------------------
+//
+// Presentation over the canonical stages. This adds no stage, renames no
+// stage, and changes no existing set — CANONICAL_STAGES is untouched.
+//
+// ⚠ NAME COLLISION, READ THIS BEFORE USING EITHER:
+//
+//   LATE_STAGE_EXPOSURE  = verbally_awarded + contract_received + contract_signed
+//                          "awarded but not yet Won" — the PRD §18 exposure
+//                          layer. It answers "how much could still be lost
+//                          after we were told we won?"
+//
+//   MGMT_LATE_STAGE      = jih_bafo + under_negotiation
+//                          "still being competed for, but near the end" — the
+//                          management bucket. It answers "what is in the final
+//                          commercial round?"
+//
+// Two different questions that English calls the same thing. They are NOT
+// interchangeable and neither is wrong; the exposure set keeps its PRD meaning
+// and its `late_stage` drilldown group, and this one is new.
+//
+// The five buckets are mutually exclusive by construction — every canonical
+// stage appears in at most one — which is what makes it safe to add them up.
+// on_hold and lost sit outside deliberately: a paused deal is not a position
+// in the commercial ladder, and a lost one has left it.
+
+export const MGMT_OPEN_PIPELINE: CanonicalStage[] = ["rfq_received", "jih"];
+export const MGMT_LATE_STAGE: CanonicalStage[] = ["jih_bafo", "under_negotiation"];
+export const MGMT_PENDING_CONTRACT: CanonicalStage[] = ["verbally_awarded"];
+export const MGMT_CONTRACTED: CanonicalStage[] = ["contract_received", "contract_signed"];
+
+export const MANAGEMENT_BUCKETS = [
+  { key: "open_pipeline", stages: MGMT_OPEN_PIPELINE },
+  { key: "late_stage", stages: MGMT_LATE_STAGE },
+  { key: "pending_contract", stages: MGMT_PENDING_CONTRACT },
+  { key: "contracted", stages: MGMT_CONTRACTED },
+  { key: "won", stages: WON_STAGES },
+] as const;
+
+export type ManagementBucketKey = (typeof MANAGEMENT_BUCKETS)[number]["key"];
 
 const inStages = (o: OppRow, set: CanonicalStage[]) => {
   const s = canonicalStageOf(o);
@@ -299,7 +404,19 @@ export function resolveProbability(o: OppRow): ResolvedProbability {
 // ---- KPI builders -----------------------------------------------------------
 
 function kpi(base: Omit<Kpi, "recordCount">): Kpi {
-  return { ...base, recordCount: base.recordIds.length };
+  const recordCount = base.recordIds.length;
+  // A SUM over zero rows is not zero money — there is nothing to add up.
+  //
+  // Found on screen, 2026-08-26: "WON (OFFICIAL) SAR 0 · 0 records" sat a
+  // hundred pixels from "WON · No data yet · 0 records". Same fact, two
+  // renderings, because bucketKpi set its state explicitly and the older
+  // builders let the derivation see a 0 and call it real. §14 says these five
+  // states are standard; two spellings of one state is the defect it names.
+  //
+  // Counts are deliberately untouched: zero open deals IS a count of zero.
+  const state =
+    base.state ?? (base.kind === "currency" && recordCount === 0 ? "no_data" : undefined);
+  return { ...base, recordCount, ...(state ? { state } : {}) };
 }
 
 const sumValues = (rows: OppRow[]) =>
@@ -349,8 +466,8 @@ export function wonValue(opps: OppRow[], ctx: KpiContext): Kpi {
     caveat:
       undated.length > 0
         ? ctx.period
-          ? `${undated.length} won ${undated.length === 1 ? "deal has" : "deals have"} no recorded award date and sit outside this period — see Won (undated)`
-          : `${undated.length} won ${undated.length === 1 ? "deal has" : "deals have"} no recorded award date`
+          ? msg("cav_won_undated_outside_period", { count: undated.length })
+          : msg("cav_won_undated", { count: undated.length })
         : undefined,
   });
 }
@@ -375,7 +492,7 @@ export function wonUndated(opps: OppRow[], ctx: KpiContext): Kpi {
     ]),
     recordIds: rows.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "won" } },
-    caveat: rows.length > 0 ? "These pre-date outcome-date tracking; no date was invented for them" : undefined,
+    caveat: rows.length > 0 ? msg("cav_predate_outcome_tracking") : undefined,
   });
 }
 
@@ -394,7 +511,7 @@ export function lostValue(opps: OppRow[], ctx: KpiContext): Kpi {
     filters: filterLabels(ctx),
     recordIds: rows.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "lost" } },
-    caveat: undated.length > 0 ? `${undated.length} lost ${undated.length === 1 ? "deal has" : "deals have"} no recorded close date` : undefined,
+    caveat: undated.length > 0 ? msg("cav_lost_undated", { count: undated.length }) : undefined,
   });
 }
 
@@ -413,7 +530,7 @@ export function openPipeline(opps: OppRow[], ctx: KpiContext): Kpi {
     filters: filterLabels({ ...ctx, period: null }, ["On-hold deals are included — paused is still in the pipeline"]),
     recordIds: rows.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "open" } },
-    caveat: unvalued > 0 ? `${unvalued} of ${rows.length} have no value recorded and contribute 0` : undefined,
+    caveat: unvalued > 0 ? msg("cav_unvalued_contribute_zero", { count: unvalued, total: rows.length }) : undefined,
   });
 }
 
@@ -432,9 +549,17 @@ export function weightedPipeline(opps: OppRow[], ctx: KpiContext): Kpi {
     return s + (opportunityValue(o) ?? 0) * p;
   }, 0);
 
+  // "SAR 0" is only honest when zero is what we KNOW. One deal scored at 0%
+  // beside 48 unscored ones sums to 0 and renders as a confident nothing —
+  // which is the exact figure the 2026-08-25 review flagged as making the
+  // pipeline look worthless. A zero total that rests on a minority of the book
+  // is not a zero, it is an absence.
+  const zeroRestingOnIgnorance = scored.length > 0 && total === 0 && unscored > 0;
+  const computable = scored.length > 0 && !zeroRestingOnIgnorance;
+
   return kpi({
     key: "weighted_pipeline",
-    value: scored.length > 0 ? total : null,
+    value: computable ? total : null,
     kind: "currency",
     formula: "Σ (open opportunity value × probability), manager probability preferred over AI",
     source: "opportunities.human_win_probability, else opportunities.score",
@@ -445,10 +570,11 @@ export function weightedPipeline(opps: OppRow[], ctx: KpiContext): Kpi {
     ]),
     recordIds: scored.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "open" } },
-    caveat:
-      unscored > 0
-        ? `${unscored} open ${unscored === 1 ? "deal has" : "deals have"} no probability and are excluded rather than assumed`
-        : undefined,
+    state: open.length === 0 ? "no_data" : computable ? "ok" : "not_calculated",
+    caveat: unscored > 0 ? msg("cav_probability_missing", { count: unscored }) : undefined,
+    ...(unscored > 0
+      ? { fix: { labelKey: "fix_add_probability", to: OPP_LIST, search: { stage: "open", missing: "probability" } } }
+      : {}),
   });
 }
 
@@ -501,9 +627,9 @@ export function winRate(opps: OppRow[], ctx: KpiContext): Kpi {
     drilldown: { to: OPP_LIST, search: { stage: "closed" } },
     caveat:
       closed === 0
-        ? "Nothing has closed in this period — a rate cannot be computed"
+        ? msg("cav_nothing_closed")
         : undatedClosed > 0
-          ? `${undatedClosed} closed ${undatedClosed === 1 ? "deal has" : "deals have"} no recorded date and are not in this rate`
+          ? msg("cav_closed_undated", { count: undatedClosed })
           : undefined,
   });
 }
@@ -575,7 +701,7 @@ export function targetKpis(opps: OppRow[], ctx: KpiContext, targetAmount: number
       key: "target",
       value: hasTarget ? targetAmount : null,
       formula: "Sales target for the selected period and owner",
-      caveat: hasTarget ? undefined : "No target has been set for this period",
+      caveat: hasTarget ? undefined : msg("cav_no_target"),
     }),
     actual: { ...actual, key: "target_actual" },
     achievement: kpi({
@@ -584,14 +710,14 @@ export function targetKpis(opps: OppRow[], ctx: KpiContext, targetAmount: number
       value: hasTarget ? Math.round((actualValue / targetAmount) * 100) : null,
       kind: "percent",
       formula: "Won value ÷ target — Won only, excluding verbal award and contract stages",
-      caveat: hasTarget ? undefined : "Cannot compute achievement without a target",
+      caveat: hasTarget ? undefined : msg("cav_no_target_achievement"),
     }),
     gap: kpi({
       ...base,
       key: "target_gap",
       value: hasTarget ? Math.max(0, targetAmount - actualValue) : null,
       formula: "max(0, target − won value)",
-      caveat: hasTarget ? undefined : "Cannot compute a gap without a target",
+      caveat: hasTarget ? undefined : msg("cav_no_target_gap"),
     }),
   };
 }
@@ -650,7 +776,8 @@ export const lostToCompetitor = (o: OppRow[], c: KpiContext) =>
 
 export type HealthIssue =
   | "no_next_action"
-  | "stalled"
+  | "no_next_action_date"
+  | "no_recent_crm_activity"
   | "expected_close_overdue"
   | "high_value_low_probability"
   | "unscored";
@@ -694,17 +821,48 @@ export function pipelineHealth(
 ): HealthFinding[] {
   const out: HealthFinding[] = [];
   for (const o of ownerFiltered(opps, ctx).filter(isOpen)) {
+    // on_hold is open pipeline (it still counts as money in play) but it is not
+    // ACTIVE, and demanding a next action on a deliberately parked deal is how
+    // a hygiene queue teaches people to ignore it.
+    const active = CANONICAL_ACTIVE_STAGES.includes(canonicalStageOf(o) as CanonicalStage);
     const label = o.project_name ?? o.id.slice(0, 8);
     const value = opportunityValue(o);
     const prob = resolveProbability(o);
 
-    if (!o.next_action || o.next_action.trim() === "") {
+    // §20 — an action with no date is not a plan, it is a wish. Both halves are
+    // checked, and they are separate findings because they need different fixes.
+    if (active && (!o.next_action || o.next_action.trim() === "")) {
       out.push({ issue: "no_next_action", opportunityId: o.id, label, detail: "No next action set", value });
+    } else if (active && !o.next_action_due || String(o.next_action_due).trim() === "") {
+      out.push({
+        issue: "no_next_action_date",
+        opportunityId: o.id,
+        label,
+        detail: "Next action has no date",
+        value,
+      });
     }
+    // NOT "stalled". This reads `last_activity_at`, which is stamped by any
+    // logged activity — internal notes and unsent drafts included — so it
+    // measures how long since anyone TOUCHED THE RECORD, not how long since
+    // anyone spoke to the client.
+    //
+    // It used to be reported as `stalled`, against a 14-day threshold this
+    // codebase chose. On 2026-08-26 that had the brief announcing "46 stalled"
+    // three inches above a roll-up reading 0, because the attention engine had
+    // been corrected and this had not. Stalled has ONE owner now — the
+    // attention engine, which requires verified client contact and an approved
+    // SLA — and this reports the weaker fact under its own honest name.
     if (o.last_activity_at) {
       const d = daysBetween(o.last_activity_at, ctx.today);
       if (d >= t.stalledDays) {
-        out.push({ issue: "stalled", opportunityId: o.id, label, detail: `No activity for ${d} days`, value });
+        out.push({
+          issue: "no_recent_crm_activity",
+          opportunityId: o.id,
+          label,
+          detail: `No CRM activity logged for ${d} days`,
+          value,
+        });
       }
     }
     if (o.expected_contract_date && o.expected_contract_date < ctx.today) {
@@ -886,9 +1044,7 @@ function classificationCount(
     // list's JIH/Tender column was a column of dashes. Saying so is the
     // difference between "we have 9 JIHs" and "we have at least 9".
     caveat:
-      unclassified.length > 0
-        ? `${unclassified.length} open opportunit${unclassified.length === 1 ? "y is" : "ies are"} not yet classified as JIH or Tender, and are counted in neither figure`
-        : undefined,
+      unclassified.length > 0 ? msg("cav_unclassified_neither", { count: unclassified.length }) : undefined,
   });
 }
 
@@ -912,7 +1068,7 @@ function pendingCount(opps: ClassifiedRow[], ctx: KpiContext, which: Classificat
     drilldown: { to: OPP_LIST, search: { stage: "open" } },
     caveat:
       which === null && unclassified.length > 0
-        ? `${unclassified.length} of these ${unclassified.length === 1 ? "is" : "are"} not classified as JIH or Tender, so the two figures below do not sum to this one`
+        ? msg("cav_unclassified_do_not_sum", { count: unclassified.length })
         : undefined,
   });
 }
@@ -948,5 +1104,126 @@ export function commercialBookKpis(
     jihPending: pendingCount(opps, ctx, "jih"),
     tenderPending: pendingCount(opps, ctx, "tender"),
     pendingForSubmission: pendingCount(opps, ctx, null),
+  };
+}
+
+// ---- Management view of the book (Phase 5.1 §1, §2, §4, §5) ----------------
+
+const FIX_PROBABILITY: MetricFix = {
+  labelKey: "fix_add_probability",
+  to: "/opportunities",
+  search: { stage: "open", missing: "probability" },
+};
+
+const FIX_TARGET: MetricFix = { labelKey: "fix_set_target", to: "/targets", search: {} };
+
+/** Value and count for one management bucket. */
+export function bucketKpi(opps: OppRow[], ctx: KpiContext, bucket: ManagementBucketKey): Kpi {
+  const def = MANAGEMENT_BUCKETS.find((b) => b.key === bucket)!;
+  const rows = ownerFiltered(opps, ctx).filter((o) => inStages(o, def.stages as CanonicalStage[]));
+  const priced = rows.filter((o) => opportunityValue(o) !== null);
+  return kpi({
+    key: `bucket_${bucket}`,
+    // A bucket with rows but no priced row is not worth zero — it is unpriced.
+    value: rows.length === 0 ? 0 : priced.length === 0 ? null : sumValues(priced),
+    kind: "currency",
+    formula: `Σ value of opportunities in ${def.stages.join(" / ")}`,
+    source: "opportunities (contract_value → quotation_value → estimated_value_max)",
+    stages: def.stages as CanonicalStage[],
+    dateField: null,
+    filters: filterLabels({ ...ctx, period: null }, [`Bucket: ${bucket}`]),
+    recordIds: rows.map((o) => o.id),
+    drilldown: { to: OPP_LIST, search: { stage: def.stages.join(",") } },
+    state: rows.length === 0 ? "no_data" : priced.length === 0 ? "not_calculated" : "ok",
+    ...(rows.length > 0 && priced.length < rows.length
+      ? {
+          caveat: msg("cav_counted_not_summed", { count: rows.length - priced.length, total: rows.length }),
+          fix: { labelKey: "fix_add_value", to: OPP_LIST, search: { stage: "open", missing: "value" } },
+        }
+      : {}),
+  });
+}
+
+/**
+ * Pipeline coverage — weighted pipeline ÷ target.
+ *
+ * Reported as a multiple (2.0x), not a percentage, because that is how sales
+ * management reads it: "how many times over could the qualified pipeline cover
+ * what we promised?" Below 1.0x the target cannot be met even if every open
+ * deal closes at its stated probability.
+ */
+export function pipelineCoverage(opps: OppRow[], ctx: KpiContext, targetAmount: number | null): Kpi {
+  const weighted = weightedPipeline(opps, ctx);
+  const hasTarget = typeof targetAmount === "number" && targetAmount > 0;
+  const computable = hasTarget && weighted.value !== null;
+
+  return kpi({
+    key: "pipeline_coverage",
+    value: computable ? Math.round((weighted.value! / targetAmount!) * 100) / 100 : null,
+    kind: "count",
+    formula: "Weighted pipeline ÷ sales target, as a multiple",
+    source: "opportunities × probability, sales_targets.sales_target",
+    stages: OPEN_STAGES,
+    dateField: null,
+    filters: filterLabels(ctx),
+    recordIds: weighted.recordIds,
+    drilldown: { to: OPP_LIST, search: { stage: "open" } },
+    // Two different cures, so two different states. Telling a manager to "set a
+    // target" when the real gap is 45 unscored deals wastes the one action
+    // they were willing to take.
+    state: !hasTarget ? "not_configured" : weighted.value === null ? "not_calculated" : "ok",
+    caveat: !hasTarget ? msg("cav_no_target") : weighted.value === null ? weighted.caveat : undefined,
+    ...(!hasTarget ? { fix: FIX_TARGET } : weighted.value === null ? { fix: FIX_PROBABILITY } : {}),
+  });
+}
+
+export type ForecastVsTarget = {
+  target: Kpi;
+  won: Kpi;
+  forecast: Kpi;
+  achievement: Kpi;
+  gap: Kpi;
+  coverage: Kpi;
+};
+
+/**
+ * The six numbers a sales manager runs the month on.
+ *
+ * Forecast is the WEIGHTED pipeline, not the gross — a forecast that ignores
+ * probability is just the pipeline again under a more confident name. Won is
+ * Won only; late-stage exposure is reported separately and never folded in.
+ */
+export function forecastVsTarget(
+  opps: OppRow[],
+  ctx: KpiContext,
+  targetAmount: number | null,
+): ForecastVsTarget {
+  const t = targetKpis(opps, ctx, targetAmount);
+  const weighted = weightedPipeline(opps, ctx);
+  const hasTarget = typeof targetAmount === "number" && targetAmount > 0;
+
+  return {
+    target: {
+      ...t.target,
+      state: hasTarget ? "ok" : "not_configured",
+      ...(hasTarget ? {} : { fix: FIX_TARGET }),
+    },
+    won: { ...t.actual, key: "forecast_won" },
+    forecast: {
+      ...weighted,
+      key: "forecast_value",
+      ...(weighted.value === null ? { fix: FIX_PROBABILITY } : {}),
+    },
+    achievement: {
+      ...t.achievement,
+      state: hasTarget ? "ok" : "not_configured",
+      ...(hasTarget ? {} : { fix: FIX_TARGET }),
+    },
+    gap: {
+      ...t.gap,
+      state: hasTarget ? "ok" : "not_configured",
+      ...(hasTarget ? {} : { fix: FIX_TARGET }),
+    },
+    coverage: pipelineCoverage(opps, ctx, targetAmount),
   };
 }

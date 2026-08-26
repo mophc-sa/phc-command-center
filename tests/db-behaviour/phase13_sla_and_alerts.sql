@@ -56,9 +56,14 @@ BEGIN
   RAISE NOTICE '% 1. with no policy the threshold is NULL, not zero-by-accident (got %)',
     CASE WHEN d IS NULL THEN 'PASS' ELSE 'FAIL' END, coalesce(d::text,'NULL');
 
+  -- Was: "the fallback threshold still catches a 40-day stall (expect 1)".
+  -- That fallback was `coalesce(current_sla_days('stalled_deal'), 14)`, which
+  -- made an UNSET policy breach for everyone — precisely what test 1 above
+  -- asserts must not happen, contradicted two lines later. With no policy in
+  -- force there is no threshold, so there is no breach to report.
   SELECT count(*) INTO n FROM public.sla_breaches WHERE subject='stalled_deal' AND record_id=o1;
-  RAISE NOTICE '% 2. the fallback threshold still catches a 40-day stall (expect 1, got %)',
-    CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
+  RAISE NOTICE '% 2. with no policy set, no stalled breach is reported (expect 0, got %)',
+    CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== the policy takes effect =====
   INSERT INTO public.sla_policies (subject, threshold_days, rationale, created_by)

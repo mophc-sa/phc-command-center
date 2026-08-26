@@ -138,16 +138,36 @@ echo "  ✅ $APPLIED / $TOTAL migrations applied"
 # The RLS suite runs as a non-superuser; without these grants it cannot reach
 # the tables at all and every check would pass vacuously.
 psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
-GRANT USAGE ON SCHEMA public, auth TO rls_tester;
 -- Deliberately NOT a blanket grant to rls_tester. PostgREST holds table and
 -- COLUMN privileges only through the `authenticated` role, which rls_tester is
 -- a member of, so granting it separately would paper over exactly the thing a
 -- column-privilege test needs to see: it made a revoked `unit_rate` selectable
 -- again and two isolation checks passed for the wrong reason.
-REVOKE ALL ON ALL TABLES IN SCHEMA public FROM rls_tester;
+--
+-- The SAME reasoning applies to FUNCTION execute, and for a long time it was
+-- not applied: `GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO rls_tester`
+-- handed the tested role a privilege the real `authenticated` role does not
+-- necessarily hold. On 2026-08-26 that produced a green suite while production
+-- was returning 42501 from pipeline_by_stage and sla_breaches, because
+-- rls_tester could call a function authenticated had just been revoked from.
+-- Function privilege now reaches rls_tester the same way table privilege does:
+-- by inheritance from `authenticated`, and only when a migration actually
+-- grants it.
+REVOKE ALL ON ALL TABLES    IN SCHEMA public FROM rls_tester;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM rls_tester;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA auth   FROM rls_tester;
+
+-- Schema USAGE and the auth stubs go to the REAL roles, so rls_tester receives
+-- them the way a signed-in request does rather than as a tester-only exception.
+GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
+
+-- TEST SETUP privilege, not role-under-test privilege: suites resolve fixture
+-- user ids by email after SET ROLE. Real `authenticated` cannot read
+-- auth.users, and last_verified_contact_not_public.sql check 21 asserts that it
+-- still cannot, so this affordance stays visible and bounded instead of
+-- quietly widening what the tested role appears to be.
 GRANT SELECT ON auth.users TO rls_tester;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO rls_tester;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO rls_tester;
 SQL
 
 PASS=0; FAIL=0; FAILED_SUITES=""
@@ -250,17 +270,39 @@ done
 # back — without this the storage-policy checks fail on "permission denied for
 # schema auth" rather than actually testing the policy.
 psql_ -d phc -q >/dev/null 2>&1 <<'SQL'
-GRANT USAGE ON SCHEMA public, auth, storage TO rls_tester;
 -- Deliberately NOT a blanket grant to rls_tester. PostgREST holds table and
 -- COLUMN privileges only through the `authenticated` role, which rls_tester is
 -- a member of, so granting it separately would paper over exactly the thing a
 -- column-privilege test needs to see: it made a revoked `unit_rate` selectable
 -- again and two isolation checks passed for the wrong reason.
-REVOKE ALL ON ALL TABLES IN SCHEMA public FROM rls_tester;
+--
+-- The SAME reasoning applies to FUNCTION execute, and for a long time it was
+-- not applied: `GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO rls_tester`
+-- handed the tested role a privilege the real `authenticated` role does not
+-- necessarily hold. On 2026-08-26 that produced a green suite while production
+-- was returning 42501 from pipeline_by_stage and sla_breaches, because
+-- rls_tester could call a function authenticated had just been revoked from.
+-- Function privilege now reaches rls_tester the same way table privilege does:
+-- by inheritance from `authenticated`, and only when a migration actually
+-- grants it.
+REVOKE ALL ON ALL TABLES    IN SCHEMA public FROM rls_tester;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM rls_tester;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA auth   FROM rls_tester;
+
+-- Schema USAGE and the auth stubs go to the REAL roles, so rls_tester receives
+-- them the way a signed-in request does rather than as a tester-only exception.
+GRANT USAGE ON SCHEMA public, auth, storage TO anon, authenticated, service_role;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
+
+-- TEST SETUP privilege, not role-under-test privilege: suites resolve fixture
+-- user ids by email after SET ROLE. Real `authenticated` cannot read
+-- auth.users, and last_verified_contact_not_public.sql check 21 asserts that it
+-- still cannot, so this affordance stays visible and bounded instead of
+-- quietly widening what the tested role appears to be.
 GRANT SELECT ON auth.users TO rls_tester;
-GRANT SELECT ON ALL TABLES IN SCHEMA storage TO rls_tester;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO rls_tester;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO rls_tester;
+
+-- Storage reads reach rls_tester through `authenticated`, as in production.
+GRANT SELECT ON ALL TABLES IN SCHEMA storage TO authenticated;
 SQL
 
 run_suite tests/db-behaviour/phase4_overdue_automation.sql run
@@ -290,10 +332,13 @@ run_suite tests/db-behaviour/phase10_management_intelligence.sql run
 run_suite tests/db-behaviour/phase11_ai_advisory.sql run
 run_suite tests/db-behaviour/phase12_lead_discovery.sql run
 run_suite tests/db-behaviour/phase13_sla_and_alerts.sql run
+run_suite tests/db-behaviour/automation_engagement_parity.sql run
+run_suite tests/db-behaviour/ai_context_role_isolation.sql run
 run_suite tests/db-behaviour/open_table_reads.sql run
 run_suite tests/db-behaviour/anon_write_surface.sql run
 run_suite tests/db-behaviour/score_integrity.sql run
 run_suite tests/db-behaviour/deal_attached_reads.sql run
+run_suite tests/db-behaviour/last_verified_contact_not_public.sql run
 
 # ─────────────────────────────────────────────────────────────────────────────
 # The pgTAP security suites.

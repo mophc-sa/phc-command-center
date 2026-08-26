@@ -100,7 +100,7 @@ describe("Win rate", () => {
   it("says so rather than reporting 0% when nothing has closed", () => {
     const k = winRate([opp({ sales_stage: "jih" })], SNAPSHOT);
     expect(k.value).toBeNull();
-    expect(k.caveat).toContain("cannot be computed");
+    expect(k.caveat?.key).toBe("cav_nothing_closed");
   });
 
   it("is not derived from quotations", () => {
@@ -141,7 +141,7 @@ describe("Open pipeline", () => {
 
   it("flags unvalued deals instead of hiding them", () => {
     const k = openPipeline([opp({ sales_stage: "jih" })], SNAPSHOT);
-    expect(k.caveat).toContain("no value recorded");
+    expect(k.caveat?.key).toBe("cav_unvalued_contribute_zero");
   });
 });
 
@@ -213,7 +213,7 @@ describe("Weighted pipeline", () => {
     );
     expect(k.value).toBe(500);
     expect(k.recordIds).toEqual(["scored"]);
-    expect(k.caveat).toContain("excluded rather than assumed");
+    expect(k.caveat?.key).toBe("cav_probability_missing");
   });
 
   it("is null, not zero, when nothing is scored", () => {
@@ -301,7 +301,7 @@ describe("period windows", () => {
     const k = wonValue([opp({ sales_stage: "won", contract_value: 10, updated_at: "2026-08-05" })], MONTH);
     expect(k.value).toBe(0);
     expect(k.recordIds).toEqual([]);
-    expect(k.caveat).toContain("no recorded award date");
+    expect(k.caveat?.key).toMatch(/^cav_won_undated/);
   });
 
   it("supports a custom range", () => {
@@ -332,7 +332,7 @@ describe("target achievement", () => {
     expect(t.target.value).toBeNull();
     expect(t.achievement.value).toBeNull();
     expect(t.gap.value).toBeNull();
-    expect(t.target.caveat).toContain("No target");
+    expect(t.target.caveat?.key).toBe("cav_no_target");
   });
 
   it("never exceeds the gap floor of zero", () => {
@@ -382,13 +382,18 @@ describe("pipeline health is deterministic", () => {
     expect(f.some((x) => x.issue === "no_next_action")).toBe(true);
   });
 
-  it("flags a stalled deal with the day count", () => {
+  it("flags a record nobody has touched, with the day count", () => {
+    // Renamed from "stalled". This reads last_activity_at, which any logged
+    // activity stamps — notes and unsent drafts included — so it measures
+    // silence in the CRM, not silence with the client. Stalled has one owner
+    // now, and it is the attention engine.
     const f = pipelineHealth(
       [opp({ id: "x", sales_stage: "jih", next_action: "call", last_activity_at: "2026-08-01" })],
       SNAPSHOT,
     );
-    const stalled = f.find((x) => x.issue === "stalled");
-    expect(stalled?.detail).toContain("19 days");
+    const quiet = f.find((x) => x.issue === "no_recent_crm_activity");
+    expect(quiet?.detail).toContain("19 days");
+    expect(f.map((x) => x.issue)).not.toContain("stalled");
   });
 
   it("does not flag a deal that moved yesterday", () => {
@@ -561,8 +566,8 @@ describe("Won with no recorded award date", () => {
 
   it("says how many were held out, and why", () => {
     const k = wonValue(rows, MONTH);
-    expect(k.caveat).toContain("1 won deal has no recorded award date");
-    expect(k.caveat).toContain("Won (undated)");
+    // The fact, not the sentence: one undated deal, held outside the period.
+    expect(k.caveat).toEqual({ key: "cav_won_undated_outside_period", params: { count: 1 } });
   });
 
   it("has its own KPI so the months still reconcile to the total", () => {
@@ -570,7 +575,7 @@ describe("Won with no recorded award date", () => {
     expect(u.value).toBe(400);
     expect(u.recordIds).toEqual(["undated"]);
     expect(u.filters.join(" ")).toContain("excluded from any date range");
-    expect(u.caveat).toContain("no date was invented");
+    expect(u.caveat?.key).toBe("cav_predate_outcome_tracking");
   });
 
   it("is silent when every won deal is dated", () => {
@@ -592,7 +597,7 @@ describe("Lost with no recorded close date", () => {
   it("behaves the same way as Won", () => {
     expect(lostValue(rows, SNAPSHOT).value).toBe(100);
     expect(lostValue(rows, MONTH).value).toBe(10);
-    expect(lostValue(rows, MONTH).caveat).toContain("no recorded close date");
+    expect(lostValue(rows, MONTH).caveat?.key).toBe("cav_lost_undated");
   });
 });
 
@@ -607,7 +612,7 @@ describe("Win rate with undated closures", () => {
       MONTH,
     );
     expect(k.value).toBe(50);
-    expect(k.caveat).toContain("1 closed deal has no recorded date");
+    expect(k.caveat).toEqual({ key: "cav_closed_undated", params: { count: 1 } });
   });
 
   it("counts every closure when no period is applied", () => {

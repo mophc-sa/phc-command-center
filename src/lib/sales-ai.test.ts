@@ -117,39 +117,47 @@ describe("the management brief stands on its own without AI", () => {
   });
 
   it("reports what closed", () => {
-    expect(b.whatChanged.some((l) => l.text.includes("1 deal won"))).toBe(true);
+    expect(b.whatChanged).toContainEqual(
+      expect.objectContaining({ text: expect.objectContaining({ key: "brf_won" }) }),
+    );
   });
 
-  it("separates exposure from revenue in words, not just in a column", () => {
-    const line = b.forecast.find((l) => l.text.includes("verbal award"));
-    expect(line?.text).toContain("exposure, not revenue");
-    expect(line?.text).toContain("not counted toward target");
+  it("separates exposure from revenue as its own line, not just a column", () => {
+    // The wording ("exposure, not revenue") now lives in the translation; what
+    // the engine guarantees is that the line EXISTS and carries the value.
+    const line = b.forecast.find((l) => typeof l.text !== "string" && l.text.key === "brf_late_stage_exposure");
+    expect(line).toBeDefined();
+    expect((line!.text as { params: Record<string, number> }).params.value).toBeGreaterThan(0);
   });
 
   it("states the gap to target", () => {
-    expect(b.forecast.some((l) => l.text.includes("remaining to target"))).toBe(true);
+    expect(b.forecast.some((l) => typeof l.text !== "string" && l.text.key === "brf_gap_to_target")).toBe(true);
   });
 
   it("names the unscored deals rather than weighting them", () => {
-    expect(b.forecast.some((l) => l.text.includes("no probability"))).toBe(true);
+    // The brief now carries the caveat's KEY, not an English sentence — the
+    // fact travels, the wording is chosen where the language is known.
+    expect(b.forecast.some((l) => typeof l.text !== "string" && l.text.key === "cav_probability_missing")).toBe(true);
   });
 
-  it("flags stalled and unactioned work", () => {
-    const t = b.needsAttention.map((l) => l.text).join(" ");
-    expect(t).toContain("no recent activity");
-    expect(t).toContain("no next action set");
+  it("flags quiet records and unactioned work", () => {
+    const keys = b.needsAttention.map((l) => (typeof l.text === "string" ? l.text : l.text.key));
+    expect(keys).toContain("brf_issue_no_recent_crm_activity");
+    expect(keys).toContain("brf_issue_no_next_action");
   });
 
   it("focuses on the largest open deals, with links", () => {
-    expect(b.focus[0].text).toContain("Big open");
+    // The project NAME travels as data inside the fact and is never translated.
+    expect((b.focus[0].text as { params: Record<string, string> }).params.name).toContain("Big open");
     expect(b.focus[0].href).toBe("/opportunities/o1");
   });
 
   it("says nothing happened rather than inventing activity", () => {
     const quiet = buildManagementBrief({ opportunities: [], ctx: CTX });
-    expect(quiet.whatChanged[0].text).toContain("No stage movement");
-    expect(quiet.needsAttention[0].text).toContain("Nothing is flagged");
-    expect(quiet.forecast[0].text).toContain("cannot be computed");
+    const key = (l: { text: unknown }) => (typeof l.text === "string" ? l.text : (l.text as { key: string }).key);
+    expect(key(quiet.whatChanged[0])).toBe("brf_no_movement");
+    expect(key(quiet.needsAttention[0])).toBe("brf_nothing_flagged");
+    expect(key(quiet.forecast[0])).toBe("brf_forecast_uncomputable");
   });
 });
 
