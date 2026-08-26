@@ -278,7 +278,14 @@ export function buildManagementBrief(input: {
     },
   ];
   if (k.weightedPipeline.caveat) {
-    forecast.push({ provenance: "fact", text: k.weightedPipeline.caveat, basis: "opportunities probability columns" });
+    // The caveat is a structured fact now; this consumer builds prose, so it
+    // renders the key. Package D will translate it at the presentation layer
+    // like every other caveat.
+    forecast.push({
+      provenance: "fact",
+      text: k.weightedPipeline.caveat.key,
+      basis: "opportunities probability columns",
+    });
   }
   // Exposure is stated separately, in the same breath as the warning.
   if ((k.lateStageExposure.value ?? 0) > 0) {

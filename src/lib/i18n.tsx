@@ -57,7 +57,16 @@ export const strings = {
 
   // Sales stages (RFQ/JIH flow)
   sstage_rfq_received: { en: "RFQ Received", ar: "استلام طلب عرض سعر" },
-  sstage_jih: { en: "Job In Hand", ar: "فرصة قائمة" },
+  // DISPLAY LABEL ONLY. The canonical stage stays `jih`; nothing in the
+  // database, the lifecycle or the transition map changes.
+  //
+  // "Job In Hand" reads, to any English speaker, as work we have already won —
+  // which is what the 2026-08-25 review objected to when the whole SAR 63.4M
+  // sat under it. The guide defines the stage as "Live opportunity being
+  // priced", so the English label contradicted its own definition. The Arabic
+  // "فرصة قائمة" was always right and is unchanged; "Active JIH" keeps the
+  // term the business actually says while removing the won-work reading.
+  sstage_jih: { en: "Active JIH", ar: "فرصة قائمة" },
   sstage_under_negotiation: { en: "Under Negotiation", ar: "قيد التفاوض" },
   sstage_verbally_awarded: { en: "Verbally Awarded", ar: "ترسية شفهية" },
   sstage_contract_received: { en: "Contract Received", ar: "استلام العقد" },
@@ -1220,6 +1229,83 @@ export const strings = {
   rfqw_converted: { en: "Converted", ar: "محوَّل" },
   rfqw_lost: { en: "Lost", ar: "خاسر" },
   rfqw_on_hold: { en: "On hold", ar: "معلَّق" },
+
+  // ---- Metric caveats (Phase 5.1 pre-D) ------------------------------------
+  // Templates only. A slot is filled with a number the engine computed; nothing
+  // here decides WHICH deals count — that rule lives in sales-kpis.ts alone.
+  cav_no_target: { en: "No target has been set for this period", ar: "لم يُضبَط مستهدف لهذه الفترة" },
+  cav_no_target_achievement: {
+    en: "Cannot compute achievement without a target",
+    ar: "لا يمكن حساب نسبة التحقيق بلا مستهدف",
+  },
+  cav_no_target_gap: { en: "Cannot compute a gap without a target", ar: "لا يمكن حساب الفجوة بلا مستهدف" },
+  cav_probability_missing: {
+    en: "{count} open deals have no probability and are excluded rather than assumed",
+    ar: "{count} فرصة مفتوحة بلا احتمالية، واستُبعدت بدل أن تُفترَض",
+  },
+  cav_unvalued_contribute_zero: {
+    en: "{count} of {total} have no value recorded and are not included in the total",
+    ar: "{count} من {total} بلا قيمة مسجَّلة وغير مشمولة في الإجمالي",
+  },
+  cav_counted_not_summed: {
+    en: "{count} of {total} carry no value and are counted but not summed",
+    ar: "{count} من {total} بلا قيمة، تُعَدّ ولا تُجمَع",
+  },
+  cav_won_undated: { en: "{count} won deals have no recorded award date", ar: "{count} صفقة رابحة بلا تاريخ ترسية مسجَّل" },
+  cav_won_undated_outside_period: {
+    en: "{count} won deals have no recorded award date and sit outside this period",
+    ar: "{count} صفقة رابحة بلا تاريخ ترسية مسجَّل وتقع خارج هذه الفترة",
+  },
+  cav_lost_undated: { en: "{count} lost deals have no recorded close date", ar: "{count} صفقة خاسرة بلا تاريخ إغلاق مسجَّل" },
+  cav_predate_outcome_tracking: {
+    en: "These pre-date outcome-date tracking; no date was invented for them",
+    ar: "هذه تسبق تتبّع تواريخ النتائج، ولم يُختلَق لها تاريخ",
+  },
+  cav_nothing_closed: {
+    en: "Nothing has closed in this period — a rate cannot be computed",
+    ar: "لم يُغلَق شيء في هذه الفترة — لا يمكن حساب النسبة",
+  },
+  cav_closed_undated: {
+    en: "{count} closed deals have no recorded date and are not in this rate",
+    ar: "{count} صفقة مغلقة بلا تاريخ مسجَّل وليست ضمن هذه النسبة",
+  },
+  cav_unclassified_neither: {
+    en: "{count} open opportunities are not yet classified as JIH or Tender, and are counted in neither figure",
+    ar: "{count} فرصة مفتوحة غير مصنَّفة JIH أو منافسة، ولا تُحسب في أيٍّ من الرقمين",
+  },
+  cav_unclassified_do_not_sum: {
+    en: "{count} of these are not classified as JIH or Tender, so the two figures below do not sum to this one",
+    ar: "{count} منها غير مصنَّفة JIH أو منافسة، فالرقمان أدناه لا يجمعان إلى هذا الرقم",
+  },
+
+  // ---- Needs Attention reasons --------------------------------------------
+  rsn_follow_up_overdue_one: { en: "One overdue follow-up, {days} days late", ar: "متابعة متأخرة واحدة، متأخرة {days} يومًا" },
+  rsn_follow_up_overdue_many: {
+    en: "{count} overdue follow-ups, oldest {days} days late",
+    ar: "{count} متابعات متأخرة، أقدمها متأخرة {days} يومًا",
+  },
+  rsn_no_next_action: { en: "No next action set", ar: "لا إجراء تالٍ محدَّد" },
+  rsn_no_next_action_date: { en: "Next action has no date", ar: "الإجراء التالي بلا تاريخ" },
+  rsn_next_action_overdue: { en: "Next action {days} days past its date", ar: "الإجراء التالي متأخر {days} يومًا عن تاريخه" },
+  rsn_inactive: { en: "No client contact for {days} days", ar: "لا تواصل مع العميل منذ {days} يومًا" },
+  rsn_no_engagement_history: {
+    en: "No client activity has ever been recorded — engagement history unavailable",
+    ar: "لم يُسجَّل أي نشاط مع العميل — سجل التواصل غير متاح",
+  },
+  rsn_stalled: {
+    en: "{days} days in {stage} against a {limit}-day {source}, with nothing scheduled",
+    ar: "{days} يومًا في {stage} مقابل {limit} يومًا حسب {source}، بلا شيء مجدوَل",
+  },
+  rsn_expected_close_overdue: { en: "Expected close {date} has passed", ar: "تجاوز تاريخ الإغلاق المتوقَّع {date}" },
+  rsn_closing_soon: { en: "Expected to close in {days} days", ar: "يُتوقَّع الإغلاق خلال {days} يومًا" },
+  rsn_high_value_low_probability: {
+    en: "High value at {pct}% ({source})",
+    ar: "قيمة عالية عند {pct}% ({source})",
+  },
+  rsn_unscored: { en: "No win probability recorded", ar: "لا احتمالية فوز مسجَّلة" },
+  rsn_no_decision_maker: { en: "No decision maker identified", ar: "لم يُحدَّد صانع القرار" },
+  src_baseline: { en: "baseline", ar: "مرجع مقاس" },
+  src_sla: { en: "SLA", ar: "اتفاقية مستوى خدمة" },
   kpi_achievement: { en: "Achievement", ar: "نسبة التحقيق" },
   kpi_gap: { en: "Gap", ar: "الفجوة" },
   filter_group_heading: { en: "Groups", ar: "مجموعات" },

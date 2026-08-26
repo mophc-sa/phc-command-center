@@ -8,6 +8,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   DEFAULT_ATTENTION,
+  REASON_CATEGORY,
   RULE_POINTS,
   RISK_REASONS,
   bandOf,
@@ -35,6 +36,15 @@ const opp = (o: Partial<AttentionOpp> & { id: string }): AttentionOpp => ({
   created_at: "2026-08-20",
   ...o,
 });
+/** A verified client-facing contact. `last_activity_at` no longer establishes
+ *  one: it is stamped by any logged activity, notes and unsent drafts included. */
+const met = (oppId: string, at: string): ActivityRow => ({
+  id: `m-${oppId}-${at}`,
+  opportunity_id: oppId,
+  activity_type: "meeting",
+  status: "logged",
+  created_at: at,
+});
 const fu = (id: string, oppId: string, due: string, status = "scheduled"): FollowUpRow => ({
   id,
   opportunity_id: oppId,
@@ -58,6 +68,7 @@ describe("one opportunity is one item, however many things are wrong with it", (
   const items = buildAttention({
     opportunities: [subject],
     followUps: [fu("f1", "murabba", "2026-08-01"), fu("f2", "murabba", "2026-08-03")],
+    activities: [met("murabba", "2026-07-01")],
     today: TODAY,
   });
 
@@ -78,7 +89,7 @@ describe("one opportunity is one item, however many things are wrong with it", (
   it("collapses two overdue follow-ups into one reason that keeps both ids", () => {
     const r = items[0].reasons.find((x) => x.kind === "follow_up_overdue")!;
     expect(r.sourceIds.sort()).toEqual(["f1", "f2"]);
-    expect(r.detail).toContain("2 overdue follow-ups");
+    expect(r.detail).toEqual({ key: "rsn_follow_up_overdue_many", params: { count: 2, days: 25 } });
   });
 
   it("reports the oldest overdue age, not the newest", () => {
@@ -185,8 +196,12 @@ describe("next action hygiene", () => {
     expect(i.nextAction.status).toBe("overdue");
   });
 
-  it("a complete, future-dated action raises nothing", () => {
-    const items = buildAttention({ opportunities: [opp({ id: "a" })], today: TODAY });
+  it("a complete, future-dated action on a fully-evidenced deal raises nothing", () => {
+    const items = buildAttention({
+      opportunities: [opp({ id: "a" })],
+      activities: [met("a", TODAY)],
+      today: TODAY,
+    });
     expect(items).toEqual([]);
   });
 
@@ -208,7 +223,8 @@ describe("next action hygiene", () => {
 describe("At Risk is a named set of reasons, not a mood", () => {
   it("every at-risk item exposes at least one risk reason", () => {
     const items = buildAttention({
-      opportunities: [opp({ id: "a", last_activity_at: "2026-06-01", created_at: "2026-05-01" })],
+      opportunities: [opp({ id: "a", expected_contract_date: "2026-07-01", created_at: "2026-05-01" })],
+      activities: [met("a", "2026-06-01")],
       today: TODAY,
     });
     expect(items[0].atRisk).toBe(true);
@@ -242,18 +258,20 @@ describe("stalled requires evidence of what 'too long' means", () => {
 
   it("a valid baseline plus excessive age plus silence IS stalled", () => {
     const items = buildAttention({
-      opportunities: [opp({ id: "a", last_activity_at: "2026-06-05" })],
+      opportunities: [opp({ id: "a" })],
+      activities: [met("a", "2026-06-05")],
       transitions: [...withBaseline, entered("a", "2026-06-01T00:00:00Z")],
       today: TODAY,
     });
     expect(items[0].stalled).toBe(true);
     const r = items[0].reasons.find((x) => x.kind === "stalled")!;
-    expect(r.detail).toContain("10-day baseline");
+    expect(r.detail).toEqual({ key: "rsn_stalled", params: { days: 86, stage: "jih", limit: 10, source: "baseline" } });
   });
 
   it("time alone is not stalled — a worked deal legitimately sits in pricing", () => {
     const items = buildAttention({
-      opportunities: [opp({ id: "a", last_activity_at: TODAY })],
+      opportunities: [opp({ id: "a" })],
+      activities: [met("a", TODAY)],
       transitions: [...withBaseline, entered("a", "2026-06-01T00:00:00Z")],
       today: TODAY,
     });
@@ -265,7 +283,8 @@ describe("stalled requires evidence of what 'too long' means", () => {
     // that invented number the benchmark for the whole book, because
     // stage_transition_history is sparse and almost every baseline is absent.
     const items = buildAttention({
-      opportunities: [opp({ id: "a", last_activity_at: "2020-01-01", created_at: "2020-01-01" })],
+      opportunities: [opp({ id: "a", created_at: "2020-01-01" })],
+      activities: [met("a", "2020-01-01")],
       transitions: [],
       today: TODAY,
     });
@@ -274,31 +293,50 @@ describe("stalled requires evidence of what 'too long' means", () => {
     expect(items[0].stalled).toBe(false);
   });
 
-  it("but that neglected deal still surfaces on the signals that ARE evidence", () => {
-    // Removing the invented benchmark must not make a genuinely abandoned deal
-    // invisible. Silence and a missing action are facts, not inferences.
+  it("but that neglected deal still SURFACES — as attention, not as risk", () => {
+    // Removing the invented benchmark must not make an abandoned deal
+    // invisible. It must also not call it endangered on evidence nobody
+    // approved: six years of measured silence is a striking fact, and the
+    // threshold that would make it a verdict is one this codebase chose.
     const items = buildAttention({
-      opportunities: [opp({ id: "a", last_activity_at: "2020-01-01", created_at: "2020-01-01", next_action: null })],
+      opportunities: [opp({ id: "a", created_at: "2020-01-01", next_action: null })],
+      activities: [met("a", "2020-01-01")],
       transitions: [],
       today: TODAY,
     });
     const kinds = items[0].reasons.map((r) => r.kind);
     expect(kinds).toContain("inactive");
     expect(kinds).toContain("no_next_action");
+    expect(items[0].score).toBeGreaterThan(0);
+    // Needs Attention YES, At Risk NO — the distinction the 49/49 reading lost.
+    expect(items[0].atRisk).toBe(false);
+  });
+
+  it("and becomes At Risk the moment real risk evidence appears", () => {
+    const items = buildAttention({
+      opportunities: [
+        opp({ id: "a", created_at: "2020-01-01", next_action: null, expected_contract_date: "2026-01-01" }),
+      ],
+      activities: [met("a", "2020-01-01")],
+      transitions: [],
+      today: TODAY,
+    });
     expect(items[0].atRisk).toBe(true);
+    expect(items[0].reasons.find((r) => r.category === "risk")!.kind).toBe("expected_close_overdue");
   });
 
   it("a configured stage SLA counts as evidence in place of a baseline", () => {
     // Designed for, deliberately unpopulated. When the business sets a real
     // SLA it becomes a limit on the same footing as a measured median.
     const items = buildAttention({
-      opportunities: [opp({ id: "a", last_activity_at: "2026-06-05", created_at: "2026-06-01" })],
+      opportunities: [opp({ id: "a", created_at: "2026-06-01" })],
+      activities: [met("a", "2026-06-05")],
       transitions: [],
       today: TODAY,
       thresholds: { ...DEFAULT_ATTENTION, stageSla: { jih: 30 } },
     });
     expect(items[0].stalled).toBe(true);
-    expect(items[0].reasons.find((r) => r.kind === "stalled")!.detail).toContain("30-day SLA");
+    expect(items[0].reasons.find((r) => r.kind === "stalled")!.detail.params).toMatchObject({ limit: 30, source: "SLA" });
   });
 
   it("ships with no SLA populated", () => {
@@ -309,8 +347,8 @@ describe("stalled requires evidence of what 'too long' means", () => {
     const note: ActivityRow = { id: "n", opportunity_id: "a", activity_type: "note", status: "logged", created_at: TODAY };
     expect(isMeaningfulClientActivity(note)).toBe(false);
     const items = buildAttention({
-      opportunities: [opp({ id: "a", last_activity_at: "2026-06-05" })],
-      activities: [note],
+      opportunities: [opp({ id: "a" })],
+      activities: [note, met("a", "2026-06-05")],
       transitions: [...withBaseline, entered("a", "2026-06-01T00:00:00Z")],
       today: TODAY,
     });
@@ -326,7 +364,7 @@ describe("stalled requires evidence of what 'too long' means", () => {
   it("a real meeting clears the inactivity reason", () => {
     const meeting: ActivityRow = { id: "m", opportunity_id: "a", activity_type: "meeting", status: "logged", created_at: TODAY };
     const items = buildAttention({
-      opportunities: [opp({ id: "a", last_activity_at: "2026-06-05" })],
+      opportunities: [opp({ id: "a" })],
       activities: [meeting],
       transitions: [...withBaseline, entered("a", "2026-06-01T00:00:00Z")],
       today: TODAY,
@@ -525,5 +563,175 @@ describe("owner scoping is preserved", () => {
       ownerId: "u1",
     });
     expect(items.map((i) => i.opportunityId)).toEqual(["mine"]);
+  });
+});
+
+// =============================================================================
+// Pre-Package-D hardening — absence of evidence is not evidence of absence.
+// =============================================================================
+
+describe("a CRM gap is a statement about the CRM, not about the client", () => {
+  const bare = opp({ id: "hist", quotation_value: 5_000_000 });
+
+  it("no activity record is 'engagement history unavailable', never 'inactive'", () => {
+    const [i] = buildAttention({ opportunities: [bare], activities: [], today: TODAY });
+    const kinds = i.reasons.map((r) => r.kind);
+    expect(kinds).toContain("no_engagement_history");
+    expect(kinds).not.toContain("inactive");
+  });
+
+  it("no activity record alone does NOT make a deal At Risk", () => {
+    // This is the 49/49 reading, corrected. Every opportunity on the book
+    // lacked activity history, so every one was declared endangered.
+    const [i] = buildAttention({ opportunities: [bare], activities: [], today: TODAY });
+    expect(i.atRisk).toBe(false);
+  });
+
+  it("missing engagement history is categorised as data quality", () => {
+    const [i] = buildAttention({ opportunities: [bare], activities: [], today: TODAY });
+    expect(i.reasons.find((r) => r.kind === "no_engagement_history")!.category).toBe("data_quality");
+  });
+
+  it("last_activity_at is NOT accepted as proof the client was contacted", () => {
+    // It is stamped by logActivity for ANY activity, notes and unsent drafts
+    // included, and the importer never writes it at all. Reading it as contact
+    // would contradict the rule that notes and drafts are not contact.
+    const [i] = buildAttention({
+      opportunities: [opp({ id: "a", last_activity_at: "2026-08-25" })],
+      activities: [],
+      today: TODAY,
+    });
+    expect(i.reasons.map((r) => r.kind)).toContain("no_engagement_history");
+    expect(i.lastClientActivity).toBeNull();
+  });
+
+  it("a real client activity DOES produce a measured inactivity duration", () => {
+    const [i] = buildAttention({
+      opportunities: [opp({ id: "a" })],
+      activities: [met("a", "2026-07-01")],
+      today: TODAY,
+    });
+    const r = i.reasons.find((x) => x.kind === "inactive")!;
+    expect(r.detail).toEqual({ key: "rsn_inactive", params: { days: 56 } });
+    expect(r.category).toBe("engagement");
+  });
+
+  it("a promoted historical deal is not branded inactive for lacking CRM history", () => {
+    // These carry years of real relationship that predates this system. The
+    // system knowing nothing about it is the system's gap, not the rep's.
+    const historical = opp({
+      id: "promoted",
+      created_at: "2019-03-01",
+      quotation_value: 12_000_000,
+      next_action: null,
+    });
+    const [i] = buildAttention({ opportunities: [historical], activities: [], today: TODAY });
+    expect(i.reasons.map((r) => r.kind)).not.toContain("inactive");
+    expect(i.atRisk).toBe(false);
+    // It still needs attention — it has no next action — which is the point.
+    expect(i.reasons.map((r) => r.kind)).toContain("no_next_action");
+  });
+
+  it("creation and import dates are never used as contact dates", () => {
+    const [i] = buildAttention({
+      opportunities: [opp({ id: "a", created_at: "2019-01-01" })],
+      activities: [],
+      today: TODAY,
+    });
+    expect(i.lastClientActivity).toBeNull();
+    expect(i.reasons.map((r) => r.kind)).not.toContain("inactive");
+  });
+});
+
+describe("At Risk, Needs Attention and Data Quality are three different questions", () => {
+  it("a deal with only data gaps needs attention but is not at risk", () => {
+    const [i] = buildAttention({
+      opportunities: [opp({ id: "a", contractor_decision_maker: null, human_win_probability: null })],
+      activities: [met("a", TODAY)],
+      today: TODAY,
+    });
+    expect(i.issueCount).toBeGreaterThan(0);
+    expect(i.atRisk).toBe(false);
+    expect(i.reasons.every((r) => r.category === "data_quality")).toBe(true);
+  });
+
+  it("verified commercial risk still produces At Risk", () => {
+    for (const [field, value] of [["expected_contract_date", "2026-01-01"]] as const) {
+      const [i] = buildAttention({
+        opportunities: [opp({ id: "a", [field]: value })],
+        activities: [met("a", TODAY)],
+        today: TODAY,
+      });
+      expect([field, i.atRisk]).toEqual([field, true]);
+    }
+  });
+
+  it("an overdue follow-up is real risk — a commitment was made and missed", () => {
+    const [i] = buildAttention({
+      opportunities: [opp({ id: "a" })],
+      followUps: [fu("f", "a", "2026-08-01")],
+      activities: [met("a", TODAY)],
+      today: TODAY,
+    });
+    expect(i.atRisk).toBe(true);
+  });
+
+  it("RISK_REASONS is derived from the category table, not kept by hand", () => {
+    // A new reason cannot be added without someone deciding what kind it is.
+    for (const kind of RISK_REASONS) expect([kind, REASON_CATEGORY[kind]]).toEqual([kind, "risk"]);
+    expect(RISK_REASONS).not.toContain("inactive");
+    expect(RISK_REASONS).not.toContain("no_engagement_history");
+    expect(RISK_REASONS).not.toContain("unscored");
+    expect(RISK_REASONS).not.toContain("no_decision_maker");
+  });
+
+  it("every reason kind has a category — none can slip through uncategorised", () => {
+    for (const kind of Object.keys(RULE_POINTS) as Array<keyof typeof RULE_POINTS>) {
+      expect([kind, REASON_CATEGORY[kind] !== undefined]).toEqual([kind, true]);
+    }
+  });
+});
+
+describe("no invented inactivity SLA", () => {
+  it("the reporting threshold cannot by itself create At Risk", () => {
+    const [i] = buildAttention({
+      opportunities: [opp({ id: "a" })],
+      activities: [met("a", "2020-01-01")],
+      today: TODAY,
+    });
+    expect(i.reasons.map((r) => r.kind)).toContain("inactive");
+    expect(i.atRisk).toBe(false);
+  });
+
+  it("ships no stage SLA values", () => {
+    expect(DEFAULT_ATTENTION.stageSla).toEqual({});
+  });
+});
+
+describe("explanations are structured facts, identical in both languages", () => {
+  it("every reason carries a key and no English prose", () => {
+    const items = buildAttention({
+      opportunities: [opp({ id: "a", next_action: null, expected_contract_date: "2026-01-01" })],
+      followUps: [fu("f", "a", "2026-08-01")],
+      activities: [met("a", "2026-06-01")],
+      today: TODAY,
+    });
+    for (const r of items[0].reasons) {
+      expect([r.kind, typeof r.detail.key]).toEqual([r.kind, "string"]);
+      expect([r.kind, r.detail.key.startsWith("rsn_")]).toEqual([r.kind, true]);
+      // The fact carries numbers, not a rendered sentence.
+      expect([r.kind, /[a-z]{4,} [a-z]{4,}/.test(r.detail.key)]).toEqual([r.kind, false]);
+    }
+  });
+
+  it("the same input produces the same facts regardless of language — there is no language here", () => {
+    // buildAttention takes no locale. That is the guarantee: EN and AR cannot
+    // diverge because only one computation exists.
+    const args = {
+      opportunities: [opp({ id: "a", next_action: null })],
+      activities: [met("a", "2026-06-01")],
+      today: TODAY,
+    };
+    expect(JSON.stringify(buildAttention(args))).toBe(JSON.stringify(buildAttention(args)));
   });
 });

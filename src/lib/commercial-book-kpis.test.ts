@@ -131,7 +131,7 @@ describe("the strip as a whole", () => {
 
   it("names the unclassified records rather than quietly dropping them", () => {
     const k = commercialBookKpis(BOOK, CTX, 10_000_000);
-    expect(k.jih.caveat).toContain("1 open opportunity is not yet classified");
+    expect(k.jih.caveat).toEqual({ key: "cav_unclassified_neither", params: { count: 1 } });
   });
 
   it("need-to-close is the target less what has been won", () => {
@@ -165,7 +165,7 @@ describe("the strip as a whole", () => {
     expect((k.jihPending.value ?? 0) + (k.tenderPending.value ?? 0)).toBeLessThan(
       k.pendingForSubmission.value ?? 0,
     );
-    expect(k.pendingForSubmission.caveat).toContain("do not sum");
+    expect(k.pendingForSubmission.caveat?.key).toBe("cav_unclassified_do_not_sum");
   });
 
   it("every figure carries the record ids that produced it", () => {

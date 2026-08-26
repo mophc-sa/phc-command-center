@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatCurrency, formatNumber, useI18n } from "@/lib/i18n";
+import { formatMessage } from "@/lib/messages";
 import { metricStateOf, type Kpi, type MetricState } from "@/lib/sales-kpis";
 
 // Phase 5.1 §14. A dash says "no number" and stops there; these say WHY there
@@ -104,7 +105,7 @@ export function KpiTile({
                 </ul>
               ) : null}
               <p className="text-muted-foreground/70">
-                {lang === "ar" ? `${kpi.recordCount} سجل` : `${kpi.recordCount} record${kpi.recordCount === 1 ? "" : "s"}`}
+                {lang === "ar" ? `${formatNumber(kpi.recordCount, lang)} سجل` : `${kpi.recordCount} record${kpi.recordCount === 1 ? "" : "s"}`}
               </p>
             </TooltipContent>
           </Tooltip>
@@ -124,7 +125,7 @@ export function KpiTile({
 
       <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
         <span>
-          {lang === "ar" ? `${kpi.recordCount} سجل` : `${kpi.recordCount} record${kpi.recordCount === 1 ? "" : "s"}`}
+          {lang === "ar" ? `${formatNumber(kpi.recordCount, lang)} سجل` : `${kpi.recordCount} record${kpi.recordCount === 1 ? "" : "s"}`}
         </span>
         {clickable ? (
           <>
@@ -144,7 +145,10 @@ export function KpiTile({
       {kpi.caveat ? (
         <div className="mt-1.5 flex items-start gap-1 text-[10px] text-amber-light">
           <AlertTriangle className="mt-px h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-          <span>{kpi.caveat}</span>
+          {/* Translated here, not in the engine: the engine knows the fact,
+              this knows the language. Numbers go through formatNumber so
+              Arabic gets Arabic-Indic digits rather than String(n). */}
+          <span>{formatMessage(kpi.caveat, (k) => t(k as never), (v) => (typeof v === "number" ? formatNumber(v, lang) : String(v)))}</span>
         </div>
       ) : null}
 

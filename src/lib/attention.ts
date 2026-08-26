@@ -31,6 +31,7 @@ import {
   type OppRow,
 } from "@/lib/sales-kpis";
 import { CANONICAL_ACTIVE_STAGES, type CanonicalStage } from "@/lib/stage-canonical";
+import { msg, type MessageRef } from "@/lib/messages";
 
 // ---- Inputs -----------------------------------------------------------------
 
@@ -84,7 +85,14 @@ export function isMeaningfulClientActivity(a: ActivityRow): boolean {
 // ---- Thresholds -------------------------------------------------------------
 
 export type AttentionThresholds = HealthThresholds & {
-  /** Days of silence before a deal counts as inactive. */
+  /**
+   * Days of measured silence before inactivity is worth reporting.
+   *
+   * This is a REPORTING threshold, not a business SLA — it decides when a
+   * duration is interesting enough to surface, and nothing more. It cannot
+   * make a deal At Risk on its own; see RISK_REASONS. An approved SLA belongs
+   * in sla_policies (subject `follow_up`), which ships empty.
+   */
   inactiveDays: number;
   /** An expected close within this many days is "closing soon". */
   closingSoonDays: number;
@@ -249,6 +257,7 @@ export function stageAgingFor(
 // ---- Reasons (§9 drill-down) ------------------------------------------------
 
 export type ReasonKind =
+  | "no_engagement_history"
   | "follow_up_overdue"
   | "no_next_action"
   | "no_next_action_date"
@@ -261,11 +270,47 @@ export type ReasonKind =
   | "unscored"
   | "no_decision_maker";
 
+/**
+ * What KIND of problem a reason is. This is the distinction the 49/49 At Risk
+ * reading was missing.
+ *
+ *   risk          Evidence that the DEAL is endangered. Only these make an
+ *                 opportunity At Risk.
+ *   discipline    Work that has not been done (no next action). Needs
+ *                 Attention, but the deal itself may be perfectly healthy.
+ *   data_quality  Something we do not KNOW. A gap in the CRM is not a
+ *                 statement about the client.
+ *   engagement    A measured fact about contact. Informative, and it stays out
+ *                 of At Risk until a business SLA exists to judge it against.
+ */
+export type ReasonCategory = "risk" | "discipline" | "data_quality" | "engagement";
+
+export const REASON_CATEGORY: Record<ReasonKind, ReasonCategory> = {
+  // Real commitments that were made and missed, and dates that have passed.
+  follow_up_overdue: "risk",
+  next_action_overdue: "risk",
+  expected_close_overdue: "risk",
+  stalled: "risk",
+  high_value_low_probability: "risk",
+  closing_soon: "risk",
+  // Work not done.
+  no_next_action: "discipline",
+  no_next_action_date: "discipline",
+  // Things we do not know. Never, on their own, a statement about the deal.
+  unscored: "data_quality",
+  no_decision_maker: "data_quality",
+  no_engagement_history: "data_quality",
+  // A measured duration, judged by nobody yet.
+  inactive: "engagement",
+};
+
 export type AttentionReason = {
   kind: ReasonKind;
+  category: ReasonCategory;
   /** Points this rule contributed. Shown in the drill-down so a band is auditable. */
   points: number;
-  detail: string;
+  /** A fact and its slots. Rendered in the reader's language by the UI. */
+  detail: MessageRef;
   /** The date the condition began, where one exists. */
   since: string | null;
   ageDays: number | null;
@@ -280,6 +325,7 @@ export type AttentionReason = {
  */
 export const RULE_POINTS: Record<ReasonKind, number> = {
   follow_up_overdue: 20,
+  no_engagement_history: 5,
   stalled: 20,
   expected_close_overdue: 15,
   closing_soon: 15,
@@ -333,16 +379,30 @@ export function bandOf(score: number): AttentionPriority {
 // ---- At Risk / Stalled / Closing Soon (§3, §4, §5) --------------------------
 
 /**
- * At Risk is a named set of reasons, not a mood. Every classification carries
- * the reasons that produced it, so "why is this at risk" is answered by the
- * record rather than by a model.
+ * At Risk is a named set of reasons, not a mood — and it is now derived from
+ * the category table above rather than kept by hand, so a new reason cannot be
+ * added without someone deciding what kind of thing it is.
+ *
+ * WHY `inactive` LEFT THIS LIST
+ * ----------------------------
+ * On 2026-08-26 the dashboard read "AT RISK 49 · SAR 63,407,478" — the entire
+ * book, every opportunity, the whole pipeline. A flag that fires on everything
+ * is not a flag.
+ *
+ * The cause was not a threshold being slightly wrong. It was treating an
+ * ABSENCE OF EVIDENCE as EVIDENCE OF ABSENCE: nothing in the CRM said anyone
+ * had spoken to the client, so the system concluded nobody had. For the
+ * historical opportunities promoted into the pipeline that is simply false —
+ * they carry years of real relationship that predates this system existing.
+ *
+ * Inactivity is still measured and still shown. It just does not, by itself,
+ * declare a deal endangered — because the 14 days it would be judged against
+ * is a number this codebase invented, not one the business approved.
+ * sla_policies is where an approved one would live, and it is empty.
  */
-export const RISK_REASONS: ReasonKind[] = [
-  "stalled",
-  "inactive",
-  "expected_close_overdue",
-  "high_value_low_probability",
-];
+export const RISK_REASONS: ReasonKind[] = (Object.keys(REASON_CATEGORY) as ReasonKind[]).filter(
+  (k) => REASON_CATEGORY[k] === "risk",
+);
 
 export type AttentionItem = {
   opportunityId: string;
@@ -416,11 +476,12 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     const reasons: AttentionReason[] = [];
     const push = (
       kind: ReasonKind,
-      detail: string,
+      detail: MessageRef,
       extra: { since?: string | null; ageDays?: number | null; sourceIds?: string[]; agePoints?: number } = {},
     ) =>
       reasons.push({
         kind,
+        category: REASON_CATEGORY[kind],
         points: RULE_POINTS[kind] + Math.min(extra.agePoints ?? 0, MAX_AGE_POINTS),
         detail,
         since: extra.since ?? null,
@@ -440,8 +501,8 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
       push(
         "follow_up_overdue",
         overdue.length === 1
-          ? `1 overdue follow-up, ${overdue[0].days} days late`
-          : `${overdue.length} overdue follow-ups, oldest ${overdue[0].days} days late`,
+          ? msg("rsn_follow_up_overdue_one", { days: overdue[0].days })
+          : msg("rsn_follow_up_overdue_many", { count: overdue.length, days: overdue[0].days }),
         {
           since: overdue[0].f.due_date,
           ageDays: overdue[0].days,
@@ -458,22 +519,45 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
       hasNextActionDate && o.next_action_due ? daysBetween(o.next_action_due, today) : null;
 
     if (!hasNextAction) {
-      push("no_next_action", "No next action set");
+      push("no_next_action", msg("rsn_no_next_action"));
     } else if (!hasNextActionDate) {
-      push("no_next_action_date", "Next action has no date");
+      push("no_next_action_date", msg("rsn_no_next_action_date"));
     } else if (nextActionOverdueDays !== null && nextActionOverdueDays > 0) {
-      push("next_action_overdue", `Next action ${nextActionOverdueDays} days past its date`, {
+      push("next_action_overdue", msg("rsn_next_action_overdue", { days: nextActionOverdueDays }), {
         since: o.next_action_due ?? null,
         ageDays: nextActionOverdueDays,
         agePoints: nextActionOverdueDays,
       });
     }
 
-    // --- inactivity, measured on real client contact ---
-    const lastContact = lastContactByOpp.get(o.id) ?? o.last_activity_at ?? null;
+    // --- engagement: a measured fact, or an admitted gap ---
+    //
+    // `last_activity_at` is NOT used as the reference, though it is tempting.
+    // It is stamped by logActivity() for ANY activity — including a note
+    // somebody wrote to themselves and an email draft that was never sent — so
+    // reading it as client contact contradicts the rule two functions above
+    // that says exactly those two things are not contact. It is a
+    // "someone touched this record" timestamp, not a "we spoke to the client"
+    // one, and it is also null on every historically promoted opportunity
+    // because the importer never writes it.
+    //
+    // So inactivity is computed ONLY from a verified client-facing activity.
+    // With none, we do not know when the client was last spoken to — and the
+    // honest report of that is a data gap, not a claim that nobody called.
+    const lastContact = lastContactByOpp.get(o.id) ?? null;
     const silentDays = lastContact ? daysBetween(lastContact, today) : null;
-    if (silentDays !== null && silentDays >= t.inactiveDays) {
-      push("inactive", `No client contact for ${silentDays} days`, {
+
+    if (lastContact === null) {
+      // Data quality, deliberately: a CRM with no record of a conversation is a
+      // statement about the CRM. The promoted historical deals carry years of
+      // real relationship that predates this system.
+      push("no_engagement_history", msg("rsn_no_engagement_history"));
+    } else if (silentDays !== null && silentDays >= t.inactiveDays) {
+      // Reported as the measured duration it is. Category "engagement", not
+      // "risk": the threshold it is compared against is one this codebase
+      // chose, not one the business approved, and sla_policies — the table
+      // built to hold approved thresholds — is empty.
+      push("inactive", msg("rsn_inactive", { days: silentDays }), {
         since: lastContact,
         ageDays: silentDays,
       });
@@ -497,6 +581,8 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     const limitSource = slaDays !== null ? "SLA" : "baseline";
 
     const overStage = stageLimit !== null && aging.daysInStage !== null && aging.daysInStage > stageLimit;
+    // Unknown engagement is not evidence that nothing is moving. Only a
+    // MEASURED silence, or a missing/late action, counts.
     const nothingMoving =
       (silentDays !== null && silentDays >= t.inactiveDays) ||
       !hasNextAction ||
@@ -505,7 +591,12 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     if (stalled) {
       push(
         "stalled",
-        `${aging.daysInStage} days in ${stage} against a ${stageLimit}-day ${limitSource}, with nothing scheduled`,
+        msg("rsn_stalled", {
+          days: aging.daysInStage ?? 0,
+          stage: stage ?? "",
+          limit: stageLimit ?? 0,
+          source: limitSource,
+        }),
         { since: aging.enteredAt, ageDays: aging.daysInStage },
       );
     }
@@ -513,14 +604,14 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     // --- expected close (§5): only ever from a real date ---
     const closeDays = o.expected_contract_date ? daysBetween(o.expected_contract_date, today) : null;
     if (closeDays !== null && closeDays > 0) {
-      push("expected_close_overdue", `Expected close ${o.expected_contract_date} has passed`, {
+      push("expected_close_overdue", msg("rsn_expected_close_overdue", { date: o.expected_contract_date ?? "" }), {
         since: o.expected_contract_date ?? null,
         ageDays: closeDays,
       });
     }
     const closingSoon = closeDays !== null && closeDays <= 0 && Math.abs(closeDays) <= t.closingSoonDays;
     if (closingSoon) {
-      push("closing_soon", `Expected to close in ${Math.abs(closeDays!)} days`, {
+      push("closing_soon", msg("rsn_closing_soon", { days: Math.abs(closeDays!) }), {
         since: o.expected_contract_date ?? null,
         ageDays: closeDays,
       });
@@ -529,12 +620,12 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     // --- commercial signals already defined by the KPI engine ---
     const prob = resolveProbability(o);
     if (prob.value === null) {
-      push("unscored", "No win probability recorded");
+      push("unscored", msg("rsn_unscored"));
     } else if (value !== null && value >= t.highValue && prob.value * 100 <= t.lowProbabilityPct) {
-      push("high_value_low_probability", `High value at ${Math.round(prob.value * 100)}% (${prob.label})`);
+      push("high_value_low_probability", msg("rsn_high_value_low_probability", { pct: Math.round(prob.value * 100), source: prob.label }));
     }
     if (!o.contractor_decision_maker || !String(o.contractor_decision_maker).trim()) {
-      push("no_decision_maker", "No decision maker identified");
+      push("no_decision_maker", msg("rsn_no_decision_maker"));
     }
 
     if (reasons.length === 0) continue;

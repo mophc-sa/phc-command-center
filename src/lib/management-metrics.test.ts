@@ -61,7 +61,7 @@ describe("the five management buckets", () => {
     );
     expect(k.value).toBe(1_000_000);
     expect(k.recordCount).toBe(2);
-    expect(k.caveat).toContain("1 of 2");
+    expect(k.caveat).toEqual({ key: "cav_counted_not_summed", params: { count: 1, total: 2 } });
     expect(k.fix?.labelKey).toBe("fix_add_value");
   });
 
@@ -92,7 +92,7 @@ describe("weighted pipeline never reports a borrowed zero", () => {
     );
     expect(k.value).toBeNull();
     expect(metricStateOf(k)).toBe("not_calculated");
-    expect(k.caveat).toContain("2 open deals have no probability");
+    expect(k.caveat).toEqual({ key: "cav_probability_missing", params: { count: 2 } });
     expect(k.fix?.labelKey).toBe("fix_add_probability");
   });
 
@@ -113,7 +113,7 @@ describe("weighted pipeline never reports a borrowed zero", () => {
       CTX,
     );
     expect(k.value).toBe(500_000);
-    expect(k.caveat).toContain("1 open deal has no probability");
+    expect(k.caveat).toEqual({ key: "cav_probability_missing", params: { count: 1 } });
   });
 
   it("no open deals at all is no_data, not not_calculated", () => {

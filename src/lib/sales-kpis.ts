@@ -30,6 +30,7 @@
 // =============================================================================
 
 import { CANONICAL_ACTIVE_STAGES, resolveCanonicalStage, type CanonicalStage } from "@/lib/stage-canonical";
+import { msg, type MessageRef } from "@/lib/messages";
 
 // ---- Inputs -----------------------------------------------------------------
 
@@ -89,8 +90,9 @@ export type Kpi = {
   recordIds: string[];
   /** Where a click should go. */
   drilldown: DrilldownTarget | null;
-  /** Set when the number is incomplete or rests on an assumption. */
-  caveat?: string;
+  /** Set when the number is incomplete or rests on an assumption. A structured
+   *  fact, not a sentence — see messages.ts for why. */
+  caveat?: MessageRef;
   /**
    * Why the value is what it is. Omit and `metricStateOf` derives it; set it
    * when the builder knows something the derivation cannot see — chiefly the
@@ -464,8 +466,8 @@ export function wonValue(opps: OppRow[], ctx: KpiContext): Kpi {
     caveat:
       undated.length > 0
         ? ctx.period
-          ? `${undated.length} won ${undated.length === 1 ? "deal has" : "deals have"} no recorded award date and sit outside this period — see Won (undated)`
-          : `${undated.length} won ${undated.length === 1 ? "deal has" : "deals have"} no recorded award date`
+          ? msg("cav_won_undated_outside_period", { count: undated.length })
+          : msg("cav_won_undated", { count: undated.length })
         : undefined,
   });
 }
@@ -490,7 +492,7 @@ export function wonUndated(opps: OppRow[], ctx: KpiContext): Kpi {
     ]),
     recordIds: rows.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "won" } },
-    caveat: rows.length > 0 ? "These pre-date outcome-date tracking; no date was invented for them" : undefined,
+    caveat: rows.length > 0 ? msg("cav_predate_outcome_tracking") : undefined,
   });
 }
 
@@ -509,7 +511,7 @@ export function lostValue(opps: OppRow[], ctx: KpiContext): Kpi {
     filters: filterLabels(ctx),
     recordIds: rows.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "lost" } },
-    caveat: undated.length > 0 ? `${undated.length} lost ${undated.length === 1 ? "deal has" : "deals have"} no recorded close date` : undefined,
+    caveat: undated.length > 0 ? msg("cav_lost_undated", { count: undated.length }) : undefined,
   });
 }
 
@@ -528,7 +530,7 @@ export function openPipeline(opps: OppRow[], ctx: KpiContext): Kpi {
     filters: filterLabels({ ...ctx, period: null }, ["On-hold deals are included — paused is still in the pipeline"]),
     recordIds: rows.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "open" } },
-    caveat: unvalued > 0 ? `${unvalued} of ${rows.length} have no value recorded and contribute 0` : undefined,
+    caveat: unvalued > 0 ? msg("cav_unvalued_contribute_zero", { count: unvalued, total: rows.length }) : undefined,
   });
 }
 
@@ -569,10 +571,7 @@ export function weightedPipeline(opps: OppRow[], ctx: KpiContext): Kpi {
     recordIds: scored.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "open" } },
     state: open.length === 0 ? "no_data" : computable ? "ok" : "not_calculated",
-    caveat:
-      unscored > 0
-        ? `${unscored} open ${unscored === 1 ? "deal has" : "deals have"} no probability and are excluded rather than assumed`
-        : undefined,
+    caveat: unscored > 0 ? msg("cav_probability_missing", { count: unscored }) : undefined,
     ...(unscored > 0
       ? { fix: { labelKey: "fix_add_probability", to: OPP_LIST, search: { stage: "open", missing: "probability" } } }
       : {}),
@@ -628,9 +627,9 @@ export function winRate(opps: OppRow[], ctx: KpiContext): Kpi {
     drilldown: { to: OPP_LIST, search: { stage: "closed" } },
     caveat:
       closed === 0
-        ? "Nothing has closed in this period — a rate cannot be computed"
+        ? msg("cav_nothing_closed")
         : undatedClosed > 0
-          ? `${undatedClosed} closed ${undatedClosed === 1 ? "deal has" : "deals have"} no recorded date and are not in this rate`
+          ? msg("cav_closed_undated", { count: undatedClosed })
           : undefined,
   });
 }
@@ -702,7 +701,7 @@ export function targetKpis(opps: OppRow[], ctx: KpiContext, targetAmount: number
       key: "target",
       value: hasTarget ? targetAmount : null,
       formula: "Sales target for the selected period and owner",
-      caveat: hasTarget ? undefined : "No target has been set for this period",
+      caveat: hasTarget ? undefined : msg("cav_no_target"),
     }),
     actual: { ...actual, key: "target_actual" },
     achievement: kpi({
@@ -711,14 +710,14 @@ export function targetKpis(opps: OppRow[], ctx: KpiContext, targetAmount: number
       value: hasTarget ? Math.round((actualValue / targetAmount) * 100) : null,
       kind: "percent",
       formula: "Won value ÷ target — Won only, excluding verbal award and contract stages",
-      caveat: hasTarget ? undefined : "Cannot compute achievement without a target",
+      caveat: hasTarget ? undefined : msg("cav_no_target_achievement"),
     }),
     gap: kpi({
       ...base,
       key: "target_gap",
       value: hasTarget ? Math.max(0, targetAmount - actualValue) : null,
       formula: "max(0, target − won value)",
-      caveat: hasTarget ? undefined : "Cannot compute a gap without a target",
+      caveat: hasTarget ? undefined : msg("cav_no_target_gap"),
     }),
   };
 }
@@ -1028,9 +1027,7 @@ function classificationCount(
     // list's JIH/Tender column was a column of dashes. Saying so is the
     // difference between "we have 9 JIHs" and "we have at least 9".
     caveat:
-      unclassified.length > 0
-        ? `${unclassified.length} open opportunit${unclassified.length === 1 ? "y is" : "ies are"} not yet classified as JIH or Tender, and are counted in neither figure`
-        : undefined,
+      unclassified.length > 0 ? msg("cav_unclassified_neither", { count: unclassified.length }) : undefined,
   });
 }
 
@@ -1054,7 +1051,7 @@ function pendingCount(opps: ClassifiedRow[], ctx: KpiContext, which: Classificat
     drilldown: { to: OPP_LIST, search: { stage: "open" } },
     caveat:
       which === null && unclassified.length > 0
-        ? `${unclassified.length} of these ${unclassified.length === 1 ? "is" : "are"} not classified as JIH or Tender, so the two figures below do not sum to this one`
+        ? msg("cav_unclassified_do_not_sum", { count: unclassified.length })
         : undefined,
   });
 }
@@ -1123,7 +1120,7 @@ export function bucketKpi(opps: OppRow[], ctx: KpiContext, bucket: ManagementBuc
     state: rows.length === 0 ? "no_data" : priced.length === 0 ? "not_calculated" : "ok",
     ...(rows.length > 0 && priced.length < rows.length
       ? {
-          caveat: `${rows.length - priced.length} of ${rows.length} carry no value and are counted but not summed`,
+          caveat: msg("cav_counted_not_summed", { count: rows.length - priced.length, total: rows.length }),
           fix: { labelKey: "fix_add_value", to: OPP_LIST, search: { stage: "open", missing: "value" } },
         }
       : {}),
@@ -1158,11 +1155,7 @@ export function pipelineCoverage(opps: OppRow[], ctx: KpiContext, targetAmount: 
     // target" when the real gap is 45 unscored deals wastes the one action
     // they were willing to take.
     state: !hasTarget ? "not_configured" : weighted.value === null ? "not_calculated" : "ok",
-    caveat: !hasTarget
-      ? "No sales target set for this period"
-      : weighted.value === null
-        ? weighted.caveat
-        : undefined,
+    caveat: !hasTarget ? msg("cav_no_target") : weighted.value === null ? weighted.caveat : undefined,
     ...(!hasTarget ? { fix: FIX_TARGET } : weighted.value === null ? { fix: FIX_PROBABILITY } : {}),
   });
 }

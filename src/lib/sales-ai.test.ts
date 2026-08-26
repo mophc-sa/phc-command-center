@@ -131,7 +131,9 @@ describe("the management brief stands on its own without AI", () => {
   });
 
   it("names the unscored deals rather than weighting them", () => {
-    expect(b.forecast.some((l) => l.text.includes("no probability"))).toBe(true);
+    // The brief now carries the caveat's KEY, not an English sentence — the
+    // fact travels, the wording is chosen where the language is known.
+    expect(b.forecast.some((l) => l.text === "cav_probability_missing")).toBe(true);
   });
 
   it("flags stalled and unactioned work", () => {

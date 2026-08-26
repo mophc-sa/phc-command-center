@@ -15,7 +15,8 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, AlertTriangle } from "lucide-react";
 import { StatusPill } from "@/components/phc/StatusPill";
-import { formatCurrency, useI18n } from "@/lib/i18n";
+import { formatCurrency, formatNumber, useI18n } from "@/lib/i18n";
+import { formatMessage } from "@/lib/messages";
 import { canonicalStageLabelKey } from "@/lib/stage-canonical";
 import type { AttentionItem, AttentionPriority, ReasonKind } from "@/lib/attention";
 
@@ -35,6 +36,7 @@ const PRIORITY_LABEL: Record<AttentionPriority, { en: string; ar: string }> = {
 
 const REASON_LABEL: Record<ReasonKind, { en: string; ar: string }> = {
   follow_up_overdue: { en: "Follow-up overdue", ar: "متابعة متأخرة" },
+  no_engagement_history: { en: "No engagement history", ar: "لا سجل تواصل" },
   no_next_action: { en: "No next action", ar: "لا إجراء تالٍ" },
   no_next_action_date: { en: "Next action has no date", ar: "الإجراء التالي بلا تاريخ" },
   next_action_overdue: { en: "Next action overdue", ar: "الإجراء التالي متأخر" },
@@ -139,7 +141,12 @@ export function NeedsAttentionPanel({ items }: { items: AttentionItem[] }) {
                     <li key={r.kind} className="flex items-start gap-1.5 text-[11px]">
                       <AlertTriangle className="mt-px h-2.5 w-2.5 shrink-0 text-amber-light" aria-hidden="true" />
                       <span className="text-foreground">{REASON_LABEL[r.kind][lang]}</span>
-                      <span className="text-muted-foreground">— {r.detail}</span>
+                      <span className="text-muted-foreground">
+                        —{" "}
+                        {formatMessage(r.detail, (k) => t(k as never), (v) =>
+                          typeof v === "number" ? formatNumber(v, lang) : t(`src_${v}` as never) || String(v),
+                        )}
+                      </span>
                       <span className="ms-auto shrink-0 text-muted-foreground/70">+{r.points}</span>
                     </li>
                   ))}
