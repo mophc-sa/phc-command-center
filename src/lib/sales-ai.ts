@@ -131,24 +131,47 @@ const FORBIDDEN_PATTERNS: Array<{ action: ForbiddenAction; re: RegExp }> = [
   { action: "create_commercial_commitment", re: /\b(commit|promise|guarantee|offer)\b[^.]{0,30}\b(price|discount|delivery|contract)\b/i },
 ];
 
+/**
+ * One matcher per canonical action, built FROM AI_FORBIDDEN_ACTIONS so there is
+ * never a second list to keep in step.
+ *
+ * The boundary is deliberately `\b` around the WHOLE token, not around its
+ * first word. That distinction is the entire defect:
+ *
+ *   /\bsend\b/  fails on "send_email" — `_` is a word character, so there is no
+ *                boundary after "send". This is what let the prose patterns miss
+ *                every canonical token.
+ *   /\bsend_email\b/ matches "send_email", "send_email to the client",
+ *                "…: send_email." and "step: send_email to procurement."
+ *
+ * …and it still refuses to fire on text that merely CONTAINS the token:
+ * "resend_email" has a word character before the `s`, "send_emailing" has one
+ * after the `l`, so neither is a token occurrence. No substring matching, no
+ * fuzziness — an exact token, bounded.
+ *
+ * Case-insensitive, because SEND_EMAIL is the same instruction shouted.
+ */
+const FORBIDDEN_TOKEN_PATTERNS: ReadonlyArray<{ action: ForbiddenAction; re: RegExp }> =
+  AI_FORBIDDEN_ACTIONS.map((action) => ({ action, re: new RegExp(`\\b${action}\\b`, "i") }));
+
 export function checkRecommendation(r: AiRecommendation): RecommendationCheck {
-  // An exact token first. The patterns below are built for model PROSE, and
-  // `\b` cannot match inside `send_email` — the underscore is a word character,
-  // so there is no boundary after "send". A caller handing over the canonical
-  // action name (which a structured tool call naturally would) sailed straight
-  // through every pattern. Cheap to close, and it fails in the safe direction.
-  const exact = (AI_FORBIDDEN_ACTIONS as readonly string[]).find(
-    (a) => r.proposedAction.trim() === a,
-  ) as ForbiddenAction | undefined;
-  if (exact) {
-    return {
-      allowed: false,
-      violated: exact,
-      reason: `AI is advisory only and may not ${exact.replace(/_/g, " ")}. A person decides this.`,
-    };
+  const haystack = `${r.text} ${r.proposedAction}`;
+
+  // Canonical tokens first, anywhere in the text. This subsumes the older
+  // exact-equality check on proposedAction (a bare token still matches) and
+  // closes the case that check missed: the same token with words around it.
+  // It matters more since recommended_actions became plain strings, where the
+  // proposed action IS the prose.
+  for (const { action, re } of FORBIDDEN_TOKEN_PATTERNS) {
+    if (re.test(haystack)) {
+      return {
+        allowed: false,
+        violated: action,
+        reason: `AI is advisory only and may not ${action.replace(/_/g, " ")}. A person decides this.`,
+      };
+    }
   }
 
-  const haystack = `${r.text} ${r.proposedAction}`;
   for (const { action, re } of FORBIDDEN_PATTERNS) {
     if (re.test(haystack)) {
       return {

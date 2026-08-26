@@ -166,6 +166,36 @@ describe("forbidden actions never reach the screen", () => {
     expect(shown).toContain("Call the client to confirm the timeline");
   });
 
+  it("the whole pipeline: safe survives, prose AND embedded-token are removed", () => {
+    // schema-parsed response → mapper → withAiCommentary → filterRecommendations
+    // → the lines a reader would see. All three kinds in one payload, because
+    // the interesting failure is one refusal suppressing another.
+    const payload = SalesReportInsightsOutputSchema.parse({
+      ...AGENT_RESPONSE,
+      recommended_actions: [
+        "Call the BLVD District client to confirm the decision timeline.", // safe
+        "Send an email to the client confirming the award",                // forbidden, prose
+        "send_email to the client",                                        // forbidden, embedded token
+      ],
+    });
+    const before = deterministic();
+    const factsBefore = JSON.stringify(linesOf(before).filter((l) => !isAiGenerated(l)));
+
+    const { inferences, recommendations } = commentaryFromReportInsights(payload);
+    const { brief, refused } = withAiCommentary(before, {
+      agentKey: "sales_report_insights", inferences, recommendations,
+    });
+
+    const shown = textOf(brief);
+    expect(shown).toContain("Call the BLVD District client to confirm the decision timeline.");
+    expect(shown).not.toContain("Send an email to the client confirming the award");
+    expect(shown).not.toContain("send_email to the client");
+    expect(refused.map((r) => r.violated)).toEqual(["send_email", "send_email"]);
+
+    // Deterministic lines byte-identical, whatever the model proposed.
+    expect(JSON.stringify(linesOf(brief).filter((l) => !isAiGenerated(l)))).toBe(factsBefore);
+  });
+
   it("a bare canonical action name is refused by the exact-token check", () => {
     // recommended_actions are plain strings, so proposedAction IS the text.
     // That makes the exact-token guard the load-bearing one for this path.
