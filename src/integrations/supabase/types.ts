@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.17"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -6209,6 +6214,7 @@ export type Database = {
           organization: string | null
           phone: string | null
           role: string | null
+          role_code: string | null
           updated_at: string
         }
         Insert: {
@@ -6224,6 +6230,7 @@ export type Database = {
           organization?: string | null
           phone?: string | null
           role?: string | null
+          role_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -6239,6 +6246,7 @@ export type Database = {
           organization?: string | null
           phone?: string | null
           role?: string | null
+          role_code?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -7734,12 +7742,14 @@ export type Database = {
           collision_class: string | null
           company_id: string | null
           company_matched: boolean | null
+          contact_designation: string | null
           contact_name: string | null
           currency: string | null
           date_received: string | null
           date_submitted: string | null
           email_subject: string | null
           follow_up: string | null
+          last_update_note: string | null
           location: string | null
           owner: string | null
           owner_prefix: string | null
@@ -8018,6 +8028,7 @@ export type Database = {
           average_deal: number | null
           deals: number | null
           my_deals: number | null
+          no_engagement_history: number | null
           pipeline_value: number | null
           sales_stage: Database["public"]["Enums"]["sales_stage"] | null
           stalled: number | null
@@ -8075,6 +8086,7 @@ export type Database = {
           gross_value: number | null
           owner_id: string | null
           undated_deals: number | null
+          unweighted_deals: number | null
           weighted_value: number | null
         }
         Relationships: []
@@ -8469,6 +8481,10 @@ export type Database = {
       is_sales_contributor: { Args: { _user_id: string }; Returns: boolean }
       issue_project_number: { Args: { _project_id: string }; Returns: string }
       jsonb_has_money_key: { Args: { _payload: Json }; Returns: boolean }
+      last_verified_client_contact: {
+        Args: { _opportunity_id: string }
+        Returns: string
+      }
       link_historical_owner: {
         Args: { _email: string; _label: string; _note: string; _prefix: string }
         Returns: boolean

@@ -913,8 +913,9 @@ involved — every change is frontend, reading columns that already exist.
 
 The **Phase 5.1** hardening — one shared decision-maker rule, uncapped dashboard reads with a
 visible warning when a ceiling is hit, and the tile ⓘ separated from the drill-down — is on
-`feat/phase-5.1-sales-intelligence` and **not yet deployed**. Its three migrations are local and
-unapplied; the dashboard reads correctly with or without them.
+`feat/phase-5.1-sales-intelligence` and **not yet deployed**. Its three migrations *are* applied to
+production (2026-08-26); the frontend is not, and that order is safe — the dashboard reads
+correctly with or without them.
 
 **Phase 5 is not yet live.** The canonical KPI engine, drilldown, timeline, entry presets and AI discipline layer are code-only and ship with the next deploy. The NO BOQ / NO PROJECT NUMBER rule exists only as a local migration and is **not** applied to production — see Section 10.
 Update this file when the workflow changes.*

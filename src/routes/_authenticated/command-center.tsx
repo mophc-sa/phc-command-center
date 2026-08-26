@@ -51,6 +51,7 @@ import { DataQualityPanel } from "@/components/phc/DataQualityPanel";
 import { AskAiPanel } from "@/components/phc/AskAiPanel";
 import { buildRfqWorkflow, summarizeByAge, summarizeByState } from "@/lib/rfq-workflow";
 import { allComplete, fetchAllRows } from "@/lib/fetch-all";
+import type { StakeholderRow } from "@/lib/stakeholder-roles";
 import { salesExecution } from "@/lib/sales-execution";
 import { PipelineBreakdownDrawer } from "@/components/phc/PipelineBreakdownDrawer";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -351,18 +352,17 @@ function CommandCenter() {
   // Grouped once, so the decision-maker read is a Map lookup per opportunity
   // rather than a scan of every stakeholder for every deal.
   const stakeholdersByOpp = useMemo(() => {
-    const m = new Map<string, Array<Record<string, unknown>>>();
-    // DEPLOYMENT ORDER, enforced by the compiler: `role_code` does not exist
-    // until 20260915100000 is applied, so the generated types reject this
-    // select. Migration 3 MUST land before this frontend does — the double cast
-    // records that dependency rather than hiding it, and types regenerate once
-    // the column is real.
-    for (const s of (data?.stakeholders ?? []) as unknown as Array<Record<string, unknown>>) {
-      const oid = s.opportunity_id as string | null;
+    const m = new Map<string, StakeholderRow[]>();
+    // `role_code` is optional on this type, and not because the schema is
+    // vague: fetchStakeholders() drops the column when the database predates
+    // 20260915100000. effectiveRole() already reads the historical `role` text
+    // in that case, so a row without it is a complete row, not a broken one.
+    for (const s of (data?.stakeholders ?? []) as Array<StakeholderRow & { opportunity_id?: string | null }>) {
+      const oid = s.opportunity_id;
       if (!oid) continue;
       m.set(oid, [...(m.get(oid) ?? []), s]);
     }
-    return m as never;
+    return m;
   }, [data]);
 
   // Phase 5.1 §6/§7/§8. This used to be one row per ISSUE, hard-capped at three
