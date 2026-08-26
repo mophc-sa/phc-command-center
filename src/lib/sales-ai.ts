@@ -365,6 +365,54 @@ export function buildManagementBrief(input: {
  * line as inference or recommendation and dropping anything that proposes a
  * forbidden action.
  */
+/**
+ * The three states a commentary request can end in — and they are three, not
+ * two.
+ *
+ * "ok" and "nothing rendered" used to be indistinguishable: a 200 carrying no
+ * usable content suppressed the unavailable caveat and appended no lines, so
+ * the brief looked as though the model simply had nothing to add. It had not
+ * been asked correctly. A UI must never imply commentary exists when none was
+ * rendered.
+ */
+export type CommentaryState = "ok" | "empty" | "unavailable";
+
+/**
+ * Map one `sales_report_insights` result onto the brief's commentary channels.
+ *
+ * The field names come from SalesReportInsightsOutputSchema and nowhere else:
+ * `key_insights`, `risks`, `recommended_actions`. Reading `insights` /
+ * `recommendations` — names that schema has never used — is what made a
+ * successful call render nothing.
+ *
+ * `risks` are AI-inferred observations about the book, so they travel as
+ * `inference` lines, the same existing channel as key insights. There is no
+ * separate risk provenance and inventing one to hold three strings would be a
+ * new UI model for no gain — but dropping them would discard content the
+ * approved schema deliberately produces.
+ *
+ * Recommended actions arrive as plain strings. Each becomes a recommendation
+ * whose proposedAction is its own text, so filterRecommendations still screens
+ * it: a model cannot phrase its way past the forbidden-action gate by being
+ * unstructured.
+ */
+export function commentaryFromReportInsights(result: unknown): {
+  inferences: string[];
+  recommendations: AiRecommendation[];
+} {
+  const out = (result ?? {}) as Record<string, unknown>;
+  const strings = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim() !== "") : [];
+
+  const inferences = [...strings(out.key_insights), ...strings(out.risks)];
+  const recommendations: AiRecommendation[] = strings(out.recommended_actions).map((text, i) => ({
+    id: String(i),
+    text,
+    proposedAction: text,
+  }));
+  return { inferences, recommendations };
+}
+
 export function withAiCommentary(
   brief: ManagementBrief,
   commentary: { inferences?: string[]; recommendations?: AiRecommendation[]; agentKey: string },

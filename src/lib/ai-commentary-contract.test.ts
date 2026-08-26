@@ -125,7 +125,15 @@ describe("commentary cannot touch a deterministic fact", () => {
   });
 
   it("a failed or absent commentary returns the deterministic brief untouched", () => {
-    expect(commandCenter).toMatch(/if \(!c \|\| !c\.ok\) return deterministicBrief;/);
+    // Behaviour, not a literal line: the failure branch hands back
+    // deterministicBrief itself, so no AI path can rewrite a fact. The earlier
+    // version of this test pinned the exact source line and broke the moment
+    // the same behaviour was expressed differently.
+    const at = commandCenter.indexOf("if (!c || !c.ok)");
+    expect(at).toBeGreaterThan(-1);
+    const branch = commandCenter.slice(at, at + 220);
+    expect(branch).toContain("brief: deterministicBrief");
+    expect(branch).toContain('"unavailable"');
   });
 
   it("commentary contributes only inferences and recommendations", () => {

@@ -1363,6 +1363,10 @@ export const strings = {
     en: "AI commentary unavailable — the facts below are unaffected.",
     ar: "تعليق الذكاء الاصطناعي غير متاح — الحقائق أدناه غير متأثرة.",
   },
+  brf_ai_empty: {
+    en: "AI commentary returned nothing to add — the facts below are unaffected.",
+    ar: "لم يُضِف تعليق الذكاء الاصطناعي شيئًا — الحقائق أدناه غير متأثرة.",
+  },
   dq_title: { en: "Data quality", ar: "جودة البيانات" },
   dq_affected: {
     en: "{count} of {total} active opportunities have at least one gap",
