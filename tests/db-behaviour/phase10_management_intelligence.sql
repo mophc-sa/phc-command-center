@@ -84,9 +84,14 @@ BEGIN
   SELECT public.opportunity_win_weight(NULL, 'sure_win') INTO v;
   RAISE NOTICE '% 5. …and the label is used when there is no human number (expect 0.90, got %)',
     CASE WHEN v=0.90 THEN 'PASS' ELSE 'FAIL' END, v;
+  -- Was: "weighted pessimistically (expect 0.20)". That 0.20 was forecast
+  -- manufactured out of ignorance — 63.4M of unassessed pipeline became 12.7M
+  -- of forecast — and it is indistinguishable downstream from a real estimate
+  -- somebody made. NULL in, NULL out: the caller decides what to do with an
+  -- unknown instead of being handed a number that looks considered.
   SELECT public.opportunity_win_weight(NULL, NULL) INTO v;
-  RAISE NOTICE '% 6. an unlabelled deal is weighted pessimistically (expect 0.20, got %)',
-    CASE WHEN v=0.20 THEN 'PASS' ELSE 'FAIL' END, v;
+  RAISE NOTICE '% 6. an unassessed deal weighs NULL, never an invented default (expect NULL, got %)',
+    CASE WHEN v IS NULL THEN 'PASS' ELSE 'FAIL' END, COALESCE(v::text, 'NULL');
 
   -- ===== pipeline excludes decided deals =====
   PERFORM set_config('test.uid', s1::text, TRUE);
