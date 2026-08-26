@@ -766,6 +766,13 @@ stakeholder holding the role, or the decision-maker name on the opportunity, cou
 nobody has recorded a role we can read, the panel says **"cannot tell from the record"** and
 Data Quality does **not** list it as missing — an unreadable record is not proof of absence.
 
+### AI commentary on the Executive Brief is unavailable
+The brief itself is complete and correct — every line is a count the system computed, not
+something an AI wrote. Only the optional commentary layer is missing, and it says so. The
+Command Center addresses the AI service with the wrong entity type, so every request is
+refused; PR #237 corrects it and it ships with the next frontend deploy. **No number on
+the page is affected.**
+
 ### Reminders now fire on their own
 The engine runs **nightly at 07:00 AST**. You no longer have to remember to press anything —
 the queue is populated before the sales day starts. A manager can still run it on demand with
@@ -895,7 +902,7 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-26, branch `feat/phase-5.1-sales-intelligence` @ `09ff485`.
+*Reflects the system as at 2026-08-26, branch `main` @ `538e53b` (deployed).
 Behaviour verified against source and the test suite (1782 passing), plus a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
 
 Of the four fixes added to the table above on 2026-08-25, three are drilldown behaviour and land with Phase 5, which is still unshipped — those were never visible in production. The fourth is not: the **Pipeline Overview** tile has pointed at a route that does not exist since PR #68, so that tile has been dead on My Workspace for every user since that release.
@@ -910,11 +917,17 @@ Of the four fixes added to the table above on 2026-08-25, three are drilldown be
 `b8ce310`. No migration was involved — every change is frontend, reading columns that already
 exist.
 
-The **Phase 5.1** hardening — one shared decision-maker rule, uncapped dashboard reads with a
-visible warning when a ceiling is hit, and the tile ⓘ separated from the drill-down — is on
-`feat/phase-5.1-sales-intelligence` and **not yet deployed**. Its three migrations *are* applied to
-production (2026-08-26); the frontend is not, and that order is safe — the dashboard reads
-correctly with or without them.
+**Phase 5.1 is live.** Merged as PR #235 and deployed to production on 2026-08-26 at
+`538e53b`: the shared decision-maker rule, uncapped dashboard reads with a visible warning
+when a ceiling is hit, the tile ⓘ separated from the drill-down, Sales Execution, Data
+Quality and the deterministic Executive Brief. All five of its migrations are applied —
+148 local = 148 in production.
+
+One part of it is **not** working yet, and you will see it: the **AI commentary** on the
+Executive Brief always reports "AI commentary unavailable". The facts in the brief are
+unaffected and are not AI-generated — they are counts the system computed. The cause is a
+mismatch in how the Command Center addresses the AI service, fixed in PR #237 and waiting
+on the next frontend deploy.
 
 **Phase 5 is not yet live.** The canonical KPI engine, drilldown, timeline, entry presets and AI discipline layer are code-only and ship with the next deploy. The NO BOQ / NO PROJECT NUMBER rule exists only as a local migration and is **not** applied to production — see Section 10.
 Update this file when the workflow changes.*
