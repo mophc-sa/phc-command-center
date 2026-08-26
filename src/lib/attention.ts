@@ -32,6 +32,7 @@ import {
 } from "@/lib/sales-kpis";
 import { CANONICAL_ACTIVE_STAGES, type CanonicalStage } from "@/lib/stage-canonical";
 import { msg, type MessageRef } from "@/lib/messages";
+import { decisionMakerState, type StakeholderRow } from "@/lib/stakeholder-roles";
 
 // ---- Inputs -----------------------------------------------------------------
 
@@ -443,6 +444,15 @@ export type AttentionItem = {
 
 export type AttentionInput = {
   opportunities: AttentionOpp[];
+  /**
+   * Stakeholders per opportunity, so "who decides" is answered by the ONE
+   * helper rather than by this file's own reading of a single column.
+   *
+   * Optional: with none supplied the answer falls back to
+   * contractor_decision_maker exactly as before, which is what every caller
+   * that has not been given stakeholders should get.
+   */
+  stakeholdersByOpp?: Map<string, StakeholderRow[]>;
   followUps?: FollowUpRow[];
   activities?: ActivityRow[];
   transitions?: StageTransitionRow[];
@@ -640,7 +650,20 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     } else if (value !== null && value >= t.highValue && prob.value * 100 <= t.lowProbabilityPct) {
       push("high_value_low_probability", msg("rsn_high_value_low_probability", { pct: Math.round(prob.value * 100), source: prob.label }));
     }
-    if (!o.contractor_decision_maker || !String(o.contractor_decision_maker).trim()) {
+    // ONE definition of "who decides". This used to read
+    // contractor_decision_maker directly, which meant the Relationship panel
+    // could say "Identified" (because a stakeholder held the role) while Data
+    // Quality still flagged the deal — two answers to one question, and the
+    // contradiction would have appeared the moment anyone populated role_code.
+    //
+    // UNKNOWN is deliberately NOT flagged. "Nobody recorded a role we can read"
+    // is not the same claim as "this deal has no decision maker", and telling a
+    // manager to go find one they may already have is how a queue loses trust.
+    const dm = decisionMakerState(
+      input.stakeholdersByOpp?.get(o.id) ?? [],
+      o.contractor_decision_maker,
+    );
+    if (dm === "no") {
       push("no_decision_maker", msg("rsn_no_decision_maker"));
     }
 

@@ -50,6 +50,7 @@ import { ExecutiveBrief } from "@/components/phc/ExecutiveBrief";
 import { DataQualityPanel } from "@/components/phc/DataQualityPanel";
 import { AskAiPanel } from "@/components/phc/AskAiPanel";
 import { buildRfqWorkflow, summarizeByAge, summarizeByState } from "@/lib/rfq-workflow";
+import { allComplete, fetchAllRows } from "@/lib/fetch-all";
 import { salesExecution } from "@/lib/sales-execution";
 import { PipelineBreakdownDrawer } from "@/components/phc/PipelineBreakdownDrawer";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -71,6 +72,29 @@ import { isSalesperson, canManageSalesPipeline, isSystemAdmin, isFinanceManager,
 // Scoped to salesperson specifically (not a broader "not a manager" check)
 // so it doesn't disturb the existing "viewer" landing contract in
 // src/routes/index.tsx, which deliberately sends viewer here too.
+// `role_code` does not exist until migration 20260915100000 is applied, and
+// PostgREST answers a select naming an unknown column with 400 — which
+// fetchAllRows raises, which would reject the whole dashboard query and leave
+// the Command Center blank against today's production schema. A comment about
+// deployment order is not a safeguard; this is. Ask for the column, and if the
+// database does not have it yet, ask again without it.
+//
+// The fallback is not a degraded reading, it is the pre-migration reading:
+// effectiveRole() already falls back to the historical `role` text, so
+// decisionMakerState answers exactly as it did before the column existed. The
+// rows are all there either way, so completeness is unaffected.
+const STAKEHOLDER_COLS = "id, opportunity_id, name, role, organization, last_interaction_at";
+
+async function fetchStakeholders() {
+  try {
+    return await fetchAllRows(() =>
+      supabase.from("stakeholders").select(`${STAKEHOLDER_COLS}, role_code`),
+    );
+  } catch {
+    return await fetchAllRows(() => supabase.from("stakeholders").select(STAKEHOLDER_COLS));
+  }
+}
+
 export const Route = createFileRoute("/_authenticated/command-center")({
   beforeLoad: async () => {
     const {
@@ -133,34 +157,65 @@ function CommandCenter() {
       since.setDate(since.getDate() - 29);
       const sinceIso = since.toISOString();
 
-      const [opps, followUps, approvals, agentRuns, activities, rfqs, quotations, transitions] = await Promise.all([
-        supabase.from("opportunities").select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, contractor_decision_maker, updated_at, created_at").order("last_activity_at", { ascending: false, nullsFirst: false }).limit(200),
-        supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, owner_id").neq("status", "completed").order("due_date", { ascending: true }).limit(100),
+      const [opps, followUps, approvals, agentRuns, activities, rfqs, quotations, transitions, stakeholders] = await Promise.all([
+        // Paged to completion, not capped. The old cap here silently
+        // computed every KPI over the first 200 rows: at 201 opportunities the
+        // pipeline total was confidently, precisely wrong with nothing on
+        // screen saying so.
+        fetchAllRows(() =>
+          supabase
+            .from("opportunities")
+            .select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, contractor_decision_maker, updated_at, created_at")
+            .order("last_activity_at", { ascending: false, nullsFirst: false }),
+        ),
+        fetchAllRows(() =>
+          supabase
+            .from("follow_ups")
+            .select("id, opportunity_id, due_date, status, channel, cadence_tier, owner_id")
+            .neq("status", "completed")
+            .order("due_date", { ascending: true }),
+        ),
         supabase.from("approvals").select("*").eq("status", "pending"),
         supabase.from("ai_agent_runs").select("*").order("started_at", { ascending: false }).limit(6),
         // activity_type + status decide whether a row counts as client contact:
         // a note is internal and an unsent draft never reached anyone.
         supabase.from("activities").select("id, related_opportunity_id, activity_type, status, occurred_at").gte("occurred_at", sinceIso),
-        supabase.from("rfqs").select("id, rfq_number, status, estimated_value, received_date, response_due_date, opportunity_id, classification").limit(200),
-        supabase.from("quotations").select("id, related_opportunity_id, status, value, issued_date").limit(400),
-        // Stage aging's only honest source. Read wide rather than per-record so
-        // the baselines are computed over the whole book, not one row at a time.
-        supabase
-          .from("stage_transition_history")
-          .select("record_type, record_id, from_stage, to_stage, created_at")
-          .eq("record_type", "opportunity")
-          .order("created_at", { ascending: true })
-          .limit(2000),
+        fetchAllRows(() =>
+          supabase
+            .from("rfqs")
+            .select("id, rfq_number, status, estimated_value, received_date, response_due_date, opportunity_id, classification"),
+        ),
+        fetchAllRows(() =>
+          supabase.from("quotations").select("id, related_opportunity_id, status, value, issued_date"),
+        ),
+        // Stage aging's only honest source, and the worst of the old caps:
+        // `.limit(2000)` combined with ascending order took the OLDEST 2,000
+        // transitions, so as history grew the stalled baselines would freeze on
+        // ancient rows and quietly stop describing the current book. Paged.
+        fetchAllRows(() =>
+          supabase
+            .from("stage_transition_history")
+            .select("record_type, record_id, from_stage, to_stage, created_at")
+            .eq("record_type", "opportunity")
+            .order("created_at", { ascending: true }),
+        ),
+        // §19 — so "who decides" is answered by the one shared helper rather
+        // than by a single denormalised column.
+        fetchStakeholders(),
       ]);
       return {
-        opportunities: (opps.data ?? []) as unknown as OpportunityRow[],
-        followUps: followUps.data ?? [],
+        opportunities: opps.rows as unknown as OpportunityRow[],
+        followUps: followUps.rows,
+        stakeholders: stakeholders.rows,
+        // One truncated source makes every derived metric unreliable, so
+        // completeness is an AND across the set that feeds the KPIs.
+        complete: allComplete(opps, followUps, rfqs, quotations, stakeholders, transitions),
         approvals: approvals.data ?? [],
         agentRuns: agentRuns.data ?? [],
-        transitions: transitions.data ?? [],
+        transitions: transitions.rows,
         activities: activities.data ?? [],
-        rfqs: rfqs.data ?? [],
-        quotations: quotations.data ?? [],
+        rfqs: rfqs.rows,
+        quotations: quotations.rows,
       };
     },
   });
@@ -293,6 +348,23 @@ function CommandCenter() {
   const rfqOverdue = useMemo(() => rfqWork.filter((r) => r.overdue), [rfqWork]);
   const rfqTotal = rfqs.length;
 
+  // Grouped once, so the decision-maker read is a Map lookup per opportunity
+  // rather than a scan of every stakeholder for every deal.
+  const stakeholdersByOpp = useMemo(() => {
+    const m = new Map<string, Array<Record<string, unknown>>>();
+    // DEPLOYMENT ORDER, enforced by the compiler: `role_code` does not exist
+    // until 20260915100000 is applied, so the generated types reject this
+    // select. Migration 3 MUST land before this frontend does — the double cast
+    // records that dependency rather than hiding it, and types regenerate once
+    // the column is real.
+    for (const s of (data?.stakeholders ?? []) as unknown as Array<Record<string, unknown>>) {
+      const oid = s.opportunity_id as string | null;
+      if (!oid) continue;
+      m.set(oid, [...(m.get(oid) ?? []), s]);
+    }
+    return m as never;
+  }, [data]);
+
   // Phase 5.1 §6/§7/§8. This used to be one row per ISSUE, hard-capped at three
   // follow-ups plus two approvals, ordered by whatever the query returned. A
   // deal with two overdue follow-ups appeared twice, and deal value entered the
@@ -313,9 +385,10 @@ function CommandCenter() {
           created_at: String(a.occurred_at ?? ""),
         })),
         transitions: (data?.transitions ?? []) as never,
+        stakeholdersByOpp: stakeholdersByOpp,
         today: new Date().toISOString().slice(0, 10),
       }),
-    [data],
+    [data, stakeholdersByOpp],
   );
 
   const attentionSummary = useMemo(() => summarize(attention), [attention]);
@@ -517,6 +590,21 @@ function CommandCenter() {
           formula, source, active filters and record ids, and links to exactly
           the records behind the number — the tooltip cannot drift from the
           value because both are read off the same object. */}
+      {/* The one thing worse than a truncated dataset is a truncated dataset
+          that looks complete. Every KPI below derives from these rows, so if
+          the ceiling stopped the read, the reader is told before they read a
+          single number. */}
+      {data && !data.complete ? (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber/40 bg-amber/10 px-4 py-2.5">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-light" aria-hidden="true" />
+          <p className="text-[12px] text-foreground">
+            {lang === "ar"
+              ? "تجاوز حجم البيانات حدّ القراءة، فالأرقام أدناه محسوبة على جزء من الدفتر لا عليه كاملًا."
+              : "The dataset exceeded the read ceiling, so the figures below are computed over part of the book, not all of it."}
+          </p>
+        </div>
+      ) : null}
+
       {/* §11 — the brief leads. It is the one thing a manager can read in
           fifteen seconds, and it stands entirely on counted records. */}
       {isLoading ? null : (
@@ -886,7 +974,12 @@ function CommandCenter() {
           What replaces it is deterministic: every line is a count the engines
           above already computed, so this panel renders identically whether or
           not an AI provider is reachable. */}
-      <section className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      {/* minmax(0,1fr) on the SINGLE-column case too, not just lg. A default
+          grid column is auto-sized to max-content, so the 560px-min execution
+          table below stretched the column, the card, and the page — dragging
+          the whole document sideways on a phone instead of scrolling inside
+          its own overflow-x-auto. Verified at 375px in both directions. */}
+      <section className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <ChartFrame
           title={lang === "ar" ? "تنفيذ المبيعات" : "Sales execution"}
           subtitle={

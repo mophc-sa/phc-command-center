@@ -81,7 +81,9 @@ export function KpiTile({
                 type="button"
                 // The explanation is keyboard reachable, not hover-only.
                 aria-label={lang === "ar" ? `كيف حُسب ${label}` : `How ${label} is calculated`}
-                className="mt-0.5 shrink-0 text-muted-foreground/50 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
+                // Sits above the tile's click layer (see `shell` below), so
+                // the explanation is reachable without also drilling down.
+                className="pointer-events-auto relative z-10 mt-0.5 shrink-0 text-muted-foreground/50 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
                 onClick={(e) => e.preventDefault()}
               >
                 <Info className="h-3 w-3" />
@@ -163,8 +165,23 @@ export function KpiTile({
     </>
   );
 
+  // The tile's click target is a LAYER, not a wrapper.
+  //
+  // Wrapping `body` in <button> or <Link> put the tooltip's own <button> inside
+  // an interactive element: invalid HTML, a React hydration error on every
+  // render, and — the user-visible half — asking "how is this calculated"
+  // also fired the drill-down, so the explanation was unreadable on a tile
+  // that navigates away. An absolutely positioned layer keeps exactly one
+  // interactive element per purpose and nests neither inside the other.
   const shell =
-    "rounded-xl border border-border/70 bg-surface/60 px-4 py-3 transition-colors";
+    "relative rounded-xl border border-border/70 bg-surface/60 px-4 py-3 transition-colors";
+  const layer =
+    "absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  const interactive = "hover:border-border-strong hover:bg-surface-2/40";
+  // Content ignores pointers so the layer beneath receives the click; the info
+  // trigger opts back in above.
+  const content = <div className="pointer-events-none">{body}</div>;
+  const openLabel = lang === "ar" ? `افتح ${label}` : `Open ${label}`;
 
   // One link per tile — a fix link nested inside a drilldown link is invalid
   // markup and the inner one never fires. When a metric cannot be computed the
@@ -174,13 +191,10 @@ export function KpiTile({
   // keeps the reader on the dashboard rather than navigating away.
   if (onOpen) {
     return (
-      <button
-        type="button"
-        onClick={onOpen}
-        className={`${shell} block w-full text-start hover:border-border-strong hover:bg-surface-2/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring`}
-      >
-        {body}
-      </button>
+      <div className={`${shell} ${interactive}`}>
+        <button type="button" onClick={onOpen} aria-label={openLabel} className={layer} />
+        {content}
+      </div>
     );
   }
 
@@ -190,15 +204,17 @@ export function KpiTile({
       ? { to: kpi.drilldown!.to, search: kpi.drilldown!.search }
       : null;
 
-  if (!target) return <div className={shell}>{body}</div>;
+  if (!target) return <div className={shell}>{content}</div>;
 
   return (
-    <Link
-      to={target.to as never}
-      search={target.search as never}
-      className={`${shell} block hover:border-border-strong hover:bg-surface-2/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring`}
-    >
-      {body}
-    </Link>
+    <div className={`${shell} ${interactive}`}>
+      <Link
+        to={target.to as never}
+        search={target.search as never}
+        aria-label={openLabel}
+        className={layer}
+      />
+      {content}
+    </div>
   );
 }
