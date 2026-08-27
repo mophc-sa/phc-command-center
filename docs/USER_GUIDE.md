@@ -803,18 +803,6 @@ follow-up and you get a fresh flag, because that is genuinely a new situation.
 Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
 and the 90-day tender review. Both are calculated for display but never raised as queue items.
 
-### Opening a page while signed out costs the page a re-render
-Type or bookmark a protected URL — `/contacts`, `/calendar` — while your session has
-expired, and you land on the sign-in screen correctly, but the browser throws away the
-page the server had already prepared and builds it again from scratch. You may notice a
-brief flash. **Nothing is lost and nothing is wrong with the form**: every field and
-button works, and signing in behaves normally.
-
-The cause is that the server renders an empty shell for a protected route and the redirect
-happens in the browser, so the two disagree about what should be on screen (React
-hydration error #418). It predates the 2026-08-27 work — verified: the deploy that
-introduced Western digits touched no routing, guard or root file, and the server's own
-output for those routes carries no text at all to disagree about.
 
 ### Contact records carry damage from an early import
 An early import wrote a person's name, job title, phone number and email into the single
@@ -917,6 +905,7 @@ Listed so nobody works around a problem that no longer exists:
 | A failed sign-in showed "Invalid login credentials" in English on the Arabic UI | Fixed — every auth message is bilingual |
 | Agent Activity, AI Agents and Data Import were mostly English in Arabic mode | Fixed — the page chrome is translated (agent names and agent-written summaries stay as-is, they are data) |
 | The error toast covered the PHC logo in Arabic | Fixed — it now anchors to the side opposite the logo |
+| Opening a protected page with an expired session threw the whole page away and rebuilt it, with a visible flash | Fixed — the guard now redirects after the page has settled instead of mid-render |
 | AI commentary on the Executive Brief always read "unavailable" | Fixed — two separate contract mismatches (PRs #237, #238); it renders, and stays labelled apart from the facts |
 | The **Pipeline Overview** tile on My Workspace pointed at `/pipeline-overview`, a route that never existed | Fixed — it opens the Command Center |
 | Dashboard totals silently stopped at the first 200 opportunities | Fixed — reads run to completion, and a ceiling that is hit warns *above* the figures |

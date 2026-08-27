@@ -83,6 +83,42 @@ test.describe("unauthenticated guard", () => {
     await page.waitForURL((url) => url.pathname.startsWith("/auth"), { timeout: 15_000 });
     await expect(page).toHaveURL(/\/auth/);
   });
+
+  // Regression: the redirect must not throw the page away on the way.
+  //
+  // The guard used to `throw redirect(...)` from beforeLoad, which resolves
+  // DURING hydration and substitutes a different route match under a Suspense
+  // boundary the server had already streamed. React discarded the whole tree
+  // (error #418) and rebuilt it, which the user saw as a flash — on the most
+  // ordinary way into this app: a bookmark opened with an expired session.
+  //
+  // Asserted on the console rather than on the URL, because the redirect
+  // itself always worked. What was broken was invisible to a URL check, which
+  // is exactly why it survived to production.
+  test("redirecting to /auth costs no hydration error", async ({ page }) => {
+    const hydrationErrors: string[] = [];
+    page.on("console", (m) => {
+      const text = m.text();
+      // #418 in a production build, the full sentence in a development one.
+      if (/Minified React error #418|Hydration failed/.test(text)) hydrationErrors.push(text);
+    });
+    page.on("pageerror", (e) => {
+      if (/Minified React error #418|Hydration failed/.test(e.message)) hydrationErrors.push(e.message);
+    });
+
+    await page.goto("/command-center");
+    await page.waitForURL((url) => url.pathname.startsWith("/auth"), { timeout: 15_000 });
+    await expect(page.getByLabel(/password/i).first()).toBeVisible();
+
+    expect(hydrationErrors).toEqual([]);
+  });
+
+  test("the redirect remembers where the user was going", async ({ page }) => {
+    // Losing `next` turns "sign in and carry on" into "sign in and start over".
+    await page.goto("/contacts");
+    await page.waitForURL((url) => url.pathname.startsWith("/auth"), { timeout: 15_000 });
+    await expect(page).toHaveURL(/next=%2Fcontacts/);
+  });
 });
 
 // -------------------------------------------------------
