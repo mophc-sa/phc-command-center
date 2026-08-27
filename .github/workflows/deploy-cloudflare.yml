@@ -69,10 +69,16 @@ jobs:
       # meant CI smoke-tested a Worker built with 2026-06-01 while production
       # shipped one dated "today": the gate was not exercising what ships.
       #
+      # The value is TODAY'S production date on purpose: the Worker live at the
+      # time of pinning was stamped 2026-08-26, so pinning here changes no
+      # runtime semantics at all. Pinning to CI's older 2026-06-01 would have
+      # rolled production back two and a half months for no reason — the hazard
+      # was the date MOVING, never its value.
+      #
       # Must equal the value in ci.yml; deployment-governance.contract.test.ts
       # fails if they drift. Bump both together, deliberately, after reading
       # Cloudflare's compatibility-flag changelog.
-      COMPATIBILITY_DATE: "2026-06-01"
+      COMPATIBILITY_DATE: "2026-08-26"
       WORKER_NAME: mophc-sa-phc-command-center
       DNS_RECORD_NAME: agent.phc-sa.com
       WRANGLER_VERSION: 4.112.0
