@@ -803,6 +803,19 @@ follow-up and you get a fresh flag, because that is genuinely a new situation.
 Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
 and the 90-day tender review. Both are calculated for display but never raised as queue items.
 
+### Opening a page while signed out costs the page a re-render
+Type or bookmark a protected URL — `/contacts`, `/calendar` — while your session has
+expired, and you land on the sign-in screen correctly, but the browser throws away the
+page the server had already prepared and builds it again from scratch. You may notice a
+brief flash. **Nothing is lost and nothing is wrong with the form**: every field and
+button works, and signing in behaves normally.
+
+The cause is that the server renders an empty shell for a protected route and the redirect
+happens in the browser, so the two disagree about what should be on screen (React
+hydration error #418). It predates the 2026-08-27 work — verified: the deploy that
+introduced Western digits touched no routing, guard or root file, and the server's own
+output for those routes carries no text at all to disagree about.
+
 ### Contact records carry damage from an early import
 An early import wrote a person's name, job title, phone number and email into the single
 `name` column — which is why the Contacts page showed rows whose other columns were empty
@@ -941,8 +954,8 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-27, branch `main` @ `a842477` (deployed).
-Behaviour verified against source and the test suite (2257 passing), plus a database behaviour suite run against a throwaway Postgres with every migration applied.
+*Reflects the system as at 2026-08-27, branch `main` @ `3dd0621` (deployed).
+Behaviour verified against source and the test suite (2271 passing), plus a database behaviour suite run against a throwaway Postgres with every migration applied.
 
 **Phase 4 is live** — the notifications migration was applied on 2026-08-20 and the frontend deployed at `6ce2a37`.
 
@@ -965,7 +978,7 @@ shared colour vocabulary), plus PR #242 (this guide) and PR #243 (the forbidden-
 and the linter in CI). No migration was involved. Both halves were deployed on 2026-08-27 and
 verified against the live site:
 
-1. **the frontend**, at `a842477` — `/calendar` and `/contacts/repair` resolve, `Lama Sans`
+1. **the frontend**, at `3dd0621` — `/calendar` and `/contacts/repair` resolve, `Lama Sans`
    leads the computed font stack with seven registered faces, and the console is clean; and
 2. **the `import-pipeline` Edge Function**, version 34 — so the import-time field separation
    now protects the running system, not just the repository. This is the half that stops the
