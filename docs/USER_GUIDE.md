@@ -813,11 +813,10 @@ repaired — several were unusable because import junk had been glued onto the a
 **Ten names remain too long or too ambiguous for any rule to split safely.** They are listed
 at `/contacts/repair` for a person to confirm. The tool proposes; it never decides.
 
-The cause is fixed at the source: the import pipeline now separates these fields before the
-row is ever written, and records what it moved. **That protection reaches production only
-when the `import-pipeline` Edge Function is redeployed** — until then it exists in the
-repository, not in the running system, and a new import would reproduce the damage. See the
-footer for its current state.
+The cause is fixed at the source, **and that fix is live**: the `import-pipeline` Edge
+Function was redeployed on **2026-08-27** (version 34), so imports now separate these fields
+before the row is ever written and record what was moved. A new import will not reproduce the
+damage. The ten names above are the remaining backlog, not an ongoing leak.
 
 ### Files on a record (not yet live)
 Opportunities and projects gain a **Files** section. Upload a BOQ, a drawing, a
@@ -942,8 +941,8 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-27, branch `main` @ `abd9bba`.
-Behaviour verified against source and the test suite (2242 passing), plus a database behaviour suite run against a throwaway Postgres with every migration applied.
+*Reflects the system as at 2026-08-27, branch `main` @ `a842477` (deployed).
+Behaviour verified against source and the test suite (2257 passing), plus a database behaviour suite run against a throwaway Postgres with every migration applied.
 
 **Phase 4 is live** — the notifications migration was applied on 2026-08-20 and the frontend deployed at `6ce2a37`.
 
@@ -960,15 +959,17 @@ too. All 148 migrations are applied — 148 local = 148 in production, none pend
 **Phase 6 (Files / Photos / Location) is not yet live.** The Files section, the document
 registry and the site-coordinate fields are on a branch; their migrations are not applied.
 
-**The CRM and interface work of 2026-08-27 is merged but not yet deployed.** PR #241 at
-`abd9bba` carries the Calendar page, the rebuilt Contacts table with deletion, the
-`/contacts/repair` screen, the Lama Sans type scale, and one shared colour vocabulary for
-alerts and cards. No migration is involved. Two separate deploys are still owed, and they do
-different jobs:
+**The CRM and interface work of 2026-08-27 is live.** PR #241 (the Calendar page, the rebuilt
+Contacts table with deletion, the `/contacts/repair` screen, the Lama Sans type scale and one
+shared colour vocabulary), plus PR #242 (this guide) and PR #243 (the forbidden-action guard
+and the linter in CI). No migration was involved. Both halves were deployed on 2026-08-27 and
+verified against the live site:
 
-1. **the frontend** — without it, none of the above is visible to anyone; and
-2. **the `import-pipeline` Edge Function** — without it, the import-time field separation
-   protects the repository and not the running system, and the next import would recreate
-   exactly the contact damage described in Section 10.
+1. **the frontend**, at `a842477` — `/calendar` and `/contacts/repair` resolve, `Lama Sans`
+   leads the computed font stack with seven registered faces, and the console is clean; and
+2. **the `import-pipeline` Edge Function**, version 34 — so the import-time field separation
+   now protects the running system, not just the repository. This is the half that stops the
+   contact damage in Section 10 from recurring, and it is deliberately not part of a frontend
+   deploy.
 
 Update this file when the workflow changes.*
