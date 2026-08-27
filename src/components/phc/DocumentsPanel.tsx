@@ -22,7 +22,7 @@ import { AttachmentLink } from "@/components/phc/AttachmentLink";
 import { AttachmentThumb } from "@/components/phc/AttachmentThumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, localeFor } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canRunSensitiveSalesAction } from "@/lib/roles";
 import { listTeamMembers } from "@/lib/opportunity-actions";
@@ -103,7 +103,7 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
   };
 
   const fmtDate = (s: string) =>
-    new Date(s).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-GB",
+    new Date(s).toLocaleDateString(localeFor(lang, "en-GB"),
       { year: "numeric", month: "short", day: "numeric" });
 
   return (

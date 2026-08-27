@@ -12,7 +12,7 @@ import {
   matchesOpportunitySearch,
   parseOpportunitySearch,
 } from "@/lib/drilldown";
-import { useI18n, formatCurrency } from "@/lib/i18n";
+import { useI18n, formatCurrency, localeFor } from "@/lib/i18n";
 import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiTile } from "@/components/phc/KpiTile";
@@ -398,7 +398,7 @@ function OppList() {
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
                     <div className="truncate text-xs text-muted-foreground" data-tabular="true">
-                      {quote?.issued_date ? new Date(quote.issued_date).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "—"}
+                      {quote?.issued_date ? new Date(quote.issued_date).toLocaleDateString(localeFor(lang)) : "—"}
                     </div>
                     <div className="truncate text-sm text-foreground">{o.company?.name ?? o.client ?? "—"}</div>
                   </Link>

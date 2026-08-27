@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { RecommendationCard } from "@/components/phc/RecommendationCard";
 import { TabsTrigger } from "@/components/ui/tabs";
-import { useI18n, formatCurrency, formatNumber, type Lang } from "@/lib/i18n";
+import { useI18n, formatCurrency, formatNumber, type Lang, localeFor } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { isSalesperson } from "@/lib/roles";
 import { logActivity, type ActivityType } from "@/lib/activity-actions";
@@ -311,7 +311,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         {/* Header: Hi [Name] + New RFQ */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-xs text-muted-foreground">{lang === "ar" ? "الصفحة الرئيسية" : "Main Page"} · {new Date().toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
+            <div className="text-xs text-muted-foreground">{lang === "ar" ? "الصفحة الرئيسية" : "Main Page"} · {new Date().toLocaleDateString(localeFor(lang), { weekday: "long", month: "long", day: "numeric" })}</div>
             <div className="text-[22px] font-bold text-foreground">{lang === "ar" ? `مرحباً، ${displayName}` : `Hi, ${displayName}`}</div>
           </div>
           <div className="flex items-center gap-2">
@@ -857,7 +857,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
       <section className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-xs text-muted-foreground">
-            {lang === "ar" ? "الصفحة الرئيسية" : "Main Page"} · {new Date().toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", month: "long", day: "numeric" })}
+            {lang === "ar" ? "الصفحة الرئيسية" : "Main Page"} · {new Date().toLocaleDateString(localeFor(lang), { weekday: "long", month: "long", day: "numeric" })}
           </div>
           <div className="text-[22px] font-bold text-foreground">
             {lang === "ar" ? `مرحباً، ${displayName}` : `Hi, ${displayName}`}
@@ -1254,7 +1254,7 @@ function TargetDonut({
   };
 
   const fmt = (n: number) =>
-    new Intl.NumberFormat(lang === "ar" ? "ar-SA" : "en-US", {
+    new Intl.NumberFormat(localeFor(lang), {
       notation: "compact", maximumFractionDigits: 1,
     }).format(n);
 

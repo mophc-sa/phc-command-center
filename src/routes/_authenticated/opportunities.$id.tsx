@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { updateRfqDetails } from "@/lib/rfq-actions";
 import { invalidateSalesData } from "@/lib/invalidate-sales";
-import { useI18n, formatCurrency, formatNumber, type Lang } from "@/lib/i18n";
+import { useI18n, formatCurrency, formatNumber, type Lang, localeFor } from "@/lib/i18n";
 import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -80,7 +80,7 @@ function humanize(s: string | null | undefined) {
 
 function fmtDate(d: string | null | undefined, lang: Lang) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", {
+  return new Date(d).toLocaleDateString(localeFor(lang), {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -150,7 +150,7 @@ function AiOutputReviewBar({
         </>
       ) : output.reviewed_at ? (
         <span className="text-muted-foreground">
-          Reviewed {new Date(output.reviewed_at).toLocaleDateString()}
+          Reviewed {new Date(output.reviewed_at).toLocaleDateString("en-US")}
         </span>
       ) : null}
     </div>

@@ -81,7 +81,7 @@ export function AiEvidencePanel({
           <div className="mt-2 text-xs text-amber-light">Missing: {panel.missingData.join(", ")}</div>
         ) : null}
         <div className="mt-2 text-2xs text-muted-foreground">
-          {panel.generatedBy} · {new Date(panel.timestamp).toLocaleString()}
+          {panel.generatedBy} · {new Date(panel.timestamp).toLocaleString("en-US")}
         </div>
       </div>
 

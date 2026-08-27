@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { formatMessage, msg } from "@/lib/messages";
-import { strings as dict } from "@/lib/i18n";
+import { strings as dict, AR_LOCALE } from "@/lib/i18n";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (p: string) => readFileSync(join(root, p), "utf8");
@@ -25,12 +25,24 @@ describe("formatMessage", () => {
     );
   });
 
-  it("formats numbers through the caller's formatter, so Arabic gets Arabic digits", () => {
-    const out = formatMessage(msg("cav_probability_missing", { count: 48 }), tAr, (v) =>
-      new Intl.NumberFormat("ar-SA").format(Number(v)),
+  it("formats numbers through the caller's formatter, whatever the caller chose", () => {
+    // The seam is the point: this module knows the fact, the caller knows how
+    // the number should look. Both directions are exercised so the seam cannot
+    // quietly stop being a seam.
+    //
+    // The app's own choice is Western digits in Arabic — see
+    // arabic-digits.test.ts, which pins it. Here we only prove the formatter
+    // is genuinely pluggable.
+    const eastern = formatMessage(msg("cav_probability_missing", { count: 48 }), tAr, (v) =>
+      new Intl.NumberFormat("ar-SA-u-nu-arab").format(Number(v)),
     );
-    expect(out).toContain("٤٨");
-    expect(out).not.toContain("48");
+    expect(eastern).toContain("٤٨");
+
+    const western = formatMessage(msg("cav_probability_missing", { count: 48 }), tAr, (v) =>
+      new Intl.NumberFormat(AR_LOCALE).format(Number(v)),
+    );
+    expect(western).toContain("48");
+    expect(western).not.toContain("٤٨");
   });
 
   it("leaves an unknown slot visible rather than blanking it", () => {

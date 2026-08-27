@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useI18n, type StringKey } from "@/lib/i18n";
+import { useI18n, localeFor, type Lang, type StringKey } from "@/lib/i18n";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ActionDialog } from "@/components/phc/ActionDialog";
@@ -46,11 +46,11 @@ function statusTone(s: string): "positive" | "attention" | "danger" | "muted" | 
   return "neutral";
 }
 
-function fmtTime(iso: string | null, lang: string) {
+function fmtTime(iso: string | null, lang: Lang) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString(lang === "ar" ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" });
+  return d.toLocaleString(localeFor(lang), { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" });
 }
 
 function AgentActivityPage() {
@@ -163,7 +163,7 @@ function AgentActivityPage() {
       if (key in buckets) buckets[key]++;
     }
     return Object.entries(buckets).map(([date, count]) => ({
-      label: new Date(date).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "short" }),
+      label: new Date(date).toLocaleDateString(localeFor(lang), { weekday: "short" }),
       count,
     }));
   }, [rows, lang]);
