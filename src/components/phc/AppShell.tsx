@@ -53,6 +53,7 @@ import {
   Gavel,
   Award,
   BellRing,
+  CalendarDays,
   DatabaseZap,
   Mailbox,
   CalendarClock,
@@ -121,6 +122,10 @@ const NAV_GROUPS: NavGroup[] = [
       { kind: "link",   to: "/command-center",   key: "nav_command_center",    icon: LayoutDashboard },
       { kind: "link",   to: "/my-workspace",     key: "nav_my_day",            icon: Briefcase },
       { kind: "link",   to: "/action-center",    key: "nav_action_center",     icon: BellRing },
+      // Beside the day's work, not filed under reports: a calendar answers
+      // "what does Thursday look like", which is a question you ask before
+      // starting, not after.
+      { kind: "link",   to: "/calendar",         key: "nav_calendar",          icon: CalendarDays },
       { kind: "link",   to: "/approvals",        key: "nav_approvals",         icon: ShieldCheck },
       { kind: "button", action: "notifications", key: "nav_notifications",     icon: Bell },
     ],

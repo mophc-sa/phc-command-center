@@ -35,6 +35,7 @@ import { Route as AuthenticatedDiscoveryRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDataImportRouteImport } from './routes/_authenticated/data-import'
 import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticated/contacts'
 import { Route as AuthenticatedCommandCenterRouteImport } from './routes/_authenticated/command-center'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBoqRouteImport } from './routes/_authenticated/boq'
 import { Route as AuthenticatedAwardQueueRouteImport } from './routes/_authenticated/award-queue'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated/approvals'
@@ -192,6 +193,11 @@ const AuthenticatedCommandCenterRoute =
     path: '/command-center',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedBoqRoute = AuthenticatedBoqRouteImport.update({
   id: '/boq',
   path: '/boq',
@@ -329,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/award-queue': typeof AuthenticatedAwardQueueRoute
   '/boq': typeof AuthenticatedBoqRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
   '/data-import': typeof AuthenticatedDataImportRouteWithChildren
@@ -376,6 +383,7 @@ export interface FileRoutesByTo {
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/award-queue': typeof AuthenticatedAwardQueueRoute
   '/boq': typeof AuthenticatedBoqRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
@@ -425,6 +433,7 @@ export interface FileRoutesById {
   '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
   '/_authenticated/award-queue': typeof AuthenticatedAwardQueueRoute
   '/_authenticated/boq': typeof AuthenticatedBoqRoute
+  '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/command-center': typeof AuthenticatedCommandCenterRoute
   '/_authenticated/contacts': typeof AuthenticatedContactsRoute
   '/_authenticated/data-import': typeof AuthenticatedDataImportRouteWithChildren
@@ -475,6 +484,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/award-queue'
     | '/boq'
+    | '/calendar'
     | '/command-center'
     | '/contacts'
     | '/data-import'
@@ -522,6 +532,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/award-queue'
     | '/boq'
+    | '/calendar'
     | '/command-center'
     | '/contacts'
     | '/discovery'
@@ -570,6 +581,7 @@ export interface FileRouteTypes {
     | '/_authenticated/approvals'
     | '/_authenticated/award-queue'
     | '/_authenticated/boq'
+    | '/_authenticated/calendar'
     | '/_authenticated/command-center'
     | '/_authenticated/contacts'
     | '/_authenticated/data-import'
@@ -800,6 +812,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommandCenterRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/calendar': {
+      id: '/_authenticated/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/boq': {
       id: '/_authenticated/boq'
       path: '/boq'
@@ -990,6 +1009,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
   AuthenticatedAwardQueueRoute: typeof AuthenticatedAwardQueueRoute
   AuthenticatedBoqRoute: typeof AuthenticatedBoqRoute
+  AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCommandCenterRoute: typeof AuthenticatedCommandCenterRoute
   AuthenticatedContactsRoute: typeof AuthenticatedContactsRoute
   AuthenticatedDataImportRoute: typeof AuthenticatedDataImportRouteWithChildren
@@ -1024,6 +1044,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedApprovalsRoute: AuthenticatedApprovalsRoute,
   AuthenticatedAwardQueueRoute: AuthenticatedAwardQueueRoute,
   AuthenticatedBoqRoute: AuthenticatedBoqRoute,
+  AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCommandCenterRoute: AuthenticatedCommandCenterRoute,
   AuthenticatedContactsRoute: AuthenticatedContactsRoute,
   AuthenticatedDataImportRoute: AuthenticatedDataImportRouteWithChildren,
