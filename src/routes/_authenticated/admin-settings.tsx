@@ -244,7 +244,7 @@ function AdminSettingsPage() {
           // Badge shows count when there are pending users
           action={
             pending.length > 0 ? (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber/20 text-[11px] font-semibold text-amber-light">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber/20 text-xs font-semibold text-amber-light">
                 {pending.length}
               </span>
             ) : undefined
@@ -283,7 +283,7 @@ function AdminSettingsPage() {
                     <div className="flex shrink-0 items-center gap-2">
                       {/* Role selector */}
                       <label className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {t("admin_pending_role_label")}
                         </span>
                         <select
@@ -336,7 +336,7 @@ function AdminSettingsPage() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
-              <tr className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              <tr className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                 <th className="py-2 pe-4 text-start font-medium">{t("admin_col_capability")}</th>
                 {ALL_ROLES.map((r) => (
                   <th key={r} className="px-2 py-2 text-center font-medium">
@@ -390,7 +390,7 @@ function AdminSettingsPage() {
                 <div key={r} className="rounded-lg border border-border/60 bg-background/40 p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <StatusPill tone={roleTone(r)}>{t(`role_${r}` as never)}</StatusPill>
-                    <span className="text-[11px] text-muted-foreground">{list.length}</span>
+                    <span className="text-xs text-muted-foreground">{list.length}</span>
                   </div>
                   {list.length === 0 ? (
                     <div className="text-xs text-muted-foreground">{t("admin_no_holders")}</div>
@@ -425,7 +425,7 @@ function AdminSettingsPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
-                <tr className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                <tr className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                   <th className="py-2 pe-4 text-start font-medium">{t("team_col_member")}</th>
                   {ALL_ROLES.map((r) => (
                     <th key={r} className="px-2 py-2 text-center font-medium">
@@ -446,7 +446,7 @@ function AdminSettingsPage() {
                         <div className="truncate text-foreground">
                           {m.full_name || (lang === "ar" ? "بدون اسم" : "Unnamed")}
                           {isSelf ? (
-                            <span className="ms-2 text-[11px] text-muted-foreground">
+                            <span className="ms-2 text-xs text-muted-foreground">
                               {lang === "ar" ? "(أنت)" : "(you)"}
                             </span>
                           ) : null}
@@ -486,7 +486,7 @@ function AdminSettingsPage() {
                                   : undefined
                               }
                               className={
-                                "rounded-md border px-2.5 py-1 text-[11px] transition-colors " +
+                                "rounded-md border px-2.5 py-1 text-xs transition-colors " +
                                 (has
                                   ? "border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20"
                                   : "border-border bg-surface text-muted-foreground hover:bg-muted hover:text-foreground") +
@@ -502,16 +502,16 @@ function AdminSettingsPage() {
                         <td className="px-2 py-2 text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             {isSelf ? (
-                              <span className="text-[11px] text-muted-foreground/50">—</span>
+                              <span className="text-xs text-muted-foreground/50">—</span>
                             ) : m.status === "deleted" ? (
-                              <span className="text-[11px] text-muted-foreground/50">{t("admin_user_deleted")}</span>
+                              <span className="text-xs text-muted-foreground/50">{t("admin_user_deleted")}</span>
                             ) : (
                               <>
                                 {m.status === "active" ? (
                                   <button
                                     type="button"
                                     onClick={() => setSuspendTarget(m)}
-                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                                   >
                                     <ShieldOff className="h-3 w-3" />
                                     {t("admin_user_suspend")}
@@ -520,7 +520,7 @@ function AdminSettingsPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleActivate(m)}
-                                    className="inline-flex items-center gap-1 rounded-md border border-won/30 bg-won/10 px-2 py-1 text-[11px] text-won transition-colors hover:bg-won/[0.15]"
+                                    className="inline-flex items-center gap-1 rounded-md border border-won/30 bg-won/10 px-2 py-1 text-xs text-won transition-colors hover:bg-won/[0.15]"
                                   >
                                     <ShieldCheck className="h-3 w-3" />
                                     {t("admin_user_activate")}
@@ -532,7 +532,7 @@ function AdminSettingsPage() {
                                     onClick={() => openDeleteConfirm(m)}
                                     title={t("admin_user_delete")}
                                     aria-label={t("admin_user_delete")}
-                                    className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-[11px] text-destructive/90 transition-colors hover:bg-destructive/15"
+                                    className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive/90 transition-colors hover:bg-destructive/15"
                                   >
                                     <UserX className="h-3 w-3" />
                                   </button>

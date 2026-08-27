@@ -28,7 +28,7 @@ export function EmailComposeButton({
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [currentTpl, setCurrentTpl] = useState<EmailTemplateKind>(template);
-  const sizing = size === "xs" ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-xs";
+  const sizing = size === "xs" ? "px-2 py-1 text-2xs" : "px-3 py-1.5 text-xs";
   const styles =
     variant === "ghost"
       ? "border-border text-muted-foreground hover:text-foreground"

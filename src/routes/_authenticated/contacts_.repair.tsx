@@ -33,6 +33,7 @@ import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
+import { Callout } from "@/components/phc/Callout";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -194,7 +195,7 @@ function ContactRepairPage() {
       />
 
       <div className="mb-4">
-        <Link to="/contacts" search={{ q: "" } as never} className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground">
+        <Link to="/contacts" search={{ q: "" } as never} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
           {ar ? "رجوع إلى جهات الاتصال" : "Back to contacts"}
         </Link>
@@ -208,11 +209,11 @@ function ContactRepairPage() {
       </div>
 
       {/* The one thing a reader should understand before ticking anything. */}
-      <div className="mb-5 rounded-lg border border-amber/40 bg-amber/10 px-4 py-3 text-[12px] text-foreground">
+      <Callout tone="info" className="mb-5">
         {ar
           ? "كل ما يمكن إثباته مُحدَّد مسبقًا: إصلاحات البريد كلها، والأسماء والمسمّيات في الصفوف عالية الثقة. اضغط «احفظ المحدَّد» مرة واحدة. الصفوف المعلَّمة «راجعه» تُعرض بلا تحديد لأن الدليل فيها ينقطع — حرّرها إن شئت أو اتركها."
           : "Everything provable arrives ticked: all the email repairs, and names and titles on high-confidence rows. One press of Save applies them. Rows marked \"review this\" arrive unticked because the evidence runs out there — edit them or leave them."}
-      </div>
+      </Callout>
 
       {isLoading ? (
         <SkeletonTable />
@@ -237,12 +238,12 @@ function ContactRepairPage() {
                         : ar ? "راجعه" : "review this"}
                     </StatusPill>
                     {saved ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-positive">
+                      <span className="inline-flex items-center gap-1 text-xs text-positive">
                         <Check className="h-3 w-3" aria-hidden="true" />
                         {ar ? "حُفظ" : "saved"}
                       </span>
                     ) : null}
-                    <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
+                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                       {r.current.name}
                     </span>
                   </div>
@@ -250,7 +251,7 @@ function ContactRepairPage() {
                   <div className="space-y-2">
                     {FIELDS.filter((f) => r.proposed[f] !== undefined).map((f) => (
                       <div key={f} className="grid gap-2 sm:grid-cols-[auto_1fr_1fr] sm:items-center">
-                        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
                           <input
                             type="checkbox"
                             checked={isOn(r, f)}
@@ -267,7 +268,7 @@ function ContactRepairPage() {
                         </label>
 
                         {/* Current, shown in full — the reader is judging a change. */}
-                        <div className="min-w-0 break-words text-[11px] text-muted-foreground line-through decoration-muted-foreground/40">
+                        <div className="min-w-0 break-words text-xs text-muted-foreground line-through decoration-muted-foreground/40">
                           {r.current[f] ?? (ar ? "(فارغ)" : "(empty)")}
                         </div>
 
@@ -278,7 +279,7 @@ function ContactRepairPage() {
                           onChange={(e) =>
                             setEdited((p) => ({ ...p, [r.id]: { ...p[r.id], [f]: e.target.value } }))
                           }
-                          className="w-full rounded-md border border-border bg-surface px-2 py-1 text-[12px] text-foreground focus:border-border-strong focus:outline-none"
+                          className="w-full rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground focus:border-border-strong focus:outline-none"
                         />
                       </div>
                     ))}
@@ -287,7 +288,7 @@ function ContactRepairPage() {
                   {r.findings.length > 0 ? (
                     <ul className="mt-2 space-y-0.5 border-t border-border/40 pt-2">
                       {r.findings.map((f, i) => (
-                        <li key={i} className="text-[10px] text-muted-foreground">
+                        <li key={i} className="text-2xs text-muted-foreground">
                           {findingText(f, lang)}
                         </li>
                       ))}
@@ -300,7 +301,7 @@ function ContactRepairPage() {
 
           <div className="sticky bottom-4 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-strong bg-surface px-4 py-3 shadow-lg">
             <div className="flex items-center gap-3">
-              <span className="text-[12px] text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 {ar ? `${selectedCount} حقلًا محدَّدًا للحفظ` : `${selectedCount} field(s) selected`}
               </span>
               <button
@@ -310,7 +311,7 @@ function ContactRepairPage() {
                     repairs.map((r) => [r.id, Object.fromEntries(FIELDS.map((f) => [f, false]))]),
                   ))
                 }
-                className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+                className="text-xs text-muted-foreground underline-offset-2 hover:underline"
               >
                 {ar ? "ألغِ التحديد كله" : "clear all"}
               </button>
@@ -319,7 +320,7 @@ function ContactRepairPage() {
               type="button"
               onClick={applySelected}
               disabled={saving || selectedCount === 0}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-amber px-4 py-2 text-[12px] font-medium text-amber-foreground disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber px-4 py-2 text-sm font-medium text-amber-foreground disabled:opacity-40"
             >
               <Wrench className="h-3.5 w-3.5" aria-hidden="true" />
               {saving ? (ar ? "جارٍ الحفظ…" : "Saving…") : (ar ? "احفظ المحدَّد" : "Save selected")}

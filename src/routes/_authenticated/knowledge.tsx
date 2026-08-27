@@ -85,7 +85,7 @@ function KnowledgePage() {
             {t("knowledge_search_btn")}
           </button>
         </form>
-        <div className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
           <ShieldCheck className="h-3 w-3" />
           {t("knowledge_disclaimer")}
         </div>
@@ -114,13 +114,13 @@ function KnowledgePage() {
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-foreground">{r.title ?? "—"}</div>
                       <div className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground line-clamp-4">{r.content}</div>
-                      <div className="mt-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                      <div className="mt-3 flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
                         <span>{r.source_type.replaceAll("_", " ")}</span>
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1.5">
                       <StatusPill tone={c.tone}>{Math.round(r.similarity * 100)}%</StatusPill>
-                      <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{c.label}</span>
+                      <span className="text-2xs uppercase tracking-[0.14em] text-muted-foreground">{c.label}</span>
                     </div>
                   </div>
                 </div>

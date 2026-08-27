@@ -152,10 +152,19 @@
   --font-sans: "Lama Sans", "Manifa Pro", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-arabic: "Lama Sans", "Manifa Pro", "IBM Plex Sans Arabic", "Almarai", ui-sans-serif, sans-serif;
 
-  /* Typography scale */
-  --text-2xs: 0.6875rem;
-  --text-xs:  0.75rem;
-  --text-sm:  0.8125rem;
+  /* Typography scale
+   *
+   * Every step is in rem, so it moves with the user's font-size control. That
+   * control existed all along and did almost nothing: 623 places in the app
+   * wrote text-[10px]/[11px]/[12px]/[13px], and a pixel ignores the scale.
+   * Those are now on this scale, which is why the interface reads larger.
+   *
+   * The bottom three steps were also genuinely too small for sustained
+   * reading — 11px of body copy is a caption, not a paragraph — so the floor
+   * has come up one step. */
+  --text-2xs: 0.75rem;
+  --text-xs:  0.8125rem;
+  --text-sm:  0.875rem;
   --text-base:0.9375rem;
   --text-md:  1rem;
   --text-lg:  1.125rem;

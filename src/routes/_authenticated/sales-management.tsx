@@ -213,7 +213,7 @@ function SalesManagement() {
   }
 
   const pill = (active: boolean) =>
-    `rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+    `rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
       active ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border/70 bg-surface/60 text-muted-foreground hover:text-foreground"
     }`;
 
@@ -302,8 +302,8 @@ function AutomationHealth({ runs, lang, today }: { runs: Array<Record<string, un
 function SectionTitle({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
     <div className="mb-2 mt-6 flex flex-wrap items-baseline justify-between gap-2">
-      <h2 className="text-[13px] font-semibold text-foreground">{children}</h2>
-      {hint ? <span className="text-[11px] text-muted-foreground">{hint}</span> : null}
+      <h2 className="text-base font-semibold text-foreground">{children}</h2>
+      {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
     </div>
   );
 }
@@ -346,7 +346,7 @@ function TeamView(props: {
           [lang === "ar" ? "أعضاء نشطون" : "Members active", day.membersActive],
         ].map(([label, n]) => (
           <div key={String(label)} className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
             <div className="num mt-1 text-[20px] font-semibold text-foreground" data-tabular="true">
               {formatNumber(Number(n), lang)}
             </div>
@@ -378,8 +378,8 @@ function TeamView(props: {
                   {a.severity === "critical" ? <ShieldAlert className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
                   {a.severity}
                 </StatusPill>
-                <span className="truncate text-[13px] font-medium text-foreground">{a.entityLabel}</span>
-                <span className="text-[11px] text-muted-foreground">{a.reason}</span>
+                <span className="truncate text-base font-medium text-foreground">{a.entityLabel}</span>
+                <span className="text-xs text-muted-foreground">{a.reason}</span>
                 {a.value ? <span className="ms-auto"><Money n={a.value} lang={lang} /></span> : null}
               </Link>
             </li>
@@ -391,8 +391,8 @@ function TeamView(props: {
         {lang === "ar" ? "توزيع العمل" : "Team workload"}
       </SectionTitle>
       <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
-        <table className="w-full min-w-[52rem] text-[12px]">
-          <thead className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        <table className="w-full min-w-[52rem] text-sm">
+          <thead className="text-2xs uppercase tracking-wide text-muted-foreground">
             <tr className="border-b border-border/60">
               {[
                 lang === "ar" ? "العضو" : "Member",
@@ -422,12 +422,12 @@ function TeamView(props: {
                 <td className={`num px-4 py-2.5 ${r.overdueActions > 0 ? "text-destructive" : ""}`} data-tabular="true">{r.overdueActions}</td>
                 <td className="num px-4 py-2.5" data-tabular="true">{r.highPriorityActions}</td>
                 <td className="num px-4 py-2.5" data-tabular="true">{r.opportunitiesWithNoNextAction}</td>
-                <td className="px-4 py-2.5 text-[11px] text-muted-foreground">{summarySentence(r, lang)}</td>
+                <td className="px-4 py-2.5 text-xs text-muted-foreground">{summarySentence(r, lang)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {workload.length === 0 ? <div className="px-5 py-8 text-center text-[12px] text-muted-foreground">{lang === "ar" ? "لا أعضاء بعمل مسجل." : "No members with recorded work."}</div> : null}
+        {workload.length === 0 ? <div className="px-5 py-8 text-center text-sm text-muted-foreground">{lang === "ar" ? "لا أعضاء بعمل مسجل." : "No members with recorded work."}</div> : null}
       </div>
 
       <SectionTitle hint={lang === "ar" ? "الأحدث أولاً" : "Latest first"}>
@@ -439,7 +439,7 @@ function TeamView(props: {
         <div className="space-y-4">
           {groups.map((g) => (
             <div key={g.key}>
-              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {g.key === "today" ? (lang === "ar" ? "اليوم" : "Today")
                   : g.key === "yesterday" ? (lang === "ar" ? "أمس" : "Yesterday")
                   : (lang === "ar" ? "سابقاً" : "Earlier")}
@@ -448,18 +448,18 @@ function TeamView(props: {
                 {g.events.slice(0, 25).map((e) => (
                   <li key={e.id} className="flex flex-wrap items-center gap-2 border-t border-border/60 px-5 py-2.5 first:border-t-0">
                     <Clock className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
-                    <span className="text-[12px] font-medium text-foreground">{e.title}</span>
+                    <span className="text-sm font-medium text-foreground">{e.title}</span>
                     {e.from && e.to ? (
-                      <span className="text-[11px] text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         {humanize(e.from)} → {humanize(e.to)}
                       </span>
                     ) : null}
-                    <span className="text-[11px] text-muted-foreground">· {nameOf(e.actorId)}</span>
-                    <span className="ms-auto num text-[10px] text-muted-foreground/70" data-tabular="true">
+                    <span className="text-xs text-muted-foreground">· {nameOf(e.actorId)}</span>
+                    <span className="ms-auto num text-2xs text-muted-foreground/70" data-tabular="true">
                       {e.at.slice(0, 16).replace("T", " ")}
                     </span>
                     {e.href ? (
-                      <Link to={e.href as never} className="text-[11px] text-amber-light hover:underline">
+                      <Link to={e.href as never} className="text-xs text-amber-light hover:underline">
                         {lang === "ar" ? "فتح" : "Open"}
                       </Link>
                     ) : null}
@@ -546,10 +546,10 @@ function StrategicView(props: {
           [lang === "ar" ? "فرص من مناقصات" : "Opportunities from tenders", formatNumber(fromTenders.length, lang)],
         ].map(([l, v]) => (
           <div key={String(l)} className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3">
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{l}</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">{l}</div>
             <div className="num mt-1 text-[20px] font-semibold text-foreground" data-tabular="true">{v}</div>
             {String(l).includes("Conversion") && conversionPct === null ? (
-              <div className="mt-1 text-[10px] text-amber-light">{lang === "ar" ? "لا مناقصات مغلقة بعد" : "No closed tenders yet"}</div>
+              <div className="mt-1 text-2xs text-amber-light">{lang === "ar" ? "لا مناقصات مغلقة بعد" : "No closed tenders yet"}</div>
             ) : null}
           </div>
         ))}
@@ -557,14 +557,14 @@ function StrategicView(props: {
 
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
-          <div className="border-b border-border/60 px-4 py-2.5 text-[12px] font-medium">{lang === "ar" ? "حسب المرحلة" : "By stage"}</div>
+          <div className="border-b border-border/60 px-4 py-2.5 text-sm font-medium">{lang === "ar" ? "حسب المرحلة" : "By stage"}</div>
           {byStage.length === 0 ? (
-            <div className="px-4 py-6 text-center text-[12px] text-muted-foreground">{lang === "ar" ? "لا مناقصات." : "No tenders."}</div>
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">{lang === "ar" ? "لا مناقصات." : "No tenders."}</div>
           ) : (
             <ul>
               {byStage.map(([stage, b]) => (
                 <li key={stage} className="border-t border-border/60 first:border-t-0">
-                  <Link to="/tenders" className="flex items-center justify-between gap-3 px-4 py-2.5 text-[12px] hover:bg-surface-2/40">
+                  <Link to="/tenders" className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-surface-2/40">
                     <span className="text-foreground">{humanize(stage)}</span>
                     <span className="flex items-center gap-3 text-muted-foreground">
                       <span className="num" data-tabular="true">{b.n}</span>
@@ -579,13 +579,13 @@ function StrategicView(props: {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
-          <div className="border-b border-border/60 px-4 py-2.5 text-[12px] font-medium">{lang === "ar" ? "أقدم المناقصات النشطة" : "Oldest active tenders"}</div>
+          <div className="border-b border-border/60 px-4 py-2.5 text-sm font-medium">{lang === "ar" ? "أقدم المناقصات النشطة" : "Oldest active tenders"}</div>
           {aging.length === 0 ? (
-            <div className="px-4 py-6 text-center text-[12px] text-muted-foreground">{lang === "ar" ? "لا مناقصات نشطة." : "No active tenders."}</div>
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">{lang === "ar" ? "لا مناقصات نشطة." : "No active tenders."}</div>
           ) : (
             <ul>
               {aging.map((x) => (
-                <li key={x.id} className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5 text-[12px] first:border-t-0">
+                <li key={x.id} className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5 text-sm first:border-t-0">
                   <span className="truncate text-foreground">{x.name}</span>
                   <span className="flex shrink-0 items-center gap-3 text-muted-foreground">
                     <span className="num" data-tabular="true">{x.days}d</span>
@@ -603,7 +603,7 @@ function StrategicView(props: {
       </SectionTitle>
       <ul className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
         {byClient.slice(0, 8).map((c) => (
-          <li key={c.key} className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5 text-[12px] first:border-t-0">
+          <li key={c.key} className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5 text-sm first:border-t-0">
             <span className="flex items-center gap-2 truncate text-foreground">
               <Building2 className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
               {c.label}
@@ -614,7 +614,7 @@ function StrategicView(props: {
             </span>
           </li>
         ))}
-        {byClient.length === 0 ? <li className="px-4 py-6 text-center text-[12px] text-muted-foreground">{lang === "ar" ? "لا بيانات." : "No data."}</li> : null}
+        {byClient.length === 0 ? <li className="px-4 py-6 text-center text-sm text-muted-foreground">{lang === "ar" ? "لا بيانات." : "No data."}</li> : null}
       </ul>
 
       <SectionTitle hint={lang === "ar" ? "بلا نشاط منذ 30 يومًا فأكثر" : "No activity for 30+ days"}>
@@ -626,10 +626,10 @@ function StrategicView(props: {
         <ul className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
           {dormant.slice(0, 10).map((o) => (
             <li key={o.id} className="border-t border-border/60 first:border-t-0">
-              <Link to="/opportunities/$id" params={{ id: o.id }} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[12px] hover:bg-surface-2/40">
+              <Link to="/opportunities/$id" params={{ id: o.id }} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-surface-2/40">
                 <span className="truncate text-foreground">{o.project_name ?? o.id.slice(0, 8)}</span>
                 <span className="flex shrink-0 items-center gap-3 text-muted-foreground">
-                  <span className="text-[11px]">{humanize(String(o.sales_stage ?? o.stage ?? ""))}</span>
+                  <span className="text-xs">{humanize(String(o.sales_stage ?? o.stage ?? ""))}</span>
                   <Money n={opportunityValue(o)} lang={lang} />
                 </span>
               </Link>
@@ -703,10 +703,10 @@ function ExecutiveView(props: {
               const p = resolveProbability(o);
               return (
                 <li key={o.id} className="border-t border-border/60 first:border-t-0">
-                  <Link to="/opportunities/$id" params={{ id: o.id }} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[12px] hover:bg-surface-2/40">
+                  <Link to="/opportunities/$id" params={{ id: o.id }} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-surface-2/40">
                     <span className="min-w-0">
                       <span className="block truncate text-foreground">{o.project_name ?? o.id.slice(0, 8)}</span>
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-2xs text-muted-foreground">
                         {p.value === null ? (lang === "ar" ? "بلا احتمال" : "Unscored") : `${Math.round(p.value * 100)}% · ${p.label}`}
                       </span>
                     </span>
@@ -715,7 +715,7 @@ function ExecutiveView(props: {
                 </li>
               );
             })}
-            {top.length === 0 ? <li className="px-4 py-6 text-center text-[12px] text-muted-foreground">{lang === "ar" ? "لا فرص مفتوحة بقيمة." : "No valued open opportunities."}</li> : null}
+            {top.length === 0 ? <li className="px-4 py-6 text-center text-sm text-muted-foreground">{lang === "ar" ? "لا فرص مفتوحة بقيمة." : "No valued open opportunities."}</li> : null}
           </ul>
         </div>
 
@@ -724,16 +724,16 @@ function ExecutiveView(props: {
           <ul className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
             {attention.slice(0, 6).map((a) => (
               <li key={a.id} className="border-t border-border/60 first:border-t-0">
-                <Link to={a.href as never} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[12px] hover:bg-surface-2/40">
+                <Link to={a.href as never} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-surface-2/40">
                   <span className="min-w-0">
                     <span className="block truncate text-foreground">{a.entityLabel}</span>
-                    <span className="text-[10px] text-muted-foreground">{a.reason}</span>
+                    <span className="text-2xs text-muted-foreground">{a.reason}</span>
                   </span>
                   <Money n={a.value} lang={lang} />
                 </Link>
               </li>
             ))}
-            {attention.length === 0 ? <li className="px-4 py-6 text-center text-[12px] text-muted-foreground">{lang === "ar" ? "لا مخاطر مرصودة." : "No flagged risks."}</li> : null}
+            {attention.length === 0 ? <li className="px-4 py-6 text-center text-sm text-muted-foreground">{lang === "ar" ? "لا مخاطر مرصودة." : "No flagged risks."}</li> : null}
           </ul>
         </div>
       </div>
@@ -744,7 +744,7 @@ function ExecutiveView(props: {
           <ul className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
             {reasons.map((r) => (
               <li key={r.key} className="border-t border-border/60 first:border-t-0">
-                <Link to="/opportunities" search={{ stage: "lost" } as never} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[12px] hover:bg-surface-2/40">
+                <Link to="/opportunities" search={{ stage: "lost" } as never} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-surface-2/40">
                   <span className="truncate text-foreground">{humanize(r.label)}</span>
                   <span className="flex items-center gap-3 text-muted-foreground">
                     <span className="num" data-tabular="true">{r.count}</span>
@@ -753,7 +753,7 @@ function ExecutiveView(props: {
                 </Link>
               </li>
             ))}
-            {reasons.length === 0 ? <li className="px-4 py-6 text-center text-[12px] text-muted-foreground">{lang === "ar" ? "لا خسائر في هذه الفترة." : "No losses in this period."}</li> : null}
+            {reasons.length === 0 ? <li className="px-4 py-6 text-center text-sm text-muted-foreground">{lang === "ar" ? "لا خسائر في هذه الفترة." : "No losses in this period."}</li> : null}
           </ul>
         </div>
 
@@ -761,7 +761,7 @@ function ExecutiveView(props: {
           <SectionTitle>{lang === "ar" ? "الخسارة حسب المرحلة" : "Lost by stage"}</SectionTitle>
           <ul className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
             {stages.map((r) => (
-              <li key={r.key} className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5 text-[12px] first:border-t-0">
+              <li key={r.key} className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5 text-sm first:border-t-0">
                 <span className="truncate text-foreground">{humanize(r.label)}</span>
                 <span className="flex items-center gap-3 text-muted-foreground">
                   <span className="num" data-tabular="true">{r.count}</span>
@@ -769,7 +769,7 @@ function ExecutiveView(props: {
                 </span>
               </li>
             ))}
-            {stages.length === 0 ? <li className="px-4 py-6 text-center text-[12px] text-muted-foreground">{lang === "ar" ? "لا بيانات." : "No data."}</li> : null}
+            {stages.length === 0 ? <li className="px-4 py-6 text-center text-sm text-muted-foreground">{lang === "ar" ? "لا بيانات." : "No data."}</li> : null}
           </ul>
         </div>
       </div>
@@ -780,7 +780,7 @@ function ExecutiveView(props: {
       <ul className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
         {workload.slice(0, 10).map((r) => (
           <li key={r.userId} className="border-t border-border/60 first:border-t-0">
-            <Link to={r.drilldown.to as never} search={r.drilldown.search as never} className="flex items-center justify-between gap-3 px-4 py-2.5 text-[12px] hover:bg-surface-2/40">
+            <Link to={r.drilldown.to as never} search={r.drilldown.search as never} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-surface-2/40">
               <span className="flex items-center gap-2 truncate text-foreground">
                 <Users className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
                 {nameOf(r.userId)}
@@ -792,17 +792,17 @@ function ExecutiveView(props: {
             </Link>
           </li>
         ))}
-        {workload.length === 0 ? <li className="px-4 py-6 text-center text-[12px] text-muted-foreground">{lang === "ar" ? "لا بيانات فريق." : "No team data."}</li> : null}
+        {workload.length === 0 ? <li className="px-4 py-6 text-center text-sm text-muted-foreground">{lang === "ar" ? "لا بيانات فريق." : "No team data."}</li> : null}
       </ul>
 
       <SectionTitle>{lang === "ar" ? "المناقصات" : "Tender pipeline"}</SectionTitle>
       <div className="grid gap-3 sm:grid-cols-2">
         <Link to="/tenders" className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3 hover:border-border-strong hover:bg-surface-2/40">
-          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{lang === "ar" ? "مناقصات نشطة" : "Active tenders"}</div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">{lang === "ar" ? "مناقصات نشطة" : "Active tenders"}</div>
           <div className="num mt-1 text-[20px] font-semibold text-foreground" data-tabular="true">{formatNumber(activeTenders.length, lang)}</div>
         </Link>
         <Link to="/tenders" className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3 hover:border-border-strong hover:bg-surface-2/40">
-          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{lang === "ar" ? "قيمة المناقصات النشطة" : "Active tender value"}</div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">{lang === "ar" ? "قيمة المناقصات النشطة" : "Active tender value"}</div>
           <div className="num mt-1 text-[20px] font-semibold text-foreground" data-tabular="true">
             {formatCurrency(activeTenders.reduce((s, x) => s + Number(x.estimated_project_value ?? 0), 0), lang)}
           </div>

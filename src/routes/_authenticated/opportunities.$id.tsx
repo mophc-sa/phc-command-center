@@ -135,7 +135,7 @@ function AiOutputReviewBar({
             type="button"
             disabled={busy}
             onClick={() => onDecide(output, "accepted")}
-            className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-[11px] font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+            className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
           >
             Accept
           </button>
@@ -143,7 +143,7 @@ function AiOutputReviewBar({
             type="button"
             disabled={busy}
             onClick={() => onDecide(output, "rejected")}
-            className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+            className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
           >
             Reject
           </button>
@@ -574,7 +574,7 @@ function OpportunityDetail() {
         </Link>
         <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            <div className="mb-1.5 text-2xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
               {t("nav_opportunities")}
             </div>
             <h1 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground md:text-[30px]">
@@ -1088,7 +1088,7 @@ function OpportunityDetail() {
                 />
                 <span className="flex-1 text-foreground">{t(`milestone_${m}` as never)}</span>
                 {checked && row?.completed_at ? (
-                  <span className="text-[11px] text-muted-foreground">{fmtDate(row.completed_at, lang)}</span>
+                  <span className="text-xs text-muted-foreground">{fmtDate(row.completed_at, lang)}</span>
                 ) : null}
               </label>
             );
@@ -1154,7 +1154,7 @@ function OpportunityDetail() {
                       {e.extracted_summary}
                     </div>
                   ) : null}
-                  <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{humanize(e.source_type)}</span>
                     <span>·</span>
                     <span>{fmtDate(e.source_date, lang)}</span>
@@ -1219,11 +1219,11 @@ function OpportunityDetail() {
                     >
                       {overdue ? "Overdue" : humanize(f.status)}
                     </StatusPill>
-                    <div className="mt-1 text-[11px] text-muted-foreground">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       {t("label_due")}: {fmtDate(f.due_date, lang)}
                     </div>
                     {f.status !== "completed" ? (
-                      <div className="mt-1.5 flex justify-end gap-3 text-[11px] rtl:justify-start">
+                      <div className="mt-1.5 flex justify-end gap-3 text-xs rtl:justify-start">
                         <button
                           onClick={() => setCompleteId(f.id)}
                           className="text-amber-light hover:underline"
@@ -1264,7 +1264,7 @@ function OpportunityDetail() {
                       {a.decision_notes}
                     </div>
                   ) : null}
-                  <div className="mt-1 text-[11px] text-muted-foreground">
+                  <div className="mt-1 text-xs text-muted-foreground">
                     {fmtDate(a.decided_at ?? a.created_at, lang)}
                   </div>
                 </div>
@@ -1284,7 +1284,7 @@ function OpportunityDetail() {
                     {humanize(a.decision ?? a.status)}
                   </StatusPill>
                   {a.status === "pending" ? (
-                    <div className="mt-1 flex gap-2 text-[11px]">
+                    <div className="mt-1 flex gap-2 text-xs">
                       <button
                         onClick={() => setDecideFor({ id: a.id, kind: "approved" })}
                         className="text-amber-light hover:underline"
@@ -1406,14 +1406,14 @@ function OpportunityDetail() {
                               type="button"
                               disabled={savingDiscussionEdit || !editingDiscussionDraft.trim()}
                               onClick={() => handleUpdateDiscussion(post.id)}
-                              className="rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-[11px] font-medium text-amber-light hover:bg-amber/20 disabled:opacity-50"
+                              className="rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber-light hover:bg-amber/20 disabled:opacity-50"
                             >
                               {t("action_save")}
                             </button>
                             <button
                               type="button"
                               onClick={() => setEditingDiscussionId(null)}
-                              className="rounded-md border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+                              className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
                             >
                               {t("cancel")}
                             </button>
@@ -1422,7 +1422,7 @@ function OpportunityDetail() {
                       ) : (
                         <>
                           <p className="whitespace-pre-wrap text-sm text-foreground">{post.body}</p>
-                          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                             <span className="font-medium text-foreground">
                               {post.author?.full_name ?? post.author?.email ?? "—"}
                             </span>
@@ -1519,7 +1519,7 @@ function OpportunityDetail() {
                     <DataField label={t("contract_start_date")} value={fmtDate(c.start_date, lang)} />
                     <DataField label={t("contract_end_date")} value={fmtDate(c.end_date, lang)} />
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {responsible ? <span>{t("contract_responsible")}: {responsible.full_name ?? responsible.email}</span> : null}
                     <AttachmentLink legacyUrl={c.document_url} className="inline-flex items-center gap-1 text-amber-light hover:underline">
                       <Paperclip className="h-3 w-3" /> {t("contract_document")}
@@ -1530,7 +1530,7 @@ function OpportunityDetail() {
                     <button
                       type="button"
                       onClick={() => { setEditingContract(c); setContractDialogOpen(true); }}
-                      className="mt-2 text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                      className="mt-2 text-xs text-muted-foreground hover:text-foreground hover:underline"
                     >
                       {t("contract_edit")}
                     </button>
@@ -1551,7 +1551,7 @@ function OpportunityDetail() {
         <div className="grid gap-4">
           <DataField label={t("label_recommendation")} value={humanize(o.agent_recommendation)} />
           <div>
-            <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+            <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
               {t("label_reasoning")}
             </div>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
@@ -1560,7 +1560,7 @@ function OpportunityDetail() {
           </div>
           {o.management_review_reason ? (
             <div>
-              <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+              <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                 Management review
               </div>
               <p className="mt-2 text-sm text-foreground">{o.management_review_reason}</p>
@@ -1633,7 +1633,7 @@ function OpportunityDetail() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{t("score_missing_data_label")}</div>
+                <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{t("score_missing_data_label")}</div>
                 {o.score_missing_data && o.score_missing_data.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {o.score_missing_data.map((m: string) => <StatusPill key={m} tone="attention">{humanize(m)}</StatusPill>)}
@@ -1643,7 +1643,7 @@ function OpportunityDetail() {
                 )}
               </div>
               <div>
-                <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{t("score_risk_flags_label")}</div>
+                <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{t("score_risk_flags_label")}</div>
                 {o.score_risk_flags && o.score_risk_flags.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {o.score_risk_flags.map((r: string) => <StatusPill key={r} tone="danger">{humanize(r)}</StatusPill>)}
@@ -1655,7 +1655,7 @@ function OpportunityDetail() {
             </div>
 
             <div>
-              <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{t("score_reasons_label")}</div>
+              <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{t("score_reasons_label")}</div>
               {o.score_reasons && o.score_reasons.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {o.score_reasons.map((r: string) => <StatusPill key={r} tone="muted">{humanize(r)}</StatusPill>)}
@@ -1710,7 +1710,7 @@ function OpportunityDetail() {
 
               {riskDisplay.risk_factors && riskDisplay.risk_factors.length > 0 && (
                 <div>
-                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
                     Risk Factors
                   </div>
                   <ul className="space-y-1.5">
@@ -1719,7 +1719,7 @@ function OpportunityDetail() {
                         {factor.impact && (
                           <span
                             className={
-                              "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+                              "shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide " +
                               (factor.impact === "low"
                                 ? "bg-won/15 text-won"
                                 : factor.impact === "medium"
@@ -1739,7 +1739,7 @@ function OpportunityDetail() {
 
               {riskDisplay.mitigations && riskDisplay.mitigations.length > 0 && (
                 <div>
-                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
                     Mitigations
                   </div>
                   <ul className="space-y-1.5">
@@ -1748,7 +1748,7 @@ function OpportunityDetail() {
                         {m.priority && (
                           <span
                             className={
-                              "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+                              "shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide " +
                               (m.priority === "low"
                                 ? "bg-info/15 text-info"
                                 : m.priority === "medium"
@@ -1766,7 +1766,7 @@ function OpportunityDetail() {
                 </div>
               )}
 
-              <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
+              <p className="text-xs text-muted-foreground/60 leading-relaxed">
                 This risk assessment is generated by AI and is intended as decision support only. Always validate with your own judgment and local context before taking action.
               </p>
 
@@ -1831,7 +1831,7 @@ function OpportunityDetail() {
 
               {evalDisplay.strengths && evalDisplay.strengths.length > 0 && (
                 <div>
-                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Strengths</div>
+                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">Strengths</div>
                   <ul className="space-y-1.5">
                     {evalDisplay.strengths.map((s: string, i: number) => (
                       <li key={i} className="rounded-md border border-won/20 bg-won/5 px-3 py-2 text-xs text-foreground">
@@ -1844,7 +1844,7 @@ function OpportunityDetail() {
 
               {evalDisplay.risks && evalDisplay.risks.length > 0 && (
                 <div>
-                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Risks</div>
+                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">Risks</div>
                   <ul className="space-y-1.5">
                     {evalDisplay.risks.map((r: string, i: number) => (
                       <li key={i} className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-foreground">
@@ -1857,7 +1857,7 @@ function OpportunityDetail() {
 
               {evalDisplay.missing_information && evalDisplay.missing_information.length > 0 && (
                 <div>
-                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Missing Information</div>
+                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">Missing Information</div>
                   <div className="flex flex-wrap gap-1.5">
                     {evalDisplay.missing_information.map((m: string, i: number) => (
                       <StatusPill key={i} tone="attention">{m}</StatusPill>
@@ -1868,7 +1868,7 @@ function OpportunityDetail() {
 
               {evalDisplay.recommended_next_actions && evalDisplay.recommended_next_actions.length > 0 && (
                 <div>
-                  <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Recommended Next Actions</div>
+                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">Recommended Next Actions</div>
                   <ul className="space-y-1.5">
                     {evalDisplay.recommended_next_actions.map((a: string, i: number) => (
                       <li key={i} className="rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted-foreground">
@@ -1883,7 +1883,7 @@ function OpportunityDetail() {
                 <DataField label="Suggested Follow-up" value={fmtDate(evalDisplay.suggested_follow_up_date, lang)} />
               )}
 
-              <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
+              <p className="text-xs text-muted-foreground/60 leading-relaxed">
                 {evalDisplay.disclaimer ?? "This evaluation is generated by AI and is intended as decision support only. Always validate with your own judgment before taking action."}
               </p>
 
@@ -2302,7 +2302,7 @@ function EvidenceViewer({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-border/70 px-5 py-4">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
             {t("evidence_viewer_title")}
           </div>
           <div className="mt-1 text-sm font-medium text-foreground">
@@ -2320,7 +2320,7 @@ function EvidenceViewer({
           ) : null}
           {evidence.extracted_summary ? (
             <div>
-              <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+              <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                 {lang === "ar" ? "الملخص" : "Summary"}
               </div>
               <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">

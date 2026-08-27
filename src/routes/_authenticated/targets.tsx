@@ -282,7 +282,7 @@ function TargetsPage() {
                 <div className="text-sm font-semibold text-foreground">{t("targets_section_target")}</div>
                 <span
                   className={cn(
-                    "num rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                    "num rounded-full border px-2 py-0.5 text-xs font-medium",
                     myMetrics.achievement >= 100
                       ? "border-won/25 bg-won/[0.07] text-won"
                       : myMetrics.achievement >= 60
@@ -372,7 +372,7 @@ function TargetsPage() {
                       <div className="truncate text-sm font-semibold text-foreground">{memberName(m.userId)}</div>
                       <span
                         className={cn(
-                          "num rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                          "num rounded-full border px-2 py-0.5 text-xs font-medium",
                           m.achievement >= 100
                             ? "border-won/25 bg-won/[0.07] text-won"
                             : m.achievement >= 60

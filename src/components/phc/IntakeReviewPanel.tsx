@@ -60,8 +60,8 @@ export function IntakeDetail({ r }: { r: any }) {
     const empty = value === null || value === undefined || String(value).trim() === "";
     return (
       <div className="min-w-0">
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className={`text-[12px] ${empty ? "text-muted-foreground italic" : "text-foreground"}`}>
+        <div className="text-2xs uppercase tracking-wide text-muted-foreground">{label}</div>
+        <div className={`text-sm ${empty ? "text-muted-foreground italic" : "text-foreground"}`}>
           {empty ? dash : String(value)}
         </div>
       </div>
@@ -70,7 +70,7 @@ export function IntakeDetail({ r }: { r: any }) {
 
   const Group = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <div>
-      <div className="mb-1.5 text-[11px] font-medium text-foreground">{title}</div>
+      <div className="mb-1.5 text-xs font-medium text-foreground">{title}</div>
       <div className="grid gap-2.5 sm:grid-cols-2">{children}</div>
     </div>
   );
@@ -105,12 +105,12 @@ export function IntakeDetail({ r }: { r: any }) {
       <Group title={t("rev_details_docs")}>
         <div className="col-span-full flex flex-wrap gap-1.5">
           {docs.every(([, got]) => !got) ? (
-            <span className="text-[12px] italic text-muted-foreground">{t("rev_details_no_docs")}</span>
+            <span className="text-sm italic text-muted-foreground">{t("rev_details_no_docs")}</span>
           ) : (
             docs.map(([label, got]) => (
               <span
                 key={label}
-                className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] ${
+                className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs ${
                   got ? "border-success/40 text-success" : "border-border text-muted-foreground"
                 }`}
               >
@@ -243,7 +243,7 @@ export function IntakeReviewPanel() {
     <Panel title={t("rev_queue_title")} className="mb-6">
       <p className="mb-3 text-xs text-muted-foreground">{t("rev_queue_intro")}</p>
       {!canReview && (
-        <p className="mb-3 rounded-md border border-border bg-surface/60 px-3 py-2 text-[11px] text-muted-foreground">
+        <p className="mb-3 rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-muted-foreground">
           {t("rev_no_authority")}
         </p>
       )}
@@ -256,7 +256,7 @@ export function IntakeReviewPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-border text-start text-[11px] uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b border-border text-start text-xs uppercase tracking-wide text-muted-foreground">
                 {/* Client feedback 2026-08-25: these five, in this order. Project
                     Code is new — the number was already fetched and only shown
                     once the row was expanded, so a reviewer scanning the queue
@@ -297,14 +297,14 @@ export function IntakeReviewPanel() {
                         />
                         <span>
                           <span className="block font-medium text-foreground">{r.project_name || "—"}</span>
-                          <span className="block text-[11px] text-muted-foreground">{r.company_name || "—"}</span>
+                          <span className="block text-xs text-muted-foreground">{r.company_name || "—"}</span>
                         </span>
                       </button>
                       <span className="sr-only">
                         {expanded === r.id ? t("rev_hide_details") : t("rev_show_details")}
                       </span>
                       {state === "need_information" && (
-                        <div className="mt-1 text-[11px] text-amber-light">
+                        <div className="mt-1 text-xs text-amber-light">
                           {(r.info_required_items ?? []).join(" · ") || r.info_comment}
                           {r.info_due_date && ` · ${t("ibx_info_due")}: ${r.info_due_date}`}
                           {r.resubmit_count > 0 && ` · ${t("rev_resubmit_count")}: ${r.resubmit_count}`}
@@ -327,7 +327,7 @@ export function IntakeReviewPanel() {
                           <button
                             disabled={disabled}
                             onClick={() => run(r.id, () => resubmitIntake(r.id), t("rev_resubmitted"))}
-                            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-50"
+                            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
                           >
                             <RotateCcw className="h-3 w-3" /> {t("rev_resubmit")}
                           </button>
@@ -337,28 +337,28 @@ export function IntakeReviewPanel() {
                             <button
                               disabled={disabled}
                               onClick={() => approve(r)}
-                              className="inline-flex items-center gap-1 rounded border border-won/40 bg-won/10 px-2 py-1 text-[11px] text-won hover:bg-won/20 disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded border border-won/40 bg-won/10 px-2 py-1 text-xs text-won hover:bg-won/20 disabled:opacity-50"
                             >
                               <CheckCircle2 className="h-3 w-3" /> {t("rev_approve")}
                             </button>
                             <button
                               disabled={disabled}
                               onClick={() => setInfoFor(r)}
-                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
                             >
                               <HelpCircle className="h-3 w-3" /> {t("rev_need_info")}
                             </button>
                             <button
                               disabled={disabled}
                               onClick={() => run(r.id, () => monitorIntake(r.id), t("rev_monitored_done"))}
-                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
                             >
                               <Eye className="h-3 w-3" /> {t("rev_monitor")}
                             </button>
                             <button
                               disabled={disabled}
                               onClick={() => setRejectFor(r)}
-                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-danger hover:bg-muted disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-danger hover:bg-muted disabled:opacity-50"
                             >
                               <XCircle className="h-3 w-3" /> {t("rev_reject")}
                             </button>
@@ -382,7 +382,7 @@ export function IntakeReviewPanel() {
                           <button
                             type="button"
                             onClick={() => setEditFor(r)}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                           >
                             <Pencil className="h-3 w-3" aria-hidden="true" />
                             {t("rev_edit_project_details" as never)}

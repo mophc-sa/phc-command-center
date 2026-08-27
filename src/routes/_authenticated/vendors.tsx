@@ -137,7 +137,7 @@ function VendorsPage() {
                 <div className="flex flex-col items-end gap-1">
                   {v.lead_time ? <StatusPill tone="neutral">{v.lead_time}</StatusPill> : null}
                   {v.portal_url ? (
-                    <a href={v.portal_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
+                    <a href={v.portal_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                       <ExternalLink className="h-3 w-3" /> Portal
                     </a>
                   ) : null}
@@ -151,7 +151,7 @@ function VendorsPage() {
               </div>
               {isManager && (v.reference_prices || v.internal_rating != null) ? (
                 <div className="border-t border-amber/20 bg-amber/5 px-4 py-3">
-                  <div className="mb-2 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-light">
+                  <div className="mb-2 inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.16em] text-amber-light">
                     <Lock className="h-3 w-3" /> Manager only
                   </div>
                   <div className="grid grid-cols-2 gap-3">

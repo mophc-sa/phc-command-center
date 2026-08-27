@@ -314,16 +314,16 @@ function DataImportLanding() {
       <Tabs defaultValue="active">
         <TabsList className="mb-4">
           <TabsTrigger value="active">
-            Active <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px]">{active.length}</span>
+            Active <span className="ml-1.5 rounded-full bg-muted px-1.5 text-2xs">{active.length}</span>
           </TabsTrigger>
           <TabsTrigger value="recurring">
-            Recurring <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px]">{profiles.length}</span>
+            Recurring <span className="ml-1.5 rounded-full bg-muted px-1.5 text-2xs">{profiles.length}</span>
           </TabsTrigger>
           <TabsTrigger value="processed">
-            Processed <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px]">{processed.length}</span>
+            Processed <span className="ml-1.5 rounded-full bg-muted px-1.5 text-2xs">{processed.length}</span>
           </TabsTrigger>
           <TabsTrigger value="archived">
-            {t("di_archived_tab")} <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px]">{archived.length}</span>
+            {t("di_archived_tab")} <span className="ml-1.5 rounded-full bg-muted px-1.5 text-2xs">{archived.length}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -411,7 +411,7 @@ function DataImportLanding() {
                   </>
                 )}
               </button>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Max 10 MB · Max 10,000 rows
               </p>
             </div>
@@ -520,7 +520,7 @@ function ProfileCard({ profile }: { profile: ImportSourceProfile }) {
           {profile.last_imported_at ? ` · last imported ${fmtDate(profile.last_imported_at)}` : ""}
         </p>
       </div>
-      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${profile.is_recurring ? "bg-won/15 text-won" : "bg-muted text-muted-foreground"}`}>
+      <span className={`rounded-full px-2 py-0.5 text-2xs font-medium ${profile.is_recurring ? "bg-won/15 text-won" : "bg-muted text-muted-foreground"}`}>
         {profile.is_recurring ? "recurring" : "one-time"}
       </span>
     </div>

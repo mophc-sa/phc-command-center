@@ -326,7 +326,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <button
           key={n.key}
           onClick={() => { setNotifOpen(true); setMobileOpen(false); }}
-          className="group relative flex w-full items-center gap-3 rounded-lg px-3 py-[7px] text-[13px] text-muted-foreground transition-all duration-150 hover:bg-sidebar-accent/40 hover:text-foreground"
+          className="group relative flex w-full items-center gap-3 rounded-lg px-3 py-[7px] text-base text-muted-foreground transition-all duration-150 hover:bg-sidebar-accent/40 hover:text-foreground"
         >
           <n.icon
             className="h-[15px] w-[15px] shrink-0 text-muted-foreground/80 transition-colors group-hover:text-foreground"
@@ -354,7 +354,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         search={n.search as never}
         onClick={() => setMobileOpen(false)}
         className={cn(
-          "group relative flex items-center gap-3 rounded-full px-3 py-[7px] text-[13px] transition-all duration-150",
+          "group relative flex items-center gap-3 rounded-full px-3 py-[7px] text-base transition-all duration-150",
           // Selected = solid black pill, white label. This was
           // bg-sidebar-accent, which is pure white — on a near-white sidebar the
           // current page was effectively unmarked.
@@ -398,12 +398,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="px-3 pt-3 pb-1">
         <button
           onClick={() => { setPaletteOpen(true); setMobileOpen(false); }}
-          className="flex w-full items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-left text-[12px] text-muted-foreground/80 shadow-card transition-all duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex w-full items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-left text-sm text-muted-foreground/80 shadow-card transition-all duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           aria-label={t("cmd_placeholder")}
         >
           <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span className="flex-1 truncate">{t("cmd_placeholder")}</span>
-          <kbd className="hidden select-none rounded bg-surface-2 px-1 py-0.5 font-mono text-[10px] text-muted-foreground/60 sm:inline">
+          <kbd className="hidden select-none rounded bg-surface-2 px-1 py-0.5 font-mono text-2xs text-muted-foreground/60 sm:inline">
             {typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"}
           </kbd>
         </button>
@@ -415,7 +415,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Pinned records */}
         {pinned.length > 0 && (
           <div className="mb-4">
-            <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
+            <div className="px-3 pb-1.5 text-2xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
               {t("cmd_pinned")}
             </div>
             <div className="flex flex-col gap-0.5">
@@ -426,7 +426,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     key={r.id}
                     to={r.to as never}
                     onClick={() => setMobileOpen(false)}
-                    className="group flex items-center gap-3 rounded-md px-3 py-1.5 text-[12px] text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
+                    className="group flex items-center gap-3 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
                   >
                     <Icon className="h-[14px] w-[14px] shrink-0 text-muted-foreground/50" strokeWidth={1.75} aria-hidden="true" />
                     <span className="truncate">{r.label}</span>
@@ -458,7 +458,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="mb-5 last:mb-0"
               >
                 <CollapsibleTrigger asChild>
-                  <button className="flex w-full items-center gap-1 px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80 hover:text-muted-foreground">
+                  <button className="flex w-full items-center gap-1 px-3 pb-2 text-2xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/80 hover:text-muted-foreground">
                     <span className="flex-1 text-left">{tSafe(g.key, g.fallback)}</span>
                     <ChevronDown
                       className={cn("h-3 w-3 transition-transform", adminOpen && "rotate-180")}
@@ -477,7 +477,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           return (
             <div key={g.key} className="mb-5 last:mb-0">
-              <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">
+              <div className="px-3 pb-2 text-2xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">
                 {tSafe(g.key, g.fallback)}
               </div>
               <div className="flex flex-col gap-0.5">
@@ -491,14 +491,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Footer identity */}
       <div className="border-t border-border/60 px-3 py-3">
         <div className="flex items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-sidebar-accent/30">
-          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-structural/60 text-[11px] font-semibold text-foreground ring-1 ring-border/60">
+          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-structural/60 text-xs font-semibold text-foreground ring-1 ring-border/60">
             {(user?.email ?? "?").slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[12px] font-medium text-foreground leading-tight">
+            <div className="truncate text-sm font-medium text-foreground leading-tight">
               {user?.email ?? ""}
             </div>
-            <div className="mt-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+            <div className="mt-0.5 text-2xs uppercase tracking-[0.14em] text-muted-foreground/70">
               {topRole ? t(`role_${topRole}` as never) : "—"}
             </div>
           </div>
@@ -578,7 +578,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {/* Desktop status */}
             <div className="hidden items-center gap-3 md:flex">
               <StatusPill tone="positive">● {t("agent_status_running")}</StatusPill>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                 {t("last_refreshed")}
                 <span className="ms-2 normal-case tracking-normal text-foreground/70">
                   {new Date().toLocaleTimeString(
@@ -596,7 +596,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {/* Language toggle */}
               <button
                 onClick={() => setLang(lang === "en" ? "ar" : "en")}
-                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface shadow-card px-2.5 text-[11px] font-medium text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface shadow-card px-2.5 text-xs font-medium text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 aria-label={t("language")}
               >
                 <Globe className="h-3.5 w-3.5" />
@@ -611,7 +611,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {canCreate ? (
                 <button
                   onClick={() => setNewIntakeOpen(true)}
-                  className="hidden h-8 items-center gap-1.5 rounded-full bg-amber/90 px-3.5 text-[11px] font-semibold text-black shadow-card transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:inline-flex"
+                  className="hidden h-8 items-center gap-1.5 rounded-full bg-amber/90 px-3.5 text-xs font-semibold text-black shadow-card transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:inline-flex"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   {t("nav_new_intake")}
@@ -629,7 +629,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <DropdownMenuLabel className="text-2xs uppercase tracking-widest text-muted-foreground">
                     {t("nav_quick_actions")}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

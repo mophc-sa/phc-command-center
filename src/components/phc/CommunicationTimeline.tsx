@@ -64,7 +64,7 @@ export function CommunicationTimeline({ filter, limit }: { filter: ActivityTimel
               <Icon className="h-3.5 w-3.5 text-muted-foreground" />
               <StatusPill tone="muted">{t(`activity_type_${a.activity_type}` as never)}</StatusPill>
               <StatusPill tone={statusTone(a.status)}>{t(`comm_status_${a.status}` as never)}</StatusPill>
-              <span className="num text-[11px] text-muted-foreground" data-tabular="true">
+              <span className="num text-xs text-muted-foreground" data-tabular="true">
                 {new Date(a.occurred_at).toLocaleString(lang === "ar" ? "ar" : "en", {
                   dateStyle: "medium",
                   timeStyle: "short",
@@ -74,13 +74,13 @@ export function CommunicationTimeline({ filter, limit }: { filter: ActivityTimel
                 <button
                   type="button"
                   onClick={() => handleMarkSent(a.id)}
-                  className="ms-auto inline-flex items-center gap-1 rounded-md border border-won/40 bg-won/10 px-2 py-1 text-[11px] font-medium text-won hover:bg-won/[0.16] transition-colors duration-150"
+                  className="ms-auto inline-flex items-center gap-1 rounded-md border border-won/40 bg-won/10 px-2 py-1 text-xs font-medium text-won hover:bg-won/[0.16] transition-colors duration-150"
                 >
                   <Check className="h-3 w-3" /> {t("comm_mark_sent")}
                 </button>
               ) : null}
             </div>
-            {a.summary ? <div className="mt-1.5 text-[12px] text-foreground">{a.summary}</div> : null}
+            {a.summary ? <div className="mt-1.5 text-sm text-foreground">{a.summary}</div> : null}
           </li>
         );
       })}

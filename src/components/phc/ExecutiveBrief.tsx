@@ -46,13 +46,13 @@ function Section({ heading, lines }: { heading: string; lines: BriefLine[] }) {
   if (lines.length === 0) return null;
   return (
     <div>
-      <h3 className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{heading}</h3>
+      <h3 className="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">{heading}</h3>
       <ul className="space-y-1">
         {lines.map((line, i) => {
           const ai = isAiGenerated(line);
           const text = typeof line.text === "string" ? line.text : renderRef(line.text, (k) => t(k as never), lang);
           return (
-            <li key={`${line.provenance}-${i}`} className="flex items-start gap-1.5 text-[12px]">
+            <li key={`${line.provenance}-${i}`} className="flex items-start gap-1.5 text-sm">
               {/* The provenance is on the line, not in a tooltip. A reader must
                   be able to tell a counted fact from a model's opinion at a
                   glance, or they end up trusting both equally — or neither. */}
@@ -86,7 +86,7 @@ export function ExecutiveBrief({
     <section className="mb-6 rounded-xl border border-border/70 bg-surface/60 p-4">
       <div className="mb-3 flex items-center gap-2">
         <Sparkles className="h-3.5 w-3.5 text-amber-light" aria-hidden="true" />
-        <h2 className="text-[13px] font-semibold text-foreground">{t("brf_title" as never)}</h2>
+        <h2 className="text-base font-semibold text-foreground">{t("brf_title" as never)}</h2>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -99,7 +99,7 @@ export function ExecutiveBrief({
       {/* Stated, not hidden. A brief that silently drops its commentary looks
           the same as one that had nothing to add. */}
       {commentaryState !== "ok" ? (
-        <p className="mt-3 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+        <p className="mt-3 flex items-center gap-1.5 text-2xs text-muted-foreground">
           <AlertTriangle className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
           {t((commentaryState === "empty" ? "brf_ai_empty" : "brf_ai_unavailable") as never)}
         </p>

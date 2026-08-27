@@ -254,7 +254,7 @@ export function ActionDialog({
                     }}
                   />
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                    <span className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">
                       {t("dialog_or_upload")}
                     </span>
                     <Input

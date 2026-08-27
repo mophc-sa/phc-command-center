@@ -47,7 +47,7 @@ export function KpiCard({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
           {label}
         </span>
         {icon ? (
@@ -64,14 +64,14 @@ export function KpiCard({
           {value}
         </span>
         {delta ? (
-          <span className={cn("inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-[11px] font-medium", pillColor)}>
+          <span className={cn("inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-xs font-medium", pillColor)}>
             <TrendIcon className="h-3 w-3" strokeWidth={2.25} />
             {delta}
           </span>
         ) : null}
       </div>
       {hint ? (
-        <div className="mt-1.5 text-[12px] text-muted-foreground">{hint}</div>
+        <div className="mt-1.5 text-sm text-muted-foreground">{hint}</div>
       ) : null}
       {footer ? <div className="mt-4 border-t border-border pt-3">{footer}</div> : null}
     </div>

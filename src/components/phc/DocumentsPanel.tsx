@@ -113,7 +113,7 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
       action={
         <div className="flex items-center gap-2">
           {supersedeOf ? (
-            <span className="text-[11px] text-amber-light">{t("doc_replacing")}</span>
+            <span className="text-xs text-amber-light">{t("doc_replacing")}</span>
           ) : null}
           <input
             ref={fileRef}
@@ -142,7 +142,7 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
           {/* ---- Photos: same records, gallery rendering ---- */}
           {photos.length > 0 ? (
             <div>
-              <p className="mb-2 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+              <p className="mb-2 text-2xs uppercase tracking-[0.12em] text-muted-foreground">
                 {t("doc_photos")} · {photos.length}
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
@@ -152,16 +152,16 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
                     <figcaption className="space-y-0.5 px-2 py-1.5">
                       <AttachmentLink
                         storagePath={p.storage_path}
-                        className="block truncate text-[11px] text-primary hover:underline"
+                        className="block truncate text-xs text-primary hover:underline"
                       >
                         {p.title ?? p.original_filename}
                       </AttachmentLink>
-                      <span className="block text-[10px] text-muted-foreground">
+                      <span className="block text-2xs text-muted-foreground">
                         {formatBytes(p.size_bytes)} · {fmtDate(p.uploaded_at)}
                         {nameOf(p.uploaded_by) ? ` · ${nameOf(p.uploaded_by)}` : ""}
                       </span>
                       {p.captured_lat !== null ? (
-                        <span className="block text-[10px] text-muted-foreground">
+                        <span className="block text-2xs text-muted-foreground">
                           {p.captured_lat}, {p.captured_lon}
                         </span>
                       ) : null}
@@ -176,7 +176,7 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
           {files.length > 0 ? (
             <div>
               {photos.length > 0 ? (
-                <p className="mb-2 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                <p className="mb-2 text-2xs uppercase tracking-[0.12em] text-muted-foreground">
                   {t("doc_documents")} · {files.length}
                 </p>
               ) : null}
@@ -194,19 +194,19 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
                             <FileText className="h-3.5 w-3.5 shrink-0" />
                             <span className="truncate">{d.title ?? d.original_filename}</span>
                           </AttachmentLink>
-                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          <p className="mt-0.5 text-xs text-muted-foreground">
                             {d.mime_type ?? "—"} · {formatBytes(d.size_bytes)} · {fmtDate(d.uploaded_at)}
                             {nameOf(d.uploaded_by) ? ` · ${nameOf(d.uploaded_by)}` : ""}
                             {d.link_role ? ` · ${d.link_role}` : ""}
                           </p>
                           {d.superseded_by ? (
-                            <p className="mt-0.5 text-[11px] text-amber-light">
+                            <p className="mt-0.5 text-xs text-amber-light">
                               {t("doc_superseded")}
                               {d.replaced_by_filename ? ` → ${d.replaced_by_filename}` : ""}
                             </p>
                           ) : null}
                           {d.notes ? (
-                            <p className="mt-0.5 whitespace-pre-wrap text-[11px] text-muted-foreground">{d.notes}</p>
+                            <p className="mt-0.5 whitespace-pre-wrap text-xs text-muted-foreground">{d.notes}</p>
                           ) : null}
                         </div>
 
@@ -267,7 +267,7 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
                           />
                           <ol className="space-y-1">
                             {chain.map((v, i) => (
-                              <li key={v.id} className="flex items-center gap-2 text-[11px]">
+                              <li key={v.id} className="flex items-center gap-2 text-xs">
                                 <span className="text-muted-foreground">v{i + 1}</span>
                                 <AttachmentLink storagePath={v.storage_path} className="truncate text-primary hover:underline">
                                   {v.original_filename}
@@ -277,7 +277,7 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
                               </li>
                             ))}
                             {chain.length <= 1 ? (
-                              <li className="text-[11px] text-muted-foreground">{t("doc_single_version")}</li>
+                              <li className="text-xs text-muted-foreground">{t("doc_single_version")}</li>
                             ) : null}
                           </ol>
                         </div>

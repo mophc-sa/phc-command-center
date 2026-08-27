@@ -274,7 +274,7 @@ function ReportsPage() {
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {Object.entries(weeklyReport.after_value as Record<string, unknown>).map(([key, val]) => (
                     <div key={key} className="rounded-lg border border-border bg-surface/60 px-3 py-2">
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <div className="text-2xs uppercase tracking-wider text-muted-foreground">
                         {key.replaceAll("_", " ")}
                       </div>
                       <div className="mt-1 text-lg font-semibold text-foreground num">{String(val ?? "—")}</div>
@@ -354,7 +354,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
           type="button"
           onClick={handleRun}
           disabled={running}
-          className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-[11px] font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
         >
           <Sparkles className="h-3 w-3" />
           {running ? (lang === "ar" ? "جارٍ التحليل…" : "Analyzing…") : (lang === "ar" ? "تحليل الآن" : "Analyze now")}
@@ -369,7 +369,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
             {display.headline && <div className="font-medium text-foreground">{display.headline}</div>}
             {display.key_insights?.length > 0 && (
               <div>
-                <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "ملاحظات رئيسية" : "Key Insights"}</div>
+                <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "ملاحظات رئيسية" : "Key Insights"}</div>
                 <ul className="space-y-1">
                   {display.key_insights.map((s: string, i: number) => (
                     <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">{s}</li>
@@ -379,7 +379,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
             )}
             {display.risks?.length > 0 && (
               <div>
-                <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "مخاطر" : "Risks"}</div>
+                <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "مخاطر" : "Risks"}</div>
                 <ul className="space-y-1">
                   {display.risks.map((s: string, i: number) => (
                     <li key={i} className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive/90">{s}</li>
@@ -389,7 +389,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
             )}
             {display.recommended_actions?.length > 0 && (
               <div>
-                <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "إجراءات موصى بها" : "Recommended Actions"}</div>
+                <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "إجراءات موصى بها" : "Recommended Actions"}</div>
                 <ul className="space-y-1">
                   {display.recommended_actions.map((s: string, i: number) => (
                     <li key={i} className="rounded-md border border-won/30 bg-won/10 px-2.5 py-1.5 text-xs text-won">{s}</li>
@@ -397,7 +397,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
                 </ul>
               </div>
             )}
-            {display.disclaimer && <div className="text-[11px] italic text-muted-foreground">{display.disclaimer}</div>}
+            {display.disclaimer && <div className="text-xs italic text-muted-foreground">{display.disclaimer}</div>}
 
             {output && (
               <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3 text-xs">
@@ -414,7 +414,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
                       type="button"
                       disabled={reviewingId === output.id}
                       onClick={() => handleDecide(output, "accepted")}
-                      className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-[11px] font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+                      className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
                     >
                       {lang === "ar" ? "قبول" : "Accept"}
                     </button>
@@ -422,7 +422,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
                       type="button"
                       disabled={reviewingId === output.id}
                       onClick={() => handleDecide(output, "rejected")}
-                      className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+                      className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
                     >
                       {lang === "ar" ? "رفض" : "Reject"}
                     </button>

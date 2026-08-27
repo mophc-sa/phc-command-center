@@ -135,7 +135,7 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
   return (
     <section className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-5 py-3">
-        <h2 className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
           <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           {lang === "ar" ? "السجل الزمني" : "Timeline"}
         </h2>
@@ -144,7 +144,7 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors ${
+              className={`rounded-full border px-2.5 py-1 text-2xs font-medium transition-colors ${
                 filter === f.key
                   ? "border-amber/40 bg-amber/10 text-amber-light"
                   : "border-border/70 bg-background/40 text-muted-foreground hover:text-foreground"
@@ -171,7 +171,7 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
         <div className="divide-y divide-border/40">
           {groups.map((g) => (
             <div key={g.key} className="px-5 py-3">
-              <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              <div className="mb-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
                 {g.key === "today"
                   ? lang === "ar" ? "اليوم" : "Today"
                   : g.key === "yesterday"
@@ -182,19 +182,19 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
                 {g.events.map((e) => (
                   <li key={e.id} className="border-s-2 border-border/60 ps-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[12px] font-medium text-foreground">{e.title}</span>
+                      <span className="text-sm font-medium text-foreground">{e.title}</span>
                       <StatusPill tone="muted">{e.category}</StatusPill>
                       {/* previous → new, the thing an audit reader actually needs */}
                       {e.from && e.to ? (
-                        <span className="num text-[10px] text-muted-foreground" data-tabular="true">
+                        <span className="num text-2xs text-muted-foreground" data-tabular="true">
                           {humanize(e.from)} → {humanize(e.to)}
                         </span>
                       ) : null}
                     </div>
                     {e.detail ? (
-                      <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{e.detail}</div>
+                      <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{e.detail}</div>
                     ) : null}
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground/70">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground/70">
                       <span className="num" data-tabular="true">{e.at.slice(0, 16).replace("T", " ")}</span>
                       <span aria-hidden="true">·</span>
                       <span>{nameOf(e.actorId)}</span>

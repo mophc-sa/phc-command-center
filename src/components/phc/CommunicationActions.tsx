@@ -62,7 +62,7 @@ export function CommunicationActions({
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const sizing = iconOnly
     ? "p-1.5"
-    : size === "xs" ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-xs";
+    : size === "xs" ? "px-2 py-1 text-2xs" : "px-3 py-1.5 text-xs";
 
   const linkedIds = {
     opportunityId: linked.opportunityId ?? (linked.type === "opportunity" ? linked.id : null),

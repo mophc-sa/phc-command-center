@@ -57,7 +57,7 @@ export function NotificationCenter({
             <div className="flex items-center gap-2">
               <SheetTitle className="text-sm font-semibold">{t("notif_title")}</SheetTitle>
               {unread > 0 && (
-                <span className="num flex h-4 min-w-4 items-center justify-center rounded-full bg-amber/20 px-1 text-[10px] font-semibold text-amber-light">
+                <span className="num flex h-4 min-w-4 items-center justify-center rounded-full bg-amber/20 px-1 text-2xs font-semibold text-amber-light">
                   {unread}
                 </span>
               )}
@@ -66,7 +66,7 @@ export function NotificationCenter({
               <button
                 onClick={() => markAllRead.mutate()}
                 disabled={markAllRead.isPending}
-                className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/60 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/60 px-2 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
               >
                 <CheckCheck className="h-3 w-3" />
                 {t("notif_mark_all_read")}
@@ -108,7 +108,7 @@ export function NotificationCenter({
 
         {items.length > 0 && (
           <div className="border-t border-border/70 px-5 py-3">
-            <p className="text-center text-[11px] text-muted-foreground/60">
+            <p className="text-center text-xs text-muted-foreground/60">
               {lang === "ar"
                 ? `${unread} غير مقروء من ${items.length}`
                 : `${unread} unread of ${items.length}`}
@@ -162,16 +162,16 @@ function NotifRow({
               {unread && (
                 <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber" />
               )}
-              <span className="truncate text-[10px] uppercase tracking-wide text-muted-foreground/70">
+              <span className="truncate text-2xs uppercase tracking-wide text-muted-foreground/70">
                 {label}
               </span>
             </div>
-            <div className={`mt-0.5 truncate text-[12px] ${unread ? "font-semibold" : "font-medium"} text-foreground`}>
+            <div className={`mt-0.5 truncate text-sm ${unread ? "font-semibold" : "font-medium"} text-foreground`}>
               {n.title}
             </div>
-            {n.body && <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{n.body}</div>}
+            {n.body && <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.body}</div>}
           </div>
-          <span className="shrink-0 text-[10px] text-muted-foreground/60">{date}</span>
+          <span className="shrink-0 text-2xs text-muted-foreground/60">{date}</span>
         </div>
       </button>
       <button

@@ -38,11 +38,11 @@ export function AiEvidencePanel({
               </StatusPill>
             ) : null}
           </div>
-          <div className="mt-1.5 text-[15px] font-medium text-foreground">{panel.title}</div>
+          <div className="mt-1.5 text-md font-medium text-foreground">{panel.title}</div>
           <div className="mt-0.5 text-sm text-muted-foreground">{rec.recommendation}</div>
         </div>
         <div className="text-right">
-          <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Confidence</div>
+          <div className="text-2xs uppercase tracking-[0.14em] text-muted-foreground">Confidence</div>
           <div className="text-lg font-semibold text-foreground num" data-tabular="true">
             {panel.confidence != null ? `${Math.round(panel.confidence)}%` : "—"}
           </div>
@@ -51,7 +51,7 @@ export function AiEvidencePanel({
 
       {/* Evidence */}
       <div className="mt-4 rounded-lg border border-border/60 bg-background/40 p-3">
-        <div className="mb-2 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        <div className="mb-2 flex items-center gap-1.5 text-2xs uppercase tracking-[0.14em] text-muted-foreground">
           <FileSearch className="h-3 w-3" /> Evidence
         </div>
         {isLoading ? (
@@ -65,7 +65,7 @@ export function AiEvidencePanel({
                 <span className="min-w-0 truncate text-foreground">
                   <span className="text-muted-foreground">{e.label}:</span> {e.value}
                 </span>
-                <span className="shrink-0 text-[10px] text-muted-foreground">{e.source_ref ?? e.source_type}</span>
+                <span className="shrink-0 text-2xs text-muted-foreground">{e.source_ref ?? e.source_type}</span>
               </li>
             ))}
           </ul>
@@ -73,14 +73,14 @@ export function AiEvidencePanel({
         {panel.reasonCodes.length ? (
           <div className="mt-2 flex flex-wrap gap-1">
             {panel.reasonCodes.map((c) => (
-              <span key={c} className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">{c}</span>
+              <span key={c} className="rounded border border-border/60 px-1.5 py-0.5 text-2xs text-muted-foreground">{c}</span>
             ))}
           </div>
         ) : null}
         {panel.missingData.length ? (
-          <div className="mt-2 text-[11px] text-amber-light">Missing: {panel.missingData.join(", ")}</div>
+          <div className="mt-2 text-xs text-amber-light">Missing: {panel.missingData.join(", ")}</div>
         ) : null}
-        <div className="mt-2 text-[10px] text-muted-foreground">
+        <div className="mt-2 text-2xs text-muted-foreground">
           {panel.generatedBy} · {new Date(panel.timestamp).toLocaleString()}
         </div>
       </div>

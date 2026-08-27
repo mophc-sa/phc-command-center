@@ -209,7 +209,7 @@ export function HistoricalSalesView() {
               <span className="text-xs font-medium">
                 {ar ? "تفعيل دفعة 2026 المعتمدة" : "Activate approved 2026 batch"}
               </span>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 {ar
                   ? `${formatNumber(ACTIVATION_MANIFEST.count, lang)} سجل · ${formatCurrency(ACTIVATION_MANIFEST.totalValueExclVat, lang, ACTIVATION_MANIFEST.currency)}`
                   : `${formatNumber(ACTIVATION_MANIFEST.count, lang)} records · ${formatCurrency(ACTIVATION_MANIFEST.totalValueExclVat, lang, ACTIVATION_MANIFEST.currency)}`}
@@ -218,7 +218,7 @@ export function HistoricalSalesView() {
             {batchState.phase === "idle" || batchState.phase === "blocked" || batchState.phase === "failed" ? (
               <button
                 type="button" onClick={checkBatch}
-                className="rounded border border-border px-2 py-1 text-[11px] hover:bg-surface-2"
+                className="rounded border border-border px-2 py-1 text-xs hover:bg-surface-2"
               >
                 {ar ? "تحقّق من الدفعة" : "Check batch"}
               </button>
@@ -226,7 +226,7 @@ export function HistoricalSalesView() {
           </div>
 
           {batchState.phase === "checking" ? (
-            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
               {ar ? "يُقارن مع المانيفست المعتمد…" : "Comparing against the approved manifest…"}
             </p>
@@ -234,13 +234,13 @@ export function HistoricalSalesView() {
 
           {batchState.phase === "blocked" ? (
             <div className="mt-2 rounded border border-amber/40 bg-amber/10 px-2 py-1.5">
-              <p className="text-[11px] font-medium text-amber-light">
+              <p className="text-xs font-medium text-amber-light">
                 {ar ? "التفعيل مرفوض — الدفعة الحالية لا تطابق المعتمدة." : "Activation refused — the live batch is not the approved one."}
               </p>
-              <ul className="mt-1 list-disc ps-4 text-[11px] text-amber-light">
+              <ul className="mt-1 list-disc ps-4 text-xs text-amber-light">
                 {batchState.differences.map((d) => <li key={d}>{d}</li>)}
               </ul>
-              <p className="mt-1 text-[11px] text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground">
                 {ar
                   ? "بيانات الإنتاج تغيّرت منذ الاعتماد. يلزم إعادة اعتماد الدفعة."
                   : "Production data has moved since approval. The batch needs re-approving before it can run."}
@@ -250,7 +250,7 @@ export function HistoricalSalesView() {
 
           {batchState.phase === "confirm" ? (
             <div className="mt-2 rounded border border-border bg-surface-2 px-2 py-1.5">
-              <p className="text-[11px]">
+              <p className="text-xs">
                 {ar
                   ? `تطابق تام. سيتم إنشاء ${formatNumber(batchState.count, lang)} فرصة و${formatNumber(batchState.count, lang)} عرض سعر تاريخي بقيمة ${formatCurrency(batchState.totalValue, lang, "SAR")}. الأرشيف لا يتغيّر.`
                   : `Exact match. This creates ${formatNumber(batchState.count, lang)} opportunities and ${formatNumber(batchState.count, lang)} historical quotations worth ${formatCurrency(batchState.totalValue, lang, "SAR")}. The archive is not modified.`}
@@ -258,13 +258,13 @@ export function HistoricalSalesView() {
               <div className="mt-1.5 flex gap-2">
                 <button
                   type="button" onClick={() => void runBatch(batchState.rowIds)}
-                  className="rounded bg-primary px-2 py-1 text-[11px] text-primary-foreground hover:opacity-90"
+                  className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:opacity-90"
                 >
                   {ar ? "تأكيد التفعيل" : "Confirm activation"}
                 </button>
                 <button
                   type="button" onClick={() => setBatchState({ phase: "idle" })}
-                  className="rounded border border-border px-2 py-1 text-[11px] hover:bg-surface-2"
+                  className="rounded border border-border px-2 py-1 text-xs hover:bg-surface-2"
                 >
                   {ar ? "إلغاء" : "Cancel"}
                 </button>
@@ -273,7 +273,7 @@ export function HistoricalSalesView() {
           ) : null}
 
           {batchState.phase === "running" ? (
-            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
               {ar
                 ? `جارٍ الترقية ${formatNumber(batchState.done, lang)} من ${formatNumber(batchState.total, lang)}…`
@@ -282,7 +282,7 @@ export function HistoricalSalesView() {
           ) : null}
 
           {batchState.phase === "done" ? (
-            <div className="mt-2 text-[11px]">
+            <div className="mt-2 text-xs">
               <p className={batchState.outcome.failed.length ? "text-amber-light" : "text-success"}>
                 {ar
                   ? `اكتمل: ${formatNumber(batchState.outcome.promoted.length, lang)} مُرقّى · ${formatNumber(batchState.outcome.failed.length, lang)} مرفوض`
@@ -302,7 +302,7 @@ export function HistoricalSalesView() {
           ) : null}
 
           {batchState.phase === "failed" ? (
-            <p className="mt-2 text-[11px] text-destructive">{batchState.message}</p>
+            <p className="mt-2 text-xs text-destructive">{batchState.message}</p>
           ) : null}
         </div>
       ) : null}
@@ -342,9 +342,9 @@ export function HistoricalSalesView() {
                     on ? "border-primary/40 bg-primary/10" : "border-border hover:bg-surface-2/50"
                   } ${undecided ? "cursor-default opacity-80" : ""}`}
                 >
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{b.status}</div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">{b.status}</div>
                   <div className="mt-0.5 text-sm font-medium">{formatNumber(b.count, lang)}</div>
-                  <div className="text-[11px] text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     {formatCurrency(b.total, lang, "SAR")}
                     {b.valued < b.count ? <span> · {b.valued}/{b.count}</span> : null}
                   </div>
@@ -366,7 +366,7 @@ export function HistoricalSalesView() {
             <QualityChip flag="unmatched_company" n={quality.companies_unmatched}    active={f.flag === "unmatched_company"} onClick={() => set("flag", f.flag === "unmatched_company" ? "" : "unmatched_company")} lang={lang} />
             <QualityChip flag="unparsed_code"     n={quality.codes_unparsed + quality.codes_placeholder} active={f.flag === "unparsed_code"} onClick={() => set("flag", f.flag === "unparsed_code" ? "" : "unparsed_code")} lang={lang} />
           </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground">
             {ar
               ? `${formatNumber(quality.statuses_needing_decision, lang)} سجل بحالة تحتاج قرارًا · ${formatNumber(quality.revisions, lang)} مراجعة مرقّمة`
               : `${formatNumber(quality.statuses_needing_decision, lang)} records with a status needing a decision · ${formatNumber(quality.revisions, lang)} numbered revisions`}
@@ -411,7 +411,7 @@ export function HistoricalSalesView() {
             nobody did. Derived from the data, so next year appears on its own. */}
         {years.length > 1 ? (
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
               {ar ? "السنة" : "Year"}
             </span>
             <button
@@ -441,7 +441,7 @@ export function HistoricalSalesView() {
           <button
             type="button"
             onClick={() => setF(EMPTY_FILTERS)}
-            className="mt-2 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+            className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
             <X className="h-3 w-3" aria-hidden="true" />
             {ar ? "مسح التصفية" : "Clear filters"}
@@ -458,7 +458,7 @@ export function HistoricalSalesView() {
             type="button"
             disabled={filtered.length === 0}
             onClick={() => downloadCsv(filtered)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             {ar
@@ -499,7 +499,7 @@ export function HistoricalSalesView() {
               </tbody>
             </table>
             {filtered.length > 300 ? (
-              <p className="mt-2 text-[11px] text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                 {ar
                   ? `تُعرض أول 300 من ${formatNumber(filtered.length, lang)} — ضيّق التصفية لرؤية الباقي.`
                   : `Showing the first 300 of ${formatNumber(filtered.length, lang)} — narrow the filters to see the rest.`}
@@ -523,31 +523,31 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
       <td className="py-2">
         <span className="font-medium">{r.sales_code ?? "—"}</span>
         {r.revision_no ? (
-          <span className="ms-1 rounded bg-surface-2 px-1 text-[10px] text-muted-foreground">rev {r.revision_no}</span>
+          <span className="ms-1 rounded bg-surface-2 px-1 text-2xs text-muted-foreground">rev {r.revision_no}</span>
         ) : null}
         {r.route ? (
-          <span className="ms-1 text-[10px] uppercase text-muted-foreground">{r.route}</span>
+          <span className="ms-1 text-2xs uppercase text-muted-foreground">{r.route}</span>
         ) : null}
         {/* Every row carries the badge, not just the header banner — a screenshot
             of one row has to say what it is too. */}
-        <span className="ms-1 rounded bg-amber/15 px-1 text-[10px] text-amber-light">
+        <span className="ms-1 rounded bg-amber/15 px-1 text-2xs text-amber-light">
           {ar ? "تاريخي" : "Historical"}
         </span>
       </td>
       <td className="py-2">
         <span className="block max-w-[170px] truncate">{r.client ?? "—"}</span>
         {!r.company_matched && r.client ? (
-          <span className="text-[10px] text-muted-foreground">{ar ? "غير مرتبط بشركة" : "not linked to a company"}</span>
+          <span className="text-2xs text-muted-foreground">{ar ? "غير مرتبط بشركة" : "not linked to a company"}</span>
         ) : null}
       </td>
       <td className="py-2"><span className="block max-w-[210px] truncate">{r.project ?? "—"}</span>
-        {r.location ? <span className="text-[10px] text-muted-foreground">{r.location}</span> : null}
+        {r.location ? <span className="text-2xs text-muted-foreground">{r.location}</span> : null}
       </td>
       <td className="py-2"><span className="block max-w-[130px] truncate text-muted-foreground">{r.owner ?? "—"}</span></td>
       <td className="py-2">
         <span>{r.status_canonical ?? r.status ?? "—"}</span>
         {!r.status_canonical && r.status ? (
-          <span className="ms-1 text-[10px] text-amber-light">{ar ? "يحتاج قرارًا" : "needs decision"}</span>
+          <span className="ms-1 text-2xs text-amber-light">{ar ? "يحتاج قرارًا" : "needs decision"}</span>
         ) : null}
       </td>
       <td className="num py-2 text-end" data-tabular="true">
@@ -556,7 +556,7 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
       <td className="py-2 text-muted-foreground">
         {fmtDate(r.date_submitted)}
         {flags.length ? (
-          <span className="mt-0.5 flex items-center gap-1 text-[10px] text-amber-light" title={flags.map((x) => FLAG_LABEL[x][ar ? "ar" : "en"]).join(" · ")}>
+          <span className="mt-0.5 flex items-center gap-1 text-2xs text-amber-light" title={flags.map((x) => FLAG_LABEL[x][ar ? "ar" : "en"]).join(" · ")}>
             <AlertTriangle className="h-3 w-3" aria-hidden="true" />
             {flags.length}
           </span>
@@ -567,30 +567,30 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
           worked twice, and it discloses nothing the pipeline would not. */}
       <td className="py-2">
         {promoted ? (
-          <span className="flex items-center gap-1 text-[10px] text-success" title={ar ? "مُرقّى إلى النظام الحي" : "Promoted into the live CRM"}>
+          <span className="flex items-center gap-1 text-2xs text-success" title={ar ? "مُرقّى إلى النظام الحي" : "Promoted into the live CRM"}>
             <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
             {ar ? "في النظام" : "In CRM"}
           </span>
         ) : r.promotion_status === "voided" ? (
-          <span className="text-[10px] text-muted-foreground">{ar ? "أُلغيت الترقية" : "Promotion voided"}</span>
+          <span className="text-2xs text-muted-foreground">{ar ? "أُلغيت الترقية" : "Promotion voided"}</span>
         ) : r.promotion_status !== "not_promoted" ? (
-          <span className="text-[10px] text-muted-foreground">{r.promotion_status}</span>
+          <span className="text-2xs text-muted-foreground">{r.promotion_status}</span>
         ) : canPromote ? (
           <button
             type="button"
             onClick={() => onPromote(r.row_id)}
             disabled={busy}
-            className="rounded border border-border px-1.5 py-0.5 text-[10px] hover:bg-surface-2 disabled:opacity-50"
+            className="rounded border border-border px-1.5 py-0.5 text-2xs hover:bg-surface-2 disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : (ar ? "ترقية" : "Promote")}
           </button>
         ) : (
-          <span className="text-[10px] text-muted-foreground">—</span>
+          <span className="text-2xs text-muted-foreground">—</span>
         )}
         {promoted && r.promoted_opportunity_id ? (
           <a
             href={`/opportunities/${r.promoted_opportunity_id}`}
-            className="mt-0.5 block text-[10px] text-primary underline-offset-2 hover:underline"
+            className="mt-0.5 block text-2xs text-primary underline-offset-2 hover:underline"
           >
             {ar ? "فتح الفرصة" : "Open opportunity"}
           </a>
@@ -603,7 +603,7 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
 function Stat({ label, value, tone }: { label: string; value: string; tone?: "won" | "lost" }) {
   return (
     <div className="rounded-lg border border-border bg-surface px-3 py-2">
-      <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
+      <div className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
       <div className={`num mt-0.5 text-sm ${tone === "won" ? "text-won" : tone === "lost" ? "text-lost" : "text-foreground"}`} data-tabular="true">{value}</div>
     </div>
   );
@@ -617,7 +617,7 @@ function QualityChip({ flag, n, active, onClick, lang }: {
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${
+      className={`rounded-md border px-2 py-1 text-xs transition-colors ${
         active ? "border-amber/60 bg-amber/20 text-amber-light" : "border-border bg-surface-2 text-muted-foreground hover:text-foreground"
       }`}
     >
@@ -632,7 +632,7 @@ function Select({ label, value, onChange, options }: {
 }) {
   return (
     <label className="grid gap-1">
-      <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+      <span className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
       <select
         className="h-8 rounded-md border border-border bg-surface px-2 text-xs text-foreground"
         value={value}
@@ -647,7 +647,7 @@ function Select({ label, value, onChange, options }: {
 function NumField({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
   return (
     <label className="grid gap-1">
-      <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+      <span className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
       <Input
         className="h-8 text-xs" inputMode="numeric" value={value ?? ""}
         onChange={(e) => {
@@ -662,7 +662,7 @@ function NumField({ label, value, onChange }: { label: string; value: number | n
 function DateField({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) {
   return (
     <label className="grid gap-1">
-      <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+      <span className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
       <Input className="h-8 text-xs" type="date" value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} />
     </label>
   );

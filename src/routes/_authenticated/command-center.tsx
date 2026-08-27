@@ -51,6 +51,7 @@ import {
   type CommentaryState,
 } from "@/lib/sales-ai";
 import { AGGREGATE_ENTITY_ID, runAiAgent } from "@/lib/ai-orchestrator-actions";
+import { Callout } from "@/components/phc/Callout";
 import { ExecutiveBrief } from "@/components/phc/ExecutiveBrief";
 import { DataQualityPanel } from "@/components/phc/DataQualityPanel";
 import { AskAiPanel } from "@/components/phc/AskAiPanel";
@@ -610,14 +611,13 @@ function CommandCenter() {
           the ceiling stopped the read, the reader is told before they read a
           single number. */}
       {data && !data.complete ? (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber/40 bg-amber/10 px-4 py-2.5">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-light" aria-hidden="true" />
-          <p className="text-[12px] text-foreground">
+        <Callout tone="critical" className="mb-4">
+          <p>
             {lang === "ar"
               ? "تجاوز حجم البيانات حدّ القراءة، فالأرقام أدناه محسوبة على جزء من الدفتر لا عليه كاملًا."
               : "The dataset exceeded the read ceiling, so the figures below are computed over part of the book, not all of it."}
           </p>
-        </div>
+        </Callout>
       ) : null}
 
       {/* §11 — the brief leads. It is the one thing a manager can read in
@@ -628,10 +628,10 @@ function CommandCenter() {
 
       <section className="mb-6">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-[13px] font-semibold text-foreground">
+          <h2 className="text-base font-semibold text-foreground">
             {lang === "ar" ? "مؤشرات المبيعات" : "Sales performance"}
           </h2>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {lang === "ar" ? "هذا الشهر · اضغط أي رقم لفتح سجلاته" : "This month · click any number to open its records"}
           </span>
         </div>
@@ -662,7 +662,7 @@ function CommandCenter() {
 
         {/* Phase 5.1 §1 — the commercial ladder. Mutually exclusive by
             construction, so these add up; on_hold and lost sit outside it. */}
-        <h3 className="mb-2 mt-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <h3 className="mb-2 mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {lang === "ar" ? "خط الأنابيب حسب الموقع التجاري" : "Pipeline by commercial position"}
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -683,7 +683,7 @@ function CommandCenter() {
           ))}
         </div>
 
-        <h3 className="mb-2 mt-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <h3 className="mb-2 mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {lang === "ar" ? "النتائج" : "Outcomes"}
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -706,11 +706,11 @@ function CommandCenter() {
             ["closing", attentionSummary.closingSoon, lang === "ar" ? "إغلاق قريب" : "Closing soon"],
           ] as const).map(([key, roll, label]) => (
             <div key={key} className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3">
-              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
               <div className="num mt-1 text-[20px] font-semibold leading-none text-foreground" data-tabular="true">
                 {formatNumber(roll.count, lang)}
               </div>
-              <div className="mt-1 text-[11px] text-muted-foreground">
+              <div className="mt-1 text-xs text-muted-foreground">
                 {roll.count === 0
                   ? "—"
                   : roll.value > 0
@@ -733,7 +733,7 @@ function CommandCenter() {
           action={
             <button
               onClick={() => nav({ to: "/action-center" })}
-              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/70 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/70 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
               {lang === "ar" ? "الكل" : "View all"} <ArrowRight className="h-3 w-3" />
             </button>
@@ -805,7 +805,7 @@ function CommandCenter() {
                   bar built partly from guessed stage positions looked exactly
                   as solid as one built from recorded ones. */}
               {inferredCount > 0 && (
-                <span className="ms-2 rounded-full border border-amber/40 bg-amber/10 px-2 py-0.5 text-[10px] font-medium text-amber-light">
+                <span className="ms-2 rounded-full border border-amber/40 bg-amber/10 px-2 py-0.5 text-2xs font-medium text-amber-light">
                   {lang === "ar"
                     ? `${formatNumber(inferredCount, lang)} استُنتجت مرحلتها`
                     : `${formatNumber(inferredCount, lang)} inferred`}
@@ -864,7 +864,7 @@ function CommandCenter() {
                   const pct = Math.round((s.value / total) * 100);
                   return (
                     <div key={s.key}>
-                      <div className="mb-1 flex items-center justify-between text-[12px]">
+                      <div className="mb-1 flex items-center justify-between text-sm">
                         <span className="flex items-center gap-2 text-muted-foreground">
                           <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
                           {s.label}
@@ -912,10 +912,10 @@ function CommandCenter() {
               <div className="grid grid-cols-4 gap-2">
                 {rfqAges.map((b) => (
                   <div key={b.bucket} className="rounded-lg border border-border/70 bg-surface/60 px-2.5 py-2">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <div className="text-2xs uppercase tracking-wide text-muted-foreground">
                       {b.bucket === "15+" ? (lang === "ar" ? "+١٥ يوم" : "15+ days") : `${b.bucket}${lang === "ar" ? " يوم" : "d"}`}
                     </div>
-                    <div className="num mt-0.5 text-[17px] font-semibold leading-none text-foreground" data-tabular="true">
+                    <div className="num mt-0.5 text-lg font-semibold leading-none text-foreground" data-tabular="true">
                       {formatNumber(b.count, lang)}
                     </div>
                   </div>
@@ -926,7 +926,7 @@ function CommandCenter() {
                 {rfqStates
                   .filter((st) => st.count > 0)
                   .map((st) => (
-                    <div key={st.state} className="flex items-center justify-between text-[12px]">
+                    <div key={st.state} className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">{t(`rfqw_${st.state}` as never)}</span>
                       <span className="num text-foreground" data-tabular="true">{formatNumber(st.count, lang)}</span>
                     </div>
@@ -934,7 +934,7 @@ function CommandCenter() {
               </div>
 
               {/* The data gap, stated rather than approximated. */}
-              <p className="text-[10px] leading-relaxed text-muted-foreground/70">
+              <p className="text-2xs leading-relaxed text-muted-foreground/70">
                 {lang === "ar"
                   ? "الحالات مشتقّة من حالة الطلب وسلسلة عروض الأسعار. «بانتظار توضيح» و«معلومات ناقصة» غير معروضتين لأن لا حقل يسجّلهما."
                   : "States are derived from RFQ status and the quotation chain. \u201CAwaiting clarification\u201D and \u201Cmissing information\u201D are absent because no field records them."}
@@ -951,7 +951,7 @@ function CommandCenter() {
       <button
         type="button"
         onClick={() => setAskOpen(true)}
-        className="fixed bottom-5 end-5 z-40 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 py-2 text-[12px] font-medium text-foreground shadow-lg transition-colors hover:border-border-strong"
+        className="fixed bottom-5 end-5 z-40 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 py-2 text-sm font-medium text-foreground shadow-lg transition-colors hover:border-border-strong"
       >
         <Sparkles className="h-3.5 w-3.5 text-amber-light" aria-hidden="true" />
         {t("ask_ai_open" as never)}
@@ -1005,9 +1005,9 @@ function CommandCenter() {
             <div className="px-5 py-6"><EmptyState message={lang === "ar" ? "لا فرص مُسنَدة بعد" : "No assigned opportunities yet"} /></div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-[12px]">
+              <table className="w-full min-w-[560px] text-sm">
                 <thead>
-                  <tr className="border-b border-border text-start text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted-foreground">
                     <th className="px-4 py-2 text-start">{lang === "ar" ? "المندوب" : "Salesperson"}</th>
                     <th className="px-3 py-2 text-end">{lang === "ar" ? "مفتوح" : "Open"}</th>
                     <th className="px-3 py-2 text-end">{lang === "ar" ? "مرجّح" : "Weighted"}</th>
@@ -1022,7 +1022,7 @@ function CommandCenter() {
                       <td className="px-4 py-2.5 text-foreground">{teamName(r.ownerId)}</td>
                       <td className="num px-3 py-2.5 text-end" data-tabular="true">
                         {r.openPipeline === null ? (
-                          <span className="text-[11px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {lang === "ar" ? `بلا قيمة (${r.unpricedCount})` : `No value (${r.unpricedCount})`}
                           </span>
                         ) : (
@@ -1033,7 +1033,7 @@ function CommandCenter() {
                         {/* Null, not zero: a book nobody has scored is not a
                             book worth nothing. Same rule as the company total. */}
                         {r.weightedPipeline === null ? (
-                          <span className="text-[11px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {lang === "ar" ? `غير محتسَب (${r.unscoredCount})` : `Not calculated (${r.unscoredCount})`}
                           </span>
                         ) : (
@@ -1065,12 +1065,12 @@ function CommandCenter() {
             {aiInsights.map((i) => (
               <li key={i.key} className="px-5 py-3">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-[12px] text-foreground">{i.label}</span>
-                  <span className="num shrink-0 text-[13px] font-semibold text-foreground" data-tabular="true">
+                  <span className="text-sm text-foreground">{i.label}</span>
+                  <span className="num shrink-0 text-base font-semibold text-foreground" data-tabular="true">
                     {i.count === null ? "—" : formatNumber(i.count, lang)}
                   </span>
                 </div>
-                {i.detail ? <div className="mt-0.5 text-[11px] text-muted-foreground">{i.detail}</div> : null}
+                {i.detail ? <div className="mt-0.5 text-xs text-muted-foreground">{i.detail}</div> : null}
               </li>
             ))}
           </ul>
@@ -1102,7 +1102,7 @@ function EmptyChart({ label }: { label: string }) {
       <div className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-surface-2/50 text-muted-foreground">
         <Sparkles className="h-4 w-4" strokeWidth={1.5} />
       </div>
-      <div className="text-[12px] text-muted-foreground">{label}</div>
+      <div className="text-sm text-muted-foreground">{label}</div>
     </div>
   );
 }

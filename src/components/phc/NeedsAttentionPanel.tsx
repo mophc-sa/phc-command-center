@@ -75,10 +75,10 @@ export function NeedsAttentionPanel({ items }: { items: AttentionItem[] }) {
                   aria-hidden="true"
                 />
                 <span className="min-w-0">
-                  <span className="block truncate text-[13px] font-medium text-foreground">{item.label}</span>
+                  <span className="block truncate text-base font-medium text-foreground">{item.label}</span>
                   {/* The primary issue, plus how many others are hiding behind
                       it. The count is the whole point of aggregating. */}
-                  <span className="block truncate text-[11px] text-muted-foreground">
+                  <span className="block truncate text-xs text-muted-foreground">
                     {REASON_LABEL[item.primaryReason.kind][lang]}
                     {item.issueCount > 1
                       ? lang === "ar"
@@ -92,10 +92,10 @@ export function NeedsAttentionPanel({ items }: { items: AttentionItem[] }) {
               <StatusPill tone={TONE[item.priority]}>{PRIORITY_LABEL[item.priority][lang]}</StatusPill>
 
               {item.stage ? (
-                <span className="text-[11px] text-muted-foreground">{t(canonicalStageLabelKey(item.stage))}</span>
+                <span className="text-xs text-muted-foreground">{t(canonicalStageLabelKey(item.stage))}</span>
               ) : null}
 
-              <span className="num text-[12px] font-medium text-foreground" data-tabular="true">
+              <span className="num text-sm font-medium text-foreground" data-tabular="true">
                 {item.value === null
                   ? lang === "ar"
                     ? "بلا قيمة"
@@ -106,7 +106,7 @@ export function NeedsAttentionPanel({ items }: { items: AttentionItem[] }) {
               <Link
                 to="/opportunities/$id"
                 params={{ id: item.opportunityId }}
-                className="rounded-md border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
               >
                 {t("action_review")}
               </Link>
@@ -116,7 +116,7 @@ export function NeedsAttentionPanel({ items }: { items: AttentionItem[] }) {
               <div id={`why-${item.opportunityId}`} className="bg-surface-2/40 px-3 py-3">
                 {/* §9 — which rules fired, what each was worth, and the dates
                     and records behind them. The band is reproducible on paper. */}
-                <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span>
                     {lang === "ar" ? "الدرجة" : "Score"}: <span className="text-foreground">{item.score}</span>
                   </span>
@@ -141,7 +141,7 @@ export function NeedsAttentionPanel({ items }: { items: AttentionItem[] }) {
 
                 <ul className="space-y-1">
                   {item.reasons.map((r) => (
-                    <li key={r.kind} className="flex items-start gap-1.5 text-[11px]">
+                    <li key={r.kind} className="flex items-start gap-1.5 text-xs">
                       <AlertTriangle className="mt-px h-2.5 w-2.5 shrink-0 text-amber-light" aria-hidden="true" />
                       <span className="text-foreground">{REASON_LABEL[r.kind][lang]}</span>
                       <span className="text-muted-foreground">

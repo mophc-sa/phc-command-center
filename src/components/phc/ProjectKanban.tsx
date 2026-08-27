@@ -331,9 +331,9 @@ function KanbanColumn({
   return (
     <div className="flex w-[260px] shrink-0 flex-col rounded-lg border border-border/70 bg-surface/60">
       <header className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
-        <div className="min-w-0 truncate text-[12px] font-semibold text-foreground">{stage.name}</div>
+        <div className="min-w-0 truncate text-sm font-semibold text-foreground">{stage.name}</div>
         <div className="flex items-center gap-1">
-          <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted-foreground">{jobs.length}</span>
+          <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-2xs text-muted-foreground">{jobs.length}</span>
           {canEdit ? (
             <>
               <button type="button" onClick={onRenameStage} className="text-muted-foreground hover:text-foreground" aria-label="Rename">
@@ -356,7 +356,7 @@ function KanbanColumn({
           <button
             type="button"
             onClick={onAddJob}
-            className="flex items-center justify-center gap-1 rounded-md border border-dashed border-border/70 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+            className="flex items-center justify-center gap-1 rounded-md border border-dashed border-border/70 py-1.5 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
           >
             <Plus className="h-3 w-3" /> {lang === "ar" ? "إضافة" : "Add"}
           </button>
@@ -401,10 +401,10 @@ function JobCard({
           </button>
         ) : null}
         <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-start" disabled={!canEdit}>
-          <div className="truncate text-[12px] font-medium text-foreground">{job.title}</div>
-          {job.description ? <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{job.description}</div> : null}
+          <div className="truncate text-sm font-medium text-foreground">{job.title}</div>
+          {job.description ? <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{job.description}</div> : null}
           {job.due_date ? (
-            <div className="mt-1 text-[10px] text-muted-foreground">
+            <div className="mt-1 text-2xs text-muted-foreground">
               {lang === "ar" ? "الاستحقاق: " : "Due: "}
               {new Date(job.due_date).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
             </div>
@@ -499,7 +499,7 @@ function AiJobNotesPanel({
         type="button"
         onClick={handleRun}
         disabled={running}
-        className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-[11px] font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
       >
         <Sparkles className="h-3 w-3" />
         {running ? (lang === "ar" ? "جارٍ التحليل…" : "Analyzing…") : (lang === "ar" ? "اقتراح ملاحظة" : "Suggest a note")}
@@ -519,7 +519,7 @@ function AiJobNotesPanel({
           )}
           {display.risk_flags?.length > 0 && (
             <div>
-              <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "تنبيهات" : "Risk Flags"}</div>
+              <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "تنبيهات" : "Risk Flags"}</div>
               <ul className="space-y-1">
                 {display.risk_flags.map((f: string, i: number) => (
                   <li key={i} className="rounded-md border border-amber/30 bg-amber/10 px-2.5 py-1.5 text-xs text-amber-light">{f}</li>
@@ -529,7 +529,7 @@ function AiJobNotesPanel({
           )}
           {display.suggested_next_steps?.length > 0 && (
             <div>
-              <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "خطوات مقترحة" : "Next Steps"}</div>
+              <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "خطوات مقترحة" : "Next Steps"}</div>
               <ul className="space-y-1">
                 {display.suggested_next_steps.map((s: string, i: number) => (
                   <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">{s}</li>
@@ -537,14 +537,14 @@ function AiJobNotesPanel({
               </ul>
             </div>
           )}
-          {display.disclaimer && <div className="text-[11px] italic text-muted-foreground">{display.disclaimer}</div>}
+          {display.disclaimer && <div className="text-xs italic text-muted-foreground">{display.disclaimer}</div>}
 
           {display.suggested_notes && (
             <button
               type="button"
               disabled={applying}
               onClick={() => handleApply(display.suggested_notes)}
-              className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-[11px] font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+              className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
             >
               {lang === "ar" ? "تطبيق كملاحظة" : "Apply as note"}
             </button>
@@ -565,7 +565,7 @@ function AiJobNotesPanel({
                     type="button"
                     disabled={reviewingId === output.id}
                     onClick={() => handleDecide(output, "accepted")}
-                    className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-[11px] font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+                    className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
                   >
                     {lang === "ar" ? "قبول" : "Accept"}
                   </button>
@@ -573,7 +573,7 @@ function AiJobNotesPanel({
                     type="button"
                     disabled={reviewingId === output.id}
                     onClick={() => handleDecide(output, "rejected")}
-                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
                   >
                     {lang === "ar" ? "رفض" : "Reject"}
                   </button>

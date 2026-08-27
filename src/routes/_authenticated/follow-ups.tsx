@@ -76,7 +76,7 @@ function FollowUpsPage() {
           <button
             key={k}
             onClick={() => setBucket(k)}
-            className={`rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
               bucket === k
                 ? "border-amber/40 bg-amber/10 text-amber-light"
                 : "border-border/70 bg-surface/60 text-muted-foreground hover:text-foreground"
@@ -108,23 +108,23 @@ function FollowUpsPage() {
                         {isOverdue ? (lang === "ar" ? "متأخر" : "Overdue") : isToday ? (lang === "ar" ? "اليوم" : "Today") : humanize(f.status)}
                       </StatusPill>
                       {opp?.tier ? <StatusPill tone={opp.tier === "A" ? "attention" : "muted"}>{t("label_tier")} {opp.tier}</StatusPill> : null}
-                      <span className="text-[11px] text-muted-foreground">{humanize(f.channel)}</span>
-                      {f.cadence_tier ? <span className="text-[11px] text-muted-foreground">· {t("label_tier")} {f.cadence_tier}</span> : null}
+                      <span className="text-xs text-muted-foreground">{humanize(f.channel)}</span>
+                      {f.cadence_tier ? <span className="text-xs text-muted-foreground">· {t("label_tier")} {f.cadence_tier}</span> : null}
                     </div>
                     {opp?.project_name ? (
-                      <Link to="/opportunities/$id" params={{ id: opp.id }} className="mt-1.5 block truncate text-[13px] font-medium text-foreground hover:underline">
+                      <Link to="/opportunities/$id" params={{ id: opp.id }} className="mt-1.5 block truncate text-base font-medium text-foreground hover:underline">
                         {opp.project_name}
                       </Link>
                     ) : null}
                     {opp?.main_contractor ? (
-                      <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{opp.main_contractor}</div>
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">{opp.main_contractor}</div>
                     ) : null}
                     {f.notes ? (
-                      <div className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">{f.notes}</div>
+                      <div className="mt-1 line-clamp-2 text-sm text-muted-foreground">{f.notes}</div>
                     ) : null}
                   </div>
                   <div className="flex items-center gap-2 pe-4">
-                    <div className="num text-right text-[11px] text-muted-foreground tabular-nums" data-tabular="true">
+                    <div className="num text-right text-xs text-muted-foreground tabular-nums" data-tabular="true">
                       {dd ?? "—"}
                     </div>
                     <EmailComposeButton

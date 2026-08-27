@@ -196,9 +196,9 @@ function ContactsPage() {
                 width of every column. Without it the table measured 1076px
                 inside a 719px pane and scrolled sideways — the complaint that
                 started this. */}
-            <table className="w-full table-fixed text-[13px]">
+            <table className="w-full table-fixed text-base">
             <thead>
-              <tr className="border-b border-border/60 text-start text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              <tr className="border-b border-border/60 text-start text-2xs uppercase tracking-[0.14em] text-muted-foreground">
                 {/* Five columns, not ten. Website and confidence are empty on
                     every row in this book and location on all but one, so they
                     cost width and told the reader nothing; they now sit under
@@ -229,7 +229,7 @@ function ContactsPage() {
                       <ArchivedBadge archived={!!c.archived_at} />
                     </div>
                     {(c.title || (c.location && c.location !== "unknown") || c.companies?.website) ? (
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
                         {c.title ? <span>{c.title}</span> : null}
                         {c.location && c.location !== "unknown" ? <span>{locationLabel(c.location)}</span> : null}
                         {c.companies?.website ? (

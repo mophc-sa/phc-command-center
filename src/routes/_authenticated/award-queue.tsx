@@ -114,7 +114,7 @@ function AwardQueue() {
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-border/70 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            <thead className="border-b border-border/70 text-2xs uppercase tracking-[0.14em] text-muted-foreground">
               <tr>
                 <th className="px-4 py-2.5">Opportunity</th>
                 <th className="px-4 py-2.5">Client</th>

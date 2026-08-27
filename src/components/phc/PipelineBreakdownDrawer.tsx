@@ -122,8 +122,8 @@ export function PipelineBreakdownDrawer({
       >
         <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
-            <h2 className="truncate text-[14px] font-semibold text-foreground">{title}</h2>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
+            <h2 className="truncate text-base font-semibold text-foreground">{title}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {formatNumber(rows.length, lang)}{" "}
               {lang === "ar" ? "فرصة · نفس الصفوف التي كوّنت الرقم" : "opportunities · the same rows behind the number"}
             </p>
@@ -144,7 +144,7 @@ export function PipelineBreakdownDrawer({
               key={g.key}
               type="button"
               onClick={() => setGroupBy(g.key)}
-              className={`rounded-full px-2.5 py-1 text-[11px] transition-colors ${
+              className={`rounded-full px-2.5 py-1 text-xs transition-colors ${
                 groupBy === g.key
                   ? "bg-surface-2 text-foreground"
                   : "text-muted-foreground hover:text-foreground"
@@ -159,13 +159,13 @@ export function PipelineBreakdownDrawer({
           {groups.map((g) => (
             <section key={g.key} className="border-b border-border/50">
               <div className="flex items-baseline justify-between gap-3 bg-surface-2/40 px-4 py-2">
-                <span className="text-[12px] font-medium text-foreground">{g.key}</span>
-                <span className="num text-[12px] text-foreground" data-tabular="true">
+                <span className="text-sm font-medium text-foreground">{g.key}</span>
+                <span className="num text-sm text-foreground" data-tabular="true">
                   {formatCurrency(g.value, lang)}
                   {/* The middot is load-bearing. Grouped by owner the header
                       rendered "SAR 34,643,201 19" — a number butted against a
                       number with only a 0.5rem gap, which reads as one figure. */}
-                  <span className="ms-2 text-[11px] text-muted-foreground">
+                  <span className="ms-2 text-xs text-muted-foreground">
                     · {formatNumber(g.items.length, lang)}
                     {g.unpriced > 0
                       ? lang === "ar"
@@ -187,14 +187,14 @@ export function PipelineBreakdownDrawer({
                         className="block px-4 py-2 transition-colors hover:bg-surface-2/40"
                       >
                         <div className="flex items-baseline justify-between gap-3">
-                          <span className="truncate text-[12px] text-foreground">{o.project_name ?? o.id.slice(0, 8)}</span>
-                          <span className="num shrink-0 text-[12px] font-medium text-foreground" data-tabular="true">
+                          <span className="truncate text-sm text-foreground">{o.project_name ?? o.id.slice(0, 8)}</span>
+                          <span className="num shrink-0 text-sm font-medium text-foreground" data-tabular="true">
                             {value === null
                               ? lang === "ar" ? "بلا قيمة" : "No value"
                               : formatCurrency(value, lang)}
                           </span>
                         </div>
-                        <div className="mt-0.5 flex flex-wrap gap-x-3 text-[10px] text-muted-foreground">
+                        <div className="mt-0.5 flex flex-wrap gap-x-3 text-2xs text-muted-foreground">
                           <span>{companyOf(o) ?? "—"}</span>
                           {/* Probability state, not a fabricated number. */}
                           <span>
@@ -226,7 +226,7 @@ export function PipelineBreakdownDrawer({
 
         {/* The reconciliation. Rows counted, rows that could not be summed, and
             the total — so the headline can be checked rather than trusted. */}
-        <footer className="border-t border-border px-4 py-2.5 text-[11px]">
+        <footer className="border-t border-border px-4 py-2.5 text-xs">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-muted-foreground">
               {formatNumber(rows.length, lang)} {lang === "ar" ? "فرصة" : "opportunities"}
@@ -236,7 +236,7 @@ export function PipelineBreakdownDrawer({
                   : ` · ${unpriced} with no value recorded`
                 : ""}
             </span>
-            <span className="num text-[13px] font-semibold text-foreground" data-tabular="true">
+            <span className="num text-base font-semibold text-foreground" data-tabular="true">
               {formatCurrency(total, lang)}
             </span>
           </div>

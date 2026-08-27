@@ -172,10 +172,10 @@ export function BoqPanel() {
                         {b.title}
                       </span>
                       <StatusPill tone={boqTone(b.status)}>{statusLabel(b.status)}</StatusPill>
-                      <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                      <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
                         {t("label_confidence")}: {b.source_confidence}
                       </span>
-                      <span className="num text-[11px] text-muted-foreground" data-tabular="true">
+                      <span className="num text-xs text-muted-foreground" data-tabular="true">
                         {items.length} {t("label_items" as never) || "items"}
                       </span>
                     </div>

@@ -180,7 +180,7 @@ function AccountsPage() {
                   </StatusPill>
                 </div>
               </div>
-              <div className="mt-3 flex items-center gap-4 text-[11px] text-muted-foreground">
+              <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
                 <span className="num" data-tabular="true">{t("crm_linked_projects")}: {c.projects?.length ?? 0}</span>
                 <span className="num" data-tabular="true">{t("crm_linked_contacts")}: {c.contacts?.length ?? 0}</span>
                 {c.regions ? <span className="truncate">{c.regions}</span> : null}

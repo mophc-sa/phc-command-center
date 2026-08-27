@@ -57,7 +57,7 @@ function ResetPasswordPage() {
         <img src={phcLogo.url} alt="PHC" className="h-7 w-auto object-contain brightness-0" />
         <button
           onClick={() => setLang(lang === "en" ? "ar" : "en")}
-          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           {lang === "en" ? "AR" : "EN"}
         </button>
@@ -95,7 +95,7 @@ function ResetPasswordPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3.5">
               <label className="block">
-                <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   {lang === "ar" ? "كلمة المرور الجديدة" : "New password"}
                 </span>
                 <input
@@ -109,7 +109,7 @@ function ResetPasswordPage() {
                 />
               </label>
               <label className="block">
-                <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                   {lang === "ar" ? "تأكيد كلمة المرور" : "Confirm password"}
                 </span>
                 <input
