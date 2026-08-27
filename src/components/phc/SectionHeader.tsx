@@ -15,7 +15,7 @@ export function SectionHeader({
     <div className="mb-3 flex items-end justify-between gap-4">
       <div className="min-w-0">
         <div className="flex items-baseline gap-3">
-          <h2 className="truncate text-sm font-semibold uppercase tracking-[0.14em] text-foreground">
+          <h2 className="truncate text-sm font-semibold tracking-[0.02em] text-foreground">
             {title}
           </h2>
           {typeof count === "number" ? (

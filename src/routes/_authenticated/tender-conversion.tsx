@@ -114,7 +114,7 @@ function TenderConversionReview() {
                     )}
                   </div>
                   <div className="text-right">
-                    <div className="text-2xs uppercase tracking-[0.14em] text-muted-foreground">{t("crm_total_value")}</div>
+                    <div className="text-2xs tracking-[0.02em] text-muted-foreground">{t("crm_total_value")}</div>
                     <div className="text-lg font-semibold text-foreground num" data-tabular="true">
                       {formatCurrency(tender?.estimated_project_value, lang, "SAR")}
                     </div>
@@ -166,7 +166,7 @@ function TenderConversionReview() {
 function EvidenceRow({ ok, label, value }: { ok: boolean; label: string; value?: string | null }) {
   return (
     <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2">
-      <div className="flex items-center gap-1.5 text-2xs uppercase tracking-[0.14em] text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-2xs tracking-[0.02em] text-muted-foreground">
         {ok ? <CheckCircle2 className="h-3 w-3 text-won" /> : <XCircle className="h-3 w-3 text-destructive/80" />}
         {label}
       </div>

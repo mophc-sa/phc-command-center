@@ -191,7 +191,7 @@ export function ActionDialog({
         <div className={cn("grid gap-4 overflow-y-auto py-2", isWide && "sm:grid-cols-2 max-h-[55vh] pe-1")}>
           {fields.map((f) => (
             <div key={f.key} className={cn("grid gap-1.5", isWide && (f.type === "textarea" || f.type === "file" || f.type === "file_or_url") && "sm:col-span-2")}>
-              <Label htmlFor={f.key} className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+              <Label htmlFor={f.key} className="text-xs tracking-[0.02em] text-muted-foreground">
                 {f.label}
                 {f.required ? <span aria-hidden="true"> *</span> : ""}
               </Label>
@@ -254,7 +254,7 @@ export function ActionDialog({
                     }}
                   />
                   <div className="flex items-center gap-2">
-                    <span className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">
+                    <span className="text-2xs tracking-[0.02em] text-muted-foreground">
                       {t("dialog_or_upload")}
                     </span>
                     <Input

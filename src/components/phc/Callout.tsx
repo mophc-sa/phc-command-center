@@ -45,12 +45,23 @@ const TONES: Record<CalloutTone, { box: string; icon: string }> = {
     box: "border-won/30 bg-won/[0.07] text-foreground",
     icon: "text-won",
   },
+  // `attention` and `warning` share the amber, and share it deliberately: they
+  // are the same family of signal at two strengths, and the palette is fixed.
+  // What they were NOT doing was looking different. Side by side on screen,
+  // /35 + /[0.08] and /60 + /[0.14] were indistinguishable — a five-tone
+  // vocabulary that a reader can only resolve into four is a vocabulary that
+  // teaches them to stop looking.
+  //
+  // They now differ in KIND, not in shade: attention is an outline with no
+  // fill and sits quietly in a column of content; warning is filled, so it
+  // reads as a block on the page even in peripheral vision. Same hue, and one
+  // is now unmistakably louder than the other.
   attention: {
-    box: "border-amber/35 bg-amber/[0.08] text-foreground",
+    box: "border-amber/40 bg-transparent text-foreground",
     icon: "text-amber-light",
   },
   warning: {
-    box: "border-amber/60 bg-amber/[0.14] text-foreground",
+    box: "border-amber/50 bg-amber/[0.16] text-foreground",
     icon: "text-amber-light",
   },
   critical: {

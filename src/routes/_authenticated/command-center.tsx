@@ -662,7 +662,7 @@ function CommandCenter() {
 
         {/* Phase 5.1 §1 — the commercial ladder. Mutually exclusive by
             construction, so these add up; on_hold and lost sit outside it. */}
-        <h3 className="mb-2 mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <h3 className="mb-2 mt-4 text-xs font-medium tracking-[0.02em] text-muted-foreground">
           {lang === "ar" ? "خط الأنابيب حسب الموقع التجاري" : "Pipeline by commercial position"}
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -683,7 +683,7 @@ function CommandCenter() {
           ))}
         </div>
 
-        <h3 className="mb-2 mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <h3 className="mb-2 mt-4 text-xs font-medium tracking-[0.02em] text-muted-foreground">
           {lang === "ar" ? "النتائج" : "Outcomes"}
         </h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -706,7 +706,7 @@ function CommandCenter() {
             ["closing", attentionSummary.closingSoon, lang === "ar" ? "إغلاق قريب" : "Closing soon"],
           ] as const).map(([key, roll, label]) => (
             <div key={key} className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+              <div className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</div>
               <div className="num mt-1 text-[20px] font-semibold leading-none text-foreground" data-tabular="true">
                 {formatNumber(roll.count, lang)}
               </div>
@@ -912,7 +912,7 @@ function CommandCenter() {
               <div className="grid grid-cols-4 gap-2">
                 {rfqAges.map((b) => (
                   <div key={b.bucket} className="rounded-lg border border-border/70 bg-surface/60 px-2.5 py-2">
-                    <div className="text-2xs uppercase tracking-wide text-muted-foreground">
+                    <div className="text-2xs tracking-[0.02em] text-muted-foreground">
                       {b.bucket === "15+" ? (lang === "ar" ? "+15 يوم" : "15+ days") : `${b.bucket}${lang === "ar" ? " يوم" : "d"}`}
                     </div>
                     <div className="num mt-0.5 text-lg font-semibold leading-none text-foreground" data-tabular="true">
@@ -1007,7 +1007,7 @@ function CommandCenter() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-sm">
                 <thead>
-                  <tr className="border-b border-border text-start text-2xs uppercase tracking-wide text-muted-foreground">
+                  <tr className="border-b border-border text-start text-2xs tracking-[0.02em] text-muted-foreground">
                     <th className="px-4 py-2 text-start">{lang === "ar" ? "المندوب" : "Salesperson"}</th>
                     <th className="px-3 py-2 text-end">{lang === "ar" ? "مفتوح" : "Open"}</th>
                     <th className="px-3 py-2 text-end">{lang === "ar" ? "مرجّح" : "Weighted"}</th>

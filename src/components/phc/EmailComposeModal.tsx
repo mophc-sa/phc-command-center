@@ -152,13 +152,13 @@ export function EmailComposeModal({
         <div className="grid gap-3 py-2">
           {linked?.label ? (
             <div className="rounded-md border border-border/70 bg-surface/60 px-3 py-2 text-xs text-muted-foreground">
-              <span className="uppercase tracking-[0.12em]">{t("email_linked_record")}:</span>{" "}
+              <span className="tracking-[0.02em]">{t("email_linked_record")}:</span>{" "}
               <span className="text-foreground">{linked.label}</span>
             </div>
           ) : null}
 
           <div className="grid gap-1.5">
-            <Label htmlFor="email-to" className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+            <Label htmlFor="email-to" className="text-xs tracking-[0.02em] text-muted-foreground">
               {t("email_to")}
             </Label>
             <Input
@@ -174,7 +174,7 @@ export function EmailComposeModal({
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="email-cc" className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+            <Label htmlFor="email-cc" className="text-xs tracking-[0.02em] text-muted-foreground">
               {t("email_cc")}
             </Label>
             <Input
@@ -187,14 +187,14 @@ export function EmailComposeModal({
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="email-subject" className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+            <Label htmlFor="email-subject" className="text-xs tracking-[0.02em] text-muted-foreground">
               {t("email_subject")}
             </Label>
             <Input id="email-subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="email-body" className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+            <Label htmlFor="email-body" className="text-xs tracking-[0.02em] text-muted-foreground">
               {t("email_body")}
             </Label>
             <Textarea

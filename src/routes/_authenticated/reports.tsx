@@ -274,7 +274,7 @@ function ReportsPage() {
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {Object.entries(weeklyReport.after_value as Record<string, unknown>).map(([key, val]) => (
                     <div key={key} className="rounded-lg border border-border bg-surface/60 px-3 py-2">
-                      <div className="text-2xs uppercase tracking-wider text-muted-foreground">
+                      <div className="text-2xs tracking-[0.02em] text-muted-foreground">
                         {key.replaceAll("_", " ")}
                       </div>
                       <div className="mt-1 text-lg font-semibold text-foreground num">{String(val ?? "—")}</div>
@@ -369,7 +369,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
             {display.headline && <div className="font-medium text-foreground">{display.headline}</div>}
             {display.key_insights?.length > 0 && (
               <div>
-                <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "ملاحظات رئيسية" : "Key Insights"}</div>
+                <div className="mb-1 text-xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "ملاحظات رئيسية" : "Key Insights"}</div>
                 <ul className="space-y-1">
                   {display.key_insights.map((s: string, i: number) => (
                     <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">{s}</li>
@@ -379,7 +379,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
             )}
             {display.risks?.length > 0 && (
               <div>
-                <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "مخاطر" : "Risks"}</div>
+                <div className="mb-1 text-xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "مخاطر" : "Risks"}</div>
                 <ul className="space-y-1">
                   {display.risks.map((s: string, i: number) => (
                     <li key={i} className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive/90">{s}</li>
@@ -389,7 +389,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
             )}
             {display.recommended_actions?.length > 0 && (
               <div>
-                <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "إجراءات موصى بها" : "Recommended Actions"}</div>
+                <div className="mb-1 text-xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "إجراءات موصى بها" : "Recommended Actions"}</div>
                 <ul className="space-y-1">
                   {display.recommended_actions.map((s: string, i: number) => (
                     <li key={i} className="rounded-md border border-won/30 bg-won/10 px-2.5 py-1.5 text-xs text-won">{s}</li>

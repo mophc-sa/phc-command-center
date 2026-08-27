@@ -60,7 +60,7 @@ export function IntakeDetail({ r }: { r: any }) {
     const empty = value === null || value === undefined || String(value).trim() === "";
     return (
       <div className="min-w-0">
-        <div className="text-2xs uppercase tracking-wide text-muted-foreground">{label}</div>
+        <div className="text-2xs tracking-[0.02em] text-muted-foreground">{label}</div>
         <div className={`text-sm ${empty ? "text-muted-foreground italic" : "text-foreground"}`}>
           {empty ? dash : String(value)}
         </div>
@@ -256,7 +256,7 @@ export function IntakeReviewPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-border text-start text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b border-border text-start text-xs tracking-[0.02em] text-muted-foreground">
                 {/* Client feedback 2026-08-25: these five, in this order. Project
                     Code is new — the number was already fetched and only shown
                     once the row was expanded, so a reviewer scanning the queue

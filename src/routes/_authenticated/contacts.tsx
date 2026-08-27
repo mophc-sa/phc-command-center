@@ -198,7 +198,7 @@ function ContactsPage() {
                 started this. */}
             <table className="w-full table-fixed text-base">
             <thead>
-              <tr className="border-b border-border/60 text-start text-2xs uppercase tracking-[0.14em] text-muted-foreground">
+              <tr className="border-b border-border/60 text-start text-2xs tracking-[0.02em] text-muted-foreground">
                 {/* Five columns, not ten. Website and confidence are empty on
                     every row in this book and location on all but one, so they
                     cost width and told the reader nothing; they now sit under

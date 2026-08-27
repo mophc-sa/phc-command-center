@@ -1363,6 +1363,15 @@ export const strings = {
     en: "AI commentary unavailable — the facts below are unaffected.",
     ar: "تعليق الذكاء الاصطناعي غير متاح — الحقائق أدناه غير متأثرة.",
   },
+  // One key for the panel, in place of a badge on every line. Says what the
+  // mark means AND what an unmarked line means, because the second half is the
+  // part a reader actually needs: almost every line is unmarked.
+  brf_show_more: { en: "Show {count} more", ar: "عرض المزيد ({count})" },
+  brf_show_less: { en: "Show less", ar: "عرض أقل" },
+  brf_ai_key: {
+    en: "Marked lines are written by AI. Everything else is counted from the records.",
+    ar: "الأسطر المُعلَّمة كتبها الذكاء الاصطناعي. وما عداها محسوب من السجلات.",
+  },
   nav_calendar: { en: "Calendar", ar: "التقويم" },
   cal_follow_up: { en: "Follow-up", ar: "متابعة" },
   cal_rfq_due: { en: "RFQ deadline", ar: "موعد عرض السعر" },

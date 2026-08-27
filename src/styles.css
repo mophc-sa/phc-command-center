@@ -384,12 +384,59 @@
   border-color: color-mix(in oklch, var(--color-structural) 60%, transparent);
 }
 
+/*
+ * The one micro-label treatment.
+ *
+ * This utility already existed and almost nothing used it: counted before this
+ * change, 121 places hand-wrote `uppercase tracking-[Xem]` instead, across
+ * EIGHT different tracking values for the same job. A system nobody reaches
+ * for is not a system, and eight values for one idea is the definition of an
+ * interface that looks untidy without anyone being able to say why.
+ *
+ * Two deliberate departures from what was here:
+ *
+ * `text-transform` is gone. **Arabic has no letter case**, so uppercase did
+ * nothing on half the interface — it only applied the tracking, which on
+ * Arabic script pulls the joins apart and makes words harder to read. The
+ * design worked in one language and quietly degraded the other. Every label in
+ * the dictionary is already authored in sentence case, so removing the
+ * transform renders them as written.
+ *
+ * Tracking drops to 0.02em. Wide tracking is a shouting device; when three
+ * levels of it stack on one panel — an eyebrow, a section heading and a badge
+ * on every line — nothing reads as more important than anything else, which is
+ * the opposite of what the tracking was for.
+ *
+ * Weight and colour carry the hierarchy instead. That is what a label is for:
+ * to be findable without competing with the thing it labels.
+ */
 @utility section-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
   color: var(--color-muted-foreground);
+}
+
+/*
+ * The wordmark, and the ONE place all-caps is correct.
+ *
+ * "PHC" is a name written in capitals, not a label raising its voice — the
+ * distinction the rest of this file is about. It is declared rather than
+ * inferred: before this, the sign-in screen had three all-caps runs that looked
+ * identical in the source, and two of them were captions that switch language.
+ * Those two were applying `text-transform: uppercase` to **Arabic**, where it
+ * does nothing at all — so the only effect they had on half of this app's users
+ * was 0.14em of tracking pulling the letterforms apart, on the very first
+ * screen anyone sees.
+ *
+ * If it is a name, it belongs here. If it changes with the language, it is a
+ * label and belongs in `section-label`.
+ */
+@utility brand-mark {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 
 /* Apple-style action pill — used for positive/success inline actions */

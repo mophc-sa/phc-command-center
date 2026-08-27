@@ -112,7 +112,7 @@ export function AiRiskAssessment({
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             {display.risk_level && (
-              <span className={`rounded px-2 py-1 text-xs font-semibold uppercase tracking-wide ${RISK_LEVEL_TONE[display.risk_level] ?? "bg-muted text-muted-foreground"}`}>
+              <span className={`rounded px-2 py-1 text-xs font-semibold tracking-[0.02em] ${RISK_LEVEL_TONE[display.risk_level] ?? "bg-muted text-muted-foreground"}`}>
                 {display.risk_level}
               </span>
             )}
@@ -125,14 +125,14 @@ export function AiRiskAssessment({
 
           {display.risk_factors?.length > 0 && (
             <div>
-              <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
+              <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">
                 {lang === "ar" ? "عوامل المخاطرة" : "Risk Factors"}
               </div>
               <ul className="space-y-1.5">
                 {display.risk_factors.map((factor: any, i: number) => (
                   <li key={i} className="flex flex-wrap items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs">
                     {factor.impact && (
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide ${IMPACT_TONE[factor.impact] ?? ""}`}>
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold tracking-[0.02em] ${IMPACT_TONE[factor.impact] ?? ""}`}>
                         {factor.impact}
                       </span>
                     )}
@@ -145,14 +145,14 @@ export function AiRiskAssessment({
 
           {display.mitigations?.length > 0 && (
             <div>
-              <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
+              <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">
                 {lang === "ar" ? "إجراءات التخفيف" : "Mitigations"}
               </div>
               <ul className="space-y-1.5">
                 {display.mitigations.map((m: any, i: number) => (
                   <li key={i} className="flex flex-wrap items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs">
                     {m.priority && (
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide ${IMPACT_TONE[m.priority] ?? ""}`}>
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold tracking-[0.02em] ${IMPACT_TONE[m.priority] ?? ""}`}>
                         {m.priority}
                       </span>
                     )}

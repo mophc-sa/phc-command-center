@@ -172,7 +172,7 @@ export function BoqPanel() {
                         {b.title}
                       </span>
                       <StatusPill tone={boqTone(b.status)}>{statusLabel(b.status)}</StatusPill>
-                      <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                      <span className="text-xs tracking-[0.02em] text-muted-foreground">
                         {t("label_confidence")}: {b.source_confidence}
                       </span>
                       <span className="num text-xs text-muted-foreground" data-tabular="true">
@@ -223,7 +223,7 @@ export function BoqPanel() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                           <thead>
-                            <tr className="text-start uppercase tracking-[0.12em] text-muted-foreground">
+                            <tr className="text-start tracking-[0.02em] text-muted-foreground">
                               <th className="py-2 text-start font-medium">{t("field_sign_type")}</th>
                               <th className="py-2 text-start font-medium">{t("field_size")}</th>
                               <th className="py-2 text-start font-medium">{t("field_material")}</th>

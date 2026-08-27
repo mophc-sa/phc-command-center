@@ -335,7 +335,7 @@ function AdminSettingsPage() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
-              <tr className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              <tr className="text-xs tracking-[0.02em] text-muted-foreground">
                 <th className="py-2 pe-4 text-start font-medium">{t("admin_col_capability")}</th>
                 {ALL_ROLES.map((r) => (
                   <th key={r} className="px-2 py-2 text-center font-medium">
@@ -424,7 +424,7 @@ function AdminSettingsPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
-                <tr className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                <tr className="text-xs tracking-[0.02em] text-muted-foreground">
                   <th className="py-2 pe-4 text-start font-medium">{t("team_col_member")}</th>
                   {ALL_ROLES.map((r) => (
                     <th key={r} className="px-2 py-2 text-center font-medium">

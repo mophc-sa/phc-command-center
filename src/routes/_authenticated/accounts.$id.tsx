@@ -147,19 +147,19 @@ function AccountDetail() {
       {/* Key facts strip */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_account_owner")}</div>
+          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_account_owner")}</div>
           <div className="mt-2 truncate text-sm font-medium text-foreground">{ownerName(c.account_owner_id)}</div>
         </div>
         <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_linked_contacts")}</div>
+          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_linked_contacts")}</div>
           <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">{contactCount}</div>
         </div>
         <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_linked_projects")}</div>
+          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_linked_projects")}</div>
           <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">{projCount}</div>
         </div>
         <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_linked_opportunities")}</div>
+          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_linked_opportunities")}</div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="num text-lg font-semibold text-foreground" data-tabular="true">{oppCount}</span>
             {pipelineValue > 0 ? (

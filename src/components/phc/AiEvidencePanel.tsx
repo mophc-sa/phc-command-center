@@ -42,7 +42,7 @@ export function AiEvidencePanel({
           <div className="mt-0.5 text-sm text-muted-foreground">{rec.recommendation}</div>
         </div>
         <div className="text-right">
-          <div className="text-2xs uppercase tracking-[0.14em] text-muted-foreground">Confidence</div>
+          <div className="text-2xs tracking-[0.02em] text-muted-foreground">Confidence</div>
           <div className="text-lg font-semibold text-foreground num" data-tabular="true">
             {panel.confidence != null ? `${Math.round(panel.confidence)}%` : "—"}
           </div>
@@ -51,7 +51,7 @@ export function AiEvidencePanel({
 
       {/* Evidence */}
       <div className="mt-4 rounded-lg border border-border/60 bg-background/40 p-3">
-        <div className="mb-2 flex items-center gap-1.5 text-2xs uppercase tracking-[0.14em] text-muted-foreground">
+        <div className="mb-2 flex items-center gap-1.5 text-2xs tracking-[0.02em] text-muted-foreground">
           <FileSearch className="h-3 w-3" /> Evidence
         </div>
         {isLoading ? (

@@ -519,7 +519,7 @@ function AiJobNotesPanel({
           )}
           {display.risk_flags?.length > 0 && (
             <div>
-              <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "تنبيهات" : "Risk Flags"}</div>
+              <div className="mb-1 text-xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "تنبيهات" : "Risk Flags"}</div>
               <ul className="space-y-1">
                 {display.risk_flags.map((f: string, i: number) => (
                   <li key={i} className="rounded-md border border-amber/30 bg-amber/10 px-2.5 py-1.5 text-xs text-amber-light">{f}</li>
@@ -529,7 +529,7 @@ function AiJobNotesPanel({
           )}
           {display.suggested_next_steps?.length > 0 && (
             <div>
-              <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "خطوات مقترحة" : "Next Steps"}</div>
+              <div className="mb-1 text-xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "خطوات مقترحة" : "Next Steps"}</div>
               <ul className="space-y-1">
                 {display.suggested_next_steps.map((s: string, i: number) => (
                   <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">{s}</li>

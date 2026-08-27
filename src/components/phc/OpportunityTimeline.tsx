@@ -171,7 +171,7 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
         <div className="divide-y divide-border/40">
           {groups.map((g) => (
             <div key={g.key} className="px-5 py-3">
-              <div className="mb-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+              <div className="mb-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">
                 {g.key === "today"
                   ? lang === "ar" ? "اليوم" : "Today"
                   : g.key === "yesterday"

@@ -61,7 +61,7 @@ export function OpportunityCard({ o, lang }: { o: OpportunityRow; lang: Lang }) 
           <div className="text-sm font-semibold text-foreground num" data-tabular="true">
             {formatCurrency(val, lang, o.currency)}
           </div>
-          <div className="mt-1 text-xs uppercase tracking-wider text-muted-foreground">
+          <div className="mt-1 text-xs tracking-[0.02em] text-muted-foreground">
             {humanize(o.signage_package_status)}
           </div>
         </div>

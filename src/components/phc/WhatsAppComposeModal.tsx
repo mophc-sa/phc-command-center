@@ -156,13 +156,13 @@ export function WhatsAppComposeModal({
         <div className="grid gap-3 py-2">
           {linked?.label ? (
             <div className="rounded-md border border-border/70 bg-surface/60 px-3 py-2 text-xs text-muted-foreground">
-              <span className="uppercase tracking-[0.12em]">{t("email_linked_record")}:</span>{" "}
+              <span className="tracking-[0.02em]">{t("email_linked_record")}:</span>{" "}
               <span className="text-foreground">{linked.label}</span>
             </div>
           ) : null}
 
           <div className="grid gap-1.5">
-            <Label htmlFor="wa-phone" className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+            <Label htmlFor="wa-phone" className="text-xs tracking-[0.02em] text-muted-foreground">
               {t("wa_phone")}
             </Label>
             <Input
@@ -179,7 +179,7 @@ export function WhatsAppComposeModal({
 
           {templates.length > 0 ? (
             <div className="grid gap-1.5">
-              <Label className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{t("wa_template")}</Label>
+              <Label className="text-xs tracking-[0.02em] text-muted-foreground">{t("wa_template")}</Label>
               <Select value={templateId || "__none__"} onValueChange={(v) => applyTemplate(v === "__none__" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
@@ -193,7 +193,7 @@ export function WhatsAppComposeModal({
           ) : null}
 
           <div className="grid gap-1.5">
-            <Label htmlFor="wa-message" className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+            <Label htmlFor="wa-message" className="text-xs tracking-[0.02em] text-muted-foreground">
               {t("wa_message")}
             </Label>
             <Textarea
