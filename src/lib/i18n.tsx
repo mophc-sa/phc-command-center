@@ -1366,6 +1366,8 @@ export const strings = {
   // One key for the panel, in place of a badge on every line. Says what the
   // mark means AND what an unmarked line means, because the second half is the
   // part a reader actually needs: almost every line is unmarked.
+  brf_show_more: { en: "Show {count} more", ar: "عرض المزيد ({count})" },
+  brf_show_less: { en: "Show less", ar: "عرض أقل" },
   brf_ai_key: {
     en: "Marked lines are written by AI. Everything else is counted from the records.",
     ar: "الأسطر المُعلَّمة كتبها الذكاء الاصطناعي. وما عداها محسوب من السجلات.",
