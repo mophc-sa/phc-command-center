@@ -307,7 +307,7 @@ function DataImportLanding() {
         <KpiCard label="Total Batches" value={batches.length} icon={<Database className="h-4 w-4" />} />
         <KpiCard label="Active" value={active.length} icon={<Clock className="h-4 w-4" />} />
         <KpiCard label="Processed This Month" value={thisMonth.length} icon={<CheckCircle2 className="h-4 w-4" />} />
-        <KpiCard label="Total Valid Rows" value={totalRows.toLocaleString()} icon={<FileSpreadsheet className="h-4 w-4" />} />
+        <KpiCard label="Total Valid Rows" value={totalRows.toLocaleString("en-US")} icon={<FileSpreadsheet className="h-4 w-4" />} />
       </div>
 
       {/* Tabs */}
@@ -476,7 +476,7 @@ function BatchCard({ batch, onArchived }: { batch: ImportBatch; onArchived?: () 
         <p className="text-sm font-medium text-foreground truncate">{batch.file_name ?? "Unnamed batch"}</p>
         <p className="text-xs text-muted-foreground">
           {batch.target_entity} · {fmtDate(batch.created_at)}
-          {batch.total_rows != null && ` · ${batch.total_rows.toLocaleString()} rows`}
+          {batch.total_rows != null && ` · ${batch.total_rows.toLocaleString("en-US")} rows`}
         </p>
       </div>
 

@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
+import { useI18n, formatCurrency, formatNumber, localeFor } from "@/lib/i18n";
 import { upsertSalesTarget } from "@/lib/sales-actions";
 import { cn } from "@/lib/utils";
 import { canApproveCommercialAction } from "@/lib/roles";
@@ -52,7 +52,7 @@ function monthOptions(lang: "en" | "ar") {
   for (let i = -2; i <= 11; i++) {
     const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() + i, 1));
     const value = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
-    const label = d.toLocaleDateString(lang === "ar" ? "ar" : "en", { month: "long", year: "numeric", timeZone: "UTC" });
+    const label = d.toLocaleDateString(localeFor(lang, "en"), { month: "long", year: "numeric", timeZone: "UTC" });
     opts.push({ value, label });
   }
   return opts;

@@ -40,7 +40,7 @@ import { Panel } from "@/components/phc/Panel";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { Input } from "@/components/ui/input";
-import { formatCurrency, formatNumber, useI18n } from "@/lib/i18n";
+import { formatCurrency, formatNumber, useI18n, localeFor } from "@/lib/i18n";
 import {
   EMPTY_FILTERS, exportFilename, filterHistorical, getHistoricalQuality, listHistoricalSales,
   ownerOptions, qualityFlags, statusOptions, summarise, toCsv,
@@ -166,7 +166,7 @@ export function HistoricalSalesView() {
   const dirty = JSON.stringify(f) !== JSON.stringify(EMPTY_FILTERS);
 
   const fmtDate = (s: string | null) =>
-    s ? new Date(s).toLocaleDateString(ar ? "ar-SA" : "en-GB", { year: "numeric", month: "short", day: "numeric" }) : "—";
+    s ? new Date(s).toLocaleDateString(localeFor((ar ? "ar" : "en"), "en-GB"), { year: "numeric", month: "short", day: "numeric" }) : "—";
 
   if (isLoading) return <SkeletonTable rows={10} />;
 
@@ -622,7 +622,7 @@ function QualityChip({ flag, n, active, onClick, lang }: {
       }`}
     >
       <span className="font-medium">{FLAG_LABEL[flag][lang === "ar" ? "ar" : "en"]}</span>
-      <span className="ms-1 opacity-80">· {FLAG_SENTENCE[flag](n.toLocaleString(lang === "ar" ? "ar-SA" : "en-GB"), lang === "ar")}</span>
+      <span className="ms-1 opacity-80">· {FLAG_SENTENCE[flag](n.toLocaleString(localeFor(lang, "en-GB")), lang === "ar")}</span>
     </button>
   );
 }

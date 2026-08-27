@@ -20,7 +20,7 @@ import { ChartFrame } from "@/components/phc/ChartFrame";
 import { groupByCanonicalStage, canonicalStageLabelKey } from "@/lib/stage-canonical";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonChart } from "@/components/phc/Skeleton";
-import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
+import { useI18n, formatCurrency, formatNumber, localeFor } from "@/lib/i18n";
 import { computeQuotationWinRatePct } from "@/lib/dashboard-helpers";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline, canReviewAiOutput } from "@/lib/roles";
@@ -264,7 +264,7 @@ function ReportsPage() {
           {weeklyReport ? (
             <ChartFrame
               title={lang === "ar" ? "التقرير الأسبوعي للذكاء الاصطناعي" : "AI Weekly Report"}
-              subtitle={weeklyReport.timestamp ? new Date(weeklyReport.timestamp).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : undefined}
+              subtitle={weeklyReport.timestamp ? new Date(weeklyReport.timestamp).toLocaleDateString(localeFor(lang), { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : undefined}
             >
               <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
                 <Bot className="h-3.5 w-3.5 shrink-0" />

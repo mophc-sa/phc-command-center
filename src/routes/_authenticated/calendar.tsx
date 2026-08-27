@@ -24,7 +24,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { Callout } from "@/components/phc/Callout";
 import { ActionDialog } from "@/components/phc/ActionDialog";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, localeFor } from "@/lib/i18n";
 import { formatMessage } from "@/lib/messages";
 import { scheduleFollowUp } from "@/lib/opportunity-actions";
 import {
@@ -104,8 +104,7 @@ function CalendarPage() {
   const grid = useMemo(() => monthGrid(cursor.y, cursor.m), [cursor]);
   const selectedEvents = days.get(selected) ?? [];
 
-  const monthLabel = new Date(Date.UTC(cursor.y, cursor.m - 1, 1)).toLocaleDateString(
-    ar ? "ar" : "en",
+  const monthLabel = new Date(Date.UTC(cursor.y, cursor.m - 1, 1)).toLocaleDateString(localeFor((ar ? "ar" : "en"), "en"),
     { month: "long", year: "numeric", timeZone: "UTC" },
   );
 

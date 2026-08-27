@@ -5,7 +5,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Phone, Users, CalendarDays, StickyNote, Mail, MessageCircle, Check } from "lucide-react";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, localeFor } from "@/lib/i18n";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { listActivities, markActivitySent, type ActivityTimelineFilter, type Activity } from "@/lib/activity-actions";
@@ -65,7 +65,7 @@ export function CommunicationTimeline({ filter, limit }: { filter: ActivityTimel
               <StatusPill tone="muted">{t(`activity_type_${a.activity_type}` as never)}</StatusPill>
               <StatusPill tone={statusTone(a.status)}>{t(`comm_status_${a.status}` as never)}</StatusPill>
               <span className="num text-xs text-muted-foreground" data-tabular="true">
-                {new Date(a.occurred_at).toLocaleString(lang === "ar" ? "ar" : "en", {
+                {new Date(a.occurred_at).toLocaleString(localeFor(lang, "en"), {
                   dateStyle: "medium",
                   timeStyle: "short",
                 })}

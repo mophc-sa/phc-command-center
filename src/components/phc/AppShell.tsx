@@ -1,7 +1,7 @@
 import { Link, useRouterState, useNavigate, type LinkProps } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, localeFor } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canViewSalesAdmin, canCreateSalesRecords, ALL_ROLES, type AppRole } from "@/lib/roles";
 import { usePinnedRecords, type PinnedRecord } from "@/hooks/usePinnedRecords";
@@ -586,8 +586,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                 {t("last_refreshed")}
                 <span className="ms-2 normal-case tracking-normal text-foreground/70">
-                  {new Date().toLocaleTimeString(
-                    lang === "ar" ? "ar-SA" : "en-US",
+                  {new Date().toLocaleTimeString(localeFor(lang),
                     { hour: "2-digit", minute: "2-digit" },
                   )}
                 </span>

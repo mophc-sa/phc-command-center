@@ -1941,10 +1941,55 @@ export function useI18n() {
   return ctx;
 }
 
+/**
+ * Arabic, with Western digits and a Gregorian calendar — the one Arabic locale
+ * tag this app formats with. Both extensions are load-bearing.
+ *
+ * **`-u-nu-latn` — the digits.** Plain `ar-SA` renders Arabic-Indic digits:
+ * SAR 63,407,478 reaches the screen as ٦٣٬٤٠٧٬٤٧٨. That is correct Arabic
+ * typography and wrong for this business. Every figure people here reconcile a
+ * number against — the ERP, a supplier quotation, a bank statement, a BOQ line
+ * — is written in Western digits, so a reader has to transliterate before they
+ * can compare, and a number nobody can compare at a glance is a number nobody
+ * checks.
+ *
+ * **`-ca-gregory` — the calendar, and this one is not cosmetic.** `ar-SA`'s
+ * default calendar is an ICU default, and ICU builds disagree. Measured on the
+ * same date, 2026-08-27:
+ *
+ *   Chrome (production, live)  →  ٢٧ أغسطس ٢٠٢٦     gregory
+ *   Node                       →  ٢٧ أغسطس ٢٠٢٦     gregory
+ *   Bun                        →  ١٤ ربيع الأول ١٤٤٨ هـ   islamic-umalqura
+ *
+ * This app server-renders. A date formatted on the Worker and re-formatted in
+ * the browser must agree, and with an unpinned calendar that is left to two
+ * independent ICU builds — a hydration mismatch at best, and at worst an Arabic
+ * user reading a Hijri date off a record whose contract deadline is Gregorian,
+ * while the English toggle of the same screen shows the real one. Pinning costs
+ * nothing and removes the whole class.
+ *
+ * Everything else stays Arabic: month names, weekday names, currency names,
+ * word order, direction. This is a display choice, not a translation one.
+ *
+ * Use `localeFor()` rather than a bare "ar" or "ar-SA" anywhere a locale tag is
+ * passed to Intl or a `toLocale*` method. Tests pin all of it.
+ */
+export const AR_LOCALE = "ar-SA-u-nu-latn-ca-gregory";
+
+/**
+ * The locale tag to format with.
+ *
+ * `en` defaults to "en-US"; pass "en-GB" (or another tag) where a screen has
+ * deliberately chosen day-first dates. The Arabic side is never overridable —
+ * that is the point of having this function.
+ */
+export function localeFor(lang: Lang, en: string = "en-US") {
+  return lang === "ar" ? AR_LOCALE : en;
+}
+
 export function formatNumber(n: number | null | undefined, lang: Lang, opts?: Intl.NumberFormatOptions) {
   if (n == null) return "—";
-  const locale = lang === "ar" ? "ar-SA" : "en-US";
-  return new Intl.NumberFormat(locale, opts).format(n);
+  return new Intl.NumberFormat(localeFor(lang), opts).format(n);
 }
 
 export function formatCurrency(n: number | null | undefined, lang: Lang, currency = "SAR") {

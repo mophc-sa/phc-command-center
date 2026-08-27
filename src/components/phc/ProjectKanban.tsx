@@ -19,7 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Plus, X, Pencil, Trash2, GripVertical, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, localeFor } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canReviewAiOutput } from "@/lib/roles";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
@@ -406,7 +406,7 @@ function JobCard({
           {job.due_date ? (
             <div className="mt-1 text-2xs text-muted-foreground">
               {lang === "ar" ? "الاستحقاق: " : "Due: "}
-              {new Date(job.due_date).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
+              {new Date(job.due_date).toLocaleDateString(localeFor(lang))}
             </div>
           ) : null}
         </button>

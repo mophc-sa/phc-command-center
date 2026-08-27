@@ -1,5 +1,5 @@
 import { AlertTriangle, BellOff, CheckCheck, ShieldCheck, X, Inbox, ArrowRightLeft } from "lucide-react";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, localeFor } from "@/lib/i18n";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Sheet,
@@ -142,7 +142,7 @@ function NotifRow({
     tone === "danger" ? "text-destructive" : tone === "attention" ? "text-amber-light" : "text-muted-foreground";
   const borderColor =
     tone === "danger" ? "border-s-destructive/60" : tone === "attention" ? "border-s-amber/50" : "border-s-border";
-  const date = new Date(n.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", {
+  const date = new Date(n.created_at).toLocaleDateString(localeFor(lang), {
     month: "short",
     day: "numeric",
   });

@@ -36,7 +36,7 @@ import {
   type ManagementBucketKey,
   type OppRow,
 } from "@/lib/sales-kpis";
-import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
+import { useI18n, formatCurrency, formatNumber, localeFor } from "@/lib/i18n";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { ChartFrame } from "@/components/phc/ChartFrame";
@@ -315,7 +315,7 @@ function CommandCenter() {
       const iso = d.toISOString().slice(0, 10);
       days.push({
         date: iso,
-        label: d.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" }),
+        label: d.toLocaleDateString(localeFor(lang), { month: "short", day: "numeric" }),
         count: map.get(iso) ?? 0,
       });
     }
@@ -536,7 +536,7 @@ function CommandCenter() {
       },
       {
         key: "closing",
-        label: lang === "ar" ? "إغلاق خلال ٣٠ يومًا" : "Closing within 30 days",
+        label: lang === "ar" ? "إغلاق خلال 30 يومًا" : "Closing within 30 days",
         count: attentionSummary.closingSoon.count,
         detail: attentionSummary.closingSoon.value > 0 ? formatCurrency(attentionSummary.closingSoon.value, lang) : null,
       },
@@ -913,7 +913,7 @@ function CommandCenter() {
                 {rfqAges.map((b) => (
                   <div key={b.bucket} className="rounded-lg border border-border/70 bg-surface/60 px-2.5 py-2">
                     <div className="text-2xs uppercase tracking-wide text-muted-foreground">
-                      {b.bucket === "15+" ? (lang === "ar" ? "+١٥ يوم" : "15+ days") : `${b.bucket}${lang === "ar" ? " يوم" : "d"}`}
+                      {b.bucket === "15+" ? (lang === "ar" ? "+15 يوم" : "15+ days") : `${b.bucket}${lang === "ar" ? " يوم" : "d"}`}
                     </div>
                     <div className="num mt-0.5 text-lg font-semibold leading-none text-foreground" data-tabular="true">
                       {formatNumber(b.count, lang)}

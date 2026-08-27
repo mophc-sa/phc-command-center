@@ -10,7 +10,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { GitSyncStatus } from "@/components/phc/GitSyncStatus";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, localeFor } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import {
   ALL_ROLES,
@@ -259,8 +259,7 @@ function AdminSettingsPage() {
               {pending.map((p) => {
                 const busy = !!pendingBusy[p.id];
                 const selectedRole = approveRoles[p.id] ?? "viewer";
-                const registeredAt = new Date(p.created_at).toLocaleDateString(
-                  lang === "ar" ? "ar-SA" : "en-GB",
+                const registeredAt = new Date(p.created_at).toLocaleDateString(localeFor(lang, "en-GB"),
                   { day: "numeric", month: "short", year: "numeric" },
                 );
                 return (

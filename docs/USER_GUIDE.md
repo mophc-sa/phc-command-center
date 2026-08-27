@@ -128,6 +128,13 @@ deliberate.
 **Language:** use the toggle in the top bar to switch between English and العربية. The
 entire interface, including right-to-left layout, switches with it.
 
+**Digits stay Western in both languages.** Arabic shows `63,407,478`, not `٦٣٬٤٠٧٬٤٧٨` —
+month names, weekday names and currency names are still Arabic, only the numerals are not.
+This is deliberate: every document you reconcile a figure against — the ERP, a supplier
+quotation, a bank statement, a BOQ line — is written in Western digits, and a number you have
+to transliterate before you can compare is a number you will not check. Dates are Gregorian on
+both sides of the toggle, so the two languages never name different days for one record.
+
 ---
 
 ## 4. The master workflow
