@@ -24,6 +24,7 @@ import {
 } from "../_shared/supabase.ts";
 import { compareSignals, type DedupSignals } from "../_shared/import-dedup.ts";
 import { insertLeadServerSide } from "../_shared/leads.ts";
+import { normalizeContactPayload } from "../_shared/contact-repair.ts";
 
 // User-facing sentinel written into mapped_data by the validate step to mark
 // columns the user explicitly excluded from import.
@@ -759,6 +760,31 @@ handlers["commit_candidates"] = async (payload, caller) => {
       }
     }
     if (Object.keys(extraData).length > 0) payload.extra_data = extraData;
+
+    // PREVENTION, not cleanup. Spreadsheets hand us one cell holding a name, a
+    // job title, a company, a phone number and an email at once; written
+    // through untouched, that is exactly how 28 of 33 contacts in this system
+    // ended up with everything crushed into `name` and eleven email addresses
+    // that bounce.
+    //
+    // The split runs on the same rules the repair screen uses — one module, so
+    // the two can never drift — and it is deliberately timid: a column the
+    // mapping already filled is never overwritten, and `name` is only
+    // rewritten when the parser is confident. Anything it cannot read is
+    // written exactly as it arrived and stays visible.
+    if (table === "contacts") {
+      const normalized = normalizeContactPayload(payload, null);
+      if (normalized.moved.length > 0) {
+        for (const k of Object.keys(normalized.payload)) payload[k] = normalized.payload[k];
+        commitErrors.push({
+          batch_id: batchId,
+          row_id: cand.source_row_id,
+          row_number: 0,
+          message: `Contact fields separated on import: ${normalized.moved.join(", ")}`,
+          severity: "info",
+        });
+      }
+    }
 
     try {
       if (cand.proposed_action === "create") {

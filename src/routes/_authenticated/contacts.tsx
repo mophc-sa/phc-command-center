@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Users } from "lucide-react";
+import { Plus, Search, Users, Wrench } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -107,13 +107,26 @@ function ContactsPage() {
         eyebrow={t("nav_crm" as never) || "CRM"}
         title={t("nav_contacts")}
         actions={
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {t("crm_new_contact")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The repair screen sits beside the book it repairs. Buried in a
+                menu, nobody finds the eleven bouncing addresses until an email
+                fails. */}
+            <Link
+              to="/contacts/repair"
+              search={{} as never}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              {t("nav_contacts") === "Contacts" ? "Repair imported data" : "إصلاح بيانات الاستيراد"}
+            </Link>
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("crm_new_contact")}
+            </button>
+          </div>
         }
       />
 

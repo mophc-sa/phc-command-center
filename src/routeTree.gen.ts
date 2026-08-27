@@ -52,6 +52,7 @@ import { Route as AuthenticatedAccountsIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects.$id'
 import { Route as AuthenticatedOpportunitiesIdRouteImport } from './routes/_authenticated/opportunities.$id'
 import { Route as AuthenticatedDataImportBatchIdRouteImport } from './routes/_authenticated/data-import.$batchId'
+import { Route as AuthenticatedContactsRepairRouteImport } from './routes/_authenticated/contacts_.repair'
 import { Route as AuthenticatedAccountsIdRouteImport } from './routes/_authenticated/accounts.$id'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -287,6 +288,12 @@ const AuthenticatedDataImportBatchIdRoute =
     path: '/$batchId',
     getParentRoute: () => AuthenticatedDataImportRoute,
   } as any)
+const AuthenticatedContactsRepairRoute =
+  AuthenticatedContactsRepairRouteImport.update({
+    id: '/contacts_/repair',
+    path: '/contacts/repair',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAccountsIdRoute = AuthenticatedAccountsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -343,6 +350,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
+  '/contacts/repair': typeof AuthenticatedContactsRepairRoute
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
@@ -388,6 +396,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
+  '/contacts/repair': typeof AuthenticatedContactsRepairRoute
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
@@ -437,6 +446,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/accounts/$id': typeof AuthenticatedAccountsIdRoute
+  '/_authenticated/contacts_/repair': typeof AuthenticatedContactsRepairRoute
   '/_authenticated/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/_authenticated/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
@@ -486,6 +496,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/accounts/$id'
+    | '/contacts/repair'
     | '/data-import/$batchId'
     | '/opportunities/$id'
     | '/projects/$id'
@@ -531,6 +542,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/accounts/$id'
+    | '/contacts/repair'
     | '/data-import/$batchId'
     | '/opportunities/$id'
     | '/projects/$id'
@@ -579,6 +591,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/accounts/$id'
+    | '/_authenticated/contacts_/repair'
     | '/_authenticated/data-import/$batchId'
     | '/_authenticated/opportunities/$id'
     | '/_authenticated/projects/$id'
@@ -906,6 +919,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDataImportBatchIdRouteImport
       parentRoute: typeof AuthenticatedDataImportRoute
     }
+    '/_authenticated/contacts_/repair': {
+      id: '/_authenticated/contacts_/repair'
+      path: '/contacts/repair'
+      fullPath: '/contacts/repair'
+      preLoaderRoute: typeof AuthenticatedContactsRepairRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/accounts/$id': {
       id: '/_authenticated/accounts/$id'
       path: '/$id'
@@ -988,6 +1008,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTenderConversionRoute: typeof AuthenticatedTenderConversionRoute
   AuthenticatedTendersRoute: typeof AuthenticatedTendersRoute
   AuthenticatedVendorsRoute: typeof AuthenticatedVendorsRoute
+  AuthenticatedContactsRepairRoute: typeof AuthenticatedContactsRepairRoute
   AuthenticatedOpportunitiesIdRoute: typeof AuthenticatedOpportunitiesIdRoute
   AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
   AuthenticatedOpportunitiesIndexRoute: typeof AuthenticatedOpportunitiesIndexRoute
@@ -1021,6 +1042,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTenderConversionRoute: AuthenticatedTenderConversionRoute,
   AuthenticatedTendersRoute: AuthenticatedTendersRoute,
   AuthenticatedVendorsRoute: AuthenticatedVendorsRoute,
+  AuthenticatedContactsRepairRoute: AuthenticatedContactsRepairRoute,
   AuthenticatedOpportunitiesIdRoute: AuthenticatedOpportunitiesIdRoute,
   AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
   AuthenticatedOpportunitiesIndexRoute: AuthenticatedOpportunitiesIndexRoute,

@@ -2,47 +2,79 @@
 @source "../src";
 @import "tw-animate-css";
 
+/* Lama Sans — the interface typeface.
+ *
+ * Chosen over Manifa Pro for two measured reasons, not taste:
+ *
+ * 1. It has a REAL Medium (500), which this interface uses 367 times — more
+ *    than every other weight combined. Manifa Pro has no 500, so the browser
+ *    was synthesising it from 400 on nearly every label in the app.
+ * 2. It carries Arabic. Checked against the 107 distinct characters the
+ *    translation table actually uses, not against a nominal unicode range:
+ *    every one is covered except U+00B7 (·), the separator.
+ *
+ * Manifa Pro therefore stays as the FIRST fallback, and does one job: supply
+ * that middle dot. Per-character fallback is how the cascade already works, so
+ * 43 files keep their separator untouched and nothing else changes. Removing
+ * Manifa Pro from the stack would silently hand `·` to a system font.
+ */
 @font-face {
-  font-family: "Manifa Pro";
+  font-family: "Lama Sans";
   font-style: normal;
   font-weight: 100;
   font-display: swap;
-  src: url("/fonts/ManifaPro2-Thin.otf") format("opentype");
+  src: url("/fonts/LamaSans-Thin.ttf") format("truetype");
 }
 @font-face {
-  font-family: "Manifa Pro";
-  font-style: italic;
-  font-weight: 100;
-  font-display: swap;
-  src: url("/fonts/ManifaPro2-ThinItalic.otf") format("opentype");
-}
-@font-face {
-  font-family: "Manifa Pro";
+  font-family: "Lama Sans";
   font-style: normal;
   font-weight: 300;
   font-display: swap;
-  src: url("/fonts/ManifaPro2-Light.otf") format("opentype");
+  src: url("/fonts/LamaSans-Light.ttf") format("truetype");
 }
+@font-face {
+  font-family: "Lama Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/LamaSans-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Lama Sans";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/LamaSans-RegularItalic.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Lama Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/LamaSans-Medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Lama Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/LamaSans-SemiBold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Lama Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/LamaSans-Bold.ttf") format("truetype");
+}
+
+/* Kept only as the per-character fallback described above. */
 @font-face {
   font-family: "Manifa Pro";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
   src: url("/fonts/ManifaPro2-Regular.otf") format("opentype");
-}
-@font-face {
-  font-family: "Manifa Pro";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/fonts/ManifaPro2-SemiBold.otf") format("opentype");
-}
-@font-face {
-  font-family: "Manifa Pro";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/fonts/ManifaPro2-Bold.otf") format("opentype");
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -117,8 +149,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: "Manifa Pro", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-arabic: "Manifa Pro", "IBM Plex Sans Arabic", "Almarai", ui-sans-serif, sans-serif;
+  --font-sans: "Lama Sans", "Manifa Pro", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-arabic: "Lama Sans", "Manifa Pro", "IBM Plex Sans Arabic", "Almarai", ui-sans-serif, sans-serif;
 
   /* Typography scale */
   --text-2xs: 0.6875rem;
