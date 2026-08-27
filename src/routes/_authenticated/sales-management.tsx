@@ -346,7 +346,7 @@ function TeamView(props: {
           [lang === "ar" ? "أعضاء نشطون" : "Members active", day.membersActive],
         ].map(([label, n]) => (
           <div key={String(label)} className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+            <div className="text-xs tracking-[0.02em] text-muted-foreground">{label}</div>
             <div className="num mt-1 text-[20px] font-semibold text-foreground" data-tabular="true">
               {formatNumber(Number(n), lang)}
             </div>
@@ -392,7 +392,7 @@ function TeamView(props: {
       </SectionTitle>
       <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
         <table className="w-full min-w-[52rem] text-sm">
-          <thead className="text-2xs uppercase tracking-wide text-muted-foreground">
+          <thead className="text-2xs tracking-[0.02em] text-muted-foreground">
             <tr className="border-b border-border/60">
               {[
                 lang === "ar" ? "العضو" : "Member",
@@ -439,7 +439,7 @@ function TeamView(props: {
         <div className="space-y-4">
           {groups.map((g) => (
             <div key={g.key}>
-              <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <div className="mb-1.5 text-xs font-medium tracking-[0.02em] text-muted-foreground">
                 {g.key === "today" ? (lang === "ar" ? "اليوم" : "Today")
                   : g.key === "yesterday" ? (lang === "ar" ? "أمس" : "Yesterday")
                   : (lang === "ar" ? "سابقاً" : "Earlier")}
@@ -546,7 +546,7 @@ function StrategicView(props: {
           [lang === "ar" ? "فرص من مناقصات" : "Opportunities from tenders", formatNumber(fromTenders.length, lang)],
         ].map(([l, v]) => (
           <div key={String(l)} className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">{l}</div>
+            <div className="text-xs tracking-[0.02em] text-muted-foreground">{l}</div>
             <div className="num mt-1 text-[20px] font-semibold text-foreground" data-tabular="true">{v}</div>
             {String(l).includes("Conversion") && conversionPct === null ? (
               <div className="mt-1 text-2xs text-amber-light">{lang === "ar" ? "لا مناقصات مغلقة بعد" : "No closed tenders yet"}</div>
@@ -798,11 +798,11 @@ function ExecutiveView(props: {
       <SectionTitle>{lang === "ar" ? "المناقصات" : "Tender pipeline"}</SectionTitle>
       <div className="grid gap-3 sm:grid-cols-2">
         <Link to="/tenders" className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3 hover:border-border-strong hover:bg-surface-2/40">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">{lang === "ar" ? "مناقصات نشطة" : "Active tenders"}</div>
+          <div className="text-xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "مناقصات نشطة" : "Active tenders"}</div>
           <div className="num mt-1 text-[20px] font-semibold text-foreground" data-tabular="true">{formatNumber(activeTenders.length, lang)}</div>
         </Link>
         <Link to="/tenders" className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3 hover:border-border-strong hover:bg-surface-2/40">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">{lang === "ar" ? "قيمة المناقصات النشطة" : "Active tender value"}</div>
+          <div className="text-xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "قيمة المناقصات النشطة" : "Active tender value"}</div>
           <div className="num mt-1 text-[20px] font-semibold text-foreground" data-tabular="true">
             {formatCurrency(activeTenders.reduce((s, x) => s + Number(x.estimated_project_value ?? 0), 0), lang)}
           </div>

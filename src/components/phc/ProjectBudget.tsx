@@ -50,11 +50,11 @@ export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEd
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-border/70 bg-surface/60 px-4 py-3">
-          <div className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "المخطط" : "Planned"}</div>
+          <div className="text-2xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المخطط" : "Planned"}</div>
           <div className="num mt-1 text-lg font-semibold text-foreground">{formatCurrency(totalPlanned, lang)}</div>
         </div>
         <div className="rounded-lg border border-border/70 bg-surface/60 px-4 py-3">
-          <div className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "الفعلي" : "Actual"}</div>
+          <div className="text-2xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الفعلي" : "Actual"}</div>
           <div className="num mt-1 text-lg font-semibold text-foreground">{formatCurrency(totalActual, lang)}</div>
         </div>
       </div>
@@ -80,7 +80,7 @@ export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEd
         <div className="overflow-hidden rounded-lg border border-border/70">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border/60 bg-surface/60 text-2xs uppercase tracking-[0.12em] text-muted-foreground">
+              <tr className="border-b border-border/60 bg-surface/60 text-2xs tracking-[0.02em] text-muted-foreground">
                 <th className="px-3 py-2 text-start">{lang === "ar" ? "البند" : "Category"}</th>
                 <th className="px-3 py-2 text-start">{lang === "ar" ? "الوصف" : "Description"}</th>
                 <th className="px-3 py-2 text-end">{lang === "ar" ? "المخطط" : "Planned"}</th>
@@ -228,7 +228,7 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
   return (
     <div className="space-y-3 rounded-lg border border-border/70 bg-surface/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+        <div className="text-xs tracking-[0.02em] text-muted-foreground">
           {lang === "ar" ? "تحليل انحراف الميزانية (AI)" : "Budget Variance Analysis (AI)"}
         </div>
         <button
@@ -250,7 +250,7 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
         <div className="space-y-3 text-sm">
           <div className="flex flex-wrap items-center gap-3">
             {display.risk_level && (
-              <span className={`rounded px-2 py-1 text-xs font-semibold uppercase tracking-wide ${VARIANCE_RISK_TONE[display.risk_level] ?? "bg-muted text-muted-foreground"}`}>
+              <span className={`rounded px-2 py-1 text-xs font-semibold tracking-[0.02em] ${VARIANCE_RISK_TONE[display.risk_level] ?? "bg-muted text-muted-foreground"}`}>
                 {display.risk_level}
               </span>
             )}
@@ -264,7 +264,7 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
 
           {display.over_budget_categories?.length > 0 && (
             <div>
-              <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "فوق الميزانية" : "Over Budget"}</div>
+              <div className="mb-1 text-xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "فوق الميزانية" : "Over Budget"}</div>
               <ul className="space-y-1">
                 {display.over_budget_categories.map((c: any, i: number) => (
                   <li key={i} className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs">
@@ -277,7 +277,7 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
           )}
           {display.under_budget_categories?.length > 0 && (
             <div>
-              <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "تحت الميزانية" : "Under Budget"}</div>
+              <div className="mb-1 text-xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "تحت الميزانية" : "Under Budget"}</div>
               <ul className="space-y-1">
                 {display.under_budget_categories.map((c: any, i: number) => (
                   <li key={i} className="rounded-md border border-won/30 bg-won/10 px-2.5 py-1.5 text-xs">
@@ -290,7 +290,7 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
           )}
           {display.recommended_actions?.length > 0 && (
             <div>
-              <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "إجراءات موصى بها" : "Recommended Actions"}</div>
+              <div className="mb-1 text-xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "إجراءات موصى بها" : "Recommended Actions"}</div>
               <ul className="space-y-1">
                 {display.recommended_actions.map((a: string, i: number) => (
                   <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">{a}</li>

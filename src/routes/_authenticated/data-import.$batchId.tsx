@@ -1259,7 +1259,7 @@ function BatchDetailPage() {
               <div className="space-y-5">
                 {Object.entries(groupByEntity(candidates)).map(([entityType, group]) => (
                   <div key={entityType}>
-                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground">
                       {humanizeEntity(entityType)}
                       <span className="text-muted-foreground/60">({group.length})</span>
                     </div>

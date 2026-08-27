@@ -574,7 +574,7 @@ function OpportunityDetail() {
         </Link>
         <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <div className="mb-1.5 text-2xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            <div className="mb-1.5 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
               {t("nav_opportunities")}
             </div>
             <h1 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground md:text-[30px]">
@@ -1551,7 +1551,7 @@ function OpportunityDetail() {
         <div className="grid gap-4">
           <DataField label={t("label_recommendation")} value={humanize(o.agent_recommendation)} />
           <div>
-            <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+            <div className="text-xs tracking-[0.02em] text-muted-foreground">
               {t("label_reasoning")}
             </div>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
@@ -1560,7 +1560,7 @@ function OpportunityDetail() {
           </div>
           {o.management_review_reason ? (
             <div>
-              <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+              <div className="text-xs tracking-[0.02em] text-muted-foreground">
                 Management review
               </div>
               <p className="mt-2 text-sm text-foreground">{o.management_review_reason}</p>
@@ -1633,7 +1633,7 @@ function OpportunityDetail() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{t("score_missing_data_label")}</div>
+                <div className="text-xs tracking-[0.02em] text-muted-foreground">{t("score_missing_data_label")}</div>
                 {o.score_missing_data && o.score_missing_data.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {o.score_missing_data.map((m: string) => <StatusPill key={m} tone="attention">{humanize(m)}</StatusPill>)}
@@ -1643,7 +1643,7 @@ function OpportunityDetail() {
                 )}
               </div>
               <div>
-                <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{t("score_risk_flags_label")}</div>
+                <div className="text-xs tracking-[0.02em] text-muted-foreground">{t("score_risk_flags_label")}</div>
                 {o.score_risk_flags && o.score_risk_flags.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {o.score_risk_flags.map((r: string) => <StatusPill key={r} tone="danger">{humanize(r)}</StatusPill>)}
@@ -1655,7 +1655,7 @@ function OpportunityDetail() {
             </div>
 
             <div>
-              <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{t("score_reasons_label")}</div>
+              <div className="text-xs tracking-[0.02em] text-muted-foreground">{t("score_reasons_label")}</div>
               {o.score_reasons && o.score_reasons.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {o.score_reasons.map((r: string) => <StatusPill key={r} tone="muted">{humanize(r)}</StatusPill>)}
@@ -1688,7 +1688,7 @@ function OpportunityDetail() {
                 {riskDisplay.risk_level && (
                   <span
                     className={
-                      "rounded px-2 py-1 text-xs font-semibold uppercase tracking-wide " +
+                      "rounded px-2 py-1 text-xs font-semibold tracking-[0.02em] " +
                       (riskDisplay.risk_level === "low"
                         ? "bg-won/15 text-won"
                         : riskDisplay.risk_level === "medium"
@@ -1710,7 +1710,7 @@ function OpportunityDetail() {
 
               {riskDisplay.risk_factors && riskDisplay.risk_factors.length > 0 && (
                 <div>
-                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                  <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">
                     Risk Factors
                   </div>
                   <ul className="space-y-1.5">
@@ -1719,7 +1719,7 @@ function OpportunityDetail() {
                         {factor.impact && (
                           <span
                             className={
-                              "shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide " +
+                              "shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold tracking-[0.02em] " +
                               (factor.impact === "low"
                                 ? "bg-won/15 text-won"
                                 : factor.impact === "medium"
@@ -1739,7 +1739,7 @@ function OpportunityDetail() {
 
               {riskDisplay.mitigations && riskDisplay.mitigations.length > 0 && (
                 <div>
-                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                  <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">
                     Mitigations
                   </div>
                   <ul className="space-y-1.5">
@@ -1748,7 +1748,7 @@ function OpportunityDetail() {
                         {m.priority && (
                           <span
                             className={
-                              "shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide " +
+                              "shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold tracking-[0.02em] " +
                               (m.priority === "low"
                                 ? "bg-info/15 text-info"
                                 : m.priority === "medium"
@@ -1831,7 +1831,7 @@ function OpportunityDetail() {
 
               {evalDisplay.strengths && evalDisplay.strengths.length > 0 && (
                 <div>
-                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">Strengths</div>
+                  <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">Strengths</div>
                   <ul className="space-y-1.5">
                     {evalDisplay.strengths.map((s: string, i: number) => (
                       <li key={i} className="rounded-md border border-won/20 bg-won/5 px-3 py-2 text-xs text-foreground">
@@ -1844,7 +1844,7 @@ function OpportunityDetail() {
 
               {evalDisplay.risks && evalDisplay.risks.length > 0 && (
                 <div>
-                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">Risks</div>
+                  <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">Risks</div>
                   <ul className="space-y-1.5">
                     {evalDisplay.risks.map((r: string, i: number) => (
                       <li key={i} className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-foreground">
@@ -1857,7 +1857,7 @@ function OpportunityDetail() {
 
               {evalDisplay.missing_information && evalDisplay.missing_information.length > 0 && (
                 <div>
-                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">Missing Information</div>
+                  <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">Missing Information</div>
                   <div className="flex flex-wrap gap-1.5">
                     {evalDisplay.missing_information.map((m: string, i: number) => (
                       <StatusPill key={i} tone="attention">{m}</StatusPill>
@@ -1868,7 +1868,7 @@ function OpportunityDetail() {
 
               {evalDisplay.recommended_next_actions && evalDisplay.recommended_next_actions.length > 0 && (
                 <div>
-                  <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">Recommended Next Actions</div>
+                  <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">Recommended Next Actions</div>
                   <ul className="space-y-1.5">
                     {evalDisplay.recommended_next_actions.map((a: string, i: number) => (
                       <li key={i} className="rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted-foreground">
@@ -2302,7 +2302,7 @@ function EvidenceViewer({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-border/70 px-5 py-4">
-          <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="text-xs tracking-[0.02em] text-muted-foreground">
             {t("evidence_viewer_title")}
           </div>
           <div className="mt-1 text-sm font-medium text-foreground">
@@ -2320,7 +2320,7 @@ function EvidenceViewer({
           ) : null}
           {evidence.extracted_summary ? (
             <div>
-              <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+              <div className="text-xs tracking-[0.02em] text-muted-foreground">
                 {lang === "ar" ? "الملخص" : "Summary"}
               </div>
               <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">

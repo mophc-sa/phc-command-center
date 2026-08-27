@@ -251,7 +251,7 @@ export function RfqJihPanel() {
                     <span className="num text-xs text-muted-foreground" data-tabular="true">{formatNumber(items.length, lang)}</span>
                   </div>
                   {totalValue > 0 ? (
-                    <span className="num text-2xs uppercase tracking-wider text-muted-foreground" data-tabular="true">
+                    <span className="num text-2xs tracking-[0.02em] text-muted-foreground" data-tabular="true">
                       {formatCurrency(totalValue, lang, "SAR")}
                     </span>
                   ) : null}

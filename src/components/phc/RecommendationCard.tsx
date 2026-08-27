@@ -82,7 +82,7 @@ export function RecommendationCard({
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{label}</dt>
+      <dt className="text-xs tracking-[0.02em] text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 text-foreground">{value}</dd>
     </div>
   );

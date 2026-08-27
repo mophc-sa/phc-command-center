@@ -175,7 +175,7 @@ function SecuritySection({ lang }: { lang: "en" | "ar" }) {
         ) : null}
 
         <form onSubmit={handleChangePassword} className="space-y-3.5">
-          <div className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="text-xs font-medium tracking-[0.02em] text-muted-foreground">
             {lang === "ar" ? "تغيير كلمة المرور" : "Change password"}
           </div>
           <label className="block">

@@ -125,7 +125,7 @@ export function BafoPanel({ opportunityId }: { opportunityId: string }) {
                   const actionable = canDecideStep(r, step);
                   return (
                     <div key={step} className="rounded-md border border-border/60 px-2.5 py-2">
-                      <div className="text-2xs uppercase tracking-[0.1em] text-muted-foreground">
+                      <div className="text-2xs tracking-[0.02em] text-muted-foreground">
                         {t(`bafo_step_${step}` as never)}
                       </div>
                       <StatusPill tone={stepTone(status)}>{t(`bafo_status_${status}` as never)}</StatusPill>

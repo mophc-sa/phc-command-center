@@ -58,7 +58,7 @@ export function RelationshipPanel({
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">
+        <span className="text-xs tracking-[0.02em] text-muted-foreground">
           {lang === "ar" ? "صانع القرار" : "Decision maker"}
         </span>
         <StatusPill tone={DM_STATE[dm].tone}>{DM_STATE[dm][lang]}</StatusPill>

@@ -241,7 +241,7 @@ function CommitmentGroup({
 
   return (
     <div>
-      <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium tracking-[0.02em] text-muted-foreground">
         {icon}
         {heading}
       </h4>

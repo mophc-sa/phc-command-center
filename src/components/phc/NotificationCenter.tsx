@@ -162,7 +162,7 @@ function NotifRow({
               {unread && (
                 <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber" />
               )}
-              <span className="truncate text-2xs uppercase tracking-wide text-muted-foreground/70">
+              <span className="truncate text-2xs tracking-[0.02em] text-muted-foreground/70">
                 {label}
               </span>
             </div>

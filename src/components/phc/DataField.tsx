@@ -15,7 +15,7 @@ export function DataField({
   const isEmpty = value == null || value === "" || value === "—";
   return (
     <div className={cn("min-w-0", className)}>
-      <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
+      <div className="text-xs tracking-[0.02em] text-muted-foreground">{label}</div>
       <div
         className={cn(
           "mt-1 truncate text-sm",

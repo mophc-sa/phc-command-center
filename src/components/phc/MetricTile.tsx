@@ -26,7 +26,7 @@ export function MetricTile({
       )}
     >
       <div className="flex items-start justify-between gap-4">
-        <span className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</span>
+        <span className="text-xs tracking-[0.02em] text-muted-foreground">{label}</span>
         {tone === "attention" ? (
           <span className="h-1.5 w-1.5 rounded-full bg-amber" aria-hidden />
         ) : null}

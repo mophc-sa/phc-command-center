@@ -46,24 +46,38 @@ function Section({ heading, lines }: { heading: string; lines: BriefLine[] }) {
   if (lines.length === 0) return null;
   return (
     <div>
-      <h3 className="mb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">{heading}</h3>
-      <ul className="space-y-1">
+      <h3 className="section-label mb-1.5">{heading}</h3>
+      <ul className="space-y-1.5">
         {lines.map((line, i) => {
           const ai = isAiGenerated(line);
           const text = typeof line.text === "string" ? line.text : renderRef(line.text, (k) => t(k as never), lang);
           return (
-            <li key={`${line.provenance}-${i}`} className="flex items-start gap-1.5 text-sm">
-              {/* The provenance is on the line, not in a tooltip. A reader must
-                  be able to tell a counted fact from a model's opinion at a
-                  glance, or they end up trusting both equally — or neither. */}
+            // A fixed gutter, so every sentence in the panel starts on the same
+            // vertical line. The marker used to sit inline and its width varied
+            // by word — FACT, CALCULATED, AI INFERENCE — so the text edge
+            // stepped in and out on every row. That ragged edge was most of what
+            // made this panel feel disorderly: nobody reads a badge, but
+            // everybody feels a column that will not hold still.
+            <li key={`${line.provenance}-${i}`} className="flex items-start gap-2 text-sm">
               <span
-                className={`mt-0.5 shrink-0 rounded px-1 py-px text-[9px] font-medium uppercase tracking-wide ${
-                  ai ? "bg-amber/15 text-amber-light" : "bg-surface-2 text-muted-foreground"
-                }`}
+                className="mt-[0.5em] flex h-1.5 w-1.5 shrink-0 items-center justify-center"
+                aria-hidden="true"
               >
-                {PROVENANCE_LABEL[line.provenance][lang]}
+                {/* Marked when a model wrote the line, blank when it is a
+                    counted fact. The requirement — a reader can tell the two
+                    apart at a glance — is met by marking the exception. It was
+                    being met by labelling the rule as well: facts are the
+                    overwhelming majority here, so the panel repeated its
+                    loudest element on almost every row in order to say
+                    "ordinary". */}
+                {ai ? <span className="h-1.5 w-1.5 rounded-full bg-amber" /> : null}
               </span>
-              <span className={ai ? "text-muted-foreground" : "text-foreground"}>{text}</span>
+              <span className={ai ? "text-muted-foreground" : "text-foreground"}>
+                {text}
+                {/* The exact provenance is not lost, only taken out of the
+                    layout: it stays on the line for assistive technology. */}
+                <span className="sr-only"> — {PROVENANCE_LABEL[line.provenance][lang]}</span>
+              </span>
             </li>
           );
         })}
@@ -81,9 +95,12 @@ export function ExecutiveBrief({
   /** Three states, because "failed" and "returned nothing usable" differ. */
   commentaryState?: CommentaryState;
 }) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+  const hasAi = [brief.whatChanged, brief.needsAttention, brief.forecast, brief.focus]
+    .flat()
+    .some(isAiGenerated);
   return (
-    <section className="mb-6 rounded-xl border border-border/70 bg-surface/60 p-4">
+    <section className="mb-6 rounded-xl border border-border/70 bg-surface/60 p-5">
       <div className="mb-3 flex items-center gap-2">
         <Sparkles className="h-3.5 w-3.5 text-amber-light" aria-hidden="true" />
         <h2 className="text-base font-semibold text-foreground">{t("brf_title" as never)}</h2>
@@ -95,6 +112,16 @@ export function ExecutiveBrief({
         <Section heading={t("brf_forecast_heading" as never)} lines={brief.forecast} />
         <Section heading={t("brf_focus" as never)} lines={brief.focus} />
       </div>
+
+      {/* One key for the whole panel, where a badge on every line used to be.
+          It is shown only when there is a marked line to explain — a legend
+          for a mark nobody can see is just another thing to read. */}
+      {hasAi ? (
+        <p className="mt-4 flex items-center gap-2 border-t border-border/60 pt-3 text-2xs text-muted-foreground">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber" aria-hidden="true" />
+          {t("brf_ai_key" as never)}
+        </p>
+      ) : null}
 
       {/* Stated, not hidden. A brief that silently drops its commentary looks
           the same as one that had nothing to add. */}

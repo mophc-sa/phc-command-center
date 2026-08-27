@@ -192,7 +192,7 @@ function CalendarPage() {
 
             <div className="grid grid-cols-7 gap-1">
               {WEEKDAYS[ar ? "ar" : "en"].map((d) => (
-                <div key={d} className="pb-1 text-center text-2xs uppercase tracking-wide text-muted-foreground">
+                <div key={d} className="pb-1 text-center text-2xs tracking-[0.02em] text-muted-foreground">
                   {d}
                 </div>
               ))}

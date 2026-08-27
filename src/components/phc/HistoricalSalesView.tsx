@@ -342,7 +342,7 @@ export function HistoricalSalesView() {
                     on ? "border-primary/40 bg-primary/10" : "border-border hover:bg-surface-2/50"
                   } ${undecided ? "cursor-default opacity-80" : ""}`}
                 >
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">{b.status}</div>
+                  <div className="text-xs tracking-[0.02em] text-muted-foreground">{b.status}</div>
                   <div className="mt-0.5 text-sm font-medium">{formatNumber(b.count, lang)}</div>
                   <div className="text-xs text-muted-foreground">
                     {formatCurrency(b.total, lang, "SAR")}
@@ -411,7 +411,7 @@ export function HistoricalSalesView() {
             nobody did. Derived from the data, so next year appears on its own. */}
         {years.length > 1 ? (
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs tracking-[0.02em] text-muted-foreground">
               {ar ? "السنة" : "Year"}
             </span>
             <button
@@ -525,8 +525,11 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
         {r.revision_no ? (
           <span className="ms-1 rounded bg-surface-2 px-1 text-2xs text-muted-foreground">rev {r.revision_no}</span>
         ) : null}
+        {/* Rendered as stored. This is a data value, not a label, and
+            case-transforming data on the way to the screen means the reader is
+            not looking at what the record actually holds. */}
         {r.route ? (
-          <span className="ms-1 text-2xs uppercase text-muted-foreground">{r.route}</span>
+          <span className="ms-1 text-2xs text-muted-foreground">{r.route}</span>
         ) : null}
         {/* Every row carries the badge, not just the header banner — a screenshot
             of one row has to say what it is too. */}
@@ -603,7 +606,7 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
 function Stat({ label, value, tone }: { label: string; value: string; tone?: "won" | "lost" }) {
   return (
     <div className="rounded-lg border border-border bg-surface px-3 py-2">
-      <div className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
+      <div className="text-2xs tracking-[0.02em] text-muted-foreground">{label}</div>
       <div className={`num mt-0.5 text-sm ${tone === "won" ? "text-won" : tone === "lost" ? "text-lost" : "text-foreground"}`} data-tabular="true">{value}</div>
     </div>
   );
@@ -632,7 +635,7 @@ function Select({ label, value, onChange, options }: {
 }) {
   return (
     <label className="grid gap-1">
-      <span className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+      <span className="text-2xs tracking-[0.02em] text-muted-foreground">{label}</span>
       <select
         className="h-8 rounded-md border border-border bg-surface px-2 text-xs text-foreground"
         value={value}
@@ -647,7 +650,7 @@ function Select({ label, value, onChange, options }: {
 function NumField({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
   return (
     <label className="grid gap-1">
-      <span className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+      <span className="text-2xs tracking-[0.02em] text-muted-foreground">{label}</span>
       <Input
         className="h-8 text-xs" inputMode="numeric" value={value ?? ""}
         onChange={(e) => {
@@ -662,7 +665,7 @@ function NumField({ label, value, onChange }: { label: string; value: number | n
 function DateField({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) {
   return (
     <label className="grid gap-1">
-      <span className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+      <span className="text-2xs tracking-[0.02em] text-muted-foreground">{label}</span>
       <Input className="h-8 text-xs" type="date" value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} />
     </label>
   );

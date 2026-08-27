@@ -142,7 +142,7 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
           {/* ---- Photos: same records, gallery rendering ---- */}
           {photos.length > 0 ? (
             <div>
-              <p className="mb-2 text-2xs uppercase tracking-[0.12em] text-muted-foreground">
+              <p className="mb-2 text-2xs tracking-[0.02em] text-muted-foreground">
                 {t("doc_photos")} · {photos.length}
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
@@ -176,7 +176,7 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
           {files.length > 0 ? (
             <div>
               {photos.length > 0 ? (
-                <p className="mb-2 text-2xs uppercase tracking-[0.12em] text-muted-foreground">
+                <p className="mb-2 text-2xs tracking-[0.02em] text-muted-foreground">
                   {t("doc_documents")} · {files.length}
                 </p>
               ) : null}

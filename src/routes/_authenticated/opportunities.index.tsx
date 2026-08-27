@@ -219,7 +219,7 @@ function OppList() {
           is counted in both, which is why they sit in one labelled group
           rather than reading as four slices of a whole. */}
       <section className="mb-6 rounded-lg border border-border/70 bg-surface/60 p-3">
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <h2 className="mb-2 text-xs font-medium tracking-[0.02em] text-muted-foreground">
           {t("kpi_sales_project_status")}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -257,7 +257,7 @@ function OppList() {
             {/* Radix requires SelectLabel to sit inside a SelectGroup — outside
                 one it throws and takes the whole page to the error boundary. */}
             <SelectGroup>
-              <SelectLabel className="text-2xs uppercase tracking-[0.14em] text-muted-foreground">
+              <SelectLabel className="text-2xs tracking-[0.02em] text-muted-foreground">
                 {t("filter_group_heading" as never)}
               </SelectLabel>
               {STAGE_GROUP_FILTERS.map((g) => (
@@ -266,7 +266,7 @@ function OppList() {
             </SelectGroup>
             <SelectSeparator />
             <SelectGroup>
-              <SelectLabel className="text-2xs uppercase tracking-[0.14em] text-muted-foreground">
+              <SelectLabel className="text-2xs tracking-[0.02em] text-muted-foreground">
                 {t("filter_stage_heading" as never)}
               </SelectLabel>
               {CANONICAL_STAGES.map((s) => (
@@ -354,7 +354,7 @@ function OppList() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
           <div className="overflow-x-auto">
-          <div className="min-w-[900px] grid grid-cols-[90px_130px_minmax(0,2fr)_130px_150px_110px_minmax(0,1.2fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-2xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="min-w-[900px] grid grid-cols-[90px_130px_minmax(0,2fr)_130px_150px_110px_minmax(0,1.2fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
             <SortHeader label={lang === "ar" ? "JIH / منافسة" : "JIH / Tender"} active={sort?.key === "classification"} dir={sort?.dir} onClick={() => toggleSort("classification")} />
             <SortHeader label={lang === "ar" ? "كود المبيعات" : "Sales Code"} active={sort?.key === "sales_code"} dir={sort?.dir} onClick={() => toggleSort("sales_code")} />
             <SortHeader label={lang === "ar" ? "اسم المشروع" : "Project Name"} active={sort?.key === "project_name"} dir={sort?.dir} onClick={() => toggleSort("project_name")} />

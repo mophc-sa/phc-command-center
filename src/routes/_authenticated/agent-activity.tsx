@@ -268,7 +268,7 @@ function AgentActivityPage() {
                           <div className="flex flex-wrap items-center gap-2 mb-1">
                             <span
                               className={
-                                "rounded px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide " +
+                                "rounded px-1.5 py-0.5 text-2xs font-semibold tracking-[0.02em] " +
                                 (sev === "high"
                                   ? "bg-destructive/15 text-destructive"
                                   : sev === "medium"
@@ -305,7 +305,7 @@ function AgentActivityPage() {
         </Panel>
       ) : null}
 
-      <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
+      <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">
         {lang === "ar" ? "الفحص الدفعي (نظام أقدم)" : "Batch Scans (legacy system)"}
       </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -320,7 +320,7 @@ function AgentActivityPage() {
           (see docs/ai-orchestrator.md), shown together here so this page
           gives one honest picture of both instead of hiding this half
           behind the "AI Outputs" tab below. */}
-      <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
+      <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">
         {lang === "ar" ? "مخرجات الوكلاء (لكل طلب — النظام الحالي)" : "Agent Outputs (per-request — current system)"}
       </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

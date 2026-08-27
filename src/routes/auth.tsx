@@ -165,7 +165,7 @@ function AuthPage() {
           </p>
           <form onSubmit={submitForgot} className="mt-5 space-y-3.5">
             <label className="block">
-              <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("email")}</span>
+              <span className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{t("email")}</span>
               <input
                 type="email"
                 autoComplete="email"
@@ -215,7 +215,7 @@ function AuthPage() {
               alt="PHC"
               className="h-8 w-auto object-contain object-start brightness-0"
             />
-            <div className="mt-6 text-2xs font-semibold uppercase tracking-[var(--tracking-caps)] text-muted-foreground">
+            <div className="section-label mt-6 font-semibold">
               {lang === "ar" ? "بي إتش سي · مركز القيادة" : "PHC · Command Center"}
             </div>
             {/* Client feedback 2026-08-25: "architecture" reads as DESIGN, and PHC
@@ -232,7 +232,7 @@ function AuthPage() {
               ? "مركز القيادة الداخلي لإدارة فرص المبيعات، المتابعات، الاعتمادات، والأدلة، بلغة عربية وإنجليزية."
               : "The internal command center for pipeline decisions, follow-ups, approvals, and evidence — in Arabic and English."}
           </div>
-          <div className="text-2xs uppercase tracking-[var(--tracking-caps)] text-muted-foreground/70">
+          <div className="section-label opacity-70">
             {lang === "ar" ? "لافتات · إرشاد · تصنيع" : "Wayfinding · Signs · Fabrication"}
           </div>
         </div>
@@ -244,7 +244,7 @@ function AuthPage() {
           <div className="mb-8 flex items-start justify-between gap-4">
             <div>
               <img src={phcLogo.url} alt="PHC" className="mb-4 h-7 w-auto object-contain object-start brightness-0 md:hidden" />
-              <div className="text-2xs font-semibold uppercase tracking-[var(--tracking-caps)] text-muted-foreground">PHC</div>
+              <div className="brand-mark text-muted-foreground">PHC</div>
               <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{t("sign_in_title")}</h1>
               <p className="mt-1.5 text-sm text-muted-foreground">{t("sign_in_sub")}</p>
             </div>
@@ -261,7 +261,7 @@ function AuthPage() {
           <form onSubmit={submit} className="space-y-3.5">
             {mode === "signup" ? (
               <label className="block">
-                <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("full_name")}</span>
+                <span className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{t("full_name")}</span>
                 <input
                   className="mt-1.5 w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-amber/60 focus:ring-1 focus:ring-amber/40"
                   value={fullName}
@@ -271,7 +271,7 @@ function AuthPage() {
               </label>
             ) : null}
             <label className="block">
-              <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("email")}</span>
+              <span className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{t("email")}</span>
               <input
                 type="email"
                 autoComplete="email"
@@ -282,7 +282,7 @@ function AuthPage() {
               />
             </label>
             <label className="block">
-              <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("password")}</span>
+              <span className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{t("password")}</span>
               <input
                 type="password"
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}

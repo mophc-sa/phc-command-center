@@ -168,7 +168,7 @@ function MfaSetupPage() {
 
               <form onSubmit={handleVerify} className="space-y-3.5">
                 <label className="block">
-                  <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  <span className="text-xs font-medium tracking-[0.02em] text-muted-foreground">
                     {lang === "ar" ? "رمز التحقق" : "Verification code"}
                   </span>
                   <input

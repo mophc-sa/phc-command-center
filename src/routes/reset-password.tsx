@@ -95,7 +95,7 @@ function ResetPasswordPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3.5">
               <label className="block">
-                <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="text-xs font-medium tracking-[0.02em] text-muted-foreground">
                   {lang === "ar" ? "كلمة المرور الجديدة" : "New password"}
                 </span>
                 <input
@@ -109,7 +109,7 @@ function ResetPasswordPage() {
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="text-xs font-medium tracking-[0.02em] text-muted-foreground">
                   {lang === "ar" ? "تأكيد كلمة المرور" : "Confirm password"}
                 </span>
                 <input

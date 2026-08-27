@@ -411,7 +411,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
           {/* Summary of Leads panel */}
           <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
-            <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4">
+            <div className="text-xs font-medium tracking-[0.02em] text-muted-foreground mb-4">
               {lang === "ar" ? "ملخص الفرص" : "Summary of Leads"}
             </div>
             <div className="space-y-4">
@@ -454,10 +454,10 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border/30">
-                      <th className="px-4 py-2 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
-                      <th className="px-4 py-2 text-right text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "القيمة" : "Amount"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
+                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
+                      <th className="px-4 py-2 text-right text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "القيمة" : "Amount"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -506,12 +506,12 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                           English while the cell showed neither reliably — it fell
                           back to a raw UUID fragment. Split into the two columns
                           spec §16 actually asks for. */}
-                      <th className="px-4 py-2 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "رقم الطلب" : "RFQ No."}</th>
-                      <th className="px-4 py-2 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع / العميل" : "Project / Client"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Deadline"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{t("label_submission_status")}</th>
-                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{t("label_pending_on")}</th>
-                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الإلحاح" : "Urgency"}</th>
+                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "رقم الطلب" : "RFQ No."}</th>
+                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع / العميل" : "Project / Client"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Deadline"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("label_submission_status")}</th>
+                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("label_pending_on")}</th>
+                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الإلحاح" : "Urgency"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -930,7 +930,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
           <StageDashLink label={lang === "ar" ? "بنود تتطلب إجراء" : "Action Required"} count={missingDataFlags.length} to="/opportunities" tone="neutral" />
         </div>
         <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
-          <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4">
+          <div className="text-xs font-medium tracking-[0.02em] text-muted-foreground mb-4">
             {lang === "ar" ? "ملخص الفرص" : "Summary of Leads"}
           </div>
           <div className="space-y-4">
@@ -973,9 +973,9 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/30">
-                    <th className="px-4 py-2 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
-                    <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
-                    <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
+                    <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
+                    <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                    <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1018,9 +1018,9 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/30">
-                    <th className="px-4 py-2 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                    <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Due"}</th>
-                    <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                    <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                    <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Due"}</th>
+                    <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1304,7 +1304,7 @@ function TargetDonut({
         <span className="num text-[24px] font-bold leading-none text-foreground">
           {achievementPct !== null ? `${achievementPct}%` : "—"}
         </span>
-        <span className="mt-1 text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
+        <span className="mt-1 text-[9px] tracking-[0.02em] text-muted-foreground">
           {lang === "ar" ? "تم الإنجاز" : "achieved"}
         </span>
       </div>
@@ -1332,7 +1332,7 @@ function TargetKpiBox({ label, value, sub, tone }: { label: string; value: strin
   const valCls = tone === "positive" ? "text-won" : tone === "attention" ? "text-amber-light" : "text-foreground";
   return (
     <div className={`rounded-lg border p-4 ${cls}`}>
-      <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
+      <div className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</div>
       <div className={`num mt-2 text-xl font-bold ${valCls}`}>{value}</div>
       {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
     </div>
@@ -1364,7 +1364,7 @@ function StageTable({ headers, children }: { headers: string[]; children: React.
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr>{headers.map(h => <th key={h} className="pb-2 pr-4 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground last:pr-0">{h}</th>)}</tr>
+        <tr>{headers.map(h => <th key={h} className="pb-2 pr-4 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground last:pr-0">{h}</th>)}</tr>
       </thead>
       <tbody>{children}</tbody>
     </table>
@@ -1385,7 +1385,7 @@ function TargetMetric({ label, target, actual, lang, isCount = false }: { label:
   const format = (n: number) => (isCount ? formatNumber(n, lang) : formatCurrency(n, lang, "SAR"));
   return (
     <div className="rounded-lg border border-border/60 bg-surface-2/30 p-3">
-      <div className="text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{label}</div>
+      <div className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</div>
       <div className="num mt-1.5 text-lg font-semibold text-foreground" data-tabular="true">{target != null ? format(target) : "—"}</div>
       <div className="mt-0.5 text-xs text-muted-foreground">{actual != null ? `${format(actual)} ${t("ws_of")} ${lang === "ar" ? "الهدف" : "target"}` : t("ws_actual_not_tracked")}</div>
     </div>
@@ -1414,7 +1414,7 @@ function PipelineStageBox({
         style={{ width: STAGE_BOX_W, minHeight: 52 }}
       >
         {stage.isGoal && (
-          <span className="mb-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-amber-light">
+          <span className="mb-0.5 text-[8px] font-bold tracking-[0.02em] text-amber-light">
             ★ FINAL GOAL
           </span>
         )}

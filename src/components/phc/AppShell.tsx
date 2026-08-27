@@ -420,7 +420,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Pinned records */}
         {pinned.length > 0 && (
           <div className="mb-4">
-            <div className="px-3 pb-1.5 text-2xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
+            <div className="px-3 pb-1.5 text-2xs font-semibold tracking-[0.02em] text-muted-foreground/60">
               {t("cmd_pinned")}
             </div>
             <div className="flex flex-col gap-0.5">
@@ -463,7 +463,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="mb-5 last:mb-0"
               >
                 <CollapsibleTrigger asChild>
-                  <button className="flex w-full items-center gap-1 px-3 pb-2 text-2xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/80 hover:text-muted-foreground">
+                  <button className="flex w-full items-center gap-1 px-3 pb-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground/80 hover:text-muted-foreground">
                     <span className="flex-1 text-left">{tSafe(g.key, g.fallback)}</span>
                     <ChevronDown
                       className={cn("h-3 w-3 transition-transform", adminOpen && "rotate-180")}
@@ -482,7 +482,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           return (
             <div key={g.key} className="mb-5 last:mb-0">
-              <div className="px-3 pb-2 text-2xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">
+              <div className="px-3 pb-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground/80">
                 {tSafe(g.key, g.fallback)}
               </div>
               <div className="flex flex-col gap-0.5">
@@ -503,7 +503,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="truncate text-sm font-medium text-foreground leading-tight">
               {user?.email ?? ""}
             </div>
-            <div className="mt-0.5 text-2xs uppercase tracking-[0.14em] text-muted-foreground/70">
+            <div className="mt-0.5 text-2xs tracking-[0.02em] text-muted-foreground/70">
               {topRole ? t(`role_${topRole}` as never) : "—"}
             </div>
           </div>
@@ -583,7 +583,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {/* Desktop status */}
             <div className="hidden items-center gap-3 md:flex">
               <StatusPill tone="positive">● {t("agent_status_running")}</StatusPill>
-              <span className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="text-xs tracking-[0.02em] text-muted-foreground">
                 {t("last_refreshed")}
                 <span className="ms-2 normal-case tracking-normal text-foreground/70">
                   {new Date().toLocaleTimeString(localeFor(lang),
@@ -633,7 +633,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel className="text-2xs uppercase tracking-widest text-muted-foreground">
+                  <DropdownMenuLabel className="text-2xs tracking-[0.02em] text-muted-foreground">
                     {t("nav_quick_actions")}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

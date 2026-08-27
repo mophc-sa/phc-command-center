@@ -73,7 +73,7 @@ export function KpiTile({
   const body = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</span>
         <TooltipProvider delayDuration={150}>
           <Tooltip>
             <TooltipTrigger asChild>
