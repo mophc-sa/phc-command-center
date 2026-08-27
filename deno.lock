@@ -92,6 +92,7 @@
         "npm:eslint-plugin-react-hooks@^7.1.1",
         "npm:eslint-plugin-react-refresh@~0.5.3",
         "npm:eslint@^10.8.0",
+        "npm:fonttools@^1.0.7",
         "npm:globals@^17.11.0",
         "npm:input-otp@^1.4.2",
         "npm:lucide-react@^1.33.0",

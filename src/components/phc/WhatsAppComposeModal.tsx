@@ -155,7 +155,7 @@ export function WhatsAppComposeModal({
 
         <div className="grid gap-3 py-2">
           {linked?.label ? (
-            <div className="rounded-md border border-border/70 bg-surface/60 px-3 py-2 text-[11px] text-muted-foreground">
+            <div className="rounded-md border border-border/70 bg-surface/60 px-3 py-2 text-xs text-muted-foreground">
               <span className="uppercase tracking-[0.12em]">{t("email_linked_record")}:</span>{" "}
               <span className="text-foreground">{linked.label}</span>
             </div>
@@ -172,9 +172,9 @@ export function WhatsAppComposeModal({
               placeholder="+9665XXXXXXXX"
               autoComplete="off"
             />
-            {missingHint ? <p className="text-[11px] text-amber-light">{missingHint}</p> : null}
-            {invalidHint ? <p className="text-[11px] text-amber-light">{invalidHint}</p> : null}
-            {normalizedHint ? <p className="text-[11px] text-muted-foreground">{normalizedHint}</p> : null}
+            {missingHint ? <p className="text-xs text-amber-light">{missingHint}</p> : null}
+            {invalidHint ? <p className="text-xs text-amber-light">{invalidHint}</p> : null}
+            {normalizedHint ? <p className="text-xs text-muted-foreground">{normalizedHint}</p> : null}
           </div>
 
           {templates.length > 0 ? (
@@ -205,7 +205,7 @@ export function WhatsAppComposeModal({
             />
           </div>
 
-          <p className="text-[11px] text-muted-foreground">{t("wa_phase1_disclaimer")}</p>
+          <p className="text-xs text-muted-foreground">{t("wa_phase1_disclaimer")}</p>
         </div>
 
         <DialogFooter className="gap-2">

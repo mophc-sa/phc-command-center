@@ -87,7 +87,7 @@ function Consent() {
   return (
     <main className="mx-auto grid min-h-screen max-w-md place-items-center p-8">
       <div className="w-full rounded-lg border border-border bg-surface p-6">
-        <div className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">PHC</div>
+        <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">PHC</div>
         <h1 className="mt-2 text-xl font-semibold text-foreground">Connect {clientName} to your account</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           This lets {clientName} use the PHC command center as you. Your Supabase RLS still enforces what it can see.

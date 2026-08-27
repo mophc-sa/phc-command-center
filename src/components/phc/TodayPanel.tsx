@@ -103,12 +103,12 @@ export function TodayPanel({ uid }: { uid: string }) {
     <section className="mb-6 overflow-hidden rounded-xl border border-border/70 bg-surface/60">
       <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-3.5">
         <div className="min-w-0">
-          <h2 className="text-[13px] font-semibold text-foreground">{t("ws_today_title")}</h2>
-          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{t("ws_today_desc")}</p>
+          <h2 className="text-base font-semibold text-foreground">{t("ws_today_title")}</h2>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{t("ws_today_desc")}</p>
         </div>
         <Link
           to="/action-center"
-          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/70 bg-background/40 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border/70 bg-background/40 px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           {t("ws_today_all")}
           <ArrowRight className="h-3 w-3 rtl:rotate-180" />
@@ -118,7 +118,7 @@ export function TodayPanel({ uid }: { uid: string }) {
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
           <CheckCircle2 className="h-8 w-8 text-won/40" strokeWidth={1.5} aria-hidden="true" />
-          <p className="text-[13px] font-medium text-foreground">{t("ws_today_empty")}</p>
+          <p className="text-base font-medium text-foreground">{t("ws_today_empty")}</p>
         </div>
       ) : (
         <ul>
@@ -143,9 +143,9 @@ export function TodayPanel({ uid }: { uid: string }) {
                     ) : urgency === "due_today" ? (
                       <StatusPill tone="attention">{t("ac_urgency_due_today")}</StatusPill>
                     ) : null}
-                    <span className="truncate text-[13px] font-medium text-foreground">{a.title}</span>
+                    <span className="truncate text-base font-medium text-foreground">{a.title}</span>
                   </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                     {/* Why it is here — the PRD requires every row to justify itself. */}
                     <span>{a.reason ?? humanize(a.type)}</span>
                     {a.dueAt ? (

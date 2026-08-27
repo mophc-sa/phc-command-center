@@ -268,7 +268,7 @@ function AgentActivityPage() {
                           <div className="flex flex-wrap items-center gap-2 mb-1">
                             <span
                               className={
-                                "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
+                                "rounded px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide " +
                                 (sev === "high"
                                   ? "bg-destructive/15 text-destructive"
                                   : sev === "medium"
@@ -305,7 +305,7 @@ function AgentActivityPage() {
         </Panel>
       ) : null}
 
-      <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+      <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
         {lang === "ar" ? "الفحص الدفعي (نظام أقدم)" : "Batch Scans (legacy system)"}
       </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -320,7 +320,7 @@ function AgentActivityPage() {
           (see docs/ai-orchestrator.md), shown together here so this page
           gives one honest picture of both instead of hiding this half
           behind the "AI Outputs" tab below. */}
-      <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+      <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
         {lang === "ar" ? "مخرجات الوكلاء (لكل طلب — النظام الحالي)" : "Agent Outputs (per-request — current system)"}
       </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -420,7 +420,7 @@ function AgentActivityPage() {
                       </div>
                       {r.summary ? <div className="mt-1 text-xs text-muted-foreground">{r.summary}</div> : null}
                       {(r.records_scanned != null || r.recommendations_created != null) ? (
-                        <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                        <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
                           {r.records_scanned != null ? <span className="num" data-tabular="true">{r.records_scanned} {t("aa_scanned_suffix")}</span> : null}
                           {r.recommendations_created != null ? <span className="num" data-tabular="true">{r.recommendations_created} {t("aa_recommendations_suffix")}</span> : null}
                         </div>
@@ -456,7 +456,7 @@ function AgentActivityPage() {
                       </div>
                       {o.summary ? <div className="mt-1 text-xs text-muted-foreground">{o.summary}</div> : null}
                       {o.entity_type || o.entity_id ? (
-                        <div className="mt-1 text-[11px] text-muted-foreground">
+                        <div className="mt-1 text-xs text-muted-foreground">
                           {o.entity_type} {o.entity_id ? `· ${String(o.entity_id).slice(0, 8)}…` : ""}
                           {o.client_request_id ? ` · req: ${String(o.client_request_id).slice(0, 8)}…` : ""}
                         </div>

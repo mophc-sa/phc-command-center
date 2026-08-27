@@ -58,17 +58,17 @@ export function RelationshipPanel({
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">
           {lang === "ar" ? "صانع القرار" : "Decision maker"}
         </span>
         <StatusPill tone={DM_STATE[dm].tone}>{DM_STATE[dm][lang]}</StatusPill>
         {dm === "yes" && contractorDecisionMaker ? (
-          <span className="text-[12px] text-foreground">{contractorDecisionMaker}</span>
+          <span className="text-sm text-foreground">{contractorDecisionMaker}</span>
         ) : null}
       </div>
 
       {stakeholders.length === 0 ? (
-        <p className="text-[12px] text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {lang === "ar"
             ? "لا أحد مرتبط بهذه الفرصة بعد."
             : "Nobody is linked to this opportunity yet."}
@@ -81,9 +81,9 @@ export function RelationshipPanel({
             return (
               <li key={s.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12px] text-foreground">{s.name ?? "—"}</span>
+                  <span className="block truncate text-sm text-foreground">{s.name ?? "—"}</span>
                   {s.organization ? (
-                    <span className="block truncate text-[11px] text-muted-foreground">{s.organization}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{s.organization}</span>
                   ) : null}
                 </span>
 
@@ -92,7 +92,7 @@ export function RelationshipPanel({
                     {ROLE_LABEL[role][lang]}
                   </StatusPill>
                 ) : (
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {/* The raw historical text, shown as-is. It is never
                         rewritten and never reinterpreted into a role we are not
                         confident of. */}
@@ -101,13 +101,13 @@ export function RelationshipPanel({
                 )}
 
                 {legacy ? (
-                  <span className="text-[10px] text-muted-foreground/70">
+                  <span className="text-2xs text-muted-foreground/70">
                     {lang === "ar" ? "من نص قديم" : "read from legacy text"}
                   </span>
                 ) : null}
 
                 {s.last_interaction_at ? (
-                  <span className="num text-[10px] text-muted-foreground" data-tabular="true">
+                  <span className="num text-2xs text-muted-foreground" data-tabular="true">
                     {s.last_interaction_at.slice(0, 10)}
                   </span>
                 ) : null}
@@ -116,7 +116,7 @@ export function RelationshipPanel({
                   <button
                     type="button"
                     onClick={() => onEditRole(s)}
-                    className="rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                    className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                   >
                     {lang === "ar" ? "الدور" : "Role"}
                   </button>

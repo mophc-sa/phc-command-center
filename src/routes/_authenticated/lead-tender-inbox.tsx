@@ -191,7 +191,7 @@ function LeadTenderInbox() {
         </div>
         <div className="flex rounded-md border border-border p-0.5">
           {(["active", "all"] as const).map((v) => (
-            <button key={v} onClick={() => setStatusFilter(v)} className={`rounded px-2.5 py-1 text-[11px] capitalize ${statusFilter === v ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            <button key={v} onClick={() => setStatusFilter(v)} className={`rounded px-2.5 py-1 text-xs capitalize ${statusFilter === v ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               {v}
             </button>
           ))}
@@ -243,15 +243,15 @@ function LeadTenderInbox() {
                   />
                 </div>
               </div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">{t(`src_${x.source_type}` as never)}{x.source_name ? ` · ${x.source_name}` : ""}</div>
-              {x.project_name && x.company_name ? <div className="mt-1 truncate text-[11px] text-muted-foreground">{t("label_project")}: {x.project_name}</div> : null}
-              {x.contact_name ? <div className="truncate text-[11px] text-muted-foreground">{x.contact_name}{x.phone ? ` · ${x.phone}` : ""}{x.email ? ` · ${x.email}` : ""}</div> : null}
+              <div className="mt-0.5 text-xs text-muted-foreground">{t(`src_${x.source_type}` as never)}{x.source_name ? ` · ${x.source_name}` : ""}</div>
+              {x.project_name && x.company_name ? <div className="mt-1 truncate text-xs text-muted-foreground">{t("label_project")}: {x.project_name}</div> : null}
+              {x.contact_name ? <div className="truncate text-xs text-muted-foreground">{x.contact_name}{x.phone ? ` · ${x.phone}` : ""}{x.email ? ` · ${x.email}` : ""}</div> : null}
               {x.estimated_value != null ? <div className="mt-1 text-xs text-muted-foreground num" data-tabular="true">{formatCurrency(x.estimated_value, lang, "SAR")}</div> : null}
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                 <StatusPill tone="muted">{t(`cls_${x.classification}` as never)}</StatusPill>
                 <span>{t("label_owner")}: {x.assigned_owner_id ? teamMap.get(x.assigned_owner_id) ?? "—" : "—"}</span>
               </div>
-              {x.next_action ? <div className="mt-1 text-[11px] text-muted-foreground"><span className="text-amber-light">{t("label_next_action")}:</span> {x.next_action}</div> : null}
+              {x.next_action ? <div className="mt-1 text-xs text-muted-foreground"><span className="text-amber-light">{t("label_next_action")}:</span> {x.next_action}</div> : null}
 
               {openDetail.has(x.id) ? (
                 <div className="mt-2 border-t border-border/60 pt-2.5">
@@ -261,18 +261,18 @@ function LeadTenderInbox() {
 
               {x.status === "new" || x.status === "in_review" ? (
                 <div className="mt-2 flex flex-wrap justify-end gap-1 border-t border-border/60 pt-1.5">
-                  <button onClick={() => setClassifyFor(x)} className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground">
+                  <button onClick={() => setClassifyFor(x)} className="rounded border border-border px-1.5 py-0.5 text-2xs text-muted-foreground hover:text-foreground">
                     {t("ibx_classify")}
                   </button>
                   {x.classification !== "unclassified" && x.classification !== "signal_watchlist" && x.classification !== "duplicate" && x.classification !== "incomplete" ? (
-                    <button onClick={() => openConvert(x)} className="rounded border border-won/30 bg-won/10 px-1.5 py-0.5 text-[10px] text-won hover:bg-won/20">
+                    <button onClick={() => openConvert(x)} className="rounded border border-won/30 bg-won/10 px-1.5 py-0.5 text-2xs text-won hover:bg-won/20">
                       {t("ibx_convert")}
                     </button>
                   ) : null}
-                  <button onClick={() => setMissingDataFor(x)} className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground">
+                  <button onClick={() => setMissingDataFor(x)} className="rounded border border-border px-1.5 py-0.5 text-2xs text-muted-foreground hover:text-foreground">
                     {t("ibx_send_missing_data")}
                   </button>
-                  <button onClick={() => openMarkDuplicate(x)} className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground">
+                  <button onClick={() => openMarkDuplicate(x)} className="rounded border border-border px-1.5 py-0.5 text-2xs text-muted-foreground hover:text-foreground">
                     {t("ibx_mark_duplicate")}
                   </button>
                   <button onClick={() => setArchiveFor(x)} className="rounded border border-border p-1 text-muted-foreground hover:text-foreground" aria-label={t("ibx_archive")} title={t("ibx_archive")}>

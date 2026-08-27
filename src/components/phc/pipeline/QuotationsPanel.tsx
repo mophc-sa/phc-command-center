@@ -185,7 +185,7 @@ export function QuotationsPanel() {
                       {formatCurrency(q.value, lang, q.currency)}
                     </div>
                     {q.valid_until ? (
-                      <div className="num text-[11px] text-muted-foreground" data-tabular="true">
+                      <div className="num text-xs text-muted-foreground" data-tabular="true">
                         {t("label_valid_until")}: {q.valid_until}
                       </div>
                     ) : null}

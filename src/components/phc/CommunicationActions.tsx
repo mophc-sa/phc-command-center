@@ -37,6 +37,7 @@ export function CommunicationActions({
   emailTemplate = "opportunity_follow_up",
   emailContext,
   size = "sm",
+  iconOnly = false,
 }: {
   linked: CommunicationLinked;
   recipientEmail?: string | null;
@@ -45,12 +46,23 @@ export function CommunicationActions({
   emailTemplate?: EmailTemplateKind;
   emailContext?: Partial<EmailContext>;
   size?: "xs" | "sm";
+  /**
+   * Drop the labels and keep the icons.
+   *
+   * In a table cell the three labelled buttons need about 300px; given less
+   * they wrap into a column and set the height of EVERY row — the contacts
+   * table was 126px a row for this reason, so four fitted a screen. Off by
+   * default: every existing caller keeps its labels.
+   */
+  iconOnly?: boolean;
 }) {
   const { t, lang } = useI18n();
   const [logOpen, setLogOpen] = useState(false);
   const [waOpen, setWaOpen] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
-  const sizing = size === "xs" ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-xs";
+  const sizing = iconOnly
+    ? "p-1.5"
+    : size === "xs" ? "px-2 py-1 text-2xs" : "px-3 py-1.5 text-xs";
 
   const linkedIds = {
     opportunityId: linked.opportunityId ?? (linked.type === "opportunity" ? linked.id : null),
@@ -63,11 +75,13 @@ export function CommunicationActions({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <button
+        title={t("comm_log_activity")}
+        aria-label={t("comm_log_activity")}
         type="button"
         onClick={() => setLogOpen(true)}
         className={`inline-flex items-center gap-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground font-medium ${sizing}`}
       >
-        <Phone className="h-3.5 w-3.5" /> {t("comm_log_activity")}
+        <Phone className="h-3.5 w-3.5" aria-hidden="true" /> {iconOnly ? null : t("comm_log_activity")}
       </button>
 
       <EmailComposeButton
@@ -88,20 +102,24 @@ export function CommunicationActions({
       />
 
       <button
+        title={t("wa_button")}
+        aria-label={t("wa_button")}
         type="button"
         onClick={() => setWaOpen(true)}
         className="inline-flex items-center gap-1.5 rounded-md border border-won/40 bg-won/10 text-won hover:bg-won/[0.16] font-medium px-3 py-1.5 text-xs transition-colors duration-150"
       >
-        <MessageCircle className="h-3.5 w-3.5" /> {t("wa_button")}
+        <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /> {iconOnly ? null : t("wa_button")}
       </button>
 
       {linkedIds.opportunityId ? (
         <button
+        title={t("comm_add_followup")}
+        aria-label={t("comm_add_followup")}
           type="button"
           onClick={() => setFollowUpOpen(true)}
           className={`inline-flex items-center gap-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground font-medium ${sizing}`}
         >
-          <ListPlus className="h-3.5 w-3.5" /> {t("comm_add_followup")}
+          <ListPlus className="h-3.5 w-3.5" aria-hidden="true" /> {iconOnly ? null : t("comm_add_followup")}
         </button>
       ) : null}
 

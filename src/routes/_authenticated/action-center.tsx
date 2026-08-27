@@ -228,7 +228,7 @@ function ActionCenter() {
   }
 
   const pill = (active: boolean) =>
-    `rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+    `rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
       active
         ? "border-amber/40 bg-amber/10 text-amber-light"
         : "border-border/70 bg-surface/60 text-muted-foreground hover:text-foreground"
@@ -252,7 +252,7 @@ function ActionCenter() {
                   toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
                 }
               }}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border/70 bg-surface/60 px-3.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border/70 bg-surface/60 px-3.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               <PlayCircle className="h-3.5 w-3.5" /> {t("wf_run_automations")}
             </button>
@@ -304,7 +304,7 @@ function ActionCenter() {
 
         <div className="ms-auto flex flex-wrap gap-2">
           <Select value={filters.type} onValueChange={(v) => set("type", v)}>
-            <SelectTrigger className="h-8 w-auto min-w-[9rem] border-border/70 bg-surface/60 text-[11px]">
+            <SelectTrigger className="h-8 w-auto min-w-[9rem] border-border/70 bg-surface/60 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -318,7 +318,7 @@ function ActionCenter() {
           </Select>
 
           <Select value={filters.entityType} onValueChange={(v) => set("entityType", v)}>
-            <SelectTrigger className="h-8 w-auto min-w-[8rem] border-border/70 bg-surface/60 text-[11px]">
+            <SelectTrigger className="h-8 w-auto min-w-[8rem] border-border/70 bg-surface/60 text-xs">
               <SelectValue placeholder={t("ac_filter_entity")} />
             </SelectTrigger>
             <SelectContent>
@@ -332,7 +332,7 @@ function ActionCenter() {
           </Select>
 
           <Select value={filters.priority} onValueChange={(v) => set("priority", v as ActionFilters["priority"])}>
-            <SelectTrigger className="h-8 w-auto min-w-[7rem] border-border/70 bg-surface/60 text-[11px]">
+            <SelectTrigger className="h-8 w-auto min-w-[7rem] border-border/70 bg-surface/60 text-xs">
               <SelectValue placeholder={t("ac_filter_priority")} />
             </SelectTrigger>
             <SelectContent>
@@ -347,7 +347,7 @@ function ActionCenter() {
 
           {ownerIds.length > 0 && (
             <Select value={filters.owner} onValueChange={(v) => set("owner", v)}>
-              <SelectTrigger className="h-8 w-auto min-w-[8rem] border-border/70 bg-surface/60 text-[11px]">
+              <SelectTrigger className="h-8 w-auto min-w-[8rem] border-border/70 bg-surface/60 text-xs">
                 <SelectValue placeholder={t("ac_filter_owner")} />
               </SelectTrigger>
               <SelectContent>
@@ -469,7 +469,7 @@ function ActionRow({
             ) : null}
             {a.dueAt ? (
               <span
-                className={`num inline-flex items-center gap-1 text-[11px] ${overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}
+                className={`num inline-flex items-center gap-1 text-xs ${overdue ? "font-medium text-destructive" : "text-muted-foreground"}`}
                 data-tabular="true"
               >
                 {overdue ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
@@ -478,20 +478,20 @@ function ActionRow({
             ) : null}
           </div>
 
-          <Link to={a.href as never} className="mt-1.5 block truncate text-[13px] font-medium text-foreground hover:underline">
+          <Link to={a.href as never} className="mt-1.5 block truncate text-base font-medium text-foreground hover:underline">
             {a.title}
           </Link>
 
           {/* Why this is on the list — required by PRD §2. */}
           {a.reason ? (
-            <div className="mt-1 text-[12px] text-muted-foreground">
+            <div className="mt-1 text-sm text-muted-foreground">
               <span className="text-amber-light">{t("ac_why" as never)}:</span> {a.reason}
             </div>
           ) : null}
           {a.context && a.context !== a.reason ? (
-            <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{a.context}</div>
+            <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.context}</div>
           ) : null}
-          <div className="mt-1 text-[11px] text-muted-foreground">
+          <div className="mt-1 text-xs text-muted-foreground">
             {t("ac_owner" as never)}: {ownerName ?? t("ac_unassigned" as never)}
           </div>
         </div>

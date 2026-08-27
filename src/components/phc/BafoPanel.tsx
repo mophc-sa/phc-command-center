@@ -110,12 +110,12 @@ export function BafoPanel({ opportunityId }: { opportunityId: string }) {
                         toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
                       }
                     }}
-                    className="rounded-md border border-won/30 bg-won/10 px-2.5 py-1 text-[11px] text-won hover:bg-won/20"
+                    className="rounded-md border border-won/30 bg-won/10 px-2.5 py-1 text-xs text-won hover:bg-won/20"
                   >
                     {t("bafo_mark_sent_to_client" as never)}
                   </button>
                 ) : r.sent_to_client_at ? (
-                  <span className="text-[11px] text-muted-foreground">{t("bafo_sent_to_client_at" as never)}</span>
+                  <span className="text-xs text-muted-foreground">{t("bafo_sent_to_client_at" as never)}</span>
                 ) : null}
               </div>
               <p className="mt-1.5 text-xs text-muted-foreground">{r.justification}</p>
@@ -125,7 +125,7 @@ export function BafoPanel({ opportunityId }: { opportunityId: string }) {
                   const actionable = canDecideStep(r, step);
                   return (
                     <div key={step} className="rounded-md border border-border/60 px-2.5 py-2">
-                      <div className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+                      <div className="text-2xs uppercase tracking-[0.1em] text-muted-foreground">
                         {t(`bafo_step_${step}` as never)}
                       </div>
                       <StatusPill tone={stepTone(status)}>{t(`bafo_status_${status}` as never)}</StatusPill>
@@ -133,13 +133,13 @@ export function BafoPanel({ opportunityId }: { opportunityId: string }) {
                         <div className="mt-1.5 flex gap-1.5">
                           <button
                             onClick={() => setDecideTarget({ request: r, step, decision: "approved" })}
-                            className="rounded border border-won/30 bg-won/10 px-1.5 py-0.5 text-[10px] text-won hover:bg-won/20"
+                            className="rounded border border-won/30 bg-won/10 px-1.5 py-0.5 text-2xs text-won hover:bg-won/20"
                           >
                             {t("bafo_approve" as never)}
                           </button>
                           <button
                             onClick={() => setDecideTarget({ request: r, step, decision: "rejected" })}
-                            className="rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] text-destructive/90 hover:bg-destructive/20"
+                            className="rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-2xs text-destructive/90 hover:bg-destructive/20"
                           >
                             {t("bafo_reject" as never)}
                           </button>

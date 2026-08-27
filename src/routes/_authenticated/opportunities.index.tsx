@@ -219,7 +219,7 @@ function OppList() {
           is counted in both, which is why they sit in one labelled group
           rather than reading as four slices of a whole. */}
       <section className="mb-6 rounded-lg border border-border/70 bg-surface/60 p-3">
-        <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {t("kpi_sales_project_status")}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -239,7 +239,7 @@ function OppList() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("filter_search")}
-            className="h-9 w-full rounded-md bg-transparent pe-3 ps-8 text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 w-full rounded-md bg-transparent pe-3 ps-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
         {/* The groups belong here, not only the individual stages. A KPI is
@@ -250,14 +250,14 @@ function OppList() {
             no item matching the value. Four of the eight KPI drilldowns do
             exactly that. */}
         <Select value={stage} onValueChange={setStage}>
-          <SelectTrigger className="h-9 w-full sm:w-[180px] text-[12px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-9 w-full sm:w-[180px] text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("filter_all_stages")}</SelectItem>
             <SelectSeparator />
             {/* Radix requires SelectLabel to sit inside a SelectGroup — outside
                 one it throws and takes the whole page to the error boundary. */}
             <SelectGroup>
-              <SelectLabel className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              <SelectLabel className="text-2xs uppercase tracking-[0.14em] text-muted-foreground">
                 {t("filter_group_heading" as never)}
               </SelectLabel>
               {STAGE_GROUP_FILTERS.map((g) => (
@@ -266,7 +266,7 @@ function OppList() {
             </SelectGroup>
             <SelectSeparator />
             <SelectGroup>
-              <SelectLabel className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              <SelectLabel className="text-2xs uppercase tracking-[0.14em] text-muted-foreground">
                 {t("filter_stage_heading" as never)}
               </SelectLabel>
               {CANONICAL_STAGES.map((s) => (
@@ -276,7 +276,7 @@ function OppList() {
           </SelectContent>
         </Select>
         <Select value={tier} onValueChange={setTier}>
-          <SelectTrigger className="h-9 w-full sm:w-[140px] text-[12px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-9 w-full sm:w-[140px] text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("filter_all_tiers")}</SelectItem>
             {(["A", "B", "C"] as const).map((x) => (
@@ -308,13 +308,13 @@ function OppList() {
           were already imported for exactly this and had never been rendered. */}
       {hasActiveFilters(routeSearch) && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-surface/40 px-3 py-2">
-          <span className="text-[11px] font-medium text-muted-foreground">
+          <span className="text-xs font-medium text-muted-foreground">
             {t("filter_chip_filtered_by" as never)}
           </span>
           {describeFilters(routeSearch).map((chip) => (
             <span
               key={chip.kind}
-              className="rounded-full border border-border/70 bg-background/50 px-2 py-0.5 text-[11px] text-foreground"
+              className="rounded-full border border-border/70 bg-background/50 px-2 py-0.5 text-xs text-foreground"
             >
               {chip.kind === "stage"
                 ? `${t("filter_chip_stage" as never)}: ${stageFilterLabel(chip.stage, t as (k: string) => string)}`
@@ -329,7 +329,7 @@ function OppList() {
           ))}
           <button
             onClick={clearFilters}
-            className="ms-auto text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            className="ms-auto text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
           >
             {t("empty_clear_filters")}
           </button>
@@ -354,7 +354,7 @@ function OppList() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
           <div className="overflow-x-auto">
-          <div className="min-w-[900px] grid grid-cols-[90px_130px_minmax(0,2fr)_130px_150px_110px_minmax(0,1.2fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <div className="min-w-[900px] grid grid-cols-[90px_130px_minmax(0,2fr)_130px_150px_110px_minmax(0,1.2fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-2xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <SortHeader label={lang === "ar" ? "JIH / منافسة" : "JIH / Tender"} active={sort?.key === "classification"} dir={sort?.dir} onClick={() => toggleSort("classification")} />
             <SortHeader label={lang === "ar" ? "كود المبيعات" : "Sales Code"} active={sort?.key === "sales_code"} dir={sort?.dir} onClick={() => toggleSort("sales_code")} />
             <SortHeader label={lang === "ar" ? "اسم المشروع" : "Project Name"} active={sort?.key === "project_name"} dir={sort?.dir} onClick={() => toggleSort("project_name")} />
@@ -380,14 +380,14 @@ function OppList() {
                         {rfq.classification === "jih" ? "JIH" : humanize(rfq.classification)}
                       </StatusPill>
                     ) : (
-                      <span className="text-[11px] text-muted-foreground">—</span>
+                      <span className="text-xs text-muted-foreground">—</span>
                     )}
-                    <div className="truncate text-[12px] text-foreground" data-tabular="true">{rfq?.rfq_number ?? "—"}</div>
+                    <div className="truncate text-sm text-foreground" data-tabular="true">{rfq?.rfq_number ?? "—"}</div>
                     <div className="min-w-0">
-                      <div className="truncate text-[13px] font-medium text-foreground">{o.project_name}</div>
-                      <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{o.location ?? "—"}</div>
+                      <div className="truncate text-base font-medium text-foreground">{o.project_name}</div>
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">{o.location ?? "—"}</div>
                     </div>
-                    <div className="num text-right text-[12px] font-medium text-foreground" data-tabular="true">
+                    <div className="num text-right text-sm font-medium text-foreground" data-tabular="true">
                       {formatCurrency(amount, lang, o.currency)}
                     </div>
                     {quote?.status ? (
@@ -395,12 +395,12 @@ function OppList() {
                         {humanize(quote.status)}
                       </StatusPill>
                     ) : (
-                      <span className="text-[11px] text-muted-foreground">—</span>
+                      <span className="text-xs text-muted-foreground">—</span>
                     )}
-                    <div className="truncate text-[11px] text-muted-foreground" data-tabular="true">
+                    <div className="truncate text-xs text-muted-foreground" data-tabular="true">
                       {quote?.issued_date ? new Date(quote.issued_date).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "—"}
                     </div>
-                    <div className="truncate text-[12px] text-foreground">{o.company?.name ?? o.client ?? "—"}</div>
+                    <div className="truncate text-sm text-foreground">{o.company?.name ?? o.client ?? "—"}</div>
                   </Link>
                 </li>
               );

@@ -42,7 +42,7 @@ export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEd
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-amber/25 bg-amber/[0.06] px-4 py-2.5 text-[12px] text-amber-light">
+      <div className="rounded-lg border border-amber/25 bg-amber/[0.06] px-4 py-2.5 text-sm text-amber-light">
         {lang === "ar"
           ? "بيانات ميزانية يدوية مبدئية — سيتم ربطها بقسم المالية لاحقًا."
           : "Manual, preliminary budget data — will be linked to the Finance module later."}
@@ -50,11 +50,11 @@ export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEd
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-border/70 bg-surface/60 px-4 py-3">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "المخطط" : "Planned"}</div>
+          <div className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "المخطط" : "Planned"}</div>
           <div className="num mt-1 text-lg font-semibold text-foreground">{formatCurrency(totalPlanned, lang)}</div>
         </div>
         <div className="rounded-lg border border-border/70 bg-surface/60 px-4 py-3">
-          <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "الفعلي" : "Actual"}</div>
+          <div className="text-2xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "الفعلي" : "Actual"}</div>
           <div className="num mt-1 text-lg font-semibold text-foreground">{formatCurrency(totalActual, lang)}</div>
         </div>
       </div>
@@ -78,9 +78,9 @@ export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEd
         />
       ) : (
         <div className="overflow-hidden rounded-lg border border-border/70">
-          <table className="w-full text-[12px]">
+          <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border/60 bg-surface/60 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+              <tr className="border-b border-border/60 bg-surface/60 text-2xs uppercase tracking-[0.12em] text-muted-foreground">
                 <th className="px-3 py-2 text-start">{lang === "ar" ? "البند" : "Category"}</th>
                 <th className="px-3 py-2 text-start">{lang === "ar" ? "الوصف" : "Description"}</th>
                 <th className="px-3 py-2 text-end">{lang === "ar" ? "المخطط" : "Planned"}</th>
@@ -228,14 +228,14 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
   return (
     <div className="space-y-3 rounded-lg border border-border/70 bg-surface/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+        <div className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
           {lang === "ar" ? "تحليل انحراف الميزانية (AI)" : "Budget Variance Analysis (AI)"}
         </div>
         <button
           type="button"
           onClick={handleRun}
           disabled={running}
-          className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-[11px] font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
         >
           <Sparkles className="h-3 w-3" />
           {running ? (lang === "ar" ? "جارٍ التحليل…" : "Analyzing…") : (lang === "ar" ? "تحليل الآن" : "Analyze now")}
@@ -264,7 +264,7 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
 
           {display.over_budget_categories?.length > 0 && (
             <div>
-              <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "فوق الميزانية" : "Over Budget"}</div>
+              <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "فوق الميزانية" : "Over Budget"}</div>
               <ul className="space-y-1">
                 {display.over_budget_categories.map((c: any, i: number) => (
                   <li key={i} className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs">
@@ -277,7 +277,7 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
           )}
           {display.under_budget_categories?.length > 0 && (
             <div>
-              <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "تحت الميزانية" : "Under Budget"}</div>
+              <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "تحت الميزانية" : "Under Budget"}</div>
               <ul className="space-y-1">
                 {display.under_budget_categories.map((c: any, i: number) => (
                   <li key={i} className="rounded-md border border-won/30 bg-won/10 px-2.5 py-1.5 text-xs">
@@ -290,7 +290,7 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
           )}
           {display.recommended_actions?.length > 0 && (
             <div>
-              <div className="mb-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "إجراءات موصى بها" : "Recommended Actions"}</div>
+              <div className="mb-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">{lang === "ar" ? "إجراءات موصى بها" : "Recommended Actions"}</div>
               <ul className="space-y-1">
                 {display.recommended_actions.map((a: string, i: number) => (
                   <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">{a}</li>
@@ -298,7 +298,7 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
               </ul>
             </div>
           )}
-          {display.disclaimer && <div className="text-[11px] italic text-muted-foreground">{display.disclaimer}</div>}
+          {display.disclaimer && <div className="text-xs italic text-muted-foreground">{display.disclaimer}</div>}
 
           {output && (
             <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3 text-xs">
@@ -315,7 +315,7 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
                     type="button"
                     disabled={reviewingId === output.id}
                     onClick={() => handleDecide(output, "accepted")}
-                    className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-[11px] font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+                    className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
                   >
                     {lang === "ar" ? "قبول" : "Accept"}
                   </button>
@@ -323,7 +323,7 @@ function BudgetVariancePanel({ projectId, lang }: { projectId: string; lang: "en
                     type="button"
                     disabled={reviewingId === output.id}
                     onClick={() => handleDecide(output, "rejected")}
-                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
                   >
                     {lang === "ar" ? "رفض" : "Reject"}
                   </button>

@@ -153,7 +153,7 @@ export function RfqJihPanel() {
         actions={
           <Link
             to="/lead-tender-inbox"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3.5 text-[12px] font-medium text-amber-light transition-colors hover:bg-amber/20"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3.5 text-sm font-medium text-amber-light transition-colors hover:bg-amber/20"
           >
             <Plus className="h-3.5 w-3.5" /> {t("ibx_new_item")}
           </Link>
@@ -171,10 +171,10 @@ export function RfqJihPanel() {
       <div className="mb-6 overflow-hidden rounded-xl border border-border/70 bg-surface/60">
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
           <div className="flex items-center gap-3">
-            <span className="text-[13px] font-semibold text-foreground">{t("sstage_rfq_received")}</span>
+            <span className="text-base font-semibold text-foreground">{t("sstage_rfq_received")}</span>
             <StatusPill tone="muted">{formatNumber(rfqs.length, lang)}</StatusPill>
           </div>
-          <span className="num text-[11px] text-muted-foreground" data-tabular="true">{formatCurrency(rfqValue, lang, "SAR")}</span>
+          <span className="num text-xs text-muted-foreground" data-tabular="true">{formatCurrency(rfqValue, lang, "SAR")}</span>
         </div>
         <div className="p-3">
           {rfqs.length === 0 ? (
@@ -184,16 +184,16 @@ export function RfqJihPanel() {
               {rfqs.map((r: any) => (
                 <div key={r.id} className="rounded-lg border border-border/70 bg-background/60 p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="truncate text-[13px] font-medium text-foreground">{r.rfq_number ?? "RFQ"}</span>
+                    <span className="truncate text-base font-medium text-foreground">{r.rfq_number ?? "RFQ"}</span>
                     <button
                       onClick={() => setConvertRfq(r)}
-                      className="shrink-0 rounded-md border border-won/30 bg-won/10 px-2 py-0.5 text-[10px] font-medium text-won transition-colors hover:bg-won/20"
+                      className="shrink-0 rounded-md border border-won/30 bg-won/10 px-2 py-0.5 text-2xs font-medium text-won transition-colors hover:bg-won/20"
                     >
                       {t("wf_convert_to_jih")} <ArrowRight className="ms-0.5 inline h-2.5 w-2.5" />
                     </button>
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2">
-                    <span className="num text-[11px] text-muted-foreground" data-tabular="true">
+                    <span className="num text-xs text-muted-foreground" data-tabular="true">
                       {formatCurrency(r.estimated_value, lang, "SAR")}
                     </span>
                     <div className="flex items-center gap-1">
@@ -248,27 +248,27 @@ export function RfqJihPanel() {
                 <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
                   <div className="flex items-center gap-2">
                     <StatusPill tone={stageTone(stage)}>{sstageLabel(stage)}</StatusPill>
-                    <span className="num text-[11px] text-muted-foreground" data-tabular="true">{formatNumber(items.length, lang)}</span>
+                    <span className="num text-xs text-muted-foreground" data-tabular="true">{formatNumber(items.length, lang)}</span>
                   </div>
                   {totalValue > 0 ? (
-                    <span className="num text-[10px] uppercase tracking-wider text-muted-foreground" data-tabular="true">
+                    <span className="num text-2xs uppercase tracking-wider text-muted-foreground" data-tabular="true">
                       {formatCurrency(totalValue, lang, "SAR")}
                     </span>
                   ) : null}
                 </div>
                 <div className="flex-1 space-y-2 p-3">
                   {items.length === 0 ? (
-                    <div className="rounded-md border border-dashed border-border/60 py-6 text-center text-[11px] text-muted-foreground">
+                    <div className="rounded-md border border-dashed border-border/60 py-6 text-center text-xs text-muted-foreground">
                       —
                     </div>
                   ) : (
                     items.map((o: any) => (
                       <div key={o.id} className="rounded-lg border border-border/70 bg-background/60 p-3 transition-colors hover:border-border-strong/70">
-                        <Link to="/opportunities/$id" params={{ id: o.id }} className="block truncate text-[13px] font-medium text-foreground hover:underline">
+                        <Link to="/opportunities/$id" params={{ id: o.id }} className="block truncate text-base font-medium text-foreground hover:underline">
                           {o.project_name}
                         </Link>
                         <div className="mt-1.5 flex items-center justify-between gap-2">
-                          <span className="num text-[11px] text-muted-foreground" data-tabular="true">
+                          <span className="num text-xs text-muted-foreground" data-tabular="true">
                             {formatCurrency(o.estimated_value_max, lang, o.currency)}
                           </span>
                           <div className="flex flex-wrap justify-end gap-1">
@@ -277,7 +277,7 @@ export function RfqJihPanel() {
                               <button
                                 key={ns}
                                 onClick={() => setAdvance({ opp: o, toStage: ns })}
-                                className="rounded-md border border-border/70 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-border-strong hover:bg-surface-2/50 hover:text-foreground"
+                                className="rounded-md border border-border/70 px-1.5 py-0.5 text-2xs text-muted-foreground transition-colors hover:border-border-strong hover:bg-surface-2/50 hover:text-foreground"
                               >
                                 → {sstageLabel(ns)}
                               </button>

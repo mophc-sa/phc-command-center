@@ -181,7 +181,7 @@ function ProjectsPage() {
                     </StatusPill>
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   {p.completion_pct != null ? (
                     <span className="num" data-tabular="true">{t("crm_completion")}: {p.completion_pct}%</span>
                   ) : null}

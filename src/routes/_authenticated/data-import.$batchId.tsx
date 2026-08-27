@@ -476,7 +476,7 @@ function BatchDetailPage() {
                       )}
                       {proposal.review_status !== "pending" && (
                         <span className={cn(
-                          "px-2 py-0.5 rounded text-[10px] font-medium",
+                          "px-2 py-0.5 rounded text-2xs font-medium",
                           proposal.review_status === "accepted"
                             ? "bg-won/20 text-won"
                             : "bg-muted text-muted-foreground",
@@ -486,7 +486,7 @@ function BatchDetailPage() {
                       )}
                     </div>
                   </div>
-                  <div className="text-muted-foreground font-mono text-[10px] break-all">
+                  <div className="text-muted-foreground font-mono text-2xs break-all">
                     {JSON.stringify(proposal.proposed_payload).slice(0, 200)}
                   </div>
                 </div>
@@ -547,7 +547,7 @@ function BatchDetailPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-5 px-1.5 text-[10px] text-won ml-auto"
+                          className="h-5 px-1.5 text-2xs text-won ml-auto"
                           onClick={async () => {
                             try {
                               const result = await acceptResolvedLink({
@@ -570,7 +570,7 @@ function BatchDetailPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-5 px-1.5 text-[10px] text-muted-foreground"
+                          className="h-5 px-1.5 text-2xs text-muted-foreground"
                           onClick={() => setDismissedLinkIds((prev) => new Set([...prev, i]))}
                         >
                           Dismiss
@@ -579,7 +579,7 @@ function BatchDetailPage() {
                     )}
                     {isAccepted && (
                       <span className={cn(
-                        "ml-auto px-1.5 py-0.5 rounded text-[10px] font-medium",
+                        "ml-auto px-1.5 py-0.5 rounded text-2xs font-medium",
                         acceptedStructured ? "bg-won/20 text-won" : "bg-amber/20 text-amber-light",
                       )}>
                         {acceptedStructured ? "saved" : "note only"}
@@ -664,7 +664,7 @@ function BatchDetailPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-5 px-1.5 text-[10px] text-won ms-auto"
+                            className="h-5 px-1.5 text-2xs text-won ms-auto"
                             onClick={async () => {
                               try {
                                 const { data: existingRow } = await (await import("@/integrations/supabase/client")).supabase
@@ -685,7 +685,7 @@ function BatchDetailPage() {
                             Apply
                           </Button>
                         ) : (
-                          <span className="ms-auto rounded bg-won/20 px-1.5 py-0.5 text-[10px] font-medium text-won">applied</span>
+                          <span className="ms-auto rounded bg-won/20 px-1.5 py-0.5 text-2xs font-medium text-won">applied</span>
                         )}
                       </div>
                     );
@@ -708,7 +708,7 @@ function BatchDetailPage() {
                               size="sm"
                               variant="ghost"
                               disabled={flagged}
-                              className="h-5 px-1.5 text-[10px]"
+                              className="h-5 px-1.5 text-2xs"
                               onClick={async () => {
                                 try {
                                   await (await import("@/integrations/supabase/client")).supabase
@@ -769,7 +769,7 @@ function BatchDetailPage() {
                   <div className="text-xs font-medium text-muted-foreground">Row classifications ({mappingResult.classifications.length})</div>
                   <div className="flex flex-wrap gap-1.5">
                     {mappingResult.classifications.slice(0, 20).map((c, i) => (
-                      <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-[10px]" title={c.reason}>
+                      <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-2xs" title={c.reason}>
                         {c.row_id.slice(0, 8)}… → {c.entity_type} ({Math.round(c.confidence * 100)}%)
                       </span>
                     ))}
@@ -795,7 +795,7 @@ function BatchDetailPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-5 px-1.5 text-[10px] text-won ms-auto"
+                            className="h-5 px-1.5 text-2xs text-won ms-auto"
                             onClick={async () => {
                               try {
                                 const result = await acceptResolvedLink({
@@ -817,7 +817,7 @@ function BatchDetailPage() {
                           </Button>
                         ) : (
                           <span className={cn(
-                            "ms-auto rounded px-1.5 py-0.5 text-[10px] font-medium",
+                            "ms-auto rounded px-1.5 py-0.5 text-2xs font-medium",
                             structured ? "bg-won/20 text-won" : "bg-amber/20 text-amber-light",
                           )}>
                             {structured ? "saved" : "note only"}
@@ -988,7 +988,7 @@ function BatchDetailPage() {
                   {(sheetAiOutput.sheets as Array<{ sheet_name: string; detected_entity_type: string; confidence: number; recommended_action: string; rationale: string }>).map((s) => (
                     <div key={s.sheet_name} className="flex items-center gap-2 text-xs">
                       <span className={cn(
-                        "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                        "px-1.5 py-0.5 rounded text-2xs font-medium",
                         s.recommended_action === "import" ? "bg-won/20 text-won" :
                         s.recommended_action === "skip"   ? "bg-muted text-muted-foreground" :
                                                             "bg-amber/20 text-amber-light",
@@ -1071,7 +1071,7 @@ function BatchDetailPage() {
                       <tr key={row.id} className="border-b border-border/50 hover:bg-muted/10">
                         <td className="px-3 py-1.5 text-muted-foreground">{row.row_number}</td>
                         <td className="px-3 py-1.5">
-                          <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium", rowStatusClass(row.status))}>
+                          <span className={cn("rounded px-1.5 py-0.5 text-2xs font-medium", rowStatusClass(row.status))}>
                             {row.status}
                           </span>
                         </td>
@@ -1083,7 +1083,7 @@ function BatchDetailPage() {
                   </tbody>
                 </table>
                 {rows.length > 200 && (
-                  <p className="px-3 py-2 text-[10px] text-muted-foreground">
+                  <p className="px-3 py-2 text-2xs text-muted-foreground">
                     Showing 200 of {rows.length} rows.
                   </p>
                 )}
@@ -1278,14 +1278,14 @@ function BatchDetailPage() {
                           {group.map((c) => (
                             <tr key={c.id} className="border-b border-border/50">
                               <td className="px-3 py-1.5">
-                                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", candidateActionClass(c.proposed_action))}>
+                                <span className={cn("rounded-full px-2 py-0.5 text-2xs font-medium", candidateActionClass(c.proposed_action))}>
                                   {c.proposed_action}
                                 </span>
                               </td>
                               <td className="px-3 py-1.5 text-foreground">{previewPayload(c.proposed_payload)}</td>
                               <td className="px-3 py-1.5 text-muted-foreground">{c.reason ?? "—"}</td>
                               <td className="px-3 py-1.5">
-                                <span className={cn("text-[10px]", candidateStatusClass(c.review_status))}>
+                                <span className={cn("text-2xs", candidateStatusClass(c.review_status))}>
                                   {c.review_status}
                                 </span>
                               </td>
@@ -1295,7 +1295,7 @@ function BatchDetailPage() {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      className="h-6 px-2 text-[10px]"
+                                      className="h-6 px-2 text-2xs"
                                       disabled={reviewingCandidateId === c.id}
                                       onClick={async () => {
                                         setReviewingCandidateId(c.id);
@@ -1314,7 +1314,7 @@ function BatchDetailPage() {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      className="h-6 px-2 text-[10px] text-destructive hover:text-destructive"
+                                      className="h-6 px-2 text-2xs text-destructive hover:text-destructive"
                                       disabled={reviewingCandidateId === c.id}
                                       onClick={async () => {
                                         setReviewingCandidateId(c.id);
@@ -1378,7 +1378,7 @@ function Stepper({ steps, currentIndex, failed }: { steps: Step[]; currentIndex:
           <div key={step.key} className="flex items-center flex-1 min-w-0">
             <div className="flex flex-col items-center gap-1 flex-1">
               <div className={cn(
-                "h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 shrink-0 transition-colors",
+                "h-6 w-6 rounded-full flex items-center justify-center text-2xs font-bold border-2 shrink-0 transition-colors",
                 done    && "border-won bg-won/20 text-won",
                 current && !failed && "border-won bg-won/10 text-won",
                 current && failed  && "border-destructive bg-destructive/20 text-destructive",
@@ -1393,7 +1393,7 @@ function Stepper({ steps, currentIndex, failed }: { steps: Step[]; currentIndex:
                 )}
               </div>
               <span className={cn(
-                "text-[10px] font-medium text-center leading-tight hidden sm:block",
+                "text-2xs font-medium text-center leading-tight hidden sm:block",
                 done           ? "text-won"  :
                 current && !failed ? "text-foreground" :
                                  "text-muted-foreground",
@@ -1720,7 +1720,7 @@ function ApprovalPanel({
                   />
                   <span className="flex-1">{item.label}</span>
                   {!item.manual && (
-                    <span className="text-[10px] text-muted-foreground/60 shrink-0">auto</span>
+                    <span className="text-2xs text-muted-foreground/60 shrink-0">auto</span>
                   )}
                 </label>
               );
@@ -1798,7 +1798,7 @@ function ApprovalPanel({
                 </div>
 
                 {(reviewerOutput.findings as Array<{ severity: string }>).some((f) => f.severity === "critical") && (
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-2xs text-muted-foreground">
                     Advisory only — you may still approve. Findings are for your awareness.
                   </div>
                 )}

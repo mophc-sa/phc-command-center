@@ -56,7 +56,7 @@ export function RecommendationCard({
 
       {(onAccept || onDismiss) && rec.status === "pending" ? (
         <div className="mt-4 flex items-center justify-between gap-2">
-          <span className="text-[11px] text-muted-foreground">{t("rec_disclaimer")}</span>
+          <span className="text-xs text-muted-foreground">{t("rec_disclaimer")}</span>
           <div className="flex gap-2">
             {onDismiss ? (
               <button onClick={onDismiss} className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground">
@@ -82,7 +82,7 @@ export function RecommendationCard({
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{label}</dt>
+      <dt className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 text-foreground">{value}</dd>
     </div>
   );

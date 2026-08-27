@@ -244,7 +244,7 @@ function ApprovalsPage() {
                     {a.step ? <StatusPill tone="neutral">{a.step}</StatusPill> : null}
                     <StatusPill tone="muted">{a.requiredRole}</StatusPill>
                     {a.state === "pending" && age != null ? (
-                      <span className={`num text-[11px] ${urgent ? "text-destructive/80" : "text-muted-foreground"}`} data-tabular="true">
+                      <span className={`num text-xs ${urgent ? "text-destructive/80" : "text-muted-foreground"}`} data-tabular="true">
                         {age}d waiting
                       </span>
                     ) : null}
@@ -266,9 +266,9 @@ function ApprovalsPage() {
                     )
                   ) : null}
 
-                  {a.clientContext ? <div className="mt-0.5 text-[11px] text-muted-foreground">{a.clientContext}</div> : null}
+                  {a.clientContext ? <div className="mt-0.5 text-xs text-muted-foreground">{a.clientContext}</div> : null}
                   {a.evidence ? (
-                    <div className="mt-1 text-[11px] text-muted-foreground">
+                    <div className="mt-1 text-xs text-muted-foreground">
                       <span className="text-amber-light">Evidence:</span> {a.evidence}
                     </div>
                   ) : null}

@@ -98,7 +98,7 @@ function MfaVerifyPage() {
         <img src={phcLogo.url} alt="PHC" className="h-7 w-auto object-contain brightness-0" />
         <button
           onClick={() => setLang(lang === "en" ? "ar" : "en")}
-          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           {lang === "en" ? "AR" : "EN"}
         </button>

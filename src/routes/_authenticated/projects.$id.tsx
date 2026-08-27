@@ -167,7 +167,7 @@ function ProjectDetail() {
               {p.verification_status === "verified" ? t("crm_verified") : t("crm_pending_verification")}
             </StatusPill>
             {p.project_number ? (
-              <span className="num rounded border border-border/70 px-1.5 py-0.5 text-[10px] text-muted-foreground" data-tabular="true">
+              <span className="num rounded border border-border/70 px-1.5 py-0.5 text-2xs text-muted-foreground" data-tabular="true">
                 {p.project_number}
               </span>
             ) : null}
@@ -207,7 +207,7 @@ function ProjectDetail() {
       {/* Key facts strip */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_completion")}</div>
+          <div className="text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_completion")}</div>
           <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">
             {p.completion_pct != null ? `${p.completion_pct}%` : "—"}
           </div>
@@ -218,30 +218,30 @@ function ProjectDetail() {
           ) : null}
         </div>
         <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_total_value")}</div>
+          <div className="text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_total_value")}</div>
           <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">
             {formatCurrency(p.total_value, lang, p.currency)}
           </div>
         </div>
         <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_linked_opportunities")}</div>
+          <div className="text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_linked_opportunities")}</div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="num text-lg font-semibold text-foreground" data-tabular="true">{oppCount}</span>
             {oppValue > 0 ? (
-              <span className="num text-[11px] text-muted-foreground" data-tabular="true">
+              <span className="num text-xs text-muted-foreground" data-tabular="true">
                 {formatCurrency(oppValue, lang)}
               </span>
             ) : null}
           </div>
         </div>
         <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_expected_boq")}</div>
+          <div className="text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_expected_boq")}</div>
           <div className="mt-2 num text-sm font-medium text-foreground" data-tabular="true">
             {p.expected_boq_date ?? "—"}
           </div>
         </div>
         <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_expected_signage")}</div>
+          <div className="text-2xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{t("crm_expected_signage")}</div>
           <div className="mt-2 num text-sm font-medium text-foreground" data-tabular="true">
             {p.expected_signage_date ?? "—"}
           </div>
@@ -310,7 +310,7 @@ function ProjectDetail() {
                           <span className="num text-xs text-muted-foreground" data-tabular="true">{formatCurrency(o.estimated_value_max, lang, o.currency)}</span>
                         </div>
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                         <span>{o.main_contractor?.name ?? t("crm_no_contractor")}</span>
                         <span>·</span>
                         <StatusPill

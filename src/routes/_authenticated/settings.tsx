@@ -179,7 +179,7 @@ function SecuritySection({ lang }: { lang: "en" | "ar" }) {
             {lang === "ar" ? "تغيير كلمة المرور" : "Change password"}
           </div>
           <label className="block">
-            <span className="text-[11px] font-medium text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               {lang === "ar" ? "كلمة المرور الحالية" : "Current password"}
             </span>
             <input
@@ -192,7 +192,7 @@ function SecuritySection({ lang }: { lang: "en" | "ar" }) {
             />
           </label>
           <label className="block">
-            <span className="text-[11px] font-medium text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               {lang === "ar" ? "كلمة المرور الجديدة" : "New password"}
             </span>
             <input
@@ -206,7 +206,7 @@ function SecuritySection({ lang }: { lang: "en" | "ar" }) {
             />
           </label>
           <label className="block">
-            <span className="text-[11px] font-medium text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground">
               {lang === "ar" ? "تأكيد كلمة المرور الجديدة" : "Confirm new password"}
             </span>
             <input

@@ -35,6 +35,7 @@ import { Route as AuthenticatedDiscoveryRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDataImportRouteImport } from './routes/_authenticated/data-import'
 import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticated/contacts'
 import { Route as AuthenticatedCommandCenterRouteImport } from './routes/_authenticated/command-center'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBoqRouteImport } from './routes/_authenticated/boq'
 import { Route as AuthenticatedAwardQueueRouteImport } from './routes/_authenticated/award-queue'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated/approvals'
@@ -52,6 +53,7 @@ import { Route as AuthenticatedAccountsIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects.$id'
 import { Route as AuthenticatedOpportunitiesIdRouteImport } from './routes/_authenticated/opportunities.$id'
 import { Route as AuthenticatedDataImportBatchIdRouteImport } from './routes/_authenticated/data-import.$batchId'
+import { Route as AuthenticatedContactsRepairRouteImport } from './routes/_authenticated/contacts_.repair'
 import { Route as AuthenticatedAccountsIdRouteImport } from './routes/_authenticated/accounts.$id'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -191,6 +193,11 @@ const AuthenticatedCommandCenterRoute =
     path: '/command-center',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedBoqRoute = AuthenticatedBoqRouteImport.update({
   id: '/boq',
   path: '/boq',
@@ -287,6 +294,12 @@ const AuthenticatedDataImportBatchIdRoute =
     path: '/$batchId',
     getParentRoute: () => AuthenticatedDataImportRoute,
   } as any)
+const AuthenticatedContactsRepairRoute =
+  AuthenticatedContactsRepairRouteImport.update({
+    id: '/contacts_/repair',
+    path: '/contacts/repair',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAccountsIdRoute = AuthenticatedAccountsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -322,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/award-queue': typeof AuthenticatedAwardQueueRoute
   '/boq': typeof AuthenticatedBoqRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
   '/data-import': typeof AuthenticatedDataImportRouteWithChildren
@@ -343,6 +357,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
+  '/contacts/repair': typeof AuthenticatedContactsRepairRoute
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
@@ -368,6 +383,7 @@ export interface FileRoutesByTo {
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/award-queue': typeof AuthenticatedAwardQueueRoute
   '/boq': typeof AuthenticatedBoqRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
@@ -388,6 +404,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
+  '/contacts/repair': typeof AuthenticatedContactsRepairRoute
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
@@ -416,6 +433,7 @@ export interface FileRoutesById {
   '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
   '/_authenticated/award-queue': typeof AuthenticatedAwardQueueRoute
   '/_authenticated/boq': typeof AuthenticatedBoqRoute
+  '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/command-center': typeof AuthenticatedCommandCenterRoute
   '/_authenticated/contacts': typeof AuthenticatedContactsRoute
   '/_authenticated/data-import': typeof AuthenticatedDataImportRouteWithChildren
@@ -437,6 +455,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/accounts/$id': typeof AuthenticatedAccountsIdRoute
+  '/_authenticated/contacts_/repair': typeof AuthenticatedContactsRepairRoute
   '/_authenticated/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/_authenticated/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
@@ -465,6 +484,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/award-queue'
     | '/boq'
+    | '/calendar'
     | '/command-center'
     | '/contacts'
     | '/data-import'
@@ -486,6 +506,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/accounts/$id'
+    | '/contacts/repair'
     | '/data-import/$batchId'
     | '/opportunities/$id'
     | '/projects/$id'
@@ -511,6 +532,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/award-queue'
     | '/boq'
+    | '/calendar'
     | '/command-center'
     | '/contacts'
     | '/discovery'
@@ -531,6 +553,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/accounts/$id'
+    | '/contacts/repair'
     | '/data-import/$batchId'
     | '/opportunities/$id'
     | '/projects/$id'
@@ -558,6 +581,7 @@ export interface FileRouteTypes {
     | '/_authenticated/approvals'
     | '/_authenticated/award-queue'
     | '/_authenticated/boq'
+    | '/_authenticated/calendar'
     | '/_authenticated/command-center'
     | '/_authenticated/contacts'
     | '/_authenticated/data-import'
@@ -579,6 +603,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/accounts/$id'
+    | '/_authenticated/contacts_/repair'
     | '/_authenticated/data-import/$batchId'
     | '/_authenticated/opportunities/$id'
     | '/_authenticated/projects/$id'
@@ -787,6 +812,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCommandCenterRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/calendar': {
+      id: '/_authenticated/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/boq': {
       id: '/_authenticated/boq'
       path: '/boq'
@@ -906,6 +938,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDataImportBatchIdRouteImport
       parentRoute: typeof AuthenticatedDataImportRoute
     }
+    '/_authenticated/contacts_/repair': {
+      id: '/_authenticated/contacts_/repair'
+      path: '/contacts/repair'
+      fullPath: '/contacts/repair'
+      preLoaderRoute: typeof AuthenticatedContactsRepairRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/accounts/$id': {
       id: '/_authenticated/accounts/$id'
       path: '/$id'
@@ -970,6 +1009,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
   AuthenticatedAwardQueueRoute: typeof AuthenticatedAwardQueueRoute
   AuthenticatedBoqRoute: typeof AuthenticatedBoqRoute
+  AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCommandCenterRoute: typeof AuthenticatedCommandCenterRoute
   AuthenticatedContactsRoute: typeof AuthenticatedContactsRoute
   AuthenticatedDataImportRoute: typeof AuthenticatedDataImportRouteWithChildren
@@ -988,6 +1028,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTenderConversionRoute: typeof AuthenticatedTenderConversionRoute
   AuthenticatedTendersRoute: typeof AuthenticatedTendersRoute
   AuthenticatedVendorsRoute: typeof AuthenticatedVendorsRoute
+  AuthenticatedContactsRepairRoute: typeof AuthenticatedContactsRepairRoute
   AuthenticatedOpportunitiesIdRoute: typeof AuthenticatedOpportunitiesIdRoute
   AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
   AuthenticatedOpportunitiesIndexRoute: typeof AuthenticatedOpportunitiesIndexRoute
@@ -1003,6 +1044,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedApprovalsRoute: AuthenticatedApprovalsRoute,
   AuthenticatedAwardQueueRoute: AuthenticatedAwardQueueRoute,
   AuthenticatedBoqRoute: AuthenticatedBoqRoute,
+  AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCommandCenterRoute: AuthenticatedCommandCenterRoute,
   AuthenticatedContactsRoute: AuthenticatedContactsRoute,
   AuthenticatedDataImportRoute: AuthenticatedDataImportRouteWithChildren,
@@ -1021,6 +1063,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTenderConversionRoute: AuthenticatedTenderConversionRoute,
   AuthenticatedTendersRoute: AuthenticatedTendersRoute,
   AuthenticatedVendorsRoute: AuthenticatedVendorsRoute,
+  AuthenticatedContactsRepairRoute: AuthenticatedContactsRepairRoute,
   AuthenticatedOpportunitiesIdRoute: AuthenticatedOpportunitiesIdRoute,
   AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
   AuthenticatedOpportunitiesIndexRoute: AuthenticatedOpportunitiesIndexRoute,

@@ -84,7 +84,7 @@ function AiAgentsPage() {
               <RunButton key={key} icon={<Users className="h-3.5 w-3.5" />} label={key} muted busy={busy === key} onClick={() => run(key, () => runAgent(action))} />
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground">
             Muted agents need an external source/credential and will honestly report “not configured”.
           </p>
         </Panel>

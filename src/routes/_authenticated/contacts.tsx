@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Users } from "lucide-react";
+import { Plus, Search, Users, Wrench } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useSupabaseAuth";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -13,7 +14,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { createContact, createCompany, type ContactAuthority, type ContactLocation, type ContactConfidenceLevel } from "@/lib/crm-actions";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
-import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
+import { ArchivedBadge, RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 
 export const Route = createFileRoute("/_authenticated/contacts")({
   // `?q=` lets the command palette deep-link straight to a named contact.
@@ -47,6 +48,7 @@ function confidenceTone(c: ContactConfidenceLevel | null): "positive" | "attenti
 function ContactsPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
+  const { roles } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
   const [creatingCompanyFor, setCreatingCompanyFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
   const { q: initialQuery } = Route.useSearch();
@@ -107,13 +109,26 @@ function ContactsPage() {
         eyebrow={t("nav_crm" as never) || "CRM"}
         title={t("nav_contacts")}
         actions={
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {t("crm_new_contact")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The repair screen sits beside the book it repairs. Buried in a
+                menu, nobody finds the eleven bouncing addresses until an email
+                fails. */}
+            <Link
+              to="/contacts/repair"
+              search={{} as never}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              {t("nav_contacts") === "Contacts" ? "Repair imported data" : "إصلاح بيانات الاستيراد"}
+            </Link>
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("crm_new_contact")}
+            </button>
+          </div>
         }
       />
 
@@ -177,68 +192,108 @@ function ContactsPage() {
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
-          <table className="w-full text-sm">
+          {/* `table-fixed` so one 90-character imported name cannot set the
+                width of every column. Without it the table measured 1076px
+                inside a 719px pane and scrolled sideways — the complaint that
+                started this. */}
+            <table className="w-full table-fixed text-base">
             <thead>
-              <tr className="border-b border-border/60 text-start text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                <th className="px-5 py-3 text-start font-medium">{t("ibx_contact_name" as never)}</th>
-                <th className="px-5 py-3 text-start font-medium">{t("crm_company")}</th>
-                <th className="px-5 py-3 text-start font-medium">{t("crm_title")}</th>
-                <th className="px-5 py-3 text-start font-medium">{t("crm_phone")}</th>
-                <th className="px-5 py-3 text-start font-medium">{t("crm_email")}</th>
-                <th className="px-5 py-3 text-start font-medium">{t("crm_website")}</th>
-                <th className="px-5 py-3 text-start font-medium">{t("crm_authority")}</th>
-                <th className="px-5 py-3 text-start font-medium">{t("crm_location")}</th>
-                <th className="px-5 py-3 text-end font-medium">{t("crm_confidence")}</th>
-                <th className="px-5 py-3 text-end font-medium">{t("comm_log_activity")}</th>
+              <tr className="border-b border-border/60 text-start text-2xs uppercase tracking-[0.14em] text-muted-foreground">
+                {/* Five columns, not ten. Website and confidence are empty on
+                    every row in this book and location on all but one, so they
+                    cost width and told the reader nothing; they now sit under
+                    the name where they appear only when filled. Ten columns
+                    could not fit any screen without sideways scrolling. */}
+                <th className="w-[22%] px-3 py-2 text-start font-medium">{t("ibx_contact_name" as never)}</th>
+                <th className="w-[16%] px-3 py-2 text-start font-medium">{t("crm_company")}</th>
+                <th className="w-[13%] px-3 py-2 text-start font-medium">{t("crm_phone")}</th>
+                <th className="w-[19%] px-3 py-2 text-start font-medium">{t("crm_email")}</th>
+                <th className="w-[10%] px-3 py-2 text-start font-medium">{t("crm_authority")}</th>
+                <th className="w-[20%] px-3 py-2 text-end font-medium">{t("comm_log_activity")}</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((c: any) => (
                 <tr key={c.id} className="border-b border-border/40 text-foreground last:border-0 hover:bg-surface">
-                  <td className="px-5 py-3">
+                  {/* Name carries what used to be its own columns. Title,
+                      location and website are filled on almost no row in this
+                      book, so as columns they bought width and told the reader
+                      nothing; here they appear only when there is something to
+                      show. */}
+                  <td className="px-3 py-2 align-top">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-medium">{c.name}</span>
+                      {/* Truncated, with the full value on hover. An imported
+                          name can run to ninety characters; wrapping it made
+                          rows 122px tall and only two fit a screen. */}
+                      <span className="min-w-0 truncate font-medium" title={c.name}>{c.name}</span>
                       <ArchivedBadge archived={!!c.archived_at} />
                     </div>
+                    {(c.title || (c.location && c.location !== "unknown") || c.companies?.website) ? (
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
+                        {c.title ? <span>{c.title}</span> : null}
+                        {c.location && c.location !== "unknown" ? <span>{locationLabel(c.location)}</span> : null}
+                        {c.companies?.website ? (
+                          <a
+                            href={c.companies.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="max-w-[180px] truncate hover:text-foreground"
+                          >
+                            {c.companies.website.replace(/^https?:\/\//, "")}
+                          </a>
+                        ) : null}
+                        {c.confidence_level ? (
+                          <StatusPill tone={confidenceTone(c.confidence_level)}>
+                            {confidenceLevelLabel(c.confidence_level)}
+                          </StatusPill>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </td>
-                  <td className="px-5 py-3 text-muted-foreground">{c.companies?.name ?? "—"}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{c.title ?? "—"}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{c.phone ?? "—"}</td>
-                  <td className="px-5 py-3 text-muted-foreground">
+                  <td className="px-3 py-2 align-top text-muted-foreground">
+                    <span className="block truncate" title={c.companies?.name ?? ""}>{c.companies?.name ?? "—"}</span>
+                  </td>
+                  <td className="px-3 py-2 align-top text-muted-foreground">
+                    {c.phone ? <a href={`tel:${c.phone}`} className="hover:text-foreground">{c.phone}</a> : "—"}
+                  </td>
+                  <td className="px-3 py-2 align-top text-muted-foreground">
                     {c.email
-                      ? <a href={`mailto:${c.email}`} className="hover:text-foreground transition-colors">{c.email}</a>
+                      ? <a href={`mailto:${c.email}`} className="block truncate hover:text-foreground transition-colors">{c.email}</a>
                       : "—"}
                   </td>
-                  <td className="px-5 py-3 text-muted-foreground">
-                    {c.companies?.website
-                      ? <a href={c.companies.website} target="_blank" rel="noreferrer" className="hover:text-foreground transition-colors truncate max-w-[160px] block">
-                          {c.companies.website.replace(/^https?:\/\//, "")}
-                        </a>
-                      : "—"}
-                  </td>
-                  <td className="px-5 py-3">
+                  <td className="px-3 py-2 align-top">
                     <StatusPill tone={authorityTone(c.authority)}>{authorityLabel(c.authority)}</StatusPill>
                   </td>
-                  <td className="px-5 py-3 text-muted-foreground">{locationLabel(c.location)}</td>
-                  <td className="px-5 py-3 text-end">
-                    {c.confidence_level ? <StatusPill tone={confidenceTone(c.confidence_level)}>{confidenceLevelLabel(c.confidence_level)}</StatusPill> : "—"}
-                  </td>
-                  <td className="px-5 py-3 text-end">
-                    <CommunicationActions
-                      size="xs"
-                      linked={{
-                        type: "contact",
-                        id: c.id,
-                        label: c.name,
-                        contactId: c.id,
-                        companyId: c.companies?.id ?? c.company_id ?? null,
-                      }}
-                      recipientName={c.name}
-                      recipientEmail={c.email}
-                      recipientPhone={c.phone}
-                      emailTemplate="contractor_introduction"
-                      emailContext={{ companyName: c.companies?.name ?? null }}
-                    />
+                  <td className="px-3 py-2 align-top text-end">
+                    <div className="flex flex-nowrap items-center justify-end gap-0.5">
+                      <CommunicationActions
+                        size="xs"
+                        linked={{
+                          type: "contact",
+                          id: c.id,
+                          label: c.name,
+                          contactId: c.id,
+                          companyId: c.companies?.id ?? c.company_id ?? null,
+                        }}
+                        recipientName={c.name}
+                        recipientEmail={c.email}
+                        recipientPhone={c.phone}
+                        emailTemplate="contractor_introduction"
+                        emailContext={{ companyName: c.companies?.name ?? null }}
+                        iconOnly
+                      />
+                      {/* Archive, unarchive and mark-duplicate. The machinery
+                          already supported contacts; this page was the only one
+                          of eight that never rendered the menu, so a contact
+                          could be created and never removed from view. */}
+                      <RecordLifecycleMenu
+                        entityType="contacts"
+                        entityId={c.id}
+                        roles={roles}
+                        archived={!!c.archived_at}
+                        onDone={() => qc.invalidateQueries({ queryKey: ["contacts"] })}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

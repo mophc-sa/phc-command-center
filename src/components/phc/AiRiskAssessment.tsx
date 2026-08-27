@@ -91,7 +91,7 @@ export function AiRiskAssessment({
           type="button"
           onClick={handleRun}
           disabled={running}
-          className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-[11px] font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
         >
           <Sparkles className="h-3 w-3" />
           {running ? (lang === "ar" ? "جارٍ التقييم…" : "Assessing…") : (lang === "ar" ? "تقييم المخاطر" : "Run Risk Assessment")}
@@ -125,14 +125,14 @@ export function AiRiskAssessment({
 
           {display.risk_factors?.length > 0 && (
             <div>
-              <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+              <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
                 {lang === "ar" ? "عوامل المخاطرة" : "Risk Factors"}
               </div>
               <ul className="space-y-1.5">
                 {display.risk_factors.map((factor: any, i: number) => (
                   <li key={i} className="flex flex-wrap items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs">
                     {factor.impact && (
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${IMPACT_TONE[factor.impact] ?? ""}`}>
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide ${IMPACT_TONE[factor.impact] ?? ""}`}>
                         {factor.impact}
                       </span>
                     )}
@@ -145,14 +145,14 @@ export function AiRiskAssessment({
 
           {display.mitigations?.length > 0 && (
             <div>
-              <div className="mb-2 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+              <div className="mb-2 text-xs uppercase tracking-[0.12em] text-muted-foreground">
                 {lang === "ar" ? "إجراءات التخفيف" : "Mitigations"}
               </div>
               <ul className="space-y-1.5">
                 {display.mitigations.map((m: any, i: number) => (
                   <li key={i} className="flex flex-wrap items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs">
                     {m.priority && (
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${IMPACT_TONE[m.priority] ?? ""}`}>
+                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide ${IMPACT_TONE[m.priority] ?? ""}`}>
                         {m.priority}
                       </span>
                     )}
@@ -164,7 +164,7 @@ export function AiRiskAssessment({
           )}
 
           {display.disclaimer && (
-            <div className="text-[11px] italic text-muted-foreground">{display.disclaimer}</div>
+            <div className="text-xs italic text-muted-foreground">{display.disclaimer}</div>
           )}
 
           {output && (
@@ -182,7 +182,7 @@ export function AiRiskAssessment({
                     type="button"
                     disabled={reviewingId === output.id}
                     onClick={() => handleDecide(output, "accepted")}
-                    className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-[11px] font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+                    className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
                   >
                     {lang === "ar" ? "قبول" : "Accept"}
                   </button>
@@ -190,7 +190,7 @@ export function AiRiskAssessment({
                     type="button"
                     disabled={reviewingId === output.id}
                     onClick={() => handleDecide(output, "rejected")}
-                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
                   >
                     {lang === "ar" ? "رفض" : "Reject"}
                   </button>

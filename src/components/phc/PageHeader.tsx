@@ -23,7 +23,7 @@ export function PageHeader({
     <div className={cn("mb-8 flex flex-col gap-4 md:mb-10 md:flex-row md:items-end md:justify-between", className)}>
       <div className="min-w-0">
         {eyebrow ? (
-          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+          <div className="mb-2 text-2xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
             {eyebrow}
           </div>
         ) : null}

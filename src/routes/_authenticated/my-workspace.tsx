@@ -311,19 +311,19 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         {/* Header: Hi [Name] + New RFQ */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "الصفحة الرئيسية" : "Main Page"} · {new Date().toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
+            <div className="text-xs text-muted-foreground">{lang === "ar" ? "الصفحة الرئيسية" : "Main Page"} · {new Date().toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
             <div className="text-[22px] font-bold text-foreground">{lang === "ar" ? `مرحباً، ${displayName}` : `Hi, ${displayName}`}</div>
           </div>
           <div className="flex items-center gap-2">
             <Link
               to="/lead-tender-inbox"
-              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-amber/90 px-4 text-[12px] font-semibold text-black transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-amber/90 px-4 text-sm font-semibold text-black transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <Plus className="h-3.5 w-3.5" /> {t("ibx_new_item")}
             </Link>
             <button
               onClick={() => setLogOpen(true)}
-              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border px-3.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border px-3.5 text-sm font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <Sparkles className="h-3.5 w-3.5" /> {t("ws_log_activity")}
             </button>
@@ -365,7 +365,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
               </div>
               {/* Chart legend */}
               {salesTarget > 0 && (
-                <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-won" />
                     {lang === "ar" ? "ترسيات رسمية" : "Awarded"}
@@ -411,24 +411,24 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
           {/* Summary of Leads panel */}
           <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
-            <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4">
+            <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4">
               {lang === "ar" ? "ملخص الفرص" : "Summary of Leads"}
             </div>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "إجمالي JIH" : "Total JIH"}</div>
-                  <div className="text-[11px] text-muted-foreground">{jihPipeline.length} {lang === "ar" ? "فرصة" : "opportunities"}</div>
+                  <div className="text-xs text-muted-foreground">{lang === "ar" ? "إجمالي JIH" : "Total JIH"}</div>
+                  <div className="text-xs text-muted-foreground">{jihPipeline.length} {lang === "ar" ? "فرصة" : "opportunities"}</div>
                 </div>
-                <span className="num text-[18px] font-bold text-amber-light">{formatCurrency(jihValue, lang, "SAR")}</span>
+                <span className="num text-lg font-bold text-amber-light">{formatCurrency(jihValue, lang, "SAR")}</span>
               </div>
               <div className="h-px bg-border/30" />
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "إجمالي المناقصات" : "Total Tenders"}</div>
-                  <div className="text-[11px] text-muted-foreground">{activeTenders.length} {lang === "ar" ? "مناقصة" : "tenders"}</div>
+                  <div className="text-xs text-muted-foreground">{lang === "ar" ? "إجمالي المناقصات" : "Total Tenders"}</div>
+                  <div className="text-xs text-muted-foreground">{activeTenders.length} {lang === "ar" ? "مناقصة" : "tenders"}</div>
                 </div>
-                <span className="num text-[18px] font-bold text-foreground">{formatCurrency(tenderValue, lang, "SAR")}</span>
+                <span className="num text-lg font-bold text-foreground">{formatCurrency(tenderValue, lang, "SAR")}</span>
               </div>
             </div>
           </div>
@@ -441,8 +441,8 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
           <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
             <div className="border-b border-border/40 px-4 py-3 flex items-center justify-between">
               <div>
-                <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "متابعات عاجلة" : "Urgent Follow Ups"}</div>
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-base font-semibold text-foreground">{lang === "ar" ? "متابعات عاجلة" : "Urgent Follow Ups"}</div>
+                <div className="text-xs text-muted-foreground">
                   {(urgentFUs as any[]).filter(f => (daysUntil(f.due_date) ?? 1) <= 0).length} {lang === "ar" ? "متأخرة" : "overdue"} · {(urgentFUs as any[]).length} {lang === "ar" ? "إجمالي" : "total"}
                 </div>
               </div>
@@ -451,13 +451,13 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
               <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا متابعات عاجلة" : "No urgent follow-ups"} compact /></div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border/30">
-                      <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
-                      <th className="px-4 py-2 text-right text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "القيمة" : "Amount"}</th>
-                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
-                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
+                      <th className="px-4 py-2 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
+                      <th className="px-4 py-2 text-right text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "القيمة" : "Amount"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -492,26 +492,26 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
           {/* Urgent Quotation Submissions table */}
           <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
             <div className="border-b border-border/40 px-4 py-3">
-              <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "تقديمات عروض أسعار عاجلة" : "Urgent Quotation Submissions"}</div>
-              <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "خلال 7 أيام القادمة" : "Due within 7 days"}</div>
+              <div className="text-base font-semibold text-foreground">{lang === "ar" ? "تقديمات عروض أسعار عاجلة" : "Urgent Quotation Submissions"}</div>
+              <div className="text-xs text-muted-foreground">{lang === "ar" ? "خلال 7 أيام القادمة" : "Due within 7 days"}</div>
             </div>
             {(urgentRfqs as any[]).length === 0 ? (
               <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا تقديمات عاجلة هذا الأسبوع" : "No urgent submissions this week"} compact /></div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border/30">
                       {/* Header said "رقم الطلب" in Arabic and "Project Name" in
                           English while the cell showed neither reliably — it fell
                           back to a raw UUID fragment. Split into the two columns
                           spec §16 actually asks for. */}
-                      <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "رقم الطلب" : "RFQ No."}</th>
-                      <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع / العميل" : "Project / Client"}</th>
-                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Deadline"}</th>
-                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{t("label_submission_status")}</th>
-                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{t("label_pending_on")}</th>
-                      <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الإلحاح" : "Urgency"}</th>
+                      <th className="px-4 py-2 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "رقم الطلب" : "RFQ No."}</th>
+                      <th className="px-4 py-2 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع / العميل" : "Project / Client"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Deadline"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{t("label_submission_status")}</th>
+                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{t("label_pending_on")}</th>
+                      <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الإلحاح" : "Urgency"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -560,21 +560,21 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
           <div className="rounded-xl border border-won-border bg-won-surface overflow-hidden">
             <div className="flex items-center justify-between border-b border-won-border/60 px-4 py-3">
               <div>
-                <div className="text-[13px] font-semibold text-won">{lang === "ar" ? "الترسيات الرسمية" : "Awarded Projects"}</div>
-                <div className="text-[11px] text-muted-foreground">{formatCurrency(awardedValue, lang, "SAR")}</div>
+                <div className="text-base font-semibold text-won">{lang === "ar" ? "الترسيات الرسمية" : "Awarded Projects"}</div>
+                <div className="text-xs text-muted-foreground">{formatCurrency(awardedValue, lang, "SAR")}</div>
               </div>
-              <span className="rounded-full bg-won-surface/80 px-2 py-0.5 text-[11px] num text-won">{awardedOpps.length}</span>
+              <span className="rounded-full bg-won-surface/80 px-2 py-0.5 text-xs num text-won">{awardedOpps.length}</span>
             </div>
             {(awardedOpps as any[]).length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا ترسيات هذا العام" : "No awarded contracts this year"} compact /></div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-won-border/40">
-                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                      <th className="px-3 py-2 text-right text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
-                      <th className="px-3 py-2 text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                      <th className="px-3 py-2 text-right text-2xs font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
+                      <th className="px-3 py-2 text-2xs font-medium text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -583,7 +583,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                         <td className="px-3 py-2.5">
                           <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
                         </td>
-                        <td className="px-3 py-2.5 text-right num text-[11px] text-won">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
+                        <td className="px-3 py-2.5 text-right num text-xs text-won">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
                         <td className="px-3 py-2.5"><StatusPill tone="positive">{lang === "ar" ? "رسمي" : "Won"}</StatusPill></td>
                       </tr>
                     ))}
@@ -597,21 +597,21 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
           <div className="rounded-xl border border-amber/20 bg-amber/5 overflow-hidden">
             <div className="flex items-center justify-between border-b border-amber/15 px-4 py-3">
               <div>
-                <div className="text-[13px] font-semibold text-amber-light">{lang === "ar" ? "التفاوض النهائي" : "Final Negotiation"}</div>
-                <div className="text-[11px] text-muted-foreground">{formatCurrency(contractOpps.reduce((s: number, o: any) => s + (o.contract_value ?? o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
+                <div className="text-base font-semibold text-amber-light">{lang === "ar" ? "التفاوض النهائي" : "Final Negotiation"}</div>
+                <div className="text-xs text-muted-foreground">{formatCurrency(contractOpps.reduce((s: number, o: any) => s + (o.contract_value ?? o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
               </div>
-              <span className="rounded-full bg-amber/15 px-2 py-0.5 text-[11px] num text-amber-light">{contractOpps.length}</span>
+              <span className="rounded-full bg-amber/15 px-2 py-0.5 text-xs num text-amber-light">{contractOpps.length}</span>
             </div>
             {contractOpps.length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا عقود بانتظار المراجعة" : "No contracts pending"} compact /></div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-amber/10">
-                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                      <th className="px-3 py-2 text-right text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
-                      <th className="px-3 py-2 text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المرحلة" : "Current Status"}</th>
+                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                      <th className="px-3 py-2 text-right text-2xs font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
+                      <th className="px-3 py-2 text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المرحلة" : "Current Status"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -620,7 +620,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                         <td className="px-3 py-2.5">
                           <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
                         </td>
-                        <td className="px-3 py-2.5 text-right num text-[11px]">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
+                        <td className="px-3 py-2.5 text-right num text-xs">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
                         <td className="px-3 py-2.5"><StatusPill tone="attention">{t(`sstage_${o.sales_stage}` as never)}</StatusPill></td>
                       </tr>
                     ))}
@@ -634,21 +634,21 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
           <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
             <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
               <div>
-                <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "ترسية شفهية" : "Verbally Awarded"}</div>
-                <div className="text-[11px] text-muted-foreground">{formatCurrency(verballyAwardedOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
+                <div className="text-base font-semibold text-foreground">{lang === "ar" ? "ترسية شفهية" : "Verbally Awarded"}</div>
+                <div className="text-xs text-muted-foreground">{formatCurrency(verballyAwardedOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
               </div>
-              <span className="rounded-full bg-surface-2/60 px-2 py-0.5 text-[11px] num text-foreground">{verballyAwardedOpps.length}</span>
+              <span className="rounded-full bg-surface-2/60 px-2 py-0.5 text-xs num text-foreground">{verballyAwardedOpps.length}</span>
             </div>
             {verballyAwardedOpps.length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا ترسيات شفهية" : "No verbal awards"} compact /></div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border/30">
-                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                      <th className="px-3 py-2 text-right text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
-                      <th className="px-3 py-2 text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "أيام انتظار" : "Waiting"}</th>
+                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                      <th className="px-3 py-2 text-right text-2xs font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
+                      <th className="px-3 py-2 text-2xs font-medium text-muted-foreground">{lang === "ar" ? "أيام انتظار" : "Waiting"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -659,7 +659,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                           <td className="px-3 py-2.5">
                             <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
                           </td>
-                          <td className="px-3 py-2.5 text-right num text-[11px]">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</td>
+                          <td className="px-3 py-2.5 text-right num text-xs">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</td>
                           <td className="px-3 py-2.5">
                             {waitDays !== null
                               ? <StatusPill tone={waitDays > 30 ? "danger" : waitDays > 14 ? "attention" : "neutral"}>{waitDays}{lang === "ar" ? "ي" : "d"}</StatusPill>
@@ -680,13 +680,13 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
           <Link
             to="/opportunities"
             search={{}}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/5 px-5 text-[12px] font-medium text-amber-light transition-colors hover:bg-amber/10"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/5 px-5 text-sm font-medium text-amber-light transition-colors hover:bg-amber/10"
           >
             {lang === "ar" ? "عرض كل الفرص (JIH)" : "View All JIH"} <ChevronRight className="h-3.5 w-3.5" />
           </Link>
           <Link
             to="/tenders"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-5 text-sm font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
           >
             {lang === "ar" ? "عرض كل المناقصات" : "View All Tenders"} <ChevronRight className="h-3.5 w-3.5" />
           </Link>
@@ -699,13 +699,13 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-light" />
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold text-amber-light">
+              <div className="text-base font-semibold text-amber-light">
                 {oldTenders.length} {lang === "ar" ? "مناقصة تجاوزت 90 يومًا دون مراجعة" : "tenders older than 90 days without review"}
               </div>
-              <p className="mt-0.5 text-[12px] text-amber-light/80">
+              <p className="mt-0.5 text-sm text-amber-light/80">
                 {lang === "ar" ? "يرجى تأكيد نتيجة المناقصة واتخاذ أحد الإجراءات: تحويل إلى JIH، وضع علامة خاملة، أو إغلاق." : "Confirm the main contract result and take action: convert to JIH, mark dormant, or close."}
               </p>
-              <Link to="/tenders" className="mt-2 inline-flex items-center gap-1 text-[12px] text-amber-light hover:underline">
+              <Link to="/tenders" className="mt-2 inline-flex items-center gap-1 text-sm text-amber-light hover:underline">
                 {lang === "ar" ? "مراجعة المناقصات" : "Review Tenders"} <ChevronRight className="h-3 w-3" />
               </Link>
             </div>
@@ -856,7 +856,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
       {/* Header */}
       <section className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             {lang === "ar" ? "الصفحة الرئيسية" : "Main Page"} · {new Date().toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", month: "long", day: "numeric" })}
           </div>
           <div className="text-[22px] font-bold text-foreground">
@@ -866,13 +866,13 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         <div className="flex items-center gap-2">
           <Link
             to="/lead-tender-inbox"
-            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-amber/90 px-4 text-[12px] font-semibold text-black transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md bg-amber/90 px-4 text-sm font-semibold text-black transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             <Plus className="h-3.5 w-3.5" /> {t("ibx_new_item")}
           </Link>
           <button
             onClick={() => setLogOpen(true)}
-            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border px-3.5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border px-3.5 text-sm font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
             <Sparkles className="h-3.5 w-3.5" /> {t("ws_log_activity")}
           </button>
@@ -911,7 +911,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
               )}
             </div>
             {salesTarget > 0 && (
-              <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-won" />{lang === "ar" ? "ترسيات رسمية" : "Awarded"}</span>
                 <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber" />{lang === "ar" ? "JIH في الإنجاز" : "JIH Pipeline"}</span>
                 <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-structural/60" />{lang === "ar" ? "فجوة الهدف" : "Target Gap"}</span>
@@ -930,24 +930,24 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
           <StageDashLink label={lang === "ar" ? "بنود تتطلب إجراء" : "Action Required"} count={missingDataFlags.length} to="/opportunities" tone="neutral" />
         </div>
         <div className="rounded-xl border border-border/60 bg-surface/40 p-4">
-          <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4">
+          <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground mb-4">
             {lang === "ar" ? "ملخص الفرص" : "Summary of Leads"}
           </div>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "إجمالي JIH" : "Total JIH"}</div>
-                <div className="text-[11px] text-muted-foreground">{jihOpps.length} {lang === "ar" ? "فرصة" : "opportunities"}</div>
+                <div className="text-xs text-muted-foreground">{lang === "ar" ? "إجمالي JIH" : "Total JIH"}</div>
+                <div className="text-xs text-muted-foreground">{jihOpps.length} {lang === "ar" ? "فرصة" : "opportunities"}</div>
               </div>
-              <span className="num text-[18px] font-bold text-amber-light">{formatCurrency(jihValue, lang, "SAR")}</span>
+              <span className="num text-lg font-bold text-amber-light">{formatCurrency(jihValue, lang, "SAR")}</span>
             </div>
             <div className="h-px bg-border/30" />
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "إجمالي المناقصات" : "Total Tenders"}</div>
-                <div className="text-[11px] text-muted-foreground">{myTenders.length} {lang === "ar" ? "مناقصة" : "tenders"}</div>
+                <div className="text-xs text-muted-foreground">{lang === "ar" ? "إجمالي المناقصات" : "Total Tenders"}</div>
+                <div className="text-xs text-muted-foreground">{myTenders.length} {lang === "ar" ? "مناقصة" : "tenders"}</div>
               </div>
-              <span className="num text-[18px] font-bold text-foreground">{formatCurrency(tenderValue, lang, "SAR")}</span>
+              <span className="num text-lg font-bold text-foreground">{formatCurrency(tenderValue, lang, "SAR")}</span>
             </div>
           </div>
         </div>
@@ -960,8 +960,8 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
           <div className="border-b border-border/40 px-4 py-3 flex items-center justify-between">
             <div>
-              <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "متابعات عاجلة" : "Urgent Follow Ups"}</div>
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-base font-semibold text-foreground">{lang === "ar" ? "متابعات عاجلة" : "Urgent Follow Ups"}</div>
+              <div className="text-xs text-muted-foreground">
                 {overdueFU.length} {lang === "ar" ? "متأخرة" : "overdue"} · {[...overdueFU, ...todayFU].length} {lang === "ar" ? "إجمالي" : "total"}
               </div>
             </div>
@@ -970,12 +970,12 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
             <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا متابعات عاجلة" : "No urgent follow-ups"} compact /></div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/30">
-                    <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
-                    <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
-                    <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
+                    <th className="px-4 py-2 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
+                    <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                    <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1008,19 +1008,19 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         {/* Urgent Quotations */}
         <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
           <div className="border-b border-border/40 px-4 py-3">
-            <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "عروض أسعار عاجلة" : "Urgent Quotations"}</div>
-            <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "خلال 7 أيام القادمة" : "Due within 7 days"}</div>
+            <div className="text-base font-semibold text-foreground">{lang === "ar" ? "عروض أسعار عاجلة" : "Urgent Quotations"}</div>
+            <div className="text-xs text-muted-foreground">{lang === "ar" ? "خلال 7 أيام القادمة" : "Due within 7 days"}</div>
           </div>
           {(urgentQuotations as any[]).length === 0 ? (
             <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا عروض أسعار عاجلة" : "No urgent quotations this week"} compact /></div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border/30">
-                    <th className="px-4 py-2 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                    <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Due"}</th>
-                    <th className="px-4 py-2 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                    <th className="px-4 py-2 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                    <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Due"}</th>
+                    <th className="px-4 py-2 text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1049,20 +1049,20 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
           <div className="rounded-xl border border-won-border bg-won-surface overflow-hidden">
             <div className="flex items-center justify-between border-b border-won-border/60 px-4 py-3">
               <div>
-                <div className="text-[13px] font-semibold text-won">{lang === "ar" ? "فرص الفئة A" : "Tier A Opportunities"}</div>
-                <div className="text-[11px] text-muted-foreground">{formatCurrency(tierAOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
+                <div className="text-base font-semibold text-won">{lang === "ar" ? "فرص الفئة A" : "Tier A Opportunities"}</div>
+                <div className="text-xs text-muted-foreground">{formatCurrency(tierAOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
               </div>
-              <span className="rounded-full bg-won-surface/80 px-2 py-0.5 text-[11px] num text-won">{tierAOpps.length}</span>
+              <span className="rounded-full bg-won-surface/80 px-2 py-0.5 text-xs num text-won">{tierAOpps.length}</span>
             </div>
             {tierAOpps.length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا فرص فئة A" : "No Tier A opportunities"} compact /></div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-won-border/40">
-                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                      <th className="px-3 py-2 text-right text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
+                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                      <th className="px-3 py-2 text-right text-2xs font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1071,7 +1071,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
                         <td className="px-3 py-2.5">
                           <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[140px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
                         </td>
-                        <td className="px-3 py-2.5 text-right num text-[11px] text-won">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</td>
+                        <td className="px-3 py-2.5 text-right num text-xs text-won">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1084,20 +1084,20 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
           <div className="rounded-xl border border-amber/20 bg-amber/5 overflow-hidden">
             <div className="flex items-center justify-between border-b border-amber/15 px-4 py-3">
               <div>
-                <div className="text-[13px] font-semibold text-amber-light">{lang === "ar" ? "قرارات بانتظار الموافقة" : "Pending Approvals"}</div>
-                <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "تحتاج قرارك" : "Awaiting your decision"}</div>
+                <div className="text-base font-semibold text-amber-light">{lang === "ar" ? "قرارات بانتظار الموافقة" : "Pending Approvals"}</div>
+                <div className="text-xs text-muted-foreground">{lang === "ar" ? "تحتاج قرارك" : "Awaiting your decision"}</div>
               </div>
-              <span className="rounded-full bg-amber/15 px-2 py-0.5 text-[11px] num text-amber-light">{myApprovals.length}</span>
+              <span className="rounded-full bg-amber/15 px-2 py-0.5 text-xs num text-amber-light">{myApprovals.length}</span>
             </div>
             {myApprovals.length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا قرارات معلقة" : "No pending approvals"} compact /></div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-amber/10">
-                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                      <th className="px-3 py-2 text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "النوع" : "Type"}</th>
+                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
+                      <th className="px-3 py-2 text-2xs font-medium text-muted-foreground">{lang === "ar" ? "النوع" : "Type"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1121,20 +1121,20 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
           <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
             <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
               <div>
-                <div className="text-[13px] font-semibold text-foreground">{lang === "ar" ? "بنود تتطلب إجراء" : "Action Required"}</div>
-                <div className="text-[11px] text-muted-foreground">{lang === "ar" ? "بيانات ناقصة أو مخاطر" : "Missing data or risks"}</div>
+                <div className="text-base font-semibold text-foreground">{lang === "ar" ? "بنود تتطلب إجراء" : "Action Required"}</div>
+                <div className="text-xs text-muted-foreground">{lang === "ar" ? "بيانات ناقصة أو مخاطر" : "Missing data or risks"}</div>
               </div>
-              <span className="rounded-full bg-surface-2/60 px-2 py-0.5 text-[11px] num text-foreground">{missingDataFlags.length}</span>
+              <span className="rounded-full bg-surface-2/60 px-2 py-0.5 text-xs num text-foreground">{missingDataFlags.length}</span>
             </div>
             {missingDataFlags.length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا بنود تتطلب إجراء" : "No action required"} compact /></div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border/30">
-                      <th className="px-3 py-2 text-left text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "السبب" : "Reason"}</th>
-                      <th className="px-3 py-2 text-[10px] font-medium text-muted-foreground">{lang === "ar" ? "الأولوية" : "Priority"}</th>
+                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "السبب" : "Reason"}</th>
+                      <th className="px-3 py-2 text-2xs font-medium text-muted-foreground">{lang === "ar" ? "الأولوية" : "Priority"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1153,10 +1153,10 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
 
         {/* View All buttons */}
         <div className="flex items-center justify-center gap-3 pt-1">
-          <Link to="/opportunities" search={{}} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-won-border bg-won-surface px-5 text-[12px] font-medium text-won transition-colors hover:bg-won-surface/80">
+          <Link to="/opportunities" search={{}} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-won-border bg-won-surface px-5 text-sm font-medium text-won transition-colors hover:bg-won-surface/80">
             {lang === "ar" ? "عرض كل الفرص" : "View All Opportunities"} <ChevronRight className="h-3.5 w-3.5" />
           </Link>
-          <Link to="/tenders" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-5 text-[12px] font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
+          <Link to="/tenders" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-5 text-sm font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
             {lang === "ar" ? "عرض كل المناقصات" : "View All Tenders"} <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -1289,7 +1289,7 @@ function TargetDonut({
                   gap: lang === "ar" ? "فجوة الهدف" : "Target Gap",
                 };
                 return (
-                  <div className="rounded-lg border border-border bg-surface px-3 py-2 text-[11px] shadow-elevated">
+                  <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-elevated">
                     <div className="font-medium text-foreground">{labels[(item.payload as any).key] ?? ""}</div>
                     <div className="num mt-0.5 text-muted-foreground">SAR {fmt(item.value as number)}</div>
                   </div>
@@ -1332,9 +1332,9 @@ function TargetKpiBox({ label, value, sub, tone }: { label: string; value: strin
   const valCls = tone === "positive" ? "text-won" : tone === "attention" ? "text-amber-light" : "text-foreground";
   return (
     <div className={`rounded-lg border p-4 ${cls}`}>
-      <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
+      <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
       <div className={`num mt-2 text-xl font-bold ${valCls}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>}
+      {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
     </div>
   );
 }
@@ -1347,11 +1347,11 @@ function StageToggleRow({ id, label, count, value, lang, tone, isOpen, onToggle,
     <div className={`rounded-lg border overflow-hidden ${border}`}>
       <button onClick={onToggle} className="flex w-full items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-foreground/[0.03]">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-[13px] font-semibold">{label}</span>
-          <span className="rounded-full bg-foreground/10 px-2 py-0.5 text-[11px] num">{count}</span>
+          <span className="text-base font-semibold">{label}</span>
+          <span className="rounded-full bg-foreground/10 px-2 py-0.5 text-xs num">{count}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="num text-[13px] font-medium">{formatCurrency(value, lang, "SAR")}</span>
+          <span className="num text-base font-medium">{formatCurrency(value, lang, "SAR")}</span>
           {isOpen ? <ChevronDown className="h-4 w-4 opacity-60" /> : <ChevronRight className="h-4 w-4 opacity-60" />}
         </div>
       </button>
@@ -1362,9 +1362,9 @@ function StageToggleRow({ id, label, count, value, lang, tone, isOpen, onToggle,
 
 function StageTable({ headers, children }: { headers: string[]; children: React.ReactNode }) {
   return (
-    <table className="w-full text-[12px]">
+    <table className="w-full text-sm">
       <thead>
-        <tr>{headers.map(h => <th key={h} className="pb-2 pr-4 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground last:pr-0">{h}</th>)}</tr>
+        <tr>{headers.map(h => <th key={h} className="pb-2 pr-4 text-left text-2xs font-medium uppercase tracking-[0.1em] text-muted-foreground last:pr-0">{h}</th>)}</tr>
       </thead>
       <tbody>{children}</tbody>
     </table>
@@ -1373,9 +1373,9 @@ function StageTable({ headers, children }: { headers: string[]; children: React.
 
 function TabItem({ value, icon, label, count }: { value: string; icon: React.ReactNode; label: string; count: number }) {
   return (
-    <TabsTrigger value={value} className="h-8 gap-2 rounded-md px-3 text-[12px] font-medium data-[state=active]:bg-surface-2 data-[state=active]:text-foreground data-[state=active]:shadow-none">
+    <TabsTrigger value={value} className="h-8 gap-2 rounded-md px-3 text-sm font-medium data-[state=active]:bg-surface-2 data-[state=active]:text-foreground data-[state=active]:shadow-none">
       {icon}<span>{label}</span>
-      <span className="num rounded-full bg-surface-2 px-1.5 py-0 text-[10px] text-muted-foreground" data-tabular="true">{count}</span>
+      <span className="num rounded-full bg-surface-2 px-1.5 py-0 text-2xs text-muted-foreground" data-tabular="true">{count}</span>
     </TabsTrigger>
   );
 }
@@ -1385,9 +1385,9 @@ function TargetMetric({ label, target, actual, lang, isCount = false }: { label:
   const format = (n: number) => (isCount ? formatNumber(n, lang) : formatCurrency(n, lang, "SAR"));
   return (
     <div className="rounded-lg border border-border/60 bg-surface-2/30 p-3">
-      <div className="text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{label}</div>
-      <div className="num mt-1.5 text-[18px] font-semibold text-foreground" data-tabular="true">{target != null ? format(target) : "—"}</div>
-      <div className="mt-0.5 text-[11px] text-muted-foreground">{actual != null ? `${format(actual)} ${t("ws_of")} ${lang === "ar" ? "الهدف" : "target"}` : t("ws_actual_not_tracked")}</div>
+      <div className="text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground">{label}</div>
+      <div className="num mt-1.5 text-lg font-semibold text-foreground" data-tabular="true">{target != null ? format(target) : "—"}</div>
+      <div className="mt-0.5 text-xs text-muted-foreground">{actual != null ? `${format(actual)} ${t("ws_of")} ${lang === "ar" ? "الهدف" : "target"}` : t("ws_actual_not_tracked")}</div>
     </div>
   );
 }
@@ -1418,7 +1418,7 @@ function PipelineStageBox({
             ★ FINAL GOAL
           </span>
         )}
-        <span className="text-[10px] font-semibold leading-tight">{stage.label[lang]}</span>
+        <span className="text-2xs font-semibold leading-tight">{stage.label[lang]}</span>
       </div>
       {!isLast && (
         <div
@@ -1463,11 +1463,11 @@ function StageDashLink({
   return (
     <Link
       to={to}
-      className={`flex items-center justify-between rounded-lg border px-4 py-3 text-[13px] font-medium text-foreground transition-colors ${borderCls}`}
+      className={`flex items-center justify-between rounded-lg border px-4 py-3 text-base font-medium text-foreground transition-colors ${borderCls}`}
     >
       <span>{label}</span>
       <div className="flex items-center gap-2">
-        <span className={`rounded-full px-2 py-0.5 text-[11px] num ${countCls}`}>{count}</span>
+        <span className={`rounded-full px-2 py-0.5 text-xs num ${countCls}`}>{count}</span>
         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
     </Link>
@@ -1482,8 +1482,8 @@ function List({ items, empty }: { items: ListItem[]; empty: string }) {
     <ul>{items.map(it => {
       const inner = (
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-t border-border/60 px-5 py-3 first:border-t-0">
-          <div className="min-w-0"><div className="truncate text-[13px] font-medium text-foreground">{it.primary}</div>{it.secondary ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{it.secondary}</div> : null}</div>
-          <div className="flex shrink-0 items-center gap-2">{it.label ? <StatusPill tone={(it.tone as any) ?? "muted"}>{it.label}</StatusPill> : null}{it.right ? <span className="num text-[11px] text-muted-foreground" data-tabular="true">{it.right}</span> : null}</div>
+          <div className="min-w-0"><div className="truncate text-base font-medium text-foreground">{it.primary}</div>{it.secondary ? <div className="mt-0.5 truncate text-xs text-muted-foreground">{it.secondary}</div> : null}</div>
+          <div className="flex shrink-0 items-center gap-2">{it.label ? <StatusPill tone={(it.tone as any) ?? "muted"}>{it.label}</StatusPill> : null}{it.right ? <span className="num text-xs text-muted-foreground" data-tabular="true">{it.right}</span> : null}</div>
         </div>
       );
       return <li key={it.key} className="transition-colors hover:bg-surface-2/40">{it.href ? <Link to={it.href.to} params={it.href.params} className="block">{inner}</Link> : inner}</li>;

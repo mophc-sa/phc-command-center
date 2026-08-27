@@ -64,3 +64,4 @@ test-results/
 # (npm/5173 instead of bun/8080) and it is per-developer anyway.
 .claude/launch.json
 supabase/functions/.env
+.backups/

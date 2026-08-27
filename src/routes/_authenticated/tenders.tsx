@@ -202,7 +202,7 @@ function TenderMonitor() {
           </div>
           <div className="flex rounded-md border border-border p-0.5">
             {(["board", "table"] as const).map((v) => (
-              <button key={v} onClick={() => setView(v)} className={`rounded px-2.5 py-1 text-[11px] capitalize ${view === v ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+              <button key={v} onClick={() => setView(v)} className={`rounded px-2.5 py-1 text-xs capitalize ${view === v ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                 {v}
               </button>
             ))}
@@ -255,7 +255,7 @@ function TenderMonitor() {
                           <span className="num" data-tabular="true">{formatCurrency(x.estimated_project_value, lang, "SAR")}</span>
                         </div>
                         {d != null ? (
-                          <div className={`mt-1 flex items-center gap-1 text-[11px] ${overdue ? "text-destructive/80" : urgent ? "text-amber-light" : "text-muted-foreground"}`}>
+                          <div className={`mt-1 flex items-center gap-1 text-xs ${overdue ? "text-destructive/80" : urgent ? "text-amber-light" : "text-muted-foreground"}`}>
                             {(overdue || urgent) ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
                             <span>{overdue ? `${t("urgency_overdue")} ${Math.abs(d)}d` : urgent ? `${t("urgency_due_soon")} · ${d}d` : `${d}d`}</span>
                           </div>
@@ -298,13 +298,13 @@ function TenderMonitor() {
                           {stage === "awarded_to_contractor" ? (
                             <button
                               onClick={() => setConvertReview(x)}
-                              className="rounded border border-won/30 bg-won/10 px-1.5 py-0.5 text-[10px] text-won hover:bg-won/20"
+                              className="rounded border border-won/30 bg-won/10 px-1.5 py-0.5 text-2xs text-won hover:bg-won/20"
                             >
                               {t("wf_request_conversion")}
                             </button>
                           ) : null}
                           {nextTenderStages(stage).map((ns) => (
-                            <button key={ns} onClick={() => setAdvance({ tender: x, toStage: ns })} className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground">
+                            <button key={ns} onClick={() => setAdvance({ tender: x, toStage: ns })} className="rounded border border-border px-1.5 py-0.5 text-2xs text-muted-foreground hover:text-foreground">
                               → {tstageLabel(ns)}
                             </button>
                           ))}
@@ -321,7 +321,7 @@ function TenderMonitor() {
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
           <table className="w-full text-left text-xs">
-            <thead className="border-b border-border/70 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            <thead className="border-b border-border/70 text-2xs uppercase tracking-[0.14em] text-muted-foreground">
               <tr>
                 <th className="px-4 py-2.5">Tender</th>
                 <th className="px-4 py-2.5">Contractor</th>

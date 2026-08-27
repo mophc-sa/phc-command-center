@@ -26,7 +26,7 @@ export function Panel({
     >
       <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div className="min-w-0">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             {title}
           </h3>
           {subtitle ? (

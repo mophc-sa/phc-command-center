@@ -29,7 +29,7 @@ export function DataQualityPanel({ report }: { report: DataQualityReport }) {
 
   if (report.issues.length === 0) {
     return (
-      <p className="px-4 py-6 text-center text-[12px] text-muted-foreground">
+      <p className="px-4 py-6 text-center text-sm text-muted-foreground">
         {lang === "ar" ? "لا ثغرات بيانات في الفرص النشطة." : "No data gaps on active opportunities."}
       </p>
     );
@@ -53,14 +53,14 @@ export function DataQualityPanel({ report }: { report: DataQualityReport }) {
   return (
     <div>
       <div className="border-b border-border/50 px-4 py-2.5">
-        <p className="text-[12px] text-foreground">
+        <p className="text-sm text-foreground">
           {/* A count with no denominator cannot be judged: 18 is alarming out of
               20 and unremarkable out of 900. */}
           {lang === "ar"
             ? `${formatNumber(report.affectedOpportunities, lang)} من ${formatNumber(report.totalConsidered, lang)} فرصة نشطة بها ثغرة واحدة على الأقل`
             : `${formatNumber(report.affectedOpportunities, lang)} of ${formatNumber(report.totalConsidered, lang)} active opportunities have at least one gap`}
         </p>
-        <p className="mt-0.5 text-[10px] text-muted-foreground">{t("dq_not_risk" as never)}</p>
+        <p className="mt-0.5 text-2xs text-muted-foreground">{t("dq_not_risk" as never)}</p>
       </div>
 
       {banners.map((issue) => (
@@ -70,13 +70,13 @@ export function DataQualityPanel({ report }: { report: DataQualityReport }) {
             search={{ stage: "open", missing: issue.kind } as never}
             className="group flex items-baseline justify-between gap-3"
           >
-            <span className="text-[12px] text-foreground group-hover:underline">
+            <span className="text-sm text-foreground group-hover:underline">
               {lang === "ar"
                 ? `${ISSUE_LABEL[issue.kind]?.ar ?? issue.kind} — لكل الفرص النشطة تقريبًا (${formatNumber(issue.count, lang)})`
                 : `${ISSUE_LABEL[issue.kind]?.en ?? issue.kind} — across essentially the whole book (${formatNumber(issue.count, lang)})`}
             </span>
           </Link>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">
+          <p className="mt-0.5 text-2xs text-muted-foreground">
             {lang === "ar"
               ? "غياب على مستوى الدفتر كله، لا مهمة لكل صفقة."
               : "A gap across the dataset, not a task per deal."}
@@ -94,14 +94,14 @@ export function DataQualityPanel({ report }: { report: DataQualityReport }) {
               search={{ stage: "open", missing: issue.kind } as never}
               className="flex items-baseline justify-between gap-3 px-4 py-2.5 transition-colors hover:bg-surface-2/40"
             >
-              <span className="text-[12px] text-foreground">
+              <span className="text-sm text-foreground">
                 {ISSUE_LABEL[issue.kind]?.[lang] ?? issue.kind}
               </span>
               <span className="flex shrink-0 items-baseline gap-2">
                 {issue.value > 0 ? (
-                  <span className="text-[10px] text-muted-foreground">{formatCurrency(issue.value, lang)}</span>
+                  <span className="text-2xs text-muted-foreground">{formatCurrency(issue.value, lang)}</span>
                 ) : null}
-                <span className="num text-[13px] font-semibold text-foreground" data-tabular="true">
+                <span className="num text-base font-semibold text-foreground" data-tabular="true">
                   {formatNumber(issue.count, lang)}
                 </span>
               </span>

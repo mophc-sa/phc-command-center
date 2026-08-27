@@ -73,7 +73,7 @@ export function KpiTile({
   const body = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
         <TooltipProvider delayDuration={150}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -89,7 +89,7 @@ export function KpiTile({
                 <Info className="h-3 w-3" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side={dir === "rtl" ? "left" : "right"} className="max-w-[19rem] space-y-1.5 text-[11px]">
+            <TooltipContent side={dir === "rtl" ? "left" : "right"} className="max-w-[19rem] space-y-1.5 text-xs">
               <p className="font-medium text-foreground">{kpi.formula}</p>
               <p className="text-muted-foreground">
                 <span className="text-amber-light">{lang === "ar" ? "المصدر" : "Source"}:</span> {kpi.source}
@@ -118,14 +118,14 @@ export function KpiTile({
         className={
           metricStateOf(kpi) === "ok"
             ? "num mt-1.5 text-[22px] font-semibold leading-none text-foreground"
-            : "mt-1.5 text-[15px] font-medium leading-tight text-muted-foreground"
+            : "mt-1.5 text-md font-medium leading-tight text-muted-foreground"
         }
         data-tabular={metricStateOf(kpi) === "ok" ? "true" : undefined}
       >
         {renderValue(kpi, lang)}
       </div>
 
-      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+      <div className="mt-1.5 flex items-center gap-1.5 text-2xs text-muted-foreground">
         <span>
           {lang === "ar" ? `${formatNumber(kpi.recordCount, lang)} سجل` : `${kpi.recordCount} record${kpi.recordCount === 1 ? "" : "s"}`}
         </span>
@@ -140,12 +140,12 @@ export function KpiTile({
         ) : null}
       </div>
 
-      {hint ? <div className="mt-1 text-[10px] text-muted-foreground/70">{hint}</div> : null}
+      {hint ? <div className="mt-1 text-2xs text-muted-foreground/70">{hint}</div> : null}
 
       {/* A caveat is part of the number's meaning, so it is always visible —
           not tucked into the tooltip where it can be missed. */}
       {kpi.caveat ? (
-        <div className="mt-1.5 flex items-start gap-1 text-[10px] text-amber-light">
+        <div className="mt-1.5 flex items-start gap-1 text-2xs text-amber-light">
           <AlertTriangle className="mt-px h-2.5 w-2.5 shrink-0" aria-hidden="true" />
           {/* Translated here, not in the engine: the engine knows the fact,
               this knows the language. Numbers go through formatNumber so
@@ -158,7 +158,7 @@ export function KpiTile({
           them side by side read as a broken page. This is the way out, scoped
           to the exact records that are missing the input. */}
       {kpi.fix ? (
-        <div className="mt-1.5 text-[10px] font-medium text-amber-light underline-offset-2 hover:underline">
+        <div className="mt-1.5 text-2xs font-medium text-amber-light underline-offset-2 hover:underline">
           {t(kpi.fix.labelKey as never)} →
         </div>
       ) : null}
