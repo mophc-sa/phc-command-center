@@ -781,9 +781,17 @@ Data Quality does **not** list it as missing — an unreadable record is not pro
 ### AI commentary on the Executive Brief works — and stays labelled
 It was dead from the day it shipped, twice over: the Command Center addressed the AI service
 with the wrong entity type, and once that was corrected it read response fields the service
-does not return. Both are fixed (PRs #237 and #238) and deployed. `AI INFERENCE` and
-`RECOMMENDATION` lines are visible on the brief, kept visually separate from `FACT` and
-`CALCULATED`.
+does not return. Both are fixed (PRs #237 and #238) and deployed.
+
+**How to read the brief.** It is four cards — what changed, needs attention, forecast, focus
+— and each shows **two lines**, with the rest behind a **"Show more (n)"** control at the
+foot of the card. Nothing is hidden without telling you how much: the number on the control
+is the count you have not been shown.
+
+A line with a **small amber dot** was written by AI. Everything without one is counted
+directly from the records. There is a key saying exactly that under the cards, and it appears
+only when there is a marked line to explain. Figures inside each sentence are set in bold, so
+a card can be answered at a glance and the sentence is there to explain the number.
 
 **That separation is the whole point.** The deterministic figures did not move when the
 commentary started working — SAR 63,407,478 over 49 records, identical before and after.
@@ -905,6 +913,8 @@ Listed so nobody works around a problem that no longer exists:
 | A failed sign-in showed "Invalid login credentials" in English on the Arabic UI | Fixed — every auth message is bilingual |
 | Agent Activity, AI Agents and Data Import were mostly English in Arabic mode | Fixed — the page chrome is translated (agent names and agent-written summaries stay as-is, they are data) |
 | The error toast covered the PHC logo in Arabic | Fixed — it now anchors to the side opposite the logo |
+| Small grey labels were set in wide capitals — which does nothing in Arabic except pull the letters apart | Fixed — one label treatment, sentence case, readable in both languages |
+| Deal names in Latin script were scrambled inside Arabic sentences | Fixed — the run is direction-isolated, so it reads as written |
 | Opening a protected page with an expired session threw the whole page away and rebuilt it, with a visible flash | Fixed — the guard now redirects after the page has settled instead of mid-render |
 | AI commentary on the Executive Brief always read "unavailable" | Fixed — two separate contract mismatches (PRs #237, #238); it renders, and stays labelled apart from the facts |
 | The **Pipeline Overview** tile on My Workspace pointed at `/pipeline-overview`, a route that never existed | Fixed — it opens the Command Center |
