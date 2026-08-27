@@ -228,15 +228,20 @@ describe("the summary a reviewer sees before touching anything", () => {
 });
 
 describe("a proposal that is not name-shaped is refused, not offered", () => {
-  it('refuses ".t" — punctuation debris is not a person', () => {
+  it('never names ".t" — punctuation debris is not a person', () => {
+    // The debris is still refused; what changed is that the organisation
+    // before the separator is no longer thrown away with it.
     const s = splitNameAndTitle("Radisson Collection | Procurementinfo.mansard@radissoncollection.com.t");
-    expect(s.name).toBeNull();
-    expect(s.why).toBeTruthy();
+    expect(s.name).not.toBe(".t");
+    expect(s.name).toBe("Radisson Collection");
   });
 
-  it('refuses "Purchasng" — a misspelt department is still a department', () => {
+  it('never offers "Purchasng" as a person — the organisation is the contact', () => {
+    // Behaviour improved after the separator rule was unified: this used to
+    // return nothing at all, losing "Laysen Valley" along with the typo.
     const s = splitNameAndTitle("Laysen Valley | Purchasng Dept0505309999");
-    expect(s.name).toBeNull();
+    expect(s.name).toBe("Laysen Valley");
+    expect(s.title).toMatch(/Purchasng/);
   });
 
   it("a name must start with a letter and carry at least three", () => {
@@ -350,5 +355,49 @@ describe("import splits a contact before it reaches the table", () => {
       path.join(__dirname, "../../supabase/functions/import-pipeline/index.ts"), "utf8");
     expect(pipeline).toContain('from "../_shared/contact-repair.ts"');
     expect(pipeline).toContain("normalizeContactPayload");
+  });
+});
+
+describe("organisation | department is not thrown away", () => {
+  // The row the user pointed at. The old bar rule kept only what followed the
+  // separator, so "Dur Hospitality" vanished and a department was left owning
+  // nothing.
+  it("keeps the organisation when a department follows the bar", () => {
+    const s = splitNameAndTitle("Dur Hospitality | Procurement(+966) 11 481 6666 info@dur.sa.");
+    expect(s.name).toBe("Dur Hospitality");
+    expect(s.title).toBe("Procurement");
+  });
+
+  it("treats a dash exactly like a bar — same shape, two separators", () => {
+    expect(splitNameAndTitle("Via Riyadh - Purchasing Deptcontact@viariyadh.com").name)
+      .toBe("Via Riyadh");
+    expect(splitNameAndTitle("Unified - Procurement Dept+966 11 207 5500.").name)
+      .toBe("Unified");
+  });
+
+  it("still prefers the PERSON when a person follows", () => {
+    expect(splitNameAndTitle("MAS ECC | Hesham Ali").name).toBe("Hesham Ali");
+  });
+
+  it("keeps the organisation when a glued address ate the role word", () => {
+    // "Procurementinfo.mansard@…" — the email match swallowed "Procurement",
+    // leaving ".t ." after the bar. Dropping both halves loses a real contact.
+    expect(splitNameAndTitle(
+      "Radisson Collection | Procurementinfo.mansard@radissoncollection.com.t +966 11 829 0900.",
+    ).name).toBe("Radisson Collection");
+  });
+
+  it("survives two addresses glued into one string", () => {
+    // The first strip leaves "@masecc.com" with no local part; that orphan
+    // used to trip the email-fragment guard and void the whole row.
+    expect(splitNameAndTitle("MAS ECC | Hesham Alihesham@masecc.comInfo@masecc.com").name)
+      .toBe("Hesham");
+  });
+
+  it("a stray bracket from a stripped phone does not void the name", () => {
+    // "(+966) 11 481 6666" leaves "(" behind, and one bracket was enough to
+    // fail the shape check.
+    expect(splitNameAndTitle("Dur Hospitality | Procurement(+966) 11 481 6666").name)
+      .toBe("Dur Hospitality");
   });
 });

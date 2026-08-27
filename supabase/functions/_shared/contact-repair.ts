@@ -226,14 +226,25 @@ export function repairEmail(
 function stripKnownNoise(text: string): string {
   return text
     .replace(REPLACEMENT, " ")
-    .replace(EMAIL_RE, " ")
+    // GLOBAL. Without the flag only the first address goes, and rows like
+    // "Alihesham@masecc.comInfo@masecc.com" leave a bare "@" behind — which
+    // then trips the "an email fragment remains" guard and the whole row is
+    // reported unreadable.
+    .replace(new RegExp(EMAIL_RE.source, "g"), " ")
     // Word-bounded, and the single letters must carry their colon. Without
     // that, /t|e/ matched inside ordinary words: "Bassem Kallas" became
     // "Bass m Kallas" and "Hesham" became "H sham".
     .replace(/\b(?:tel|mob|cont|contact|call|toll\s+free|fax)\b\s*[:.]?\s*/gi, " ")
     .replace(/\b[TEM]\s*:\s*/g, " ")
+    // Two addresses glued together leave the second one's domain with no
+    // local part once the first is removed: "…comInfo@masecc.com" → "@masecc.com".
+    // A bare "@domain" is debris, and leaving it trips the email-fragment guard.
+    .replace(/(^|\s)@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, " ")
     .replace(/ext\s*[:.]?\s*\d+/gi, " ")
     .replace(/\+?\d[\d\s()\-]{6,}\d/g, " ")
+    // "(+966) 11 481 6666" leaves its opening bracket behind, and a stray "("
+    // is enough to make an otherwise perfect name fail the shape check.
+    .replace(/[()\[\]]/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -265,9 +276,42 @@ export function splitNameAndTitle(rawName: string): {
   const cleaned = stripKnownNoise(rawName);
   if (cleaned === "") return { name: null, title: null, why: "nothing left after removing contacts" };
 
-  // A leading "Company | " or "Company - " prefix: the person follows the bar.
-  const bar = cleaned.match(/^(.{2,40}?)\s*[|]\s*(.+)$/);
-  const body = bar ? bar[2].trim() : cleaned;
+  // "Organisation | Department" and "Organisation - Department" are the same
+  // shape wearing two separators, and most rows in this book are that shape
+  // rather than "Company | Person".
+  //
+  // Which side is the record's name depends on what FOLLOWS the separator:
+  //
+  //   "Dur Hospitality | Procurement…"  → the department is not a person, so
+  //                                       the organisation is the contact.
+  //   "MAS ECC | Hesham Ali"            → a person follows, and the person is
+  //                                       the contact.
+  //
+  // Taking the tail unconditionally — which is what the bar rule used to do —
+  // threw away "Dur Hospitality" and left a department with no owner.
+  const sep = cleaned.match(/^(.{2,40}?)\s*(?:\||\s-\s)\s*(.+)$/);
+  let body = cleaned;
+  if (sep) {
+    const head = sep[1].replace(/[,|\-\s]+$/, "").trim();
+    const tail = sep[2].trim();
+
+    // Does a PERSON follow the separator? Only if the tail carries no role
+    // word at all — "Hesham Ali" does, "Purchasng Dept" and "Procurement…"
+    // do not.
+    const tailHasRole = ROLE_WORDS.some((w) => tail.toLowerCase().includes(w.slice(0, 6)));
+    // The tail can also be debris rather than a person: a glued address can
+    // swallow the very role word that would have identified it, leaving
+    // "Radisson Collection | .t .". The organisation before the separator is
+    // still the record — dropping both halves would lose a real contact.
+    if (!tailHasRole && isNameShaped(tail.replace(/[,.\s]+$/, ""))) {
+      body = tail;
+    } else if (isNameShaped(head)) {
+      // A department follows, so the organisation before the separator is the
+      // contact. Losing it — which the old bar rule did — left a department
+      // belonging to nobody.
+      return { name: head, title: tidyTitle(tail), why: null };
+    }
+  }
 
   // "Ahmad Ismail,Property Management Director" — the comma IS the boundary,
   // and it is a stronger signal than any word list. Only trusted when what
