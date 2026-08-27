@@ -52,14 +52,16 @@ jobs:
       # Nitro/wrangler stamp the built Worker's compatibility_date to "today"
       # when unset. wrangler's local dev runtime (used below to serve the app
       # for these smoke tests) ships a workerd binary that only supports
-      # compatibility dates up to its own release date, so as soon as a new
-      # calendar day starts, "today" can outrun whatever wrangler version CI
-      # just resolved and the local server refuses to start. Pin to a fixed,
-      # known-good past date instead — this only affects this local smoke-test
-      # server, not the production Cloudflare deploy (which uploads to
-      # Cloudflare's edge and doesn't run a local workerd runtime). Bump this
-      # occasionally; it doesn't need to track "today".
-      COMPATIBILITY_DATE: "2026-06-01"
+      # compatibility dates up to its own release date, so a FLOATING "today"
+      # eventually outruns whatever wrangler version CI resolved and the local
+      # server refuses to start. A pinned date cannot outrun anything, which is
+      # what actually removes the hazard — the value was never the problem.
+      #
+      # This used to be 2026-06-01 while the production deploy pinned nothing,
+      # so CI smoke-tested one runtime and production shipped another. Both now
+      # sit on the date production was already running, verified by starting
+      # `wrangler@4 dev` against a build stamped with it. Bump both together.
+      COMPATIBILITY_DATE: "2026-08-26"
       TEST_APP_URL: ${{ secrets.TEST_APP_URL }}
       TEST_SYSTEM_ADMIN_EMAIL: ${{ secrets.TEST_SYSTEM_ADMIN_EMAIL }}
       TEST_SYSTEM_ADMIN_PASSWORD: ${{ secrets.TEST_SYSTEM_ADMIN_PASSWORD }}
