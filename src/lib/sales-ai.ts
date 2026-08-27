@@ -149,10 +149,20 @@ const FORBIDDEN_PATTERNS: Array<{ action: ForbiddenAction; re: RegExp }> = [
  * after the `l`, so neither is a token occurrence. No substring matching, no
  * fuzziness — an exact token, bounded.
  *
+ * The optional trailing `s` closes the same defect one layer out. `\b` treats
+ * `s` as a word character too, so `/\bsend_email\b/` fails on "send_emails" for
+ * exactly the reason `/\bsend\b/` failed on "send_email". Measured before this
+ * was added: **all 14 canonical actions leaked in the plural** — one letter
+ * disabled the entire guard. A plural is the same instruction about more than
+ * one record, and must be refused the same way.
+ *
+ * It does not widen the match any further than that: "send_emailing" still has
+ * a word character where the boundary must be, so it is still not a token.
+ *
  * Case-insensitive, because SEND_EMAIL is the same instruction shouted.
  */
 const FORBIDDEN_TOKEN_PATTERNS: ReadonlyArray<{ action: ForbiddenAction; re: RegExp }> =
-  AI_FORBIDDEN_ACTIONS.map((action) => ({ action, re: new RegExp(`\\b${action}\\b`, "i") }));
+  AI_FORBIDDEN_ACTIONS.map((action) => ({ action, re: new RegExp(`\\b${action}s?\\b`, "i") }));
 
 export function checkRecommendation(r: AiRecommendation): RecommendationCheck {
   const haystack = `${r.text} ${r.proposedAction}`;

@@ -26,6 +26,16 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: TypeScript check
         run: bun run typecheck
+      # `bun run lint` existed in package.json and nothing ever ran it. PR #241
+      # merged with five lint errors on a green tick, in a file that same PR
+      # introduced, because no job here looked. A check nobody runs is not a
+      # check — it is a false assurance, which is worse than no check at all.
+      #
+      # Errors fail the build; the 121 existing warnings do not, so this starts
+      # holding the line today instead of waiting on a cleanup that may never
+      # be scheduled.
+      - name: Lint
+        run: bun run lint
       - name: Supabase Edge Function check
         run: deno check --import-map supabase/functions/import_map.json supabase/functions/sales-os-api/index.ts supabase/functions/ai-orchestrator/index.ts
       # Deno's default discovery only finds *_test.ts / *.test.ts, and this

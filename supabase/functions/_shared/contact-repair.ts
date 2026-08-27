@@ -102,7 +102,7 @@ function evidenceTokens(row: ContactRow): string[] {
   // prefix is usually the company, and the company is in the address.
   // "saudi-icon.com" proves "Icon"; "mrtc.com.sa" proves "MRTC".
   const domains = [...raw.matchAll(/@([A-Za-z0-9.-]+)\.[A-Za-z]{2,}/g)]
-    .flatMap((m) => m[1].split(/[.\-]/));
+    .flatMap((m) => m[1].split(/[.-]/));
 
   const words = [...withoutDomains.split(/[^A-Za-z]+/), ...domains];
 
@@ -241,10 +241,10 @@ function stripKnownNoise(text: string): string {
     // A bare "@domain" is debris, and leaving it trips the email-fragment guard.
     .replace(/(^|\s)@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, " ")
     .replace(/ext\s*[:.]?\s*\d+/gi, " ")
-    .replace(/\+?\d[\d\s()\-]{6,}\d/g, " ")
+    .replace(/\+?\d[\d\s()-]{6,}\d/g, " ")
     // "(+966) 11 481 6666" leaves its opening bracket behind, and a stray "("
     // is enough to make an otherwise perfect name fail the shape check.
-    .replace(/[()\[\]]/g, " ")
+    .replace(/[()[\]]/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -397,7 +397,7 @@ export function splitNameAndTitle(rawName: string): {
  */
 export function tidyTitle(v: string): string | null {
   const out = v
-    .replace(/\s*[:.,;|\-]+\s*$/g, "")
+    .replace(/\s*[:.,;|-]+\s*$/g, "")
     .replace(/\s+[A-Z]\s*:\s*/g, " ")
     .replace(/\s*:\s*$/g, "")
     // "…EngineerE:" leaves an orphaned label letter glued to the last word.
@@ -444,7 +444,7 @@ export function repairContact(row: ContactRow): ContactRepair {
 
   // ---- phone: only when the column is empty; the importer got 24 of these right ----
   if (!row.phone) {
-    const found = name.replace(EMAIL_RE, " ").match(/\+?\d[\d\s()\-]{6,}\d/)?.[0];
+    const found = name.replace(EMAIL_RE, " ").match(/\+?\d[\d\s()-]{6,}\d/)?.[0];
     if (found) {
       const value = found.replace(/[^\d+]/g, "");
       proposed.phone = value;
