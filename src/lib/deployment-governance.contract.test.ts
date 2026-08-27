@@ -195,3 +195,34 @@ describe("CI still runs on main, so merging is verified even though it is not sh
     expect(on).toMatch(/branches: \[main\]/);
   });
 });
+
+// ---- The deployed Worker's runtime must not float ---------------------------
+
+describe("compatibility_date is pinned, and CI tests what production ships", () => {
+  const deploy = readFileSync(join(root, ".github/workflows/deploy-cloudflare.yml"), "utf8");
+  const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
+  const dateOf = (yml: string) => yml.match(/COMPATIBILITY_DATE:\s*"([0-9]{4}-[0-9]{2}-[0-9]{2})"/)?.[1] ?? null;
+
+  it("the production deploy pins a compatibility date", () => {
+    // Unset, Nitro stamps the BUILD DATE. Two deploys of identical code on
+    // different days then produce Workers with different runtime semantics —
+    // an uncontrolled variable in something meant to be reproducible.
+    expect(dateOf(deploy)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("CI pins one too", () => {
+    expect(dateOf(ci)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("and they are the SAME date", () => {
+    // Otherwise the smoke tests exercise a runtime production does not use,
+    // which is a gate that does not test what ships. They drifted exactly that
+    // way until 2026-08-26: CI on 2026-06-01, production on "today".
+    expect([dateOf(deploy), dateOf(ci)]).toEqual([dateOf(ci), dateOf(ci)]);
+  });
+
+  it("the pinned date is not in the future — Cloudflare rejects those", () => {
+    const d = dateOf(deploy)!;
+    expect(d <= new Date().toISOString().slice(0, 10)).toBe(true);
+  });
+});
