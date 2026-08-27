@@ -485,6 +485,7 @@ Old tenders are not allowed to sit active forever.
 | **My Workspace** `/my-workspace` | Your personal command centre. Opens with **What needs you today** — one ranked list of your highest-priority work drawn from every queue. Below it, the dashboard your role already had: target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups and submissions. **A salesperson's home base.** |
 | **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
 | **Approvals** `/approvals` | One decision desk for all three approval workflows: **intake review**, the **BAFO chain** (showing which of the four steps is waiting and on which role), and record approvals — verbal award, contract, won, deletion, sure-win. |
+| **Calendar** `/calendar` | Everything that carries a date, on one month grid: follow-ups due, RFQ response deadlines, and next actions on open deals. Each day shows a dot per item — red for overdue, amber for today — and opens a panel listing them. **New follow-up** creates one through the same path the rest of the app uses, so it also appears in Action Required and Follow-ups; there is no second task list to reconcile. Undated work does not appear at all: the calendar arranges dates, it never invents one. Closed deals and completed follow-ups drop off rather than sitting greyed out, so nothing on the grid is safe to skim past. |
 | **Notifications** (bell) | Opens the drawer, not a page. Shows **what happened**: unread count on the bell, mark-one/mark-all read, dismiss, and a deep link to the record. Distinct from actions — see Section 7b. |
 
 ### 7a. What counts as a sale
@@ -565,7 +566,8 @@ of something else, an action inside a record, or they belong to a section not bu
 | Page | Use it for |
 |---|---|
 | **Accounts** `/accounts` | Companies. Each account page shows contacts, active opportunities, pipeline, and a **relationship-health AI panel**. You can start a **New Opportunity** straight from an account — no need to go through Intake for an existing client. |
-| **Contacts** `/contacts` | People, with authority level, confidence, and communication history. |
+| **Contacts** `/contacts` | People, with authority level, confidence, and communication history. Six columns that fit one screen — no sideways scrolling — with call, email and WhatsApp as icons on every row; anything longer is on the row you open. Each row also carries the standard lifecycle menu, so a contact can be **deleted** through the same approval-backed path as any other record. |
+| **Repair contacts** `/contacts/repair` | Only useful if an import damaged your contacts. Proposes a corrected name, title, phone and email for each broken row and shows you the reason for every change. Nothing is written until you press Save, and rows it cannot read confidently are left for you rather than guessed at. See Section 10. |
 
 ### Production — الإنتاج
 
@@ -728,12 +730,15 @@ These are guardrails, not suggestions. They will stop you.
 
 Verified against production on **2026-08-06**. Read this before trusting a number on screen.
 
-### The system is still nearly empty
-Production holds **2 opportunities, 6 RFQs, 0 tenders, 0 quotations**. Company, project and
-contact data *is* loaded (152 / 36 / 31), and the import tooling works — 18 batches and 1,675
-rows have run through it. But the historical **quotation masterlist has not been migrated
-yet**, so every dashboard is giving an accurate picture of almost no data. This is the single
-biggest thing standing between the system and being useful.
+### What is actually in production
+Verified live on **2026-08-27**: the book holds **49 opportunities**, and the Executive Brief
+computes **SAR 63,407,478** across them. This section used to say "2 opportunities, 6 RFQs" —
+that stopped being true weeks ago, and a limitations list that overstates how empty the system
+is teaches people to distrust figures that are in fact sound.
+
+What is genuinely still missing is the historical **quotation masterlist**, which has never
+been migrated. Every dashboard is accurate over the data that is loaded; none of them can show
+years the database does not hold.
 
 ### The target gauge reads zero
 There is no annual target row, no current-month target, and no awarded opportunity. Target,
@@ -766,12 +771,18 @@ stakeholder holding the role, or the decision-maker name on the opportunity, cou
 nobody has recorded a role we can read, the panel says **"cannot tell from the record"** and
 Data Quality does **not** list it as missing — an unreadable record is not proof of absence.
 
-### AI commentary on the Executive Brief is unavailable
-The brief itself is complete and correct — every line is a count the system computed, not
-something an AI wrote. Only the optional commentary layer is missing, and it says so. The
-Command Center addresses the AI service with the wrong entity type, so every request is
-refused; PR #237 corrects it and it ships with the next frontend deploy. **No number on
-the page is affected.**
+### AI commentary on the Executive Brief works — and stays labelled
+It was dead from the day it shipped, twice over: the Command Center addressed the AI service
+with the wrong entity type, and once that was corrected it read response fields the service
+does not return. Both are fixed (PRs #237 and #238) and deployed. `AI INFERENCE` and
+`RECOMMENDATION` lines are visible on the brief, kept visually separate from `FACT` and
+`CALCULATED`.
+
+**That separation is the whole point.** The deterministic figures did not move when the
+commentary started working — SAR 63,407,478 over 49 records, identical before and after.
+Commentary is appended to the facts; it never stands in for one.
+
+One rough edge remains: the commentary text is **English even when the interface is Arabic**.
 
 ### Reminders now fire on their own
 The engine runs **nightly at 07:00 AST**. You no longer have to remember to press anything —
@@ -784,6 +795,22 @@ follow-up and you get a fresh flag, because that is genuinely a new situation.
 
 Still not implemented as rules: submission-deadline countdown reminders (7/5/3/1/0 days)
 and the 90-day tender review. Both are calculated for display but never raised as queue items.
+
+### Contact records carry damage from an early import
+An early import wrote a person's name, job title, phone number and email into the single
+`name` column — which is why the Contacts page showed rows whose other columns were empty
+while one column held `Dur Hospitality | Procurement(+966) 11 481 6666 info@dur.sa.`
+
+Of 33 contacts, **26 are now clean**, and **11 email addresses that had been bouncing** were
+repaired — several were unusable because import junk had been glued onto the address itself.
+**Ten names remain too long or too ambiguous for any rule to split safely.** They are listed
+at `/contacts/repair` for a person to confirm. The tool proposes; it never decides.
+
+The cause is fixed at the source: the import pipeline now separates these fields before the
+row is ever written, and records what it moved. **That protection reaches production only
+when the `import-pipeline` Edge Function is redeployed** — until then it exists in the
+repository, not in the running system, and a new import would reproduce the damage. See the
+footer for its current state.
 
 ### Files on a record (not yet live)
 Opportunities and projects gain a **Files** section. Upload a BOQ, a drawing, a
@@ -837,15 +864,16 @@ They are not broken, just incomplete — a manager can attach them if they still
 `RFQ-2026-0001` also carries a deadline in the year 275760, from before date validation
 existed. It is invisible to every deadline queue until someone sets the real date.
 
-### The Opportunity Review gate is built but not yet live in production
-Phase 2's review gate needs a database migration that **has not been applied to
-production yet**. Until it is, the system still behaves the old way: saving a request
-converts it immediately, with no review step. Everything described in Step 2 above is
-in the code and tested, and starts working the moment the migration is approved.
+### The Opportunity Review gate is live
+Phase 2's review gate is applied to production — migration
+`20260818090000_phase_2_intake_review_gate`, confirmed present in the remote history on
+**2026-08-27** (148 local migrations, 148 in production, none pending). Saving a request sends
+it for review exactly as Step 2 describes. **The old immediate-conversion behaviour in Step 2b
+no longer applies**; read Step 2, not Step 2b.
 
 ### Known gaps against the target design
 Not yet built: a separate opportunity *condition* field (Dormant / Cancelled), separate
-technical and commercial proposal statuses, per-stage win probability, a submission calendar,
+technical and commercial proposal statuses, per-stage win probability,
 a dedicated Lost/Cancelled page, and most executive charts (funnel,
 pipeline composition, monthly award trend, aging, top opportunities).
 
@@ -870,6 +898,11 @@ Listed so nobody works around a problem that no longer exists:
 | A failed sign-in showed "Invalid login credentials" in English on the Arabic UI | Fixed — every auth message is bilingual |
 | Agent Activity, AI Agents and Data Import were mostly English in Arabic mode | Fixed — the page chrome is translated (agent names and agent-written summaries stay as-is, they are data) |
 | The error toast covered the PHC logo in Arabic | Fixed — it now anchors to the side opposite the logo |
+| AI commentary on the Executive Brief always read "unavailable" | Fixed — two separate contract mismatches (PRs #237, #238); it renders, and stays labelled apart from the facts |
+| The **Pipeline Overview** tile on My Workspace pointed at `/pipeline-overview`, a route that never existed | Fixed — it opens the Command Center |
+| Dashboard totals silently stopped at the first 200 opportunities | Fixed — reads run to completion, and a ceiling that is hit warns *above* the figures |
+| The Contacts table scrolled sideways and most of its columns looked empty | Fixed — six columns that fit one screen; the rest is on the row you open |
+| A contact could not be deleted | Fixed — deletion uses the same approval-backed lifecycle menu as every other record |
 | Inbox, Opportunities and Quotations each showed the other two as tabs | Fixed — the duplicated strip is gone; each page is one thing |
 | My Workspace and the management dashboards could disagree about a deal's stage | Fixed — every view now resolves the same canonical stage |
 | A System Administrator could approve all four BAFO steps alone | Fixed — each step needs its own business role, enforced in the database |
@@ -902,32 +935,33 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-26, branch `main` @ `538e53b` (deployed).
-Behaviour verified against source and the test suite (1782 passing), plus a database behaviour suite run against a throwaway Postgres with all 106 migrations applied (38/38 checks, covering notification fan-out, deduplication, RLS recipient isolation, and the overdue automation).
-
-Of the four fixes added to the table above on 2026-08-25, three are drilldown behaviour and land with Phase 5, which is still unshipped — those were never visible in production. The fourth is not: the **Pipeline Overview** tile has pointed at a route that does not exist since PR #68, so that tile has been dead on My Workspace for every user since that release.
+*Reflects the system as at 2026-08-27, branch `main` @ `abd9bba`.
+Behaviour verified against source and the test suite (2242 passing), plus a database behaviour suite run against a throwaway Postgres with every migration applied.
 
 **Phase 4 is live** — the notifications migration was applied on 2026-08-20 and the frontend deployed at `6ce2a37`.
 
-**Phase 6 (Files / Photos / Location) is not yet live.** The Files section, the document registry and the site-coordinate fields are on a branch; the migrations are not applied to production.
-
 **Attachment access isolation is live** — applied and deployed on 2026-08-21 at `ad41ccf` (PR #196).
 
-**The 2026-08-25 client feedback is live.** Merged as PR #233 and deployed to production at
-`b8ce310`. No migration was involved — every change is frontend, reading columns that already
-exist.
+**The 2026-08-25 client feedback is live** — PR #233, deployed at `b8ce310`.
 
-**Phase 5.1 is live.** Merged as PR #235 and deployed to production on 2026-08-26 at
-`538e53b`: the shared decision-maker rule, uncapped dashboard reads with a visible warning
-when a ceiling is hit, the tile ⓘ separated from the drill-down, Sales Execution, Data
-Quality and the deterministic Executive Brief. All five of its migrations are applied —
-148 local = 148 in production.
+**Phase 5.1 is live.** Merged as PR #235 and deployed on 2026-08-26 at `538e53b`: the shared
+decision-maker rule, uncapped dashboard reads with a visible warning when a ceiling is hit, the
+tile ⓘ separated from the drill-down, Sales Execution, Data Quality, and the deterministic
+Executive Brief. Its AI commentary was repaired separately (PRs #237 and #238) and is deployed
+too. All 148 migrations are applied — 148 local = 148 in production, none pending.
 
-One part of it is **not** working yet, and you will see it: the **AI commentary** on the
-Executive Brief always reports "AI commentary unavailable". The facts in the brief are
-unaffected and are not AI-generated — they are counts the system computed. The cause is a
-mismatch in how the Command Center addresses the AI service, fixed in PR #237 and waiting
-on the next frontend deploy.
+**Phase 6 (Files / Photos / Location) is not yet live.** The Files section, the document
+registry and the site-coordinate fields are on a branch; their migrations are not applied.
 
-**Phase 5 is not yet live.** The canonical KPI engine, drilldown, timeline, entry presets and AI discipline layer are code-only and ship with the next deploy. The NO BOQ / NO PROJECT NUMBER rule exists only as a local migration and is **not** applied to production — see Section 10.
+**The CRM and interface work of 2026-08-27 is merged but not yet deployed.** PR #241 at
+`abd9bba` carries the Calendar page, the rebuilt Contacts table with deletion, the
+`/contacts/repair` screen, the Lama Sans type scale, and one shared colour vocabulary for
+alerts and cards. No migration is involved. Two separate deploys are still owed, and they do
+different jobs:
+
+1. **the frontend** — without it, none of the above is visible to anyone; and
+2. **the `import-pipeline` Edge Function** — without it, the import-time field separation
+   protects the repository and not the running system, and the next import would recreate
+   exactly the contact damage described in Section 10.
+
 Update this file when the workflow changes.*
