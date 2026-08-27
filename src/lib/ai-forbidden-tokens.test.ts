@@ -73,6 +73,17 @@ describe("every canonical forbidden token is refused, in every position", () => 
         expect([s.replace(/\n/g, "\\n"), refused(s)]).toEqual([s.replace(/\n/g, "\\n"), true]);
       });
 
+      // Measured before the trailing `s` was allowed: ALL 14 actions leaked in
+      // the plural. `\b` counts `s` as a word character, so `\bsend_email\b`
+      // failed on "send_emails" for precisely the reason `\bsend\b` had failed
+      // on "send_email" — the same defect, one layer out. A plural is the same
+      // instruction about more than one record.
+      it("in the plural — one letter used to disable the whole guard", () => {
+        const s = `${action}s to every client`;
+        expect([s, refused(s)]).toEqual([s, true]);
+        expect(violated(s)).toBe(action);
+      });
+
       it("in upper case — the same instruction, shouted", () => {
         const s = action.toUpperCase();
         expect([s, refused(s)]).toEqual([s, true]);
@@ -92,7 +103,7 @@ describe("only ACTUAL tokens are refused — no substring matching", () => {
   const allowed = [
     "Resend_email was already handled by the team",
     "send_emailing is not a real action",
-    "Review the change_owners spreadsheet column",
+    "Review the ownership_change spreadsheet column",
     "Ask procurement about the boq_reference number",
     "Call the client to confirm the timeline",
     "The BLVD deal is worth SAR 14,402,511",
@@ -110,6 +121,25 @@ describe("only ACTUAL tokens are refused — no substring matching", () => {
     expect(refused("xsend_email")).toBe(false);
     expect(refused("send_emailx")).toBe(false);
     expect(refused("send_email")).toBe(true);
+  });
+
+  // A deliberate trade, recorded so nobody "fixes" it back.
+  //
+  // `change_owners` used to sit in the allowed list above, on the reasoning
+  // that a plural is a different word — which is how a spreadsheet column of
+  // that name would read. Allowing it also meant `send_emails to every client`
+  // sailed through the guard, and that is not a column name, it is the
+  // forbidden instruction applied to more records.
+  //
+  // We take the over-match. The module's rule decides it: a refused
+  // recommendation costs a suggestion; an accepted one costs a governance
+  // boundary. The cost here is that prose about a literal `*_owners` column is
+  // refused, and a refusal is visible and arguable. A missed plural is neither.
+  it("a plural is refused even when it could read as a noun", () => {
+    expect(refused("Review the change_owners spreadsheet column")).toBe(true);
+    expect(refused("send_emails to every client on the list")).toBe(true);
+    // The gerund is still not the token — no boundary where one is required.
+    expect(refused("send_emailing is not a real action")).toBe(false);
   });
 });
 
