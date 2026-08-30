@@ -6,13 +6,13 @@
 2026-08-27
 
 ## Current Branch / Last Commit
-`main` @ `3dd0621` — **مدموج ومنشور ومُتحقَّق منه حيًّا.**
+`main` @ `96c71c3` — **مدموج ومنشور ومُتحقَّق منه حيًّا.**
 
 ## منشور ومُثبَت على الإنتاج
 
 | ماذا | الدليل |
 |---|---|
-| الواجهة عند `3dd0621` | تشغيل نشر ناجح · `/calendar` و`/contacts/repair` تستجيبان 200 · `/nonexistent` تردّ 404 |
+| الواجهة عند `96c71c3` | تشغيل نشر ناجح · `/calendar` و`/contacts/repair` تستجيبان 200 · `/nonexistent` تردّ 404 |
 | خط Lama Sans | `getComputedStyle(body).fontFamily` يبدأ بـ`"Lama Sans"` · 7 أوجه مسجّلة · `document.fonts.status = loaded` |
 | محرّك التقويم | `cal_follow_up` موجود في حزمة الدخول المنشورة |
 | حارس الجمع | `RegExp(\`\\b${e}s?\\b\`,\`i\`)` موجود حرفيًا في `command-center-BjnAMopH.js` على الإنتاج |

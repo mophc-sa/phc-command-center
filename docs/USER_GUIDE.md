@@ -953,8 +953,8 @@ Listed so nobody works around a problem that no longer exists:
 
 ---
 
-*Reflects the system as at 2026-08-27, branch `main` @ `3dd0621` (deployed).
-Behaviour verified against source and the test suite (2271 passing), plus a database behaviour suite run against a throwaway Postgres with every migration applied.
+*Reflects the system as at 2026-08-27, branch `main` @ `96c71c3` (deployed).
+Behaviour verified against source and the test suite (2297 passing), plus a database behaviour suite run against a throwaway Postgres with every migration applied.
 
 **Phase 4 is live** — the notifications migration was applied on 2026-08-20 and the frontend deployed at `6ce2a37`.
 
