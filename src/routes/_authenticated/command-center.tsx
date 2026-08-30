@@ -33,6 +33,8 @@ import {
   forecastVsTarget,
   pipelineHealth,
   thisMonth,
+  opportunityValue,
+  sumOpportunityValue,
   type ManagementBucketKey,
   type OppRow,
 } from "@/lib/sales-kpis";
@@ -269,16 +271,15 @@ function CommandCenter() {
     const s = canonicalOf(o);
     return s !== null && (CANONICAL_ACTIVE_STAGES as readonly string[]).includes(s);
   });
-  const openPipelineValue = openOpps.reduce(
-    (s, o) => s + (o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0),
-    0,
-  );
+  // Mine, from the composition work — and a fifth formula the moment I wrote
+  // it. The engine's rule, like everywhere else.
+  const openPipelineValue = sumOpportunityValue(openOpps as never).total;
 
   const today = new Date().toISOString().slice(0, 10);
   const overdue = followUps.filter((f: any) => f.status === "overdue" || (f.due_date && f.due_date < today));
   const overdueValue = overdue.reduce((s: number, f: any) => {
     const o = opps.find((x) => x.id === f.opportunity_id);
-    return s + (o?.quotation_value ?? o?.estimated_value_max ?? o?.estimated_value_min ?? 0);
+    return s + (o ? (opportunityValue(o as never) ?? 0) : 0);
   }, 0);
 
   const newlyQualified = opps.filter((o) => canonicalOf(o) === "jih").length;
@@ -313,7 +314,7 @@ function CommandCenter() {
   const unvaluedOpenCount = useMemo(
     () =>
       openOpps.filter(
-        (o) => (o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? null) === null,
+        (o) => opportunityValue(o as never) === null,
       ).length,
     [openOpps],
   );

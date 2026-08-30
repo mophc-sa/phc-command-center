@@ -16,7 +16,9 @@ import { useI18n, formatCurrency, localeFor } from "@/lib/i18n";
 import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiTile } from "@/components/phc/KpiTile";
-import { commercialBookKpis, type ClassifiedRow } from "@/lib/sales-kpis";
+import { commercialBookKpis, type ClassifiedRow ,
+  opportunityValue
+} from "@/lib/sales-kpis";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -129,7 +131,7 @@ function OppList() {
         case "classification": return rfq?.classification ?? "";
         case "sales_code": return rfq?.rfq_number ?? "";
         case "project_name": return o.project_name ?? "";
-        case "amount": return quote?.value ?? o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? 0;
+        case "amount": return quote?.value ?? opportunityValue(o as never) ?? o.estimated_value_min ?? 0;
         case "quotation_status": return quote?.status ?? "";
         case "submission_date": return quote?.issued_date ?? "";
         case "client_company": return o.company?.name ?? o.client ?? "";
@@ -367,7 +369,7 @@ function OppList() {
             {filtered.map((o: any) => {
               const rfq = latestRfq(o);
               const quote = latestQuotation(o);
-              const amount = quote?.value ?? o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min;
+              const amount = quote?.value ?? opportunityValue(o as never) ?? o.estimated_value_min;
               return (
                 <li key={o.id} className="transition-colors hover:bg-surface-2/40">
                   <Link

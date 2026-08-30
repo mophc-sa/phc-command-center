@@ -10,6 +10,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { AWARD_QUEUE_STAGES } from "@/lib/dashboard-helpers";
+import { sumOpportunityValue, opportunityValue } from "@/lib/sales-kpis";
 
 export const Route = createFileRoute("/_authenticated/award-queue")({
   head: () => ({ meta: [{ title: "Award & Contract Queue — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -60,9 +61,9 @@ function AwardQueue() {
   const contractSigned = useMemo(() => opps.filter((o: any) => o.sales_stage === "contract_signed"), [opps]);
   const wonAwaiting = useMemo(() => opps.filter((o: any) => o.sales_stage === "won" && o.handover_status !== "handed_over"), [opps]);
   const overdue = useMemo(() => verbalNoContract.filter((o: any) => o.expected_contract_date && o.expected_contract_date < today), [verbalNoContract, today]);
-  const highValue = useMemo(() => opps.filter((o: any) => (o.contract_value ?? o.estimated_value_max ?? 0) >= HIGH_VALUE_THRESHOLD), [opps]);
+  const highValue = useMemo(() => opps.filter((o: any) => (opportunityValue(o) ?? 0) >= HIGH_VALUE_THRESHOLD), [opps]);
 
-  const totalValue = useMemo(() => opps.reduce((s: number, o: any) => s + (o.contract_value ?? o.estimated_value_max ?? 0), 0), [opps]);
+  const totalValue = useMemo(() => sumOpportunityValue(opps as never).total, [opps]);
 
   const rows = useMemo(() => {
     if (tab === "verbal") return verbalNoContract;
@@ -138,7 +139,7 @@ function AwardQueue() {
                     <td className="px-4 py-2.5 text-muted-foreground">{o.client ?? "—"}</td>
                     <td className="px-4 py-2.5"><StatusPill tone={toneForStage(o.sales_stage)}>{o.sales_stage.replaceAll("_", " ")}</StatusPill></td>
                     <td className="px-4 py-2.5 text-muted-foreground">{o.handover_status ? o.handover_status.replaceAll("_", " ") : "—"}</td>
-                    <td className="px-4 py-2.5 text-right text-foreground num" data-tabular="true">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency)}</td>
+                    <td className="px-4 py-2.5 text-right text-foreground num" data-tabular="true">{formatCurrency(opportunityValue(o as never), lang, o.currency)}</td>
                     <td className={`px-4 py-2.5 text-right num ${isOverdue ? "text-destructive/80" : "text-muted-foreground"}`} data-tabular="true">
                       {tis == null ? "—" : `${tis}d`}
                     </td>

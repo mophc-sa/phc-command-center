@@ -32,6 +32,7 @@ import {
   pipelineHealth,
   type HealthFinding,
   type KpiContext,
+  opportunityValue,
   type OppRow,
 } from "@/lib/sales-kpis";
 import { buildTimeline, type TimelineEvent, type TimelineSources } from "@/lib/opportunity-timeline";
@@ -150,7 +151,7 @@ export function teamWorkload(input: {
           (a) => a.priority === "A" && (a.status === "open" || a.status === "in_progress" || a.status === "blocked"),
         ).length,
         highValueOpportunities: mine.filter((o) => {
-          const v = Number(o.contract_value ?? o.quotation_value ?? o.estimated_value_max ?? 0);
+          const v = opportunityValue(o as never) ?? 0;
           return Number.isFinite(v) && v >= highValue;
         }).length,
         drilldown: { to: "/opportunities", search: { owner: userId, stage: "open" } },

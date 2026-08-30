@@ -52,6 +52,8 @@
 // absent, and only for the two states where it is authoritative (won/lost).
 // Anything else is an inference, and is reported as one.
 
+import { opportunityValue } from "@/lib/opportunity-value";
+
 export const CANONICAL_STAGES = [
   "rfq_received",
   "jih",
@@ -219,13 +221,17 @@ export function groupByCanonicalStage(
     if (source === "inferred") inferredCount += 1;
     const bucket = map.get(stage)!;
     bucket.count += 1;
-    bucket.value +=
-      Number(
-        row.contract_value ??
-          row.quotation_value ??
-          row.estimated_value_max ??
-          row.estimated_value_min,
-      ) || 0;
+    // The shared rule, not a copy of it. This file kept its own chain because
+    // sales-kpis imports the stage resolver from here, so the rule could not be
+    // imported back without a cycle — and a rule that cannot be imported gets
+    // duplicated, and a duplicated rule drifts. It lives in
+    // opportunity-value.ts now, below both modules.
+    //
+    // `?? estimated_value_min` stays as an explicit extra: a funnel bucket
+    // showing a floor is more useful than one showing nothing. Written at the
+    // call site, so there is still one definition of worth and one visible
+    // exception rather than two definitions.
+    bucket.value += opportunityValue(row) ?? (Number(row.estimated_value_min) || 0);
   }
 
   return {
