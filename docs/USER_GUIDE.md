@@ -128,6 +128,18 @@ deliberate.
 **Language:** use the toggle in the top bar to switch between English and العربية. The
 entire interface, including right-to-left layout, switches with it.
 
+**Colour on a card means something.** Each KPI carries a coloured icon and a coloured
+edge, and the four are a vocabulary rather than decoration: **amber** is money, **green** is
+an outcome already banked, **blue** is a count or a rate, and **red** is exposure or loss.
+The page itself stays the same warm neutral it always was — the colour is inside the cards,
+the charts and the figures, nowhere else.
+
+**A green or red change pill appears only where there is something to compare to.** Most
+tiles here measure current state, and yesterday's state was never recorded, so most tiles
+carry no pill at all — that is the honest answer, not a missing feature. Where a pill does
+appear, the arrow shows which way the number moved and the colour says whether that is
+welcome: more opportunities is green, more losses is red, and the same arrow can be either.
+
 **Digits stay Western in both languages.** Arabic shows `63,407,478`, not `٦٣٬٤٠٧٬٤٧٨` —
 month names, weekday names and currency names are still Arabic, only the numerals are not.
 This is deliberate: every document you reconcile a figure against — the ERP, a supplier
@@ -913,6 +925,7 @@ Listed so nobody works around a problem that no longer exists:
 | A failed sign-in showed "Invalid login credentials" in English on the Arabic UI | Fixed — every auth message is bilingual |
 | Agent Activity, AI Agents and Data Import were mostly English in Arabic mode | Fixed — the page chrome is translated (agent names and agent-written summaries stay as-is, they are data) |
 | The error toast covered the PHC logo in Arabic | Fixed — it now anchors to the side opposite the logo |
+| Every KPI card looked the same, so nothing on the dashboard said which numbers were money, which were outcomes and which were risk | Fixed — each card carries a coloured icon and edge: amber for money, green for something banked, blue for a count or rate, red for exposure and loss |
 | The dashboard opened with nineteen KPI cards, fifteen of them saying "no data" or "needs setup", which pushed every chart below the fold | Fixed — the total leads with a breakdown bar, and metrics with no number collapse into one line that still names each and its fix |
 | Small grey labels were set in wide capitals — which does nothing in Arabic except pull the letters apart | Fixed — one label treatment, sentence case, readable in both languages |
 | Deal names in Latin script were scrambled inside Arabic sentences | Fixed — the run is direction-isolated, so it reads as written |

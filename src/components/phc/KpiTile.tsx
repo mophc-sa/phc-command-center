@@ -13,6 +13,7 @@
 // need different actions from the reader.
 // =============================================================================
 
+import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Info, AlertTriangle, ArrowUpRight } from "lucide-react";
 import {
@@ -46,15 +47,47 @@ export function renderValue(k: Kpi, lang: "en" | "ar"): string {
   return formatNumber(k.value, lang);
 }
 
+/**
+ * The four accents a tile may wear, and what each one means.
+ *
+ * Colour is applied to the ICON and the LEFT EDGE only — never to the page, the
+ * card surface or the label. That is the whole constraint: the reference
+ * dashboards this borrows from are colourful because their *cards* are, not
+ * because their canvas is, and this app's warm-neutral ground is its identity.
+ *
+ * The mapping is semantic, not decorative, and it reuses the vocabulary the app
+ * already has: money is amber, an outcome already banked is green, a count or
+ * a rate is blue, and anything measuring exposure or loss is red. A reader who
+ * learns it on one row reads it on every other.
+ */
+export type KpiAccent = "money" | "won" | "count" | "risk";
+
+const ACCENT: Record<KpiAccent, { chip: string; bar: string }> = {
+  money: { chip: "bg-amber/[0.12] text-amber-light", bar: "bg-amber/70" },
+  won: { chip: "bg-won/[0.10] text-won", bar: "bg-won/70" },
+  count: { chip: "bg-info/[0.10] text-info", bar: "bg-info/70" },
+  risk: { chip: "bg-destructive/[0.09] text-destructive", bar: "bg-destructive/70" },
+};
+
 export function KpiTile({
   kpi,
   label,
   hint,
+  accent,
+  icon,
+  delta,
   onOpen,
 }: {
   kpi: Kpi;
   label: string;
   hint?: string;
+  /** Semantic colour for the icon and edge. See KpiAccent. */
+  accent?: KpiAccent;
+  /** A Lucide glyph, sized by this component. Omit and no chip is drawn. */
+  icon?: ReactNode;
+  /** Rendered under the value. Pass a <DeltaPill/>; it draws nothing when
+   *  there is no honest comparison to make. */
+  delta?: ReactNode;
   /**
    * Opens an in-page drill-down instead of navigating.
    *
@@ -73,7 +106,17 @@ export function KpiTile({
   const body = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <span className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          {icon && accent ? (
+            <span
+              className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg ${ACCENT[accent].chip}`}
+              aria-hidden="true"
+            >
+              {icon}
+            </span>
+          ) : null}
+          <span className="truncate text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</span>
+        </span>
         <TooltipProvider delayDuration={150}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -140,6 +183,8 @@ export function KpiTile({
         ) : null}
       </div>
 
+      {delta ? <div className="mt-1.5">{delta}</div> : null}
+
       {hint ? <div className="mt-1 text-2xs text-muted-foreground/70">{hint}</div> : null}
 
       {/* A caveat is part of the number's meaning, so it is always visible —
@@ -174,7 +219,7 @@ export function KpiTile({
   // that navigates away. An absolutely positioned layer keeps exactly one
   // interactive element per purpose and nests neither inside the other.
   const shell =
-    "relative rounded-xl border border-border/70 bg-surface/60 px-4 py-3 transition-colors";
+    "relative overflow-hidden rounded-xl border border-border/70 bg-surface/60 px-4 py-3 transition-colors";
   const layer =
     "absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
   const interactive = "hover:border-border-strong hover:bg-surface-2/40";
@@ -204,10 +249,24 @@ export function KpiTile({
       ? { to: kpi.drilldown!.to, search: kpi.drilldown!.search }
       : null;
 
-  if (!target) return <div className={shell}>{content}</div>;
+  // A 3px edge, INSIDE the card. The reference dashboards carry their colour on
+  // the cards; this app's warm-neutral canvas is its identity and stays put.
+  // `start-0` rather than `left-0`, so it flips with the Arabic layout.
+  const edge = accent ? (
+    <span className={`absolute inset-y-0 start-0 w-[3px] ${ACCENT[accent].bar}`} aria-hidden="true" />
+  ) : null;
+
+  if (!target)
+    return (
+      <div className={shell}>
+        {edge}
+        {content}
+      </div>
+    );
 
   return (
     <div className={`${shell} ${interactive}`}>
+      {edge}
       <Link
         to={target.to as never}
         search={target.search as never}

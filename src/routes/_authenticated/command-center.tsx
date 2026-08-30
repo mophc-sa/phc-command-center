@@ -42,6 +42,9 @@ import { useI18n, formatCurrency, formatNumber, localeFor } from "@/lib/i18n";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { KpiGroup } from "@/components/phc/KpiGroup";
+import { DeltaPill } from "@/components/phc/DeltaPill";
+import { Donut } from "@/components/phc/Donut";
+import { monthOverMonth } from "@/lib/period-delta";
 import { PipelineComposition } from "@/components/phc/PipelineComposition";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -309,6 +312,47 @@ function CommandCenter() {
         .map((b) => ({ key: b.key, label: b.stage, value: b.value, count: b.count, tone: b.tone })),
     [pipelineByStage],
   );
+
+  /**
+   * The one honest month-over-month figure on this page.
+   *
+   * `created_at` is per record, so "opportunities added" can be compared to
+   * last month. Open pipeline VALUE cannot: it is a snapshot of current state
+   * and yesterday's snapshot was never stored. Every other tile therefore
+   * carries no delta, which is the correct thing for it to carry.
+   */
+  const createdDelta = useMemo(
+    () => monthOverMonth(opps.map((o) => o.created_at ?? null), new Date()),
+    [opps],
+  );
+
+  /**
+   * Why the forecast is blank, as a picture.
+   *
+   * Three mutually exclusive buckets over the open book — which is what a donut
+   * needs and what nothing on this page was showing. The Executive Brief states
+   * "48 open opportunities have no probability" in a sentence; this is the same
+   * fact in the shape a reader can take in without reading, and next to the
+   * composition bar it answers the question that bar provokes: the money is
+   * there, so why is there no forecast?
+   *
+   * Order is worst-first, so the largest problem is the first arc drawn.
+   */
+  const readiness = useMemo(() => {
+    let forecastable = 0;
+    let noProbability = 0;
+    let noValue = 0;
+    for (const o of openOpps) {
+      if (opportunityValue(o) === null) noValue++;
+      else if (o.human_win_probability === null || o.human_win_probability === undefined) noProbability++;
+      else forecastable++;
+    }
+    return [
+      { key: "no_probability", label: lang === "ar" ? "بلا احتمالية" : "No probability", value: noProbability, color: "var(--color-amber)" },
+      { key: "no_value", label: lang === "ar" ? "بلا قيمة مسجَّلة" : "No recorded value", value: noValue, color: "var(--color-destructive)" },
+      { key: "ready", label: lang === "ar" ? "قابلة للتنبؤ" : "Ready to forecast", value: forecastable, color: "var(--color-won)" },
+    ].filter((b) => b.value > 0);
+  }, [openOpps, lang]);
 
   /** Open deals carrying no value at all — excluded from the total, and said so. */
   const unvaluedOpenCount = useMemo(
@@ -659,12 +703,26 @@ function CommandCenter() {
           ladder below — as two identical cards with no breakdown anywhere. A
           figure that size is a question, not a finding; this answers it in the
           space the duplicate used to take. */}
-      <PipelineComposition
-        slices={compositionSlices}
-        total={openPipelineValue}
-        recordCount={openOpps.length}
-        unvaluedCount={unvaluedOpenCount}
-      />
+      <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <PipelineComposition
+          slices={compositionSlices}
+          total={openPipelineValue}
+          recordCount={openOpps.length}
+          unvaluedCount={unvaluedOpenCount}
+          className="mb-0"
+        />
+
+        {/* The question the bar provokes, answered beside it. */}
+        <section className="rounded-xl border border-border/70 bg-surface/60 p-5">
+          <h2 className="text-base font-semibold text-foreground">
+            {lang === "ar" ? "جاهزية التنبؤ" : "Forecast readiness"}
+          </h2>
+          <p className="section-label mb-4 mt-1">
+            {lang === "ar" ? "الفرص المفتوحة، بما ينقصها" : "Open opportunities, by what they are missing"}
+          </p>
+          <Donut slices={readiness} total={openOpps.length} />
+        </section>
+      </div>
 
       {/* Phase 5.1 §5 — the numbers the month is run on. KpiGroup keeps the
           ones with a value as cards and folds the rest into a single line that
@@ -679,6 +737,9 @@ function CommandCenter() {
           {
             kpi: execKpis.openPipeline,
             label: t("mgmt_open_pipeline" as never),
+            accent: "money",
+            icon: <Wallet className="h-3.5 w-3.5" />,
+            delta: <DeltaPill delta={createdDelta} goodDirection="up" />,
             onOpen: () =>
               setBreakdown({
                 title: t("mgmt_open_pipeline" as never),
@@ -689,11 +750,11 @@ function CommandCenter() {
           },
           // Forecast is the WEIGHTED pipeline: a forecast that ignores
           // probability is the pipeline again under a more confident name.
-          { kpi: forecast.forecast, label: t("kpi_forecast" as never) },
-          { kpi: forecast.target, label: t("kpi_target_sales" as never) },
-          { kpi: forecast.won, label: lang === "ar" ? "المحقق (Won فقط)" : "Won (official)" },
-          { kpi: forecast.achievement, label: t("kpi_achievement" as never) },
-          { kpi: forecast.coverage, label: t("kpi_coverage" as never) },
+          { kpi: forecast.forecast, label: t("kpi_forecast" as never), accent: "money", icon: <Activity className="h-3.5 w-3.5" /> },
+          { kpi: forecast.target, label: t("kpi_target_sales" as never), accent: "count", icon: <Target className="h-3.5 w-3.5" /> },
+          { kpi: forecast.won, label: lang === "ar" ? "المحقق (Won فقط)" : "Won (official)", accent: "won", icon: <Sparkles className="h-3.5 w-3.5" /> },
+          { kpi: forecast.achievement, label: t("kpi_achievement" as never), accent: "won", icon: <Target className="h-3.5 w-3.5" /> },
+          { kpi: forecast.coverage, label: t("kpi_coverage" as never), accent: "count", icon: <Activity className="h-3.5 w-3.5" /> },
         ]}
       />
 
@@ -720,10 +781,10 @@ function CommandCenter() {
         title={lang === "ar" ? "النتائج" : "Outcomes"}
         columns="lg:grid-cols-3 xl:grid-cols-4"
         entries={[
-          { kpi: execKpis.lateStageExposure, label: lang === "ar" ? "تعرض المراحل المتأخرة" : "Late-stage exposure" },
-          { kpi: execKpis.winRate, label: lang === "ar" ? "معدل الفوز" : "Win rate" },
-          { kpi: execKpis.lossRate, label: lang === "ar" ? "معدل الخسارة" : "Loss rate" },
-          { kpi: execKpis.lostValue, label: lang === "ar" ? "قيمة الخسائر" : "Lost value" },
+          { kpi: execKpis.lateStageExposure, label: lang === "ar" ? "تعرض المراحل المتأخرة" : "Late-stage exposure", accent: "risk", icon: <Clock className="h-3.5 w-3.5" /> },
+          { kpi: execKpis.winRate, label: lang === "ar" ? "معدل الفوز" : "Win rate", accent: "won", icon: <ArrowRight className="h-3.5 w-3.5" /> },
+          { kpi: execKpis.lossRate, label: lang === "ar" ? "معدل الخسارة" : "Loss rate", accent: "risk", icon: <AlertTriangle className="h-3.5 w-3.5" /> },
+          { kpi: execKpis.lostValue, label: lang === "ar" ? "قيمة الخسائر" : "Lost value", accent: "risk", icon: <Wallet className="h-3.5 w-3.5" /> },
         ]}
       />
 

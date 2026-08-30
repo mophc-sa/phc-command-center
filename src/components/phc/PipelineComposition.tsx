@@ -53,6 +53,7 @@ export function PipelineComposition({
   recordCount,
   unvaluedCount = 0,
   drilldownTo,
+  className = "mb-6",
 }: {
   slices: StageSlice[];
   total: number;
@@ -60,6 +61,7 @@ export function PipelineComposition({
   /** Records excluded from the total because they carry no value at all. */
   unvaluedCount?: number;
   drilldownTo?: string;
+  className?: string;
 }) {
   const { t, lang } = useI18n();
   const ar = lang === "ar";
@@ -95,7 +97,7 @@ export function PipelineComposition({
   };
 
   return (
-    <section className="mb-6 rounded-xl border border-border/70 bg-surface/60 p-5">
+    <section className={`rounded-xl border border-border/70 bg-surface/60 p-5 ${className}`}>
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
           <p className="section-label">{ar ? "خط الأنابيب المفتوح" : "Open pipeline"}</p>
