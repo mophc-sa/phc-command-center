@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { StatusPill } from "./StatusPill";
 import { formatCurrency, type Lang } from "@/lib/i18n";
 import { humanize } from "@/lib/utils";
+import { opportunityValue } from "@/lib/opportunity-value";
 
 export type OpportunityRow = {
   id: string;
@@ -32,9 +33,9 @@ function scoreTierTone(tier: OpportunityRow["score_tier"]): "positive" | "attent
 }
 
 export function OpportunityCard({ o, lang }: { o: OpportunityRow; lang: Lang }) {
-  const val =
-    o.quotation_value ??
-    (o.estimated_value_max ?? o.estimated_value_min);
+  // The shared rule, then one explicit extra: a card showing a floor is more
+  // useful than a card showing nothing.
+  const val = opportunityValue(o as never) ?? o.estimated_value_min;
   return (
     <Link
       to="/opportunities/$id"

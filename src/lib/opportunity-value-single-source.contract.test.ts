@@ -123,8 +123,20 @@ describe("no screen computes its own", () => {
     // The signature of a hand-rolled formula: two or more of the money columns
     // joined by `??`. Reading ONE column is fine — that is a field on screen,
     // not a definition of worth.
-    const CHAIN = /(contract_value|quotation_value|estimated_value_max)\s*\?\?\s*[\w.]*(contract_value|quotation_value|estimated_value_max)/;
-    const offenders = FILES.filter(([, src]) => CHAIN.test(src)).map(([n]) => n);
+    //
+    // Whitespace and parentheses come out FIRST, and that is not tidiness. The
+    // first version of this rule matched `[\w.]*` between the two columns and
+    // passed OpportunityCard, which had written the same chain as:
+    //
+    //     o.quotation_value ??
+    //     (o.estimated_value_max ?? o.estimated_value_min);
+    //
+    // A newline and an opening bracket were enough to walk through the guard,
+    // and the guard looked sound because every other site happened to be on one
+    // line. Normalising removes formatting from the question entirely.
+    const flat = (src: string) => src.replace(/[\s()]/g, "");
+    const CHAIN = /(contract_value|quotation_value|estimated_value_max)\?\?[\w.$]*(contract_value|quotation_value|estimated_value_max)/;
+    const offenders = FILES.filter(([, src]) => CHAIN.test(flat(src))).map(([n]) => n);
     expect(offenders).toEqual([]);
   });
 
