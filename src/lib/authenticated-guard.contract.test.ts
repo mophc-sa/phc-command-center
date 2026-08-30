@@ -29,6 +29,7 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripComments } from "@/lib/source-under-test";
 
 const SRC = join(import.meta.dir, "..", "routes", "_authenticated", "route.tsx");
 const guard = readFileSync(SRC, "utf8");
@@ -43,7 +44,7 @@ const guard = readFileSync(SRC, "utf8");
  * writing this suite, which is why the rule is stated rather than assumed:
  * **a source-reading test must read source, or it is testing prose.**
  */
-const code = guard.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+const code = stripComments(guard);
 
 describe("the guard still refuses everyone it used to refuse", () => {
   // One entry per gate the route enforced before the hydration fix. If a gate

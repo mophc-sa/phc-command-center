@@ -39,6 +39,8 @@ import {
 import { useI18n, formatCurrency, formatNumber, localeFor } from "@/lib/i18n";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
+import { KpiGroup } from "@/components/phc/KpiGroup";
+import { PipelineComposition } from "@/components/phc/PipelineComposition";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
@@ -67,6 +69,7 @@ import {
   groupByCanonicalStage,
   canonicalStageLabelKey,
   CANONICAL_ACTIVE_STAGES,
+  CANONICAL_FUNNEL_ORDER,
 } from "@/lib/stage-canonical";
 import { isSalesperson, canManageSalesPipeline, isSystemAdmin, isFinanceManager, type AppRole } from "@/lib/roles";
 
@@ -288,8 +291,32 @@ function CommandCenter() {
       stage: t(canonicalStageLabelKey(b.stage)),
       count: b.count,
       value: b.value,
+      // Pipeline position, 1-7, so the stacked bar and the stage chart colour
+      // the same stage the same way. Derived from the canonical order rather
+      // than from array index: buckets with no records drop out, and an index
+      // would then shift every later stage's colour.
+      tone: CANONICAL_FUNNEL_ORDER.indexOf(b.stage) + 1,
+      key: b.stage as string,
     }));
   }, [opps, t]);
+
+  /** Only stages that actually carry money — an empty segment is not a segment. */
+  const compositionSlices = useMemo(
+    () =>
+      pipelineByStage
+        .filter((b) => b.value > 0)
+        .map((b) => ({ key: b.key, label: b.stage, value: b.value, count: b.count, tone: b.tone })),
+    [pipelineByStage],
+  );
+
+  /** Open deals carrying no value at all — excluded from the total, and said so. */
+  const unvaluedOpenCount = useMemo(
+    () =>
+      openOpps.filter(
+        (o) => (o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min ?? null) === null,
+      ).length,
+    [openOpps],
+  );
 
   // How much of the chart above rests on rows with no sales_stage, where the
   // position had to be inferred. Surfaced rather than averaged in silently —
@@ -626,73 +653,78 @@ function CommandCenter() {
         <ExecutiveBrief brief={brief} commentaryState={commentaryState} />
       )}
 
-      <section className="mb-6">
-        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-base font-semibold text-foreground">
-            {lang === "ar" ? "مؤشرات المبيعات" : "Sales performance"}
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            {lang === "ar" ? "هذا الشهر · اضغط أي رقم لفتح سجلاته" : "This month · click any number to open its records"}
-          </span>
-        </div>
-        {/* Phase 5.1 §5 — the six numbers the month is run on, first and
-            together. Forecast is the WEIGHTED pipeline: a forecast that ignores
-            probability is the pipeline again under a more confident name. */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {/* The one number the whole review started from: "من أين أتت الـ63.4M؟"
-              A headline with no way to see its rows is a dead number. */}
-          <KpiTile
-            kpi={execKpis.openPipeline}
-            label={t("mgmt_open_pipeline" as never)}
-            onOpen={() =>
+      {/* The total, and what it is made of, before anything else.
+          It used to be stated twice — once here and once on the commercial
+          ladder below — as two identical cards with no breakdown anywhere. A
+          figure that size is a question, not a finding; this answers it in the
+          space the duplicate used to take. */}
+      <PipelineComposition
+        slices={compositionSlices}
+        total={openPipelineValue}
+        recordCount={openOpps.length}
+        unvaluedCount={unvaluedOpenCount}
+      />
+
+      {/* Phase 5.1 §5 — the numbers the month is run on. KpiGroup keeps the
+          ones with a value as cards and folds the rest into a single line that
+          names each and why it cannot be computed. Nothing is dropped: on
+          2026-08-30 fifteen of nineteen tiles here said "no data" or "needs
+          setup", each at the size of a real number, and the seven charts below
+          were pushed off the screen by them. */}
+      <KpiGroup
+        title={lang === "ar" ? "مؤشرات المبيعات" : "Sales performance"}
+        subtitle={lang === "ar" ? "هذا الشهر · اضغط أي رقم لفتح سجلاته" : "This month · click any number to open its records"}
+        entries={[
+          {
+            kpi: execKpis.openPipeline,
+            label: t("mgmt_open_pipeline" as never),
+            onOpen: () =>
               setBreakdown({
                 title: t("mgmt_open_pipeline" as never),
                 rows: (data?.opportunities ?? []).filter((o) =>
                   execKpis.openPipeline.recordIds.includes(o.id),
                 ) as unknown as OppRow[],
-              })
-            }
-          />
-          <KpiTile kpi={forecast.forecast}         label={t("kpi_forecast" as never)} />
-          <KpiTile kpi={forecast.target}           label={t("kpi_target_sales" as never)} />
-          <KpiTile kpi={forecast.won}              label={lang === "ar" ? "المحقق (Won فقط)" : "Won (official)"} />
-          <KpiTile kpi={forecast.achievement}      label={t("kpi_achievement" as never)} />
-          <KpiTile kpi={forecast.coverage}         label={t("kpi_coverage" as never)} />
-        </div>
+              }),
+          },
+          // Forecast is the WEIGHTED pipeline: a forecast that ignores
+          // probability is the pipeline again under a more confident name.
+          { kpi: forecast.forecast, label: t("kpi_forecast" as never) },
+          { kpi: forecast.target, label: t("kpi_target_sales" as never) },
+          { kpi: forecast.won, label: lang === "ar" ? "المحقق (Won فقط)" : "Won (official)" },
+          { kpi: forecast.achievement, label: t("kpi_achievement" as never) },
+          { kpi: forecast.coverage, label: t("kpi_coverage" as never) },
+        ]}
+      />
 
-        {/* Phase 5.1 §1 — the commercial ladder. Mutually exclusive by
-            construction, so these add up; on_hold and lost sit outside it. */}
-        <h3 className="mb-2 mt-4 text-xs font-medium tracking-[0.02em] text-muted-foreground">
-          {lang === "ar" ? "خط الأنابيب حسب الموقع التجاري" : "Pipeline by commercial position"}
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {MANAGEMENT_BUCKETS.map((b) => (
-            <KpiTile
-              key={b.key}
-              kpi={buckets[b.key]}
-              label={t(`mgmt_${b.key}` as never)}
-              // Rendered 2026-08-26: this row's "Open pipeline" and the strip
-              // above it showed the SAME label and the SAME SAR 63,407,478 —
-              // but they are different sets. The strip is every open stage
-              // (OPEN_STAGES, on_hold included); this rung is rfq_received +
-              // jih only. They agree today because nothing has ever advanced
-              // past jih, and would silently disagree the moment one deal did.
-              // Naming the stages is what makes the two readable side by side.
-              hint={(b.stages as readonly string[]).map((st) => t(canonicalStageLabelKey(st as never))).join(" · ")}
-            />
-          ))}
-        </div>
+      {/* Phase 5.1 §1 — the commercial ladder. Mutually exclusive by
+          construction, so these add up; on_hold and lost sit outside it. */}
+      <KpiGroup
+        title={lang === "ar" ? "خط الأنابيب حسب الموقع التجاري" : "Pipeline by commercial position"}
+        columns="lg:grid-cols-3 xl:grid-cols-5"
+        entries={MANAGEMENT_BUCKETS.map((b) => ({
+          kpi: buckets[b.key],
+          label: t(`mgmt_${b.key}` as never),
+          // Rendered 2026-08-26: this row's "Open pipeline" and the strip above
+          // it showed the SAME label and the SAME SAR 63,407,478 — but they are
+          // different sets. The strip is every open stage (OPEN_STAGES, on_hold
+          // included); this rung is rfq_received + jih only. They agree today
+          // because nothing has ever advanced past jih, and would silently
+          // disagree the moment one deal did. Naming the stages is what makes
+          // the two readable side by side.
+          hint: (b.stages as readonly string[]).map((st) => t(canonicalStageLabelKey(st as never))).join(" · "),
+        }))}
+      />
 
-        <h3 className="mb-2 mt-4 text-xs font-medium tracking-[0.02em] text-muted-foreground">
-          {lang === "ar" ? "النتائج" : "Outcomes"}
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <KpiTile kpi={execKpis.lateStageExposure} label={lang === "ar" ? "تعرض المراحل المتأخرة" : "Late-stage exposure"} />
-          <KpiTile kpi={execKpis.winRate}           label={lang === "ar" ? "معدل الفوز" : "Win rate"} />
-          <KpiTile kpi={execKpis.lossRate}          label={lang === "ar" ? "معدل الخسارة" : "Loss rate"} />
-          <KpiTile kpi={execKpis.lostValue}         label={lang === "ar" ? "قيمة الخسائر" : "Lost value"} />
-        </div>
-      </section>
+      <KpiGroup
+        title={lang === "ar" ? "النتائج" : "Outcomes"}
+        columns="lg:grid-cols-3 xl:grid-cols-4"
+        entries={[
+          { kpi: execKpis.lateStageExposure, label: lang === "ar" ? "تعرض المراحل المتأخرة" : "Late-stage exposure" },
+          { kpi: execKpis.winRate, label: lang === "ar" ? "معدل الفوز" : "Win rate" },
+          { kpi: execKpis.lossRate, label: lang === "ar" ? "معدل الخسارة" : "Loss rate" },
+          { kpi: execKpis.lostValue, label: lang === "ar" ? "قيمة الخسائر" : "Lost value" },
+        ]}
+      />
 
       {/* Phase 5.1 §6/§9 — Action Required, and the three risk roll-ups beside
           it. This sat at the bottom of the page under the charts; it is the one
@@ -839,7 +871,14 @@ function CommandCenter() {
                     }}
                     cursor={{ fill: CHART_COLORS.muted }}
                   />
-                  <Bar dataKey="value" fill={CHART_COLORS.primary} radius={[4, 4, 0, 0]} maxBarSize={44} />
+                  {/* Coloured by the same ramp as the composition bar above. One
+                      stage was one colour there and a different colour here,
+                      so the two pictures of the same data disagreed. */}
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={44}>
+                    {pipelineByStage.map((b) => (
+                      <Cell key={b.key} fill={`var(--stage-${b.tone})`} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>

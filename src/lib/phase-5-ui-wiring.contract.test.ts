@@ -35,9 +35,34 @@ const STAGE_PANEL = "src/components/phc/pipeline/RfqJihPanel.tsx";
 
 describe("the KPI engine reaches a screen", () => {
   it("Command Center renders canonical KPIs through KpiTile", () => {
+    // The Command Center hands its KPIs to KpiGroup, which renders the ones
+    // that have a value as KpiTiles and folds the rest into a line naming each
+    // and why it cannot be computed. The assertion follows the chain rather
+    // than loosening: the point of this test is that the engine's output
+    // reaches a rendered tile instead of being computed and dropped, and one
+    // more hop does not change that — but a page that stopped rendering tiles
+    // altogether still has to fail here.
     const s = read(COMMAND_CENTER);
     expect(s).toContain("executiveKpis");
-    expect(s).toContain("<KpiTile");
+    expect(s).toContain("<KpiGroup");
+    expect(read("src/components/phc/KpiGroup.tsx")).toContain("<KpiTile");
+  });
+
+  it("KpiGroup hides no metric — it only changes how much room an absent one takes", () => {
+    // The reason this row exists at all. Fifteen of nineteen tiles on the
+    // Command Center said "no data" or "needs setup" at full card size, which
+    // pushed seven charts below the fold. Folding them must never become
+    // dropping them: every entry is still classified, named and given its fix.
+    const g = read("src/components/phc/KpiGroup.tsx");
+    expect(g).toMatch(/metricStateOf/);
+    // Both halves rendered — the ones with a number and the ones without.
+    expect(g).toMatch(/live\.map/);
+    expect(g).toMatch(/byReason/);
+    // The count of what is folded is on the control, so the reader knows the
+    // size of what they have not been shown.
+    expect(g).toMatch(/blank\.length/);
+    // And the way out survives the fold.
+    expect(g).toMatch(/kpi\.fix/);
   });
 
   it("Sales Management renders them too", () => {

@@ -243,6 +243,48 @@
   --chart-muted:       oklch(0.90 0.006 90);
   --chart-grid:        oklch(0.60 0.010 253 / 0.14);
 
+  /*
+   * The seven pipeline stages, coloured to encode a fact the business already
+   * recognises rather than to decorate a chart.
+   *
+   * Stages 1–4 (RFQ received → under negotiation) are slate, deepening as a
+   * deal advances. Stages 5–7 (verbally awarded → contract signed) turn amber,
+   * because that is exactly where the user guide draws its line: those three
+   * are "late-stage exposure" — money that is committed but **can still be
+   * lost** — and the engine already keeps them apart from open pipeline in
+   * every calculation. A reader who learns that boundary once reads it in
+   * every chart afterwards without consulting a legend.
+   *
+   * A single-hue ramp across all seven was the obvious alternative and is
+   * worse: it says the seventh stage is more of the first, when the whole
+   * point is that something changes at the fifth.
+   *
+   * Two hues, not seven. The palette is unchanged, a colour-blind reader
+   * separates slate from amber on lightness alone, and order is never carried
+   * by colour by itself — the bars sit in pipeline order and every segment is
+   * labelled.
+   *
+   * Every fill clears 3:1 against the surface, the WCAG floor for a mark that
+   * carries meaning. That is measured, not assumed: the first draft of this
+   * ramp claimed it and three of the seven failed — 2.67, 2.19 and 2.96 —
+   * because `getComputedStyle` hands back raw oklch components and a check
+   * that reads them as RGB produces confident nonsense. The numbers below come
+   * from painting each colour to a canvas and reading the pixel.
+   *
+   *   1  3.11   2  4.67   3  7.44   4  12.74   5  3.16   6  4.05   7  5.46
+   *
+   * The amber band separates by chroma rather than lightness, because three
+   * amber steps that all clear 3:1 have very little lightness range left
+   * between them.
+   */
+  --stage-1: oklch(0.66 0.014 253);
+  --stage-2: oklch(0.56 0.018 253);
+  --stage-3: oklch(0.45 0.020 253);
+  --stage-4: oklch(0.32 0.016 253);
+  --stage-5: oklch(0.66 0.066 65);
+  --stage-6: oklch(0.60 0.110 65);
+  --stage-7: oklch(0.53 0.150 65);
+
   --destructive: oklch(0.60 0.195 25);
   --destructive-foreground: oklch(0.99 0.002 90);
 
