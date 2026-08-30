@@ -4,7 +4,12 @@
 // and src/lib/sales-actions.ts.
 
 import { computeQuotationWinRatePct } from "@/lib/dashboard-helpers";
-import { isOpen as isCanonicallyOpen, isWon as isCanonicallyWon, isLost as isCanonicallyLost } from "@/lib/sales-kpis";
+import {
+  isOpen as isCanonicallyOpen,
+  isWon as isCanonicallyWon,
+  isLost as isCanonicallyLost,
+  opportunityValue as canonicalOpportunityValue,
+} from "@/lib/sales-kpis";
 
 // target_period enum: 'monthly' | 'quarterly' | 'annual'.
 // The 'annual' value was added in migration 20260716100000_salesperson_dashboard.sql.
@@ -31,6 +36,7 @@ export type OpportunityRow = {
   /** Canonical column (Phase 1). Nullable on legacy rows. */
   sales_stage?: string | null;
   tier: "A" | "B" | "C";
+  contract_value: number | null;
   estimated_value_max: number | null;
   quotation_value: number | null;
   win_confidence: "low" | "possible" | "strong" | "sure_win" | null;
@@ -86,7 +92,25 @@ export type ActionFlagRow = {
 const SENT_QUOTATION_STATUSES = new Set(["submitted", "follow_up", "negotiation", "revised", "won", "lost"]);
 const OPEN_ACTION_STATUSES = new Set<ActionFlagRow["status"]>(["open", "in_progress", "escalated", "blocked"]);
 
-const opportunityValue = (o: OpportunityRow) => o.quotation_value ?? o.estimated_value_max ?? 0;
+/**
+ * The canonical value, wrapped for the one thing these sums need.
+ *
+ * This file used to define its own `opportunityValue` — same name, different
+ * rule: `quotation_value ?? estimated_value_max ?? 0`, with **contract_value
+ * missing entirely**, and the column was not even in the query. So a won deal
+ * with a signed contract was counted at whatever it had been quoted at, and
+ * `wonValue` — the number a salesperson's achievement against target is
+ * measured by — was understated for every deal that had been contracted.
+ *
+ * A local function shadowing an exported one under the same name is the worst
+ * version of this: a reader sees the right name and gets a different rule.
+ *
+ * `?? 0` survives only inside these reducers, where a value that cannot be read
+ * must not remove the row from a sum it belongs to. Where the count of
+ * unreadable rows matters to the reader, use `sumOpportunityValue`, which
+ * reports it.
+ */
+const valueOf = (o: OpportunityRow) => canonicalOpportunityValue(o) ?? 0;
 
 // ---------------------------------------------------------------------------
 // Period windows (Required Fix 1)
@@ -215,7 +239,7 @@ export function forecastValue(opportunities: OpportunityRow[]): number {
   return opportunities
     .filter(isCanonicallyOpen)
     .reduce(
-      (sum, o) => sum + opportunityValue(o) * (o.win_confidence ? FORECAST_CONFIDENCE_WEIGHTS[o.win_confidence] : DEFAULT_FORECAST_WEIGHT),
+      (sum, o) => sum + valueOf(o) * (o.win_confidence ? FORECAST_CONFIDENCE_WEIGHTS[o.win_confidence] : DEFAULT_FORECAST_WEIGHT),
       0,
     );
 }
@@ -253,13 +277,13 @@ export function computeSalespersonMetrics(
   // half-open [periodStart, periodEnd) window.
   const wonValue = myOpps
     .filter((o) => isCanonicallyWon(o) && inPeriod(o.updated_at, window))
-    .reduce((s, o) => s + opportunityValue(o), 0);
+    .reduce((s, o) => s + valueOf(o), 0);
   const lostCount = myOpps.filter((o) => isCanonicallyLost(o) && inPeriod(o.updated_at, window)).length;
   const wonCount = myOpps.filter((o) => isCanonicallyWon(o) && inPeriod(o.updated_at, window)).length;
 
   // Open pipeline is current state ("what's open right now"), not a
   // period-scoped event — intentionally unbounded, same as forecastValue.
-  const openPipeline = myOpps.filter(isCanonicallyOpen).reduce((s, o) => s + opportunityValue(o), 0);
+  const openPipeline = myOpps.filter(isCanonicallyOpen).reduce((s, o) => s + valueOf(o), 0);
 
   const myRfqs = data.rfqs.filter((r) => r.sales_owner_id === userId);
   const rfqsReviewed = myRfqs.filter((r) => r.status !== "open" && inPeriod(r.updated_at, window)).length;
@@ -330,7 +354,7 @@ export function computeManagerMetrics(
   const pipelineByOwner: Record<string, number> = {};
   for (const o of data.opportunities) {
     if (!o.owner_id || !isCanonicallyOpen(o)) continue;
-    pipelineByOwner[o.owner_id] = (pipelineByOwner[o.owner_id] ?? 0) + opportunityValue(o);
+    pipelineByOwner[o.owner_id] = (pipelineByOwner[o.owner_id] ?? 0) + valueOf(o);
   }
 
   // Overdue is inherently a "right now" concept (due_date < today), not
@@ -371,7 +395,7 @@ export function computeManagerMetrics(
     pipelineByOwner,
     overdueActionsByOwner,
     tierAOpenCount: tierAOpen.length,
-    tierAOpenValue: tierAOpen.reduce((s, o) => s + opportunityValue(o), 0),
+    tierAOpenValue: tierAOpen.reduce((s, o) => s + valueOf(o), 0),
     rfqConversionPct,
     tenderConversionPct,
     quotationWinRatePct,

@@ -78,7 +78,7 @@ export type OpportunityStageRow = {
 export function computeAwardedTotal(opps: OpportunityStageRow[]): number {
   return opps
     .filter(o => o.stage === "won")
-    .reduce((sum, o) => sum + (Number(o.contract_value ?? o.estimated_value_max) || 0), 0);
+    .reduce((sum, o) => sum + (opportunityValue(o as never) ?? 0), 0);
 }
 
 /**

@@ -1,3 +1,4 @@
+import { opportunityValue } from "@/lib/sales-kpis";
 // =============================================================================
 // PHC Sales OS — Opportunity Scoring Engine (pure, real-data, unit-testable).
 //
@@ -176,7 +177,12 @@ export function scoreOpportunity(o: OpportunityScoreInput): OpportunityScoreResu
   }
 
   // 5. Value Potential (10) — estimated/quoted value vs the signage threshold.
-  const value = o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min;
+  // The canonical worth, and — only here — a fall back to the LOW estimate.
+  // This scores "roughly how big is this deal", which is a wider question than
+  // "what is it worth", so a floor is better than nothing. The extra fallback
+  // is written at the call site rather than folded into the shared rule, so
+  // there is still one definition of worth and one visible exception to it.
+  const value = opportunityValue(o as never) ?? o.estimated_value_min;
   if (value != null && !Number.isNaN(value)) {
     const ratio = Math.min(1, value / OPPORTUNITY_VALUE_THRESHOLD);
     const pts = Math.round(W.valuePotential * ratio);

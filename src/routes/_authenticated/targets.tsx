@@ -137,7 +137,7 @@ function TargetsPage() {
       (
         (await supabase
           .from("opportunities")
-          .select("id, owner_id, stage, tier, estimated_value_max, quotation_value, win_confidence, updated_at")) as {
+          .select("id, owner_id, stage, tier, contract_value, estimated_value_max, quotation_value, win_confidence, updated_at")) as {
           data: OpportunityRow[] | null;
         }
       ).data ?? [],

@@ -21,6 +21,7 @@ import { getProjectCoverUrl, uploadProjectCover, validateProjectCoverFile } from
 import { ProjectKanban } from "@/components/phc/ProjectKanban";
 import { ProjectBudget } from "@/components/phc/ProjectBudget";
 import { DocumentsPanel } from "@/components/phc/DocumentsPanel";
+import { sumOpportunityValue } from "@/lib/sales-kpis";
 
 export const Route = createFileRoute("/_authenticated/projects/$id")({
   head: () => ({ meta: [{ title: "Project — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -122,10 +123,7 @@ function ProjectDetail() {
   if (!project) return <EmptyState message={t("crm_no_projects")} />;
   const p = project;
   const oppCount = p.opportunities?.length ?? 0;
-  const oppValue = (p.opportunities ?? []).reduce(
-    (s, o) => s + (o.estimated_value_max ?? 0),
-    0,
-  );
+  const oppValue = sumOpportunityValue((p.opportunities ?? []) as never).total;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

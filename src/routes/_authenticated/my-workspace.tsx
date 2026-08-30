@@ -34,6 +34,9 @@ import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions"
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { humanize } from "@/lib/utils";
+import { sumOpportunityValue ,
+  opportunityValue
+} from "@/lib/sales-kpis";
 import {
   daysUntil, daysSince, urgencyTone, urgencyLabel,
   computeAwardedTotal, computeJihPipelineTotal, computeTenderPipelineTotal,
@@ -583,7 +586,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                         <td className="px-3 py-2.5">
                           <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
                         </td>
-                        <td className="px-3 py-2.5 text-right num text-xs text-won">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
+                        <td className="px-3 py-2.5 text-right num text-xs text-won">{formatCurrency(opportunityValue(o as never), lang, o.currency || "SAR")}</td>
                         <td className="px-3 py-2.5"><StatusPill tone="positive">{lang === "ar" ? "رسمي" : "Won"}</StatusPill></td>
                       </tr>
                     ))}
@@ -598,7 +601,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             <div className="flex items-center justify-between border-b border-amber/15 px-4 py-3">
               <div>
                 <div className="text-base font-semibold text-amber-light">{lang === "ar" ? "التفاوض النهائي" : "Final Negotiation"}</div>
-                <div className="text-xs text-muted-foreground">{formatCurrency(contractOpps.reduce((s: number, o: any) => s + (o.contract_value ?? o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
+                <div className="text-xs text-muted-foreground">{formatCurrency(sumOpportunityValue(contractOpps as never).total, lang, "SAR")}</div>
               </div>
               <span className="rounded-full bg-amber/15 px-2 py-0.5 text-xs num text-amber-light">{contractOpps.length}</span>
             </div>
@@ -620,7 +623,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                         <td className="px-3 py-2.5">
                           <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
                         </td>
-                        <td className="px-3 py-2.5 text-right num text-xs">{formatCurrency(o.contract_value ?? o.estimated_value_max, lang, o.currency || "SAR")}</td>
+                        <td className="px-3 py-2.5 text-right num text-xs">{formatCurrency(opportunityValue(o as never), lang, o.currency || "SAR")}</td>
                         <td className="px-3 py-2.5"><StatusPill tone="attention">{t(`sstage_${o.sales_stage}` as never)}</StatusPill></td>
                       </tr>
                     ))}
@@ -635,7 +638,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
               <div>
                 <div className="text-base font-semibold text-foreground">{lang === "ar" ? "ترسية شفهية" : "Verbally Awarded"}</div>
-                <div className="text-xs text-muted-foreground">{formatCurrency(verballyAwardedOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
+                <div className="text-xs text-muted-foreground">{formatCurrency(sumOpportunityValue(verballyAwardedOpps as never).total, lang, "SAR")}</div>
               </div>
               <span className="rounded-full bg-surface-2/60 px-2 py-0.5 text-xs num text-foreground">{verballyAwardedOpps.length}</span>
             </div>
@@ -811,7 +814,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
 
   if (isLoading || !data) return <SkeletonChart kpis={4} charts={2} />;
 
-  const pipelineValue = data.opps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
+  const pipelineValue = sumOpportunityValue(data.opps as never).total;
   const tg = data.target;
   const salesTargetValue = tg?.sales_target ? Number(tg.sales_target) : 0;
   const awardedValue = computeAwardedTotal(awardedOpps as any[]);
@@ -1050,7 +1053,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
             <div className="flex items-center justify-between border-b border-won-border/60 px-4 py-3">
               <div>
                 <div className="text-base font-semibold text-won">{lang === "ar" ? "فرص الفئة A" : "Tier A Opportunities"}</div>
-                <div className="text-xs text-muted-foreground">{formatCurrency(tierAOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0), lang, "SAR")}</div>
+                <div className="text-xs text-muted-foreground">{formatCurrency(sumOpportunityValue(tierAOpps as never).total, lang, "SAR")}</div>
               </div>
               <span className="rounded-full bg-won-surface/80 px-2 py-0.5 text-xs num text-won">{tierAOpps.length}</span>
             </div>

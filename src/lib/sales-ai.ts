@@ -31,6 +31,7 @@ import {
   pipelineHealth,
   resolveProbability,
   type KpiContext,
+  opportunityValue,
   type OppRow,
 } from "@/lib/sales-kpis";
 
@@ -373,7 +374,7 @@ export function buildManagementBrief(input: {
   // Biggest open deals — a fact, ordered by value.
   const focus: BriefLine[] = [...opportunities]
     .filter((o) => k.openPipeline.recordIds.includes(o.id))
-    .map((o) => ({ o, v: Number(o.contract_value ?? o.quotation_value ?? o.estimated_value_max ?? 0) }))
+    .map((o) => ({ o, v: opportunityValue(o as never) ?? 0 }))
     .filter((x) => Number.isFinite(x.v) && x.v > 0)
     .sort((a, b) => b.v - a.v)
     .slice(0, 3)

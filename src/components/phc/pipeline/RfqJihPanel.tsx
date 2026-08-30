@@ -29,6 +29,7 @@ import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { AiRiskAssessment } from "@/components/phc/AiRiskAssessment";
 import { AttachmentLink } from "@/components/phc/AttachmentLink";
+import { sumOpportunityValue } from "@/lib/sales-kpis";
 import {
   Dialog,
   DialogContent,
@@ -140,7 +141,7 @@ export function RfqJihPanel() {
 
   const rfqValue = rfqs.reduce((s: number, r: any) => s + (r.estimated_value ?? 0), 0);
   const activeOpps = opps.filter((o: any) => !["won", "lost", "archived"].includes(o.sales_stage));
-  const totalPipeline = activeOpps.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
+  const totalPipeline = sumOpportunityValue(activeOpps as never).total;
   const awaitingAward = opps.filter((o: any) => o.sales_stage === "verbally_awarded").length;
   const wonThisPeriod = opps.filter((o: any) => o.sales_stage === "won").length;
 
@@ -242,7 +243,7 @@ export function RfqJihPanel() {
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {OPP_STAGES.map((stage) => {
             const items = opps.filter((o: any) => o.sales_stage === stage);
-            const totalValue = items.reduce((s: number, o: any) => s + (o.estimated_value_max ?? 0), 0);
+            const totalValue = sumOpportunityValue(items as never).total;
             return (
               <div key={stage} className="flex flex-col rounded-xl border border-border/70 bg-surface/60">
                 <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">

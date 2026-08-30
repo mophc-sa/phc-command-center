@@ -161,29 +161,12 @@ export function metricStateOf(k: Pick<Kpi, "value" | "recordCount" | "state">): 
 
 // ---- Value resolution -------------------------------------------------------
 
-/** Just the three money columns — see opportunityValue. */
-export type OppValueFields = Pick<OppRow, "contract_value" | "quotation_value" | "estimated_value_max">;
-
-/**
- * The money figure for an opportunity, most-committed first.
- *
- * contract_value is what was actually contracted; quotation_value is what was
- * quoted; estimated_value_max is a guess. Returning null (not 0) when all three
- * are absent matters: a deal with no value is not a deal worth nothing, and
- * summing it as 0 silently understates the pipeline.
- *
- * Takes only those three fields rather than a whole OppRow. Every caller that
- * merely wants the money — computeJihPipelineTotal among them — would otherwise
- * have to fetch and pass an `id` it has no use for.
- */
-export function opportunityValue(o: OppValueFields): number | null {
-  for (const v of [o.contract_value, o.quotation_value, o.estimated_value_max]) {
-    if (v === null || v === undefined || v === "") continue;
-    const n = Number(v);
-    if (Number.isFinite(n)) return n;
-  }
-  return null;
-}
+export {
+  opportunityValue,
+  sumOpportunityValue,
+  type OppValueFields,
+} from "@/lib/opportunity-value";
+import { opportunityValue } from "@/lib/opportunity-value";
 
 export function canonicalStageOf(o: OppRow): CanonicalStage | null {
   return resolveCanonicalStage({ sales_stage: o.sales_stage, stage: o.stage }).stage;

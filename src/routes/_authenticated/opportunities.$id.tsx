@@ -61,6 +61,7 @@ import {
 } from "@/lib/opportunity-collab-actions";
 import { Upload, Paperclip } from "lucide-react";
 import { AttachmentLink } from "@/components/phc/AttachmentLink";
+import { opportunityValue } from "@/lib/sales-kpis";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
@@ -556,7 +557,7 @@ function OpportunityDetail() {
     );
   }
 
-  const val = o.quotation_value ?? o.estimated_value_max ?? o.estimated_value_min;
+  const val = opportunityValue(o as never) ?? o.estimated_value_min;
   const BackIcon = dir === "rtl" ? ArrowRight : ArrowLeft;
   const recTone = recToTone(o.agent_recommendation);
   const canActOnScore = canScore || o.owner_id === user?.id;

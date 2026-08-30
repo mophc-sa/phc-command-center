@@ -19,6 +19,7 @@ import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { ArchivedBadge, RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 import { AiRiskAssessment } from "@/components/phc/AiRiskAssessment";
+import { sumOpportunityValue } from "@/lib/sales-kpis";
 
 export const Route = createFileRoute("/_authenticated/accounts/$id")({
   head: () => ({ meta: [{ title: "Account — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -73,10 +74,7 @@ function AccountDetail() {
   const oppCount = c.opportunities?.length ?? 0;
   const projCount = c.projects?.length ?? 0;
   const contactCount = c.contacts?.length ?? 0;
-  const pipelineValue = (c.opportunities ?? []).reduce(
-    (s: number, o: any) => s + (o.estimated_value_max ?? 0),
-    0,
-  );
+  const pipelineValue = sumOpportunityValue((c.opportunities ?? []) as never).total;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
