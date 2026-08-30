@@ -26,10 +26,10 @@
 // link, said once.
 // =============================================================================
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { KpiTile } from "@/components/phc/KpiTile";
+import { KpiTile, type KpiAccent } from "@/components/phc/KpiTile";
 import { useI18n } from "@/lib/i18n";
 import { metricStateOf, type Kpi, type MetricState } from "@/lib/sales-kpis";
 
@@ -37,6 +37,11 @@ export type KpiEntry = {
   kpi: Kpi;
   label: string;
   hint?: string;
+  /** Semantic colour for the tile's icon and edge. See KpiTile's KpiAccent. */
+  accent?: KpiAccent;
+  icon?: ReactNode;
+  /** Only ever a <DeltaPill/>, which renders nothing without a real comparison. */
+  delta?: ReactNode;
   onOpen?: () => void;
 };
 
@@ -117,7 +122,16 @@ export function KpiGroup({
       {live.length > 0 ? (
         <div className={`grid gap-3 sm:grid-cols-2 ${columns}`}>
           {live.map((e) => (
-            <KpiTile key={e.label} kpi={e.kpi} label={e.label} hint={e.hint} onOpen={e.onOpen} />
+            <KpiTile
+              key={e.label}
+              kpi={e.kpi}
+              label={e.label}
+              hint={e.hint}
+              accent={e.accent}
+              icon={e.icon}
+              delta={e.delta}
+              onOpen={e.onOpen}
+            />
           ))}
         </div>
       ) : null}

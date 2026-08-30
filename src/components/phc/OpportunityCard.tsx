@@ -15,6 +15,13 @@ export type OpportunityRow = {
   estimated_value_min: number | null;
   estimated_value_max: number | null;
   quotation_value: number | null;
+  // Selected by the queries that build this row and missing from the type,
+  // which is how the card came to read a value that ignored signed contracts —
+  // the same shape of defect as targets-metrics. A rule can only be as correct
+  // as the fields it is allowed to see.
+  contract_value?: number | null;
+  created_at?: string | null;
+  human_win_probability?: number | null;
   currency: string;
   next_action: string | null;
   last_activity_at: string | null;
@@ -35,7 +42,7 @@ function scoreTierTone(tier: OpportunityRow["score_tier"]): "positive" | "attent
 export function OpportunityCard({ o, lang }: { o: OpportunityRow; lang: Lang }) {
   // The shared rule, then one explicit extra: a card showing a floor is more
   // useful than a card showing nothing.
-  const val = opportunityValue(o as never) ?? o.estimated_value_min;
+  const val = opportunityValue(o) ?? o.estimated_value_min;
   return (
     <Link
       to="/opportunities/$id"
