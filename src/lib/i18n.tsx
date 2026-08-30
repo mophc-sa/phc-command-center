@@ -1366,6 +1366,11 @@ export const strings = {
   // One key for the panel, in place of a badge on every line. Says what the
   // mark means AND what an unmarked line means, because the second half is the
   // part a reader actually needs: almost every line is unmarked.
+  // Explains the two-colour ramp once, under the bar it applies to.
+  pc_key: {
+    en: "Slate stages are being worked. Amber stages are committed — verbally awarded, contract received or signed — and can still be lost.",
+    ar: "المراحل الرمادية قيد العمل. والمراحل الكهرمانية ملتزَم بها — ترسية شفهية أو استلام عقد أو توقيعه — ولا تزال قابلة للخسارة.",
+  },
   brf_show_more: { en: "Show {count} more", ar: "عرض المزيد ({count})" },
   brf_show_less: { en: "Show less", ar: "عرض أقل" },
   brf_ai_key: {
