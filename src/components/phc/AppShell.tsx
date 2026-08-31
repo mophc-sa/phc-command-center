@@ -524,6 +524,22 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // ── Layout ─────────────────────────────────────────────────────────────
 
+  // The wall board renders bare: no sidebar, no command palette, no bell, no
+  // skip link. Not a style choice -- there is nobody at that screen to click
+  // any of it, and every control it does not draw is one a passer-by cannot
+  // use. The gate above still ran in full, so this is chrome removed, not
+  // authorisation skipped.
+  //
+  // Placed AFTER every hook on purpose: an early return above them would make
+  // the hook order depend on the route, which React forbids.
+  if (path === "/board") {
+    return (
+      <div dir={dir} className="bg-background text-foreground">
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div dir={dir} className="min-h-screen bg-background text-foreground">
       {/* Skip-to-main-content (WCAG 2.4.1) */}

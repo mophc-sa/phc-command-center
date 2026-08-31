@@ -37,6 +37,7 @@ import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedCommandCenterRouteImport } from './routes/_authenticated/command-center'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBoqRouteImport } from './routes/_authenticated/boq'
+import { Route as AuthenticatedBoardRouteImport } from './routes/_authenticated/board'
 import { Route as AuthenticatedAwardQueueRouteImport } from './routes/_authenticated/award-queue'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated/approvals'
 import { Route as AuthenticatedAiAgentsRouteImport } from './routes/_authenticated/ai-agents'
@@ -203,6 +204,11 @@ const AuthenticatedBoqRoute = AuthenticatedBoqRouteImport.update({
   path: '/boq',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBoardRoute = AuthenticatedBoardRouteImport.update({
+  id: '/board',
+  path: '/board',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAwardQueueRoute = AuthenticatedAwardQueueRouteImport.update({
   id: '/award-queue',
   path: '/award-queue',
@@ -334,6 +340,7 @@ export interface FileRoutesByFullPath {
   '/ai-agents': typeof AuthenticatedAiAgentsRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/award-queue': typeof AuthenticatedAwardQueueRoute
+  '/board': typeof AuthenticatedBoardRoute
   '/boq': typeof AuthenticatedBoqRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
@@ -382,6 +389,7 @@ export interface FileRoutesByTo {
   '/ai-agents': typeof AuthenticatedAiAgentsRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/award-queue': typeof AuthenticatedAwardQueueRoute
+  '/board': typeof AuthenticatedBoardRoute
   '/boq': typeof AuthenticatedBoqRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
@@ -432,6 +440,7 @@ export interface FileRoutesById {
   '/_authenticated/ai-agents': typeof AuthenticatedAiAgentsRoute
   '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
   '/_authenticated/award-queue': typeof AuthenticatedAwardQueueRoute
+  '/_authenticated/board': typeof AuthenticatedBoardRoute
   '/_authenticated/boq': typeof AuthenticatedBoqRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/command-center': typeof AuthenticatedCommandCenterRoute
@@ -483,6 +492,7 @@ export interface FileRouteTypes {
     | '/ai-agents'
     | '/approvals'
     | '/award-queue'
+    | '/board'
     | '/boq'
     | '/calendar'
     | '/command-center'
@@ -531,6 +541,7 @@ export interface FileRouteTypes {
     | '/ai-agents'
     | '/approvals'
     | '/award-queue'
+    | '/board'
     | '/boq'
     | '/calendar'
     | '/command-center'
@@ -580,6 +591,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ai-agents'
     | '/_authenticated/approvals'
     | '/_authenticated/award-queue'
+    | '/_authenticated/board'
     | '/_authenticated/boq'
     | '/_authenticated/calendar'
     | '/_authenticated/command-center'
@@ -826,6 +838,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBoqRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/board': {
+      id: '/_authenticated/board'
+      path: '/board'
+      fullPath: '/board'
+      preLoaderRoute: typeof AuthenticatedBoardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/award-queue': {
       id: '/_authenticated/award-queue'
       path: '/award-queue'
@@ -1008,6 +1027,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAiAgentsRoute: typeof AuthenticatedAiAgentsRoute
   AuthenticatedApprovalsRoute: typeof AuthenticatedApprovalsRoute
   AuthenticatedAwardQueueRoute: typeof AuthenticatedAwardQueueRoute
+  AuthenticatedBoardRoute: typeof AuthenticatedBoardRoute
   AuthenticatedBoqRoute: typeof AuthenticatedBoqRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCommandCenterRoute: typeof AuthenticatedCommandCenterRoute
@@ -1043,6 +1063,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAiAgentsRoute: AuthenticatedAiAgentsRoute,
   AuthenticatedApprovalsRoute: AuthenticatedApprovalsRoute,
   AuthenticatedAwardQueueRoute: AuthenticatedAwardQueueRoute,
+  AuthenticatedBoardRoute: AuthenticatedBoardRoute,
   AuthenticatedBoqRoute: AuthenticatedBoqRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCommandCenterRoute: AuthenticatedCommandCenterRoute,
