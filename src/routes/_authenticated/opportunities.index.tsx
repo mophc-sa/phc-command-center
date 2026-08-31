@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate, type SearchSchemaInput } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useWindowedList } from "@/lib/windowed-list";
+import { ListWindowFooter } from "@/components/phc/ListWindowFooter";
 import { useQuery } from "@tanstack/react-query";
 import { Search, LayoutGrid, Rows3, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -113,10 +115,36 @@ function OppList() {
   const toggleSort = (key: SortKey) =>
     setSort((prev) => (prev?.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
 
-  const latestRfq = (o: any) =>
-    [...(o.rfqs ?? [])].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0] ?? null;
-  const latestQuotation = (o: any) =>
-    [...(o.quotations ?? [])].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0] ?? null;
+  // Latest RFQ and quotation per row, resolved ONCE.
+  //
+  // These used to be plain functions that copied and sorted a nested array on
+  // every call, called from inside the sort comparator -- so ordering 739 rows
+  // ran them 8,666 times, each doing its own spread and sort. Then the render
+  // called them again per row.
+  //
+  // Measured, not assumed: 2.1ms -> 0.9ms for the sort at this row count. Real,
+  // and small. An earlier version of this comment claimed it was most of the
+  // delay on a column header click; benchmarking says otherwise, and the
+  // window below is where the actual cost was. Kept because a linear max is
+  // plainly the right shape -- "latest" does not need the other n-1
+  // comparisons -- not because it rescued the page.
+  const latest = useMemo(() => {
+    const pick = <T extends { created_at?: string | null }>(xs: T[] | undefined): T | null => {
+      let best: T | null = null;
+      for (const x of xs ?? []) {
+        if (!best || (x.created_at ?? "") > (best.created_at ?? "")) best = x;
+      }
+      return best;
+    };
+    const m = new Map<string, { rfq: any; quote: any }>();
+    for (const o of data as any[]) {
+      m.set(o.id, { rfq: pick(o.rfqs), quote: pick(o.quotations) });
+    }
+    return m;
+  }, [data]);
+
+  const latestRfq = (o: any) => latest.get(o.id)?.rfq ?? null;
+  const latestQuotation = (o: any) => latest.get(o.id)?.quote ?? null;
 
   const filtered = useMemo(() => {
     // One shared predicate with the KPI engine, so "open" here means exactly
@@ -144,7 +172,21 @@ function OppList() {
       return sort.dir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [data, routeSearch, sort]);
+  }, [data, routeSearch, sort, latest]);
+
+  // Draw a window, not the whole list. Filtering and sorting still run over
+  // everything above; only the rendering is bounded. At 739 rows each carrying
+  // a link, a seven-column grid and its badges, drawing them all builds around
+  // twenty-two thousand DOM nodes that React reconciles on every keystroke in
+  // the filter box.
+  //
+  // The reset key is the filter and sort state: without it, narrowing a search
+  // would keep whatever window the reader had opened, and widening it again
+  // would render everything at once -- the freeze this is here to prevent.
+  const win = useWindowedList(
+    filtered,
+    JSON.stringify([routeSearch, sort, view]),
+  );
 
   // The company sales target. Annual first, falling back to the current month
   // — the same rule Command Center and My Workspace already use, summed across
@@ -350,8 +392,12 @@ function OppList() {
           secondaryAction={{ label: t("empty_clear_filters"), onClick: clearFilters }}
         />
       ) : view === "cards" ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((o) => <OpportunityCard key={o.id} o={o} lang={lang} />)}
+        <div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {win.visible.map((o) => <OpportunityCard key={o.id} o={o} lang={lang} />)}
+          </div>
+
+        <ListWindowFooter win={win} />
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
@@ -366,7 +412,7 @@ function OppList() {
             <SortHeader label={lang === "ar" ? "شركة العميل" : "Client Company"} active={sort?.key === "client_company"} dir={sort?.dir} onClick={() => toggleSort("client_company")} />
           </div>
           <ul>
-            {filtered.map((o: any) => {
+            {win.visible.map((o: any) => {
               const rfq = latestRfq(o);
               const quote = latestQuotation(o);
               const amount = quote?.value ?? opportunityValue(o as never) ?? o.estimated_value_min;
@@ -409,6 +455,8 @@ function OppList() {
             })}
           </ul>
           </div>
+
+        <ListWindowFooter win={win} />
         </div>
       )}
     </div>

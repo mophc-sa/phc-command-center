@@ -1,3 +1,5 @@
+import { useWindowedList } from "@/lib/windowed-list";
+import { ListWindowFooter } from "@/components/phc/ListWindowFooter";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -74,6 +76,11 @@ function AccountsPage() {
           (c.regions && c.regions.toLowerCase().includes(q)),
       );
   }, [companies, typeFilter, query, showArchived]);
+
+  // Draw a window, not the whole list -- see src/lib/windowed-list.ts.
+  // Reset on this page's own filter state, so narrowing a search collapses
+  // the window instead of keeping whatever the reader had opened.
+  const win = useWindowedList(filtered, JSON.stringify([companies, typeFilter, query, showArchived]));
 
   const kpis = useMemo(() => {
     const active = companies.filter((c: any) => c.account_status === "active").length;
@@ -160,8 +167,9 @@ function AccountsPage() {
           />
         )
       ) : (
+        <>
         <div className="grid gap-3 md:grid-cols-2">
-          {filtered.map((c: any) => (
+          {win.visible.map((c: any) => (
             <Link
               key={c.id}
               to="/accounts/$id"
@@ -188,6 +196,8 @@ function AccountsPage() {
             </Link>
           ))}
         </div>
+          <ListWindowFooter win={win} />
+        </>
       )}
 
       <ActionDialog
