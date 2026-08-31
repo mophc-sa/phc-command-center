@@ -1,3 +1,5 @@
+import { useWindowedList } from "@/lib/windowed-list";
+import { ListWindowFooter } from "@/components/phc/ListWindowFooter";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -96,6 +98,11 @@ function ContactsPage() {
       );
   }, [contacts, query, authFilter, showArchived]);
 
+  // Draw a window, not the whole list -- see src/lib/windowed-list.ts.
+  // Reset on this page's own filter state, so narrowing a search collapses
+  // the window instead of keeping whatever the reader had opened.
+  const win = useWindowedList(filtered, JSON.stringify([contacts, query, authFilter, showArchived]));
+
   const kpis = useMemo(() => {
     const dm = contacts.filter((c: any) => c.authority === "decision_maker").length;
     const withEmail = contacts.filter((c: any) => !!c.email).length;
@@ -191,6 +198,7 @@ function ContactsPage() {
           secondaryAction={{ label: t("empty_clear_filters"), onClick: () => { setQuery(""); setAuthFilter("all"); setShowArchived(false); } }}
         />
       ) : (
+        <>
         <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
           {/* `table-fixed` so one 90-character imported name cannot set the
                 width of every column. Without it the table measured 1076px
@@ -213,7 +221,7 @@ function ContactsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c: any) => (
+              {win.visible.map((c: any) => (
                 <tr key={c.id} className="border-b border-border/40 text-foreground last:border-0 hover:bg-surface">
                   {/* Name carries what used to be its own columns. Title,
                       location and website are filled on almost no row in this
@@ -300,6 +308,8 @@ function ContactsPage() {
             </tbody>
           </table>
         </div>
+          <ListWindowFooter win={win} />
+        </>
       )}
 
       <ActionDialog

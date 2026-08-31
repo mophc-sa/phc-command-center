@@ -253,8 +253,21 @@ describe("drilldown is wired end to end", () => {
   });
 
   it("the filter memo depends on the whole search object", () => {
+    // Asserts the PROPERTY, not a literal dependency array. The previous form
+    // pinned the exact string "[data, routeSearch, sort]", so adding a fourth
+    // legitimate dependency broke it -- which teaches the next person to edit
+    // the assertion rather than think about it. What must hold is that the
+    // whole search object is a dependency, since narrowing it to hand-picked
+    // fields is how the filter and the KPI drifted apart in the first place.
     const s = read(OPP_LIST);
-    expect(s).toContain("}, [data, routeSearch, sort]);");
+    const deps = s.match(/\n {2}\}, \[([^\]]*)\]\);/g) ?? [];
+    const filterDeps = deps.find((d) => d.includes("routeSearch"));
+    expect(filterDeps).toBeDefined();
+    for (const required of ["data", "routeSearch", "sort"]) {
+      expect([required, filterDeps!.includes(required)]).toEqual([required, true]);
+    }
+    // And never a narrowed field in place of the object itself.
+    expect(filterDeps).not.toMatch(/routeSearch\.\w+/);
   });
 
   // Clearing filters must escape the owner and date range a drilldown arrived
