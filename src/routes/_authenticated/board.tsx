@@ -48,12 +48,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatNumber, localeFor } from "@/lib/i18n";
 import { requiresConversionReview } from "@/lib/dashboard-helpers";
 import {
+  attentionItems,
+  hotOpportunities,
+  horizonForecast,
+  pipelineBuckets,
+  pipelineCoverage,
+  weightedPipeline,
+  upcoming,
+  wireItems,
+  sharedReason,
+  oldestOverdueDays,
+  movement,
+  type Figure,
+  type IntelOpp,
+} from "@/lib/board-intel";
+import {
   computePulse,
   computeStanding,
   computeTeam,
   displayLabel,
   freshnessOf,
   compactValue,
+  splitCompact,
+  yearOnYear,
   OPEN_WINDOW_MONTHS,
   wonTrend,
   yearProgress,
@@ -66,12 +83,19 @@ export const Route = createFileRoute("/_authenticated/board")({
   component: BoardPage,
 });
 
+/** Same asset the sign-in pages and the sidebar use, so the wall cannot
+ *  drift from the identity the rest of the app already carries. */
+const phcLogo = { url: "/phc-logo.png" };
+
 /** Values move in minutes, not seconds. A tighter poll would only add load. */
 const POLL_MS = 60_000;
 
 const STAGE_LABEL: Record<string, [string, string]> = {
   rfq_received: ["استُلم الطلب", "RFQ received"],
-  jih: ["فرصة قائمة", "Job in hand"],
+  // "Job in hand" reads in English as "we have the job". It means the
+  // CONTRACTOR holds the main project -- our odds are better, not our win.
+  // The review flagged the wording and was right; the bucket is unchanged.
+  jih: ["المقاول يملك المشروع", "Contractor holds it"],
   jih_bafo: ["BAFO", "BAFO"],
   under_negotiation: ["تفاوض", "Negotiation"],
   verbally_awarded: ["ترسية شفهية", "Verbal award"],
@@ -126,15 +150,15 @@ function useBoardData() {
     refetchOnWindowFocus: false,
     staleTime: POLL_MS / 2,
     queryFn: async () => {
-      const [opps, approvals, followUps, quotations, tenders, inbox, targets, profiles] =
+      const [opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves] =
         await Promise.all([
           supabase
             .from("opportunities")
             .select(
-              "id, owner_id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, won_at, created_at",
+              "id, project_name, client, owner_id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, human_win_probability, next_action, next_action_due, last_activity_at, won_at, created_at",
             ),
           supabase.from("approvals").select("created_at").eq("status", "pending"),
-          supabase.from("follow_ups").select("due_date").eq("status", "scheduled"),
+          supabase.from("follow_ups").select("opportunity_id, due_date, status").eq("status", "scheduled"),
           // `valid_until` is the quotation's own deadline. There is no
           // "due_date" column -- the typechecker caught that guess.
           supabase.from("quotations").select("valid_until, status"),
@@ -142,8 +166,12 @@ function useBoardData() {
           supabase.from("leads").select("id").eq("lead_stage", "detected"),
           supabase.from("sales_targets").select("user_id, sales_target, period_type, period_start"),
           supabase.from("profiles").select("id, full_name"),
+          supabase
+            .from("stage_transition_history")
+            .select("changed_at")
+            .gte("changed_at", new Date(Date.now() - 7 * 86_400_000).toISOString()),
         ]);
-      return { opps, approvals, followUps, quotations, tenders, inbox, targets, profiles };
+      return { opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves };
     },
   });
 }
@@ -178,14 +206,21 @@ function Dot({ f, lang }: { f: Freshness; lang: "ar" | "en" }) {
  *           3.40 and 3.91 against their own 8% tint and fail 4.5:1 as label
  *           text. That was measured, not assumed, earlier in this codebase.
  */
-const TONE: Record<string, { wash: string; edge: string; text: string }> = {
+// Deliberately un-annotated. It was `Record<string, ...>`, which makes
+// `keyof typeof TONE` widen to `string` -- so `tone="destructive"` (the key is
+// `danger`) type-checked cleanly, threw at runtime on `.wash`, and took the
+// whole board down to an error boundary. Inferring the type keeps every tone
+// prop honest at compile time.
+const TONE = {
   ink: { wash: "transparent", edge: "var(--rule, var(--border))", text: "text-foreground" },
-  money: { wash: "color-mix(in srgb, var(--amber) 8%, var(--card))", edge: "var(--amber)", text: "text-amber-deep" },
+  money: { wash: "color-mix(in srgb, var(--amber) 8%, var(--card))", edge: "var(--amber)", text: "text-amber-on-tint" },
   won: { wash: "color-mix(in srgb, var(--won) 8%, var(--card))", edge: "var(--won)", text: "text-won-on-tint" },
-  amber: { wash: "color-mix(in srgb, var(--amber) 8%, var(--card))", edge: "var(--amber)", text: "text-amber-deep" },
+  amber: { wash: "color-mix(in srgb, var(--amber) 8%, var(--card))", edge: "var(--amber)", text: "text-amber-on-tint" },
   danger: { wash: "color-mix(in srgb, var(--destructive) 8%, var(--card))", edge: "var(--destructive)", text: "text-destructive-on-tint" },
   info: { wash: "color-mix(in srgb, var(--info) 8%, var(--card))", edge: "var(--info)", text: "text-info" },
-};
+  violet: { wash: "color-mix(in srgb, var(--violet) 8%, var(--card))", edge: "var(--violet)", text: "text-violet-on-tint" },
+  teal: { wash: "color-mix(in srgb, var(--teal) 8%, var(--card))", edge: "var(--teal)", text: "text-teal-on-tint" },
+} satisfies Record<string, { wash: string; edge: string; text: string }>;
 
 /** A headline figure. Big enough to read from across the room. */
 function Hero({
@@ -379,7 +414,7 @@ function YearBar({
             on both sides or it welds the pair into a single run. */}
         <div className="flex items-baseline gap-[1.6vw]">
           <span
-            className={`num font-bold leading-none tracking-[-0.02em] ${ahead ? "text-won-on-tint" : "text-amber-deep"}`}
+            className={`num font-bold leading-none tracking-[-0.02em] ${ahead ? "text-won-on-tint" : "text-amber-on-tint"}`}
             style={{ fontSize: "2.4vw" }}
             data-tabular="true"
           >
@@ -550,6 +585,88 @@ function Ladder({
   );
 }
 
+/**
+ * A figure that may not exist, rendered as what it actually is.
+ *
+ * The distinction the review asked for, kept literally on screen: a computed
+ * number, a column nobody has filled, and a setting nobody has made are three
+ * different states and must not all print as "SAR 0". Zero means "we measured
+ * and it is nothing"; the other two mean "we cannot say", and a wall nobody can
+ * interrogate is the worst place to blur them.
+ */
+function FigureValue({
+  f,
+  lang,
+  format,
+  size,
+}: {
+  f: Figure;
+  lang: "ar" | "en";
+  format: (n: number) => string | null;
+  size: string;
+}) {
+  if (f.state === "ok" && f.value !== null) {
+    return (
+      <span className="num font-bold leading-none tracking-[-0.02em] text-foreground" style={{ fontSize: size }}>
+        {format(f.value)}
+      </span>
+    );
+  }
+  const head =
+    f.state === "not_configured"
+      ? lang === "ar" ? "يحتاج إعدادًا" : "Setup required"
+      : f.state === "not_applicable"
+        ? lang === "ar" ? "لا ينطبق" : "Not applicable"
+        : lang === "ar" ? "لا يمكن حسابه" : "Not calculated";
+  return (
+    <span className="flex flex-col gap-[0.3vh]">
+      <span className="font-semibold leading-none text-muted-foreground" style={{ fontSize: `calc(${size} * 0.42)` }}>
+        {head}
+      </span>
+      {(lang === "ar" ? f.reasonAr : f.reasonEn) ? (
+        <span className="text-muted-foreground" style={{ fontSize: "0.72vw" }}>
+          {lang === "ar" ? f.reasonAr : f.reasonEn}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** A Hero whose value may be unavailable. Same box, honest content. */
+function HeroFigure({
+  f,
+  ar,
+  en,
+  lang,
+  money,
+}: {
+  f: Figure;
+  ar: string;
+  en: string;
+  lang: "ar" | "en";
+  money: (n: number | null | undefined) => string | null;
+}) {
+  return (
+    <div
+      className="relative flex flex-col justify-center overflow-hidden rounded-[0.7vw] border border-border px-[1.4vw] py-[1.4vh]"
+      style={{ background: TONE[f.state === "ok" ? "money" : "ink"].wash }}
+    >
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-0 start-0"
+        style={{ width: "0.22vw", background: TONE[f.state === "ok" ? "money" : "ink"].edge }}
+      />
+      <FigureValue f={f} lang={lang} format={(n) => money(n)} size="3.9vw" />
+      <div className="mt-[0.9vh] font-semibold text-foreground" style={{ fontSize: "1.02vw" }}>
+        {ar}
+      </div>
+      <div className="text-muted-foreground" style={{ fontSize: "0.78vw", direction: "ltr" }}>
+        {en}
+      </div>
+    </div>
+  );
+}
+
 function BoardPage() {
   const { lang } = useI18n();
   const { data, dataUpdatedAt, isError } = useBoardData();
@@ -557,8 +674,6 @@ function BoardPage() {
   const nowDate = useMemo(() => new Date(now), [now]);
   const fresh = freshnessOf(isError ? null : dataUpdatedAt || null, now, POLL_MS);
 
-  // Counts stay exact -- "5 follow-ups" is a number you act on. Money is
-  // compacted, because nine digits at wall size is a wall of digits.
   const nf = (n: number | null | undefined) =>
     n === null || n === undefined ? null : formatNumber(Math.round(n), lang);
   const money = (n: number | null | undefined) => compactValue(n, lang);
@@ -604,244 +719,1024 @@ function BoardPage() {
     // rows: sales_targets is keyed per user, so a company figure has no row of
     // its own. Summing is the honest reading of the schema as it stands.
     const annual = [...targets.values()].reduce((a, v) => a + v, 0) || null;
+    const intel = opps as unknown as IntelOpp[];
+    const weighted = weightedPipeline(intel);
     return {
       pulse,
       standing,
       team: computeTeam(opps, targets, labels, nowDate),
       trend: wonTrend(opps, nowDate, 6),
       year: yearProgress(opps, annual, nowDate),
+      buckets: pipelineBuckets(intel),
+      weighted,
+      coverage: pipelineCoverage(weighted, annual),
+      horizon: horizonForecast(intel),
+      hot: hotOpportunities(intel, 5),
+      yoy: yearOnYear(opps, nowDate),
+      oldestOverdue: oldestOverdueDays(
+        rows<{ due_date: string | null }>(data.followUps).map((f) => f.due_date),
+        nowDate,
+      ),
+      upcoming: upcoming(
+        rows<{ due_date: string | null }>(data.followUps).map((f) => f.due_date),
+        nowDate,
+      ),
+      movement: movement(
+        intel,
+        rows<{ changed_at: string | null }>(data.moves),
+        nowDate,
+        1,
+        { importedSource: "PHC Quotation List 2022-2026" },
+      ),
+      attention: attentionItems(
+        intel,
+        rows<{ opportunity_id: string; due_date: string | null }>(data.followUps),
+        nowDate,
+      ),
+      labels,
     };
   }, [data, nowDate]);
 
   const fmtTime = (d: Date) =>
-    new Intl.DateTimeFormat(localeFor(lang), { hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+    new Intl.DateTimeFormat(localeFor(lang), { hour: "2-digit", minute: "2-digit", hour12: true }).format(d);
+  const fmtDate = (d: Date) =>
+    new Intl.DateTimeFormat(localeFor(lang), {
+      weekday: "long", day: "numeric", month: "long", year: "numeric",
+    }).format(d);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
-      <header className="flex shrink-0 items-center justify-between border-b border-border px-[1.6vw] py-[1.1vh]">
-        <div className="flex items-baseline gap-[1.2vw]">
-          <span className="brand-mark text-foreground" style={{ fontSize: "1.1vw" }}>
-            PHC
-          </span>
-          <span className="num font-semibold text-foreground" style={{ fontSize: "1.6vw" }}>
-            {fmtTime(nowDate)}
-          </span>
+    <div className="flex h-screen w-screen flex-col overflow-hidden" style={{ background: "color-mix(in srgb, var(--info) 4%, var(--muted))" }}>
+      <header className="flex shrink-0 items-center justify-between border-b border-border bg-card px-[1.5vw] py-[1.1vh]">
+        <div className="flex items-center gap-[1.2vw]">
+          {/* The real wordmark, not the letters. `brightness-0` renders the
+              near-white source as ink for this light header -- the same
+              treatment the sidebar and every sign-in page already apply, so
+              the wall cannot drift from the identity the app already carries. */}
+          <img
+            src={phcLogo.url}
+            alt="PHC Wayfinding Signs"
+            className="w-auto object-contain brightness-0"
+            style={{ height: "3.4vh" }}
+          />
+          <span className="h-[3.4vh] w-px bg-border" aria-hidden="true" />
+          <div className="flex flex-col">
+            <span className="font-semibold leading-none text-foreground" style={{ fontSize: "1.5vw" }}>
+              {lang === "ar" ? "مركز قيادة المبيعات" : "Sales Command Centre"}
+            </span>
+            <span className="mt-[0.45vh] text-muted-foreground" style={{ fontSize: "0.75vw" }}>
+              {lang === "ar" ? "نظرة لحظية · ركّز · نفّذ · اربح" : "At a glance · focus · execute · win"}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-[1.4vw] text-muted-foreground" style={{ fontSize: "0.85vw" }}>
-          <span>
-            {lang === "ar" ? "آخر تحديث" : "Updated"}{" "}
-            <span className="num">{dataUpdatedAt ? fmtTime(new Date(dataUpdatedAt)) : "—"}</span>
-          </span>
+        <div className="flex items-center gap-[1.3vw] text-muted-foreground" style={{ fontSize: "0.85vw" }}>
           <Dot f={fresh} lang={lang} />
+          <span className="h-[2.4vh] w-px bg-border" aria-hidden="true" />
+          <span className="num">{fmtDate(nowDate)}</span>
+          <span className="h-[2.4vh] w-px bg-border" aria-hidden="true" />
+          <span className="num font-semibold text-foreground" style={{ fontSize: "1.05vw" }}>{fmtTime(nowDate)}</span>
         </div>
       </header>
 
       {fresh !== "live" ? (
         <div
-          className={`shrink-0 px-[1.6vw] py-[0.8vh] text-center font-semibold ${
-            fresh === "stale" ? "bg-destructive/12 text-destructive-on-tint" : "bg-amber/12 text-amber-deep"
+          className={`shrink-0 px-[1.5vw] py-[0.6vh] text-center font-semibold ${
+            fresh === "stale" ? "bg-destructive/12 text-destructive-on-tint" : "bg-amber/12 text-amber-on-tint"
           }`}
-          style={{ fontSize: "0.95vw" }}
+          style={{ fontSize: "0.85vw" }}
         >
           {fresh === "stale"
-            ? lang === "ar"
-              ? "الاتصال منقطع — الأرقام أدناه قديمة ولا يُبنى عليها قرار"
-              : "Disconnected — the figures below are old; do not act on them"
-            : lang === "ar"
-              ? "التحديث متأخّر"
-              : "Update is late"}
+            ? lang === "ar" ? "الاتصال منقطع — الأرقام أدناه قديمة ولا يُبنى عليها قرار" : "Disconnected — figures below are old"
+            : lang === "ar" ? "التحديث متأخّر" : "Update is late"}
         </div>
       ) : null}
 
       {!model ? (
-        <div className="grid flex-1 place-items-center text-muted-foreground" style={{ fontSize: "1.3vw" }}>
+        <div className="grid flex-1 place-items-center text-muted-foreground" style={{ fontSize: "1.2vw" }}>
           {lang === "ar" ? "يُحمّل…" : "Loading…"}
         </div>
       ) : (
         <main
-          className={`grid min-h-0 flex-1 gap-[1.1vh] px-[1.6vw] py-[1.2vh] ${fresh === "stale" ? "opacity-45" : ""}`}
-          // Four bands. The money gets the most height because it is the band
-          // meant to be read from the far side of the room.
-          style={{ gridTemplateRows: "auto auto auto auto minmax(0, 1.45fr) minmax(0, 1fr)" }}
+          className={`grid min-h-0 flex-1 gap-[0.8vh] px-[1.2vw] py-[1vh] ${fresh === "stale" ? "opacity-45" : ""}`}
+          // Explicit fractions, not `auto`. With the top two rows content-sized
+          // the table row swallowed everything left over and towered over the
+          // cards above it.
+          style={{
+            gridTemplateRows:
+              "minmax(0,1.15fr) minmax(0,1fr) minmax(0,1.25fr) minmax(0,1fr)",
+          }}
         >
-          {/* ── المال ─────────────────────────────────────────────────── */}
-          <div className="grid grid-cols-4 gap-[0.9vw]">
-            <Hero
-              value={money(model.standing.openTotal)}
-              ar="المفتوح — آخر 12 شهرًا"
-              en="Open — last 12 months"
-              tone="money"
-              sub={
-                model.standing.openUnvalued > 0
+          <div className="grid grid-cols-5 gap-[0.7vw]">
+            <Kpi
+              icon="📈" tone="won" lang={lang}
+              ar="الإنجاز منذ بداية السنة" en="Won year to date"
+              value={splitCompact(model.yoy.thisYear, lang)?.n ?? null}
+              unit={splitCompact(model.yoy.thisYear, lang)?.unit}
+              foot={
+                // Against the SAME window last year, never its full total --
+                // that would flatter every January and damn every December.
+                model.yoy.ratio === null
+                  ? lang === "ar" ? "لا فوز في نفس الفترة الماضية — لا مقارنة" : "nothing won in this window last year"
+                  : lang === "ar"
+                    ? `${model.yoy.ratio >= 0 ? "▲" : "▼"} ${formatNumber(Math.abs(Math.round(model.yoy.ratio * 100)), lang)}% مقارنة بـ ${compactValue(model.yoy.priorYear, lang)} نفس الفترة الماضية`
+                    : `${model.yoy.ratio >= 0 ? "▲" : "▼"} ${Math.abs(Math.round(model.yoy.ratio * 100))}% vs ${compactValue(model.yoy.priorYear, lang)} same period last year`
+              }
+            />
+            <Kpi
+              icon="🎯" tone="info" lang={lang}
+              ar="الهدف السنوي" en="Annual target"
+              value={splitCompact(model.year.target, lang)?.n ?? null}
+              unit={splitCompact(model.year.target, lang)?.unit}
+              foot={
+                model.year.target === null
+                  ? lang === "ar" ? "لم يُضبط هدف" : "no target set"
+                  : lang === "ar"
+                    ? `مضى ${formatNumber(Math.round(model.year.yearElapsed * 100), lang)}% من السنة`
+                    : `${Math.round(model.year.yearElapsed * 100)}% of the year elapsed`
+              }
+            />
+            <KpiFigure
+              icon="📊" f={model.weighted} lang={lang} money={money} tone="violet"
+              ar="التوقع المرجّح" en="Weighted forecast"
+            />
+            <Kpi
+              icon="🔻" tone="teal" lang={lang}
+              ar="الفرص المؤهلة (المسار)" en="Qualified pipeline"
+              value={splitCompact(model.standing.openTotal, lang)?.n ?? null}
+              unit={splitCompact(model.standing.openTotal, lang)?.unit}
+              foot={
+                // Unweighted coverage: real, and labelled as such. The weighted
+                // ratio the mockup shows needs a probability nobody has entered,
+                // and an unlabelled ratio would be read as the weighted one.
+                model.year.target && model.year.target > 0
                   ? lang === "ar"
-                    ? `${dealsLabel(model.standing.openCount, lang)} · ${formatNumber(model.standing.openUnvalued, lang)} بلا قيمة مسجَّلة`
-                    : `${dealsLabel(model.standing.openCount, lang)} · ${model.standing.openUnvalued} carry no value`
+                    ? `تغطية ×${(model.standing.openTotal / model.year.target).toFixed(1)} غير مرجّحة · ${dealsLabel(model.standing.openCount, lang)}`
+                    : `${(model.standing.openTotal / model.year.target).toFixed(1)}× coverage, unweighted · ${dealsLabel(model.standing.openCount, lang)}`
                   : dealsLabel(model.standing.openCount, lang)
               }
             />
-            <Hero
-              value={money(model.standing.wonThisMonth)}
-              ar="مُرسّى هذا الشهر"
-              en="Won this month"
-              tone="won"
-              sub={dealsLabel(model.standing.wonThisMonthCount, lang)}
-            />
-            <Hero
-              value={money(model.standing.lateStageExposure)}
-              ar="ملتزَم به وقابل للخسارة"
-              en="Committed, still losable"
-              tone="amber"
-            />
-            <Hero
-              value={
-                model.standing.winRate === null
-                  ? null
-                  : `${formatNumber(Math.round(model.standing.winRate * 100), lang)}%`
-              }
-              ar="نسبة الفوز"
-              en="Win rate"
-              sub={
-                model.standing.winRate === null
-                  ? lang === "ar"
-                    ? "لا صفقة محسومة بعد"
-                    : "nothing decided yet"
-                  : undefined
+            <Kpi
+              icon="◔"
+              tone={model.year.ratio !== null && model.year.ratio >= model.year.yearElapsed ? "won" : "amber"}
+              lang={lang}
+              ar="نسبة تحقيق الهدف" en="Target achievement"
+              value={model.year.ratio === null ? null : `${formatNumber(Math.round(model.year.ratio * 100), lang)}%`}
+              unit={model.year.target ? (lang === "ar" ? `من ${compactValue(model.year.target, lang)}` : `of ${compactValue(model.year.target, lang)}`) : null}
+              gauge={model.year.ratio}
+              foot={
+                model.year.ratio === null
+                  ? lang === "ar" ? "لم يُضبط هدف" : "no target set"
+                  : model.year.ratio >= model.year.yearElapsed
+                    ? lang === "ar" ? "أمام المعدّل المطلوب" : "ahead of required pace"
+                    : lang === "ar" ? "أقل من المعدّل المطلوب" : "below required pace"
               }
             />
           </div>
+          <div className="grid grid-cols-[1.55fr_1fr] gap-[0.7vw]">
+            <Panel title={lang === "ar" ? "يتطلّب الانتباه" : "Needs attention"} icon="⚠" tone="danger" lang={lang}>
+              <div className="grid flex-1 grid-cols-4 gap-[0.6vw]">
+                <Need n={model.pulse.followUpsOverdue} ar="متابعات متأخّرة" en="Follow-ups overdue"
+                      sub={lang === "ar" ? "مطلوب إجراء اليوم" : "action needed today"} tone="danger" lang={lang} />
+                <Need n={model.pulse.quotationsDueSoon} ar="عروض ≤ 7 أيام" en="Quotations ≤7d"
+                      sub={model.pulse.quotationsDueSoon === null
+                        ? (lang === "ar" ? "لا تاريخ صلاحية مسجّل" : "no expiry recorded")
+                        : (lang === "ar" ? "ردّ خلال المدّة" : "reply within validity")}
+                      tone="amber" lang={lang} />
+                <Need n={model.attention.filter((a) => a.priority === "critical").length}
+                      ar="فرص حرجة" en="Critical deals"
+                      sub={lang === "ar" ? "قيمة عالية ومتأخّرة" : "high value, overdue"} tone="danger" lang={lang} />
+                <Need n={model.pulse.approvalsPending} ar="موافقات منتظرة" en="Approvals pending"
+                      sub={model.pulse.oldestApprovalDays === null
+                        ? (lang === "ar" ? "لا شيء ينتظر" : "nothing waiting")
+                        : (lang === "ar" ? `أقدمها ${formatNumber(model.pulse.oldestApprovalDays, lang)} يومًا` : `oldest ${model.pulse.oldestApprovalDays}d`)}
+                      tone="amber" lang={lang} />
+              </div>
+            </Panel>
 
-          {/* What the window left out. Stated, because a filtered figure
-              presented as a total is the quiet kind of misreporting this
-              board is built to avoid. */}
-          {model.standing.openExcludedCount > 0 ? (
-            <div
-              className="flex items-baseline justify-between rounded-[0.5vw] border border-border px-[1.1vw] py-[0.5vh] text-muted-foreground"
-              style={{ background: "var(--card)", fontSize: "0.74vw" }}
-            >
-              <span>
-                {lang === "ar"
-                  ? `مستبعَد من "المفتوح": ${dealsLabel(model.standing.openExcludedCount, lang)} وصلت قبل ${OPEN_WINDOW_MONTHS} شهرًا وما زالت في مرحلة مفتوحة — بقيمة ${compactValue(model.standing.openExcludedValue, lang)}`
-                  : `Excluded from open: ${dealsLabel(model.standing.openExcludedCount, lang)} that arrived over ${OPEN_WINDOW_MONTHS} months ago and are still in an open stage — worth ${compactValue(model.standing.openExcludedValue, lang)}`}
-              </span>
-              <span>{lang === "ar" ? "تستحق إغلاقًا أو إحياءً" : "worth closing or reviving"}</span>
-            </div>
-          ) : null}
-
-          {/* ── الهدف السنوي ──────────────────────────────────────────── */}
-          <div
-            className="rounded-[0.6vw] border px-[1.4vw] py-[1.4vh]"
-            style={{
-              background: "color-mix(in srgb, var(--amber) 6%, var(--card))",
-              borderColor: "color-mix(in srgb, var(--amber) 28%, var(--border))",
-            }}
-          >
-            <YearBar p={model.year} lang={lang} />
-          </div>
-
-          {/* ── ما ينتظر قرارًا ───────────────────────────────────────── */}
-          <div className="grid grid-cols-5 gap-[0.9vw]">
-            <Tile
-              value={nf(model.pulse.approvalsPending)}
-              ar="موافقات منتظرة"
-              en="Approvals pending"
-              tone={model.pulse.approvalsPending > 0 ? "amber" : "ink"}
-              sub={
-                model.pulse.oldestApprovalDays === null
-                  ? undefined
-                  : lang === "ar"
-                    ? `أقدمها منذ ${formatNumber(model.pulse.oldestApprovalDays, lang)} يومًا`
-                    : `oldest ${model.pulse.oldestApprovalDays}d`
-              }
-            />
-            <Tile
-              value={nf(model.pulse.followUpsOverdue)}
-              ar="متابعات متأخّرة"
-              en="Follow-ups overdue"
-              tone={model.pulse.followUpsOverdue > 0 ? "danger" : "ink"}
-            />
-            <Tile value={nf(model.pulse.quotationsDueSoon)} ar="عروض تستحق خلال 7 أيام" en="Quotations due ≤7d" tone="info" />
-            <Tile
-              value={nf(model.pulse.tendersNeedingReview)}
-              ar="مناقصات تحتاج مراجعة"
-              en="Tenders needing review"
-              tone={model.pulse.tendersNeedingReview > 0 ? "amber" : "ink"}
-            />
-            <Tile value={nf(model.pulse.inboxUnclassified)} ar="وارد غير مصنَّف" en="Inbox unclassified" tone="info" />
-          </div>
-
-          {/* ── رسمان: الاتجاه، والتركيب ──────────────────────────────── */}
-          <div className="grid min-h-0 grid-cols-[1fr_1.7fr] gap-[0.9vw]">
-            <div className="min-h-0 rounded-[0.6vw] border border-border bg-card px-[1.1vw] py-[0.9vh]">
-              <Trend points={model.trend} lang={lang} />
-            </div>
-            <div className="flex min-h-0 flex-col gap-[0.5vh] rounded-[0.6vw] border border-border bg-card px-[1.1vw] py-[0.9vh]">
-              <div className="flex items-baseline justify-between">
-                <div className="flex items-baseline gap-[0.7vw]">
-                  <span className="font-semibold text-foreground" style={{ fontSize: "0.92vw" }}>
-                    {lang === "ar" ? "سلّم المراحل" : "The stage ladder"}
+            <Panel title={lang === "ar" ? "اليوم / الأيام السبعة القادمة" : "Today / next seven days"} icon="🗓" tone="info" lang={lang}>
+              {model.upcoming === null ? (
+                <div className="flex flex-1 flex-col justify-center gap-[0.4vh]">
+                  <span className="font-semibold text-amber-on-tint" style={{ fontSize: "0.95vw" }}>
+                    {lang === "ar" ? "لا شيء مجدوَل بعد اليوم" : "Nothing scheduled ahead"}
                   </span>
-                  <span className="text-muted-foreground" style={{ fontSize: "0.72vw", direction: "ltr" }}>
-                    {lang === "ar" ? "The stage ladder" : "سلّم المراحل"}
+                  <span className="text-muted-foreground" style={{ fontSize: "0.74vw" }}>
+                    {lang === "ar"
+                      ? "كل المتابعات متأخّرة — الأجندة فارغة لا خالية"
+                      : "Every follow-up is overdue — the calendar is empty, not clear"}
                   </span>
                 </div>
-                {/* Says what the bar length means, so nobody has to infer it
-                    from the two numbers printed beside it. */}
-                <span className="text-muted-foreground" style={{ fontSize: "0.68vw" }}>
-                  {lang === "ar"
-                    ? "الطول = القيمة · ثم العدد فالقيمة"
-                    : "bar length = value · then count, value"}
-                </span>
-              </div>
-              <Ladder composition={model.standing.composition} lang={lang} />
-            </div>
+              ) : (
+                <div className="flex flex-1 flex-col justify-center gap-[0.5vh]" style={{ fontSize: "0.82vw" }}>
+                  {([
+                    [lang === "ar" ? "اليوم" : "Today", model.upcoming.todayCount],
+                    [lang === "ar" ? "غدًا" : "Tomorrow", model.upcoming.tomorrowCount],
+                    [lang === "ar" ? "هذا الأسبوع" : "This week", model.upcoming.weekCount],
+                  ] as const).map(([l, n]) => (
+                    <div key={l} className="flex items-baseline justify-between border-b border-border/40 pb-[0.35vh]">
+                      <span className="text-muted-foreground">{l}</span>
+                      <span className="num font-semibold text-foreground" data-tabular="true">{formatNumber(n, lang)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Panel>
           </div>
 
-          {/* ── الفريق ────────────────────────────────────────────────── */}
-          <div className="min-h-0 overflow-hidden rounded-[0.6vw] border border-border bg-card px-[1.1vw] py-[0.8vh]">
-            <table className="w-full" style={{ fontSize: "0.95vw" }}>
-              <thead>
-                <tr className="text-muted-foreground" style={{ fontSize: "0.72vw" }}>
-                  <th className="pb-[0.5vh] text-start">{lang === "ar" ? "من" : "Who"}</th>
-                  <th className="pb-[0.5vh] text-end">{lang === "ar" ? "مُرسّى" : "Won"}</th>
-                  <th className="pb-[0.5vh] text-end">{lang === "ar" ? "الهدف" : "Target"}</th>
-                  <th className="pb-[0.5vh] text-end">{lang === "ar" ? "الإنجاز" : "Achieved"}</th>
-                  <th className="pb-[0.5vh] text-end">{lang === "ar" ? "خط الأنابيب" : "Pipeline"}</th>
-                  <th className="pb-[0.5vh] text-end">{lang === "ar" ? "فرص" : "Deals"}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {model.team.slice(0, 6).map((p) => (
-                  <tr key={p.ownerId} className="border-t border-border/60">
-                    <td className="py-[0.55vh] font-semibold text-foreground">{p.label}</td>
-                    <td className="num py-[0.55vh] text-end text-foreground" data-tabular="true">
-                      {money(p.won)}
-                    </td>
-                    <td className="num py-[0.55vh] text-end text-muted-foreground" data-tabular="true">
-                      {money(p.target)}
-                    </td>
-                    <td className="num py-[0.55vh] text-end font-semibold" data-tabular="true">
-                      {p.achievement === null ? (
-                        // A dash, not 0% -- nobody set them a target.
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <span className={p.achievement >= 1 ? "text-won-on-tint" : "text-foreground"}>
-                          {formatNumber(Math.round(p.achievement * 100), lang)}%
+          <div className="grid min-h-0 grid-cols-3 gap-[0.7vw]">
+            <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon="🔥" tone="amber" lang={lang}
+                   note={lang === "ar" ? "أعلى 5 حسب القيمة" : "top 5 by value"}>
+              {/* Same fix as the pipeline below: the table stacked to its natural
+                  height and pushed the total 12px past the card edge. Flexed
+                  rows share whatever the panel has. */}
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.62vw" }}>
+                  <span className="min-w-0 flex-1">{lang === "ar" ? "المشروع" : "Project"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "6vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "4.4vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span>
+                </div>
+
+                <div className="flex min-h-0 flex-1 flex-col">
+                  {model.hot.map((h, i) => (
+                    <div key={h.id} className="flex min-h-0 flex-1 items-center gap-[0.5vw] border-t border-border/50" style={{ fontSize: "0.72vw" }}>
+                      <span className="min-w-0 flex-1 truncate text-foreground">
+                        <span className="num me-[0.4vw] text-muted-foreground" data-tabular="true">{formatNumber(i + 1, lang)}</span>
+                        {h.projectName}
+                      </span>
+                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "6vw" }} data-tabular="true">
+                        {money(h.value)}
+                      </span>
+                      {/* Empty on every row today. A dash is the honest cell, and
+                          the column stays so the first entered figure lands in
+                          its place without a code change. */}
+                      <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "4.4vw" }} data-tabular="true">
+                        {h.probability === null ? "—" : `${formatNumber(h.probability, lang)}%`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
+                  <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-5 total"}</span>
+                  <span className="num font-bold text-amber-on-tint" data-tabular="true">
+                    {money(model.hot.reduce((a, h) => a + (h.value ?? 0), 0))}
+                  </span>
+                </div>
+              </div>
+            </Panel>
+
+            <Panel title={lang === "ar" ? "صحّة مسار المبيعات" : "Pipeline health"} icon="📊" tone="violet" lang={lang}>
+              {/* Rows share the height instead of stacking to their natural size.
+                  As a table this overflowed the panel by 68px at 1920x1080 and
+                  the last two stages were drawn outside the card -- a stage that
+                  falls off the bottom is a stage nobody knows exists. Flexing
+                  the rows makes the fit hold for any number of stages. */}
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.6vw" }}>
+                  <span className="min-w-0 flex-1">{lang === "ar" ? "المرحلة" : "Stage"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "2.6vw" }}>{lang === "ar" ? "العدد" : "Deals"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "5vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "7.4vw" }}>{lang === "ar" ? "النسبة" : "Share"}</span>
+                </div>
+
+                <div className="flex min-h-0 flex-1 flex-col">
+                  {model.standing.composition.map((c, i) => (
+                    <div
+                      key={c.stage}
+                      className="flex min-h-0 flex-1 items-center gap-[0.5vw] border-t border-border/50"
+                      // An empty stage is real information, so it stays -- but it
+                      // must not compete with the stages holding the money.
+                      style={{ opacity: c.count === 0 ? 0.5 : 1 }}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-foreground" style={{ fontSize: "0.7vw" }}>
+                        {STAGE_LABEL[c.stage]?.[lang === "ar" ? 0 : 1] ?? c.stage}
+                      </span>
+                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ fontSize: "0.72vw", width: "2.6vw" }} data-tabular="true">
+                        {formatNumber(c.count, lang)}
+                      </span>
+                      <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.7vw", width: "5vw" }} data-tabular="true">
+                        {c.value > 0 ? compactValue(c.value, lang) : "—"}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-[0.35vw]" style={{ width: "7.4vw" }}>
+                        <span className="relative h-[0.85vh] min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
+                          <span
+                            className="absolute inset-y-0 start-0 rounded-full"
+                            style={{ width: `${c.share * 100}%`, background: `var(--stage-${i + 1})` }}
+                          />
+                          {/* Deals here, but nothing priced. A bare track reads as
+                              an empty stage; this marks it unpriced instead. */}
+                          {c.count > 0 && c.value === 0 ? (
+                            <span className="absolute inset-y-0 start-0" style={{ width: "0.35vw", background: `var(--stage-${i + 1})`, opacity: 0.55 }} />
+                          ) : null}
                         </span>
-                      )}
-                    </td>
-                    <td className="num py-[0.55vh] text-end text-muted-foreground" data-tabular="true">
-                      {money(p.open)}
-                    </td>
-                    <td className="num py-[0.55vh] text-end text-muted-foreground" data-tabular="true">
-                      {formatNumber(p.openCount, lang)}
-                    </td>
+                        <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.62vw", width: "2vw" }} data-tabular="true">
+                          {Math.round(c.share * 100)}%
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
+                  <span className="font-semibold text-foreground">{lang === "ar" ? "الإجمالي" : "Total"}</span>
+                  <span className="num font-bold text-foreground" data-tabular="true">
+                    {formatNumber(model.standing.openCount, lang)} · {money(model.standing.openTotal)}
+                  </span>
+                </div>
+              </div>
+            </Panel>
+
+            <Panel title={lang === "ar" ? "أداء فريق المبيعات" : "Team performance"} icon="👥" tone="teal" lang={lang}>
+              <table className="w-full" style={{ fontSize: "0.7vw" }}>
+                <thead>
+                  <tr className="text-muted-foreground" style={{ fontSize: "0.6vw" }}>
+                    <th className="pb-[0.4vh] text-start">{lang === "ar" ? "العضو" : "Member"}</th>
+                    <th className="pb-[0.4vh] text-end">{lang === "ar" ? "المحقّق" : "Won"}</th>
+                    <th className="pb-[0.4vh] text-end">{lang === "ar" ? "المسار" : "Pipeline"}</th>
+                    <th className="pb-[0.4vh] text-end">{lang === "ar" ? "متأخّرة" : "Overdue"}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {/* One hue per member, assigned by position in the table.
+                      Deterministic, so a person keeps their colour between
+                      refreshes and the eye can track a row without reading it. */}
+                  {model.team.slice(0, 5).map((p, idx) => {
+                    const AVATAR = ["won", "info", "violet", "amber", "teal"] as const;
+                    const av = AVATAR[idx % AVATAR.length];
+                    const late = model.attention.filter(
+                      (a) => a.ownerId === p.ownerId && a.reasons.includes("followups_overdue"),
+                    ).length;
+                    return (
+                      <tr key={p.ownerId} className="border-t border-border/50">
+                        <td className="py-[0.3vh]">
+                          <span className="flex items-center gap-[0.4vw]">
+                            <span className="grid shrink-0 place-items-center rounded-full font-bold text-white"
+                                  style={{ width: "1.5vw", height: "1.5vw", fontSize: "0.6vw", background: TONE[av].edge }}>
+                              {p.label}
+                            </span>
+                            <span className="truncate text-foreground">{p.label}</span>
+                          </span>
+                        </td>
+                        <td className="num py-[0.3vh] text-end font-semibold text-foreground" data-tabular="true">{money(p.won)}</td>
+                        <td className="num py-[0.3vh] text-end text-muted-foreground" data-tabular="true">{money(p.open)}</td>
+                        <td className="num py-[0.3vh] text-end" data-tabular="true">
+                          <span className={late > 0 ? "font-semibold text-destructive-on-tint" : "text-muted-foreground"}>
+                            {formatNumber(late, lang)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div className="mt-auto flex items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
+                <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الإجمالي" : "Total"}</span>
+                <span className="num font-bold text-teal-on-tint" data-tabular="true">
+                  {money(model.team.reduce((a, p) => a + p.won, 0))} · {money(model.team.reduce((a, p) => a + p.open, 0))}
+                </span>
+              </div>
+            </Panel>
+          </div>
+
+          <div className="grid min-h-0 grid-cols-3 gap-[0.7vw]">
+            <Panel title={lang === "ar" ? "ما الذي تغيّر منذ الأمس؟" : "Changed since yesterday"} icon="🔄" tone="info" lang={lang}>
+              <ChipRow
+                // The exact window, where the title says it loosely.
+                kicker={lang === "ar" ? "آخر 24 ساعة" : "Last 24 hours"}
+                footer={
+                  <span className="text-muted-foreground" style={{ fontSize: "0.62vw" }}>
+                    {lang === "ar" ? "الصفوف المستورَدة مستبعَدة من «جديدة»" : "Imported rows excluded from new"}
+                  </span>
+                }
+              >
+                <Mini n={model.movement.won} value={money(model.movement.wonValue)} ar="صفقات فُزنا بها" en="Won" tone="won" lang={lang} />
+                <Mini n={model.movement.advanced} ar="تقدّمت مرحلة" en="Stage moves" tone="info" lang={lang} />
+                <Mini n={model.movement.newDeals} value={money(model.movement.newValue)} ar="فرص جديدة" en="New deals" tone="amber" lang={lang} />
+              </ChipRow>
+            </Panel>
+
+            <Panel title={lang === "ar" ? "نبض المبيعات" : "Sales pulse"} icon="✦" tone="info" lang={lang}>
+              <Pulse
+                critical={model.attention.filter((a) => a.priority === "critical").length}
+                criticalValue={model.attention
+                  .filter((a) => a.priority === "critical")
+                  .reduce<number | null>((a, x) => (x.value === null ? a : (a ?? 0) + x.value), null)}
+                overdue={model.pulse.followUpsOverdue}
+                oldestOverdue={model.oldestOverdue}
+                aged={model.standing.openExcludedCount}
+                agedValue={model.standing.openExcludedValue}
+                unvalued={model.standing.openUnvalued}
+                weighted={model.weighted}
+                money={money}
+                lang={lang}
+              />
+            </Panel>
+
+            <Panel title={lang === "ar" ? "توقعات (30 / 60 / 90 يوم)" : "Forecast (30 / 60 / 90 days)"} icon="🕐" tone="amber" lang={lang}>
+              <Horizons h={model.horizon} lang={lang} money={money} />
+            </Panel>
           </div>
         </main>
       )}
+
+      <footer className="flex shrink-0 items-center gap-[1vw] px-[1.2vw] py-[0.7vh]" style={{ background: "var(--ink, #13161b)" }}>
+        <span className="shrink-0 rounded-[0.3vw] px-[0.6vw] py-[0.2vh] font-bold text-white"
+              style={{ fontSize: "0.7vw", background: "var(--destructive)" }}>
+          {lang === "ar" ? "أخبار المبيعات" : "Sales wire"}
+        </span>
+        {/* Built from the same figures above -- a wire inventing its own items
+            would be a second source of truth nobody could reconcile. */}
+        <Wire lang={lang} items={model ? wireItems(model, lang, (n) => money(n) ?? "") : [lang === "ar" ? "جارٍ التحميل" : "Loading"]} />
+        <span className="num shrink-0 text-white/70" style={{ fontSize: "0.76vw" }}>{fmtTime(nowDate)}</span>
+      </footer>
     </div>
+  );
+}
+
+/**
+ * A news wire: one line of text that never stops moving.
+ *
+ * Three things make it read like a broadcast strip rather than a CSS trick:
+ *
+ * - The content is written TWICE and each pass travels exactly half the track.
+ *   When the animation restarts, the second copy sits precisely where the first
+ *   began, so the loop has no seam and no gap -- text simply keeps arriving.
+ *
+ * - The duration is derived from the length of the text, not fixed. A fixed
+ *   duration makes three headlines crawl and twenty blur past; deriving it
+ *   holds the speed constant at roughly eleven characters a second whatever
+ *   the board happens to know today.
+ *
+ * - The direction follows the language. A ticker must move AGAINST the reading
+ *   direction or the eye meets every headline ending-first. See the keyframes
+ *   in styles.css.
+ *
+ * The track is keyed on its own text, so when the sixty-second poll changes what
+ * the board knows, the strip restarts cleanly from the first headline instead of
+ * jumping mid-stride to a track of a different width.
+ */
+function Wire({ items, lang }: { items: string[]; lang: "ar" | "en" }) {
+  const text = items.join("\u00a0\u00a0\u00a0\u25cf\u00a0\u00a0\u00a0");
+  // ~11 characters a second reads comfortably from across a room; the floor
+  // keeps a two-word wire from whipping past.
+  const seconds = Math.max(18, Math.round(text.length / 11));
+  return (
+    <div className="min-w-0 flex-1 overflow-hidden" style={{ maskImage: "linear-gradient(to left, transparent, #000 3%, #000 97%, transparent)", WebkitMaskImage: "linear-gradient(to left, transparent, #000 3%, #000 97%, transparent)" }}>
+      <div
+        key={text}
+        className="wire-track flex w-max whitespace-nowrap text-white/85"
+        style={{
+          fontSize: "0.76vw",
+          animation: `${lang === "ar" ? "wire-rtl" : "wire-ltr"} ${seconds}s linear infinite`,
+        }}
+      >
+        <span className="px-[1.5vw]">{text}</span>
+        {/* The second copy is decoration for the loop, not content. */}
+        <span className="px-[1.5vw]" aria-hidden="true">{text}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The pulse and the forecast draw the same chip, so they share one.
+ *
+ * They did not, and it showed: identical width, padding and radius, but 85px
+ * against 117px and a 32.6px figure against 27.8px -- because each grid
+ * stretched to whatever height its own panel had left over. Two boxes side by
+ * side, built to the same intent, rendering a third apart.
+ *
+ * Giving the row a fixed height and both panels one component makes them equal
+ * by construction rather than by two numbers that happen to agree today. A
+ * contract test below holds them together.
+ */
+const CHIP_ROW_H = "7.9vh";
+/** One type scale for both panels, for the same reason as the height. */
+const CHIP_FIGURE = "1.6vw";
+const CHIP_LABEL = "0.64vw";
+const CHIP_NOTE = "0.58vw";
+/** The kicker slot above the chips. Fixed, so the row below it cannot drift. */
+const CHIP_KICKER_H = "1.5vh";
+/* Both widths come from measuring the real strings at 1920x1080, not from
+   guessing: the widest figure is "+88" at 60.0px and the widest text is
+   "42.8 مليون معرَّضة" at 89.9px. The chip has 156.2px to give after its padding
+   and gap, so 3.2vw (61.4px) for the number leaves 94.8px for the text -- about
+   5px of slack, and nothing truncates. */
+const CHIP_FIGURE_W = "3.2vw";
+
+/**
+ * The frame the three chip panels share: a kicker, the chip row, a footnote.
+ *
+ * Their chip rows used to start 26px apart -- 867, 883 and 893 -- because each
+ * panel stacked whatever it happened to have above the chips: one had a kicker,
+ * one centred itself, one did not. Three boxes on one line, and the eye reads
+ * the misalignment before it reads a single number.
+ *
+ * Fixing it panel by panel would hold until the next edit. Fixing it here means
+ * the kicker slot and the chip row are the same height in all three whatever
+ * they contain, so the rows line up by construction.
+ */
+function ChipRow({
+  kicker,
+  footer,
+  children,
+}: {
+  kicker: string;
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <span
+        className="flex shrink-0 items-center font-semibold text-muted-foreground"
+        style={{ height: CHIP_KICKER_H, fontSize: "0.6vw" }}
+      >
+        {kicker}
+      </span>
+      <div className="grid shrink-0 grid-cols-3 gap-[0.5vw]" style={{ height: CHIP_ROW_H }}>
+        {children}
+      </div>
+      <div className="mt-[0.4vh] min-h-0 flex-1">{footer}</div>
+    </div>
+  );
+}
+
+function Chip({
+  tone,
+  lang,
+  figure,
+  label,
+  note,
+}: {
+  tone: keyof typeof TONE;
+  lang: "ar" | "en";
+  /** The number. Sits on the left, alone, at one width for the whole row. */
+  figure: React.ReactNode;
+  label: React.ReactNode;
+  note?: React.ReactNode;
+}) {
+  const t = TONE[tone];
+  return (
+    <div
+      className="flex min-h-0 items-center gap-[0.5vw] overflow-hidden rounded-[0.5vw] px-[0.5vw] py-[0.4vh]"
+      style={{
+        background: t.wash,
+        boxShadow: `inset 0 0 0 1px ${t.edge}`,
+        // The number belongs on the physical left in BOTH languages, and a
+        // plain `row` puts the first child on the reading edge -- which is the
+        // right in Arabic. Reversing there, and only there, pins the number left
+        // and lets the text start at its own reading edge either way.
+        flexDirection: lang === "ar" ? "row-reverse" : "row",
+      }}
+    >
+      {/* A fixed slot, not a shrink-to-fit one: "5" and "237" are different
+          widths, and letting each chip size its own number would step the text
+          column three times across a row of three. */}
+      <span className="flex shrink-0 items-center justify-center" style={{ width: CHIP_FIGURE_W }}>
+        {figure}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-[0.15vh] text-start">
+        {label}
+        {note}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The pulse, as three checks rather than five sentences.
+ *
+ * It was a bulleted list, which is the wrong shape for a wall: a passer-by
+ * reads a number across a room and a sentence only at the desk. Two changes
+ * make it work standing up.
+ *
+ * First, the panel separates what you ACT on from what you FIX. A critical deal
+ * and an unpriced record are both true and belong to different people on
+ * different days; printing them as one list of bullets made the reader sort
+ * them, every time.
+ *
+ * Second, an action count of zero is shown, in green, rather than hidden. The
+ * old list dropped a line when its count was nil, so a clear day and a broken
+ * query produced the same empty panel. Here zero says the check ran and you
+ * are clear -- which is the single most useful thing this box can say.
+ *
+ * The data gaps below behave the opposite way and are omitted when absent: a
+ * gap that does not exist is not news, and "0 deals missing a value" is a
+ * sentence nobody needs to read twice a day.
+ */
+function Pulse({
+  critical, criticalValue, overdue, oldestOverdue, aged, agedValue, unvalued, weighted, money, lang,
+}: {
+  critical: number;
+  criticalValue: number | null;
+  overdue: number;
+  oldestOverdue: number | null;
+  aged: number;
+  agedValue: number;
+  unvalued: number;
+  weighted: Figure;
+  money: (n: number | null | undefined) => string | null;
+  lang: "ar" | "en";
+}) {
+  const gaps: string[] = [];
+  if (unvalued > 0) {
+    gaps.push(
+      lang === "ar"
+        ? `${formatNumber(unvalued, lang)} فرصة بلا قيمة مسجَّلة`
+        : `${unvalued} deals carry no value`,
+    );
+  }
+  if (weighted.state !== "ok") {
+    gaps.push((lang === "ar" ? weighted.reasonAr : weighted.reasonEn) ?? "");
+  }
+
+  return (
+    <ChipRow
+      kicker={lang === "ar" ? "تحرّك الآن" : "Act now"}
+      footer={
+        gaps.length > 0 ? (
+          <span className="text-muted-foreground" style={{ fontSize: "0.62vw" }}>
+            {lang === "ar" ? "ثغرات في التسجيل · " : "Recording gaps · "}
+            {gaps.join(" · ")}
+          </span>
+        ) : null
+      }
+    >
+      {/* Each note is a real second figure, not filler added to match a shape:
+          a count says how many, and the note says how much or how long -- which
+          is what decides whether this is today's problem or this quarter's. */}
+      <Signal n={critical} tone="danger" lang={lang}
+              ar="حرجة اليوم" en="Critical today"
+              note={critical > 0 && criticalValue !== null
+                ? lang === "ar" ? `${money(criticalValue)} معرَّضة` : `${money(criticalValue)} exposed`
+                : null} />
+      <Signal n={overdue} tone="amber" lang={lang}
+              ar="متابعة متأخّرة" en="Follow-ups late"
+              note={oldestOverdue !== null
+                ? lang === "ar" ? `أقدمها ${formatNumber(oldestOverdue, lang)} يومًا` : `oldest ${oldestOverdue} days`
+                : null} />
+      <Signal n={aged} tone="violet" lang={lang}
+              ar="مفتوحة > سنة" en="Open 1 year+"
+              note={aged > 0 && agedValue > 0 ? money(agedValue) : null} />
+    </ChipRow>
+  );
+}
+
+/**
+ * One check, sized to be read across a room.
+ *
+ * The colour is the count, not the category: a check at zero is green whatever
+ * it measures, because the reader's question is "is anything wrong here", and
+ * a red chip showing 0 answers it backwards.
+ */
+function Signal({
+  n, tone, ar, en, note, lang,
+}: {
+  n: number;
+  tone: keyof typeof TONE;
+  ar: string;
+  en: string;
+  note?: string | null;
+  lang: "ar" | "en";
+}) {
+  const clear = n === 0;
+  const t = clear ? "won" : tone;
+  return (
+    <Chip
+      tone={t}
+      lang={lang}
+      figure={
+        <span className={`num font-bold leading-none ${TONE[t].text}`} style={{ fontSize: CHIP_FIGURE }} data-tabular="true">
+          {formatNumber(n, lang)}
+        </span>
+      }
+      label={
+        <span className="w-full truncate font-semibold text-foreground" style={{ fontSize: CHIP_LABEL }}>
+          {lang === "ar" ? ar : en}
+        </span>
+      }
+      // Rendered only when there is something to say: a blank line still takes
+      // its height and lifts the ink above it off centre.
+      note={
+        clear || note ? (
+          <span className={`w-full truncate ${clear ? TONE[t].text : "text-muted-foreground"}`} style={{ fontSize: CHIP_NOTE }}>
+            {clear ? (lang === "ar" ? "✓ لا شيء معلّق" : "✓ nothing pending") : note}
+          </span>
+        ) : undefined
+      }
+    />
+  );
+}
+
+/**
+ * The 30 / 60 / 90 outlook.
+ *
+ * Colour here is distance, not decoration, and it runs the same way as the
+ * stage ramp: warm is near and actionable, cool is far and speculative. Thirty
+ * days is amber because that is the money you can still affect this month;
+ * ninety is teal because nothing you do today lands there.
+ *
+ * The reason line moved out of the chips. All three horizons fail for the same
+ * cause -- no probability, no expected close date -- and printing it three
+ * times spent the panel's whole height saying one thing. It collapses only
+ * when it is genuinely one thing; see sharedReason.
+ */
+function Horizons({
+  h,
+  lang,
+  money,
+}: {
+  h: { d30: Figure; d60: Figure; d90: Figure };
+  lang: "ar" | "en";
+  money: (n: number | null | undefined) => string | null;
+}) {
+  const cols = [
+    { key: "d30", f: h.d30, tone: "amber" as const, ar: "30 يومًا", en: "30 days" },
+    { key: "d60", f: h.d60, tone: "violet" as const, ar: "60 يومًا", en: "60 days" },
+    { key: "d90", f: h.d90, tone: "teal" as const, ar: "90 يومًا", en: "90 days" },
+  ];
+  const shared = sharedReason([h.d30, h.d60, h.d90], lang);
+
+  return (
+    <ChipRow
+      // States the window the three labels measure from, and fills the slot
+      // that keeps this row level with the two panels beside it.
+      kicker={lang === "ar" ? "متوقّع الإغلاق خلال" : "Expected to close within"}
+      footer={
+        shared ? (
+          <span className="flex items-start gap-[0.35vw]">
+            <span aria-hidden="true" style={{ fontSize: "0.62vw" }}>ⓘ</span>
+            <span className="min-w-0 text-muted-foreground" style={{ fontSize: "0.62vw" }}>{shared}</span>
+          </span>
+        ) : (
+          // Only when the horizons fail for DIFFERENT reasons -- then one line
+          // each, named by its horizon.
+          <span className="flex flex-col gap-[0.2vh]">
+            {cols
+              .filter((c) => c.f.state !== "ok" && (lang === "ar" ? c.f.reasonAr : c.f.reasonEn))
+              .map((c) => (
+                <span key={c.key} className="truncate text-muted-foreground" style={{ fontSize: "0.6vw" }}>
+                  <span className={TONE[c.tone].text}>{lang === "ar" ? c.ar : c.en}</span>
+                  {" · "}
+                  {lang === "ar" ? c.f.reasonAr : c.f.reasonEn}
+                </span>
+              ))}
+          </span>
+        )
+      }
+    >
+      {cols.map((c) => {
+        const ok = c.f.state === "ok" && c.f.value !== null;
+        const state = c.f.state === "not_configured"
+          ? lang === "ar" ? "يحتاج إعدادًا" : "Setup required"
+          : c.f.state === "not_applicable"
+            ? lang === "ar" ? "لا ينطبق" : "Not applicable"
+            : lang === "ar" ? "لا يمكن حسابه" : "Not calculated";
+        return (
+          <Chip
+            key={c.key}
+            tone={c.tone}
+            lang={lang}
+            // The em dash used to float in an empty 32.6px band above the text.
+            // Beside a filled text column it reads as what it is: the slot where
+            // the number goes, and no number.
+            figure={
+              ok ? (
+                <span className={`num font-bold leading-none tracking-[-0.02em] ${TONE[c.tone].text}`} style={{ fontSize: CHIP_FIGURE }} data-tabular="true">
+                  {money(c.f.value)}
+                </span>
+              ) : (
+                <span className="num font-bold leading-none text-muted-foreground" style={{ fontSize: CHIP_FIGURE }}>—</span>
+              )
+            }
+            label={
+              <span className={`w-full truncate font-semibold ${TONE[c.tone].text}`} style={{ fontSize: CHIP_LABEL }}>
+                {lang === "ar" ? c.ar : c.en}
+              </span>
+            }
+            note={
+              <span className="w-full truncate text-muted-foreground" style={{ fontSize: CHIP_NOTE }}>
+                {ok ? (lang === "ar" ? "متوقّع" : "expected") : state}
+              </span>
+            }
+          />
+        );
+      })}
+    </ChipRow>
+  );
+}
+
+/** A headline card: label and icon, a centred figure with its unit beneath, an
+ *  optional gauge, and a footnote. */
+function Kpi({
+  icon, tone, lang, ar, en, value, unit, foot, gauge,
+}: {
+  icon: string;
+  tone: keyof typeof TONE;
+  lang: "ar" | "en";
+  ar: string;
+  en: string;
+  value: string | null;
+  unit?: string | null;
+  foot?: string;
+  gauge?: number | null;
+}) {
+  return (
+    <div className="relative flex flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1.1vw] py-[1.1vh] shadow-sm">
+      <div className="flex items-start justify-between">
+        <span className="font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>{ar}</span>
+        <span
+          aria-hidden="true"
+          className="grid shrink-0 place-items-center rounded-[0.45vw]"
+          style={{
+            width: "1.9vw",
+            height: "1.9vw",
+            fontSize: "0.95vw",
+            background: TONE[tone].wash,
+            color: TONE[tone].edge,
+          }}
+        >
+          {icon}
+        </span>
+      </div>
+
+      {/* Centred, with the unit UNDER the figure rather than beside it. The eye
+          lands on the magnitude first, the unit stays available without
+          competing for the same line, and five cards holding different digit
+          counts still line up with one another. */}
+      <div className="flex flex-1 flex-col items-center justify-center">
+        <span
+          className={`num font-bold leading-none tracking-[-0.02em] ${TONE[tone].text}`}
+          style={{ fontSize: "3.2vw" }}
+        >
+          {value ?? "—"}
+        </span>
+        {unit ? (
+          <span className="mt-[0.45vh] text-muted-foreground" style={{ fontSize: "0.74vw" }}>{unit}</span>
+        ) : null}
+      </div>
+
+      {gauge !== undefined && gauge !== null ? (
+        <span className="mb-[0.5vh] block h-[0.7vh] w-full overflow-hidden rounded-full bg-muted">
+          <span
+            className="block h-full rounded-full"
+            style={{ width: `${Math.min(gauge, 1) * 100}%`, background: TONE[tone].edge }}
+          />
+        </span>
+      ) : null}
+
+      <span className="text-center text-muted-foreground" style={{ fontSize: "0.68vw" }}>
+        {foot ?? en}
+      </span>
+    </div>
+  );
+}
+
+/** The same card for a figure whose inputs may not exist. */
+function KpiFigure({
+  icon, f, lang, money, ar, en, tone,
+}: {
+  icon: string;
+  tone: keyof typeof TONE;
+  f: Figure;
+  lang: "ar" | "en";
+  money: (n: number | null | undefined) => string | null;
+  ar: string;
+  en: string;
+}) {
+  return (
+    <div className="relative flex flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1.1vw] py-[1.1vh] shadow-sm">
+      <div className="flex items-start justify-between">
+        <span className="font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>{ar}</span>
+        <span
+          aria-hidden="true"
+          className="grid shrink-0 place-items-center rounded-[0.45vw]"
+          style={{
+            width: "1.9vw",
+            height: "1.9vw",
+            fontSize: "0.95vw",
+            background: TONE[tone].wash,
+            color: TONE[tone].edge,
+          }}
+        >
+          {icon}
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <FigureValue f={f} lang={lang} format={(n) => money(n)} size="3.2vw" />
+      </div>
+      <span className="text-center text-muted-foreground" style={{ fontSize: "0.68vw" }}>{en}</span>
+    </div>
+  );
+}
+
+/** A panel with a titled header, matching the mockup's card chrome. */
+function Panel({
+  title, icon, tone, lang, note, children,
+}: {
+  title: string;
+  icon: string;
+  tone: keyof typeof TONE;
+  lang: "ar" | "en";
+  note?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex min-h-0 flex-col rounded-[0.7vw] border border-border/70 bg-card px-[1vw] py-[0.8vh] shadow-sm">
+      <div className="mb-[0.5vh] flex items-baseline justify-between">
+        <span className="flex items-baseline gap-[0.4vw]">
+          <span
+            aria-hidden="true"
+            className="grid shrink-0 place-items-center rounded-[0.35vw]"
+            style={{ width: "1.4vw", height: "1.4vw", fontSize: "0.78vw", background: TONE[tone].wash, color: TONE[tone].edge }}
+          >
+            {icon}
+          </span>
+          <span className={`font-semibold ${TONE[tone].text}`} style={{ fontSize: "0.92vw" }}>{title}</span>
+        </span>
+        {note ? <span className="text-muted-foreground" style={{ fontSize: "0.66vw" }}>{note}</span> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** One "needs attention" figure. `null` means the input does not exist. */
+function Need({
+  n, ar, en, sub, tone, lang,
+}: {
+  n: number | null;
+  ar: string;
+  en: string;
+  sub: string;
+  tone: keyof typeof TONE;
+  lang: "ar" | "en";
+}) {
+  return (
+    <div className="flex flex-col justify-center border-e border-border/50 pe-[0.5vw] last:border-e-0">
+      <div className="flex items-baseline gap-[0.4vw]">
+        <span className={`num font-bold leading-none ${n === null ? "text-muted-foreground" : TONE[tone].text}`}
+              style={{ fontSize: n === null ? "1.2vw" : "2.5vw" }}>
+          {n === null ? (lang === "ar" ? "لا بيانات" : "No data") : formatNumber(n, lang)}
+        </span>
+        <span className="font-semibold text-foreground" style={{ fontSize: "0.8vw" }}>{ar}</span>
+      </div>
+      <span className="mt-[0.3vh] text-muted-foreground" style={{ fontSize: "0.65vw", direction: "ltr" }}>{en}</span>
+      <span className="text-muted-foreground" style={{ fontSize: "0.65vw" }}>{sub}</span>
+    </div>
+  );
+}
+
+/**
+ * One "changed since yesterday" tile.
+ *
+ * Same skeleton as the pulse and the forecast -- figure, one label, an optional
+ * note beneath -- so the nine chips across that row read as one family. It used
+ * to print BOTH labels stacked, which is the board's convention in a panel
+ * header but not in a chip, and it was the visible odd one out.
+ *
+ * What is deliberately NOT copied is the pulse's rule that zero turns green.
+ * There, zero means a check came back clear. Here it means nothing was won and
+ * nothing moved, which is the opposite of good news; a green "0 deals won"
+ * would be the board congratulating itself on a dead week.
+ */
+function Mini({
+  n, value, ar, en, tone, lang,
+}: {
+  n: number;
+  value?: string | null;
+  ar: string;
+  en: string;
+  tone: keyof typeof TONE;
+  lang: "ar" | "en";
+}) {
+  const moved = n > 0;
+  return (
+    <Chip
+      tone={tone}
+      lang={lang}
+      figure={
+        <span
+          className={`num font-bold leading-none ${moved ? TONE[tone].text : "text-muted-foreground"}`}
+          style={{ fontSize: CHIP_FIGURE }}
+          data-tabular="true"
+        >
+          {moved ? "+" : ""}{formatNumber(n, lang)}
+        </span>
+      }
+      label={
+        <span className="w-full truncate font-semibold text-foreground" style={{ fontSize: CHIP_LABEL }}>
+          {lang === "ar" ? ar : en}
+        </span>
+      }
+      // "No movement" belongs to a zero and nothing else. Keying it off the
+      // value instead printed it under "+88 new deals" -- a true count above a
+      // false caption.
+      note={
+        <span className={`num w-full truncate ${moved && value ? TONE[tone].text : "text-muted-foreground"}`} style={{ fontSize: CHIP_NOTE }}>
+          {moved
+            ? (value ?? (lang === "ar" ? "بلا قيمة مسجَّلة" : "no value recorded"))
+            : lang === "ar" ? "بلا حركة" : "no movement"}
+        </span>
+      }
+    />
   );
 }
