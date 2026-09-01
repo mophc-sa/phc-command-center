@@ -69,7 +69,16 @@ export type Pulse = {
   /** Age in days of the oldest waiting approval, or null when none wait. */
   oldestApprovalDays: number | null;
   followUpsOverdue: number;
-  quotationsDueSoon: number;
+  /**
+   * null when NO quotation carries a validity date at all -- which is the
+   * production state today. A "0" here reads as "nothing is due this week";
+   * the truth is "nobody records when a quotation expires", and those send a
+   * reader to two different places. This board was built to keep them apart
+   * and printed a zero here anyway.
+   */
+  quotationsDueSoon: number | null;
+  /** Rows the count was drawn from. Zero means the input does not exist. */
+  quotationsWithDates: number;
   tendersNeedingReview: number;
   inboxUnclassified: number;
 };
@@ -158,13 +167,15 @@ export function computePulse(input: {
     .filter((n) => Number.isFinite(n));
 
   const soon = new Date(input.now.getTime() + 7 * dayMs).toISOString().slice(0, 10);
+  const dated = input.quotationDueDates.filter((d): d is string => !!d);
 
   return {
     approvalsPending: input.approvalsPendingAt.length,
     // Math.max of an empty list is -Infinity, which would print as a number.
     oldestApprovalDays: ages.length ? Math.max(...ages) : null,
     followUpsOverdue: input.followUpDueDates.filter((d) => !!d && d < today).length,
-    quotationsDueSoon: input.quotationDueDates.filter((d) => !!d && d >= today && d <= soon).length,
+    quotationsDueSoon: dated.length === 0 ? null : dated.filter((d) => d >= today && d <= soon).length,
+    quotationsWithDates: dated.length,
     tendersNeedingReview: input.tendersNeedingReview,
     inboxUnclassified: input.inboxUnclassified,
   };
@@ -426,6 +437,69 @@ export function compactValue(n: number | null | undefined, lang: "ar" | "en"): s
   if (abs >= 1_000_000) return fmt(n / 1_000_000, 1) + (lang === "ar" ? " مليون" : "M");
   if (abs >= 1_000) return fmt(n / 1_000, 0) + (lang === "ar" ? " ألف" : "k");
   return fmt(n, 0);
+}
+
+/**
+ * The same figure, split into the number and its unit.
+ *
+ * The card design puts "7.9" at 3vw and "مليون ر.س" small beneath it, so the
+ * eye lands on the magnitude and the unit stays available without competing.
+ * `compactValue` glues them together, which is right in a table cell and wrong
+ * in a headline card -- so this returns the two parts rather than a caller
+ * pulling a string apart and guessing where the boundary is.
+ */
+export function splitCompact(
+  n: number | null | undefined,
+  lang: "ar" | "en",
+): { n: string; unit: string | null } | null {
+  if (n === null || n === undefined) return null;
+  const abs = Math.abs(n);
+  const fmt = (v: number, d: number) =>
+    new Intl.NumberFormat(localeFor(lang), {
+      minimumFractionDigits: d,
+      maximumFractionDigits: d,
+    }).format(v);
+  if (abs >= 1_000_000_000) return { n: fmt(n / 1e9, 2), unit: lang === "ar" ? "مليار ر.س" : "SAR bn" };
+  if (abs >= 1_000_000) return { n: fmt(n / 1e6, 1), unit: lang === "ar" ? "مليون ر.س" : "SAR m" };
+  if (abs >= 1_000) return { n: fmt(n / 1e3, 0), unit: lang === "ar" ? "ألف ر.س" : "SAR k" };
+  return { n: fmt(n, 0), unit: lang === "ar" ? "ر.س" : "SAR" };
+}
+
+export type YearOnYear = {
+  thisYear: number;
+  priorYear: number;
+  thisCount: number;
+  priorCount: number;
+  /** null when last year's same window held nothing -- growth from zero is not a percentage. */
+  ratio: number | null;
+};
+
+/**
+ * This year to date against the SAME WINDOW last year.
+ *
+ * Not against last year's full total, which would flatter every January and
+ * damn every December. The comparison is only fair if both sides cover the
+ * same slice of the calendar.
+ */
+export function yearOnYear(opps: readonly BoardOpp[], now: Date): YearOnYear {
+  const y = now.getUTCFullYear();
+  const md = now.toISOString().slice(4, 10); // "-MM-DD"
+  const inWindow = (year: number) => (o: BoardOpp) => {
+    const w = (o.won_at ?? "").slice(0, 10);
+    return !!w && w >= `${year}-01-01` && w <= `${year}${md}`;
+  };
+  const cur = opps.filter(inWindow(y));
+  const prev = opps.filter(inWindow(y - 1));
+  const thisYear = sumOpportunityValue(cur).total;
+  const priorYear = sumOpportunityValue(prev).total;
+  return {
+    thisYear,
+    priorYear,
+    thisCount: cur.length,
+    priorCount: prev.length,
+    // Going from nothing to something is a start, not a percentage.
+    ratio: priorYear > 0 ? (thisYear - priorYear) / priorYear : null,
+  };
 }
 
 /** How the board describes its own freshness. See the file header. */
