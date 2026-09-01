@@ -85,7 +85,10 @@ const SURFACE: [number, number, number] = [255, 255, 255];
 const SURFACE_LUM = luminanceOf(SURFACE);
 
 describe("accent fills carry meaning, so they have to be visible", () => {
-  for (const name of ["amber", "won", "info", "destructive"]) {
+  // violet and teal joined the palette for the wall board's five headline
+  // cards. They were placed inside the existing lightness/chroma range on
+  // purpose, so they must hold the same bar the originals do.
+  for (const name of ["amber", "won", "info", "destructive", "violet", "teal"]) {
     it(`--${name} clears 3:1 against the surface`, () => {
       expect([name, +ratio(luminanceOf(rgbOf(name)), SURFACE_LUM).toFixed(2) >= 3]).toEqual([name, true]);
     });
@@ -107,6 +110,9 @@ describe("text on its own tint is a different question", () => {
   for (const [text, tint] of [
     ["won-on-tint", "won"],
     ["destructive-on-tint", "destructive"],
+    ["amber-on-tint", "amber"],
+    ["violet-on-tint", "violet"],
+    ["teal-on-tint", "teal"],
   ] as const) {
     it(`--${text} clears 4.5:1 on an 8% ${tint} tint`, () => {
       expect([text, +ratio(luminanceOf(rgbOf(text)), tintLum(tint)).toFixed(2) >= 4.5]).toEqual([text, true]);
@@ -137,5 +143,36 @@ describe("colour stays inside the cards", () => {
 
   it("no pill is drawn without a real comparison", () => {
     expect(PILL).toMatch(/if \(!delta \|\| delta\.ratio === null\) return null;/);
+  });
+});
+
+describe("the stage ramp has to be visible on the track it sits in", () => {
+  // The pipeline bars sit on --muted, not on the card. A bar measured only
+  // against white passes at 3.50 and disappears at 2.98 where it actually
+  // lives -- which is how the first stage-1 was chosen, and why it is 0.60
+  // and not 0.62 today.
+  const MUTED = rgbOf("muted");
+  const MUTED_LUM = luminanceOf(MUTED);
+
+  for (const n of [1, 2, 3, 4, 5, 6, 7]) {
+    it(`--stage-${n} clears 3:1 on the muted track AND on the card`, () => {
+      const lum = luminanceOf(rgbOf(`stage-${n}`));
+      expect([
+        `stage-${n}`,
+        +ratio(lum, MUTED_LUM).toFixed(2) >= 3,
+        +ratio(lum, SURFACE_LUM).toFixed(2) >= 3,
+      ]).toEqual([`stage-${n}`, true, true]);
+    });
+  }
+
+  it("keeps the award boundary legible as a hue change, not a shade change", () => {
+    // The ramp's whole job is to show WHERE the money becomes committed.
+    // Stages 1-4 are cool, 5 is amber (won and still losable), 6-7 are green.
+    // A ramp that slid smoothly through would say the boundary is not there.
+    const hue = (n: number) => token(`stage-${n}`)!.H;
+    for (const n of [1, 2, 3, 4]) expect(hue(n)).toBeGreaterThan(150);
+    expect(hue(5)).toBeLessThan(100); // amber
+    expect(hue(6)).toBe(155); // green
+    expect(hue(7)).toBe(155);
   });
 });

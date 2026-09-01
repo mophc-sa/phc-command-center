@@ -80,20 +80,30 @@ describe("the stage ramp", () => {
   });
 
   it("darkens monotonically within each band, so order is legible without the legend", () => {
-    const slate = R.slice(0, 4).map((s) => s.L);
-    const amber = R.slice(4).map((s) => s.L);
-    for (let i = 1; i < slate.length; i++) expect(slate[i]).toBeLessThan(slate[i - 1]);
-    for (let i = 1; i < amber.length; i++) expect(amber[i]).toBeLessThan(amber[i - 1]);
+    const preAward = R.slice(0, 4).map((s) => s.L);
+    const contracted = R.slice(5).map((s) => s.L);
+    for (let i = 1; i < preAward.length; i++) expect(preAward[i]).toBeLessThan(preAward[i - 1]);
+    for (let i = 1; i < contracted.length; i++) expect(contracted[i]).toBeLessThan(contracted[i - 1]);
   });
 
-  it("changes hue exactly once, at the committed boundary", () => {
-    // Stages 5-7 are "late-stage exposure" — committed, and still losable.
-    // The whole reason for two hues is that something changes at the fifth;
-    // a ramp that shifts anywhere else is decorating rather than encoding.
+  it("changes hue exactly twice: at the handshake, and at the signature", () => {
+    // This said ONCE until 2026-09-01, splitting the funnel at stage 5 into
+    // "not yet ours" and "committed, still losable". The split was right and is
+    // kept; what changed is that a verbal award and a signed contract stopped
+    // sharing a band. PIPELINE_BUCKETS already separates them -- one is losable
+    // and one is invoiceable -- and a ramp that drew them the same colour was
+    // the last place on the board still blurring the two.
+    //
+    // The rule the original was protecting is unchanged and still enforced
+    // below: the hue moves ONLY where something commercial changes. Two
+    // boundaries, two changes, and none inside a band.
     const hues = R.map((s) => s.H);
     const changes = hues.slice(1).filter((h, i) => h !== hues[i]).length;
-    expect(changes).toBe(1);
-    expect(hues[3]).not.toBe(hues[4]);
+    expect(changes).toBe(2);
+    expect(hues[3]).not.toBe(hues[4]); // ترسية شفهية تفارق ما قبلها
+    expect(hues[4]).not.toBe(hues[5]); // والعقد يفارق الترسية
+    expect(new Set(hues.slice(0, 4)).size).toBe(1); // ولا تغيّر داخل النطاق
+    expect(new Set(hues.slice(5)).size).toBe(1);
   });
 });
 
