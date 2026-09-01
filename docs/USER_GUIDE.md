@@ -603,6 +603,7 @@ project does **not** create a duplicate.
 |---|---|
 | **Reports** `/reports` | Pipeline by stage, quotation funnel, loss reasons, plus an **AI Weekly Report**. |
 | **Targets & Performance** `/targets` | Set and track targets. Salesperson and manager metric views. |
+| **Wall board** `/board` | The screen for the sales manager's office — built to run unattended for weeks on a display nobody logs into. It refreshes every 60 seconds **including in a background tab**, and it says so: after two missed rounds the status reads *slow*, after four it dims and states that the figures are old. Five headline cards (won year-to-date against the same window last year, annual target, weighted forecast, qualified pipeline, target achievement), then what needs attention, the biggest deals, pipeline health by stage, team performance, what changed since yesterday, the sales pulse, the 30/60/90 outlook, and a news wire along the bottom. **Every figure that cannot be computed says so and names what is missing** — it never prints SAR 0 for a number nobody has entered. Colour carries meaning throughout: in the stage bars, cool means nothing is awarded yet, amber is a verbal award (won, and still losable), green means a contract exists. Open it on a laptop or tablet signed in as a `bd_manager` account and lock the device down — the page has no navigation, but it is **not a security boundary**, and that account can read all sales data for anyone who types a different address. |
 
 ### Resources — الموارد
 
@@ -750,14 +751,30 @@ These are guardrails, not suggestions. They will stop you.
 Verified against production on **2026-08-06**. Read this before trusting a number on screen.
 
 ### What is actually in production
-Verified live on **2026-08-27**: the book holds **49 opportunities**, and the Executive Brief
-computes **SAR 63,407,478** across them. This section used to say "2 opportunities, 6 RFQs" —
-that stopped being true weeks ago, and a limitations list that overstates how empty the system
-is teaches people to distrust figures that are in fact sound.
+Verified live on **2026-08-31**, after the sales-record import: the book holds **690
+opportunities**, 45 reference projects, 50 companies, 132 contacts and 5 annual targets. This
+section said "49 opportunities" until then, and before that "2 opportunities, 6 RFQs" — a
+limitations list that overstates how empty the system is teaches people to distrust figures
+that are in fact sound.
 
-What is genuinely still missing is the historical **quotation masterlist**, which has never
-been migrated. Every dashboard is accurate over the data that is loaded; none of them can show
-years the database does not hold.
+The historical **quotation masterlist** is now loaded. What is genuinely missing is not rows
+but **columns**, and it is the reason several screens refuse to answer:
+
+| Column | Filled on | What it costs |
+|---|---|---|
+| `human_win_probability` | **0 of 739** | No weighted forecast, and no 30/60/90 outlook |
+| `next_action` / `next_action_due` | **0 of 739** | "No next step" cannot be flagged per deal — it is one configuration gap, not 739 failures |
+| `last_activity_at` | 46 of 739 | Stalled-deal detection sees only those 46 |
+| `quotations.valid_until` | 0 of 45 | No quotation-expiry warnings |
+
+Every dashboard is accurate over the data that is loaded. Where an input is absent, the screen
+**says which one** rather than printing a zero — a dash and a zero are different facts, and the
+wall board in particular cannot be asked which one it meant.
+
+Two more, unchanged: **`source_registry` is empty**, so four candidate leads stay blocked by
+`lead_guard` until a `sales_manager` or `ceo` approves a source; and the **whole annual target
+sits on one account**, because `sales_targets` is keyed per user and has no row for a company
+figure — so the table reads as though one person failed and another works without a target.
 
 ### The target gauge reads zero
 There is no annual target row, no current-month target, and no awarded opportunity. Target,
@@ -998,4 +1015,12 @@ verified against the live site:
    contact damage in Section 10 from recurring, and it is deliberately not part of a frontend
    deploy.
 
+**The wall board is the newest page and is described in Section 7 for the first time here.**
+`/board` shipped in PR #257 on **2026-08-31** and was verified live at `bb5d6f6`; the guide went
+five days without naming it, which is exactly the lag this file exists to prevent. The rebuild
+that follows it — honest empty states, the colour semantics, the aligned chip rows and the
+scrolling news wire — is on this branch and **not yet deployed**.
+
 Update this file when the workflow changes.*
+
+<!-- last reviewed 2026-09-01 · board rebuild branch · previous: 2026-08-27 @ 3dd0621 -->

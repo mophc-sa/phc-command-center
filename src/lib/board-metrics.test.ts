@@ -15,6 +15,8 @@ import {
   freshnessOf,
   monthBounds,
   compactValue,
+  splitCompact,
+  yearOnYear,
   wonTrend,
   yearProgress,
   type BoardOpp,
@@ -392,5 +394,77 @@ describe("open pipeline is bounded by a window, and says what it left out", () =
     expect(s.wonThisMonth).toBe(700);
     expect(s.winRate).toBeCloseTo(0.5, 6);
     expect(s.openExcludedCount).toBe(0);
+  });
+});
+
+describe("a zero and an absent input are different facts", () => {
+  it("returns null when NO quotation carries a validity date", () => {
+    // Production state today: not one of 45 quotations has valid_until. The
+    // board printed "0" here for a week, which reads as "nothing due" when the
+    // truth is "nobody records expiry" -- and those send a reader to two
+    // different places. This board exists to keep them apart.
+    const p = computePulse({
+      approvalsPendingAt: [],
+      followUpDueDates: [],
+      quotationDueDates: [null, null, null],
+      tendersNeedingReview: 0,
+      inboxUnclassified: 0,
+      now: NOW,
+    });
+    expect(p.quotationsDueSoon).toBeNull();
+    expect(p.quotationsWithDates).toBe(0);
+  });
+
+  it("returns a real zero when dates exist and none fall in the window", () => {
+    const p = computePulse({
+      approvalsPendingAt: [],
+      followUpDueDates: [],
+      quotationDueDates: ["2026-12-01", "2026-11-01"],
+      tendersNeedingReview: 0,
+      inboxUnclassified: 0,
+      now: NOW,
+    });
+    expect(p.quotationsDueSoon).toBe(0);
+    expect(p.quotationsWithDates).toBe(2);
+  });
+});
+
+describe("a headline splits its number from its unit", () => {
+  it("returns the two parts, not a glued string", () => {
+    expect(splitCompact(7_909_835, "ar")).toEqual({ n: "7.9", unit: "مليون ر.س" });
+    expect(splitCompact(633_705_805, "en")).toEqual({ n: "633.7", unit: "SAR m" });
+  });
+
+  it("keeps small figures whole", () => {
+    expect(splitCompact(940, "en")).toEqual({ n: "940", unit: "SAR" });
+  });
+
+  it("returns null for an absent value rather than a zero", () => {
+    expect(splitCompact(null, "en")).toBeNull();
+  });
+});
+
+describe("year on year compares the same slice of the calendar", () => {
+  it("measures last year to the same day, not its full total", () => {
+    // Against a full prior year, every January looks catastrophic and every
+    // December looks triumphant. Only the same window is a fair comparison.
+    const y = yearOnYear(
+      [
+        opp({ sales_stage: "won", won_at: "2026-03-01", contract_value: 100 }),
+        opp({ sales_stage: "won", won_at: "2025-03-01", contract_value: 200 }),
+        opp({ sales_stage: "won", won_at: "2025-11-01", contract_value: 9999 }), // outside the window
+      ],
+      NOW,
+    );
+    expect(y.thisYear).toBe(100);
+    expect(y.priorYear).toBe(200);
+    expect(y.ratio).toBeCloseTo(-0.5, 6);
+  });
+
+  it("gives no ratio when last year's window was empty", () => {
+    // Growth from zero is a start, not a percentage.
+    const y = yearOnYear([opp({ sales_stage: "won", won_at: "2026-03-01", contract_value: 100 })], NOW);
+    expect(y.thisYear).toBe(100);
+    expect(y.ratio).toBeNull();
   });
 });

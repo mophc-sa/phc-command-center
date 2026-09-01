@@ -131,6 +131,11 @@
   /* Info — neutral cool-blue for supplementary data (replaces raw text-blue-*) */
   --color-info: var(--info);
   --color-won-on-tint: var(--won-on-tint);
+  --color-amber-on-tint: var(--amber-on-tint);
+  --color-violet: var(--violet);
+  --color-violet-on-tint: var(--violet-on-tint);
+  --color-teal: var(--teal);
+  --color-teal-on-tint: var(--teal-on-tint);
   --color-destructive-on-tint: var(--destructive-on-tint);
 
   --color-destructive: var(--destructive);
@@ -296,13 +301,62 @@
   --won-on-tint: oklch(0.52 0.13 155);
   --destructive-on-tint: oklch(0.54 0.19 25);
 
-  --stage-1: oklch(0.66 0.014 253);
-  --stage-2: oklch(0.56 0.018 253);
-  --stage-3: oklch(0.45 0.020 253);
-  --stage-4: oklch(0.32 0.016 253);
-  --stage-5: oklch(0.66 0.066 65);
-  --stage-6: oklch(0.60 0.110 65);
-  --stage-7: oklch(0.53 0.150 65);
+  /* Two hues the wall board needed and the palette did not have.
+   *
+   * The dashboard design gives each headline card its own colour, which is
+   * what makes five figures readable as five different things at a glance.
+   * The existing vocabulary carries four -- money is amber, a banked outcome
+   * is green, information is blue, exposure is red -- and a forecast and a
+   * qualified pipeline are neither of those.
+   *
+   * So rather than importing a purple and a teal from outside, these sit
+   * inside the same system: lightness 0.55 and chroma 0.095-0.13 put them in
+   * the middle of the existing set (amber 0.62/0.135, won 0.60/0.135, info
+   * 0.55/0.11), so they read as members of the family and not as decoration
+   * borrowed from a template.
+   *
+   * Measured, not assumed: 5.07 and 4.65 against the surface, and the on-tint
+   * variants clear 4.5:1 as label text on an 8% tint of their own hue -- the
+   * failure that made --won-on-tint and --destructive-on-tint necessary. */
+  /* --amber-on-tint completes the set. `text-amber-deep` was written in seven
+     places on the wall board and the token behind it never existed, so every
+     one of them rendered as plain foreground: the year-progress figure, the
+     freshness pill, the attention heading, the top-5 total and two TONE
+     entries all quietly lost their colour. Measured on the page as
+     oklch(0.2 0.01 253) -- near black.
+
+     --amber-light (0.55) would have passed at 4.57, a hair over the line. This
+     sits at 0.50 / 5.65 so it holds the same margin its siblings do. */
+  --amber-on-tint: oklch(0.50 0.13 65);
+  --violet: oklch(0.55 0.13 295);
+  --violet-on-tint: oklch(0.48 0.15 295);
+  --teal: oklch(0.55 0.095 195);
+  --teal-on-tint: oklch(0.46 0.10 195);
+
+  /* The stage ramp re-states, in colour, the boundary the code already draws
+     in PIPELINE_BUCKETS -- and only that boundary. Hue changes exactly twice:
+     once at the handshake, once at the signature.
+
+         1-4  cool     nothing awarded yet
+         5    amber    verbally awarded: won, and still losable
+         6-7  green    a contract exists
+
+     It deepens inside each band so order is legible without a legend, and the
+     hue never moves inside one -- a shift with nothing behind it decorates
+     instead of encoding, which is what the earlier slate ramp was warned about
+     and what the first draft of this one did.
+
+     Every bar is measured against the muted track it sits IN, not only the card
+     behind it. Stage 1 started at L 0.66 and measured 2.62 on that track while
+     clearing 3.07 on white -- visible in the test, invisible on the wall. It is
+     0.61 for that reason. */
+  --stage-1: oklch(0.61 0.075 240); /* استُلم الطلب */
+  --stage-2: oklch(0.56 0.095 240); /* المقاول يملك المشروع */
+  --stage-3: oklch(0.51 0.110 240); /* BAFO */
+  --stage-4: oklch(0.45 0.115 240); /* تفاوض */
+  --stage-5: oklch(0.62 0.135 65);  /* ترسية شفهية — فوز قابل للخسارة */
+  --stage-6: oklch(0.60 0.115 155); /* استُلم العقد */
+  --stage-7: oklch(0.52 0.135 155); /* عقد موقّع */
 
   --destructive: oklch(0.60 0.195 25);
   --destructive-foreground: oklch(0.99 0.002 90);
@@ -530,4 +584,30 @@
   color: var(--color-destructive);
   transition: background-color 150ms ease;
   &:hover { background-color: oklch(0.60 0.195 25 / 0.16); }
+}
+
+
+/* =============================================================================
+   The wall board's news wire.
+   
+   Two keyframes rather than one, because a ticker has to move AGAINST the
+   reading direction or it is unreadable. In English the first character must
+   appear at the right edge and travel left, so the eye meets the start of a
+   phrase first and reads it as it builds. In Arabic the first character is on
+   the right of the phrase, so it must appear at the LEFT edge and travel right.
+   The same animation in both directions would show every Arabic headline
+   ending-first.
+   
+   The content is duplicated in the markup, and each pass travels exactly half
+   the track -- so the second copy arrives where the first began and the loop
+   has no visible seam.
+   ========================================================================== */
+@keyframes wire-ltr { from { transform: translateX(0); }    to { transform: translateX(-50%); } }
+@keyframes wire-rtl { from { transform: translateX(0); }    to { transform: translateX(50%); } }
+
+/* A wall display has no user to stop the motion, so honour the system setting:
+   the wire holds still and shows what fits rather than scrolling past someone
+   who asked for no animation. */
+@media (prefers-reduced-motion: reduce) {
+  .wire-track { animation: none !important; transform: none !important; }
 }
