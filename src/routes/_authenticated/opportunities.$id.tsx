@@ -58,6 +58,7 @@ import {
   type ContractRecord,
   type ContractStage,
   type MentionPurpose,
+  addStakeholder,
 } from "@/lib/opportunity-collab-actions";
 import { Upload, Paperclip } from "lucide-react";
 import { AttachmentLink } from "@/components/phc/AttachmentLink";
@@ -175,6 +176,7 @@ function OpportunityDetail() {
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [clientDetailsOpen, setClientDetailsOpen] = useState(false);
   const [roleFor, setRoleFor] = useState<Record<string, unknown> | null>(null);
+  const [addContactOpen, setAddContactOpen] = useState(false);
   const [submissionOpen, setSubmissionOpen] = useState(false);
   const { user, roles } = useAuth();
   const canScore = canManageSalesPipeline(roles);
@@ -926,11 +928,57 @@ function OpportunityDetail() {
       {/* §19 — who is on this deal and what each of them is to it. Reads the
           existing per-opportunity stakeholders; creates no contact. */}
       {show("alert") && (
-      <Panel title={lang === "ar" ? "أصحاب المصلحة" : "Relationships"}>
+      <Panel
+        title={lang === "ar" ? "أصحاب المصلحة" : "Relationships"}
+        // Requested 2026-09-02: the panel read stakeholders and created none,
+        // so a deal with three people on the client side could hold one.
+        action={
+          canEditClientDetails ? (
+            <button
+              type="button"
+              onClick={() => setAddContactOpen(true)}
+              className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {t("stake_add_contact")}
+            </button>
+          ) : undefined
+        }
+      >
         <RelationshipPanel
           stakeholders={(stakeholdersQ.data ?? []) as never}
           contractorDecisionMaker={o.contractor_decision_maker}
           onEditRole={canEditClientDetails ? (s: Record<string, unknown>) => setRoleFor(s) : undefined}
+        />
+        <ActionDialog
+          open={addContactOpen}
+          onOpenChange={setAddContactOpen}
+          title={t("stake_add_contact")}
+          description={
+            lang === "ar"
+              ? "شخص آخر على هذه الفرصة — لا يستبدل جهة الاتصال الرئيسية."
+              : "Another person on this deal — this does not replace the primary contact."
+          }
+          submitLabel={t("crm_add")}
+          draftId={`add-contact:${id}`}
+          fields={[
+            { key: "name", type: "text", label: t("label_contact_person"), required: true },
+            { key: "role", type: "text", label: t("label_role") },
+            { key: "phone", type: "phone", label: t("label_contact_number") },
+            { key: "email", type: "text", label: t("email") },
+            { key: "organization", type: "text", label: t("label_company_name") },
+          ]}
+          onSubmit={async (v) => {
+            await addStakeholder({
+              opportunityId: id,
+              name: String(v.name ?? ""),
+              role: v.role,
+              phone: v.phone,
+              email: v.email,
+              organization: v.organization,
+            });
+            toast.success(t("stake_contact_added"));
+            qc.invalidateQueries({ queryKey: ["opp-stake", id] });
+          }}
         />
         <ActionDialog
           open={!!roleFor}

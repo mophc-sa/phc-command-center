@@ -441,3 +441,58 @@ export async function upsertClientDetails(input: {
 
   await audit("client_details.updated", "opportunity", input.opportunityId, input);
 }
+
+/**
+ * Add another contact person to an opportunity.
+ *
+ * Asked for on 2026-09-02 (PDF, page 2): the Relationships panel said, in its
+ * own comment, that it "reads the existing per-opportunity stakeholders;
+ * creates no contact". So a deal with three people on the client side could
+ * hold exactly one of them, and the other two lived in someone's phone.
+ *
+ * `upsertClientDetails` above is not this. That one edits THE primary contact
+ * -- one row, updated in place -- which is the right shape for "correct the
+ * client details" and the wrong one for "there is also a project manager".
+ *
+ * `contact_order` is assigned rather than left null so the panel has a stable
+ * order: rows added later sit below the primary contact instead of shuffling
+ * on every read.
+ */
+export async function addStakeholder(input: {
+  opportunityId: Uuid;
+  name: string;
+  role?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  organization?: string | null;
+}) {
+  const name = input.name.trim();
+  if (!name) throw new Error("stakeholder_name_required");
+
+  // The next slot, read at write time. Two people adding a contact in the same
+  // second would collide on the number; they would not collide on the row, and
+  // a duplicated order is a cosmetic tie, not a lost contact.
+  const { data: existing } = await supabase
+    .from("stakeholders")
+    .select("contact_order")
+    .eq("opportunity_id", input.opportunityId)
+    .order("contact_order", { ascending: false })
+    .limit(1);
+  const nextOrder = Number(existing?.[0]?.contact_order ?? 0) + 1;
+
+  const { data, error } = await supabase
+    .from("stakeholders")
+    .insert({
+      opportunity_id: input.opportunityId,
+      name,
+      role: input.role?.trim() || null,
+      phone: input.phone?.trim() || null,
+      email: input.email?.trim() || null,
+      organization: input.organization?.trim() || null,
+      contact_order: nextOrder,
+    } as never)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data as { id: string };
+}
