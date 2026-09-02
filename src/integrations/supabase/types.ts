@@ -4902,6 +4902,7 @@ export type Database = {
           language: string
           sales_code: string | null
           status: Database["public"]["Enums"]["user_status"]
+          is_display_account: boolean
           updated_at: string
         }
         Insert: {
@@ -4913,6 +4914,7 @@ export type Database = {
           language?: string
           sales_code?: string | null
           status?: Database["public"]["Enums"]["user_status"]
+          is_display_account?: boolean
           updated_at?: string
         }
         Update: {
@@ -4924,6 +4926,7 @@ export type Database = {
           language?: string
           sales_code?: string | null
           status?: Database["public"]["Enums"]["user_status"]
+          is_display_account?: boolean
           updated_at?: string
         }
         Relationships: []

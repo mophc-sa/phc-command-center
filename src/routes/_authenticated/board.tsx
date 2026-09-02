@@ -41,10 +41,11 @@
 // moment a stale number starts passing for a live one.
 // =============================================================================
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { dueForRefresh, keepAlive } from "@/lib/session-keepalive";
 import { useI18n, formatNumber, localeFor } from "@/lib/i18n";
 import { requiresConversionReview } from "@/lib/dashboard-helpers";
 import {
@@ -89,6 +90,35 @@ const phcLogo = { url: "/phc-logo.png" };
 
 /** Values move in minutes, not seconds. A tighter poll would only add load. */
 const POLL_MS = 60_000;
+
+/**
+ * Ask for a fresh access token on our own clock.
+ *
+ * `autoRefreshToken` renews on a timer and on focus. A wall display gives it
+ * neither: browsers throttle timers in a tab nobody has touched, and a screen
+ * in the corner of an office is never focused, clicked or scrolled. Miss enough
+ * renewals and the session is gone -- not because anyone signed out, but
+ * because nothing woke up to say it was still there.
+ *
+ * Belt over braces: where autoRefreshToken has already done the work this is a
+ * no-op against a cached session. It changes no lifetime and no policy.
+ */
+function useSessionKeepAlive() {
+  const lastAt = useRef<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled || !dueForRefresh(lastAt.current, Date.now())) return;
+      const ok = await keepAlive(() => supabase.auth.refreshSession());
+      // Only on success: a failed attempt must not push the next one out by
+      // twenty minutes, which is how a display sleeps through its own expiry.
+      if (ok) lastAt.current = Date.now();
+    };
+    void tick();
+    const id = setInterval(() => { void tick(); }, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+}
 
 /**
  * The wall board renders in one language, whatever the app is set to.
@@ -680,6 +710,7 @@ function BoardPage() {
   // one line. `useI18n` is still read for `dir`, which the shell sets.
   const lang = BOARD_LANG;
   void useI18n;
+  useSessionKeepAlive();
   const { data, dataUpdatedAt, isError } = useBoardData();
   const now = useNow(1000);
   const nowDate = useMemo(() => new Date(now), [now]);
