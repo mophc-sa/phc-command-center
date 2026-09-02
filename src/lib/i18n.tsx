@@ -275,6 +275,8 @@ export const strings = {
   ibx_scope_specify: { en: "Scope — please specify", ar: "النطاق — حدّده" },
   ibx_location_specify: { en: "Location — please specify", ar: "الموقع — حدّده" },
   ibx_completion_invalid: { en: "Completion must be a whole number from 0 to 100.", ar: "نسبة الإنجاز رقم صحيح من 0 إلى 100." },
+  ibx_company_known: { en: "Already on file — this will link to the existing account.", ar: "مسجّلة مسبقًا — سيُربط بالحساب القائم." },
+  ibx_project_known: { en: "A project with this name already exists.", ar: "يوجد مشروع بهذا الاسم." },
   ibx_saab_portal: { en: "Client uses the SAAB ARABIA portal", ar: "العميل يستخدم بوابة SAAB ARABIA" },
   ibx_completion_pct: { en: "Project completion %", ar: "نسبة إنجاز المشروع %" },
   src_phone_call: { en: "Phone call", ar: "اتصال هاتفي" },
