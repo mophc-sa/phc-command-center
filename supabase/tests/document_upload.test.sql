@@ -23,7 +23,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(6);
+select plan(7);
 
 -- ── 1. Users ─────────────────────────────────────────────────────────────────
 -- Emails must be @phc-sa.com: a signup trigger rejects anything else, and it
@@ -80,21 +80,28 @@ select lives_ok(
     returning id$$,
   'A1: bd_manager can INSERT ... RETURNING a document -- the exact call the client makes');
 
--- The uploader must be able to read the row back, or the client cannot write
--- the link that makes the file reachable at all.
+-- Two statements, not one, because that is what the client does: it inserts the
+-- document, gets the id back, then posts the link. A CTE doing both in a single
+-- statement fails on `document_links` for the same snapshot reason as the bug
+-- above -- and it would have been a test asserting something the application
+-- never asks for.
 select lives_ok(
-  $$with d as (
-      insert into public.documents
-        (storage_bucket, storage_path, original_filename, mime_type,
-         size_bytes, checksum, doc_type, uploaded_by)
-      values ('attachments', 'opportunity/f1/b.pdf', 'b.pdf', 'application/pdf',
-              2048, repeat('b', 64), 'other',
-              '20000000-0000-0000-0000-000000000003')
-      returning id)
-    insert into public.document_links (document_id, entity_type, entity_id, linked_by)
-    select d.id, 'opportunity', 'f1000000-0000-0000-0000-000000000001',
-           '20000000-0000-0000-0000-000000000003' from d$$,
-  'A2: the whole upload -- document then link -- completes in one go');
+  $$insert into public.documents
+      (id, storage_bucket, storage_path, original_filename, mime_type,
+       size_bytes, checksum, doc_type, uploaded_by)
+    values ('d1000000-0000-0000-0000-000000000001',
+            'attachments', 'opportunity/f1/b.pdf', 'b.pdf', 'application/pdf',
+            2048, repeat('b', 64), 'other',
+            '20000000-0000-0000-0000-000000000003')
+    returning id$$,
+  'A2: the document row lands, and hands its id back');
+
+select lives_ok(
+  $$insert into public.document_links (document_id, entity_type, entity_id, linked_by)
+    values ('d1000000-0000-0000-0000-000000000001', 'opportunity',
+            'f1000000-0000-0000-0000-000000000001',
+            '20000000-0000-0000-0000-000000000003')$$,
+  'A3: and the link that makes the file reachable lands too');
 
 -- ════════════════ B: a salesperson too ═══════════════════════════════════════
 select set_config('request.jwt.claims',
