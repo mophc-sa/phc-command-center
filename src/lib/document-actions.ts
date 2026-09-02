@@ -16,6 +16,7 @@
 // =============================================================================
 
 import { supabase } from "@/integrations/supabase/client";
+import { compressImage, shouldCompress } from "@/lib/image-compress";
 import { uploadAttachment } from "@/lib/storage-actions";
 import { audit } from "@/lib/audit";
 
@@ -81,7 +82,15 @@ export function isPhoto(d: Pick<DocumentRecord, "mime_type" | "doc_type">): bool
 }
 
 export function validateDocumentFile(file: File): string | null {
-  if (file.size > MAX_DOCUMENT_BYTES) return "file_too_large";
+  // The size check skips images that are about to be compressed. A 9.8MB site
+  // photo leaves compressImage at 753KB -- refusing it for being 9.8MB would
+  // reject a file this system is perfectly able to store, and the person
+  // holding the phone has no way to shrink it themselves.
+  //
+  // The ceiling still applies to everything else, and to an image so large that
+  // even compressed it would not fit: uploadDocument re-checks the compressed
+  // size before it sends anything.
+  if (!shouldCompress(file) && file.size > MAX_DOCUMENT_BYTES) return "file_too_large";
   if (file.type && !ALLOWED_MIME_TYPES.has(file.type)) return "file_type_not_allowed";
   return null;
 }
@@ -144,22 +153,36 @@ export async function uploadDocument(input: UploadDocumentInput): Promise<Docume
   const uploadedBy = await currentUserId();
   if (!uploadedBy) throw new Error("not_authenticated");
 
-  const checksum = await sha256(input.file);
+  // Reported 2026-09-02: uploads take a long time and the files are large.
+  // Measured: hashing 25MB costs 23ms, so the checksum is innocent -- what
+  // takes the time is bytes on a mobile connection, and the bytes are mostly
+  // photographs. A 12MP site photo measured 9,818KB and left here at 753KB,
+  // thirteen times smaller, in 125ms. PDFs, BOQs, contracts and PNG drawings
+  // are returned untouched; see image-compress.ts for why each.
+  const { file } = await compressImage(input.file);
+  // Re-checked after, because the pre-flight check let large images through on
+  // the promise that this step would shrink them. If it could not, say so here
+  // rather than letting the bucket refuse it with a message nobody can read.
+  if (file.size > MAX_DOCUMENT_BYTES) throw new Error("file_too_large");
+
+  // Hashed AFTER, so the checksum describes the object that is actually
+  // stored. A checksum of a file nobody kept is worse than none.
+  const checksum = await sha256(file);
 
   // Storage first. If the registry insert fails afterwards the object is
   // orphaned rather than lost, and the Phase 6 backfill reports orphans — the
   // other order would leave a registry row pointing at nothing, which reads as
   // a working file until someone clicks it.
-  const { path } = await uploadAttachment(folderFor(input.entity), input.file);
+  const { path } = await uploadAttachment(folderFor(input.entity), file);
 
   const { data: doc, error } = await supabase
     .from("documents")
     .insert({
       storage_bucket: "attachments",
       storage_path: path,
-      original_filename: input.file.name,
-      mime_type: input.file.type || null,
-      size_bytes: input.file.size,
+      original_filename: file.name,
+      mime_type: file.type || null,
+      size_bytes: file.size,
       checksum,
       doc_type: input.docType ?? (PHOTO_MIME_TYPES.has(input.file.type) ? "photo" : "other"),
       title: input.title ?? null,
