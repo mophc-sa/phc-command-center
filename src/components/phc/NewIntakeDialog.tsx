@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
+import { countReferences } from "@/lib/reference-hint";
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import {
   createInboxItemAndRoute,
@@ -50,7 +51,7 @@ import {
 export function newIntakeFields(
   t: (k: string) => string,
   teamMembers: any[],
-  known: { companies: string[]; projects: string[] } = { companies: [], projects: [] },
+  known: { companies: string[]; projects: string[]; references: string[] } = { companies: [], projects: [], references: [] },
 ): DialogField[] {
   return [
     { key: "sourceType", type: "select", label: t("ibx_source_type"), required: true, options: INBOX_SOURCE_TYPES.map((s) => ({ value: s, label: t(`src_${s}`) })) },
@@ -59,7 +60,15 @@ export function newIntakeFields(
     // for one contractor, every report that groups by client is wrong and no
     // care downstream repairs it.
     { key: "companyName", type: "autocomplete", label: t("ibx_company_name"), required: true,
-      suggestions: known.companies, knownHint: t("ibx_company_known") },
+      suggestions: known.companies, knownHint: t("ibx_company_known"),
+      // "the reference should be active — if the company is registered it
+      // appears automatically". The reference that matters is PHC's own past
+      // work for them: a rep pricing an RFQ from a contractor we have already
+      // built for should know it before they quote, not after.
+      hintFor: (v) => {
+        const n = countReferences(known.references, v);
+        return n === 0 ? null : t("ibx_company_references").replace("{n}", String(n));
+      } },
     { key: "contactName", type: "text", label: t("ibx_contact_name"), required: true },
     { key: "phone", type: "phone", label: t("label_phone"), required: true },
     { key: "email", type: "text", label: t("email") },
@@ -135,20 +144,26 @@ export function NewIntakeDialog({
   // 249 companies and 741 projects: fetched once and matched in memory, so
   // there is no request per keystroke and no reason to make anyone guess.
   // `enabled: open` keeps the two reads off every page that mounts the header.
-  const { data: known = { companies: [], projects: [] } } = useQuery({
+  const { data: known = { companies: [], projects: [], references: [] } } = useQuery({
     queryKey: ["intake-known-names"],
     enabled: open,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const [c, o] = await Promise.all([
+      const [c, o, r] = await Promise.all([
         supabase.from("companies").select("name").order("name"),
         supabase.from("opportunities").select("project_name").order("project_name"),
+        supabase.from("reference_projects").select("client_or_contractor"),
       ]);
       const uniq = (xs: (string | null)[]) =>
         [...new Set(xs.filter((x): x is string => !!x && x.trim() !== ""))];
       return {
         companies: uniq((c.data ?? []).map((r: { name: string | null }) => r.name)),
-        projects: uniq((o.data ?? []).map((r: { project_name: string | null }) => r.project_name)),
+        projects: uniq((o.data ?? []).map((x: { project_name: string | null }) => x.project_name)),
+        // NOT de-duplicated: three past projects for one client is three, and
+        // that count is the whole point of the line.
+        references: (r.data ?? [])
+          .map((x: { client_or_contractor: string | null }) => x.client_or_contractor)
+          .filter((x): x is string => !!x && x.trim() !== ""),
       };
     },
   });
