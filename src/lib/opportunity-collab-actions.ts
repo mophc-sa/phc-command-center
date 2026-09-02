@@ -496,3 +496,63 @@ export async function addStakeholder(input: {
   if (error) throw error;
   return data as { id: string };
 }
+
+/**
+ * Edit the commercial figures and the next step on an opportunity.
+ *
+ * Reported 2026-09-02 (PDF, page 1): "Still no edit option for the values". The
+ * Alert & Recommendation panel printed Quotation Value, Estimated Value, Next
+ * Action and Due as four read-only fields, so a rep who got a revised price had
+ * nowhere to put it.
+ *
+ * TWO PERMISSIONS, NOT ONE
+ *
+ * The money and the next step are not the same authority. `canEditTotalValue`
+ * is finance_manager and bd_manager -- Total Value is the number the whole
+ * pipeline is judged on. `next_action` is the rep's own note about what they
+ * are doing next, and gating it behind Finance is how it stays empty: it is
+ * null on all 739 production rows today, which is why the weighted forecast
+ * cannot be computed at all.
+ *
+ * So the caller passes only the fields the user is allowed to send, and this
+ * function writes only what it is given. `undefined` means "not submitted";
+ * `null` means "cleared on purpose", and the two must not collapse or clearing
+ * a stale next action would be impossible.
+ */
+export async function updateOpportunityFigures(input: {
+  opportunityId: Uuid;
+  quotationValue?: number | null;
+  estimatedValueMin?: number | null;
+  estimatedValueMax?: number | null;
+  nextAction?: string | null;
+  nextActionDue?: string | null;
+}) {
+  const patch: Record<string, unknown> = {};
+  if (input.quotationValue !== undefined) patch.quotation_value = input.quotationValue;
+  if (input.estimatedValueMin !== undefined) patch.estimated_value_min = input.estimatedValueMin;
+  if (input.estimatedValueMax !== undefined) patch.estimated_value_max = input.estimatedValueMax;
+  if (input.nextAction !== undefined) patch.next_action = input.nextAction;
+  if (input.nextActionDue !== undefined) patch.next_action_due = input.nextActionDue;
+  if (Object.keys(patch).length === 0) return;
+
+  const { error } = await supabase
+    .from("opportunities")
+    .update(patch as never)
+    .eq("id", input.opportunityId);
+  if (error) throw error;
+}
+
+/**
+ * A currency field as typed, turned into what the column holds.
+ *
+ * Empty is null -- "cleared" -- and not 0. A quotation of zero is a quotation;
+ * a blank box is somebody who did not have the number to hand, and storing it
+ * as 0 would put the deal in the pipeline at nothing.
+ */
+export function parseMoneyInput(raw: string | undefined): number | null | undefined {
+  if (raw === undefined) return undefined;
+  const t = raw.trim();
+  if (t === "") return null;
+  const n = Number(t.replace(/[,\s]/g, ""));
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
