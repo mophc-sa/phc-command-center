@@ -1010,7 +1010,7 @@ function BoardPage() {
                   <span className="shrink-0 text-end" style={{ width: "4.4vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span>
                 </div>
 
-                <div className="flex min-h-0 flex-1 flex-col">
+                <AutoScroll className="flex min-h-0 flex-1 flex-col">
                   {model.hot.map((h, i) => (
                     <div key={h.id} className="flex min-h-0 flex-1 items-center gap-[0.5vw] border-t border-border/50" style={{ fontSize: "0.72vw" }}>
                       <span className="min-w-0 flex-1 truncate text-foreground">
@@ -1039,7 +1039,7 @@ function BoardPage() {
                       </span>
                     </div>
                   ))}
-                </div>
+                </AutoScroll>
 
                 <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
                   <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-5 total"}</span>
@@ -1330,6 +1330,66 @@ function ChipRow({
   );
 }
 
+/**
+ * A list that shows the rest of itself, the way a stock board does.
+ *
+ * Asked for on 2026-09-02: the top-opportunities box "should move top to
+ * bottom, automatically, the same idea as share displays on screens."
+ *
+ * A wall board has no reader to scroll it, so a list taller than its panel
+ * hides its tail forever -- the fifth-largest deal is on screen or it is not,
+ * and nobody standing there can tell which.
+ *
+ * Same mechanism as the news wire below, turned ninety degrees: the rows are
+ * rendered TWICE and each pass travels exactly half the track, so the second
+ * copy arrives where the first began and the loop has no seam and no jump
+ * back. A ping-pong was the first draft and it is the wrong idiom -- a share
+ * board never runs backwards, and a reader who looks up mid-row would find the
+ * list moving the other way.
+ *
+ * Speed is derived from the content height, not fixed: six rows at a fixed
+ * duration crawl and twenty blur. This holds a constant pixels-per-second
+ * whatever the list happens to hold today.
+ *
+ * It does nothing at all when the content fits, which is the common case. An
+ * idle animation on a static list is movement that means nothing, and on a
+ * screen people glance at, movement is a claim that something changed.
+ */
+function AutoScroll({ children, className }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      // Half the track is one copy of the list; the visible box is the frame.
+      const copy = el.scrollHeight / 2;
+      const overflow = copy - el.clientHeight;
+      // ~14 px/s reads comfortably from across a room. Under a row of slack is
+      // not worth animating -- it would twitch rather than scroll.
+      setSeconds(overflow > 8 ? Math.max(12, Math.round(copy / 14)) : 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [children]);
+
+  return (
+    <div ref={ref} className={className} style={{ overflow: "hidden" }}>
+      <div
+        className="board-marquee"
+        style={seconds > 0 ? { animation: `marquee-up ${seconds}s linear infinite` } : undefined}
+      >
+        {children}
+        {/* The second copy exists only to close the loop. */}
+        {seconds > 0 ? <div aria-hidden="true">{children}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 function Chip({
   tone,
   lang,
@@ -1611,9 +1671,11 @@ function Kpi({
   gauge?: number | null;
 }) {
   return (
-    <div className="relative flex flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1.1vw] py-[1.1vh] shadow-sm">
+    <div className="relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1.1vw] py-[1.1vh] shadow-sm">
       <div className="flex items-start justify-between">
-        <span className="font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>{ar}</span>
+        <span className="min-w-0 truncate font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
+          {lang === "ar" ? ar : en}
+        </span>
         <span
           aria-hidden="true"
           className="grid shrink-0 place-items-center rounded-[0.45vw]"
@@ -1676,7 +1738,7 @@ function KpiFigure({
   foot?: string | null;
 }) {
   return (
-    <div className="relative flex flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1.1vw] py-[1.1vh] shadow-sm">
+    <div className="relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1.1vw] py-[1.1vh] shadow-sm">
       <div className="flex items-start justify-between">
         <span className="font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
           {lang === "ar" ? ar : en}
@@ -1720,7 +1782,7 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex min-h-0 flex-col rounded-[0.7vw] border border-border/70 bg-card px-[1vw] py-[0.8vh] shadow-sm">
+    <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1vw] py-[0.8vh] shadow-sm">
       <div className="mb-[0.5vh] flex items-baseline justify-between">
         <span className="flex items-baseline gap-[0.4vw]">
           <span
@@ -1757,9 +1819,10 @@ function Need({
               style={{ fontSize: n === null ? "1.2vw" : "2.5vw" }}>
           {n === null ? (lang === "ar" ? "لا بيانات" : "No data") : formatNumber(n, lang)}
         </span>
-        <span className="font-semibold text-foreground" style={{ fontSize: "0.8vw" }}>{ar}</span>
+          <span className="min-w-0 truncate font-semibold text-foreground" style={{ fontSize: "0.8vw" }}>
+            {lang === "ar" ? ar : en}
+          </span>
       </div>
-      <span className="mt-[0.3vh] text-muted-foreground" style={{ fontSize: "0.65vw", direction: "ltr" }}>{en}</span>
       <span className="text-muted-foreground" style={{ fontSize: "0.65vw" }}>{sub}</span>
     </div>
   );
