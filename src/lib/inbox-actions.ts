@@ -29,20 +29,36 @@ export type InboxScope = Database["public"]["Enums"]["inbox_scope"];
 export type InboxLocation = Database["public"]["Enums"]["inbox_location"];
 
 export const INBOX_SOURCE_TYPES: InboxSourceType[] = [
-  "manual_lead", "manual_tender", "manual_rfq", "old_data_candidate",
+  // A call first: eight of the twelve items in the system arrived as
+  // `email_placeholder` because there was nothing else to pick.
+  "phone_call", "manual_lead", "manual_tender", "manual_rfq", "old_data_candidate",
   "referral", "market_signal", "email_placeholder", "whatsapp_placeholder",
 ];
 
-export const INBOX_CLIENT_TYPES: InboxClientType[] = ["main_client", "contractor_jih", "contractor_tender", "consultant"];
+// The four the business actually deals with, plus an escape.
+//
+// `main_client`, `contractor_jih` and `contractor_tender` are still valid
+// values -- ten live rows carry them and Postgres cannot drop an enum label --
+// but they are no longer OFFERED: the last two describe which track the work is
+// on, which the request type already says, and neither had a row for a
+// subcontractor or an owner. Re-pointing those ten rows is a business decision
+// about records somebody entered deliberately, not a migration's call.
+export const INBOX_CLIENT_TYPES: InboxClientType[] = [
+  "main_contractor", "subcontractor", "owner", "consultant", "other",
+];
+/** Still readable on old records, no longer offered on new ones. */
+export const INBOX_CLIENT_TYPES_LEGACY: InboxClientType[] = [
+  "main_client", "contractor_jih", "contractor_tender",
+];
 export const INBOX_PROJECT_TYPES: InboxProjectType[] = ["jih", "tender"];
-export const INBOX_RFQ_FROM: InboxRfqFrom[] = ["owner_developer", "main_contractor", "consultant"];
+export const INBOX_RFQ_FROM: InboxRfqFrom[] = ["owner_developer", "main_contractor", "consultant", "other"];
 export const INBOX_SCOPES: InboxScope[] = [
   "supply_and_installation", "supply_only_signage", "supply_installation_others",
-  "supply_only_others", "mockup_sample_request", "installation_only",
+  "supply_only_others", "mockup_sample_request", "installation_only", "other",
 ];
 export const INBOX_LOCATIONS: InboxLocation[] = [
   "riyadh", "jeddah", "makkah", "madinah", "dammam", "al_khobar", "dhahran",
-  "jubail", "taif", "tabuk", "abha", "yanbu", "jazan", "buraydah", "hail",
+  "jubail", "taif", "tabuk", "abha", "yanbu", "jazan", "buraydah", "hail", "other",
 ];
 
 export const INBOX_CLASSIFICATIONS: InboxClassification[] = [
@@ -70,6 +86,15 @@ export type InboxItemInput = {
   phone?: string;
   email?: string;
   clientType?: InboxClientType;
+  /** What "other" meant, for each list that offers it. */
+  clientTypeOther?: string;
+  rfqFromOther?: string;
+  scopeTypeOther?: string;
+  locationOther?: string;
+  /** Client runs RFQs through the SAAB ARABIA portal. */
+  saabPortal?: boolean;
+  /** Construction progress 0-100. Undefined is "nobody said", not zero. */
+  completionPct?: number;
   /** Phase 2: the four PRD request types. `projectType` is derived from it. */
   requestType?: IntakeRequestType;
   ownerEntity?: string;
@@ -145,6 +170,14 @@ export async function createInboxItem(input: InboxItemInput) {
       phone: input.phone ?? null,
       email: input.email ?? null,
       client_type: input.clientType ?? null,
+      // Only stored when the list it belongs to is actually set to "other" --
+      // a leftover free text under a picked value would contradict it.
+      client_type_other: input.clientType === "other" ? (input.clientTypeOther ?? null) : null,
+      rfq_from_other:    input.rfqFrom === "other" ? (input.rfqFromOther ?? null) : null,
+      scope_type_other:  input.scopeType === "other" ? (input.scopeTypeOther ?? null) : null,
+      location_other:    input.locationCity === "other" ? (input.locationOther ?? null) : null,
+      saab_portal: input.saabPortal ?? false,
+      completion_pct: input.completionPct ?? null,
       request_type: input.requestType ?? null,
       owner_entity: input.ownerEntity ?? null,
       client_rfq_reference: input.clientRfqReference ?? null,

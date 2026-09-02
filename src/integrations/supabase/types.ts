@@ -3746,6 +3746,12 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           rfq_from: Database["public"]["Enums"]["inbox_rfq_from"] | null
+          client_type_other: string | null
+          rfq_from_other: string | null
+          scope_type_other: string | null
+          location_other: string | null
+          saab_portal: boolean
+          completion_pct: number | null
           scope: string | null
           scope_type: Database["public"]["Enums"]["inbox_scope"] | null
           source_name: string | null
@@ -3808,6 +3814,12 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           rfq_from?: Database["public"]["Enums"]["inbox_rfq_from"] | null
+          client_type_other?: string | null
+          rfq_from_other?: string | null
+          scope_type_other?: string | null
+          location_other?: string | null
+          saab_portal?: boolean
+          completion_pct?: number | null
           scope?: string | null
           scope_type?: Database["public"]["Enums"]["inbox_scope"] | null
           source_name?: string | null
@@ -3870,6 +3882,12 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           rfq_from?: Database["public"]["Enums"]["inbox_rfq_from"] | null
+          client_type_other?: string | null
+          rfq_from_other?: string | null
+          scope_type_other?: string | null
+          location_other?: string | null
+          saab_portal?: boolean
+          completion_pct?: number | null
           scope?: string | null
           scope_type?: Database["public"]["Enums"]["inbox_scope"] | null
           source_name?: string | null
@@ -8742,6 +8760,10 @@ export type Database = {
         | "contractor_jih"
         | "contractor_tender"
         | "consultant"
+        | "main_contractor"
+        | "subcontractor"
+        | "owner"
+        | "other"
       inbox_location:
         | "riyadh"
         | "jeddah"
@@ -8758,8 +8780,9 @@ export type Database = {
         | "jazan"
         | "buraydah"
         | "hail"
+        | "other"
       inbox_project_type: "jih" | "tender"
-      inbox_rfq_from: "owner_developer" | "main_contractor" | "consultant"
+      inbox_rfq_from: "owner_developer" | "main_contractor" | "consultant" | "other"
       inbox_scope:
         | "supply_and_installation"
         | "supply_only_signage"
@@ -8767,6 +8790,7 @@ export type Database = {
         | "supply_only_others"
         | "mockup_sample_request"
         | "installation_only"
+        | "other"
       inbox_source_type:
         | "manual_lead"
         | "manual_tender"
@@ -8776,6 +8800,7 @@ export type Database = {
         | "market_signal"
         | "email_placeholder"
         | "whatsapp_placeholder"
+        | "phone_call"
       inbox_status:
         | "new"
         | "in_review"
@@ -9238,6 +9263,10 @@ export const Constants = {
         "contractor_jih",
         "contractor_tender",
         "consultant",
+        "main_contractor",
+        "subcontractor",
+        "owner",
+        "other",
       ],
       inbox_location: [
         "riyadh",
@@ -9255,9 +9284,10 @@ export const Constants = {
         "jazan",
         "buraydah",
         "hail",
+        "other",
       ],
       inbox_project_type: ["jih", "tender"],
-      inbox_rfq_from: ["owner_developer", "main_contractor", "consultant"],
+      inbox_rfq_from: ["owner_developer", "main_contractor", "consultant", "other"],
       inbox_scope: [
         "supply_and_installation",
         "supply_only_signage",
@@ -9265,6 +9295,7 @@ export const Constants = {
         "supply_only_others",
         "mockup_sample_request",
         "installation_only",
+        "other",
       ],
       inbox_source_type: [
         "manual_lead",
@@ -9275,6 +9306,7 @@ export const Constants = {
         "market_signal",
         "email_placeholder",
         "whatsapp_placeholder",
+        "phone_call",
       ],
       inbox_status: [
         "new",

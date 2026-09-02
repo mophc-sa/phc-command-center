@@ -259,6 +259,32 @@ export const strings = {
   doc_unlink: { en: "Detach from this record", ar: "فصل عن هذا السجل" },
   doc_delete: { en: "Remove", ar: "إزالة" },
   doc_title_placeholder: { en: "Title (optional)", ar: "عنوان (اختياري)" },
+  ibx_client_type_main_contractor: { en: "Main contractor", ar: "مقاول رئيسي" },
+  ibx_client_type_subcontractor: { en: "Subcontractor", ar: "مقاول بالباطن" },
+  ibx_client_type_owner: { en: "Owner", ar: "مالك" },
+  ibx_client_type_other: { en: "Other", ar: "أخرى" },
+  // Two keys per list, not one: `ibx_<list>_other` is the OPTION inside the
+  // dropdown and must read "Other"; `..._specify` is the label on the free-text
+  // box that appears after it. Sharing one key put "Other" on the text field
+  // and left it saying nothing about what to write.
+  ibx_rfq_from_other: { en: "Other", ar: "أخرى" },
+  ibx_scope_other: { en: "Other", ar: "أخرى" },
+  ibx_location_other: { en: "Other", ar: "أخرى" },
+  ibx_client_type_specify: { en: "Client type — please specify", ar: "نوع العميل — حدّده" },
+  ibx_rfq_from_specify: { en: "RFQ from — please specify", ar: "الطلب من — حدّده" },
+  ibx_scope_specify: { en: "Scope — please specify", ar: "النطاق — حدّده" },
+  ibx_location_specify: { en: "Location — please specify", ar: "الموقع — حدّده" },
+  ibx_completion_invalid: { en: "Completion must be a whole number from 0 to 100.", ar: "نسبة الإنجاز رقم صحيح من 0 إلى 100." },
+  ibx_saab_portal: { en: "Client uses the SAAB ARABIA portal", ar: "العميل يستخدم بوابة SAAB ARABIA" },
+  ibx_completion_pct: { en: "Project completion %", ar: "نسبة إنجاز المشروع %" },
+  src_phone_call: { en: "Phone call", ar: "اتصال هاتفي" },
+  dialog_phone_invalid: { en: "That does not look like a phone number.", ar: "هذا لا يبدو رقم هاتف." },
+  draft_restored: { en: "Restored what you had typed", ar: "استُعيد ما كتبته" },
+  draft_discard: { en: "Start fresh", ar: "ابدأ من جديد" },
+  draft_age_now: { en: "just now", ar: "الآن" },
+  draft_age_minutes: { en: "minutes ago", ar: "دقيقة مضت" },
+  draft_age_hours: { en: "hours ago", ar: "ساعة مضت" },
+  draft_age_days: { en: "days ago", ar: "يوم مضى" },
   doc_err_file_too_large: { en: "File is larger than 25MB.", ar: "حجم الملف يتجاوز 25 ميغابايت." },
   doc_err_file_type_not_allowed: { en: "That file type is not accepted.", ar: "نوع الملف غير مقبول." },
   attachment_unavailable: {
