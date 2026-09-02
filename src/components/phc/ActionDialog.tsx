@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { composePhone, isUsablePhone, localPart, SAUDI_PREFIX } from "@/lib/phone-entry";
+import { exactMatch, suggest } from "@/lib/name-suggest";
 import {
   draftAgeMinutes,
   draftKey as makeDraftKey,
@@ -61,6 +62,26 @@ export type DialogField =
     }
   | {
       key: string;
+      /**
+       * A text box that shows what is already on file as you type.
+       *
+       * Free text is still accepted -- a genuinely new company has to be
+       * enterable -- but the matching row is offered first, which is the only
+       * place a duplicate can be prevented rather than cleaned up later.
+       */
+      type: "autocomplete";
+      label: string;
+      placeholder?: string;
+      required?: boolean;
+      defaultValue?: string;
+      showWhen?: DialogFieldCondition;
+      /** Names already in the system. Fetched once by the caller, not per key. */
+      suggestions: string[];
+      /** Shown under the box when what was typed is already on file. */
+      knownHint?: string;
+    }
+  | {
+      key: string;
       type: "select";
       showWhen?: DialogFieldCondition;
       label: string;
@@ -97,6 +118,83 @@ export type DialogField =
       placeholder?: string;
       defaultValue?: string;
     };
+
+/**
+ * A text box that offers what is already on file.
+ *
+ * Its own component because the open/closed state belongs to the field, not to
+ * the dialog: keeping it in the dialog would mean one flag shared by every
+ * autocomplete on the form, and opening one would open them all.
+ *
+ * The matched characters are marked in the ORIGINAL name -- see
+ * name-suggest.ts for why that needs a fold that changes no lengths.
+ */
+function AutocompleteField({
+  id, value, placeholder, suggestions, knownHint, invalid, describedBy, onChange,
+}: {
+  id: string;
+  value: string;
+  placeholder?: string;
+  suggestions: string[];
+  knownHint?: string;
+  invalid?: boolean;
+  describedBy?: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const matches = open ? suggest(suggestions, (x) => x, value) : [];
+  const known = exactMatch(suggestions, (x) => x, value);
+
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type="text"
+        autoComplete="off"
+        value={value}
+        placeholder={placeholder}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
+        aria-expanded={matches.length > 0}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        // A click on a suggestion blurs the input first, so closing has to wait
+        // for the click to land.
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+      />
+
+      {matches.length > 0 ? (
+        <ul className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-popover py-1 shadow-md">
+          {matches.map((m) => (
+            <li key={m.label}>
+              <button
+                type="button"
+                className="w-full px-3 py-1.5 text-start text-sm hover:bg-surface-2"
+                onMouseDown={(e) => { e.preventDefault(); onChange(m.label); setOpen(false); }}
+              >
+                {m.ranges.length === 0 ? m.label : (
+                  <>
+                    {m.label.slice(0, m.ranges[0][0])}
+                    <mark className="bg-amber/30 text-foreground">
+                      {m.label.slice(m.ranges[0][0], m.ranges[0][1])}
+                    </mark>
+                    {m.label.slice(m.ranges[0][1])}
+                  </>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {/* Said after the fact as well as during: someone who typed the name in
+          full, without using the list, still needs to know it is not new. */}
+      {known && knownHint ? (
+        <p className="mt-1 text-xs text-won-on-tint">{knownHint}</p>
+      ) : null}
+    </div>
+  );
+}
 
 /** "3 minutes ago" / "2 days ago" -- the age matters more than the timestamp. */
 function draftAgeLabel(minutes: number, t: (k: never) => string): string {
@@ -476,6 +574,20 @@ export function ActionDialog({
                     ))}
                   </SelectContent>
                 </Select>
+              ) : f.type === "autocomplete" ? (
+                <AutocompleteField
+                  id={f.key}
+                  value={values[f.key] ?? ""}
+                  placeholder={f.placeholder}
+                  suggestions={f.suggestions}
+                  knownHint={f.knownHint}
+                  invalid={errors[f.key] ? true : undefined}
+                  describedBy={errors[f.key] ? `${f.key}-err` : undefined}
+                  onChange={(v) => {
+                    setValues((prev) => ({ ...prev, [f.key]: v }));
+                    clearFieldError(f.key);
+                  }}
+                />
               ) : f.type === "phone" ? (
                 // The chip is a label, not a value: what gets stored always
                 // carries its own country code, so a number is never ambiguous

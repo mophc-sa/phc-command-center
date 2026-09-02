@@ -15,6 +15,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
@@ -46,11 +47,19 @@ import {
 // Email is deliberately NOT required. Plenty of contractor site contacts have a
 // phone and no address, and a required email teaches people to type
 // x@x.com -- which is worse than an empty column, because it looks like data.
-export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): DialogField[] {
+export function newIntakeFields(
+  t: (k: string) => string,
+  teamMembers: any[],
+  known: { companies: string[]; projects: string[] } = { companies: [], projects: [] },
+): DialogField[] {
   return [
     { key: "sourceType", type: "select", label: t("ibx_source_type"), required: true, options: INBOX_SOURCE_TYPES.map((s) => ({ value: s, label: t(`src_${s}`) })) },
     { key: "dateReceived", type: "date", label: t("ibx_date_received"), defaultValue: new Date().toISOString().slice(0, 10) },
-    { key: "companyName", type: "text", label: t("ibx_company_name"), required: true },
+    // The only place a duplicate company can be PREVENTED. Once two rows exist
+    // for one contractor, every report that groups by client is wrong and no
+    // care downstream repairs it.
+    { key: "companyName", type: "autocomplete", label: t("ibx_company_name"), required: true,
+      suggestions: known.companies, knownHint: t("ibx_company_known") },
     { key: "contactName", type: "text", label: t("ibx_contact_name"), required: true },
     { key: "phone", type: "phone", label: t("label_phone"), required: true },
     { key: "email", type: "text", label: t("email") },
@@ -66,7 +75,8 @@ export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): D
     // government/owner pre-award tender has no appointed contractor to quote
     // to yet, which is a different job from chasing a contractor who is bidding.
     { key: "requestType", type: "select", label: t("ibx_request_type"), options: [{ value: "", label: "—" }, ...INTAKE_REQUEST_TYPES.map((r) => ({ value: r, label: t(`ibx_request_type_${r}`) }))] },
-    { key: "projectName", type: "text", label: t("label_project"), required: true },
+    { key: "projectName", type: "autocomplete", label: t("label_project"), required: true,
+      suggestions: known.projects, knownHint: t("ibx_project_known") },
     // Project Number intentionally omitted — auto-generated server-side
     // (INT-{year}-{seq}, generate_inbox_project_number() trigger),
     // not typed manually (2026-08-03).
@@ -122,6 +132,27 @@ export function NewIntakeDialog({
   const navigate = useNavigate();
   const { data: teamMembers = [] } = useQuery({ queryKey: ["team-members-min"], queryFn: listTeamMembers });
 
+  // 249 companies and 741 projects: fetched once and matched in memory, so
+  // there is no request per keystroke and no reason to make anyone guess.
+  // `enabled: open` keeps the two reads off every page that mounts the header.
+  const { data: known = { companies: [], projects: [] } } = useQuery({
+    queryKey: ["intake-known-names"],
+    enabled: open,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const [c, o] = await Promise.all([
+        supabase.from("companies").select("name").order("name"),
+        supabase.from("opportunities").select("project_name").order("project_name"),
+      ]);
+      const uniq = (xs: (string | null)[]) =>
+        [...new Set(xs.filter((x): x is string => !!x && x.trim() !== ""))];
+      return {
+        companies: uniq((c.data ?? []).map((r: { name: string | null }) => r.name)),
+        projects: uniq((o.data ?? []).map((r: { project_name: string | null }) => r.project_name)),
+      };
+    },
+  });
+
   return (
     <ActionDialog
       open={open}
@@ -131,7 +162,7 @@ export function NewIntakeDialog({
       draftId="intake"
       description={t("intake_routes_itself")}
       submitLabel={t("crm_add")}
-      fields={newIntakeFields((k) => t(k as never), teamMembers)}
+      fields={newIntakeFields((k) => t(k as never), teamMembers, known)}
       onSubmit={async (v) => {
         if (!v.sourceType) { toast.error(t("ibx_no_source")); return; }
         // A percentage or nothing. The database rejects anything else anyway;
