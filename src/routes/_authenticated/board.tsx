@@ -206,7 +206,10 @@ function useBoardData() {
           supabase.from("follow_ups").select("opportunity_id, due_date, status").eq("status", "scheduled"),
           // `valid_until` is the quotation's own deadline. There is no
           // "due_date" column -- the typechecker caught that guess.
-          supabase.from("quotations").select("valid_until, status"),
+          // The view, not the table: it exposes the two columns the pulse
+          // needs and no others, so a display account never reaches a
+          // quotation's value. security_invoker, so RLS still decides rows.
+          supabase.from("board_quotation_pulse").select("valid_until, status"),
           supabase.from("tenders").select("tender_stage, created_at"),
           supabase.from("leads").select("id").eq("lead_stage", "detected"),
           supabase.from("sales_targets").select("user_id, sales_target, period_type, period_start"),

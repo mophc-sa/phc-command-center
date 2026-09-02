@@ -6880,6 +6880,14 @@ export type Database = {
       }
     }
     Views: {
+      board_quotation_pulse: {
+        Row: {
+          id: string | null
+          status: Database["public"]["Enums"]["quotation_status"] | null
+          valid_until: string | null
+        }
+        Relationships: []
+      }
       ai_advice_queue: {
         Row: {
           agent_key: string | null
