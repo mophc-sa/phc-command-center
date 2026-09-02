@@ -6,7 +6,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   EMPTY_FILTERS, EXPORT_COLUMNS, exportFilename, filterHistorical, ownerOptions,
-  qualityFlags, statusOptions, summarise, toCsv,
+  qualityCounts, qualityFlags, statusOptions, summarise, toCsv,
   yearOptions, yearRange, selectedYear, statusBreakdown,
   type HistoricalSaleRow,
 } from "./historical-sales";
@@ -327,5 +327,43 @@ describe("the year count and the year filter agree", () => {
       ...EMPTY_FILTERS, year: "2026", fromDate: "2026-03-01",
     }).map((r) => r.row_id);
     expect(both).toEqual(["a"]);
+  });
+});
+
+describe("quality counts follow the filter", () => {
+  const row = (o: Partial<HistoricalSaleRow>): HistoricalSaleRow =>
+    ({
+      row_id: "r", sales_code: "OM-1", base_code: "OM-1", revision_no: null, variant: null,
+      owner_prefix: "OM", owner_user_id: "u1", owner: "Omar", client: "ACME",
+      company_id: "c1", company_matched: true, project: "P", location: "Riyadh",
+      route: "jih", status: "Won", status_canonical: "won", amount: 100, currency: "SAR",
+      date_received: null, date_submitted: null, contact_name: null,
+      email_subject: null, update_log: null, ...o,
+    }) as HistoricalSaleRow;
+
+  it("counts only the rows it was handed, not the archive", () => {
+    // The reported defect: these came from a whole-archive view, so filtering
+    // to one year left every chip showing the same number.
+    const all = [
+      row({ row_id: "a", owner_user_id: null }),
+      row({ row_id: "b", amount: null }),
+      row({ row_id: "c" }),
+    ];
+    expect(qualityCounts(all).missing_owner).toBe(1);
+    expect(qualityCounts(all).missing_amount).toBe(1);
+    expect(qualityCounts([all[2]]).missing_owner).toBe(0);
+    expect(qualityCounts([]).missing_amount).toBe(0);
+  });
+
+  it("agrees with the filter it drives", () => {
+    // A chip's number and the rows clicking it selects come from the same
+    // predicate, so they cannot drift apart.
+    const rows = [row({ row_id: "a", company_matched: false }), row({ row_id: "b" })];
+    const picked = filterHistorical(rows, { ...EMPTY_FILTERS, flag: "unmatched_company" });
+    expect(qualityCounts(rows).unmatched_company).toBe(picked.length);
+  });
+
+  it("counts a numbered revision once", () => {
+    expect(qualityCounts([row({ revision_no: 2 }), row({ revision_no: null })]).revisions).toBe(1);
   });
 });
