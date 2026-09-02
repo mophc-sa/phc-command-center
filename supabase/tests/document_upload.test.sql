@@ -26,36 +26,42 @@ create extension if not exists pgtap with schema extensions;
 select plan(6);
 
 -- ── 1. Users ─────────────────────────────────────────────────────────────────
-insert into auth.users (id, email, encrypted_password, email_confirmed_at,
-                        raw_app_meta_data, raw_user_meta_data, aud, role)
-values
-  ('20000000-0000-0000-0000-000000000002', 'salesperson@test.local', '', now(),
-   '{}'::jsonb, '{}'::jsonb, 'authenticated', 'authenticated'),
-  ('20000000-0000-0000-0000-000000000003', 'bd@test.local', '', now(),
-   '{}'::jsonb, '{}'::jsonb, 'authenticated', 'authenticated'),
-  ('20000000-0000-0000-0000-000000000001', 'viewer@test.local', '', now(),
-   '{}'::jsonb, '{}'::jsonb, 'authenticated', 'authenticated')
-on conflict (id) do nothing;
+-- Emails must be @phc-sa.com: a signup trigger rejects anything else, and it
+-- rejected the first draft of this file. Same UUIDs and the same +test
+-- convention as rls_role_matrix.test.sql; each test rolls back, so they do not
+-- collide.
+insert into auth.users (
+  instance_id, id, aud, role, email, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) values
+  ('00000000-0000-0000-0000-000000000000',
+   '20000000-0000-0000-0000-000000000001', 'authenticated', 'authenticated',
+   'doc-viewer+test@phc-sa.com',      now(),
+   '{"provider":"email","providers":["email"]}', '{}', now(), now()),
+  ('00000000-0000-0000-0000-000000000000',
+   '20000000-0000-0000-0000-000000000002', 'authenticated', 'authenticated',
+   'doc-salesperson+test@phc-sa.com', now(),
+   '{"provider":"email","providers":["email"]}', '{}', now(), now()),
+  ('00000000-0000-0000-0000-000000000000',
+   '20000000-0000-0000-0000-000000000003', 'authenticated', 'authenticated',
+   'doc-bd-manager+test@phc-sa.com',  now(),
+   '{"provider":"email","providers":["email"]}', '{}', now(), now());
 
-insert into public.profiles (id, email, full_name, status)
-values
-  ('20000000-0000-0000-0000-000000000002', 'salesperson@test.local', 'Sales Person', 'active'),
-  ('20000000-0000-0000-0000-000000000003', 'bd@test.local', 'BD Manager', 'active'),
-  ('20000000-0000-0000-0000-000000000001', 'viewer@test.local', 'Viewer', 'active')
-on conflict (id) do nothing;
+-- Profiles are auto-created by trigger; activate all three.
+update public.profiles set status = 'active'
+ where id in ('20000000-0000-0000-0000-000000000001',
+              '20000000-0000-0000-0000-000000000002',
+              '20000000-0000-0000-0000-000000000003');
 
-insert into public.user_roles (user_id, role)
-values
+insert into public.user_roles (user_id, role) values
+  ('20000000-0000-0000-0000-000000000001', 'viewer'),
   ('20000000-0000-0000-0000-000000000002', 'salesperson'),
-  ('20000000-0000-0000-0000-000000000003', 'bd_manager'),
-  ('20000000-0000-0000-0000-000000000001', 'viewer')
-on conflict do nothing;
+  ('20000000-0000-0000-0000-000000000003', 'bd_manager');
 
 insert into public.opportunities (id, project_name, owner_id, created_by)
 values ('f1000000-0000-0000-0000-000000000001', 'upload-fixture-opp',
         '20000000-0000-0000-0000-000000000002',
-        '20000000-0000-0000-0000-000000000002')
-on conflict (id) do nothing;
+        '20000000-0000-0000-0000-000000000002');
 
 -- ── 2. Assertions ────────────────────────────────────────────────────────────
 set local role authenticated;
