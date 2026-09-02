@@ -624,3 +624,22 @@
 @media (prefers-reduced-motion: reduce) {
   .board-marquee { animation: none !important; transform: none !important; }
 }
+
+/* =============================================================================
+   The "needs attention" panel's ground.
+
+   Taken from the reference the client supplied: a near-black navy with two soft
+   light sweeps across it. Two radial gradients over a flat base, not an image —
+   a wall screen runs for weeks and a background nobody has to download cannot
+   fail to load halfway through a month.
+
+   The white overlays are held at 6% and 4%. Any more and the figures on top
+   stop clearing 4.5:1 against their own ground, which is the whole reason this
+   panel is dark: its numbers are the ones people act on first.
+   ========================================================================== */
+.board-dark {
+  background-color: #0f1a26;
+  background-image:
+    radial-gradient(70% 120% at 18% 95%, rgb(255 255 255 / 0.06), transparent 60%),
+    radial-gradient(60% 110% at 62% 105%, rgb(255 255 255 / 0.04), transparent 62%);
+}
