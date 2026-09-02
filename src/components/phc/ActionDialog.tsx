@@ -38,12 +38,22 @@ import { useI18n } from "@/lib/i18n";
 import { uploadAttachment } from "@/lib/storage-actions";
 import { cn } from "@/lib/utils";
 
+/**
+ * A field that only appears once another answer calls for it.
+ *
+ * "Other" lists need somewhere to write what "other" was, and a free-text box
+ * sitting there permanently under a closed list is one more thing to read past
+ * on a twenty-field form.
+ */
+export type DialogFieldCondition = { field: string; equals: string };
+
 export type DialogField =
   | {
       key: string;
       // "phone" is a text box with a +966 chip in front of it. See
       // phone-entry.ts -- the prefix is a default, not a cage.
       type: "text" | "textarea" | "date" | "checkbox" | "phone";
+      showWhen?: DialogFieldCondition;
       label: string;
       placeholder?: string;
       required?: boolean;
@@ -52,6 +62,7 @@ export type DialogField =
   | {
       key: string;
       type: "select";
+      showWhen?: DialogFieldCondition;
       label: string;
       required?: boolean;
       defaultValue?: string;
@@ -62,12 +73,14 @@ export type DialogField =
   | {
       key: string;
       type: "file";
+      showWhen?: DialogFieldCondition;
       label: string;
       required?: boolean;
       // Folder within the attachments bucket, e.g. "boq" or "quotations".
       folder: string;
     }
   | {
+      showWhen?: DialogFieldCondition;
       // Accepts either a pasted link or an uploaded file, into the same value.
       //
       // Spec §24 lists "Email reference" among the attachments an RFQ carries,
@@ -206,6 +219,16 @@ export function ActionDialog({
     setRestoredAt(null);
   };
 
+  /**
+   * Whether a field is on screen right now.
+   *
+   * Used by BOTH the renderer and the validator, deliberately: a hidden
+   * required field that blocks submit is a form refusing to save for a reason
+   * nobody can see.
+   */
+  const isVisible = (f: DialogField) =>
+    !f.showWhen || values[f.showWhen.field] === f.showWhen.equals;
+
   function clearFieldError(key: string) {
     setErrors((prev) => {
       if (!prev[key]) return prev;
@@ -219,6 +242,7 @@ export function ActionDialog({
     // Collect all validation errors before bailing so every required field is marked at once.
     const newErrors: Record<string, string> = {};
     for (const f of fields) {
+      if (!isVisible(f)) continue;
       if (f.required && !values[f.key]) {
         newErrors[f.key] = t("dialog_field_required");
         continue;
@@ -300,7 +324,7 @@ export function ActionDialog({
         ) : null}
 
         <div className={cn("grid gap-4 overflow-y-auto py-2", isWide && "sm:grid-cols-2 max-h-[55vh] pe-1")}>
-          {fields.map((f) => (
+          {fields.filter(isVisible).map((f) => (
             <div key={f.key} className={cn("grid gap-1.5", isWide && (f.type === "textarea" || f.type === "file" || f.type === "file_or_url") && "sm:col-span-2")}>
               <Label htmlFor={f.key} className="text-xs tracking-[0.02em] text-muted-foreground">
                 {f.label}

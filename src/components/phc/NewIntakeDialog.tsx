@@ -55,6 +55,9 @@ export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): D
     { key: "phone", type: "phone", label: t("label_phone"), required: true },
     { key: "email", type: "text", label: t("email") },
     { key: "clientType", type: "select", label: t("ibx_client_type"), options: [{ value: "", label: "—" }, ...INBOX_CLIENT_TYPES.map((c) => ({ value: c, label: t(`ibx_client_type_${c}`) }))] },
+    // Every "other" carries somewhere to say what it was. Required, because an
+    // unexplained "other" is the same dead end as the closed list it replaced.
+    { key: "clientTypeOther", type: "text", label: t("ibx_client_type_specify"), required: true, showWhen: { field: "clientType", equals: "other" } },
     // The routing decision. With a project name alongside it, this is what
     // sends the item down the RFQ track or the tender track — no separate
     // classify step. Leave it blank and the item waits in the inbox instead.
@@ -68,6 +71,7 @@ export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): D
     // (INT-{year}-{seq}, generate_inbox_project_number() trigger),
     // not typed manually (2026-08-03).
     { key: "rfqFrom", type: "select", label: t("ibx_rfq_from"), options: [{ value: "", label: "—" }, ...INBOX_RFQ_FROM.map((r) => ({ value: r, label: t(`ibx_rfq_from_${r}`) }))] },
+    { key: "rfqFromOther", type: "text", label: t("ibx_rfq_from_specify"), required: true, showWhen: { field: "rfqFrom", equals: "other" } },
     { key: "clientOwner", type: "text", label: t("ibx_client_owner") },
     { key: "mainContractor", type: "text", label: t("label_contractor") },
     { key: "consultant", type: "text", label: t("ibx_consultant") },
@@ -75,7 +79,9 @@ export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): D
     { key: "clientRfqReference", type: "text", label: t("ibx_client_rfq_ref") },
     { key: "internalRfqReference", type: "text", label: t("ibx_internal_rfq_ref") },
     { key: "scopeType", type: "select", label: t("ibx_scope_type"), options: [{ value: "", label: "—" }, ...INBOX_SCOPES.map((s) => ({ value: s, label: t(`ibx_scope_${s}`) }))] },
+    { key: "scopeTypeOther", type: "text", label: t("ibx_scope_specify"), required: true, showWhen: { field: "scopeType", equals: "other" } },
     { key: "locationCity", type: "select", label: t("ibx_location_city"), options: [{ value: "", label: "—" }, ...INBOX_LOCATIONS.map((l) => ({ value: l, label: t(`ibx_location_${l}`) }))] },
+    { key: "locationOther", type: "text", label: t("ibx_location_specify"), required: true, showWhen: { field: "locationCity", equals: "other" } },
     // Estimated Value intentionally omitted here — per 2026-08-03 client
     // request, it's now a later-stage field set by Finance
     // (opportunities/rfqs.estimated_value, gated by can_edit_total_value —
@@ -84,6 +90,12 @@ export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): D
     // What arrived with the request. Booleans, not a document registry — the
     // document layer is a later phase; the review gate only needs to know
     // whether the package is complete enough to price.
+    // Whether the client runs RFQs through the SAAB ARABIA portal changes how
+    // the quotation has to be submitted, and there was nowhere to record it.
+    { key: "saabPortal", type: "checkbox", label: t("ibx_saab_portal") },
+    // Signage is late-stage work: a project at 30% and one at 85% are different
+    // opportunities on the same day. Left blank means nobody said -- not zero.
+    { key: "completionPct", type: "text", label: t("ibx_completion_pct"), placeholder: "0-100" },
     { key: "hasBoq", type: "checkbox", label: t("ibx_has_boq") },
     { key: "hasDrawings", type: "checkbox", label: t("ibx_has_drawings") },
     { key: "hasSpecs", type: "checkbox", label: t("ibx_has_specs") },
@@ -122,6 +134,11 @@ export function NewIntakeDialog({
       fields={newIntakeFields((k) => t(k as never), teamMembers)}
       onSubmit={async (v) => {
         if (!v.sourceType) { toast.error(t("ibx_no_source")); return; }
+        // A percentage or nothing. The database rejects anything else anyway;
+        // saying so here costs a round trip less and names the field.
+        const pct = v.completionPct?.trim();
+        if (pct && !/^\d{1,3}$/.test(pct)) { toast.error(t("ibx_completion_invalid")); return; }
+        if (pct && Number(pct) > 100) { toast.error(t("ibx_completion_invalid")); return; }
         try {
           const res = await createInboxItemAndRoute({
             sourceType: v.sourceType as never,
@@ -132,6 +149,14 @@ export function NewIntakeDialog({
             phone: v.phone || undefined,
             email: v.email || undefined,
             clientType: v.clientType ? (v.clientType as never) : undefined,
+            clientTypeOther: v.clientTypeOther || undefined,
+            rfqFromOther: v.rfqFromOther || undefined,
+            scopeTypeOther: v.scopeTypeOther || undefined,
+            locationOther: v.locationOther || undefined,
+            saabPortal: v.saabPortal === "true",
+            // Blank means nobody said, which is not zero. `Number("")` is 0, so
+            // the emptiness has to be checked before the conversion.
+            completionPct: v.completionPct?.trim() ? Number(v.completionPct) : undefined,
             requestType: v.requestType ? (v.requestType as never) : undefined,
             ownerEntity: v.ownerEntity || undefined,
             clientRfqReference: v.clientRfqReference || undefined,
