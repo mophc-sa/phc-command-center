@@ -62,6 +62,8 @@ export type IntelOpp = {
   contract_value: number | null;
   quotation_value: number | null;
   estimated_value_max: number | null;
+  /** When the deal is expected to close. NOT next_action_due -- see below. */
+  expected_contract_date?: string | null;
   /** 0-100. Empty on every production row today -- see the header. */
   human_win_probability?: number | null;
   win_confidence?: string | null;
@@ -241,9 +243,9 @@ export function attentionItems(
   now: Date,
   opts: { stalledAfterDays?: number } = {},
 ): AttentionItem[] {
-  const today = now.toISOString().slice(0, 10);
   const stalledAfter = opts.stalledAfterDays ?? 10;
   const dayMs = 86_400_000;
+  const today = now.toISOString().slice(0, 10);
 
   const overdueByOpp = new Map<string, { count: number; oldestDays: number }>();
   for (const f of followUps) {
@@ -353,37 +355,86 @@ export function hotOpportunities(opps: readonly IntelOpp[], limit = 5): HotOppor
  * than three confident zeros in a row, which is what the mockup would otherwise
  * show and the worst possible thing for a screen nobody can interrogate.
  */
-export function horizonForecast(opps: readonly IntelOpp[]): {
-  d30: Figure;
-  d60: Figure;
-  d90: Figure;
-} {
+export function horizonForecast(
+  opps: readonly IntelOpp[],
+  now: Date = new Date(),
+): { d30: Figure; d60: Figure; d90: Figure } {
   const openStages = [...PIPELINE_BUCKETS.open, ...PIPELINE_BUCKETS.lateStage] as readonly string[];
   const open = opps.filter((o) => {
     const st = canonicalStageOf(o as never);
     return !!st && openStages.includes(st);
   });
-  const withBoth = open.filter(
-    (o) => typeof o.human_win_probability === "number" && !!o.next_action_due,
-  );
-  if (withBoth.length === 0) {
-    const f = missing(
-      open.length,
-      "يحتاج احتمالية وتاريخ إغلاق متوقّعًا — وكلاهما غير مُدخَل",
-      "Needs a probability and an expected close date — neither is entered",
-    );
+
+  const hasProb = (o: IntelOpp) => typeof o.human_win_probability === "number";
+  // `expected_contract_date`, not `next_action_due`. They were treated as the
+  // same field and they are not: "call them Tuesday" is a next action, and a
+  // forecast built on it would place a deal in the 30-day column because
+  // somebody scheduled a phone call, not because the deal closes then. The
+  // message already said "expected close date"; now the code reads one.
+  const hasDate = (o: IntelOpp) => !!o.expected_contract_date;
+  const usable = open.filter((o) => hasProb(o) && hasDate(o));
+
+  if (usable.length === 0) {
+    // Name what is ACTUALLY absent. The old text said "neither is entered"
+    // unconditionally, so the moment one of them was filled the board would
+    // have gone on reporting that neither was -- the precise failure this
+    // module exists to avoid.
+    const probs = open.filter(hasProb).length;
+    const dates = open.filter(hasDate).length;
+    const [ar, en] =
+      probs === 0 && dates === 0
+        ? ["يحتاج احتمالية وتاريخ إغلاق متوقّعًا — وكلاهما غير مُدخَل",
+           "Needs a probability and an expected close date — neither is entered"]
+        : probs === 0
+          ? ["يحتاج احتمالية — لا صفقة مفتوحة تحملها",
+             "Needs a probability — no open deal carries one"]
+          : dates === 0
+            ? ["يحتاج تاريخ إغلاق متوقّعًا — لا صفقة مفتوحة تحمله",
+               "Needs an expected close date — no open deal carries one"]
+            : ["لا صفقة تحمل الاثنين معًا",
+               "No deal carries both a probability and a close date"];
+    const f = missing(open.length, ar, en);
     return { d30: f, d60: f, d90: f };
   }
-  // Deliberately left unimplemented until the inputs exist. Writing the
-  // arithmetic now would mean shipping a formula nobody can test against real
-  // rows, and the shape of the close-date field may change once it is used.
-  const f: Figure = {
-    value: null,
-    state: "no_data",
-    reasonAr: "قيد التفعيل بعد اكتمال المدخلات",
-    reasonEn: "Enabled once the inputs are in use",
+
+  const day = 86_400_000;
+  const at = (days: number) => new Date(now.getTime() + days * day).toISOString().slice(0, 10);
+  const today = now.toISOString().slice(0, 10);
+
+  /**
+   * Weighted value of everything expected to close by `to`.
+   *
+   * Cumulative on purpose: what closes inside 30 days also closes inside 60,
+   * so the three figures nest rather than partition. A reader comparing 30 to
+   * 90 is asking "how much more", and three disjoint buckets answer a question
+   * nobody asked.
+   *
+   * Anything already past its expected date still counts in the 30-day figure.
+   * A deal whose close date slipped has not left the pipeline, and dropping it
+   * would quietly shrink the nearest horizon — the one people act on.
+   */
+  const upTo = (days: number): Figure => {
+    const to = at(days);
+    const inWindow = usable.filter((o) => (o.expected_contract_date as string) <= to);
+    const value = inWindow.reduce((sum, o) => {
+      const v = opportunityValue(o as never);
+      return v === null ? sum : sum + v * ((o.human_win_probability as number) / 100);
+    }, 0);
+    const unvalued = inWindow.filter((o) => opportunityValue(o as never) === null).length;
+    return {
+      value: Math.round(value),
+      state: "ok",
+      missing: open.length - usable.length,
+      ...(unvalued > 0
+        ? {
+            reasonAr: `${unvalued} صفقة بلا قيمة مسجَّلة غير محسوبة`,
+            reasonEn: `${unvalued} deal(s) carry no value and are not counted`,
+          }
+        : {}),
+    };
   };
-  return { d30: f, d60: f, d90: f };
+
+  return { d30: upTo(30), d60: upTo(60), d90: upTo(90) };
 }
 
 // ---------------------------------------------------------------------------

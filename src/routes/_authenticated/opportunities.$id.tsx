@@ -42,6 +42,7 @@ import { BafoPanel } from "@/components/phc/BafoPanel";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
+import { setHumanWinProbability } from "@/lib/workflow-actions";
 import { canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
 import {
@@ -678,6 +679,15 @@ function OpportunityDetail() {
               }
               mono
             />
+            {/* The board's weighted forecast and its whole 30/60/90 outlook are
+                this number times a value. It was null on all 739 rows because
+                `setHumanWinProbability` existed and nothing called it. */}
+            <DataField
+              label={t("label_win_probability")}
+              value={o.human_win_probability == null ? null : `${o.human_win_probability}%`}
+              mono
+            />
+            <DataField label={t("label_expected_close")} value={fmtDate(o.expected_contract_date, lang)} />
             <DataField label={t("label_next_action")} value={o.next_action} />
             <DataField label={t("label_due")} value={fmtDate(o.next_action_due, lang)} />
           </div>
@@ -996,6 +1006,19 @@ function OpportunityDetail() {
                     defaultValue: o.estimated_value_max == null ? "" : String(o.estimated_value_max) },
                 ] as const)
               : []),
+            // A sales judgement, not a finance one, so it follows the pipeline
+            // permission rather than canEditTotalValue. Gating it behind Finance
+            // is precisely how next_action stayed null on 739 rows.
+            { key: "winProbability", type: "text", label: t("label_win_probability"),
+              placeholder: "0-100",
+              defaultValue: o.human_win_probability == null ? "" : String(o.human_win_probability) },
+            { key: "probabilityReason", type: "text", label: t("label_probability_reason") },
+            // The forecast's other input. It was only ever asked at
+            // `verbally_awarded` -- after the deal is effectively won -- so it
+            // is null on all 459 OPEN deals, which are the ones a 30/60/90
+            // outlook is about.
+            { key: "expectedContractDate", type: "date", label: t("label_expected_close"),
+              defaultValue: o.expected_contract_date ?? "" },
             { key: "nextAction", type: "text", label: t("label_next_action"), defaultValue: o.next_action ?? "" },
             { key: "nextActionDue", type: "date", label: t("label_due"), defaultValue: o.next_action_due ?? "" },
           ]}
@@ -1008,6 +1031,22 @@ function OpportunityDetail() {
                 return;
               }
             }
+            // Through setHumanWinProbability, never around it: that function
+            // also records the reason, who set it and when, and writes the
+            // audit row. Writing the column directly would keep the number and
+            // lose every question anyone would later ask about it.
+            const rawProb = (v.winProbability ?? "").trim();
+            if (rawProb !== "" && !/^\d{1,3}$/.test(rawProb)) {
+              toast.error(t("probability_bad")); return;
+            }
+            if (rawProb !== "" && Number(rawProb) > 100) {
+              toast.error(t("probability_bad")); return;
+            }
+            const prevProb = o.human_win_probability == null ? "" : String(o.human_win_probability);
+            if (rawProb !== "" && rawProb !== prevProb) {
+              await setHumanWinProbability(id, Number(rawProb), v.probabilityReason || undefined);
+            }
+
             await updateOpportunityFigures({
               opportunityId: id,
               ...(canEditValues
@@ -1017,6 +1056,7 @@ function OpportunityDetail() {
                     estimatedValueMax: parseMoneyInput(v.estimatedValueMax),
                   }
                 : {}),
+              expectedContractDate: (v.expectedContractDate ?? "").trim() || null,
               nextAction: (v.nextAction ?? "").trim() || null,
               nextActionDue: (v.nextActionDue ?? "").trim() || null,
             });

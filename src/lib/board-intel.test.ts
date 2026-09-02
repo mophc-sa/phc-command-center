@@ -231,16 +231,98 @@ describe("top opportunities", () => {
 });
 
 describe("the 30/60/90 outlook", () => {
-  it("refuses all three horizons and names BOTH missing inputs", () => {
+  const d = (days: number) =>
+    new Date(NOW.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+
+  it("refuses all three and names BOTH missing inputs when neither exists", () => {
     // Three confident zeros in a row is the worst thing this screen could show,
     // because nobody standing in front of a wall can ask it why.
-    const f = horizonForecast([opp({ id: "a", sales_stage: "jih", contract_value: 1000 })]);
+    const f = horizonForecast([opp({ id: "a", sales_stage: "jih", contract_value: 1000 })], NOW);
     for (const h of [f.d30, f.d60, f.d90]) {
       expect(h.value).toBeNull();
       expect(h.state).toBe("no_data");
-      expect(h.reasonEn).toContain("probability");
-      expect(h.reasonEn).toContain("close date");
+      expect(h.reasonEn).toContain("neither is entered");
     }
+  });
+
+  it("names only what is actually missing once one input arrives", () => {
+    // The old text said "neither is entered" unconditionally, so the moment a
+    // probability was filled in the board would have gone on reporting that
+    // none existed -- the precise failure this module exists to avoid.
+    const withProb = horizonForecast(
+      [opp({ id: "a", sales_stage: "jih", contract_value: 1000, human_win_probability: 50 })],
+      NOW,
+    );
+    expect(withProb.d30.reasonEn).toContain("expected close date");
+    expect(withProb.d30.reasonEn).not.toContain("neither");
+
+    const withDate = horizonForecast(
+      [opp({ id: "a", sales_stage: "jih", contract_value: 1000, expected_contract_date: d(10) })],
+      NOW,
+    );
+    expect(withDate.d30.reasonEn).toContain("probability");
+    expect(withDate.d30.reasonEn).not.toContain("neither");
+  });
+
+  it("weights value by probability and nests the three windows", () => {
+    // Cumulative, not partitioned: what closes inside 30 days also closes
+    // inside 60. A reader comparing 30 to 90 is asking "how much more".
+    const f = horizonForecast(
+      [
+        opp({ id: "a", sales_stage: "jih", contract_value: 1_000_000, human_win_probability: 50, expected_contract_date: d(10) }),
+        opp({ id: "b", sales_stage: "jih", contract_value: 2_000_000, human_win_probability: 25, expected_contract_date: d(45) }),
+        opp({ id: "c", sales_stage: "jih", contract_value: 4_000_000, human_win_probability: 10, expected_contract_date: d(80) }),
+      ],
+      NOW,
+    );
+    expect(f.d30.value).toBe(500_000);
+    expect(f.d60.value).toBe(1_000_000);
+    expect(f.d90.value).toBe(1_400_000);
+  });
+
+  it("keeps a deal whose close date already slipped in the nearest window", () => {
+    // It has not left the pipeline, and dropping it would quietly shrink the
+    // horizon people actually act on.
+    const f = horizonForecast(
+      [opp({ id: "a", sales_stage: "jih", contract_value: 1_000_000, human_win_probability: 40, expected_contract_date: d(-20) })],
+      NOW,
+    );
+    expect(f.d30.value).toBe(400_000);
+  });
+
+  it("says how many open deals it could not use", () => {
+    const f = horizonForecast(
+      [
+        opp({ id: "a", sales_stage: "jih", contract_value: 1_000_000, human_win_probability: 50, expected_contract_date: d(5) }),
+        opp({ id: "b", sales_stage: "jih", contract_value: 9_000_000 }),
+      ],
+      NOW,
+    );
+    expect(f.d30.state).toBe("ok");
+    expect(f.d30.missing).toBe(1);
+  });
+
+  it("does not count a deal that carries no value, and says so", () => {
+    const f = horizonForecast(
+      [
+        opp({ id: "a", sales_stage: "jih", contract_value: 1_000_000, human_win_probability: 50, expected_contract_date: d(5) }),
+        opp({ id: "b", sales_stage: "jih", human_win_probability: 90, expected_contract_date: d(5) }),
+      ],
+      NOW,
+    );
+    expect(f.d30.value).toBe(500_000);
+    expect(f.d30.reasonEn).toContain("no value");
+  });
+
+  it("ignores next_action_due, which is not a close date", () => {
+    // "Call them Tuesday" is a next action. A forecast built on it puts a deal
+    // in the 30-day column because somebody scheduled a phone call.
+    const f = horizonForecast(
+      [opp({ id: "a", sales_stage: "jih", contract_value: 1_000_000, human_win_probability: 50, next_action_due: d(5) })],
+      NOW,
+    );
+    expect(f.d30.state).toBe("no_data");
+    expect(f.d30.reasonEn).toContain("expected close date");
   });
 });
 

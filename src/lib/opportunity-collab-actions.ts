@@ -526,6 +526,8 @@ export async function updateOpportunityFigures(input: {
   estimatedValueMax?: number | null;
   nextAction?: string | null;
   nextActionDue?: string | null;
+  /** The forecast's date input. NOT next_action_due -- see horizonForecast. */
+  expectedContractDate?: string | null;
 }) {
   const patch: Record<string, unknown> = {};
   if (input.quotationValue !== undefined) patch.quotation_value = input.quotationValue;
@@ -533,6 +535,7 @@ export async function updateOpportunityFigures(input: {
   if (input.estimatedValueMax !== undefined) patch.estimated_value_max = input.estimatedValueMax;
   if (input.nextAction !== undefined) patch.next_action = input.nextAction;
   if (input.nextActionDue !== undefined) patch.next_action_due = input.nextActionDue;
+  if (input.expectedContractDate !== undefined) patch.expected_contract_date = input.expectedContractDate;
   if (Object.keys(patch).length === 0) return;
 
   const { error } = await supabase

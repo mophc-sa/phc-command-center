@@ -155,7 +155,7 @@ function useBoardData() {
           supabase
             .from("opportunities")
             .select(
-              "id, project_name, client, owner_id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, human_win_probability, next_action, next_action_due, last_activity_at, won_at, created_at",
+              "id, project_name, client, owner_id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, human_win_probability, expected_contract_date, next_action, next_action_due, last_activity_at, won_at, created_at",
             ),
           supabase.from("approvals").select("created_at").eq("status", "pending"),
           supabase.from("follow_ups").select("opportunity_id, due_date, status").eq("status", "scheduled"),
@@ -730,7 +730,7 @@ function BoardPage() {
       buckets: pipelineBuckets(intel),
       weighted,
       coverage: pipelineCoverage(weighted, annual),
-      horizon: horizonForecast(intel),
+      horizon: horizonForecast(intel, nowDate),
       hot: hotOpportunities(intel, 5),
       yoy: yearOnYear(opps, nowDate),
       oldestOverdue: oldestOverdueDays(
