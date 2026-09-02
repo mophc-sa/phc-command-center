@@ -58,3 +58,29 @@ CREATE POLICY "Documents readable via entity link"
 
 COMMENT ON POLICY "Documents readable via entity link" ON public.documents IS
   'Uploader, or the full can_read_document predicate. The uploader clause is stated inline rather than left to the function because the function reads public.documents to find the row, which returns nothing during INSERT ... RETURNING -- the defect that made every upload fail from 2026-08-23 until 2026-09-02.';
+
+
+-- =============================================================================
+-- And the grants, which were never in a migration at all.
+--
+-- Production works because the hosted project carries Supabase's default
+-- privileges for the public schema, so `authenticated` picked up table rights
+-- the moment the table was created. Nothing in this repository says so, and a
+-- database built purely from these migrations -- CI, a local stack, a fresh
+-- environment -- has no grant on either table. The pgTAP run for this fix
+-- surfaced it immediately:
+--
+--     permission denied for table documents
+--     HINT: GRANT SELECT, INSERT ON public.documents TO authenticated;
+--
+-- That is a different failure from the RLS one above and would have been read
+-- as the same bug by anyone who met it later. Stating the grants here makes the
+-- migrations reproduce the running system instead of relying on it.
+--
+-- These are the three verbs the application uses, and every one of them is
+-- still gated by the policies above. No DELETE: the table is append-only by
+-- design (D25) and has no DELETE policy -- removal is `deleted_at`.
+-- =============================================================================
+
+GRANT SELECT, INSERT, UPDATE ON public.documents      TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.document_links TO authenticated;
