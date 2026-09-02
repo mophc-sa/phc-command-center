@@ -100,7 +100,7 @@ export function TodayPanel({ uid }: { uid: string }) {
   }, [sources, roles, uid, today]);
 
   return (
-    <section className="mb-6 overflow-hidden rounded-xl border border-border/70 bg-surface/60">
+    <section className="mt-6 overflow-hidden rounded-xl border border-border/70 bg-surface/60">
       <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-3.5">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-foreground">{t("ws_today_title")}</h2>

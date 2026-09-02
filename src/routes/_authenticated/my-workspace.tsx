@@ -151,16 +151,24 @@ const PIPELINE_STAGES: Array<{
 function WorkspacePage() {
   const { user, roles } = useAuth();
   const uid = user?.id ?? "";
-  // Phase 4: every role opens on the same question — what needs me today —
-  // then falls through to the dashboard their role already had.
+  // "What needs you today" sits at the BOTTOM, asked for on 2026-09-02:
+  // "the what-needs-your-day box should be at the bottom of the page", and
+  // "move the notifications down — it should not scroll up and down".
+  //
+  // Phase 4 put it first on the reasoning that every role opens on the same
+  // question. In use it did the opposite: the numbers people came for were
+  // below the fold, so the day started by scrolling PAST the list and then
+  // back up to it. Reading the figures first and ending on the list of things
+  // to do is the order the people using it asked for, and it is also the one
+  // that leaves them looking at the actions when they stop reading.
   return (
     <>
-      <TodayPanel uid={uid} />
       {isSalesperson(roles) ? (
         <SalespersonDashboard uid={uid} user={user} />
       ) : (
         <ExistingWorkspaceContent uid={uid} user={user} />
       )}
+      <TodayPanel uid={uid} />
     </>
   );
 }

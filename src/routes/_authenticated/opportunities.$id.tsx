@@ -42,7 +42,7 @@ import { BafoPanel } from "@/components/phc/BafoPanel";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
+import { canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
 import {
   listDiscussion,
@@ -59,6 +59,8 @@ import {
   type ContractStage,
   type MentionPurpose,
   addStakeholder,
+  parseMoneyInput,
+  updateOpportunityFigures,
 } from "@/lib/opportunity-collab-actions";
 import { Upload, Paperclip } from "lucide-react";
 import { AttachmentLink } from "@/components/phc/AttachmentLink";
@@ -177,12 +179,18 @@ function OpportunityDetail() {
   const [clientDetailsOpen, setClientDetailsOpen] = useState(false);
   const [roleFor, setRoleFor] = useState<Record<string, unknown> | null>(null);
   const [addContactOpen, setAddContactOpen] = useState(false);
+  const [figuresOpen, setFiguresOpen] = useState(false);
   const [submissionOpen, setSubmissionOpen] = useState(false);
   const { user, roles } = useAuth();
   const canScore = canManageSalesPipeline(roles);
   const canReview = canReviewAiOutput(roles);
   const canDiscuss = canUseDiscussion(roles);
   const canEditClientDetails = canManageSalesPipeline(roles);
+  // Two authorities, not one. Total Value is the number the whole pipeline is
+  // judged on; the next step is the rep's own note about what they are doing
+  // next. Gating the second behind Finance is how it stays null on all 739
+  // production rows -- which is why the weighted forecast cannot be computed.
+  const canEditValues = canEditTotalValue(roles);
 
   const [riskResult, setRiskResult] = useState<any | null>(null);
   const [riskRunning, setRiskRunning] = useState(false);
@@ -643,6 +651,20 @@ function OpportunityDetail() {
       <Panel
         title={t("section_alert")}
         tone={recTone === "attention" || recTone === "danger" ? "attention" : "default"}
+        // Reported 2026-09-02 (PDF p.1): "Still no edit option for the values".
+        // Four read-only fields, so a rep who got a revised price had nowhere
+        // to put it.
+        action={
+          canEditValues || canEditClientDetails ? (
+            <button
+              type="button"
+              onClick={() => setFiguresOpen(true)}
+              className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {t("crm_edit")}
+            </button>
+          ) : undefined
+        }
       >
         <div className="grid gap-6">
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -948,6 +970,59 @@ function OpportunityDetail() {
           stakeholders={(stakeholdersQ.data ?? []) as never}
           contractorDecisionMaker={o.contractor_decision_maker}
           onEditRole={canEditClientDetails ? (s: Record<string, unknown>) => setRoleFor(s) : undefined}
+        />
+        <ActionDialog
+          open={figuresOpen}
+          onOpenChange={setFiguresOpen}
+          title={t("section_alert")}
+          description={
+            canEditValues
+              ? undefined
+              : lang === "ar"
+                ? "القيم التجارية تُضبط من قِبل الماليّة أو مدير التطوير."
+                : "The commercial figures are set by Finance or the BD Manager."
+          }
+          submitLabel={t("action_save")}
+          fields={[
+            // Only what this person may actually send. A field shown and then
+            // refused by the database is a worse answer than one not offered.
+            ...(canEditValues
+              ? ([
+                  { key: "quotationValue", type: "text", label: t("label_quotation"),
+                    defaultValue: o.quotation_value == null ? "" : String(o.quotation_value) },
+                  { key: "estimatedValueMin", type: "text", label: t("label_value_min"),
+                    defaultValue: o.estimated_value_min == null ? "" : String(o.estimated_value_min) },
+                  { key: "estimatedValueMax", type: "text", label: t("label_value_max"),
+                    defaultValue: o.estimated_value_max == null ? "" : String(o.estimated_value_max) },
+                ] as const)
+              : []),
+            { key: "nextAction", type: "text", label: t("label_next_action"), defaultValue: o.next_action ?? "" },
+            { key: "nextActionDue", type: "date", label: t("label_due"), defaultValue: o.next_action_due ?? "" },
+          ]}
+          onSubmit={async (v) => {
+            // `parseMoneyInput` returns undefined for text that is not a
+            // number, which would silently skip the field. Say so instead.
+            for (const k of ["quotationValue", "estimatedValueMin", "estimatedValueMax"]) {
+              if (canEditValues && v[k]?.trim() && parseMoneyInput(v[k]) === undefined) {
+                toast.error(t("figures_bad_number"));
+                return;
+              }
+            }
+            await updateOpportunityFigures({
+              opportunityId: id,
+              ...(canEditValues
+                ? {
+                    quotationValue: parseMoneyInput(v.quotationValue),
+                    estimatedValueMin: parseMoneyInput(v.estimatedValueMin),
+                    estimatedValueMax: parseMoneyInput(v.estimatedValueMax),
+                  }
+                : {}),
+              nextAction: (v.nextAction ?? "").trim() || null,
+              nextActionDue: (v.nextActionDue ?? "").trim() || null,
+            });
+            toast.success(t("figures_saved"));
+            invalidate();
+          }}
         />
         <ActionDialog
           open={addContactOpen}
