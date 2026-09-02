@@ -286,6 +286,28 @@ const TONE = {
   teal: { wash: "color-mix(in srgb, var(--teal) 8%, var(--card))", edge: "var(--teal)", text: "text-teal-on-tint" },
 } satisfies Record<string, { wash: string; edge: string; text: string }>;
 
+/** The dark panel's ground. Named once so a tint can be mixed against it. */
+const DARK_GROUND = "#0f1a26";
+
+/**
+ * A tone badge, mixed against the surface it actually sits on.
+ *
+ * `TONE[x].wash` mixes with `--card` -- the LIGHT card. On the dark panel that
+ * is not a tint, it is a pale square, and that is what the wall screen showed.
+ * A tint is a relationship between two colours; hard-coding one of them means
+ * it is only a tint on one background.
+ *
+ * On dark the glyph lightens instead of darkening. Measured on #0f1a26: every
+ * tone's glyph clears 6.1:1 on its own badge and 7.8:1 on the ground, where
+ * the light-mode inks manage 3.15 (destructive) and 2.84 (amber).
+ */
+function badgeStyle(tone: keyof typeof TONE, dark?: boolean) {
+  const c = TONE[tone].edge;
+  return dark
+    ? { background: `color-mix(in srgb, ${c} 24%, ${DARK_GROUND})`, color: `color-mix(in srgb, ${c} 55%, white)` }
+    : { background: TONE[tone].wash, color: c };
+}
+
 /** A headline figure. Big enough to read from across the room. */
 function Hero({
   value,
@@ -1849,13 +1871,20 @@ function Panel({
           <span
             aria-hidden="true"
             className="grid shrink-0 place-items-center rounded-[0.35vw]"
-            style={{ width: "1.4vw", height: "1.4vw", fontSize: "0.78vw", background: TONE[tone].wash, color: TONE[tone].edge }}
+            style={{ width: "1.4vw", height: "1.4vw", fontSize: "0.78vw", ...badgeStyle(tone, dark) }}
           >
             <Icon className="h-[0.85vw] w-[0.85vw]" strokeWidth={2.25} aria-hidden="true" />
           </span>
-          <span className={`font-semibold ${TONE[tone].text}`} style={{ fontSize: "0.92vw" }}>{title}</span>
+          <span
+            className={`font-semibold ${dark ? "text-white" : TONE[tone].text}`}
+            style={{ fontSize: "0.92vw" }}
+          >
+            {title}
+          </span>
         </span>
-        {note ? <span className="text-muted-foreground" style={{ fontSize: "0.66vw" }}>{note}</span> : null}
+        {note ? (
+          <span className={dark ? "text-white/60" : "text-muted-foreground"} style={{ fontSize: "0.66vw" }}>{note}</span>
+        ) : null}
       </div>
       {children}
     </section>
@@ -1873,6 +1902,14 @@ function Need({
    * 8.61, so the card inverts with the panel rather than keeping its own ink.
    */
   dark?: boolean;
+  /**
+   * A missing input prints a dash at the FIGURE's size, not the words "No
+   * data" at half of it. Two sizes in one row is what made the strip look
+   * hand-placed: nothing lined up because one cell's number was a sentence.
+   * Nothing is lost -- the line underneath already names what is missing
+   * ("no expiry recorded"), which says more than "No data" ever did, and the
+   * annual-target card has printed a dash over its reason since it shipped.
+   */
   /** Every figure on this board carries one; these four were the exception. */
   icon: LucideIcon;
   n: number | null;
@@ -1883,34 +1920,39 @@ function Need({
   lang: "ar" | "en";
 }) {
   return (
-    <div className="flex flex-col justify-center border-e border-border/50 pe-[0.5vw] last:border-e-0">
-      <div className="flex items-baseline gap-[0.4vw]">
-        <span className={`num font-bold leading-none ${n === null ? "text-muted-foreground" : TONE[tone].text}`}
-              style={{ fontSize: n === null ? "1.2vw" : "2.5vw" }}>
-          {n === null ? (lang === "ar" ? "لا بيانات" : "No data") : formatNumber(n, lang)}
-        </span>
-          <span
-            aria-hidden="true"
-            className="grid shrink-0 place-items-center rounded-[0.35vw]"
-            style={{
-              width: "1.5vw", height: "1.5vw", fontSize: "0.8vw",
-              background: TONE[tone].wash, color: TONE[tone].edge,
-            }}
-          >
-            <Icon className="h-[0.85vw] w-[0.85vw]" strokeWidth={2.25} aria-hidden="true" />
-          </span>
-          <span
-            className={`min-w-0 truncate font-semibold ${dark ? "text-white" : "text-foreground"}`}
-            style={{ fontSize: "0.8vw" }}
-          >
-            {lang === "ar" ? ar : en}
-          </span>
-      </div>
+    <div
+      className={`flex min-w-0 items-center justify-center gap-[0.5vw] border-e pe-[0.6vw] last:border-e-0 last:pe-0 ${
+        dark ? "border-white/12" : "border-border/50"
+      }`}
+    >
       <span
-        className={`w-full truncate ${dark ? "text-white/70" : "text-muted-foreground"}`}
-        style={{ fontSize: "0.65vw" }}
+        className={`num shrink-0 text-end font-bold leading-none ${
+          n === null ? (dark ? "text-white/45" : "text-muted-foreground") : dark ? "text-white" : TONE[tone].text
+        }`}
+        style={{ fontSize: "2.5vw", minWidth: "2.4vw" }}
       >
-        {sub}
+        {n === null ? "—" : formatNumber(n, lang)}
+      </span>
+      <span
+        aria-hidden="true"
+        className="grid shrink-0 place-items-center rounded-[0.35vw]"
+        style={{ width: "1.5vw", height: "1.5vw", fontSize: "0.8vw", ...badgeStyle(tone, dark) }}
+      >
+        <Icon className="h-[0.85vw] w-[0.85vw]" strokeWidth={2.25} aria-hidden="true" />
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span
+          className={`truncate font-semibold ${dark ? "text-white" : "text-foreground"}`}
+          style={{ fontSize: "0.8vw" }}
+        >
+          {lang === "ar" ? ar : en}
+        </span>
+        <span
+          className={`truncate ${dark ? "text-white/70" : "text-muted-foreground"}`}
+          style={{ fontSize: "0.65vw" }}
+        >
+          {sub}
+        </span>
       </span>
     </div>
   );

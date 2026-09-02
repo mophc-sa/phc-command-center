@@ -198,4 +198,39 @@ describe("the dark panel inverts its ink with its ground", () => {
   it("declares the ground once, in CSS", () => {
     expect(BOARD).toContain("board-dark");
   });
+
+  it("never paints an on-tint ink onto the dark ground", () => {
+    // The inks in TONE are measured for a LIGHT tint. On #0f1a26 they come out
+    // at 3.15:1 (destructive) and 2.84:1 (amber) -- the first fails body text,
+    // the second fails even the 3:1 large-text floor. The wall screen showed
+    // exactly that: a title and two figures nobody could read.
+    //
+    // So every place that would reach for TONE[tone].text must hand the dark
+    // panel white instead, and the tone survives in the badge beside it.
+    //
+    // Scoped to the two components that take `dark`. Every other figure on the
+    // board sits on a light card, where those inks are exactly right -- a
+    // sweep over the whole file would fail on code that has nothing wrong
+    // with it, which is a broken test, not a finding.
+    for (const fn of ["function Panel({", "function Need({"]) {
+      const at = BOARD.indexOf(fn);
+      expect(at).toBeGreaterThan(-1);
+      const body = BOARD.slice(at, BOARD.indexOf("\nfunction ", at + 10));
+      for (const m of body.matchAll(/TONE\[tone\]\.text/g)) {
+        expect(body.slice(Math.max(0, m.index - 40), m.index)).toContain('dark ? "text-white"');
+      }
+    }
+  });
+
+  it("mixes a badge against the ground it sits on, not against --card", () => {
+    // TONE's wash is mixed with --card, the light card. Painted on the dark
+    // panel it stops being a tint and becomes a pale square. A tint is a
+    // relationship between two colours; fixing one of them makes it a tint on
+    // one background only.
+    expect(BOARD).toContain('const DARK_GROUND = "#0f1a26";');
+    expect(BOARD).toContain("function badgeStyle(");
+    // No card-mixed wash may be applied inline any more -- it goes through the
+    // helper, which is the only thing that knows which ground is under it.
+    expect(BOARD).not.toContain("background: TONE[tone].wash, color: TONE[tone].edge");
+  });
 });
