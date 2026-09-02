@@ -79,6 +79,14 @@ export type DialogField =
       suggestions: string[];
       /** Shown under the box when what was typed is already on file. */
       knownHint?: string;
+      /**
+       * A second line, computed from the value.
+       *
+       * The caller knows what is worth saying about a particular name -- past
+       * work with this client, for instance -- and the field does not. Return
+       * null to say nothing.
+       */
+      hintFor?: (value: string) => string | null;
     }
   | {
       key: string;
@@ -130,13 +138,14 @@ export type DialogField =
  * name-suggest.ts for why that needs a fold that changes no lengths.
  */
 function AutocompleteField({
-  id, value, placeholder, suggestions, knownHint, invalid, describedBy, onChange,
+  id, value, placeholder, suggestions, knownHint, hintFor, invalid, describedBy, onChange,
 }: {
   id: string;
   value: string;
   placeholder?: string;
   suggestions: string[];
   knownHint?: string;
+  hintFor?: (value: string) => string | null;
   invalid?: boolean;
   describedBy?: string;
   onChange: (v: string) => void;
@@ -191,6 +200,12 @@ function AutocompleteField({
           full, without using the list, still needs to know it is not new. */}
       {known && knownHint ? (
         <p className="mt-1 text-xs text-won-on-tint">{knownHint}</p>
+      ) : null}
+
+      {/* Independent of `known`: PHC may have worked for a company that has no
+          account row yet, and that is exactly when saying so is worth most. */}
+      {hintFor?.(value) ? (
+        <p className="mt-1 text-xs text-info">{hintFor(value)}</p>
       ) : null}
     </div>
   );
@@ -581,6 +596,7 @@ export function ActionDialog({
                   placeholder={f.placeholder}
                   suggestions={f.suggestions}
                   knownHint={f.knownHint}
+                  hintFor={f.hintFor}
                   invalid={errors[f.key] ? true : undefined}
                   describedBy={errors[f.key] ? `${f.key}-err` : undefined}
                   onChange={(v) => {
