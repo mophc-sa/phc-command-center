@@ -133,12 +133,21 @@ describe("the top opportunities list shows the rest of itself", () => {
 });
 
 describe("every figure on the board carries an icon", () => {
+  // Lucide components, not emoji. Emoji carry each platform's own colour, so an
+  // "amber" card had a red glyph in it and the tinted badge behind it fought
+  // whatever the font decided. A Lucide glyph takes `currentColor`, which is
+  // the whole point of the badge.
+  it("uses components, never emoji", () => {
+    expect(BOARD).toContain("type LucideIcon");
+    expect(BOARD).not.toMatch(/icon="[^"a-zA-Z]/);
+  });
+
   it("gives all four attention cards one", () => {
-    // Asked for on 2026-09-02: "make sure all the icons are added." The eight
-    // panels had them; these four figures were the exception, so the row read
-    // as plainer than everything around it.
+    // Asked for on 2026-09-02: "make sure all the icons are added." The panels
+    // had them; these four figures were the exception, so the row read as
+    // plainer than everything around it.
     const needs = BOARD.match(/<Need\b/g) ?? [];
-    const withIcon = BOARD.match(/<Need icon="/g) ?? [];
+    const withIcon = BOARD.match(/<Need dark icon=\{/g) ?? [];
     expect(needs.length).toBe(4);
     expect(withIcon.length).toBe(needs.length);
   });
@@ -146,20 +155,47 @@ describe("every figure on the board carries an icon", () => {
   it("makes the icon required rather than optional on that card", () => {
     // Optional is how three of four end up with one.
     const at = BOARD.indexOf("function Need({");
-    expect(BOARD.slice(at, at + 400)).toMatch(/icon: string;/);
+    expect(BOARD.slice(at, at + 900)).toMatch(/icon: LucideIcon;/);
   });
 
   it("gives every panel one", () => {
     const panels = BOARD.match(/<Panel\b/g) ?? [];
-    const iconed = BOARD.match(/icon="[^"]+"/g) ?? [];
+    const iconed = BOARD.match(/icon=\{[A-Z]\w+\}/g) ?? [];
     expect(panels.length).toBeGreaterThan(0);
     expect(iconed.length).toBeGreaterThanOrEqual(panels.length);
   });
 
   it("gives the five 'changed since yesterday' tiles one each", () => {
     const minis = BOARD.match(/<Mini\b/g) ?? [];
-    const withIcon = BOARD.match(/<Mini icon="/g) ?? [];
+    const withIcon = BOARD.match(/<Mini icon=\{/g) ?? [];
     expect(minis.length).toBe(5);
     expect(withIcon.length).toBe(5);
+  });
+
+  it("draws every icon at one size per role", () => {
+    // Asked for in the same breath as the icons themselves. 0.8 and 0.85 were
+    // both in use -- a difference nobody can see and every reader can feel,
+    // because it is the kind of drift that makes a grid look hand-placed.
+    //
+    // Two icon sizes: one for a headline card, one for everything else. The
+    // third match is the gauge, which is a chart and not an icon.
+    const sizes = [...new Set((BOARD.match(/h-\[[\d.]+vw\] w-\[[\d.]+vw\]/g) ?? []))];
+    expect(sizes.sort()).toEqual(["h-[0.85vw] w-[0.85vw]", "h-[1.05vw] w-[1.05vw]", "h-[3vw] w-[3vw]"]);
+  });
+});
+
+describe("the dark panel inverts its ink with its ground", () => {
+  it("never leaves foreground text on the dark ground", () => {
+    // Measured against #0f1a26: `text-foreground` is 1.04:1 and
+    // `text-muted-foreground` is 3.63. The first is invisible; the second fails
+    // body text. White is 17.56 and white/70 is 8.61.
+    const at = BOARD.indexOf("function Need({");
+    const body = BOARD.slice(at, BOARD.indexOf("\nfunction ", at + 10));
+    expect(body).toContain('dark ? "text-white"');
+    expect(body).toContain('dark ? "text-white/70"');
+  });
+
+  it("declares the ground once, in CSS", () => {
+    expect(BOARD).toContain("board-dark");
   });
 });

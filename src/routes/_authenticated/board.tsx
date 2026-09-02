@@ -42,6 +42,19 @@
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState } from "react";
+// Line icons, not emoji.
+//
+// Emoji were a placeholder and they read like one on a wall: they carry each
+// platform's own colour, so an "amber" card had a red 🔻 in it and the tinted
+// badge behind it fought whatever the font decided. A Lucide glyph takes
+// `currentColor`, so every icon is the colour of the thing it labels -- which
+// is the point of the tint behind it.
+import {
+  Activity, AlertTriangle, BarChart3, CalendarClock, CalendarDays, CheckCircle2,
+  CircleX, Clock, FileText, Filter, Flame, Handshake, Megaphone, PauseCircle,
+  PieChart, RefreshCw, Sparkles, Target, TrendingUp, Users,
+  type LucideIcon,
+} from "lucide-react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -835,7 +848,7 @@ function BoardPage() {
               {lang === "ar" ? "مركز قيادة المبيعات" : "Sales Command Centre"}
             </span>
             <span className="mt-[0.45vh] text-muted-foreground" style={{ fontSize: "0.75vw" }}>
-              {lang === "ar" ? "نظرة لحظية · ركّز · نفّذ · اربح" : "At a glance · focus · execute · win"}
+              {lang === "ar" ? "وضوحٌ يُصنَع ويُركَّب." : "Clarity, built into place."}
             </span>
           </div>
         </div>
@@ -878,7 +891,7 @@ function BoardPage() {
         >
           <div className="grid grid-cols-5 gap-[0.7vw]">
             <Kpi
-              icon="📈" tone="won" lang={lang}
+              icon={TrendingUp} tone="won" lang={lang}
               ar="الإنجاز منذ بداية السنة" en="Won year to date"
               value={splitCompact(model.yoy.thisYear, lang)?.n ?? null}
               unit={splitCompact(model.yoy.thisYear, lang)?.unit}
@@ -893,7 +906,7 @@ function BoardPage() {
               }
             />
             <Kpi
-              icon="🎯" tone="info" lang={lang}
+              icon={Target} tone="info" lang={lang}
               ar="الهدف السنوي" en="Annual target"
               value={splitCompact(model.year.target, lang)?.n ?? null}
               unit={splitCompact(model.year.target, lang)?.unit}
@@ -906,7 +919,7 @@ function BoardPage() {
               }
             />
             <KpiFigure
-              icon="📊" f={model.weighted} lang={lang} money={money} tone="violet"
+              icon={Activity} f={model.weighted} lang={lang} money={money} tone="violet"
               ar="التوقع المرجّح" en="Weighted forecast"
               // Only when both halves are real. A percentage of a target that
               // was never set, or of a forecast that could not be computed, is
@@ -921,7 +934,7 @@ function BoardPage() {
               }
             />
             <Kpi
-              icon="🔻" tone="teal" lang={lang}
+              icon={Filter} tone="teal" lang={lang}
               ar="الفرص المؤهلة (المسار)" en="Qualified pipeline"
               value={splitCompact(model.standing.openTotal, lang)?.n ?? null}
               unit={splitCompact(model.standing.openTotal, lang)?.unit}
@@ -937,7 +950,7 @@ function BoardPage() {
               }
             />
             <Kpi
-              icon="◔"
+              icon={PieChart}
               tone={model.year.ratio !== null && model.year.ratio >= model.year.yearElapsed ? "won" : "amber"}
               lang={lang}
               ar="نسبة تحقيق الهدف" en="Target achievement"
@@ -954,19 +967,19 @@ function BoardPage() {
             />
           </div>
           <div className="grid grid-cols-[1.55fr_1fr] gap-[0.7vw]">
-            <Panel title={lang === "ar" ? "يتطلّب الانتباه" : "Needs attention"} icon="⚠" tone="danger" lang={lang}>
+            <Panel dark title={lang === "ar" ? "يتطلّب الانتباه" : "Needs attention"} icon={AlertTriangle} tone="danger" lang={lang}>
               <div className="grid flex-1 grid-cols-4 gap-[0.6vw]">
-                <Need icon="🗓" n={model.pulse.followUpsOverdue} ar="متابعات متأخّرة" en="Follow-ups overdue"
+                <Need dark icon={CalendarClock} n={model.pulse.followUpsOverdue} ar="متابعات متأخّرة" en="Follow-ups overdue"
                       sub={lang === "ar" ? "مطلوب إجراء اليوم" : "action needed today"} tone="danger" lang={lang} />
-                <Need icon="🕐" n={model.pulse.quotationsDueSoon} ar="عروض ≤ 7 أيام" en="Quotations ≤7d"
+                <Need dark icon={Clock} n={model.pulse.quotationsDueSoon} ar="عروض ≤ 7 أيام" en="Quotations ≤7d"
                       sub={model.pulse.quotationsDueSoon === null
                         ? (lang === "ar" ? "لا تاريخ صلاحية مسجّل" : "no expiry recorded")
                         : (lang === "ar" ? "ردّ خلال المدّة" : "reply within validity")}
                       tone="amber" lang={lang} />
-                <Need icon="🔥" n={model.attention.filter((a) => a.priority === "critical").length}
+                <Need dark icon={Flame} n={model.attention.filter((a) => a.priority === "critical").length}
                       ar="فرص حرجة" en="Critical deals"
                       sub={lang === "ar" ? "قيمة عالية ومتأخّرة" : "high value, overdue"} tone="danger" lang={lang} />
-                <Need icon="⛔" n={model.pulse.approvalsPending} ar="موافقات منتظرة" en="Approvals pending"
+                <Need dark icon={CircleX} n={model.pulse.approvalsPending} ar="موافقات منتظرة" en="Approvals pending"
                       sub={model.pulse.oldestApprovalDays === null
                         ? (lang === "ar" ? "لا شيء ينتظر" : "nothing waiting")
                         : (lang === "ar" ? `أقدمها ${formatNumber(model.pulse.oldestApprovalDays, lang)} يومًا` : `oldest ${model.pulse.oldestApprovalDays}d`)}
@@ -974,7 +987,7 @@ function BoardPage() {
               </div>
             </Panel>
 
-            <Panel title={lang === "ar" ? "اليوم / الأيام السبعة القادمة" : "Today / next seven days"} icon="🗓" tone="info" lang={lang}>
+            <Panel title={lang === "ar" ? "اليوم / الأيام السبعة القادمة" : "Today / next seven days"} icon={CalendarDays} tone="info" lang={lang}>
               {model.upcoming === null ? (
                 <div className="flex flex-1 flex-col justify-center gap-[0.4vh]">
                   <span className="font-semibold text-amber-on-tint" style={{ fontSize: "0.95vw" }}>
@@ -1004,7 +1017,7 @@ function BoardPage() {
           </div>
 
           <div className="grid min-h-0 grid-cols-3 gap-[0.7vw]">
-            <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon="🔥" tone="amber" lang={lang}
+            <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon={Flame} tone="amber" lang={lang}
                    note={lang === "ar" ? "أعلى 5 حسب القيمة" : "top 5 by value"}>
               {/* Same fix as the pipeline below: the table stacked to its natural
                   height and pushed the total 12px past the card edge. Flexed
@@ -1056,7 +1069,7 @@ function BoardPage() {
               </div>
             </Panel>
 
-            <Panel title={lang === "ar" ? "صحّة مسار المبيعات" : "Pipeline health"} icon="📊" tone="violet" lang={lang}>
+            <Panel title={lang === "ar" ? "صحّة مسار المبيعات" : "Pipeline health"} icon={BarChart3} tone="violet" lang={lang}>
               {/* Rows share the height instead of stacking to their natural size.
                   As a table this overflowed the panel by 68px at 1920x1080 and
                   the last two stages were drawn outside the card -- a stage that
@@ -1117,7 +1130,7 @@ function BoardPage() {
               </div>
             </Panel>
 
-            <Panel title={lang === "ar" ? "أداء فريق المبيعات" : "Team performance"} icon="👥" tone="teal" lang={lang}>
+            <Panel title={lang === "ar" ? "أداء فريق المبيعات" : "Team performance"} icon={Users} tone="teal" lang={lang}>
               <table className="w-full" style={{ fontSize: "0.7vw" }}>
                 <thead>
                   <tr className="text-muted-foreground" style={{ fontSize: "0.6vw" }}>
@@ -1170,7 +1183,7 @@ function BoardPage() {
           </div>
 
           <div className="grid min-h-0 grid-cols-3 gap-[0.7vw]">
-            <Panel title={lang === "ar" ? "ما الذي تغيّر منذ الأمس؟" : "Changed since yesterday"} icon="🔄" tone="info" lang={lang}>
+            <Panel title={lang === "ar" ? "ما الذي تغيّر منذ الأمس؟" : "Changed since yesterday"} icon={RefreshCw} tone="info" lang={lang}>
               <ChipRow
                 // The exact window, where the title says it loosely.
                 kicker={lang === "ar" ? "آخر 24 ساعة" : "Last 24 hours"}
@@ -1181,21 +1194,21 @@ function BoardPage() {
                   </span>
                 }
               >
-                <Mini icon="🏆" n={model.movement.won} value={money(model.movement.wonValue)} ar="صفقات فُزنا بها" en="Won" tone="won" lang={lang} />
-                <Mini icon="📄" n={model.movement.newDeals} value={money(model.movement.newValue)} ar="فرص جديدة" en="New deals" tone="amber" lang={lang} />
-                <Mini icon="🤝" n={model.movement.toBafo} ar="انتقلت إلى BAFO" en="Moved to BAFO" tone="violet" lang={lang} />
+                <Mini icon={TrendingUp} n={model.movement.won} value={money(model.movement.wonValue)} ar="صفقات فُزنا بها" en="Won" tone="won" lang={lang} />
+                <Mini icon={FileText} n={model.movement.newDeals} value={money(model.movement.newValue)} ar="فرص جديدة" en="New deals" tone="amber" lang={lang} />
+                <Mini icon={Handshake} n={model.movement.toBafo} ar="انتقلت إلى BAFO" en="Moved to BAFO" tone="violet" lang={lang} />
                 {/* The reference names this one "stalled deals", and its pause icon says
                     so too. `advanced` is the opposite fact -- deals that MOVED --
                     and putting it under a pause icon was reading the picture
                     carelessly. Stalled comes from the attention list, which
                     already defines it as no client contact in the window. */}
-                <Mini icon="⏸" n={model.attention.filter((a) => a.reasons.includes("stalled")).length}
+                <Mini icon={PauseCircle} n={model.attention.filter((a) => a.reasons.includes("stalled")).length}
                       ar="صفقات متوقفة" en="Stalled deals" tone="info" lang={lang} />
-                <Mini icon="✓" n={model.movement.followUpsClosed} ar="متابعات أُغلقت" en="Follow-ups closed" tone="teal" lang={lang} />
+                <Mini icon={CheckCircle2} n={model.movement.followUpsClosed} ar="متابعات أُغلقت" en="Follow-ups closed" tone="teal" lang={lang} />
               </ChipRow>
             </Panel>
 
-            <Panel title={lang === "ar" ? "نبض المبيعات بالذكاء الاصطناعي" : "AI sales pulse"} icon="✦" tone="info" lang={lang}>
+            <Panel title={lang === "ar" ? "نبض المبيعات بالذكاء الاصطناعي" : "AI sales pulse"} icon={Sparkles} tone="info" lang={lang}>
               <Pulse
                 critical={model.attention.filter((a) => a.priority === "critical").length}
                 criticalValue={model.attention
@@ -1213,7 +1226,7 @@ function BoardPage() {
               />
             </Panel>
 
-            <Panel title={lang === "ar" ? "توقعات (30 / 60 / 90 يوم)" : "Forecast (30 / 60 / 90 days)"} icon="🕐" tone="amber" lang={lang}>
+            <Panel title={lang === "ar" ? "توقعات (30 / 60 / 90 يوم)" : "Forecast (30 / 60 / 90 days)"} icon={Clock} tone="amber" lang={lang}>
               <Horizons h={model.horizon} lang={lang} money={money} />
             </Panel>
           </div>
@@ -1665,9 +1678,9 @@ function Horizons({
 /** A headline card: label and icon, a centred figure with its unit beneath, an
  *  optional gauge, and a footnote. */
 function Kpi({
-  icon, tone, lang, ar, en, value, unit, foot, gauge,
+  icon: Icon, tone, lang, ar, en, value, unit, foot, gauge,
 }: {
-  icon: string;
+  icon: LucideIcon;
   tone: keyof typeof TONE;
   lang: "ar" | "en";
   ar: string;
@@ -1694,7 +1707,7 @@ function Kpi({
             color: TONE[tone].edge,
           }}
         >
-          {icon}
+          <Icon className="h-[1.05vw] w-[1.05vw]" strokeWidth={2.25} aria-hidden="true" />
         </span>
       </div>
 
@@ -1702,26 +1715,27 @@ function Kpi({
           lands on the magnitude first, the unit stays available without
           competing for the same line, and five cards holding different digit
           counts still line up with one another. */}
-      <div className="flex flex-1 flex-col items-center justify-center">
-        <span
-          className={`num font-bold leading-none tracking-[-0.02em] ${TONE[tone].text}`}
-          style={{ fontSize: "3.2vw" }}
-        >
-          {value ?? "—"}
-        </span>
-        {unit ? (
-          <span className="mt-[0.45vh] text-muted-foreground" style={{ fontSize: "0.74vw" }}>{unit}</span>
-        ) : null}
-      </div>
-
-      {gauge !== undefined && gauge !== null ? (
-        <span className="mb-[0.5vh] block h-[0.7vh] w-full overflow-hidden rounded-full bg-muted">
+      <div className="flex min-w-0 flex-1 items-center justify-center gap-[0.6vw]">
+        <div className="flex min-w-0 flex-col items-center">
           <span
-            className="block h-full rounded-full"
-            style={{ width: `${Math.min(gauge, 1) * 100}%`, background: TONE[tone].edge }}
-          />
-        </span>
-      ) : null}
+            className={`num font-bold leading-none tracking-[-0.02em] ${TONE[tone].text}`}
+            style={{ fontSize: "3.2vw" }}
+          >
+            {value ?? "\u2014"}
+          </span>
+          {unit ? (
+            <span className="mt-[0.45vh] w-full truncate text-center text-muted-foreground" style={{ fontSize: "0.74vw" }}>
+              {unit}
+            </span>
+          ) : null}
+        </div>
+
+        {/* A half donut beside the figure, as the reference shows it -- not a
+            bar under it. A ratio is an angle before it is a length: the arc
+            says "about a third" at a glance, and the number beside it is there
+            to be exact. */}
+        {gauge !== undefined && gauge !== null ? <Gauge value={gauge} tone={tone} /> : null}
+      </div>
 
       <span className="text-center text-muted-foreground" style={{ fontSize: "0.68vw" }}>
         {foot ?? en}
@@ -1730,11 +1744,39 @@ function Kpi({
   );
 }
 
+/**
+ * The target-achievement dial.
+ *
+ * One arc drawn twice: the track is the whole half circle, the value is the
+ * same path dashed to its fraction. Two paths and no library.
+ *
+ * Clamped at 1 on purpose. Past target is good news, and an arc sweeping back
+ * around past its own start would read as bad -- the figure beside it already
+ * says 140% when 140% is true.
+ */
+function Gauge({ value, tone }: { value: number; tone: keyof typeof TONE }) {
+  const pct = Math.max(0, Math.min(value, 1));
+  const LEN = Math.PI * 40;   // a half circle of radius 40
+  return (
+    <svg viewBox="0 0 100 56" className="h-[3vw] w-[3vw] shrink-0" aria-hidden="true">
+      <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="var(--muted)" strokeWidth="11" strokeLinecap="round" />
+      <path
+        d="M 10 50 A 40 40 0 0 1 90 50"
+        fill="none"
+        stroke={TONE[tone].edge}
+        strokeWidth="11"
+        strokeLinecap="round"
+        strokeDasharray={`${LEN * pct} ${LEN}`}
+      />
+    </svg>
+  );
+}
+
 /** The same card for a figure whose inputs may not exist. */
 function KpiFigure({
-  icon, f, lang, money, ar, en, tone, foot,
+  icon: Icon, f, lang, money, ar, en, tone, foot,
 }: {
-  icon: string;
+  icon: LucideIcon;
   tone: keyof typeof TONE;
   f: Figure;
   lang: "ar" | "en";
@@ -1761,7 +1803,7 @@ function KpiFigure({
             color: TONE[tone].edge,
           }}
         >
-          {icon}
+          <Icon className="h-[1.05vw] w-[1.05vw]" strokeWidth={2.25} aria-hidden="true" />
         </span>
       </div>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
@@ -1779,17 +1821,29 @@ function KpiFigure({
 
 /** A panel with a titled header, matching the mockup's card chrome. */
 function Panel({
-  title, icon, tone, lang, note, children,
+  title, icon: Icon, tone, lang, note, children, dark,
 }: {
   title: string;
-  icon: string;
+  icon: LucideIcon;
   tone: keyof typeof TONE;
+  /**
+   * Darkens the whole panel, as the supplied reference does for this one.
+   *
+   * It inverts the panel's text colours with it. A dark ground under
+   * `text-foreground` is how a card ends up black on near-black -- the
+   * background and the ink are one decision, never two.
+   */
+  dark?: boolean;
   lang: "ar" | "en";
   note?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1vw] py-[0.8vh] shadow-sm">
+    <section
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[0.7vw] border px-[1vw] py-[0.8vh] shadow-sm ${
+        dark ? "board-dark border-white/10" : "border-border/70 bg-card"
+      }`}
+    >
       <div className="mb-[0.5vh] flex items-baseline justify-between">
         <span className="flex items-baseline gap-[0.4vw]">
           <span
@@ -1797,7 +1851,7 @@ function Panel({
             className="grid shrink-0 place-items-center rounded-[0.35vw]"
             style={{ width: "1.4vw", height: "1.4vw", fontSize: "0.78vw", background: TONE[tone].wash, color: TONE[tone].edge }}
           >
-            {icon}
+            <Icon className="h-[0.85vw] w-[0.85vw]" strokeWidth={2.25} aria-hidden="true" />
           </span>
           <span className={`font-semibold ${TONE[tone].text}`} style={{ fontSize: "0.92vw" }}>{title}</span>
         </span>
@@ -1810,10 +1864,17 @@ function Panel({
 
 /** One "needs attention" figure. `null` means the input does not exist. */
 function Need({
-  n, ar, en, sub, tone, lang, icon,
+  n, ar, en, sub, tone, lang, icon: Icon, dark,
 }: {
+  /**
+   * Measured, not guessed: on the panel's #0f1a26 ground `text-foreground`
+   * comes out at 1.04:1 and `text-muted-foreground` at 3.63 -- the first is
+   * invisible and the second fails body text. White is 17.56 and white/70 is
+   * 8.61, so the card inverts with the panel rather than keeping its own ink.
+   */
+  dark?: boolean;
   /** Every figure on this board carries one; these four were the exception. */
-  icon: string;
+  icon: LucideIcon;
   n: number | null;
   ar: string;
   en: string;
@@ -1836,13 +1897,21 @@ function Need({
               background: TONE[tone].wash, color: TONE[tone].edge,
             }}
           >
-            {icon}
+            <Icon className="h-[0.85vw] w-[0.85vw]" strokeWidth={2.25} aria-hidden="true" />
           </span>
-          <span className="min-w-0 truncate font-semibold text-foreground" style={{ fontSize: "0.8vw" }}>
+          <span
+            className={`min-w-0 truncate font-semibold ${dark ? "text-white" : "text-foreground"}`}
+            style={{ fontSize: "0.8vw" }}
+          >
             {lang === "ar" ? ar : en}
           </span>
       </div>
-      <span className="text-muted-foreground" style={{ fontSize: "0.65vw" }}>{sub}</span>
+      <span
+        className={`w-full truncate ${dark ? "text-white/70" : "text-muted-foreground"}`}
+        style={{ fontSize: "0.65vw" }}
+      >
+        {sub}
+      </span>
     </div>
   );
 }
@@ -1861,11 +1930,11 @@ function Need({
  * would be the board congratulating itself on a dead week.
  */
 function Mini({
-  n, value, ar, en, tone, lang, icon,
+  n, value, ar, en, tone, lang, icon: Icon,
 }: {
   n: number;
   /** Shown above the figure, as in the reference design. */
-  icon?: string;
+  icon: LucideIcon;
   value?: string | null;
   ar: string;
   en: string;
@@ -1879,8 +1948,8 @@ function Mini({
       lang={lang}
       figure={
         <span className="flex flex-col items-center gap-[0.1vh]">
-          {icon ? (
-            <span aria-hidden="true" className={TONE[tone].text} style={{ fontSize: "0.72vw" }}>{icon}</span>
+          {Icon ? (
+            <Icon className={`h-[0.85vw] w-[0.85vw] ${TONE[tone].text}`} strokeWidth={2.25} aria-hidden="true" />
           ) : null}
           <span
             className={`num font-bold leading-none ${moved ? TONE[tone].text : "text-muted-foreground"}`}
