@@ -275,6 +275,7 @@ export const strings = {
   ibx_scope_specify: { en: "Scope — please specify", ar: "النطاق — حدّده" },
   ibx_location_specify: { en: "Location — please specify", ar: "الموقع — حدّده" },
   ibx_completion_invalid: { en: "Completion must be a whole number from 0 to 100.", ar: "نسبة الإنجاز رقم صحيح من 0 إلى 100." },
+  nav_home: { en: "Home", ar: "الرئيسية" },
   label_role: { en: "Role", ar: "الدور" },
   stake_add_contact: { en: "Add contact person", ar: "إضافة جهة اتصال" },
   stake_contact_added: { en: "Contact added", ar: "أُضيفت جهة الاتصال" },
@@ -1799,11 +1800,14 @@ export const strings = {
     ar: "كل طلب جديد يُراجَع هنا قبل أن ينتقل إلى التسعير.",
   },
   rev_state_pending_review: { en: "Pending review", ar: "بانتظار المراجعة" },
-  rev_state_approved_for_pricing: { en: "Approved for pricing", ar: "معتمَد للتسعير" },
+  rev_state_approved_for_pricing: { en: "Approved", ar: "معتمَد" },
   rev_state_need_information: { en: "Needs information", ar: "بحاجة إلى معلومات" },
   rev_state_monitored: { en: "Monitored", ar: "تحت المراقبة" },
   rev_state_rejected: { en: "Rejected", ar: "مرفوض" },
-  rev_approve: { en: "Approve for Pricing", ar: "اعتماد للتسعير" },
+  // Just "Approve", asked for on 2026-09-02. The manager pressing it is
+  // approving a request; that it then goes to pricing is the system's
+  // business, not a thing to read on a button every time.
+  rev_approve: { en: "Approve", ar: "اعتماد" },
   rev_need_info: { en: "Need Information", ar: "طلب معلومات" },
   rev_monitor: { en: "Monitor", ar: "مراقبة" },
   rev_reject: { en: "Reject", ar: "رفض" },
@@ -1864,7 +1868,11 @@ export const strings = {
   notif_type_intake_review_requested: { en: "Intake review", ar: "مراجعة طلب" },
   notif_type_intake_need_information: { en: "Information requested", ar: "معلومات مطلوبة" },
   notif_type_intake_resubmitted: { en: "Resubmitted", ar: "أُعيد الإرسال" },
-  notif_type_intake_approved: { en: "Approved for pricing", ar: "معتمد للتسعير" },
+  // NOT bare "Approved": notif_type_approval_approved below is already that,
+  // and two notification types reading identically would leave a manager
+  // unable to tell an intake approval from a verbal-award one in the same
+  // list. "Request approved" drops the jargon and keeps them apart.
+  notif_type_intake_approved: { en: "Request approved", ar: "اعتماد الطلب" },
   notif_type_intake_rejected: { en: "Request rejected", ar: "طلب مرفوض" },
   notif_type_intake_assigned: { en: "Request assigned", ar: "طلب مُسند إليك" },
   notif_type_approval_requested: { en: "Approval requested", ar: "طلب اعتماد" },

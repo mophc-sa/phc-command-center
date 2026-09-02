@@ -37,6 +37,7 @@ import {
   LineChart,
   Activity,
   Settings,
+  Home,
   Menu,
   Globe,
   LogOut,
@@ -611,6 +612,23 @@ export function AppShell({ children }: { children: ReactNode }) {
 
             {/* Right actions */}
             <div className="ms-auto flex items-center gap-2">
+              {/* Asked for on 2026-09-02: "add a homepage button somewhere
+                  clear". The logo already linked home, but a logo is a brand
+                  mark before it is a control -- people do not click it to
+                  navigate, and nothing said they could.
+                  "/" is the right target rather than any one page: it lands
+                  each role where their day starts, which is what home means
+                  here. Labelled on desktop, icon-only where the bar is tight. */}
+              <Link
+                to="/"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-xs font-medium text-muted-foreground shadow-card transition-all duration-150 hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                aria-label={t("nav_home")}
+                title={t("nav_home")}
+              >
+                <Home className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{t("nav_home")}</span>
+              </Link>
+
               <FontSizeControl />
 
               {/* Language toggle */}

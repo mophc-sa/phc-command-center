@@ -9,9 +9,10 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useNotifications, useNotificationActions } from "@/hooks/useNotifications";
+import { supabase } from "@/integrations/supabase/client";
+import { lookupFor, targetFor } from "@/lib/notification-target";
 import {
   isUnread,
-  notificationHref,
   notificationTypeKey,
   severityTone,
   unreadCount,
@@ -39,11 +40,26 @@ export function NotificationCenter({
   const { markRead, markAllRead, dismiss } = useNotificationActions();
   const unread = unreadCount(items);
 
-  function handleRowClick(n: NotificationRow) {
+  async function handleRowClick(n: NotificationRow) {
     // Opening the subject is an acknowledgement — mark it read on the way out.
     if (isUnread(n)) markRead.mutate([n.id]);
     onOpenChange(false);
-    void navigate({ to: notificationHref(n) as never });
+
+    // An approval, a quotation and an RFQ are all ABOUT an opportunity, and
+    // that is the page the reader wants -- not a list of approvals they then
+    // have to search through for the one they were just told about. One read,
+    // and only for the types that need it.
+    let oppId: string | null = null;
+    const lookup = lookupFor(n);
+    if (lookup && n.entity_id) {
+      const { data } = await supabase
+        .from(lookup.table)
+        .select(lookup.column)
+        .eq("id", n.entity_id)
+        .maybeSingle();
+      oppId = (data as Record<string, string | null> | null)?.[lookup.column] ?? null;
+    }
+    void navigate({ to: targetFor(n, oppId) as never });
   }
 
   return (
@@ -98,7 +114,7 @@ export function NotificationCenter({
                   lang={lang}
                   label={t(notificationTypeKey(n.notification_type) as never) || n.notification_type}
                   dismissLabel={t("notif_dismiss")}
-                  onClick={() => handleRowClick(n)}
+                  onClick={() => { void handleRowClick(n); }}
                   onDismiss={() => dismiss.mutate(n.id)}
                 />
               ))}
