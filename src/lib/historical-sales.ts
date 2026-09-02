@@ -134,6 +134,34 @@ export function qualityFlags(r: HistoricalSaleRow): QualityFlag[] {
   return f;
 }
 
+/**
+ * The same four counts, over whatever is on screen.
+ *
+ * The quality chips were fed by `historical_sales_quality`, a database view of
+ * the WHOLE archive. So they never moved: filter to one year, or click a chip
+ * and watch the table narrow, and all four numbers stayed exactly where they
+ * were -- reported on 2026-09-02 as "the figures are fixed". Sitting directly
+ * under a Stat row that does respond, they read as broken rather than as
+ * archive-wide.
+ *
+ * Computed from `qualityFlags`, which is also what the filter itself uses, so a
+ * chip's number and the rows it selects cannot disagree.
+ */
+export function qualityCounts(rows: HistoricalSaleRow[]): Record<QualityFlag, number> & { revisions: number } {
+  const c = {
+    missing_owner: 0,
+    missing_amount: 0,
+    unmatched_company: 0,
+    unparsed_code: 0,
+    revisions: 0,
+  };
+  for (const r of rows) {
+    for (const f of qualityFlags(r)) c[f] += 1;
+    if (r.revision_no) c.revisions += 1;
+  }
+  return c;
+}
+
 // ---- Filtering --------------------------------------------------------------
 
 export type HistoricalFilters = {

@@ -43,6 +43,7 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency, formatNumber, useI18n, localeFor } from "@/lib/i18n";
 import {
   EMPTY_FILTERS, exportFilename, filterHistorical, getHistoricalQuality, listHistoricalSales,
+  qualityCounts,
   ownerOptions, qualityFlags, statusOptions, summarise, toCsv,
   yearOptions, selectedYear, statusBreakdown,
   type HistoricalFilters, type HistoricalSaleRow, type QualityFlag,
@@ -162,6 +163,10 @@ export function HistoricalSalesView() {
   const years = useMemo(() => yearOptions(rows), [rows]);
   const activeYear = selectedYear(f);
   const byStatus = useMemo(() => statusBreakdown(filtered), [filtered]);
+  // Counted over what is on screen. These came from a whole-archive database
+  // view, so every chip kept the same number while the table beneath it
+  // narrowed -- and the chips ARE the filter, which made it read as broken.
+  const qc = useMemo(() => qualityCounts(filtered), [filtered]);
   const set = <K extends keyof HistoricalFilters>(k: K, v: HistoricalFilters[K]) => setF((p) => ({ ...p, [k]: v }));
   const dirty = JSON.stringify(f) !== JSON.stringify(EMPTY_FILTERS);
 
@@ -359,17 +364,17 @@ export function HistoricalSalesView() {
           decoration — each one filters the table to the rows it counts. */}
       {quality ? (
         <Panel title={ar ? "جودة البيانات" : "Data Quality"}
-               subtitle={ar ? "حالة السجل المصدر — اضغط للتصفية" : "The state of the source record — click to filter"}>
+               subtitle={ar ? "على المعروض · الرقم الثاني للأرشيف كله — اضغط للتصفية" : "Over what is on screen · second figure is the whole archive — click to filter"}>
           <div className="flex flex-wrap gap-2">
-            <QualityChip flag="missing_owner"     n={quality.owners_legacy_only}     active={f.flag === "missing_owner"}     onClick={() => set("flag", f.flag === "missing_owner" ? "" : "missing_owner")} lang={lang} />
-            <QualityChip flag="missing_amount"    n={quality.amounts_absent}         active={f.flag === "missing_amount"}    onClick={() => set("flag", f.flag === "missing_amount" ? "" : "missing_amount")} lang={lang} />
-            <QualityChip flag="unmatched_company" n={quality.companies_unmatched}    active={f.flag === "unmatched_company"} onClick={() => set("flag", f.flag === "unmatched_company" ? "" : "unmatched_company")} lang={lang} />
-            <QualityChip flag="unparsed_code"     n={quality.codes_unparsed + quality.codes_placeholder} active={f.flag === "unparsed_code"} onClick={() => set("flag", f.flag === "unparsed_code" ? "" : "unparsed_code")} lang={lang} />
+            <QualityChip flag="missing_owner"     n={qc.missing_owner}     of={quality.owners_legacy_only}  active={f.flag === "missing_owner"}     onClick={() => set("flag", f.flag === "missing_owner" ? "" : "missing_owner")} lang={lang} />
+            <QualityChip flag="missing_amount"    n={qc.missing_amount}    of={quality.amounts_absent}      active={f.flag === "missing_amount"}    onClick={() => set("flag", f.flag === "missing_amount" ? "" : "missing_amount")} lang={lang} />
+            <QualityChip flag="unmatched_company" n={qc.unmatched_company} of={quality.companies_unmatched} active={f.flag === "unmatched_company"} onClick={() => set("flag", f.flag === "unmatched_company" ? "" : "unmatched_company")} lang={lang} />
+            <QualityChip flag="unparsed_code"     n={qc.unparsed_code}     of={quality.codes_unparsed + quality.codes_placeholder} active={f.flag === "unparsed_code"} onClick={() => set("flag", f.flag === "unparsed_code" ? "" : "unparsed_code")} lang={lang} />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             {ar
-              ? `${formatNumber(quality.statuses_needing_decision, lang)} سجل بحالة تحتاج قرارًا · ${formatNumber(quality.revisions, lang)} مراجعة مرقّمة`
-              : `${formatNumber(quality.statuses_needing_decision, lang)} records with a status needing a decision · ${formatNumber(quality.revisions, lang)} numbered revisions`}
+              ? `${formatNumber(sum.needsDecision, lang)} سجل بحالة تحتاج قرارًا · ${formatNumber(qc.revisions, lang)} مراجعة مرقّمة`
+              : `${formatNumber(sum.needsDecision, lang)} records with a status needing a decision · ${formatNumber(qc.revisions, lang)} numbered revisions`}
           </p>
         </Panel>
       ) : null}
@@ -612,8 +617,13 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "wo
   );
 }
 
-function QualityChip({ flag, n, active, onClick, lang }: {
-  flag: QualityFlag; n: number; active: boolean; onClick: () => void; lang: "en" | "ar";
+function QualityChip({ flag, n, of, active, onClick, lang }: {
+  flag: QualityFlag;
+  /** How many of the rows currently on screen carry this flag. */
+  n: number;
+  /** How many in the whole archive — kept, so narrowing does not hide the scale. */
+  of: number;
+  active: boolean; onClick: () => void; lang: "en" | "ar";
 }) {
   return (
     <button
@@ -626,6 +636,11 @@ function QualityChip({ flag, n, active, onClick, lang }: {
     >
       <span className="font-medium">{FLAG_LABEL[flag][lang === "ar" ? "ar" : "en"]}</span>
       <span className="ms-1 opacity-80">· {FLAG_SENTENCE[flag](n.toLocaleString(localeFor(lang, "en-GB")), lang === "ar")}</span>
+      {/* Only when the two differ, i.e. only when a filter is narrowing the
+          view. Printing "12 / 12" on an unfiltered page is noise. */}
+      {of !== n ? (
+        <span className="ms-1 num opacity-60">/ {of.toLocaleString(localeFor(lang, "en-GB"))}</span>
+      ) : null}
     </button>
   );
 }

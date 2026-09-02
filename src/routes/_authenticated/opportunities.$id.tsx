@@ -575,8 +575,17 @@ function OpportunityDetail() {
         </Link>
         <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <div className="mb-1.5 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
-              {t("nav_opportunities")}
+            {/* The sales code belongs here, beside the record's name, and only
+                here. It used to print twice on the same screen -- as the
+                Submission panel's subtitle and again inside the "JIH or Tender"
+                field -- which reads as two references rather than one shown
+                twice. The header is also the one place that does not disappear
+                when the timeline is filtered to another tab. */}
+            <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
+              <span>{t("nav_opportunities")}</span>
+              {rfqQ.data?.rfq_number ? (
+                <span className="num text-foreground" data-tabular="true">{rfqQ.data.rfq_number}</span>
+              ) : null}
             </div>
             <h1 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground md:text-[30px]">
               {o.project ? (
@@ -720,7 +729,6 @@ function OpportunityDetail() {
       {show("alert") && rfqQ.data ? (
         <Panel
           title={t("section_submission")}
-          subtitle={rfqQ.data.rfq_number ?? undefined}
           action={
             canEditClientDetails ? (
               <button
@@ -823,7 +831,6 @@ function OpportunityDetail() {
               : rfqQ.data?.classification === "other"
                 ? t("class_other")
                 : null;
-        const salesCode = rfqQ.data?.rfq_number ?? null;
         return (
           <Panel
             title={t("section_client_details")}
@@ -846,7 +853,9 @@ function OpportunityDetail() {
               <DataField label={t("label_company_name")} value={companyName} />
               <DataField
                 label={t("label_jih_or_tender")}
-                value={classification ? (salesCode ? `${classification} · ${salesCode}` : classification) : null}
+                // The classification, and nothing else. The code that rode
+                // along here is in the page header now.
+                value={classification}
               />
               <DataField label={t("label_location")} value={o.location} />
             </div>
