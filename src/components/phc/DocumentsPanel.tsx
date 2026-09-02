@@ -22,6 +22,7 @@ import { AttachmentLink } from "@/components/phc/AttachmentLink";
 import { AttachmentThumb } from "@/components/phc/AttachmentThumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { docError } from "@/lib/document-error";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canRunSensitiveSalesAction } from "@/lib/roles";
@@ -67,7 +68,7 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
     mutationFn: async (file: File) =>
       uploadDocument({ entity, file, supersedes: supersedeOf }),
     onSuccess: () => { setSupersedeOf(null); refresh(); toast.success(t("doc_uploaded")); },
-    onError: (e: Error) => toast.error(t(`doc_err_${e.message}` as never) || e.message),
+    onError: (e: Error) => toast.error(docError(t, e.message)),
   });
 
   const remove = useMutation({
@@ -97,7 +98,7 @@ export function DocumentsPanel({ entity, title }: { entity: EntityRef; title?: s
   const onPick = async (f: File | undefined) => {
     if (!f) return;
     const invalid = validateDocumentFile(f);
-    if (invalid) { toast.error(t(`doc_err_${invalid}` as never) || invalid); return; }
+    if (invalid) { toast.error(docError(t, invalid)); return; }
     setBusy(true);
     try { await upload.mutateAsync(f); } finally { setBusy(false); if (fileRef.current) fileRef.current.value = ""; }
   };
