@@ -1184,12 +1184,18 @@ function BoardPage() {
                 <Mini icon="🏆" n={model.movement.won} value={money(model.movement.wonValue)} ar="صفقات فُزنا بها" en="Won" tone="won" lang={lang} />
                 <Mini icon="📄" n={model.movement.newDeals} value={money(model.movement.newValue)} ar="فرص جديدة" en="New deals" tone="amber" lang={lang} />
                 <Mini icon="🤝" n={model.movement.toBafo} ar="انتقلت إلى BAFO" en="Moved to BAFO" tone="violet" lang={lang} />
-                <Mini icon="⏸" n={model.movement.advanced} ar="تقدّمت مرحلة" en="Stage moves" tone="info" lang={lang} />
+                {/* The reference names this one "stalled deals", and its pause icon says
+                    so too. `advanced` is the opposite fact -- deals that MOVED --
+                    and putting it under a pause icon was reading the picture
+                    carelessly. Stalled comes from the attention list, which
+                    already defines it as no client contact in the window. */}
+                <Mini icon="⏸" n={model.attention.filter((a) => a.reasons.includes("stalled")).length}
+                      ar="صفقات متوقفة" en="Stalled deals" tone="info" lang={lang} />
                 <Mini icon="✓" n={model.movement.followUpsClosed} ar="متابعات أُغلقت" en="Follow-ups closed" tone="teal" lang={lang} />
               </ChipRow>
             </Panel>
 
-            <Panel title={lang === "ar" ? "نبض المبيعات" : "Sales pulse"} icon="✦" tone="info" lang={lang}>
+            <Panel title={lang === "ar" ? "نبض المبيعات بالذكاء الاصطناعي" : "AI sales pulse"} icon="✦" tone="info" lang={lang}>
               <Pulse
                 critical={model.attention.filter((a) => a.priority === "critical").length}
                 criticalValue={model.attention
