@@ -27,6 +27,27 @@ function LandingRedirect() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
+  // A screen, not a person. Asked for on 2026-09-02, when info@phc-sa.com was
+  // created to drive the board in the sales manager's office: it should open on
+  // the board and stay there.
+  //
+  // Read from the profile rather than inferred from roles, because the roles it
+  // needs are the roles the board's data needs -- and any of them would also
+  // land a real person somewhere else entirely.
+  const { data: display, isLoading: displayLoading } = useQuery({
+    queryKey: ["display-account", user?.id],
+    enabled: !!user,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("is_display_account")
+        .eq("id", user!.id)
+        .maybeSingle();
+      return (data as { is_display_account?: boolean } | null)?.is_display_account === true;
+    },
+  });
+
   const { data: roles, isLoading: rolesLoading } = useQuery({
     queryKey: ["roles", user?.id],
     enabled: !!user,
@@ -50,6 +71,15 @@ function LandingRedirect() {
       return;
     }
 
+    // Before roles are consulted at all: a display account has exactly one
+    // destination, and asking its roles would send it wherever a BD manager
+    // goes instead.
+    if (displayLoading) return;
+    if (display) {
+      void navigate({ to: "/board", replace: true });
+      return;
+    }
+
     // Wait for roles query
     if (rolesLoading) return;
 
@@ -70,7 +100,7 @@ function LandingRedirect() {
       // viewer
       void navigate({ to: "/command-center", replace: true });
     }
-  }, [user, authLoading, roles, rolesLoading, navigate]);
+  }, [user, authLoading, roles, rolesLoading, display, displayLoading, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">

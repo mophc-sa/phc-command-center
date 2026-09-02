@@ -41,10 +41,11 @@
 // moment a stale number starts passing for a live one.
 // =============================================================================
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { dueForRefresh, keepAlive } from "@/lib/session-keepalive";
 import { useI18n, formatNumber, localeFor } from "@/lib/i18n";
 import { requiresConversionReview } from "@/lib/dashboard-helpers";
 import {
@@ -89,6 +90,50 @@ const phcLogo = { url: "/phc-logo.png" };
 
 /** Values move in minutes, not seconds. A tighter poll would only add load. */
 const POLL_MS = 60_000;
+
+/**
+ * Ask for a fresh access token on our own clock.
+ *
+ * `autoRefreshToken` renews on a timer and on focus. A wall display gives it
+ * neither: browsers throttle timers in a tab nobody has touched, and a screen
+ * in the corner of an office is never focused, clicked or scrolled. Miss enough
+ * renewals and the session is gone -- not because anyone signed out, but
+ * because nothing woke up to say it was still there.
+ *
+ * Belt over braces: where autoRefreshToken has already done the work this is a
+ * no-op against a cached session. It changes no lifetime and no policy.
+ */
+function useSessionKeepAlive() {
+  const lastAt = useRef<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled || !dueForRefresh(lastAt.current, Date.now())) return;
+      const ok = await keepAlive(() => supabase.auth.refreshSession());
+      // Only on success: a failed attempt must not push the next one out by
+      // twenty minutes, which is how a display sleeps through its own expiry.
+      if (ok) lastAt.current = Date.now();
+    };
+    void tick();
+    const id = setInterval(() => { void tick(); }, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+}
+
+/**
+ * The wall board renders in one language, whatever the app is set to.
+ *
+ * Asked for on 2026-09-02: "make the language English only, entirely." This is
+ * a screen on a wall, not a page anyone navigates -- it has one audience and
+ * one reading, and the bilingual pairs it used to print (an Arabic line and its
+ * English twin, stacked) spent space saying one thing twice.
+ *
+ * Every bilingual branch in this file is deliberately left standing, so
+ * switching back, or to Arabic, is this one value. Declared at module scope
+ * with its union type so the compiler does not narrow the comparisons away and
+ * delete the other half of the file.
+ */
+const BOARD_LANG: "ar" | "en" = "en";
 
 const STAGE_LABEL: Record<string, [string, string]> = {
   rfq_received: ["استُلم الطلب", "RFQ received"],
@@ -255,9 +300,6 @@ function Hero({
         {value ?? "—"}
       </div>
       <div className="mt-[0.9vh] font-semibold text-foreground" style={{ fontSize: "1.02vw" }}>
-        {ar}
-      </div>
-      <div className="text-muted-foreground" style={{ fontSize: "0.78vw", direction: "ltr" }}>
         {en}
       </div>
       {sub ? (
@@ -302,9 +344,6 @@ function Tile({
         {value ?? "—"}
       </div>
       <div className="mt-[0.6vh] font-semibold text-foreground" style={{ fontSize: "0.86vw" }}>
-        {ar}
-      </div>
-      <div className="text-muted-foreground" style={{ fontSize: "0.68vw", direction: "ltr" }}>
         {en}
       </div>
       {sub ? (
@@ -343,9 +382,6 @@ function Trend({
       <div className="mb-[0.6vh] flex items-baseline gap-[0.7vw]">
         <span className="font-semibold text-foreground" style={{ fontSize: "0.92vw" }}>
           {lang === "ar" ? "المُرسّى — ستّة أشهر" : "Won — six months"}
-        </span>
-        <span className="text-muted-foreground" style={{ fontSize: "0.72vw", direction: "ltr" }}>
-          {lang === "ar" ? "Won — six months" : "المُرسّى — ستّة أشهر"}
         </span>
       </div>
       <div className="flex min-h-0 flex-1 items-end gap-[0.6vw]">
@@ -403,9 +439,6 @@ function YearBar({
         <div className="flex items-baseline gap-[0.8vw]">
           <span className="font-semibold text-foreground" style={{ fontSize: "1.05vw" }}>
             {lang === "ar" ? "الهدف السنوي" : "Annual target"}
-          </span>
-          <span className="text-muted-foreground" style={{ fontSize: "0.8vw", direction: "ltr" }}>
-            {lang === "ar" ? "Annual target" : "الهدف السنوي"}
           </span>
         </div>
         {/* Two figures of the same weight, side by side, read as one number:
@@ -658,17 +691,26 @@ function HeroFigure({
       />
       <FigureValue f={f} lang={lang} format={(n) => money(n)} size="3.9vw" />
       <div className="mt-[0.9vh] font-semibold text-foreground" style={{ fontSize: "1.02vw" }}>
-        {ar}
-      </div>
-      <div className="text-muted-foreground" style={{ fontSize: "0.78vw", direction: "ltr" }}>
-        {en}
+        {lang === "ar" ? ar : en}
       </div>
     </div>
   );
 }
 
 function BoardPage() {
-  const { lang } = useI18n();
+  // The wall board renders in English, whatever the rest of the app is set to.
+  //
+  // Asked for on 2026-09-02: "make the language English only, entirely." This
+  // is a screen on a wall, not a page someone navigates -- it has one audience
+  // and one reading, and the bilingual pairs it used to print (an Arabic line
+  // and its English twin, stacked) spent space saying one thing twice.
+  //
+  // Deliberately a constant rather than a removal: every bilingual ternary in
+  // this file still stands, so making it follow the app's toggle again is this
+  // one line. `useI18n` is still read for `dir`, which the shell sets.
+  const lang = BOARD_LANG;
+  void useI18n;
+  useSessionKeepAlive();
   const { data, dataUpdatedAt, isError } = useBoardData();
   const now = useNow(1000);
   const nowDate = useMemo(() => new Date(now), [now]);
@@ -857,6 +899,17 @@ function BoardPage() {
             <KpiFigure
               icon="📊" f={model.weighted} lang={lang} money={money} tone="violet"
               ar="التوقع المرجّح" en="Weighted forecast"
+              // Only when both halves are real. A percentage of a target that
+              // was never set, or of a forecast that could not be computed, is
+              // a number with nothing behind it.
+              foot={
+                model.weighted.state === "ok" && model.weighted.value !== null
+                  && model.year.target && model.year.target > 0
+                  ? lang === "ar"
+                    ? `${formatNumber(Math.round((model.weighted.value / model.year.target) * 100), lang)}% من الهدف`
+                    : `${Math.round((model.weighted.value / model.year.target) * 100)}% of target`
+                  : null
+              }
             />
             <Kpi
               icon="🔻" tone="teal" lang={lang}
@@ -958,7 +1011,18 @@ function BoardPage() {
                   {model.hot.map((h, i) => (
                     <div key={h.id} className="flex min-h-0 flex-1 items-center gap-[0.5vw] border-t border-border/50" style={{ fontSize: "0.72vw" }}>
                       <span className="min-w-0 flex-1 truncate text-foreground">
-                        <span className="num me-[0.4vw] text-muted-foreground" data-tabular="true">{formatNumber(i + 1, lang)}</span>
+                        {/* A numbered badge, not a grey digit: this list is
+                            ranked, and rank is the reason the row is here. */}
+                        <span
+                          className="num me-[0.45vw] inline-grid place-items-center rounded-full font-bold text-white align-middle"
+                          data-tabular="true"
+                          style={{
+                            width: "1.15vw", height: "1.15vw", fontSize: "0.6vw",
+                            background: `var(--stage-${Math.min(i + 1, 7)})`,
+                          }}
+                        >
+                          {formatNumber(i + 1, lang)}
+                        </span>
                         {h.projectName}
                       </span>
                       <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "6vw" }} data-tabular="true">
@@ -1137,15 +1201,19 @@ function BoardPage() {
         </main>
       )}
 
-      <footer className="flex shrink-0 items-center gap-[1vw] px-[1.2vw] py-[0.7vh]" style={{ background: "var(--ink, #13161b)" }}>
-        <span className="shrink-0 rounded-[0.3vw] px-[0.6vw] py-[0.2vh] font-bold text-white"
-              style={{ fontSize: "0.7vw", background: "var(--destructive)" }}>
+      {/* Bigger, asked for on 2026-09-02. A ticker is read from across a room
+          and at a glance, so it was the one strip on the board sized for a
+          desk. Height and type both go up; the wire's speed is derived from
+          the text length, so it stays readable rather than racing. */}
+      <footer className="flex shrink-0 items-center gap-[1vw] px-[1.2vw] py-[1.1vh]" style={{ background: "var(--ink, #13161b)" }}>
+        <span className="shrink-0 rounded-[0.3vw] px-[0.8vw] py-[0.35vh] font-bold text-white"
+              style={{ fontSize: "0.95vw", background: "var(--destructive)" }}>
           {lang === "ar" ? "أخبار المبيعات" : "Sales wire"}
         </span>
         {/* Built from the same figures above -- a wire inventing its own items
             would be a second source of truth nobody could reconcile. */}
         <Wire lang={lang} items={model ? wireItems(model, lang, (n) => money(n) ?? "") : [lang === "ar" ? "جارٍ التحميل" : "Loading"]} />
-        <span className="num shrink-0 text-white/70" style={{ fontSize: "0.76vw" }}>{fmtTime(nowDate)}</span>
+        <span className="num shrink-0 text-white/70" style={{ fontSize: "0.95vw" }}>{fmtTime(nowDate)}</span>
       </footer>
     </div>
   );
@@ -1184,7 +1252,7 @@ function Wire({ items, lang }: { items: string[]; lang: "ar" | "en" }) {
         key={text}
         className="wire-track flex w-max whitespace-nowrap text-white/85"
         style={{
-          fontSize: "0.76vw",
+          fontSize: "1.05vw",
           animation: `${lang === "ar" ? "wire-rtl" : "wire-ltr"} ${seconds}s linear infinite`,
         }}
       >
@@ -1592,7 +1660,7 @@ function Kpi({
 
 /** The same card for a figure whose inputs may not exist. */
 function KpiFigure({
-  icon, f, lang, money, ar, en, tone,
+  icon, f, lang, money, ar, en, tone, foot,
 }: {
   icon: string;
   tone: keyof typeof TONE;
@@ -1601,11 +1669,15 @@ function KpiFigure({
   money: (n: number | null | undefined) => string | null;
   ar: string;
   en: string;
+  /** The line under the figure. Null when there is nothing true to put there. */
+  foot?: string | null;
 }) {
   return (
     <div className="relative flex flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1.1vw] py-[1.1vh] shadow-sm">
       <div className="flex items-start justify-between">
-        <span className="font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>{ar}</span>
+        <span className="font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
+          {lang === "ar" ? ar : en}
+        </span>
         <span
           aria-hidden="true"
           className="grid shrink-0 place-items-center rounded-[0.45vw]"
@@ -1623,7 +1695,12 @@ function KpiFigure({
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <FigureValue f={f} lang={lang} format={(n) => money(n)} size="3.2vw" />
       </div>
-      <span className="text-center text-muted-foreground" style={{ fontSize: "0.68vw" }}>{en}</span>
+      {/* The other four cards carry a line saying what the number means next
+          to. This one used to carry its own English title instead, which is
+          the bilingual pair the board no longer prints. */}
+      {foot ? (
+        <span className={`text-center ${TONE[tone].text}`} style={{ fontSize: "0.68vw" }}>{foot}</span>
+      ) : null}
     </div>
   );
 }
