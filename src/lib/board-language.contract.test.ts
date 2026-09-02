@@ -77,3 +77,57 @@ describe("the weighted forecast says what it is worth against", () => {
     expect(card).toContain("of target");
   });
 });
+
+describe("nothing prints Arabic unconditionally", () => {
+  it("renders no `{ar}` that ignores the language", () => {
+    // The reported symptom: with the board set to English, five KPI titles and
+    // the four "needs attention" labels stayed Arabic. Kpi and Need each
+    // printed `{ar}` outright — the language constant never reached them.
+    expect(BOARD).not.toMatch(/>\{ar\}</);
+    expect(BOARD).not.toMatch(/\{ar\}<\/span>/);
+  });
+
+  it("routes both card titles through the language", () => {
+    const titles = (BOARD.match(/\{lang === "ar" \? ar : en\}/g) ?? []).length;
+    expect(titles).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe("nothing escapes its box", () => {
+  it("clips every card and panel", () => {
+    // A wall board has no scrollbar and no reader to drag one, so text that
+    // leaves its card is text drawn over the card beside it.
+    const cards = BOARD.match(/className="relative flex[^"]*bg-card[^"]*"/g) ?? [];
+    for (const c of cards) {
+      expect([c, c.includes("overflow-hidden")]).toEqual([c, true]);
+      expect([c, c.includes("min-w-0")]).toEqual([c, true]);
+    }
+    const panels = BOARD.match(/className="flex min-h-0[^"]*bg-card[^"]*"/g) ?? [];
+    for (const p of panels) {
+      expect([p, p.includes("overflow-hidden")]).toEqual([p, true]);
+    }
+  });
+});
+
+describe("the top opportunities list shows the rest of itself", () => {
+  it("scrolls as a seamless loop, not a ping-pong", () => {
+    // A share board never runs backwards. Two copies, each pass travelling
+    // exactly half the track — measured in a browser at -239.76px against a
+    // 240px copy, so the loop closes with no seam.
+    expect(BOARD).toContain('className="board-marquee"');
+    expect(BOARD).toContain("marquee-up");
+    expect(BOARD).toContain("<AutoScroll");
+  });
+
+  it("stays still when the list already fits", () => {
+    // An idle animation on a static list is movement that means nothing, and
+    // on a screen people glance at, movement claims something changed.
+    expect(BOARD).toContain("overflow > 8 ?");
+    expect(BOARD).toMatch(/seconds > 0 \? \{ animation/);
+  });
+
+  it("derives its speed from the content", () => {
+    // Six rows at a fixed duration crawl; twenty blur.
+    expect(BOARD).toContain("Math.round(copy / 14)");
+  });
+});

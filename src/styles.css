@@ -611,3 +611,16 @@
 @media (prefers-reduced-motion: reduce) {
   .wire-track { animation: none !important; transform: none !important; }
 }
+
+/* =============================================================================
+   The board's vertical marquee — the wire's trick, turned ninety degrees.
+
+   Two copies of the list, each pass travelling exactly half the track, so the
+   second copy lands where the first began and the loop shows no seam. A share
+   board never runs backwards; neither does this.
+   ========================================================================== */
+@keyframes marquee-up { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .board-marquee { animation: none !important; transform: none !important; }
+}
