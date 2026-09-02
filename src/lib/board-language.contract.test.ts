@@ -131,3 +131,35 @@ describe("the top opportunities list shows the rest of itself", () => {
     expect(BOARD).toContain("Math.round(copy / 14)");
   });
 });
+
+describe("every figure on the board carries an icon", () => {
+  it("gives all four attention cards one", () => {
+    // Asked for on 2026-09-02: "make sure all the icons are added." The eight
+    // panels had them; these four figures were the exception, so the row read
+    // as plainer than everything around it.
+    const needs = BOARD.match(/<Need\b/g) ?? [];
+    const withIcon = BOARD.match(/<Need icon="/g) ?? [];
+    expect(needs.length).toBe(4);
+    expect(withIcon.length).toBe(needs.length);
+  });
+
+  it("makes the icon required rather than optional on that card", () => {
+    // Optional is how three of four end up with one.
+    const at = BOARD.indexOf("function Need({");
+    expect(BOARD.slice(at, at + 400)).toMatch(/icon: string;/);
+  });
+
+  it("gives every panel one", () => {
+    const panels = BOARD.match(/<Panel\b/g) ?? [];
+    const iconed = BOARD.match(/icon="[^"]+"/g) ?? [];
+    expect(panels.length).toBeGreaterThan(0);
+    expect(iconed.length).toBeGreaterThanOrEqual(panels.length);
+  });
+
+  it("gives the five 'changed since yesterday' tiles one each", () => {
+    const minis = BOARD.match(/<Mini\b/g) ?? [];
+    const withIcon = BOARD.match(/<Mini icon="/g) ?? [];
+    expect(minis.length).toBe(5);
+    expect(withIcon.length).toBe(5);
+  });
+});

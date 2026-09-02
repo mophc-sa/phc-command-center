@@ -50,6 +50,7 @@ import { useI18n, formatNumber, localeFor } from "@/lib/i18n";
 import { requiresConversionReview } from "@/lib/dashboard-helpers";
 import {
   attentionItems,
+  pulseSentences,
   hotOpportunities,
   horizonForecast,
   pipelineBuckets,
@@ -216,7 +217,9 @@ function useBoardData() {
           supabase.from("profiles").select("id, full_name"),
           supabase
             .from("stage_transition_history")
-            .select("changed_at")
+            // to_stage as well: "moved to BAFO since yesterday" is a
+            // transition, not a stage anyone happens to be sitting in.
+            .select("changed_at, to_stage")
             .gte("changed_at", new Date(Date.now() - 7 * 86_400_000).toISOString()),
         ]);
       return { opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves };
@@ -788,10 +791,13 @@ function BoardPage() {
       ),
       movement: movement(
         intel,
-        rows<{ changed_at: string | null }>(data.moves),
+        rows<{ changed_at: string | null; to_stage: string | null }>(data.moves),
         nowDate,
         1,
-        { importedSource: "PHC Quotation List 2022-2026" },
+        {
+          importedSource: "PHC Quotation List 2022-2026",
+          followUps: rows<{ status: string | null; updated_at: string | null }>(data.followUps),
+        },
       ),
       attention: attentionItems(
         intel,
@@ -950,17 +956,17 @@ function BoardPage() {
           <div className="grid grid-cols-[1.55fr_1fr] gap-[0.7vw]">
             <Panel title={lang === "ar" ? "يتطلّب الانتباه" : "Needs attention"} icon="⚠" tone="danger" lang={lang}>
               <div className="grid flex-1 grid-cols-4 gap-[0.6vw]">
-                <Need n={model.pulse.followUpsOverdue} ar="متابعات متأخّرة" en="Follow-ups overdue"
+                <Need icon="🗓" n={model.pulse.followUpsOverdue} ar="متابعات متأخّرة" en="Follow-ups overdue"
                       sub={lang === "ar" ? "مطلوب إجراء اليوم" : "action needed today"} tone="danger" lang={lang} />
-                <Need n={model.pulse.quotationsDueSoon} ar="عروض ≤ 7 أيام" en="Quotations ≤7d"
+                <Need icon="🕐" n={model.pulse.quotationsDueSoon} ar="عروض ≤ 7 أيام" en="Quotations ≤7d"
                       sub={model.pulse.quotationsDueSoon === null
                         ? (lang === "ar" ? "لا تاريخ صلاحية مسجّل" : "no expiry recorded")
                         : (lang === "ar" ? "ردّ خلال المدّة" : "reply within validity")}
                       tone="amber" lang={lang} />
-                <Need n={model.attention.filter((a) => a.priority === "critical").length}
+                <Need icon="🔥" n={model.attention.filter((a) => a.priority === "critical").length}
                       ar="فرص حرجة" en="Critical deals"
                       sub={lang === "ar" ? "قيمة عالية ومتأخّرة" : "high value, overdue"} tone="danger" lang={lang} />
-                <Need n={model.pulse.approvalsPending} ar="موافقات منتظرة" en="Approvals pending"
+                <Need icon="⛔" n={model.pulse.approvalsPending} ar="موافقات منتظرة" en="Approvals pending"
                       sub={model.pulse.oldestApprovalDays === null
                         ? (lang === "ar" ? "لا شيء ينتظر" : "nothing waiting")
                         : (lang === "ar" ? `أقدمها ${formatNumber(model.pulse.oldestApprovalDays, lang)} يومًا` : `oldest ${model.pulse.oldestApprovalDays}d`)}
@@ -1168,15 +1174,18 @@ function BoardPage() {
               <ChipRow
                 // The exact window, where the title says it loosely.
                 kicker={lang === "ar" ? "آخر 24 ساعة" : "Last 24 hours"}
+                cols={5}
                 footer={
                   <span className="text-muted-foreground" style={{ fontSize: "0.62vw" }}>
                     {lang === "ar" ? "الصفوف المستورَدة مستبعَدة من «جديدة»" : "Imported rows excluded from new"}
                   </span>
                 }
               >
-                <Mini n={model.movement.won} value={money(model.movement.wonValue)} ar="صفقات فُزنا بها" en="Won" tone="won" lang={lang} />
-                <Mini n={model.movement.advanced} ar="تقدّمت مرحلة" en="Stage moves" tone="info" lang={lang} />
-                <Mini n={model.movement.newDeals} value={money(model.movement.newValue)} ar="فرص جديدة" en="New deals" tone="amber" lang={lang} />
+                <Mini icon="🏆" n={model.movement.won} value={money(model.movement.wonValue)} ar="صفقات فُزنا بها" en="Won" tone="won" lang={lang} />
+                <Mini icon="📄" n={model.movement.newDeals} value={money(model.movement.newValue)} ar="فرص جديدة" en="New deals" tone="amber" lang={lang} />
+                <Mini icon="🤝" n={model.movement.toBafo} ar="انتقلت إلى BAFO" en="Moved to BAFO" tone="violet" lang={lang} />
+                <Mini icon="⏸" n={model.movement.advanced} ar="تقدّمت مرحلة" en="Stage moves" tone="info" lang={lang} />
+                <Mini icon="✓" n={model.movement.followUpsClosed} ar="متابعات أُغلقت" en="Follow-ups closed" tone="teal" lang={lang} />
               </ChipRow>
             </Panel>
 
@@ -1186,12 +1195,13 @@ function BoardPage() {
                 criticalValue={model.attention
                   .filter((a) => a.priority === "critical")
                   .reduce<number | null>((a, x) => (x.value === null ? a : (a ?? 0) + x.value), null)}
-                overdue={model.pulse.followUpsOverdue}
-                oldestOverdue={model.oldestOverdue}
-                aged={model.standing.openExcludedCount}
-                agedValue={model.standing.openExcludedValue}
-                unvalued={model.standing.openUnvalued}
+                // "no client contact in over N days" is the stalled reason the
+                // attention list already computes, not a second definition.
+                stale={model.attention.filter((a) => a.reasons.includes("stalled")).length}
+                staleAfterDays={7}
                 weighted={model.weighted}
+                target={model.year.target}
+                wonYtd={model.yoy.thisYear}
                 money={money}
                 lang={lang}
               />
@@ -1309,10 +1319,14 @@ function ChipRow({
   kicker,
   footer,
   children,
+  cols = 3,
 }: {
   kicker: string;
   footer?: React.ReactNode;
   children: React.ReactNode;
+  /** How many chips share the row. Five fit where three did; the height is
+   *  fixed either way, so the row still lines up with the panels beside it. */
+  cols?: 3 | 5;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -1322,7 +1336,10 @@ function ChipRow({
       >
         {kicker}
       </span>
-      <div className="grid shrink-0 grid-cols-3 gap-[0.5vw]" style={{ height: CHIP_ROW_H }}>
+      <div
+        className="grid shrink-0 gap-[0.4vw]"
+        style={{ height: CHIP_ROW_H, gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      >
         {children}
       </div>
       <div className="mt-[0.4vh] min-h-0 flex-1">{footer}</div>
@@ -1454,60 +1471,40 @@ function Chip({
  * sentence nobody needs to read twice a day.
  */
 function Pulse({
-  critical, criticalValue, overdue, oldestOverdue, aged, agedValue, unvalued, weighted, money, lang,
+  critical, criticalValue, stale, staleAfterDays, weighted, target, wonYtd, money, lang,
 }: {
   critical: number;
   criticalValue: number | null;
-  overdue: number;
-  oldestOverdue: number | null;
-  aged: number;
-  agedValue: number;
-  unvalued: number;
+  stale: number;
+  staleAfterDays: number;
   weighted: Figure;
+  target: number | null;
+  wonYtd: number;
   money: (n: number | null | undefined) => string | null;
   lang: "ar" | "en";
 }) {
-  const gaps: string[] = [];
-  if (unvalued > 0) {
-    gaps.push(
-      lang === "ar"
-        ? `${formatNumber(unvalued, lang)} فرصة بلا قيمة مسجَّلة`
-        : `${unvalued} deals carry no value`,
-    );
-  }
-  if (weighted.state !== "ok") {
-    gaps.push((lang === "ar" ? weighted.reasonAr : weighted.reasonEn) ?? "");
-  }
+  const lines = pulseSentences(
+    { criticalCount: critical, criticalValue, staleCount: stale, staleAfterDays, weighted, target, wonYtd },
+    lang,
+    (n) => money(n) ?? "",
+  );
 
   return (
-    <ChipRow
-      kicker={lang === "ar" ? "تحرّك الآن" : "Act now"}
-      footer={
-        gaps.length > 0 ? (
-          <span className="text-muted-foreground" style={{ fontSize: "0.62vw" }}>
-            {lang === "ar" ? "ثغرات في التسجيل · " : "Recording gaps · "}
-            {gaps.join(" · ")}
-          </span>
-        ) : null
-      }
-    >
-      {/* Each note is a real second figure, not filler added to match a shape:
-          a count says how many, and the note says how much or how long -- which
-          is what decides whether this is today's problem or this quarter's. */}
-      <Signal n={critical} tone="danger" lang={lang}
-              ar="حرجة اليوم" en="Critical today"
-              note={critical > 0 && criticalValue !== null
-                ? lang === "ar" ? `${money(criticalValue)} معرَّضة` : `${money(criticalValue)} exposed`
-                : null} />
-      <Signal n={overdue} tone="amber" lang={lang}
-              ar="متابعة متأخّرة" en="Follow-ups late"
-              note={oldestOverdue !== null
-                ? lang === "ar" ? `أقدمها ${formatNumber(oldestOverdue, lang)} يومًا` : `oldest ${oldestOverdue} days`
-                : null} />
-      <Signal n={aged} tone="violet" lang={lang}
-              ar="مفتوحة > سنة" en="Open 1 year+"
-              note={aged > 0 && agedValue > 0 ? money(agedValue) : null} />
-    </ChipRow>
+    <div className="flex min-h-0 flex-1 items-start gap-[0.7vw] overflow-hidden">
+      <span aria-hidden="true" className="shrink-0 leading-none text-violet" style={{ fontSize: "1.6vw" }}>
+        &ldquo;
+      </span>
+      {/* A briefing, not an inventory: the chips beside this panel already carry
+          the counts, and a paragraph can say what they mean together. Composed
+          from measured figures -- see pulseSentences for the clauses it will
+          not write. */}
+      <p className="min-w-0 flex-1 self-center text-foreground" style={{ fontSize: "0.86vw", lineHeight: 1.75 }}>
+        {lines.join(" ")}
+      </p>
+      <span aria-hidden="true" className="shrink-0 self-end leading-none text-violet" style={{ fontSize: "1.6vw" }}>
+        &rdquo;
+      </span>
+    </div>
   );
 }
 
@@ -1580,9 +1577,14 @@ function Horizons({
   money: (n: number | null | undefined) => string | null;
 }) {
   const cols = [
-    { key: "d30", f: h.d30, tone: "amber" as const, ar: "30 يومًا", en: "30 days" },
-    { key: "d60", f: h.d60, tone: "violet" as const, ar: "60 يومًا", en: "60 days" },
-    { key: "d90", f: h.d90, tone: "teal" as const, ar: "90 يومًا", en: "90 days" },
+    // Each window means something different, and the caption says which. The
+    // nearest is what you can still affect; the furthest is upside.
+    { key: "d30", f: h.d30, tone: "amber" as const, ar: "30 يومًا", en: "30 days",
+      caption: lang === "ar" ? "مرجّح" : "Weighted" },
+    { key: "d60", f: h.d60, tone: "violet" as const, ar: "60 يومًا", en: "60 days",
+      caption: lang === "ar" ? "الأكثر ترجيحًا" : "Most likely" },
+    { key: "d90", f: h.d90, tone: "teal" as const, ar: "90 يومًا", en: "90 days",
+      caption: lang === "ar" ? "فرصة إضافية محتملة" : "Potential upside" },
   ];
   const shared = sharedReason([h.d30, h.d60, h.d90], lang);
 
@@ -1622,33 +1624,32 @@ function Horizons({
             ? lang === "ar" ? "لا ينطبق" : "Not applicable"
             : lang === "ar" ? "لا يمكن حسابه" : "Not calculated";
         return (
-          <Chip
-            key={c.key}
-            tone={c.tone}
-            lang={lang}
-            // The em dash used to float in an empty 32.6px band above the text.
-            // Beside a filled text column it reads as what it is: the slot where
-            // the number goes, and no number.
-            figure={
-              ok ? (
-                <span className={`num font-bold leading-none tracking-[-0.02em] ${TONE[c.tone].text}`} style={{ fontSize: CHIP_FIGURE }} data-tabular="true">
-                  {money(c.f.value)}
-                </span>
-              ) : (
-                <span className="num font-bold leading-none text-muted-foreground" style={{ fontSize: CHIP_FIGURE }}>—</span>
-              )
-            }
-            label={
-              <span className={`w-full truncate font-semibold ${TONE[c.tone].text}`} style={{ fontSize: CHIP_LABEL }}>
-                {lang === "ar" ? c.ar : c.en}
+          // No chip box here, unlike the two panels beside it. The reference
+          // design shows three plain figures, and it is right: these are the
+          // one row on the board that is read as a series -- 30 to 60 to 90 --
+          // and three bordered boxes read as three separate facts.
+          <div key={c.key} className="flex min-w-0 flex-col items-center justify-center overflow-hidden text-center">
+            <span className={`font-semibold ${TONE[c.tone].text}`} style={{ fontSize: "0.7vw" }}>
+              {lang === "ar" ? c.ar : c.en}
+            </span>
+            {ok ? (
+              <span
+                className={`num mt-[0.3vh] w-full truncate font-bold leading-none tracking-[-0.02em] ${TONE[c.tone].text}`}
+                style={{ fontSize: "1.9vw" }}
+                data-tabular="true"
+              >
+                {money(c.f.value)}
               </span>
-            }
-            note={
-              <span className="w-full truncate text-muted-foreground" style={{ fontSize: CHIP_NOTE }}>
-                {ok ? (lang === "ar" ? "متوقّع" : "expected") : state}
+            ) : (
+              // An em dash, not a zero. Nothing was measured here.
+              <span className="num mt-[0.3vh] font-bold leading-none text-muted-foreground" style={{ fontSize: "1.9vw" }}>
+                —
               </span>
-            }
-          />
+            )}
+            <span className="mt-[0.2vh] w-full truncate text-muted-foreground" style={{ fontSize: "0.6vw" }}>
+              {ok ? c.caption : state}
+            </span>
+          </div>
         );
       })}
     </ChipRow>
@@ -1803,8 +1804,10 @@ function Panel({
 
 /** One "needs attention" figure. `null` means the input does not exist. */
 function Need({
-  n, ar, en, sub, tone, lang,
+  n, ar, en, sub, tone, lang, icon,
 }: {
+  /** Every figure on this board carries one; these four were the exception. */
+  icon: string;
   n: number | null;
   ar: string;
   en: string;
@@ -1819,6 +1822,16 @@ function Need({
               style={{ fontSize: n === null ? "1.2vw" : "2.5vw" }}>
           {n === null ? (lang === "ar" ? "لا بيانات" : "No data") : formatNumber(n, lang)}
         </span>
+          <span
+            aria-hidden="true"
+            className="grid shrink-0 place-items-center rounded-[0.35vw]"
+            style={{
+              width: "1.5vw", height: "1.5vw", fontSize: "0.8vw",
+              background: TONE[tone].wash, color: TONE[tone].edge,
+            }}
+          >
+            {icon}
+          </span>
           <span className="min-w-0 truncate font-semibold text-foreground" style={{ fontSize: "0.8vw" }}>
             {lang === "ar" ? ar : en}
           </span>
@@ -1842,9 +1855,11 @@ function Need({
  * would be the board congratulating itself on a dead week.
  */
 function Mini({
-  n, value, ar, en, tone, lang,
+  n, value, ar, en, tone, lang, icon,
 }: {
   n: number;
+  /** Shown above the figure, as in the reference design. */
+  icon?: string;
   value?: string | null;
   ar: string;
   en: string;
@@ -1857,12 +1872,17 @@ function Mini({
       tone={tone}
       lang={lang}
       figure={
-        <span
-          className={`num font-bold leading-none ${moved ? TONE[tone].text : "text-muted-foreground"}`}
-          style={{ fontSize: CHIP_FIGURE }}
-          data-tabular="true"
-        >
-          {moved ? "+" : ""}{formatNumber(n, lang)}
+        <span className="flex flex-col items-center gap-[0.1vh]">
+          {icon ? (
+            <span aria-hidden="true" className={TONE[tone].text} style={{ fontSize: "0.72vw" }}>{icon}</span>
+          ) : null}
+          <span
+            className={`num font-bold leading-none ${moved ? TONE[tone].text : "text-muted-foreground"}`}
+            style={{ fontSize: CHIP_FIGURE }}
+            data-tabular="true"
+          >
+            {moved ? "+" : ""}{formatNumber(n, lang)}
+          </span>
         </span>
       }
       label={

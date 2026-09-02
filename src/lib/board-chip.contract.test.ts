@@ -31,21 +31,32 @@ describe("the two chip grids stay the same size", () => {
   });
 
   it("declares the chip row in exactly one place", () => {
-    // Three identical rows would pass a per-row check and still drift, because
-    // nothing forces the next edit to touch all three. There is one row.
-    const rows = BOARD.match(/<div className="grid[^"]*grid-cols-3 gap-\[0\.5vw\]"[^>]*>/g) ?? [];
+    // Identical rows would pass a per-row check and still drift, because
+    // nothing forces the next edit to touch them all. There is one row.
+    //
+    // The column count became a prop on 2026-09-02, when "changed since
+    // yesterday" went to five tiles to match the reference design. The HEIGHT
+    // did not, which is the property that kept the three panels level -- so
+    // that is what is still pinned here.
+    const rows = BOARD.match(/<div\s+className="grid shrink-0 gap-\[[\d.]+vw\]"[\s\S]{0,220}?>/g) ?? [];
     expect(rows.length).toBe(1);
     expect(rows[0]).toContain("height: CHIP_ROW_H");
+    expect(rows[0]).toContain("gridTemplateColumns");
     // `flex-1` is precisely how they diverged: it hands the row whatever the
     // panel has left, which is a different number in each panel.
     expect(rows[0]).not.toContain("flex-1");
   });
 
-  it("routes all three panels through ChipRow, and every chip through Chip", () => {
+  it("routes the chip panels through ChipRow, and every chip through Chip", () => {
     // Alignment came from the kicker slot and the row living in one component.
     // A panel that hand-rolls either one goes back to starting 26px lower.
-    expect((BOARD.match(/<ChipRow\b/g) ?? []).length).toBe(3);
-    expect((BOARD.match(/<Chip\b(?!Row)/g) ?? []).length).toBe(3);
+    //
+    // Two, not three: the forecast panel stopped using chips on 2026-09-02.
+    // The reference design shows three plain figures there, and it is right --
+    // 30 / 60 / 90 is read as one series, and three bordered boxes read as
+    // three separate facts.
+    expect((BOARD.match(/<ChipRow\b/g) ?? []).length).toBe(2);
+    expect((BOARD.match(/<Chip\b(?!Row)/g) ?? []).length).toBe(2);
     // The inset ring is the chip's own chrome; nothing outside Chip draws it.
     expect((BOARD.match(/inset 0 0 0 1px/g) ?? []).length).toBe(1);
     // The kicker slot is what holds the three rows level; one declaration.
@@ -54,7 +65,7 @@ describe("the two chip grids stay the same size", () => {
 
   it("sizes every chip figure from the constant, never a literal", () => {
     const figures = BOARD.match(/fontSize: CHIP_FIGURE/g) ?? [];
-    expect(figures.length).toBeGreaterThanOrEqual(3);
+    expect(figures.length).toBeGreaterThanOrEqual(2);
   });
 });
 

@@ -479,6 +479,10 @@ export type Movement = {
   newDeals: number;
   /** What the new deals are worth. Zero when none of them carries a value. */
   newValue: number;
+  /** Moved INTO the BAFO stage in the window -- the step that decides a price. */
+  toBafo: number;
+  /** Follow-ups completed in the window. */
+  followUpsClosed: number;
 };
 
 /**
@@ -492,10 +496,13 @@ export type Movement = {
  */
 export function movement(
   opps: readonly IntelOpp[],
-  transitions: ReadonlyArray<{ changed_at: string | null }>,
+  transitions: ReadonlyArray<{ changed_at: string | null; to_stage?: string | null }>,
   now: Date,
   days = 1,
-  opts: { importedSource?: string } = {},
+  opts: {
+    importedSource?: string;
+    followUps?: ReadonlyArray<{ status?: string | null; updated_at?: string | null }>;
+  } = {},
 ): Movement {
   const since = new Date(now.getTime() - days * 86_400_000).toISOString();
   const src = opts.importedSource;
@@ -513,6 +520,15 @@ export function movement(
     ).length,
     newDeals: fresh.length,
     newValue: sumOpportunityValue(fresh as never).total,
+    // Counted from the transition rows, not guessed from a stage snapshot: a
+    // deal sitting in BAFO today may have arrived there last month, and "moved
+    // to BAFO since yesterday" is a different claim from "is in BAFO".
+    toBafo: transitions.filter(
+      (t) => (t.changed_at ?? "") >= since && (t.to_stage ?? "") === "jih_bafo",
+    ).length,
+    followUpsClosed: (opts.followUps ?? []).filter(
+      (f) => f.status === "completed" && (f.updated_at ?? "") >= since,
+    ).length,
   };
 }
 
@@ -648,4 +664,85 @@ export function oldestOverdueDays(dueDates: (string | null)[], now: Date): numbe
     if (worst === null || days > worst) worst = days;
   }
   return worst;
+}
+
+// =============================================================================
+// The pulse, as a sentence.
+//
+// The reference design shows this panel as a short written summary in quotation
+// marks, not as a row of chips. That is the right shape for it: the chips beside
+// it already carry counts, and a paragraph can say what the counts MEAN
+// together -- "three deals worth 11.2M need attention this week, two of them
+// have had no client contact in over a week" is a briefing; "13 / 3 / 237" is
+// an inventory.
+//
+// It is composed, never invented. Every clause is a fact this system measured,
+// each one is omitted when its input is absent rather than softened into a
+// guess, and when nothing can be said the panel says that instead of filling
+// the space. A screen that writes plausible sentences about data it does not
+// have is worse than a blank one, because a blank one is obviously blank.
+// =============================================================================
+
+export type PulseInput = {
+  criticalCount: number;
+  criticalValue: number | null;
+  staleCount: number;
+  staleAfterDays: number;
+  weighted: Figure;
+  target: number | null;
+  wonYtd: number;
+};
+
+export function pulseSentences(
+  p: PulseInput,
+  lang: "ar" | "en",
+  money: (n: number) => string,
+): string[] {
+  const ar = lang === "ar";
+  const out: string[] = [];
+
+  if (p.criticalCount > 0) {
+    const worth = p.criticalValue !== null ? (ar ? ` بقيمة ${money(p.criticalValue)}` : ` worth ${money(p.criticalValue)}`) : "";
+    out.push(
+      ar
+        ? `${p.criticalCount} فرصة${worth} تحتاج إلى تحرّك اليوم.`
+        : `${p.criticalCount} ${p.criticalCount === 1 ? "deal" : "deals"}${worth} need action today.`,
+    );
+  }
+
+  if (p.staleCount > 0) {
+    out.push(
+      ar
+        ? `${p.staleCount} منها بلا أي تفاعل مع العميل منذ أكثر من ${p.staleAfterDays} أيام.`
+        : `${p.staleCount} of them have had no client contact in over ${p.staleAfterDays} days.`,
+    );
+  }
+
+  // The forecast clause only when there IS a forecast. Saying "the current
+  // forecast is below target" while the forecast cannot be computed would be
+  // asserting the very thing the board refuses to assert everywhere else.
+  if (p.weighted.state === "ok" && p.weighted.value !== null && p.target && p.target > 0) {
+    const short = p.weighted.value < p.target;
+    out.push(
+      ar
+        ? short
+          ? `والتوقّع المرجّح ${money(p.weighted.value)} — دون الهدف السنوي.`
+          : `والتوقّع المرجّح ${money(p.weighted.value)} — عند الهدف السنوي أو فوقه.`
+        : short
+          ? `The weighted forecast is ${money(p.weighted.value)}, below the annual target.`
+          : `The weighted forecast is ${money(p.weighted.value)}, at or above the annual target.`,
+    );
+  } else if (p.weighted.state !== "ok") {
+    const why = (ar ? p.weighted.reasonAr : p.weighted.reasonEn) ?? "";
+    if (why) {
+      out.push(
+        ar ? `ولا يمكن حساب التوقّع بعد: ${why}.` : `The forecast cannot be computed yet: ${why}.`,
+      );
+    }
+  }
+
+  if (out.length === 0) {
+    out.push(ar ? "لا شيء يحتاج تحرّكًا اليوم." : "Nothing needs action today.");
+  }
+  return out;
 }

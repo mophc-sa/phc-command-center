@@ -20,6 +20,7 @@ import {
   wireItems,
   sharedReason,
   oldestOverdueDays,
+  pulseSentences,
   type IntelOpp,
 } from "@/lib/board-intel";
 
@@ -512,5 +513,63 @@ describe("new deals carry a value too", () => {
     const m = movement([opp({ id: "a", created_at: "2026-08-31" })], [], NOW, 7);
     expect(m.newDeals).toBe(1);
     expect(m.newValue).toBe(0);
+  });
+});
+
+describe("the pulse writes a briefing, and only from what it measured", () => {
+  const sar = (n: number) => `SAR ${(n / 1e6).toFixed(1)}M`;
+  const base = {
+    criticalCount: 0, criticalValue: null, staleCount: 0, staleAfterDays: 7,
+    weighted: { value: null, state: "no_data", reasonEn: "No probability entered" } as import("@/lib/board-intel").Figure,
+    target: null, wonYtd: 0,
+  };
+
+  it("says what needs doing, with what it is worth", () => {
+    const s = pulseSentences({ ...base, criticalCount: 3, criticalValue: 11_200_000 }, "en", sar);
+    expect(s[0]).toBe("3 deals worth SAR 11.2M need action today.");
+  });
+
+  it("leaves out the value when nothing carries one", () => {
+    // "3 deals worth SAR 0.0M" is a sentence that reads as a fact and is not.
+    expect(pulseSentences({ ...base, criticalCount: 3 }, "en", sar)[0])
+      .toBe("3 deals need action today.");
+  });
+
+  it("does not claim the forecast is short while it cannot be computed", () => {
+    // The clause the reference design shows -- "the forecast is still below
+    // what the annual target needs" -- asserts exactly what this board refuses
+    // to assert everywhere else when no probability exists.
+    const s = pulseSentences({ ...base, criticalCount: 1, target: 25_000_000 }, "en", sar);
+    expect(s.join(" ")).not.toContain("below the annual target");
+    expect(s.join(" ")).toContain("cannot be computed yet");
+  });
+
+  it("does say it once the forecast is real", () => {
+    const s = pulseSentences({
+      ...base, criticalCount: 1,
+      weighted: { value: 18_400_000, state: "ok" },
+      target: 25_000_000,
+    }, "en", sar);
+    expect(s.join(" ")).toContain("below the annual target");
+  });
+
+  it("does not call a forecast short when it is not", () => {
+    const s = pulseSentences({
+      ...base, criticalCount: 1,
+      weighted: { value: 30_000_000, state: "ok" },
+      target: 25_000_000,
+    }, "en", sar);
+    expect(s.join(" ")).toContain("at or above");
+  });
+
+  it("says nothing needs doing rather than filling the space", () => {
+    // A panel that writes plausible prose about data it does not have is worse
+    // than a blank one, because a blank one is obviously blank.
+    expect(pulseSentences({ ...base, weighted: { value: null, state: "ok" } }, "en", sar))
+      .toEqual(["Nothing needs action today."]);
+  });
+
+  it("counts one deal as a deal", () => {
+    expect(pulseSentences({ ...base, criticalCount: 1 }, "en", sar)[0]).toContain("1 deal need");
   });
 });
