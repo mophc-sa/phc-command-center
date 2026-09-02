@@ -1,6 +1,13 @@
 import { createFileRoute, useNavigate, type SearchSchemaInput } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useWindowedList } from "@/lib/windowed-list";
+import {
+  initialSearchBox,
+  needsCommit,
+  onCommit,
+  onType,
+  onUrlChange,
+} from "@/lib/search-box";
 import { ListWindowFooter } from "@/components/phc/ListWindowFooter";
 import { useQuery } from "@tanstack/react-query";
 import { Search, LayoutGrid, Rows3, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
@@ -85,7 +92,33 @@ function OppList() {
   // silently drops the owner or date range a drilldown arrived with.
   const patch = (next: Partial<ReturnType<typeof parseOpportunitySearch>>) =>
     navigate({ to: ".", search: { ...routeSearch, ...next }, replace: true });
-  const setSearch = (v: string) => patch({ q: v });
+  // The search box keeps a draft of its own. Bound straight to `routeSearch.q`,
+  // it re-rendered from the URL between keystrokes -- navigation is async -- and
+  // dropped characters; Enter did nothing at all. See search-box.ts.
+  const [box, setBox] = useState(() => initialSearchBox(search));
+  const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const commitSearch = (b: typeof box) => {
+    const next = onCommit(b);
+    setBox(next);
+    if (next !== b) patch({ q: next.committed });
+  };
+
+  // A change that did not come from this box -- a drilldown link, Clear
+  // filters, the back button -- replaces the draft. Our own value echoing back
+  // does not, or a commit still in flight would erase letters typed after it.
+  useEffect(() => {
+    setBox((b) => onUrlChange(b, search));
+  }, [search]);
+
+  // Still filters as you type; it just no longer navigates once per keystroke.
+  useEffect(() => {
+    if (!needsCommit(box)) return;
+    commitTimer.current = setTimeout(() => commitSearch(box), 250);
+    return () => { if (commitTimer.current) clearTimeout(commitTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [box.draft]);
+
   const setStage  = (v: string) => patch({ stage: v });
   const setTier   = (v: string) => patch({ tier: v });
   const setView   = (v: "cards" | "cards" | "table") => patch({ view: v as "cards" | "table" });
@@ -280,8 +313,19 @@ function OppList() {
         <div className="relative min-w-0 w-full flex-1 sm:max-w-sm">
           <Search className="absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={box.draft}
+            onChange={(e) => setBox((b) => onType(b, e.target.value))}
+            onKeyDown={(e) => {
+              // Enter commits now instead of waiting out the debounce, which is
+              // what pressing it is for. Escape clears the box.
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (commitTimer.current) clearTimeout(commitTimer.current);
+                commitSearch(box);
+              } else if (e.key === "Escape") {
+                setBox((b) => onType(b, ""));
+              }
+            }}
             placeholder={t("filter_search")}
             className="h-9 w-full rounded-md bg-transparent pe-3 ps-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
