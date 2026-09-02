@@ -279,6 +279,7 @@ export const strings = {
   label_role: { en: "Role", ar: "الدور" },
   stake_add_contact: { en: "Add contact person", ar: "إضافة جهة اتصال" },
   stake_contact_added: { en: "Contact added", ar: "أُضيفت جهة الاتصال" },
+  ibx_company_references: { en: "PHC has {n} past project(s) for this client — check the Reference Library.", ar: "لدى PHC {n} مشروعًا سابقًا لهذا العميل — راجع مكتبة المراجع." },
   ibx_company_known: { en: "Already on file — this will link to the existing account.", ar: "مسجّلة مسبقًا — سيُربط بالحساب القائم." },
   ibx_project_known: { en: "A project with this name already exists.", ar: "يوجد مشروع بهذا الاسم." },
   ibx_saab_portal: { en: "Client uses the SAAB ARABIA portal", ar: "العميل يستخدم بوابة SAAB ARABIA" },

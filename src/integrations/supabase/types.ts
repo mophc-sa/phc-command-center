@@ -4421,6 +4421,8 @@ export type Database = {
           project_stage: Database["public"]["Enums"]["project_stage"]
           quotation_value: number | null
           sales_stage: Database["public"]["Enums"]["sales_stage"] | null
+          saab_portal: boolean
+          completion_pct: number | null
           score: number | null
           score_confidence:
             | Database["public"]["Enums"]["confidence_level"]
@@ -4518,6 +4520,8 @@ export type Database = {
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
           sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
+          saab_portal?: boolean
+          completion_pct?: number | null
           score?: number | null
           score_confidence?:
             | Database["public"]["Enums"]["confidence_level"]
@@ -4615,6 +4619,8 @@ export type Database = {
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
           sales_stage?: Database["public"]["Enums"]["sales_stage"] | null
+          saab_portal?: boolean
+          completion_pct?: number | null
           score?: number | null
           score_confidence?:
             | Database["public"]["Enums"]["confidence_level"]

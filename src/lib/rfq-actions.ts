@@ -112,6 +112,16 @@ export async function createRfqWithOpportunity(input: {
   documentUrl?: string | null;
   projectId?: string | null;
   location?: string | null;
+  /**
+   * Carried from intake, not asked again.
+   *
+   * An intake item is a doorway. Once it routes, the record people work is the
+   * opportunity, and a field that dies at the doorway is a field nobody asked
+   * for. NULL stays NULL: a project with no percentage is one nobody reported
+   * on, which is not a project at 0%.
+   */
+  saabPortal?: boolean | null;
+  completionPct?: number | null;
 }) {
   const uid = await currentUserId();
 
@@ -162,6 +172,10 @@ export async function createRfqWithOpportunity(input: {
       // §25.3 "Classify it as Tender or JIH". A tender-track RFQ is one where
       // the contractor is still bidding, so it is not a direct RFQ.
       flow_type: input.opportunityType === "tender" ? "manual" : "direct_rfq",
+      // `?? null` and not `?? 0`: a project nobody reported on is not a project
+      // that has not started.
+      saab_portal: input.saabPortal ?? false,
+      completion_pct: input.completionPct ?? null,
     })
     .select("id").single();
   if (oppErr) throw oppErr;

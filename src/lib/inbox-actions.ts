@@ -553,6 +553,12 @@ export async function convertInboxToRfq(id: Uuid, input: {
     documentUrl: item.evidence_url ?? null,
     projectId: input.projectId ?? null,
     estimatedValue: input.estimatedValue ?? item.estimated_value ?? null,
+    // Carried, not asked again. Both decide how the deal is worked AFTER
+    // intake -- completion decides who to call first, and the portal decides
+    // how the quotation is submitted -- so leaving them on the archived intake
+    // row would be leaving them where nobody looks.
+    saabPortal: item.saab_portal ?? false,
+    completionPct: item.completion_pct ?? null,
   });
 
   // Point the intake item at the opportunity: that is the record the user
