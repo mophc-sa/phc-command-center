@@ -1,4 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { composePhone, isUsablePhone, localPart, SAUDI_PREFIX } from "@/lib/phone-entry";
+import {
+  draftAgeMinutes,
+  draftKey as makeDraftKey,
+  draftPayload,
+  hasContent,
+  readDraft,
+} from "@/lib/form-draft";
 import {
   validateDateBounds,
   dateBoundsErrorKey,
@@ -32,7 +41,9 @@ import { cn } from "@/lib/utils";
 export type DialogField =
   | {
       key: string;
-      type: "text" | "textarea" | "date" | "checkbox";
+      // "phone" is a text box with a +966 chip in front of it. See
+      // phone-entry.ts -- the prefix is a default, not a cage.
+      type: "text" | "textarea" | "date" | "checkbox" | "phone";
       label: string;
       placeholder?: string;
       required?: boolean;
@@ -74,6 +85,15 @@ export type DialogField =
       defaultValue?: string;
     };
 
+/** "3 minutes ago" / "2 days ago" -- the age matters more than the timestamp. */
+function draftAgeLabel(minutes: number, t: (k: never) => string): string {
+  if (minutes < 1) return t("draft_age_now" as never);
+  if (minutes < 60) return `${minutes} ${t("draft_age_minutes" as never)}`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ${t("draft_age_hours" as never)}`;
+  return `${Math.floor(hours / 24)} ${t("draft_age_days" as never)}`;
+}
+
 export function ActionDialog({
   open,
   onOpenChange,
@@ -83,6 +103,7 @@ export function ActionDialog({
   submitLabel,
   destructive,
   onSubmit,
+  draftId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -92,6 +113,14 @@ export function ActionDialog({
   submitLabel: string;
   destructive?: boolean;
   onSubmit: (values: Record<string, string>) => Promise<void> | void;
+  /**
+   * Give a form an id and it keeps what was typed into it.
+   *
+   * Reported 2026-09-02: leaving a half-filled entry form loses everything. The
+   * draft is per person (the key carries the user id), announced rather than
+   * restored silently, and discardable in one click. See form-draft.ts.
+   */
+  draftId?: string;
 }) {
   const { t, dir } = useI18n();
   const [values, setValues] = useState<Record<string, string>>({});
@@ -100,6 +129,9 @@ export function ActionDialog({
   const [uploading, setUploading] = useState(false);
   const [extraOptions, setExtraOptions] = useState<Record<string, { value: string; label: string }[]>>({});
   const [creating, setCreating] = useState<string | null>(null);
+  const { user } = useAuth();
+  const storageKey = draftId ? makeDraftKey(user?.id, draftId) : null;
+  const [restoredAt, setRestoredAt] = useState<number | null>(null);
 
   // `fields` is rebuilt inline by every caller (e.g. `fields={newIntakeFields(...)}`),
   // so its identity changes on every parent render. Keeping it in a ref lets the
@@ -117,15 +149,62 @@ export function ActionDialog({
   // Reported from the field 2026-08-05; it affected every dialog in the app, and
   // made spec §45-1 ("create a new RFQ in under two minutes") unachievable.
   const wasOpen = useRef(false);
+  const defaultsRef = useRef<Record<string, string>>({});
   useEffect(() => {
     if (open && !wasOpen.current) {
       const seed: Record<string, string> = {};
       for (const f of fieldsRef.current) seed[f.key] = "defaultValue" in f ? (f.defaultValue ?? "") : "";
+      defaultsRef.current = { ...seed };
+
+      // A draft is layered ON TOP of the defaults, never instead of them: a
+      // field the user never reached still gets its seeded value.
+      let restored: number | null = null;
+      if (storageKey) {
+        try {
+          const d = readDraft(localStorage.getItem(storageKey), Date.now());
+          if (d) {
+            Object.assign(seed, d.values);
+            restored = d.savedAt;
+          }
+        } catch {
+          // Private windows and blocked site data throw on access. A form that
+          // cannot open because of a draft is worse than one that lost it.
+        }
+      }
       setValues(seed);
+      setRestoredAt(restored);
       setErrors({});
     }
     wasOpen.current = open;
-  }, [open]);
+  }, [open, storageKey]);
+
+  // Written on every change while the dialog is open. Only what the user
+  // actually typed -- see draftPayload for why defaults are excluded.
+  useEffect(() => {
+    if (!open || !storageKey) return;
+    const payload = draftPayload(values, defaultsRef.current);
+    try {
+      if (hasContent(payload)) {
+        localStorage.setItem(storageKey, JSON.stringify({ values: payload, savedAt: Date.now() }));
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+    } catch {
+      // Storage full, or disabled. Losing the draft is the old behaviour, not
+      // a new failure, and it must not take the form down with it.
+    }
+  }, [values, open, storageKey]);
+
+  const clearDraft = () => {
+    if (!storageKey) return;
+    try { localStorage.removeItem(storageKey); } catch { /* see above */ }
+  };
+
+  const discardDraft = () => {
+    clearDraft();
+    setValues({ ...defaultsRef.current });
+    setRestoredAt(null);
+  };
 
   function clearFieldError(key: string) {
     setErrors((prev) => {
@@ -151,6 +230,12 @@ export function ActionDialog({
         const res = validateDateBounds(values[f.key]);
         if (!res.ok) newErrors[f.key] = t(dateBoundsErrorKey(res.reason));
       }
+      // A phone that was typed must be dialable. An empty one is the required
+      // check's business, not this one's -- two errors on one field would be
+      // the form arguing with itself.
+      if (f.type === "phone" && values[f.key] && !isUsablePhone(values[f.key])) {
+        newErrors[f.key] = t("dialog_phone_invalid");
+      }
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -160,6 +245,10 @@ export function ActionDialog({
     setBusy(true);
     try {
       await onSubmit(values);
+      // Only here. A failed submit keeps the draft, which is the moment it is
+      // most needed.
+      clearDraft();
+      setRestoredAt(null);
       onOpenChange(false);
     } finally {
       setBusy(false);
@@ -188,6 +277,28 @@ export function ActionDialog({
             <DialogDescription className="sr-only">{title}</DialogDescription>
           )}
         </DialogHeader>
+
+        {/* Never a silent restore. Repopulating a form without saying so is a
+            way to file last week's answers under today's date. */}
+        {restoredAt !== null ? (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-amber/40 bg-amber/10 px-3 py-2">
+            <span className="text-xs text-foreground">
+              {t("draft_restored")}
+              {" · "}
+              <span className="text-muted-foreground">
+                {draftAgeLabel(draftAgeMinutes(restoredAt, Date.now()), t)}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {t("draft_discard")}
+            </button>
+          </div>
+        ) : null}
+
         <div className={cn("grid gap-4 overflow-y-auto py-2", isWide && "sm:grid-cols-2 max-h-[55vh] pe-1")}>
           {fields.map((f) => (
             <div key={f.key} className={cn("grid gap-1.5", isWide && (f.type === "textarea" || f.type === "file" || f.type === "file_or_url") && "sm:col-span-2")}>
@@ -341,6 +452,37 @@ export function ActionDialog({
                     ))}
                   </SelectContent>
                 </Select>
+              ) : f.type === "phone" ? (
+                // The chip is a label, not a value: what gets stored always
+                // carries its own country code, so a number is never ambiguous
+                // once it leaves this box.
+                <div className={cn(
+                  "flex items-center gap-2 rounded-md border bg-transparent ps-2",
+                  errors[f.key] ? "border-destructive" : "border-input",
+                )}>
+                  {localPart(values[f.key] ?? "").showsPrefix ? (
+                    <span className="num shrink-0 select-none text-sm text-muted-foreground" data-tabular="true">
+                      {SAUDI_PREFIX}
+                    </span>
+                  ) : null}
+                  <Input
+                    id={f.key}
+                    type="tel"
+                    inputMode="tel"
+                    dir="ltr"
+                    className="num border-0 px-0 shadow-none focus-visible:ring-0"
+                    data-tabular="true"
+                    value={localPart(values[f.key] ?? "").text}
+                    placeholder={"placeholder" in f ? f.placeholder : "5X XXX XXXX"}
+                    aria-required={f.required ?? undefined}
+                    aria-invalid={errors[f.key] ? true : undefined}
+                    aria-describedby={errors[f.key] ? `${f.key}-err` : undefined}
+                    onChange={(e) => {
+                      setValues((v) => ({ ...v, [f.key]: composePhone(e.target.value) }));
+                      clearFieldError(f.key);
+                    }}
+                  />
+                </div>
               ) : (
                 <Input
                   id={f.key}

@@ -46,16 +46,34 @@ async function code(): Promise<string> {
 }
 
 describe("the seeding effect", () => {
-  test("depends on `open` alone — never on `fields`", async () => {
+  test("depends only on stable primitives — never on `fields`", async () => {
     const src = await code();
     // The exact dependency array that caused the wipe.
     expect(src).not.toContain("[open, fields]");
 
-    // Locate the seeding effect and assert its dependency array.
+    // Locate the seeding effect and read its dependency array.
     const idx = src.indexOf("setValues(seed)");
     expect(idx).toBeGreaterThan(-1);
     const after = src.slice(idx, idx + 400);
-    expect(after).toMatch(/\}, \[open\]\)/);
+    const deps = after.match(/\}, \[([^\]]*)\]\)/);
+    expect(deps).not.toBeNull();
+
+    // This said `[open]` exactly until 2026-09-02, when draft restore added
+    // `storageKey`. The literal was the wrong thing to pin: what caused the
+    // wipe was not the LENGTH of the array, it was depending on a value whose
+    // IDENTITY changes on every parent render. `fields` is rebuilt inline by
+    // every caller; `storageKey` is a string derived from the user id, so it is
+    // stable across renders and must re-run the effect when it does change --
+    // a different person must never be handed the previous one's draft.
+    //
+    // So the rule is stated as the rule: only stable primitives, and never
+    // anything whose identity is recreated per render.
+    const ALLOWED = new Set(["open", "storageKey"]);
+    const names = deps![1].split(",").map((d) => d.trim()).filter(Boolean);
+    expect(names.length).toBeGreaterThan(0);
+    for (const n of names) {
+      expect([n, ALLOWED.has(n)]).toEqual([n, true]);
+    }
   });
 
   test("seeds on the rising edge only, not on every render while open", async () => {

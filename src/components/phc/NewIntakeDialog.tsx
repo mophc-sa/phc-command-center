@@ -29,13 +29,30 @@ import {
   INBOX_LOCATIONS,
 } from "@/lib/inbox-actions";
 
+// WHAT IS MANDATORY, AND WHY THAT LIST
+//
+// Asked for on 2026-09-02: "the entry form should have required fields such as
+// name, phone, email, and whatever else fits the context."
+//
+// Five, not more. Each one is something the next person cannot do their job
+// without, and nothing is required merely because it would be nice to have:
+//
+//   sourceType    already enforced, and it decides the routing
+//   companyName   an item with no company cannot be matched to an account
+//   contactName   somebody has to be called back
+//   phone         and there has to be a way to call them
+//   projectName   the record's own name; without it the list is unreadable
+//
+// Email is deliberately NOT required. Plenty of contractor site contacts have a
+// phone and no address, and a required email teaches people to type
+// x@x.com -- which is worse than an empty column, because it looks like data.
 export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): DialogField[] {
   return [
     { key: "sourceType", type: "select", label: t("ibx_source_type"), required: true, options: INBOX_SOURCE_TYPES.map((s) => ({ value: s, label: t(`src_${s}`) })) },
     { key: "dateReceived", type: "date", label: t("ibx_date_received"), defaultValue: new Date().toISOString().slice(0, 10) },
-    { key: "companyName", type: "text", label: t("ibx_company_name") },
-    { key: "contactName", type: "text", label: t("ibx_contact_name") },
-    { key: "phone", type: "text", label: t("label_phone") },
+    { key: "companyName", type: "text", label: t("ibx_company_name"), required: true },
+    { key: "contactName", type: "text", label: t("ibx_contact_name"), required: true },
+    { key: "phone", type: "phone", label: t("label_phone"), required: true },
     { key: "email", type: "text", label: t("email") },
     { key: "clientType", type: "select", label: t("ibx_client_type"), options: [{ value: "", label: "—" }, ...INBOX_CLIENT_TYPES.map((c) => ({ value: c, label: t(`ibx_client_type_${c}`) }))] },
     // The routing decision. With a project name alongside it, this is what
@@ -46,7 +63,7 @@ export function newIntakeFields(t: (k: string) => string, teamMembers: any[]): D
     // government/owner pre-award tender has no appointed contractor to quote
     // to yet, which is a different job from chasing a contractor who is bidding.
     { key: "requestType", type: "select", label: t("ibx_request_type"), options: [{ value: "", label: "—" }, ...INTAKE_REQUEST_TYPES.map((r) => ({ value: r, label: t(`ibx_request_type_${r}`) }))] },
-    { key: "projectName", type: "text", label: t("label_project") },
+    { key: "projectName", type: "text", label: t("label_project"), required: true },
     // Project Number intentionally omitted — auto-generated server-side
     // (INT-{year}-{seq}, generate_inbox_project_number() trigger),
     // not typed manually (2026-08-03).
@@ -98,6 +115,8 @@ export function NewIntakeDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={t("ibx_new_item")}
+      // Twenty fields. Losing them to a closed tab is the reported defect.
+      draftId="intake"
       description={t("intake_routes_itself")}
       submitLabel={t("crm_add")}
       fields={newIntakeFields((k) => t(k as never), teamMembers)}

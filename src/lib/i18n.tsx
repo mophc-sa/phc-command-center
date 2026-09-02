@@ -259,6 +259,13 @@ export const strings = {
   doc_unlink: { en: "Detach from this record", ar: "فصل عن هذا السجل" },
   doc_delete: { en: "Remove", ar: "إزالة" },
   doc_title_placeholder: { en: "Title (optional)", ar: "عنوان (اختياري)" },
+  dialog_phone_invalid: { en: "That does not look like a phone number.", ar: "هذا لا يبدو رقم هاتف." },
+  draft_restored: { en: "Restored what you had typed", ar: "استُعيد ما كتبته" },
+  draft_discard: { en: "Start fresh", ar: "ابدأ من جديد" },
+  draft_age_now: { en: "just now", ar: "الآن" },
+  draft_age_minutes: { en: "minutes ago", ar: "دقيقة مضت" },
+  draft_age_hours: { en: "hours ago", ar: "ساعة مضت" },
+  draft_age_days: { en: "days ago", ar: "يوم مضى" },
   doc_err_file_too_large: { en: "File is larger than 25MB.", ar: "حجم الملف يتجاوز 25 ميغابايت." },
   doc_err_file_type_not_allowed: { en: "That file type is not accepted.", ar: "نوع الملف غير مقبول." },
   attachment_unavailable: {
