@@ -1058,9 +1058,9 @@ function BoardPage() {
                   height and pushed the total 12px past the card edge. Flexed
                   rows share whatever the panel has. */}
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.72vw" }}>
+                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.8vw" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "المشروع" : "Project"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "5vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "5.6vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
                   <span className="shrink-0 text-end" style={{ width: "5.2vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span>
                 </div>
 
@@ -1074,7 +1074,7 @@ function BoardPage() {
                       // The count is even, so the stripe pattern survives the
                       // seam where the marquee's second copy begins.
                       className={`flex min-h-0 flex-1 items-center gap-[0.5vw] px-[0.3vw] ${i % 2 === 1 ? "bg-muted" : ""}`}
-                      style={{ fontSize: "1vw" }}
+                      style={{ fontSize: "1.15vw" }}
                     >
                       {/* The rank badge is gone. It cost 1.6vw of a column that
                           was already cramming project names against their
@@ -1083,7 +1083,7 @@ function BoardPage() {
                       <span className="min-w-0 flex-1 truncate text-foreground">
                         {h.projectName}
                       </span>
-                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "5vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "5.6vw" }} data-tabular="true">
                         {money(h.value)}
                       </span>
                       {/* Empty on every row today. A dash is the honest cell, and
@@ -1096,7 +1096,7 @@ function BoardPage() {
                   ))}
                 </AutoScroll>
 
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "1vw" }}>
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "1.15vw" }}>
                   <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-20 total"}</span>
                   <span className="num font-bold text-amber-on-tint" data-tabular="true">
                     {money(model.hot.reduce((a, h) => a + (h.value ?? 0), 0))}
