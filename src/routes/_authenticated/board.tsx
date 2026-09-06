@@ -908,8 +908,11 @@ function BoardPage() {
           // the table row swallowed everything left over and towered over the
           // cards above it.
           style={{
+            // The lists row grew and the headline cards gave it the room: five
+            // big figures need less height than three tables do, and the
+            // tables were the ones running out.
             gridTemplateRows:
-              "minmax(0,1.15fr) minmax(0,1fr) minmax(0,1.25fr) minmax(0,1fr)",
+              "minmax(0,0.9fr) minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr)",
           }}
         >
           <div className="grid grid-cols-5 gap-[0.7vw]">
@@ -1043,51 +1046,43 @@ function BoardPage() {
           money that has to stay readable from across a room; team
           performance is four short rows of initials and figures and was
           holding a third of the width to show them. */}
-          <div className="grid min-h-0 grid-cols-[1.55fr_1.1fr_0.85fr] gap-[0.7vw]">
+          <div className="grid min-h-0 grid-cols-[1.8fr_1.1fr_0.7fr] gap-[0.7vw]">
             <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon={Flame} tone="amber" lang={lang}
                    note={lang === "ar" ? "أعلى 15 حسب القيمة" : "top 15 by value"}>
               {/* Same fix as the pipeline below: the table stacked to its natural
                   height and pushed the total 12px past the card edge. Flexed
                   rows share whatever the panel has. */}
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.62vw" }}>
+                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.68vw" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "المشروع" : "Project"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "6vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "4.4vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "5vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "3.8vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span>
                 </div>
 
                 <AutoScroll className="flex min-h-0 flex-1 flex-col">
                   {model.hot.map((h, i) => (
-                    <div key={h.id} className="flex min-h-0 flex-1 items-center gap-[0.5vw] border-t border-border/50" style={{ fontSize: "0.72vw" }}>
+                    <div key={h.id} className="flex min-h-0 flex-1 items-center gap-[0.5vw] border-t border-border/50" style={{ fontSize: "0.86vw" }}>
+                      {/* The rank badge is gone. It cost 1.6vw of a column that
+                          was already cramming project names against their
+                          values, and the list is sorted by value -- the order
+                          IS the rank, and printing it twice bought nothing. */}
                       <span className="min-w-0 flex-1 truncate text-foreground">
-                        {/* A numbered badge, not a grey digit: this list is
-                            ranked, and rank is the reason the row is here. */}
-                        <span
-                          className="num me-[0.45vw] inline-grid place-items-center rounded-full font-bold text-white align-middle"
-                          data-tabular="true"
-                          style={{
-                            width: "1.15vw", height: "1.15vw", fontSize: "0.6vw",
-                            background: `var(--stage-${Math.min(i + 1, 7)})`,
-                          }}
-                        >
-                          {formatNumber(i + 1, lang)}
-                        </span>
                         {h.projectName}
                       </span>
-                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "6vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "5vw" }} data-tabular="true">
                         {money(h.value)}
                       </span>
                       {/* Empty on every row today. A dash is the honest cell, and
                           the column stays so the first entered figure lands in
                           its place without a code change. */}
-                      <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "4.4vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "3.8vw" }} data-tabular="true">
                         {h.probability === null ? "—" : `${formatNumber(h.probability, lang)}%`}
                       </span>
                     </div>
                   ))}
                 </AutoScroll>
 
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.86vw" }}>
                   <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-15 total"}</span>
                   <span className="num font-bold text-amber-on-tint" data-tabular="true">
                     {money(model.hot.reduce((a, h) => a + (h.value ?? 0), 0))}
@@ -1338,7 +1333,7 @@ function Wire({ items, lang }: { items: string[]; lang: "ar" | "en" }) {
 // Measured on the wall: a stacked chip needs 82px and 7.9vh gave it 71, so the
 // last line of all five was cut. The three bottom panels share this height on
 // purpose, so raising it raises them together and they still line up.
-const CHIP_ROW_H = "9.2vh";
+const CHIP_ROW_H = "9.9vh";
 /** One type scale for both panels, for the same reason as the height. */
 const CHIP_FIGURE = "1.6vw";
 const CHIP_LABEL = "0.64vw";

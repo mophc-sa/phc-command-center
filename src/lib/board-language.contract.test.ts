@@ -15,6 +15,7 @@ import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
 import { readSource } from "@/lib/source-under-test";
 
+const { code: SRC_INTEL } = readSource(join(import.meta.dir, "board-intel.ts"));
 const { code: BOARD } = readSource(
   join(import.meta.dir, "..", "routes", "_authenticated", "board.tsx"),
 );
@@ -58,10 +59,18 @@ describe("the ticker is sized for a room", () => {
 });
 
 describe("the ranked list looks ranked", () => {
-  it("numbers the top opportunities in a coloured badge", () => {
-    // A grey digit beside a project name reads as part of the name. The list
-    // is ranked, and rank is the reason each row is on it.
-    expect(BOARD).toMatch(/background: `var\(--stage-\$\{Math\.min\(i \+ 1, 7\)\}\)`/);
+  it("carries no rank badge, because the order already is the rank", () => {
+    // The badge shipped on 2026-09-02 to stop a grey digit reading as part of
+    // the project name, and it worked. It was removed on 2026-09-06 for a
+    // reason that outranks it: measured on the wall, it cost 1.6vw of a column
+    // that was already pressing project names against their values, and the
+    // list is sorted by value -- printing the rank beside the sort bought a
+    // fact the reader already had.
+    expect(BOARD).not.toMatch(/background: `var\(--stage-\$\{Math\.min\(i \+ 1, 7\)\}\)`/);
+  });
+
+  it("keeps the sort that makes the order mean something", () => {
+    expect(SRC_INTEL).toContain(".sort((a, b) => (b.v as number) - (a.v as number))");
   });
 });
 
