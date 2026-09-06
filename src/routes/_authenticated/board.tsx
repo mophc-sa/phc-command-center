@@ -1280,13 +1280,13 @@ function BoardPage() {
           the text length, so it stays readable rather than racing. */}
       <footer className="flex shrink-0 items-center gap-[1vw] px-[1.2vw] py-[1.1vh]" style={{ background: "var(--ink, #13161b)" }}>
         <span className="shrink-0 rounded-[0.3vw] px-[0.8vw] py-[0.35vh] font-bold text-white"
-              style={{ fontSize: "0.95vw", background: "var(--destructive)" }}>
+              style={{ fontSize: "1.15vw", background: "var(--destructive)" }}>
           {lang === "ar" ? "أخبار المبيعات" : "Sales wire"}
         </span>
         {/* Built from the same figures above -- a wire inventing its own items
             would be a second source of truth nobody could reconcile. */}
         <Wire lang={lang} items={model ? wireItems(model, lang, (n) => money(n) ?? "") : [lang === "ar" ? "جارٍ التحميل" : "Loading"]} />
-        <span className="num shrink-0 text-white/70" style={{ fontSize: "0.95vw" }}>{fmtTime(nowDate)}</span>
+        <span className="num shrink-0 text-white/70" style={{ fontSize: "1.15vw" }}>{fmtTime(nowDate)}</span>
       </footer>
     </div>
   );
@@ -1325,7 +1325,7 @@ function Wire({ items, lang }: { items: string[]; lang: "ar" | "en" }) {
         key={text}
         className="wire-track flex w-max whitespace-nowrap text-white/85"
         style={{
-          fontSize: "1.05vw",
+          fontSize: "1.35vw",
           animation: `${lang === "ar" ? "wire-rtl" : "wire-ltr"} ${seconds}s linear infinite`,
         }}
       >
