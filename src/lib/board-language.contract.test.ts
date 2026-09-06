@@ -147,7 +147,7 @@ describe("every figure on the board carries an icon", () => {
     // had them; these four figures were the exception, so the row read as
     // plainer than everything around it.
     const needs = BOARD.match(/<Need\b/g) ?? [];
-    const withIcon = BOARD.match(/<Need dark icon=\{/g) ?? [];
+    const withIcon = BOARD.match(/<Need icon=\{/g) ?? [];
     expect(needs.length).toBe(4);
     expect(withIcon.length).toBe(needs.length);
   });
@@ -173,64 +173,62 @@ describe("every figure on the board carries an icon", () => {
   });
 
   it("draws every icon at one size per role", () => {
-    // Asked for in the same breath as the icons themselves. 0.8 and 0.85 were
-    // both in use -- a difference nobody can see and every reader can feel,
-    // because it is the kind of drift that makes a grid look hand-placed.
+    // Asked for in the same breath as the icons themselves, and again on
+    // 2026-09-06: "bigger, and with no background". Four icon sizes, each tied
+    // to what it labels -- a headline card, a panel header, an attention
+    // figure, a movement tile. The fifth match is the gauge, which is a chart.
     //
-    // Two icon sizes: one for a headline card, one for everything else. The
-    // third match is the gauge, which is a chart and not an icon.
+    // Pinned exactly rather than counted. "At most five" is what let 0.8 and
+    // 0.85 coexist for a week: a difference nobody can see and every reader
+    // can feel, because it is the drift that makes a grid look hand-placed.
     const sizes = [...new Set((BOARD.match(/h-\[[\d.]+vw\] w-\[[\d.]+vw\]/g) ?? []))];
-    expect(sizes.sort()).toEqual(["h-[0.85vw] w-[0.85vw]", "h-[1.05vw] w-[1.05vw]", "h-[3vw] w-[3vw]"]);
+    expect(sizes.sort()).toEqual([
+      // Lexical, not numeric: "1.35" sorts before "1.3v" because '5' < 'v'.
+      "h-[1.35vw] w-[1.35vw]",
+      "h-[1.3vw] w-[1.3vw]",
+      "h-[1.5vw] w-[1.5vw]",
+      "h-[1.7vw] w-[1.7vw]",
+      "h-[3vw] w-[3vw]",
+    ]);
   });
 });
 
-describe("the dark panel inverts its ink with its ground", () => {
-  it("never leaves foreground text on the dark ground", () => {
-    // Measured against #0f1a26: `text-foreground` is 1.04:1 and
-    // `text-muted-foreground` is 3.63. The first is invisible; the second fails
-    // body text. White is 17.56 and white/70 is 8.61.
-    const at = BOARD.indexOf("function Need({");
-    const body = BOARD.slice(at, BOARD.indexOf("\nfunction ", at + 10));
-    expect(body).toContain('dark ? "text-white"');
-    expect(body).toContain('dark ? "text-white/70"');
+describe("no icon sits on a badge, and the rows alternate", () => {
+  it("carries no tinted square behind any glyph", () => {
+    // Asked for on 2026-09-06: "every icon with no background, and bigger."
+    // The badge was doing two jobs -- carrying the tone and separating the
+    // glyph from the card -- and on a wall screen only the first is worth the
+    // ink. The tone moved onto the glyph itself.
+    expect(BOARD).not.toContain("background: TONE[tone].wash, color: TONE[tone].edge");
+    expect(BOARD).not.toContain("function badgeStyle(");
+    // Nor the dark ground that badge existed to sit on.
+    expect(BOARD).not.toContain("board-dark");
+    expect(BOARD).not.toContain("DARK_GROUND");
   });
 
-  it("declares the ground once, in CSS", () => {
-    expect(BOARD).toContain("board-dark");
-  });
-
-  it("never paints an on-tint ink onto the dark ground", () => {
-    // The inks in TONE are measured for a LIGHT tint. On #0f1a26 they come out
-    // at 3.15:1 (destructive) and 2.84:1 (amber) -- the first fails body text,
-    // the second fails even the 3:1 large-text floor. The wall screen showed
-    // exactly that: a title and two figures nobody could read.
-    //
-    // So every place that would reach for TONE[tone].text must hand the dark
-    // panel white instead, and the tone survives in the badge beside it.
-    //
-    // Scoped to the two components that take `dark`. Every other figure on the
-    // board sits on a light card, where those inks are exactly right -- a
-    // sweep over the whole file would fail on code that has nothing wrong
-    // with it, which is a broken test, not a finding.
-    for (const fn of ["function Panel({", "function Need({"]) {
-      const at = BOARD.indexOf(fn);
-      expect(at).toBeGreaterThan(-1);
-      const body = BOARD.slice(at, BOARD.indexOf("\nfunction ", at + 10));
-      for (const m of body.matchAll(/TONE\[tone\]\.text/g)) {
-        expect(body.slice(Math.max(0, m.index - 40), m.index)).toContain('dark ? "text-white"');
-      }
+  it("keeps the tone on the glyph, so colour still says which kind of thing", () => {
+    // A bare icon that inherits `currentColor` is a grey icon. Every one of
+    // them takes the tone's edge explicitly.
+    const bare = BOARD.match(/<Icon\b[^>]*\/>/gs) ?? [];
+    expect(bare.length).toBeGreaterThan(3);
+    for (const m of bare) {
+      expect([m.slice(0, 40), /TONE\[tone\]\.edge/.test(m)]).toEqual([m.slice(0, 40), true]);
     }
   });
 
-  it("mixes a badge against the ground it sits on, not against --card", () => {
-    // TONE's wash is mixed with --card, the light card. Painted on the dark
-    // panel it stops being a tint and becomes a pale square. A tint is a
-    // relationship between two colours; fixing one of them makes it a tint on
-    // one background only.
-    expect(BOARD).toContain('const DARK_GROUND = "#0f1a26";');
-    expect(BOARD).toContain("function badgeStyle(");
-    // No card-mixed wash may be applied inline any more -- it goes through the
-    // helper, which is the only thing that knows which ground is under it.
-    expect(BOARD).not.toContain("background: TONE[tone].wash, color: TONE[tone].edge");
+  it("bands the rows off one shared function", () => {
+    // Two grounds, chosen once. Measured: --muted is 1.17:1 against the white
+    // card, which reads across a room; --surface-2 is 1.06:1, which is a
+    // difference in the stylesheet and not on the screen.
+    expect(BOARD).toContain('return band ? "bg-muted" : "bg-card";');
+    // And no card paints its own ground behind the helper's back.
+    const cards = BOARD.match(/rounded-\[0\.7vw\] border border-border\/70 bg-card/g) ?? [];
+    expect(cards.length).toBe(0);
+  });
+
+  it("tints the second and fourth rows, and leaves the first and third white", () => {
+    // Five KPI cards white, then the attention row tinted, then the three
+    // lists white, then the bottom three tinted.
+    expect((BOARD.match(/<Panel band /g) ?? []).length).toBe(5);
   });
 });

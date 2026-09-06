@@ -286,27 +286,23 @@ const TONE = {
   teal: { wash: "color-mix(in srgb, var(--teal) 8%, var(--card))", edge: "var(--teal)", text: "text-teal-on-tint" },
 } satisfies Record<string, { wash: string; edge: string; text: string }>;
 
-/** The dark panel's ground. Named once so a tint can be mixed against it. */
-const DARK_GROUND = "#0f1a26";
-
 /**
- * A tone badge, mixed against the surface it actually sits on.
+ * The alternating row ground.
  *
- * `TONE[x].wash` mixes with `--card` -- the LIGHT card. On the dark panel that
- * is not a tint, it is a pale square, and that is what the wall screen showed.
- * A tint is a relationship between two colours; hard-coding one of them means
- * it is only a tint on one background.
+ * Asked for on 2026-09-06: white, then a light grey, then white. Bands are
+ * how a wall of twelve cards stops reading as one field of white -- the eye
+ * gets a horizontal rule it does not have to look for.
  *
- * On dark the glyph lightens instead of darkening. Measured on #0f1a26: every
- * tone's glyph clears 6.1:1 on its own badge and 7.8:1 on the ground, where
- * the light-mode inks manage 3.15 (destructive) and 2.84 (amber).
+ * `--muted` measures 1.17:1 against the white card and 1.06:1 against the page
+ * behind both, which is visible across a room and still leaves body text at
+ * 5.10:1 and figures at 15.41:1. `--surface-2` was the first choice and is
+ * 1.06:1 against white -- a difference that exists in the stylesheet and not
+ * on the screen.
  */
-function badgeStyle(tone: keyof typeof TONE, dark?: boolean) {
-  const c = TONE[tone].edge;
-  return dark
-    ? { background: `color-mix(in srgb, ${c} 24%, ${DARK_GROUND})`, color: `color-mix(in srgb, ${c} 55%, white)` }
-    : { background: TONE[tone].wash, color: c };
+function bandClass(band?: boolean) {
+  return band ? "bg-muted" : "bg-card";
 }
+
 
 /** A headline figure. Big enough to read from across the room. */
 function Hero({
@@ -814,7 +810,12 @@ function BoardPage() {
       weighted,
       coverage: pipelineCoverage(weighted, annual),
       horizon: horizonForecast(intel, nowDate),
-      hot: hotOpportunities(intel, 5),
+      // Twelve, not five. The panel auto-scrolls, and a list that fits its
+      // box has nothing to scroll: five rows sat still while the request was
+      // for movement. Twelve overflows a panel that shows about six, so the
+      // marquee has somewhere to go -- and the footer totals the twelve it
+      // draws rather than a five it no longer shows.
+      hot: hotOpportunities(intel, 12),
       yoy: yearOnYear(opps, nowDate),
       oldestOverdue: oldestOverdueDays(
         rows<{ due_date: string | null }>(data.followUps).map((f) => f.due_date),
@@ -989,19 +990,19 @@ function BoardPage() {
             />
           </div>
           <div className="grid grid-cols-[1.55fr_1fr] gap-[0.7vw]">
-            <Panel dark title={lang === "ar" ? "يتطلّب الانتباه" : "Needs attention"} icon={AlertTriangle} tone="danger" lang={lang}>
+            <Panel band title={lang === "ar" ? "يتطلّب الانتباه" : "Needs attention"} icon={AlertTriangle} tone="danger" lang={lang}>
               <div className="grid flex-1 grid-cols-4 gap-[0.6vw]">
-                <Need dark icon={CalendarClock} n={model.pulse.followUpsOverdue} ar="متابعات متأخّرة" en="Follow-ups overdue"
+                <Need icon={CalendarClock} n={model.pulse.followUpsOverdue} ar="متابعات متأخّرة" en="Follow-ups overdue"
                       sub={lang === "ar" ? "مطلوب إجراء اليوم" : "action needed today"} tone="danger" lang={lang} />
-                <Need dark icon={Clock} n={model.pulse.quotationsDueSoon} ar="عروض ≤ 7 أيام" en="Quotations ≤7d"
+                <Need icon={Clock} n={model.pulse.quotationsDueSoon} ar="عروض ≤ 7 أيام" en="Quotations ≤7d"
                       sub={model.pulse.quotationsDueSoon === null
                         ? (lang === "ar" ? "لا تاريخ صلاحية مسجّل" : "no expiry recorded")
                         : (lang === "ar" ? "ردّ خلال المدّة" : "reply within validity")}
                       tone="amber" lang={lang} />
-                <Need dark icon={Flame} n={model.attention.filter((a) => a.priority === "critical").length}
+                <Need icon={Flame} n={model.attention.filter((a) => a.priority === "critical").length}
                       ar="فرص حرجة" en="Critical deals"
                       sub={lang === "ar" ? "قيمة عالية ومتأخّرة" : "high value, overdue"} tone="danger" lang={lang} />
-                <Need dark icon={CircleX} n={model.pulse.approvalsPending} ar="موافقات منتظرة" en="Approvals pending"
+                <Need icon={CircleX} n={model.pulse.approvalsPending} ar="موافقات منتظرة" en="Approvals pending"
                       sub={model.pulse.oldestApprovalDays === null
                         ? (lang === "ar" ? "لا شيء ينتظر" : "nothing waiting")
                         : (lang === "ar" ? `أقدمها ${formatNumber(model.pulse.oldestApprovalDays, lang)} يومًا` : `oldest ${model.pulse.oldestApprovalDays}d`)}
@@ -1009,7 +1010,7 @@ function BoardPage() {
               </div>
             </Panel>
 
-            <Panel title={lang === "ar" ? "اليوم / الأيام السبعة القادمة" : "Today / next seven days"} icon={CalendarDays} tone="info" lang={lang}>
+            <Panel band title={lang === "ar" ? "اليوم / الأيام السبعة القادمة" : "Today / next seven days"} icon={CalendarDays} tone="info" lang={lang}>
               {model.upcoming === null ? (
                 <div className="flex flex-1 flex-col justify-center gap-[0.4vh]">
                   <span className="font-semibold text-amber-on-tint" style={{ fontSize: "0.95vw" }}>
@@ -1038,9 +1039,13 @@ function BoardPage() {
             </Panel>
           </div>
 
-          <div className="grid min-h-0 grid-cols-3 gap-[0.7vw]">
+          {/* Not three equal columns. Top opportunities is a list of names and
+          money that has to stay readable from across a room; team
+          performance is four short rows of initials and figures and was
+          holding a third of the width to show them. */}
+          <div className="grid min-h-0 grid-cols-[1.55fr_1.1fr_0.85fr] gap-[0.7vw]">
             <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon={Flame} tone="amber" lang={lang}
-                   note={lang === "ar" ? "أعلى 5 حسب القيمة" : "top 5 by value"}>
+                   note={lang === "ar" ? "أعلى 12 حسب القيمة" : "top 12 by value"}>
               {/* Same fix as the pipeline below: the table stacked to its natural
                   height and pushed the total 12px past the card edge. Flexed
                   rows share whatever the panel has. */}
@@ -1083,7 +1088,7 @@ function BoardPage() {
                 </AutoScroll>
 
                 <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
-                  <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-5 total"}</span>
+                  <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-12 total"}</span>
                   <span className="num font-bold text-amber-on-tint" data-tabular="true">
                     {money(model.hot.reduce((a, h) => a + (h.value ?? 0), 0))}
                   </span>
@@ -1205,7 +1210,7 @@ function BoardPage() {
           </div>
 
           <div className="grid min-h-0 grid-cols-3 gap-[0.7vw]">
-            <Panel title={lang === "ar" ? "ما الذي تغيّر منذ الأمس؟" : "Changed since yesterday"} icon={RefreshCw} tone="info" lang={lang}>
+            <Panel band title={lang === "ar" ? "ما الذي تغيّر منذ الأمس؟" : "Changed since yesterday"} icon={RefreshCw} tone="info" lang={lang}>
               <ChipRow
                 // The exact window, where the title says it loosely.
                 kicker={lang === "ar" ? "آخر 24 ساعة" : "Last 24 hours"}
@@ -1230,7 +1235,7 @@ function BoardPage() {
               </ChipRow>
             </Panel>
 
-            <Panel title={lang === "ar" ? "نبض المبيعات بالذكاء الاصطناعي" : "AI sales pulse"} icon={Sparkles} tone="info" lang={lang}>
+            <Panel band title={lang === "ar" ? "نبض المبيعات بالذكاء الاصطناعي" : "AI sales pulse"} icon={Sparkles} tone="info" lang={lang}>
               <Pulse
                 critical={model.attention.filter((a) => a.priority === "critical").length}
                 criticalValue={model.attention
@@ -1248,7 +1253,7 @@ function BoardPage() {
               />
             </Panel>
 
-            <Panel title={lang === "ar" ? "توقعات (30 / 60 / 90 يوم)" : "Forecast (30 / 60 / 90 days)"} icon={Clock} tone="amber" lang={lang}>
+            <Panel band title={lang === "ar" ? "توقعات (30 / 60 / 90 يوم)" : "Forecast (30 / 60 / 90 days)"} icon={Clock} tone="amber" lang={lang}>
               <Horizons h={model.horizon} lang={lang} money={money} />
             </Panel>
           </div>
@@ -1700,7 +1705,7 @@ function Horizons({
 /** A headline card: label and icon, a centred figure with its unit beneath, an
  *  optional gauge, and a footnote. */
 function Kpi({
-  icon: Icon, tone, lang, ar, en, value, unit, foot, gauge,
+  icon: Icon, tone, lang, ar, en, value, unit, foot, gauge, band,
 }: {
   icon: LucideIcon;
   tone: keyof typeof TONE;
@@ -1711,26 +1716,20 @@ function Kpi({
   unit?: string | null;
   foot?: string;
   gauge?: number | null;
+  band?: boolean;
 }) {
   return (
-    <div className="relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1.1vw] py-[1.1vh] shadow-sm">
+    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1.1vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
         <span className="min-w-0 truncate font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
           {lang === "ar" ? ar : en}
         </span>
-        <span
+        <Icon
+          className="h-[1.7vw] w-[1.7vw] shrink-0"
+          strokeWidth={2}
+          style={{ color: TONE[tone].edge }}
           aria-hidden="true"
-          className="grid shrink-0 place-items-center rounded-[0.45vw]"
-          style={{
-            width: "1.9vw",
-            height: "1.9vw",
-            fontSize: "0.95vw",
-            background: TONE[tone].wash,
-            color: TONE[tone].edge,
-          }}
-        >
-          <Icon className="h-[1.05vw] w-[1.05vw]" strokeWidth={2.25} aria-hidden="true" />
-        </span>
+        />
       </div>
 
       {/* Centred, with the unit UNDER the figure rather than beside it. The eye
@@ -1796,7 +1795,7 @@ function Gauge({ value, tone }: { value: number; tone: keyof typeof TONE }) {
 
 /** The same card for a figure whose inputs may not exist. */
 function KpiFigure({
-  icon: Icon, f, lang, money, ar, en, tone, foot,
+  icon: Icon, f, lang, money, ar, en, tone, foot, band,
 }: {
   icon: LucideIcon;
   tone: keyof typeof TONE;
@@ -1807,26 +1806,20 @@ function KpiFigure({
   en: string;
   /** The line under the figure. Null when there is nothing true to put there. */
   foot?: string | null;
+  band?: boolean;
 }) {
   return (
-    <div className="relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1.1vw] py-[1.1vh] shadow-sm">
+    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1.1vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
         <span className="font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
           {lang === "ar" ? ar : en}
         </span>
-        <span
+        <Icon
+          className="h-[1.7vw] w-[1.7vw] shrink-0"
+          strokeWidth={2}
+          style={{ color: TONE[tone].edge }}
           aria-hidden="true"
-          className="grid shrink-0 place-items-center rounded-[0.45vw]"
-          style={{
-            width: "1.9vw",
-            height: "1.9vw",
-            fontSize: "0.95vw",
-            background: TONE[tone].wash,
-            color: TONE[tone].edge,
-          }}
-        >
-          <Icon className="h-[1.05vw] w-[1.05vw]" strokeWidth={2.25} aria-hidden="true" />
-        </span>
+        />
       </div>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <FigureValue f={f} lang={lang} format={(n) => money(n)} size="3.2vw" />
@@ -1843,47 +1836,35 @@ function KpiFigure({
 
 /** A panel with a titled header, matching the mockup's card chrome. */
 function Panel({
-  title, icon: Icon, tone, lang, note, children, dark,
+  title, icon: Icon, tone, lang, note, children, band,
 }: {
   title: string;
   icon: LucideIcon;
   tone: keyof typeof TONE;
-  /**
-   * Darkens the whole panel, as the supplied reference does for this one.
-   *
-   * It inverts the panel's text colours with it. A dark ground under
-   * `text-foreground` is how a card ends up black on near-black -- the
-   * background and the ink are one decision, never two.
-   */
-  dark?: boolean;
+  /** White row or tinted row -- see bandClass. */
+  band?: boolean;
   lang: "ar" | "en";
   note?: string;
   children: React.ReactNode;
 }) {
   return (
     <section
-      className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[0.7vw] border px-[1vw] py-[0.8vh] shadow-sm ${
-        dark ? "board-dark border-white/10" : "border-border/70 bg-card"
-      }`}
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1vw] py-[0.8vh] shadow-sm ${bandClass(band)}`}
     >
-      <div className="mb-[0.5vh] flex items-baseline justify-between">
-        <span className="flex items-baseline gap-[0.4vw]">
-          <span
+      <div className="mb-[0.5vh] flex items-center justify-between">
+        <span className="flex items-center gap-[0.45vw]">
+          <Icon
+            className="h-[1.35vw] w-[1.35vw] shrink-0"
+            strokeWidth={2}
+            style={{ color: TONE[tone].edge }}
             aria-hidden="true"
-            className="grid shrink-0 place-items-center rounded-[0.35vw]"
-            style={{ width: "1.4vw", height: "1.4vw", fontSize: "0.78vw", ...badgeStyle(tone, dark) }}
-          >
-            <Icon className="h-[0.85vw] w-[0.85vw]" strokeWidth={2.25} aria-hidden="true" />
-          </span>
-          <span
-            className={`font-semibold ${dark ? "text-white" : TONE[tone].text}`}
-            style={{ fontSize: "0.92vw" }}
-          >
+          />
+          <span className={`font-semibold ${TONE[tone].text}`} style={{ fontSize: "0.92vw" }}>
             {title}
           </span>
         </span>
         {note ? (
-          <span className={dark ? "text-white/60" : "text-muted-foreground"} style={{ fontSize: "0.66vw" }}>{note}</span>
+          <span className="text-muted-foreground" style={{ fontSize: "0.66vw" }}>{note}</span>
         ) : null}
       </div>
       {children}
@@ -1893,23 +1874,8 @@ function Panel({
 
 /** One "needs attention" figure. `null` means the input does not exist. */
 function Need({
-  n, ar, en, sub, tone, lang, icon: Icon, dark,
+  n, ar, en, sub, tone, lang, icon: Icon,
 }: {
-  /**
-   * Measured, not guessed: on the panel's #0f1a26 ground `text-foreground`
-   * comes out at 1.04:1 and `text-muted-foreground` at 3.63 -- the first is
-   * invisible and the second fails body text. White is 17.56 and white/70 is
-   * 8.61, so the card inverts with the panel rather than keeping its own ink.
-   */
-  dark?: boolean;
-  /**
-   * A missing input prints a dash at the FIGURE's size, not the words "No
-   * data" at half of it. Two sizes in one row is what made the strip look
-   * hand-placed: nothing lined up because one cell's number was a sentence.
-   * Nothing is lost -- the line underneath already names what is missing
-   * ("no expiry recorded"), which says more than "No data" ever did, and the
-   * annual-target card has printed a dash over its reason since it shipped.
-   */
   /** Every figure on this board carries one; these four were the exception. */
   icon: LucideIcon;
   n: number | null;
@@ -1920,37 +1886,33 @@ function Need({
   lang: "ar" | "en";
 }) {
   return (
-    <div
-      className={`flex min-w-0 items-center justify-center gap-[0.5vw] border-e pe-[0.6vw] last:border-e-0 last:pe-0 ${
-        dark ? "border-white/12" : "border-border/50"
-      }`}
-    >
+    <div className="flex min-w-0 items-center justify-center gap-[0.5vw] border-e border-border/50 pe-[0.6vw] last:border-e-0 last:pe-0">
+      {/*
+        A missing input prints a dash at the FIGURE's size, not the words "No
+        data" at half of it. Two sizes in one row is what made the strip look
+        hand-placed: nothing lined up because one cell's number was a sentence.
+        Nothing is lost -- the line underneath already names what is missing.
+      */}
+      {/* Icon, then figure, then the words -- the order the reference reads in.
+          The icon leads because it is the thing the eye finds from across a
+          room; the number is what it came for. */}
+      <Icon
+        className="h-[1.5vw] w-[1.5vw] shrink-0"
+        strokeWidth={2}
+        style={{ color: TONE[tone].edge }}
+        aria-hidden="true"
+      />
       <span
-        className={`num shrink-0 text-end font-bold leading-none ${
-          n === null ? (dark ? "text-white/45" : "text-muted-foreground") : dark ? "text-white" : TONE[tone].text
-        }`}
+        className={`num shrink-0 text-end font-bold leading-none ${n === null ? "text-muted-foreground" : TONE[tone].text}`}
         style={{ fontSize: "2.5vw", minWidth: "2.4vw" }}
       >
-        {n === null ? "—" : formatNumber(n, lang)}
-      </span>
-      <span
-        aria-hidden="true"
-        className="grid shrink-0 place-items-center rounded-[0.35vw]"
-        style={{ width: "1.5vw", height: "1.5vw", fontSize: "0.8vw", ...badgeStyle(tone, dark) }}
-      >
-        <Icon className="h-[0.85vw] w-[0.85vw]" strokeWidth={2.25} aria-hidden="true" />
+        {n === null ? "\u2014" : formatNumber(n, lang)}
       </span>
       <span className="flex min-w-0 flex-col">
-        <span
-          className={`truncate font-semibold ${dark ? "text-white" : "text-foreground"}`}
-          style={{ fontSize: "0.8vw" }}
-        >
+        <span className="truncate font-semibold text-foreground" style={{ fontSize: "0.8vw" }}>
           {lang === "ar" ? ar : en}
         </span>
-        <span
-          className={`truncate ${dark ? "text-white/70" : "text-muted-foreground"}`}
-          style={{ fontSize: "0.65vw" }}
-        >
+        <span className="truncate text-muted-foreground" style={{ fontSize: "0.65vw" }}>
           {sub}
         </span>
       </span>
@@ -1991,7 +1953,7 @@ function Mini({
       figure={
         <span className="flex flex-col items-center gap-[0.1vh]">
           {Icon ? (
-            <Icon className={`h-[0.85vw] w-[0.85vw] ${TONE[tone].text}`} strokeWidth={2.25} aria-hidden="true" />
+            <Icon className="h-[1.3vw] w-[1.3vw]" strokeWidth={2} style={{ color: TONE[tone].edge }} aria-hidden="true" />
           ) : null}
           <span
             className={`num font-bold leading-none ${moved ? TONE[tone].text : "text-muted-foreground"}`}
