@@ -45,6 +45,7 @@ import { KpiGroup } from "@/components/phc/KpiGroup";
 import { DeltaPill } from "@/components/phc/DeltaPill";
 import { Donut } from "@/components/phc/Donut";
 import { monthOverMonth } from "@/lib/period-delta";
+import { forecastReadiness, type ReadinessKey } from "@/lib/forecast-readiness";
 import { PipelineComposition } from "@/components/phc/PipelineComposition";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -339,19 +340,19 @@ function CommandCenter() {
    * Order is worst-first, so the largest problem is the first arc drawn.
    */
   const readiness = useMemo(() => {
-    let forecastable = 0;
-    let noProbability = 0;
-    let noValue = 0;
-    for (const o of openOpps) {
-      if (opportunityValue(o) === null) noValue++;
-      else if (o.human_win_probability === null || o.human_win_probability === undefined) noProbability++;
-      else forecastable++;
-    }
-    return [
-      { key: "no_probability", label: lang === "ar" ? "بلا احتمالية" : "No probability", value: noProbability, color: "var(--color-amber)" },
-      { key: "no_value", label: lang === "ar" ? "بلا قيمة مسجَّلة" : "No recorded value", value: noValue, color: "var(--color-destructive)" },
-      { key: "ready", label: lang === "ar" ? "قابلة للتنبؤ" : "Ready to forecast", value: forecastable, color: "var(--color-won)" },
+    // The rows, not just the tallies. The donut used to count into three
+    // integers and throw the deals away, which is why it could name a problem
+    // and not open it -- 581 open deals carrying no probability, and no way
+    // from the sentence to the list. The KPI cards beside it have opened their
+    // records since they shipped; this was the one figure on the page that
+    // ended the reader's journey instead of continuing it.
+    const bucket = forecastReadiness(openOpps);
+    const slices = [
+      { key: "no_probability", label: lang === "ar" ? "بلا احتمالية" : "No probability", value: bucket.no_probability.length, color: "var(--color-amber)" },
+      { key: "no_value", label: lang === "ar" ? "بلا قيمة مسجَّلة" : "No recorded value", value: bucket.no_value.length, color: "var(--color-destructive)" },
+      { key: "ready", label: lang === "ar" ? "قابلة للتنبؤ" : "Ready to forecast", value: bucket.ready.length, color: "var(--color-won)" },
     ].filter((b) => b.value > 0);
+    return { slices, bucket };
   }, [openOpps, lang]);
 
   /** Open deals carrying no value at all — excluded from the total, and said so. */
@@ -720,7 +721,24 @@ function CommandCenter() {
           <p className="section-label mb-4 mt-1">
             {lang === "ar" ? "الفرص المفتوحة، بما ينقصها" : "Open opportunities, by what they are missing"}
           </p>
-          <Donut slices={readiness} total={openOpps.length} />
+          <Donut
+            slices={readiness.slices}
+            total={openOpps.length}
+            onSelect={(key) => {
+              // Donut hands back a plain string -- its slices belong to whoever
+              // passed them. The guard is what makes the narrowing true rather
+              // than asserted: a key that is not one of ours opens nothing.
+              if (!(key in readiness.bucket)) return;
+              const rows = readiness.bucket[key as ReadinessKey];
+              if (rows.length === 0) return;
+              setBreakdown({
+                title:
+                  readiness.slices.find((sl) => sl.key === key)?.label ??
+                  (lang === "ar" ? "جاهزية التنبؤ" : "Forecast readiness"),
+                rows: rows as unknown as OppRow[],
+              });
+            }}
+          />
         </section>
       </div>
 
