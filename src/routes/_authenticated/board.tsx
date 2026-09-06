@@ -1021,23 +1021,23 @@ function BoardPage() {
             <Panel band title={lang === "ar" ? "اليوم / الأيام السبعة القادمة" : "Today / next seven days"} icon={CalendarDays} tone="info" lang={lang}>
               {model.upcoming === null ? (
                 <div className="flex flex-1 flex-col justify-center gap-[0.4vh]">
-                  <span className="font-semibold text-amber-on-tint" style={{ fontSize: "0.95vw" }}>
+                  <span className="font-semibold text-amber-on-tint" style={{ fontSize: "1.15vw" }}>
                     {lang === "ar" ? "لا شيء مجدوَل بعد اليوم" : "Nothing scheduled ahead"}
                   </span>
-                  <span className="text-muted-foreground" style={{ fontSize: "0.74vw" }}>
+                  <span className="text-muted-foreground" style={{ fontSize: "0.92vw" }}>
                     {lang === "ar"
                       ? "كل المتابعات متأخّرة — الأجندة فارغة لا خالية"
                       : "Every follow-up is overdue — the calendar is empty, not clear"}
                   </span>
                 </div>
               ) : (
-                <div className="flex flex-1 flex-col justify-center gap-[0.5vh]" style={{ fontSize: "0.82vw" }}>
+                <div className="flex flex-1 flex-col justify-center gap-[0.25vh]" style={{ fontSize: "1.02vw" }}>
                   {([
                     [lang === "ar" ? "اليوم" : "Today", model.upcoming.todayCount],
                     [lang === "ar" ? "غدًا" : "Tomorrow", model.upcoming.tomorrowCount],
                     [lang === "ar" ? "هذا الأسبوع" : "This week", model.upcoming.weekCount],
                   ] as const).map(([l, n]) => (
-                    <div key={l} className="flex items-baseline justify-between border-b border-border/40 pb-[0.35vh]">
+                    <div key={l} className="flex items-baseline justify-between border-b border-border/40 pb-[0.2vh]">
                       <span className="text-muted-foreground">{l}</span>
                       <span className="num font-semibold text-foreground" data-tabular="true">{formatNumber(n, lang)}</span>
                     </div>
