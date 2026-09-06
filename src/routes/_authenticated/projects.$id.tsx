@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { numberWithEnterer } from "@/lib/person-label";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -85,6 +86,22 @@ function ProjectDetail() {
       ).data as ProjectDetailRow | null,
   });
 
+  // Who entered this project, to sit beside its number. A separate read rather
+  // than a PostgREST embed: `projects.created_by` carries no foreign key to
+  // profiles, so an embed would silently return nothing.
+  const entererQ = useQuery({
+    queryKey: ["project-enterer", project?.created_by],
+    enabled: !!project?.created_by,
+    queryFn: async () =>
+      (
+        await supabase
+          .from("profiles")
+          .select("full_name, email, sales_code")
+          .eq("id", project!.created_by!)
+          .maybeSingle()
+      ).data,
+  });
+
   const coverUrlQ = useQuery({
     queryKey: ["project-cover", id, project?.cover_image_path],
     queryFn: () => getProjectCoverUrl(project?.cover_image_path ?? null),
@@ -166,7 +183,7 @@ function ProjectDetail() {
             </StatusPill>
             {p.project_number ? (
               <span className="num rounded border border-border/70 px-1.5 py-0.5 text-2xs text-muted-foreground" data-tabular="true">
-                {p.project_number}
+                {numberWithEnterer(p.project_number, entererQ.data)}
               </span>
             ) : null}
             {p.location ? <span className="text-xs text-muted-foreground">{p.location}</span> : null}

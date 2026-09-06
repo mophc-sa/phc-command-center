@@ -43,7 +43,8 @@ import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { setHumanWinProbability } from "@/lib/workflow-actions";
-import { canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
+import { canAssignOwner, canAssignUnownedOpportunity, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
+import { personLabel } from "@/lib/person-label";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
 import {
   listDiscussion,
@@ -696,7 +697,9 @@ function OpportunityDetail() {
             <ActionButton primary onClick={() => setAction("review")}>{t("action_review")}</ActionButton>
             <ActionButton onClick={() => setAction("approve")}>{t("action_approve")}</ActionButton>
             <ActionButton onClick={() => setAction("schedule")}>{t("action_schedule")}</ActionButton>
-            <ActionButton onClick={() => setAction("assign")}>{t("action_assign")}</ActionButton>
+            {canAssignOwner(roles) || (!o.owner_id && canAssignUnownedOpportunity(roles)) ? (
+              <ActionButton onClick={() => setAction("assign")}>{t("action_assign")}</ActionButton>
+            ) : null}
             <ActionButton onClick={() => setAction("escalate")}>{t("action_escalate")}</ActionButton>
             <button
               type="button"
@@ -1188,12 +1191,12 @@ function OpportunityDetail() {
               />
               <DataField
                 label={t("assignment_primary_person")}
-                value={primaryPerson?.full_name ?? primaryPerson?.email ?? t("assignment_unassigned")}
+                value={personLabel(primaryPerson) || t("assignment_unassigned")}
               />
               {picDiffersFromPrimary ? (
                 <DataField
                   label={t("assignment_person_in_charge")}
-                  value={picMember?.full_name ?? picMember?.email ?? "—"}
+                  value={personLabel(picMember) || "—"}
                 />
               ) : null}
               {o.person_in_charge_note ? (
@@ -2108,9 +2111,11 @@ function OpportunityDetail() {
         ];
         const teamOpts = [
           { value: "__none__", label: t("field_unassigned") },
+          // Name and sales code, so the person picking knows which Mohammed
+          // they are handing the deal to.
           ...(teamQ.data ?? []).map((m) => ({
             value: m.id,
-            label: m.full_name || m.email || m.id.slice(0, 8),
+            label: personLabel(m) || m.id.slice(0, 8),
           })),
         ];
         const notesField: DialogField = {

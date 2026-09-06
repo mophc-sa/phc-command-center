@@ -352,7 +352,7 @@ export async function overrideOpportunityScore(input: {
 export async function listTeamMembers() {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, email")
+    .select("id, full_name, email, sales_code")
     .order("full_name", { ascending: true, nullsFirst: false });
   if (error) throw error;
   return data ?? [];

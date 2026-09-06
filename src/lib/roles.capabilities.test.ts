@@ -2,6 +2,8 @@
 import { test, expect } from "bun:test";
 import {
   ALL_ROLES,
+  canAssignOwner,
+  canAssignUnownedOpportunity,
   canApproveBafoCost,
   canApproveBafoFinal,
   canApproveBafoFinance,
@@ -170,4 +172,51 @@ test("one person may hold both cost and finance, by decision (D12)", () => {
   expect(canApproveBafoFinance(zaid)).toBe(true);
   // The independent check is the executive step, which they do not hold.
   expect(canApproveBafoFinal(zaid)).toBe(false);
+});
+
+// =============================================================================
+// Filling a vacancy is not taking a deal from somebody.
+//
+// Asked for on 2026-09-06. The BD manager could not assign an unassigned
+// project: `canAssignOwner` is commercial-manager only and `bd_manager` sits
+// in bdSalesOps, so the button was on her screen and the server answered 403.
+//
+// The two capabilities must stay different sets. If a later edit collapses
+// them, a BD manager silently gains the power to move a deal off a named
+// salesperson -- which is a decision about people, not housekeeping.
+// =============================================================================
+
+test("a BD manager may pick up an unowned deal but not move an owned one", () => {
+  expect(canAssignUnownedOpportunity("bd_manager")).toBe(true);
+  expect(canAssignOwner("bd_manager")).toBe(false);
+  expect(canAssignUnownedOpportunity("sales_ops")).toBe(true);
+  expect(canAssignOwner("sales_ops")).toBe(false);
+});
+
+test("a sales manager may do both — delegating his own deal was never blocked", () => {
+  expect(canAssignOwner("sales_manager")).toBe(true);
+  expect(canAssignUnownedOpportunity("sales_manager")).toBe(true);
+});
+
+test("a salesperson may do neither", () => {
+  expect(canAssignUnownedOpportunity("salesperson")).toBe(false);
+  expect(canAssignOwner("salesperson")).toBe(false);
+  expect(canAssignUnownedOpportunity("viewer")).toBe(false);
+});
+
+test("the wider capability is a strict superset of the narrower one", () => {
+  // Not merely "different": every role that may reassign must also be able to
+  // assign a vacancy, or an executive would be locked out of the easier act.
+  for (const r of ALL_ROLES) {
+    if (canAssignOwner(r)) {
+      expect([r, canAssignUnownedOpportunity(r)]).toEqual([r, true]);
+    }
+  }
+  expect(ALL_ROLES.some((r) => canAssignUnownedOpportunity(r) && !canAssignOwner(r))).toBe(true);
+});
+
+test("system_admin is not a commercial decision-maker here either", () => {
+  // Consistent with canApproveCommercialAction: an operator is not a manager.
+  expect(canAssignOwner("system_admin")).toBe(false);
+  expect(canAssignUnownedOpportunity("system_admin")).toBe(false);
 });

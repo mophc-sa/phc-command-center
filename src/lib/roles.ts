@@ -111,6 +111,22 @@ export const canApproveHistoricalPromotion = (r: RoleInput) =>
   inGroup(r, ["sales_manager", "bd_manager", "general_manager"]);
 
 export const canAssignOwner = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
+/**
+ * Filling a vacancy is not taking a deal from somebody.
+ *
+ * Asked for on 2026-09-06: the BD manager should be able to assign a project
+ * that has not been assigned to anyone. She could not -- `canAssignOwner` is
+ * commercial-manager only, and `bd_manager` sits in bdSalesOps. The button was
+ * on her screen the whole time; the server answered 403.
+ *
+ * The grant is deliberately narrower than the button: an opportunity with NO
+ * owner may be assigned by any pipeline operator, and one that already has an
+ * owner still needs commercial authority. Handing a deal from one salesperson
+ * to another is a commercial decision about people; picking up an orphan is
+ * housekeeping, and 160 of 741 opportunities are currently orphans.
+ */
+export const canAssignUnownedOpportunity = (r: RoleInput) => inGroup(r, PIPELINE_OPERATORS);
+
 export const canChangeCommercialStage = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
 export const canRunSensitiveSalesAction = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
 

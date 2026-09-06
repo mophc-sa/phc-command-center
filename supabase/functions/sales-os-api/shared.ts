@@ -4,6 +4,7 @@ import { serviceClient, audit } from "../_shared/supabase.ts";
 import {
   canApproveCommercialAction,
   canAssignOwner,
+  canAssignUnownedOpportunity,
   canChangeCommercialStage,
   canCreateSalesRecords,
   canExecuteDelete,
@@ -31,6 +32,7 @@ export {
   err,
   canApproveCommercialAction,
   canAssignOwner,
+  canAssignUnownedOpportunity,
   canChangeCommercialStage,
   canCreateSalesRecords,
   canExecuteDelete,

@@ -4,6 +4,7 @@ import {
   err,
   canApproveCommercialAction,
   canAssignOwner,
+  canAssignUnownedOpportunity,
   canChangeCommercialStage,
   canManageSalesPipeline,
   evaluateConversion,
@@ -178,11 +179,33 @@ async function assign_owner(
   ctx: SalesOsContext,
 ): Promise<Response> {
   const { caller, audit: auditLog } = ctx;
-  if (!canAssignOwner(caller.roles)) return err("Owner assignment authority required", 403);
   const opportunityId = String(payload.opportunityId ?? "");
   if (!opportunityId) return err("opportunityId is required");
   const newOwnerId = (payload.ownerId as string) || (payload.newOwnerId as string) || null;
   const svc = ctx.svc;
+
+  // Who currently holds it decides who may move it. Taking a deal from a named
+  // salesperson is a commercial decision; picking up one that belongs to nobody
+  // is housekeeping, and a BD manager may do it.
+  const { data: current, error: readErr } = await svc
+    .from("opportunities")
+    .select("owner_id")
+    .eq("id", opportunityId)
+    .single();
+  if (readErr || !current) return err("Opportunity not found", 404);
+
+  const allowed = current.owner_id
+    ? canAssignOwner(caller.roles)
+    : canAssignOwner(caller.roles) || canAssignUnownedOpportunity(caller.roles);
+  if (!allowed) {
+    return err(
+      current.owner_id
+        ? "Reassigning an owned opportunity requires commercial authority"
+        : "Owner assignment authority required",
+      403,
+    );
+  }
+
   const { error } = await svc
     .from("opportunities")
     .update({ owner_id: newOwnerId })
@@ -203,7 +226,6 @@ async function assign_owner(
   return json({ ok: true, owner_id: newOwnerId });
 }
 
-// A pipeline operator without assignment authority REQUESTS an owner change.
 
 async function update_opportunity_stage(
   payload: Record<string, unknown>,
