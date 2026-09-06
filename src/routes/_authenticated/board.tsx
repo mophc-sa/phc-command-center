@@ -1112,7 +1112,7 @@ function BoardPage() {
                   falls off the bottom is a stage nobody knows exists. Flexing
                   the rows makes the fit hold for any number of stages. */}
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.6vw" }}>
+                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.76vw" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "المرحلة" : "Stage"}</span>
                   <span className="shrink-0 text-end" style={{ width: "2.6vw" }}>{lang === "ar" ? "العدد" : "Deals"}</span>
                   <span className="shrink-0 text-end" style={{ width: "5vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
@@ -1128,13 +1128,13 @@ function BoardPage() {
                       // must not compete with the stages holding the money.
                       style={{ opacity: c.count === 0 ? 0.5 : 1 }}
                     >
-                      <span className="min-w-0 flex-1 truncate text-foreground" style={{ fontSize: "0.7vw" }}>
+                      <span className="min-w-0 flex-1 truncate text-foreground" style={{ fontSize: "0.88vw" }}>
                         {STAGE_LABEL[c.stage]?.[lang === "ar" ? 0 : 1] ?? c.stage}
                       </span>
-                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ fontSize: "0.72vw", width: "2.6vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ fontSize: "0.9vw", width: "2.6vw" }} data-tabular="true">
                         {formatNumber(c.count, lang)}
                       </span>
-                      <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.7vw", width: "5vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.88vw", width: "5vw" }} data-tabular="true">
                         {c.value > 0 ? compactValue(c.value, lang) : "—"}
                       </span>
                       <span className="flex shrink-0 items-center gap-[0.35vw]" style={{ width: "7.4vw" }}>
@@ -1149,7 +1149,7 @@ function BoardPage() {
                             <span className="absolute inset-y-0 start-0" style={{ width: "0.35vw", background: `var(--stage-${i + 1})`, opacity: 0.55 }} />
                           ) : null}
                         </span>
-                        <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.62vw", width: "2vw" }} data-tabular="true">
+                        <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.78vw", width: "2vw" }} data-tabular="true">
                           {Math.round(c.share * 100)}%
                         </span>
                       </span>
@@ -1157,7 +1157,7 @@ function BoardPage() {
                   ))}
                 </div>
 
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.9vw" }}>
                   <span className="font-semibold text-foreground">{lang === "ar" ? "الإجمالي" : "Total"}</span>
                   <span className="num font-bold text-foreground" data-tabular="true">
                     {formatNumber(model.standing.openCount, lang)} · {money(model.standing.openTotal)}
@@ -1167,9 +1167,9 @@ function BoardPage() {
             </Panel>
 
             <Panel title={lang === "ar" ? "أداء فريق المبيعات" : "Team performance"} icon={Users} tone="teal" lang={lang}>
-              <table className="w-full" style={{ fontSize: "0.7vw" }}>
+              <table className="w-full" style={{ fontSize: "0.88vw" }}>
                 <thead>
-                  <tr className="text-muted-foreground" style={{ fontSize: "0.6vw" }}>
+                  <tr className="text-muted-foreground" style={{ fontSize: "0.76vw" }}>
                     <th className="pb-[0.4vh] text-start">{lang === "ar" ? "العضو" : "Member"}</th>
                     <th className="pb-[0.4vh] text-end">{lang === "ar" ? "المحقّق" : "Won"}</th>
                     <th className="pb-[0.4vh] text-end">{lang === "ar" ? "المسار" : "Pipeline"}</th>
@@ -1191,7 +1191,7 @@ function BoardPage() {
                         <td className="py-[0.3vh]">
                           <span className="flex items-center gap-[0.4vw]">
                             <span className="grid shrink-0 place-items-center rounded-full font-bold text-white"
-                                  style={{ width: "1.5vw", height: "1.5vw", fontSize: "0.6vw", background: TONE[av].edge }}>
+                                  style={{ width: "1.5vw", height: "1.5vw", fontSize: "0.76vw", background: TONE[av].edge }}>
                               {p.label}
                             </span>
                             <span className="truncate text-foreground">{p.label}</span>
@@ -1209,7 +1209,7 @@ function BoardPage() {
                   })}
                 </tbody>
               </table>
-              <div className="mt-auto flex items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
+              <div className="mt-auto flex items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.9vw" }}>
                 <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الإجمالي" : "Total"}</span>
                 <span className="num font-bold text-teal-on-tint" data-tabular="true">
                   {money(model.team.reduce((a, p) => a + p.won, 0))} · {money(model.team.reduce((a, p) => a + p.open, 0))}
