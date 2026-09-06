@@ -1166,54 +1166,59 @@ function BoardPage() {
               </div>
             </Panel>
 
-            <Panel title={lang === "ar" ? "أداء فريق المبيعات" : "Team performance"} icon={Users} tone="teal" lang={lang}>
-              <table className="w-full" style={{ fontSize: "0.88vw" }}>
-                <thead>
-                  <tr className="text-muted-foreground" style={{ fontSize: "0.76vw" }}>
-                    <th className="pb-[0.4vh] text-start">{lang === "ar" ? "العضو" : "Member"}</th>
-                    <th className="pb-[0.4vh] text-end">{lang === "ar" ? "المحقّق" : "Won"}</th>
-                    <th className="pb-[0.4vh] text-end">{lang === "ar" ? "المسار" : "Pipeline"}</th>
-                    <th className="pb-[0.4vh] text-end">{lang === "ar" ? "متأخّرة" : "Overdue"}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* One hue per member, assigned by position in the table.
-                      Deterministic, so a person keeps their colour between
-                      refreshes and the eye can track a row without reading it. */}
-                  {model.team.slice(0, 5).map((p, idx) => {
-                    const AVATAR = ["won", "info", "violet", "amber", "teal"] as const;
-                    const av = AVATAR[idx % AVATAR.length];
+            <Panel title={lang === "ar" ? "أداء فريق المبيعات" : "Team performance"} icon={Users} tone="teal" lang={lang}
+                   note={lang === "ar" ? `${formatNumber(model.team.length, lang)} مندوبًا` : `${model.team.length} reps`}>
+              {/* Rows, not a table -- the same shape as Top opportunities, so
+                  the two panels stripe and scroll the same way. A <tbody> is
+                  the one thing a marquee cannot wrap: it would have to sit in
+                  a <div>, and that is not valid inside a table. */}
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex shrink-0 items-center gap-[0.5vw] px-[0.3vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.76vw" }}>
+                  <span className="min-w-0 flex-1">{lang === "ar" ? "العضو" : "Member"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "المحقّق" : "Won"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "المسار" : "Pipeline"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "3.4vw" }}>{lang === "ar" ? "متأخّرة" : "Overdue"}</span>
+                </div>
+
+                <AutoScroll className="flex min-h-0 flex-1 flex-col">
+                  {/* Everyone, not the first five. A wall that shows half a team
+                      teaches the other half that the board is not about them,
+                      and the panel scrolls -- there is no reason to choose. */}
+                  {model.team.map((p, idx) => {
                     const late = model.attention.filter(
                       (a) => a.ownerId === p.ownerId && a.reasons.includes("followups_overdue"),
                     ).length;
                     return (
-                      <tr key={p.ownerId} className="border-t border-border/50">
-                        <td className="py-[0.3vh]">
-                          <span className="flex items-center gap-[0.4vw]">
-                            <span className="grid shrink-0 place-items-center rounded-full font-bold text-white"
-                                  style={{ width: "1.5vw", height: "1.5vw", fontSize: "0.76vw", background: TONE[av].edge }}>
-                              {p.label}
-                            </span>
-                            <span className="truncate text-foreground">{p.label}</span>
-                          </span>
-                        </td>
-                        <td className="num py-[0.3vh] text-end font-semibold text-foreground" data-tabular="true">{money(p.won)}</td>
-                        <td className="num py-[0.3vh] text-end text-muted-foreground" data-tabular="true">{money(p.open)}</td>
-                        <td className="num py-[0.3vh] text-end" data-tabular="true">
-                          <span className={late > 0 ? "font-semibold text-destructive-on-tint" : "text-muted-foreground"}>
-                            {formatNumber(late, lang)}
-                          </span>
-                        </td>
-                      </tr>
+                      <div
+                        key={p.ownerId}
+                        className={`flex min-h-0 flex-1 items-center gap-[0.5vw] px-[0.3vw] ${idx % 2 === 1 ? "bg-muted" : ""}`}
+                        style={{ fontSize: "0.88vw" }}
+                      >
+                        <span className="min-w-0 flex-1 truncate text-foreground">{p.label}</span>
+                        <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "4vw" }} data-tabular="true">
+                          {money(p.won)}
+                        </span>
+                        <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "4vw" }} data-tabular="true">
+                          {money(p.open)}
+                        </span>
+                        <span
+                          className={`num shrink-0 text-end ${late > 0 ? "font-semibold text-destructive-on-tint" : "text-muted-foreground"}`}
+                          style={{ width: "3.4vw" }}
+                          data-tabular="true"
+                        >
+                          {formatNumber(late, lang)}
+                        </span>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
-              <div className="mt-auto flex items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.9vw" }}>
-                <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الإجمالي" : "Total"}</span>
-                <span className="num font-bold text-teal-on-tint" data-tabular="true">
-                  {money(model.team.reduce((a, p) => a + p.won, 0))} · {money(model.team.reduce((a, p) => a + p.open, 0))}
-                </span>
+                </AutoScroll>
+
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.9vw" }}>
+                  <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الإجمالي" : "Total"}</span>
+                  <span className="num font-bold text-teal-on-tint" data-tabular="true">
+                    {money(model.team.reduce((a, p) => a + p.won, 0))} · {money(model.team.reduce((a, p) => a + p.open, 0))}
+                  </span>
+                </div>
               </div>
             </Panel>
           </div>
