@@ -815,7 +815,7 @@ function BoardPage() {
       // for movement. Twelve overflows a panel that shows about six, so the
       // marquee has somewhere to go -- and the footer totals the twelve it
       // draws rather than a five it no longer shows.
-      hot: hotOpportunities(intel, 12),
+      hot: hotOpportunities(intel, 15),
       yoy: yearOnYear(opps, nowDate),
       oldestOverdue: oldestOverdueDays(
         rows<{ due_date: string | null }>(data.followUps).map((f) => f.due_date),
@@ -1045,7 +1045,7 @@ function BoardPage() {
           holding a third of the width to show them. */}
           <div className="grid min-h-0 grid-cols-[1.55fr_1.1fr_0.85fr] gap-[0.7vw]">
             <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon={Flame} tone="amber" lang={lang}
-                   note={lang === "ar" ? "أعلى 12 حسب القيمة" : "top 12 by value"}>
+                   note={lang === "ar" ? "أعلى 15 حسب القيمة" : "top 15 by value"}>
               {/* Same fix as the pipeline below: the table stacked to its natural
                   height and pushed the total 12px past the card edge. Flexed
                   rows share whatever the panel has. */}
@@ -1088,7 +1088,7 @@ function BoardPage() {
                 </AutoScroll>
 
                 <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
-                  <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-12 total"}</span>
+                  <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-15 total"}</span>
                   <span className="num font-bold text-amber-on-tint" data-tabular="true">
                     {money(model.hot.reduce((a, h) => a + (h.value ?? 0), 0))}
                   </span>
@@ -1221,17 +1221,17 @@ function BoardPage() {
                   </span>
                 }
               >
-                <Mini icon={TrendingUp} n={model.movement.won} value={money(model.movement.wonValue)} ar="صفقات فُزنا بها" en="Won" tone="won" lang={lang} />
-                <Mini icon={FileText} n={model.movement.newDeals} value={money(model.movement.newValue)} ar="فرص جديدة" en="New deals" tone="amber" lang={lang} />
-                <Mini icon={Handshake} n={model.movement.toBafo} ar="انتقلت إلى BAFO" en="Moved to BAFO" tone="violet" lang={lang} />
+                <Mini cols={5} icon={TrendingUp} n={model.movement.won} value={money(model.movement.wonValue)} ar="صفقات فُزنا بها" en="Won" tone="won" lang={lang} />
+                <Mini cols={5} icon={FileText} n={model.movement.newDeals} value={money(model.movement.newValue)} ar="فرص جديدة" en="New deals" tone="amber" lang={lang} />
+                <Mini cols={5} icon={Handshake} n={model.movement.toBafo} ar="انتقلت إلى BAFO" en="Moved to BAFO" tone="violet" lang={lang} />
                 {/* The reference names this one "stalled deals", and its pause icon says
                     so too. `advanced` is the opposite fact -- deals that MOVED --
                     and putting it under a pause icon was reading the picture
                     carelessly. Stalled comes from the attention list, which
                     already defines it as no client contact in the window. */}
-                <Mini icon={PauseCircle} n={model.attention.filter((a) => a.reasons.includes("stalled")).length}
+                <Mini cols={5} icon={PauseCircle} n={model.attention.filter((a) => a.reasons.includes("stalled")).length}
                       ar="صفقات متوقفة" en="Stalled deals" tone="info" lang={lang} />
-                <Mini icon={CheckCircle2} n={model.movement.followUpsClosed} ar="متابعات أُغلقت" en="Follow-ups closed" tone="teal" lang={lang} />
+                <Mini cols={5} icon={CheckCircle2} n={model.movement.followUpsClosed} ar="متابعات أُغلقت" en="Follow-ups closed" tone="teal" lang={lang} />
               </ChipRow>
             </Panel>
 
@@ -1335,7 +1335,10 @@ function Wire({ items, lang }: { items: string[]; lang: "ar" | "en" }) {
  * by construction rather than by two numbers that happen to agree today. A
  * contract test below holds them together.
  */
-const CHIP_ROW_H = "7.9vh";
+// Measured on the wall: a stacked chip needs 82px and 7.9vh gave it 71, so the
+// last line of all five was cut. The three bottom panels share this height on
+// purpose, so raising it raises them together and they still line up.
+const CHIP_ROW_H = "9.2vh";
 /** One type scale for both panels, for the same reason as the height. */
 const CHIP_FIGURE = "1.6vw";
 const CHIP_LABEL = "0.64vw";
@@ -1459,35 +1462,52 @@ function Chip({
   figure,
   label,
   note,
+  cols = 3,
 }: {
   tone: keyof typeof TONE;
   lang: "ar" | "en";
+  /** How many chips share the row. Past three there is no room to sit side by side. */
+  cols?: number;
   /** The number. Sits on the left, alone, at one width for the whole row. */
   figure: React.ReactNode;
   label: React.ReactNode;
   note?: React.ReactNode;
 }) {
   const t = TONE[tone];
+  // Measured on the wall at 1600px: five chips share a third of the width, the
+  // fixed number slot takes 2.4vw of each, and the text column is left with
+  // SIXTEEN pixels -- for labels that need 22 to 86. Every one of the ten was
+  // clipped to nothing. Side by side is right for three chips and impossible
+  // for five, so past three the chip stacks: the figure over the words, and
+  // the words get the tile's whole width.
+  const stacked = cols >= 4;
   return (
     <div
-      className="flex min-h-0 items-center gap-[0.5vw] overflow-hidden rounded-[0.5vw] px-[0.5vw] py-[0.4vh]"
+      className={`flex min-h-0 overflow-hidden rounded-[0.5vw] px-[0.5vw] py-[0.4vh] ${
+        stacked ? "flex-col items-center justify-center gap-[0.2vh] text-center" : "items-center gap-[0.5vw]"
+      }`}
       style={{
         background: t.wash,
         boxShadow: `inset 0 0 0 1px ${t.edge}`,
         // The number belongs on the physical left in BOTH languages, and a
         // plain `row` puts the first child on the reading edge -- which is the
         // right in Arabic. Reversing there, and only there, pins the number left
-        // and lets the text start at its own reading edge either way.
-        flexDirection: lang === "ar" ? "row-reverse" : "row",
+        // and lets the text start at its own reading edge either way. A stacked
+        // chip has no left and right to argue about.
+        flexDirection: stacked ? undefined : lang === "ar" ? "row-reverse" : "row",
       }}
     >
       {/* A fixed slot, not a shrink-to-fit one: "5" and "237" are different
           widths, and letting each chip size its own number would step the text
-          column three times across a row of three. */}
-      <span className="flex shrink-0 items-center justify-center" style={{ width: CHIP_FIGURE_W }}>
+          column three times across a row of three. Stacked, the slot is the
+          full tile instead -- there is no column to keep straight. */}
+      <span
+        className={`flex items-center justify-center ${stacked ? "w-full" : "shrink-0"}`}
+        style={stacked ? undefined : { width: CHIP_FIGURE_W }}
+      >
         {figure}
       </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-[0.15vh] text-start">
+      <span className={`flex min-w-0 flex-col gap-[0.15vh] ${stacked ? "w-full text-center" : "flex-1 text-start"}`}>
         {label}
         {note}
       </span>
@@ -1934,9 +1954,11 @@ function Need({
  * would be the board congratulating itself on a dead week.
  */
 function Mini({
-  n, value, ar, en, tone, lang, icon: Icon,
+  n, value, ar, en, tone, lang, icon: Icon, cols,
 }: {
   n: number;
+  /** Forwarded to Chip: past three, the chip stacks instead of clipping. */
+  cols?: number;
   /** Shown above the figure, as in the reference design. */
   icon: LucideIcon;
   value?: string | null;
@@ -1950,10 +1972,14 @@ function Mini({
     <Chip
       tone={tone}
       lang={lang}
+      cols={cols}
       figure={
         <span className="flex flex-col items-center gap-[0.1vh]">
+          {/* 1.3vw needed 88px of an 83px tile once the label wrapped to two
+              lines. Still half again the 0.85vw it replaced -- the ask was a
+              bigger icon, not a clipped label. */}
           {Icon ? (
-            <Icon className="h-[1.3vw] w-[1.3vw]" strokeWidth={2} style={{ color: TONE[tone].edge }} aria-hidden="true" />
+            <Icon className="h-[1.1vw] w-[1.1vw]" strokeWidth={2} style={{ color: TONE[tone].edge }} aria-hidden="true" />
           ) : null}
           <span
             className={`num font-bold leading-none ${moved ? TONE[tone].text : "text-muted-foreground"}`}
@@ -1964,8 +1990,15 @@ function Mini({
           </span>
         </span>
       }
+      // Stacked, the label may wrap: "Follow-ups closed" needs 86px and the
+      // tile gives it 75, and clipping the last word is how a wall ends up
+      // showing "Follow-ups clos". Side by side it still truncates -- there is
+      // no second line to wrap onto.
       label={
-        <span className="w-full truncate font-semibold text-foreground" style={{ fontSize: CHIP_LABEL }}>
+        <span
+          className={`w-full font-semibold text-foreground ${cols && cols >= 4 ? "leading-tight" : "truncate"}`}
+          style={{ fontSize: CHIP_LABEL }}
+        >
           {lang === "ar" ? ar : en}
         </span>
       }
@@ -1973,7 +2006,10 @@ function Mini({
       // value instead printed it under "+88 new deals" -- a true count above a
       // false caption.
       note={
-        <span className={`num w-full truncate ${moved && value ? TONE[tone].text : "text-muted-foreground"}`} style={{ fontSize: CHIP_NOTE }}>
+        <span
+          className={`num w-full ${cols && cols >= 4 ? "leading-tight" : "truncate"} ${moved && value ? TONE[tone].text : "text-muted-foreground"}`}
+          style={{ fontSize: CHIP_NOTE }}
+        >
           {moved
             ? (value ?? (lang === "ar" ? "بلا قيمة مسجَّلة" : "no value recorded"))
             : lang === "ar" ? "بلا حركة" : "no movement"}

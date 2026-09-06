@@ -167,7 +167,7 @@ describe("every figure on the board carries an icon", () => {
 
   it("gives the five 'changed since yesterday' tiles one each", () => {
     const minis = BOARD.match(/<Mini\b/g) ?? [];
-    const withIcon = BOARD.match(/<Mini icon=\{/g) ?? [];
+    const withIcon = BOARD.match(/<Mini cols=\{5\} icon=\{/g) ?? [];
     expect(minis.length).toBe(5);
     expect(withIcon.length).toBe(5);
   });
@@ -184,8 +184,8 @@ describe("every figure on the board carries an icon", () => {
     const sizes = [...new Set((BOARD.match(/h-\[[\d.]+vw\] w-\[[\d.]+vw\]/g) ?? []))];
     expect(sizes.sort()).toEqual([
       // Lexical, not numeric: "1.35" sorts before "1.3v" because '5' < 'v'.
+      "h-[1.1vw] w-[1.1vw]",
       "h-[1.35vw] w-[1.35vw]",
-      "h-[1.3vw] w-[1.3vw]",
       "h-[1.5vw] w-[1.5vw]",
       "h-[1.7vw] w-[1.7vw]",
       "h-[3vw] w-[3vw]",
