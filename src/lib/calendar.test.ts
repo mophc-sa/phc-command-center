@@ -188,3 +188,124 @@ describe("this module cannot write", () => {
     }
   });
 });
+
+// =============================================================================
+// Thirteen dated obligations the calendar could not see.
+//
+// Measured on production 2026-09-06, before this change: the three sources the
+// calendar read covered 19 dated rows and missed 37 -- twelve enquiry
+// follow-ups, twelve flags, eleven enquiry deadlines and two commitments. Each
+// is something a person typed into this system on purpose. A date you recorded
+// and cannot see is worse than one you never recorded, because you believe it
+// is being watched.
+// =============================================================================
+
+describe("every recorded date reaches the grid", () => {
+  const ALL = {
+    today: TODAY,
+    opportunities: [{
+      id: "o1", project_name: "Haram", client: "MOMRA",
+      expected_contract_date: "2026-09-01", hold_review_date: "2026-09-02", sales_stage: "negotiation",
+    }],
+    inboxItems: [{
+      id: "i1", project_name: "Mataf", company_name: "Binladin",
+      deadline: "2026-09-03", follow_up_date: "2026-09-04", info_due_date: "2026-09-05", status: "new",
+    }],
+    flags: [{ id: "g1", linked_record_type: "opportunity", linked_record_id: "o1",
+              flag_kind: "risk", reason: "no contact", due_date: "2026-09-06", status: "open" }],
+    commitments: [{ id: "c1", opportunity_id: "o1", description: "Send BOQ", due_date: "2026-09-07" }],
+    tasks: [{ id: "t1", title: "Price it", due_date: "2026-09-08", related_opportunity_id: "o1" }],
+    quotations: [{ id: "q1", quote_number: "Q-1", valid_until: "2026-09-09", status: "sent",
+                   related_opportunity_id: "o1" }],
+    projects: [{ id: "p1", name: "Diriyah", project_number: "P-1",
+                 expected_boq_date: "2026-09-10", expected_signage_date: "2026-09-11" }],
+    tenders: [{ id: "d1", tender_name: "Metro", tender_stage: "open",
+                expected_award_date: "2026-09-12", next_follow_up_date: "2026-09-13" }],
+  };
+
+  it("draws all thirteen new kinds", () => {
+    const sources = buildCalendar(ALL).map((e) => e.source);
+    expect(sources.sort()).toEqual([
+      "commitment", "expected_contract", "flag_due", "hold_review",
+      "intake_deadline", "intake_follow_up", "intake_info_due",
+      "project_boq", "project_signage", "quotation_expiry",
+      "task", "tender_award", "tender_follow_up",
+    ]);
+  });
+
+  it("routes a flag to the record that raised it", () => {
+    const flag = buildCalendar(ALL).find((e) => e.source === "flag_due");
+    expect(flag?.entityId).toBe("o1");
+  });
+
+  it("keeps a flag on its own row when it points at something else", () => {
+    // The calendar can only open an opportunity today. A flag on a tender must
+    // not send the reader to an opportunity that does not exist.
+    const out = buildCalendar({
+      today: TODAY,
+      flags: [{ id: "g2", linked_record_type: "tender", linked_record_id: "d9",
+                due_date: "2026-09-06", status: "open" }],
+    });
+    expect(out[0]?.entityId).toBe("g2");
+  });
+
+  it("drops work that is finished, by timestamp or by status", () => {
+    const out = buildCalendar({
+      today: TODAY,
+      flags: [
+        { id: "a", due_date: "2026-09-01", status: "completed" },
+        { id: "b", due_date: "2026-09-01", status: "open", completed_at: "2026-08-01" },
+      ],
+      commitments: [{ id: "c", due_date: "2026-09-01", closed_at: "2026-08-01" }],
+      tasks: [{ id: "t", due_date: "2026-09-01", completed_at: "2026-08-01" }],
+      inboxItems: [{ id: "i", deadline: "2026-09-01", status: "converted" }],
+    });
+    expect(out).toEqual([]);
+  });
+
+  it("still shows an expiring quotation whatever its status", () => {
+    // A quotation that runs out while nobody looked is precisely what this
+    // page exists to surface -- filtering it by status would hide it.
+    const out = buildCalendar({
+      today: TODAY,
+      quotations: [{ id: "q", quote_number: "Q-9", valid_until: "2026-09-01", status: "draft" }],
+    });
+    expect(out.map((e) => e.source)).toEqual(["quotation_expiry"]);
+  });
+
+  it("puts somebody else's deadline above our own reminder on the same day", () => {
+    const out = buildCalendar({
+      today: TODAY,
+      rfqs: [{ id: "r", response_due_date: "2026-09-01" }],
+      inboxItems: [{ id: "i", deadline: "2026-09-01", status: "new" }],
+      projects: [{ id: "p", name: "X", expected_signage_date: "2026-09-01" }],
+      quotations: [{ id: "q", valid_until: "2026-09-01" }],
+    });
+    expect(out.map((e) => e.source)).toEqual([
+      "rfq_deadline", "intake_deadline", "quotation_expiry", "project_signage",
+    ]);
+  });
+
+  it("invents no date for any of them", () => {
+    const out = buildCalendar({
+      today: TODAY,
+      opportunities: [{ id: "o", expected_contract_date: null, hold_review_date: null }],
+      inboxItems: [{ id: "i", deadline: null, follow_up_date: null, info_due_date: null }],
+      flags: [{ id: "g", due_date: null }],
+      commitments: [{ id: "c", due_date: null }],
+      tasks: [{ id: "t", due_date: null }],
+      quotations: [{ id: "q", valid_until: null }],
+      projects: [{ id: "p", expected_boq_date: null, expected_signage_date: null }],
+      tenders: [{ id: "d", expected_award_date: null, next_follow_up_date: null }],
+    });
+    expect(out).toEqual([]);
+  });
+
+  it("gives every source a label the reader can see", () => {
+    // A source added without a message renders an empty pill. The engine can
+    // be wrong here in a way no type catches, so the test walks all of them.
+    for (const e of buildCalendar(ALL)) {
+      expect([e.source, e.label.key.startsWith("cal_")]).toEqual([e.source, true]);
+    }
+  });
+});

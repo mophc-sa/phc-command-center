@@ -73,17 +73,52 @@ function CalendarPage() {
     queryKey: ["calendar-sources"],
     staleTime: 60_000,
     queryFn: async () => {
-      const [followUps, rfqs, opps] = await Promise.all([
-        supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel"),
-        supabase.from("rfqs").select("id, rfq_number, response_due_date, status, opportunity_id"),
-        supabase
-          .from("opportunities")
-          .select("id, project_name, client, next_action, next_action_due, sales_stage"),
-      ]);
+      // Every table asks only for rows that actually carry a date. The
+      // opportunities read used to pull all 741 rows to find the handful with
+      // a next action -- the filter is not a micro-optimisation, it is the
+      // difference between a page that opens and one that thinks about it.
+      const dated = (col: string) => `${col}.not.is.null`;
+      const [followUps, rfqs, opps, inbox, flags, commitments, tasks, quotations, projects, tenders] =
+        await Promise.all([
+          supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel")
+            .not("due_date", "is", null),
+          supabase.from("rfqs").select("id, rfq_number, response_due_date, status, opportunity_id")
+            .not("response_due_date", "is", null),
+          supabase.from("opportunities")
+            .select("id, project_name, client, next_action, next_action_due, expected_contract_date, hold_review_date, sales_stage")
+            .or([dated("next_action_due"), dated("expected_contract_date"), dated("hold_review_date")].join(",")),
+          supabase.from("inbox_items")
+            .select("id, project_name, company_name, deadline, follow_up_date, info_due_date, status")
+            .or([dated("deadline"), dated("follow_up_date"), dated("info_due_date")].join(",")),
+          supabase.from("opportunity_flags")
+            .select("id, linked_record_id, linked_record_type, flag_kind, reason, due_date, status, completed_at")
+            .not("due_date", "is", null),
+          supabase.from("commitments").select("id, opportunity_id, description, due_date, closed_at")
+            .not("due_date", "is", null),
+          supabase.from("tasks").select("id, title, due_date, completed_at, related_opportunity_id")
+            .not("due_date", "is", null),
+          supabase.from("quotations").select("id, quote_number, valid_until, status, related_opportunity_id")
+            .not("valid_until", "is", null),
+          supabase.from("projects").select("id, name, project_number, expected_boq_date, expected_signage_date")
+            .or([dated("expected_boq_date"), dated("expected_signage_date")].join(",")),
+          supabase.from("tenders").select("id, tender_name, tender_stage, expected_award_date, next_follow_up_date")
+            .or([dated("expected_award_date"), dated("next_follow_up_date")].join(",")),
+        ]);
+      // A table this account may not read comes back as an error, not a throw.
+      // The calendar shows what it can see rather than refusing to draw: a
+      // salesperson has no business reading every quotation, and that is not
+      // a reason to deny them their own follow-ups.
       return {
         followUps: followUps.data ?? [],
         rfqs: rfqs.data ?? [],
         opportunities: opps.data ?? [],
+        inboxItems: inbox.data ?? [],
+        flags: flags.data ?? [],
+        commitments: commitments.data ?? [],
+        tasks: tasks.data ?? [],
+        quotations: quotations.data ?? [],
+        projects: projects.data ?? [],
+        tenders: tenders.data ?? [],
       };
     },
   });
@@ -95,6 +130,13 @@ function CalendarPage() {
         followUps: (data?.followUps ?? []) as never,
         rfqs: (data?.rfqs ?? []) as never,
         opportunities: (data?.opportunities ?? []) as never,
+        inboxItems: (data?.inboxItems ?? []) as never,
+        flags: (data?.flags ?? []) as never,
+        commitments: (data?.commitments ?? []) as never,
+        tasks: (data?.tasks ?? []) as never,
+        quotations: (data?.quotations ?? []) as never,
+        projects: (data?.projects ?? []) as never,
+        tenders: (data?.tenders ?? []) as never,
       }),
     [data, today],
   );

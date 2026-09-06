@@ -1422,6 +1422,22 @@ export const strings = {
   cal_follow_up: { en: "Follow-up", ar: "متابعة" },
   cal_rfq_due: { en: "RFQ deadline", ar: "موعد عرض السعر" },
   cal_next_action: { en: "Next action", ar: "إجراء تالٍ" },
+  // Thirteen more dated obligations that the system already records and the
+  // calendar could not see. Each names the RECORD, not the table it lives in:
+  // the reader is looking for the thing they owe, not for where it is stored.
+  cal_expected_contract: { en: "Expected contract", ar: "عقد متوقَّع" },
+  cal_hold_review: { en: "Hold review", ar: "مراجعة تعليق" },
+  cal_intake_deadline: { en: "Enquiry deadline", ar: "موعد الطلب" },
+  cal_intake_follow_up: { en: "Enquiry follow-up", ar: "متابعة الطلب" },
+  cal_intake_info_due: { en: "Information due", ar: "معلومات مطلوبة" },
+  cal_flag_due: { en: "Flag due", ar: "إشارة مستحقّة" },
+  cal_commitment: { en: "Commitment", ar: "التزام" },
+  cal_task: { en: "Task", ar: "مهمّة" },
+  cal_quotation_expiry: { en: "Quotation expires", ar: "انتهاء صلاحية العرض" },
+  cal_project_boq: { en: "BOQ expected", ar: "جدول كميّات متوقَّع" },
+  cal_project_signage: { en: "Signage expected", ar: "لوحات متوقَّعة" },
+  cal_tender_award: { en: "Award expected", ar: "ترسية متوقَّعة" },
+  cal_tender_follow_up: { en: "Tender follow-up", ar: "متابعة مناقصة" },
   cal_overdue: { en: "Overdue", ar: "متأخر" },
   cal_today: { en: "Today", ar: "اليوم" },
   cal_upcoming: { en: "Upcoming", ar: "قادم" },
