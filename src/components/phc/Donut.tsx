@@ -39,12 +39,27 @@ export function Donut({
   total,
   caption,
   size = 132,
+  onSelect,
 }: {
   slices: DonutSlice[];
   /** Written in the hole. Defaults to the sum. */
   total?: number;
   caption?: string;
   size?: number;
+  /**
+   * Open the records behind a slice.
+   *
+   * The LEGEND row is the control, not the arc. A 16px band is a poor target
+   * with a mouse and an impossible one with a thumb, and the legend already
+   * exists as this chart's accessible table -- so the reachable thing and the
+   * readable thing are the same thing. The arc follows along for whoever aims
+   * at it, but nothing depends on hitting it.
+   *
+   * Omitted, the donut stays exactly what it was: a picture. A chart that
+   * names a problem and cannot be opened is a dead end, but not every chart
+   * has records behind it to open.
+   */
+  onSelect?: (key: string) => void;
 }) {
   const { lang } = useI18n();
   const sum = slices.reduce((a, s) => a + s.value, 0);
@@ -93,6 +108,8 @@ export function Donut({
             strokeWidth={STROKE}
             strokeDasharray={`${a.dash} ${C - a.dash}`}
             strokeDashoffset={-a.offset}
+            className={onSelect ? "cursor-pointer" : undefined}
+            onClick={onSelect ? () => onSelect(a.key) : undefined}
           >
             <title>{`${a.label} — ${formatNumber(a.value, lang)} (${Math.round(a.frac * 100)}%)`}</title>
           </circle>
@@ -113,22 +130,39 @@ export function Donut({
       {/* The legend is the chart's accessible table: label, figure and share in
           words, so nothing here is carried by colour alone. */}
       <ul className="min-w-0 flex-1 space-y-1.5">
-        {arcs.map((a) => (
-          <li key={a.key} className="flex items-center gap-2 text-2xs">
-            <span
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{ background: a.color }}
-              aria-hidden="true"
-            />
-            <span className="min-w-0 flex-1 truncate text-foreground">{a.label}</span>
-            <span className="num shrink-0 font-semibold text-foreground" data-tabular="true">
-              {formatNumber(a.value, lang)}
-            </span>
-            <span className="num w-9 shrink-0 text-end text-muted-foreground" data-tabular="true">
-              {Math.round(a.frac * 100)}%
-            </span>
+        {arcs.map((a) => {
+          const row = (
+            <>
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ background: a.color }}
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1 truncate text-start text-foreground">{a.label}</span>
+              <span className="num shrink-0 font-semibold text-foreground" data-tabular="true">
+                {formatNumber(a.value, lang)}
+              </span>
+              <span className="num w-9 shrink-0 text-end text-muted-foreground" data-tabular="true">
+                {Math.round(a.frac * 100)}%
+              </span>
+            </>
+          );
+          return (
+          <li key={a.key} className="text-2xs">
+            {onSelect ? (
+              <button
+                type="button"
+                onClick={() => onSelect(a.key)}
+                className="flex w-full items-center gap-2 rounded-md px-1 py-0.5 text-2xs transition-colors hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                {row}
+              </button>
+            ) : (
+              <span className="flex items-center gap-2 px-1 py-0.5">{row}</span>
+            )}
           </li>
-        ))}
+          );
+        })}
         {caption ? <li className="pt-0.5 text-2xs text-muted-foreground">{caption}</li> : null}
       </ul>
     </div>
