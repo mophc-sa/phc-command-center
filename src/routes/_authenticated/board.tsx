@@ -815,7 +815,12 @@ function BoardPage() {
       // for movement. Twelve overflows a panel that shows about six, so the
       // marquee has somewhere to go -- and the footer totals the twelve it
       // draws rather than a five it no longer shows.
-      hot: hotOpportunities(intel, 15),
+      // Twenty, and the count is not decoration: the panel scrolls only when
+      // its content overflows its box, so every time the box grew the list
+      // stopped moving. Fifteen rows came to 200px in a 197px box -- three
+      // pixels of overflow against a threshold of eight, and the marquee sat
+      // still. The row is taller again now, so the list is longer again.
+      hot: hotOpportunities(intel, 20),
       yoy: yearOnYear(opps, nowDate),
       oldestOverdue: oldestOverdueDays(
         rows<{ due_date: string | null }>(data.followUps).map((f) => f.due_date),
@@ -912,7 +917,7 @@ function BoardPage() {
             // big figures need less height than three tables do, and the
             // tables were the ones running out.
             gridTemplateRows:
-              "minmax(0,0.9fr) minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr)",
+              "minmax(0,0.8fr) minmax(0,0.82fr) minmax(0,1.78fr) minmax(0,1fr)",
           }}
         >
           <div className="grid grid-cols-5 gap-[0.7vw]">
@@ -1048,7 +1053,7 @@ function BoardPage() {
           holding a third of the width to show them. */}
           <div className="grid min-h-0 grid-cols-[1.8fr_1.1fr_0.7fr] gap-[0.7vw]">
             <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon={Flame} tone="amber" lang={lang}
-                   note={lang === "ar" ? "أعلى 15 حسب القيمة" : "top 15 by value"}>
+                   note={lang === "ar" ? "أعلى 20 حسب القيمة" : "top 20 by value"}>
               {/* Same fix as the pipeline below: the table stacked to its natural
                   height and pushed the total 12px past the card edge. Flexed
                   rows share whatever the panel has. */}
@@ -1083,7 +1088,7 @@ function BoardPage() {
                 </AutoScroll>
 
                 <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.86vw" }}>
-                  <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-15 total"}</span>
+                  <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-20 total"}</span>
                   <span className="num font-bold text-amber-on-tint" data-tabular="true">
                     {money(model.hot.reduce((a, h) => a + (h.value ?? 0), 0))}
                   </span>
@@ -1734,7 +1739,7 @@ function Kpi({
   band?: boolean;
 }) {
   return (
-    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1.1vh] shadow-sm ${bandClass(band)}`}>
+    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[0.75vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
         <span className="min-w-0 truncate font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
           {lang === "ar" ? ar : en}
@@ -1824,7 +1829,7 @@ function KpiFigure({
   band?: boolean;
 }) {
   return (
-    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1.1vh] shadow-sm ${bandClass(band)}`}>
+    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[0.75vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
         <span className="font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
           {lang === "ar" ? ar : en}
