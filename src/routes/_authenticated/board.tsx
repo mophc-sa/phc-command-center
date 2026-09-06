@@ -1058,15 +1058,24 @@ function BoardPage() {
                   height and pushed the total 12px past the card edge. Flexed
                   rows share whatever the panel has. */}
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.68vw" }}>
+                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.72vw" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "المشروع" : "Project"}</span>
                   <span className="shrink-0 text-end" style={{ width: "5vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "3.8vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "5.2vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span>
                 </div>
 
                 <AutoScroll className="flex min-h-0 flex-1 flex-col">
                   {model.hot.map((h, i) => (
-                    <div key={h.id} className="flex min-h-0 flex-1 items-center gap-[0.5vw] border-t border-border/50" style={{ fontSize: "0.86vw" }}>
+                    <div
+                      key={h.id}
+                      // Zebra rather than a rule between every pair: the same
+                      // idea as the card bands above, and with twenty rows a
+                      // hairline every 27px reads as texture, not separation.
+                      // The count is even, so the stripe pattern survives the
+                      // seam where the marquee's second copy begins.
+                      className={`flex min-h-0 flex-1 items-center gap-[0.5vw] px-[0.3vw] ${i % 2 === 1 ? "bg-muted" : ""}`}
+                      style={{ fontSize: "1vw" }}
+                    >
                       {/* The rank badge is gone. It cost 1.6vw of a column that
                           was already cramming project names against their
                           values, and the list is sorted by value -- the order
@@ -1080,14 +1089,14 @@ function BoardPage() {
                       {/* Empty on every row today. A dash is the honest cell, and
                           the column stays so the first entered figure lands in
                           its place without a code change. */}
-                      <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "3.8vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "5.2vw" }} data-tabular="true">
                         {h.probability === null ? "—" : `${formatNumber(h.probability, lang)}%`}
                       </span>
                     </div>
                   ))}
                 </AutoScroll>
 
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.86vw" }}>
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "1vw" }}>
                   <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-20 total"}</span>
                   <span className="num font-bold text-amber-on-tint" data-tabular="true">
                     {money(model.hot.reduce((a, h) => a + (h.value ?? 0), 0))}
