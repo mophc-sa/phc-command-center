@@ -89,7 +89,8 @@ There are 11 roles. **A user can hold more than one** — permissions are additi
 | Edit **Total Value** | `finance_manager`, `bd_manager` **only** |
 | Edit the **RFQ number** | `sales_manager`, `bd_manager`, `system_admin` **only** |
 | Use **Discussion** on an opportunity | `general_manager`, `sales_manager`, `bd_manager`, `system_admin` |
-| Assign an owner to a deal | `sales_manager` + executives |
+| Assign an owner to a deal **that already has one** | `sales_manager` + executives |
+| Assign an owner to a deal **with no owner** | `sales_manager` + executives + `bd_manager` + `sales_ops` |
 | Execute a delete | `system_admin`, `bd_manager` — **and only after someone else approved it** |
 | **BAFO / discount approval (4 steps)** | Each step needs its own business role. **`system_admin` alone can decide none of them** |
 | Review AI output | `system_admin` + commercial managers |
@@ -1023,4 +1024,4 @@ scrolling news wire — is on this branch and **not yet deployed**.
 
 Update this file when the workflow changes.*
 
-<!-- last reviewed 2026-09-06 · calendar reads every recorded date · previous: 2026-09-01 -->
+<!-- last reviewed 2026-09-06 · sales codes + unowned-deal assignment · previous: calendar, same day -->
