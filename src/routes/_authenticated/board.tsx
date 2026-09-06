@@ -917,7 +917,7 @@ function BoardPage() {
             // big figures need less height than three tables do, and the
             // tables were the ones running out.
             gridTemplateRows:
-              "minmax(0,0.8fr) minmax(0,0.82fr) minmax(0,1.78fr) minmax(0,1fr)",
+              "minmax(0,0.9fr) minmax(0,0.85fr) minmax(0,1.78fr) minmax(0,1.02fr)",
           }}
         >
           <div className="grid grid-cols-5 gap-[0.7vw]">
@@ -1218,7 +1218,7 @@ function BoardPage() {
             </Panel>
           </div>
 
-          <div className="grid min-h-0 grid-cols-3 gap-[0.7vw]">
+          <div className="grid min-h-0 grid-cols-[1.3fr_0.95fr_1.05fr] gap-[0.7vw]">
             <Panel band title={lang === "ar" ? "ما الذي تغيّر منذ الأمس؟" : "Changed since yesterday"} icon={RefreshCw} tone="info" lang={lang}>
               <ChipRow
                 // The exact window, where the title says it loosely.
@@ -1748,7 +1748,7 @@ function Kpi({
   band?: boolean;
 }) {
   return (
-    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[0.75vh] shadow-sm ${bandClass(band)}`}>
+    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
         <span className="min-w-0 truncate font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
           {lang === "ar" ? ar : en}
@@ -1769,12 +1769,12 @@ function Kpi({
         <div className="flex min-w-0 flex-col items-center">
           <span
             className={`num font-bold leading-none tracking-[-0.02em] ${TONE[tone].text}`}
-            style={{ fontSize: "3.2vw" }}
+            style={{ fontSize: "2.75vw" }}
           >
             {value ?? "\u2014"}
           </span>
           {unit ? (
-            <span className="mt-[0.45vh] w-full truncate text-center text-muted-foreground" style={{ fontSize: "0.74vw" }}>
+            <span className="mt-[0.7vh] w-full truncate text-center text-muted-foreground" style={{ fontSize: "0.78vw" }}>
               {unit}
             </span>
           ) : null}
@@ -1787,7 +1787,7 @@ function Kpi({
         {gauge !== undefined && gauge !== null ? <Gauge value={gauge} tone={tone} /> : null}
       </div>
 
-      <span className="text-center text-muted-foreground" style={{ fontSize: "0.68vw" }}>
+      <span className="mt-[0.7vh] text-center text-muted-foreground" style={{ fontSize: "0.72vw" }}>
         {foot ?? en}
       </span>
     </div>
@@ -1838,7 +1838,7 @@ function KpiFigure({
   band?: boolean;
 }) {
   return (
-    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[0.75vh] shadow-sm ${bandClass(band)}`}>
+    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
         <span className="font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
           {lang === "ar" ? ar : en}
