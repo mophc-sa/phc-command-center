@@ -286,27 +286,23 @@ const TONE = {
   teal: { wash: "color-mix(in srgb, var(--teal) 8%, var(--card))", edge: "var(--teal)", text: "text-teal-on-tint" },
 } satisfies Record<string, { wash: string; edge: string; text: string }>;
 
-/** The dark panel's ground. Named once so a tint can be mixed against it. */
-const DARK_GROUND = "#0f1a26";
-
 /**
- * A tone badge, mixed against the surface it actually sits on.
+ * The alternating row ground.
  *
- * `TONE[x].wash` mixes with `--card` -- the LIGHT card. On the dark panel that
- * is not a tint, it is a pale square, and that is what the wall screen showed.
- * A tint is a relationship between two colours; hard-coding one of them means
- * it is only a tint on one background.
+ * Asked for on 2026-09-06: white, then a light grey, then white. Bands are
+ * how a wall of twelve cards stops reading as one field of white -- the eye
+ * gets a horizontal rule it does not have to look for.
  *
- * On dark the glyph lightens instead of darkening. Measured on #0f1a26: every
- * tone's glyph clears 6.1:1 on its own badge and 7.8:1 on the ground, where
- * the light-mode inks manage 3.15 (destructive) and 2.84 (amber).
+ * `--muted` measures 1.17:1 against the white card and 1.06:1 against the page
+ * behind both, which is visible across a room and still leaves body text at
+ * 5.10:1 and figures at 15.41:1. `--surface-2` was the first choice and is
+ * 1.06:1 against white -- a difference that exists in the stylesheet and not
+ * on the screen.
  */
-function badgeStyle(tone: keyof typeof TONE, dark?: boolean) {
-  const c = TONE[tone].edge;
-  return dark
-    ? { background: `color-mix(in srgb, ${c} 24%, ${DARK_GROUND})`, color: `color-mix(in srgb, ${c} 55%, white)` }
-    : { background: TONE[tone].wash, color: c };
+function bandClass(band?: boolean) {
+  return band ? "bg-muted" : "bg-card";
 }
+
 
 /** A headline figure. Big enough to read from across the room. */
 function Hero({
@@ -814,7 +810,17 @@ function BoardPage() {
       weighted,
       coverage: pipelineCoverage(weighted, annual),
       horizon: horizonForecast(intel, nowDate),
-      hot: hotOpportunities(intel, 5),
+      // Twelve, not five. The panel auto-scrolls, and a list that fits its
+      // box has nothing to scroll: five rows sat still while the request was
+      // for movement. Twelve overflows a panel that shows about six, so the
+      // marquee has somewhere to go -- and the footer totals the twelve it
+      // draws rather than a five it no longer shows.
+      // Twenty, and the count is not decoration: the panel scrolls only when
+      // its content overflows its box, so every time the box grew the list
+      // stopped moving. Fifteen rows came to 200px in a 197px box -- three
+      // pixels of overflow against a threshold of eight, and the marquee sat
+      // still. The row is taller again now, so the list is longer again.
+      hot: hotOpportunities(intel, 20),
       yoy: yearOnYear(opps, nowDate),
       oldestOverdue: oldestOverdueDays(
         rows<{ due_date: string | null }>(data.followUps).map((f) => f.due_date),
@@ -907,8 +913,11 @@ function BoardPage() {
           // the table row swallowed everything left over and towered over the
           // cards above it.
           style={{
+            // The lists row grew and the headline cards gave it the room: five
+            // big figures need less height than three tables do, and the
+            // tables were the ones running out.
             gridTemplateRows:
-              "minmax(0,1.15fr) minmax(0,1fr) minmax(0,1.25fr) minmax(0,1fr)",
+              "minmax(0,0.9fr) minmax(0,0.85fr) minmax(0,1.78fr) minmax(0,1.02fr)",
           }}
         >
           <div className="grid grid-cols-5 gap-[0.7vw]">
@@ -989,19 +998,19 @@ function BoardPage() {
             />
           </div>
           <div className="grid grid-cols-[1.55fr_1fr] gap-[0.7vw]">
-            <Panel dark title={lang === "ar" ? "يتطلّب الانتباه" : "Needs attention"} icon={AlertTriangle} tone="danger" lang={lang}>
+            <Panel band title={lang === "ar" ? "يتطلّب الانتباه" : "Needs attention"} icon={AlertTriangle} tone="danger" lang={lang}>
               <div className="grid flex-1 grid-cols-4 gap-[0.6vw]">
-                <Need dark icon={CalendarClock} n={model.pulse.followUpsOverdue} ar="متابعات متأخّرة" en="Follow-ups overdue"
+                <Need icon={CalendarClock} n={model.pulse.followUpsOverdue} ar="متابعات متأخّرة" en="Follow-ups overdue"
                       sub={lang === "ar" ? "مطلوب إجراء اليوم" : "action needed today"} tone="danger" lang={lang} />
-                <Need dark icon={Clock} n={model.pulse.quotationsDueSoon} ar="عروض ≤ 7 أيام" en="Quotations ≤7d"
+                <Need icon={Clock} n={model.pulse.quotationsDueSoon} ar="عروض ≤ 7 أيام" en="Quotations ≤7d"
                       sub={model.pulse.quotationsDueSoon === null
                         ? (lang === "ar" ? "لا تاريخ صلاحية مسجّل" : "no expiry recorded")
                         : (lang === "ar" ? "ردّ خلال المدّة" : "reply within validity")}
                       tone="amber" lang={lang} />
-                <Need dark icon={Flame} n={model.attention.filter((a) => a.priority === "critical").length}
+                <Need icon={Flame} n={model.attention.filter((a) => a.priority === "critical").length}
                       ar="فرص حرجة" en="Critical deals"
                       sub={lang === "ar" ? "قيمة عالية ومتأخّرة" : "high value, overdue"} tone="danger" lang={lang} />
-                <Need dark icon={CircleX} n={model.pulse.approvalsPending} ar="موافقات منتظرة" en="Approvals pending"
+                <Need icon={CircleX} n={model.pulse.approvalsPending} ar="موافقات منتظرة" en="Approvals pending"
                       sub={model.pulse.oldestApprovalDays === null
                         ? (lang === "ar" ? "لا شيء ينتظر" : "nothing waiting")
                         : (lang === "ar" ? `أقدمها ${formatNumber(model.pulse.oldestApprovalDays, lang)} يومًا` : `oldest ${model.pulse.oldestApprovalDays}d`)}
@@ -1009,26 +1018,26 @@ function BoardPage() {
               </div>
             </Panel>
 
-            <Panel title={lang === "ar" ? "اليوم / الأيام السبعة القادمة" : "Today / next seven days"} icon={CalendarDays} tone="info" lang={lang}>
+            <Panel band title={lang === "ar" ? "اليوم / الأيام السبعة القادمة" : "Today / next seven days"} icon={CalendarDays} tone="info" lang={lang}>
               {model.upcoming === null ? (
                 <div className="flex flex-1 flex-col justify-center gap-[0.4vh]">
-                  <span className="font-semibold text-amber-on-tint" style={{ fontSize: "0.95vw" }}>
+                  <span className="font-semibold text-amber-on-tint" style={{ fontSize: "1.15vw" }}>
                     {lang === "ar" ? "لا شيء مجدوَل بعد اليوم" : "Nothing scheduled ahead"}
                   </span>
-                  <span className="text-muted-foreground" style={{ fontSize: "0.74vw" }}>
+                  <span className="text-muted-foreground" style={{ fontSize: "0.92vw" }}>
                     {lang === "ar"
                       ? "كل المتابعات متأخّرة — الأجندة فارغة لا خالية"
                       : "Every follow-up is overdue — the calendar is empty, not clear"}
                   </span>
                 </div>
               ) : (
-                <div className="flex flex-1 flex-col justify-center gap-[0.5vh]" style={{ fontSize: "0.82vw" }}>
+                <div className="flex flex-1 flex-col justify-center gap-[0.25vh]" style={{ fontSize: "1.02vw" }}>
                   {([
                     [lang === "ar" ? "اليوم" : "Today", model.upcoming.todayCount],
                     [lang === "ar" ? "غدًا" : "Tomorrow", model.upcoming.tomorrowCount],
                     [lang === "ar" ? "هذا الأسبوع" : "This week", model.upcoming.weekCount],
                   ] as const).map(([l, n]) => (
-                    <div key={l} className="flex items-baseline justify-between border-b border-border/40 pb-[0.35vh]">
+                    <div key={l} className="flex items-baseline justify-between border-b border-border/40 pb-[0.2vh]">
                       <span className="text-muted-foreground">{l}</span>
                       <span className="num font-semibold text-foreground" data-tabular="true">{formatNumber(n, lang)}</span>
                     </div>
@@ -1038,52 +1047,57 @@ function BoardPage() {
             </Panel>
           </div>
 
-          <div className="grid min-h-0 grid-cols-3 gap-[0.7vw]">
+          {/* Not three equal columns. Top opportunities is a list of names and
+          money that has to stay readable from across a room; team
+          performance is four short rows of initials and figures and was
+          holding a third of the width to show them. */}
+          <div className="grid min-h-0 grid-cols-[1.8fr_1.1fr_0.7fr] gap-[0.7vw]">
             <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon={Flame} tone="amber" lang={lang}
-                   note={lang === "ar" ? "أعلى 5 حسب القيمة" : "top 5 by value"}>
+                   note={lang === "ar" ? "أعلى 20 حسب القيمة" : "top 20 by value"}>
               {/* Same fix as the pipeline below: the table stacked to its natural
                   height and pushed the total 12px past the card edge. Flexed
                   rows share whatever the panel has. */}
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.62vw" }}>
+                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.8vw" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "المشروع" : "Project"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "6vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "4.4vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "5.6vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "5.2vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span>
                 </div>
 
                 <AutoScroll className="flex min-h-0 flex-1 flex-col">
                   {model.hot.map((h, i) => (
-                    <div key={h.id} className="flex min-h-0 flex-1 items-center gap-[0.5vw] border-t border-border/50" style={{ fontSize: "0.72vw" }}>
+                    <div
+                      key={h.id}
+                      // Zebra rather than a rule between every pair: the same
+                      // idea as the card bands above, and with twenty rows a
+                      // hairline every 27px reads as texture, not separation.
+                      // The count is even, so the stripe pattern survives the
+                      // seam where the marquee's second copy begins.
+                      className={`flex min-h-0 flex-1 items-center gap-[0.5vw] px-[0.3vw] ${i % 2 === 1 ? "bg-muted" : ""}`}
+                      style={{ fontSize: "1.15vw" }}
+                    >
+                      {/* The rank badge is gone. It cost 1.6vw of a column that
+                          was already cramming project names against their
+                          values, and the list is sorted by value -- the order
+                          IS the rank, and printing it twice bought nothing. */}
                       <span className="min-w-0 flex-1 truncate text-foreground">
-                        {/* A numbered badge, not a grey digit: this list is
-                            ranked, and rank is the reason the row is here. */}
-                        <span
-                          className="num me-[0.45vw] inline-grid place-items-center rounded-full font-bold text-white align-middle"
-                          data-tabular="true"
-                          style={{
-                            width: "1.15vw", height: "1.15vw", fontSize: "0.6vw",
-                            background: `var(--stage-${Math.min(i + 1, 7)})`,
-                          }}
-                        >
-                          {formatNumber(i + 1, lang)}
-                        </span>
                         {h.projectName}
                       </span>
-                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "6vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "5.6vw" }} data-tabular="true">
                         {money(h.value)}
                       </span>
                       {/* Empty on every row today. A dash is the honest cell, and
                           the column stays so the first entered figure lands in
                           its place without a code change. */}
-                      <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "4.4vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "5.2vw" }} data-tabular="true">
                         {h.probability === null ? "—" : `${formatNumber(h.probability, lang)}%`}
                       </span>
                     </div>
                   ))}
                 </AutoScroll>
 
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
-                  <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-5 total"}</span>
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "1.15vw" }}>
+                  <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-20 total"}</span>
                   <span className="num font-bold text-amber-on-tint" data-tabular="true">
                     {money(model.hot.reduce((a, h) => a + (h.value ?? 0), 0))}
                   </span>
@@ -1098,7 +1112,7 @@ function BoardPage() {
                   falls off the bottom is a stage nobody knows exists. Flexing
                   the rows makes the fit hold for any number of stages. */}
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.6vw" }}>
+                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.76vw" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "المرحلة" : "Stage"}</span>
                   <span className="shrink-0 text-end" style={{ width: "2.6vw" }}>{lang === "ar" ? "العدد" : "Deals"}</span>
                   <span className="shrink-0 text-end" style={{ width: "5vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
@@ -1114,13 +1128,13 @@ function BoardPage() {
                       // must not compete with the stages holding the money.
                       style={{ opacity: c.count === 0 ? 0.5 : 1 }}
                     >
-                      <span className="min-w-0 flex-1 truncate text-foreground" style={{ fontSize: "0.7vw" }}>
+                      <span className="min-w-0 flex-1 truncate text-foreground" style={{ fontSize: "0.88vw" }}>
                         {STAGE_LABEL[c.stage]?.[lang === "ar" ? 0 : 1] ?? c.stage}
                       </span>
-                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ fontSize: "0.72vw", width: "2.6vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ fontSize: "0.9vw", width: "2.6vw" }} data-tabular="true">
                         {formatNumber(c.count, lang)}
                       </span>
-                      <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.7vw", width: "5vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.88vw", width: "5vw" }} data-tabular="true">
                         {c.value > 0 ? compactValue(c.value, lang) : "—"}
                       </span>
                       <span className="flex shrink-0 items-center gap-[0.35vw]" style={{ width: "7.4vw" }}>
@@ -1135,7 +1149,7 @@ function BoardPage() {
                             <span className="absolute inset-y-0 start-0" style={{ width: "0.35vw", background: `var(--stage-${i + 1})`, opacity: 0.55 }} />
                           ) : null}
                         </span>
-                        <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.62vw", width: "2vw" }} data-tabular="true">
+                        <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.78vw", width: "2vw" }} data-tabular="true">
                           {Math.round(c.share * 100)}%
                         </span>
                       </span>
@@ -1143,7 +1157,7 @@ function BoardPage() {
                   ))}
                 </div>
 
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.9vw" }}>
                   <span className="font-semibold text-foreground">{lang === "ar" ? "الإجمالي" : "Total"}</span>
                   <span className="num font-bold text-foreground" data-tabular="true">
                     {formatNumber(model.standing.openCount, lang)} · {money(model.standing.openTotal)}
@@ -1152,60 +1166,65 @@ function BoardPage() {
               </div>
             </Panel>
 
-            <Panel title={lang === "ar" ? "أداء فريق المبيعات" : "Team performance"} icon={Users} tone="teal" lang={lang}>
-              <table className="w-full" style={{ fontSize: "0.7vw" }}>
-                <thead>
-                  <tr className="text-muted-foreground" style={{ fontSize: "0.6vw" }}>
-                    <th className="pb-[0.4vh] text-start">{lang === "ar" ? "العضو" : "Member"}</th>
-                    <th className="pb-[0.4vh] text-end">{lang === "ar" ? "المحقّق" : "Won"}</th>
-                    <th className="pb-[0.4vh] text-end">{lang === "ar" ? "المسار" : "Pipeline"}</th>
-                    <th className="pb-[0.4vh] text-end">{lang === "ar" ? "متأخّرة" : "Overdue"}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* One hue per member, assigned by position in the table.
-                      Deterministic, so a person keeps their colour between
-                      refreshes and the eye can track a row without reading it. */}
-                  {model.team.slice(0, 5).map((p, idx) => {
-                    const AVATAR = ["won", "info", "violet", "amber", "teal"] as const;
-                    const av = AVATAR[idx % AVATAR.length];
+            <Panel title={lang === "ar" ? "أداء فريق المبيعات" : "Team performance"} icon={Users} tone="teal" lang={lang}
+                   note={lang === "ar" ? `${formatNumber(model.team.length, lang)} مندوبًا` : `${model.team.length} reps`}>
+              {/* Rows, not a table -- the same shape as Top opportunities, so
+                  the two panels stripe and scroll the same way. A <tbody> is
+                  the one thing a marquee cannot wrap: it would have to sit in
+                  a <div>, and that is not valid inside a table. */}
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex shrink-0 items-center gap-[0.5vw] px-[0.3vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.76vw" }}>
+                  <span className="min-w-0 flex-1">{lang === "ar" ? "العضو" : "Member"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "المحقّق" : "Won"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "المسار" : "Pipeline"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "3.4vw" }}>{lang === "ar" ? "متأخّرة" : "Overdue"}</span>
+                </div>
+
+                <AutoScroll className="flex min-h-0 flex-1 flex-col">
+                  {/* Everyone, not the first five. A wall that shows half a team
+                      teaches the other half that the board is not about them,
+                      and the panel scrolls -- there is no reason to choose. */}
+                  {model.team.map((p, idx) => {
                     const late = model.attention.filter(
                       (a) => a.ownerId === p.ownerId && a.reasons.includes("followups_overdue"),
                     ).length;
                     return (
-                      <tr key={p.ownerId} className="border-t border-border/50">
-                        <td className="py-[0.3vh]">
-                          <span className="flex items-center gap-[0.4vw]">
-                            <span className="grid shrink-0 place-items-center rounded-full font-bold text-white"
-                                  style={{ width: "1.5vw", height: "1.5vw", fontSize: "0.6vw", background: TONE[av].edge }}>
-                              {p.label}
-                            </span>
-                            <span className="truncate text-foreground">{p.label}</span>
-                          </span>
-                        </td>
-                        <td className="num py-[0.3vh] text-end font-semibold text-foreground" data-tabular="true">{money(p.won)}</td>
-                        <td className="num py-[0.3vh] text-end text-muted-foreground" data-tabular="true">{money(p.open)}</td>
-                        <td className="num py-[0.3vh] text-end" data-tabular="true">
-                          <span className={late > 0 ? "font-semibold text-destructive-on-tint" : "text-muted-foreground"}>
-                            {formatNumber(late, lang)}
-                          </span>
-                        </td>
-                      </tr>
+                      <div
+                        key={p.ownerId}
+                        className={`flex min-h-0 flex-1 items-center gap-[0.5vw] px-[0.3vw] ${idx % 2 === 1 ? "bg-muted" : ""}`}
+                        style={{ fontSize: "0.88vw" }}
+                      >
+                        <span className="min-w-0 flex-1 truncate text-foreground">{p.label}</span>
+                        <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "4vw" }} data-tabular="true">
+                          {money(p.won)}
+                        </span>
+                        <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "4vw" }} data-tabular="true">
+                          {money(p.open)}
+                        </span>
+                        <span
+                          className={`num shrink-0 text-end ${late > 0 ? "font-semibold text-destructive-on-tint" : "text-muted-foreground"}`}
+                          style={{ width: "3.4vw" }}
+                          data-tabular="true"
+                        >
+                          {formatNumber(late, lang)}
+                        </span>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
-              <div className="mt-auto flex items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.72vw" }}>
-                <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الإجمالي" : "Total"}</span>
-                <span className="num font-bold text-teal-on-tint" data-tabular="true">
-                  {money(model.team.reduce((a, p) => a + p.won, 0))} · {money(model.team.reduce((a, p) => a + p.open, 0))}
-                </span>
+                </AutoScroll>
+
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.9vw" }}>
+                  <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الإجمالي" : "Total"}</span>
+                  <span className="num font-bold text-teal-on-tint" data-tabular="true">
+                    {money(model.team.reduce((a, p) => a + p.won, 0))} · {money(model.team.reduce((a, p) => a + p.open, 0))}
+                  </span>
+                </div>
               </div>
             </Panel>
           </div>
 
-          <div className="grid min-h-0 grid-cols-3 gap-[0.7vw]">
-            <Panel title={lang === "ar" ? "ما الذي تغيّر منذ الأمس؟" : "Changed since yesterday"} icon={RefreshCw} tone="info" lang={lang}>
+          <div className="grid min-h-0 grid-cols-[1.3fr_0.95fr_1.05fr] gap-[0.7vw]">
+            <Panel band title={lang === "ar" ? "ما الذي تغيّر منذ الأمس؟" : "Changed since yesterday"} icon={RefreshCw} tone="info" lang={lang}>
               <ChipRow
                 // The exact window, where the title says it loosely.
                 kicker={lang === "ar" ? "آخر 24 ساعة" : "Last 24 hours"}
@@ -1216,21 +1235,21 @@ function BoardPage() {
                   </span>
                 }
               >
-                <Mini icon={TrendingUp} n={model.movement.won} value={money(model.movement.wonValue)} ar="صفقات فُزنا بها" en="Won" tone="won" lang={lang} />
-                <Mini icon={FileText} n={model.movement.newDeals} value={money(model.movement.newValue)} ar="فرص جديدة" en="New deals" tone="amber" lang={lang} />
-                <Mini icon={Handshake} n={model.movement.toBafo} ar="انتقلت إلى BAFO" en="Moved to BAFO" tone="violet" lang={lang} />
+                <Mini cols={5} icon={TrendingUp} n={model.movement.won} value={money(model.movement.wonValue)} ar="صفقات فُزنا بها" en="Won" tone="won" lang={lang} />
+                <Mini cols={5} icon={FileText} n={model.movement.newDeals} value={money(model.movement.newValue)} ar="فرص جديدة" en="New deals" tone="amber" lang={lang} />
+                <Mini cols={5} icon={Handshake} n={model.movement.toBafo} ar="انتقلت إلى BAFO" en="Moved to BAFO" tone="violet" lang={lang} />
                 {/* The reference names this one "stalled deals", and its pause icon says
                     so too. `advanced` is the opposite fact -- deals that MOVED --
                     and putting it under a pause icon was reading the picture
                     carelessly. Stalled comes from the attention list, which
                     already defines it as no client contact in the window. */}
-                <Mini icon={PauseCircle} n={model.attention.filter((a) => a.reasons.includes("stalled")).length}
+                <Mini cols={5} icon={PauseCircle} n={model.attention.filter((a) => a.reasons.includes("stalled")).length}
                       ar="صفقات متوقفة" en="Stalled deals" tone="info" lang={lang} />
-                <Mini icon={CheckCircle2} n={model.movement.followUpsClosed} ar="متابعات أُغلقت" en="Follow-ups closed" tone="teal" lang={lang} />
+                <Mini cols={5} icon={CheckCircle2} n={model.movement.followUpsClosed} ar="متابعات أُغلقت" en="Follow-ups closed" tone="teal" lang={lang} />
               </ChipRow>
             </Panel>
 
-            <Panel title={lang === "ar" ? "نبض المبيعات بالذكاء الاصطناعي" : "AI sales pulse"} icon={Sparkles} tone="info" lang={lang}>
+            <Panel band title={lang === "ar" ? "نبض المبيعات بالذكاء الاصطناعي" : "AI sales pulse"} icon={Sparkles} tone="info" lang={lang}>
               <Pulse
                 critical={model.attention.filter((a) => a.priority === "critical").length}
                 criticalValue={model.attention
@@ -1248,7 +1267,7 @@ function BoardPage() {
               />
             </Panel>
 
-            <Panel title={lang === "ar" ? "توقعات (30 / 60 / 90 يوم)" : "Forecast (30 / 60 / 90 days)"} icon={Clock} tone="amber" lang={lang}>
+            <Panel band title={lang === "ar" ? "توقعات (30 / 60 / 90 يوم)" : "Forecast (30 / 60 / 90 days)"} icon={Clock} tone="amber" lang={lang}>
               <Horizons h={model.horizon} lang={lang} money={money} />
             </Panel>
           </div>
@@ -1261,13 +1280,13 @@ function BoardPage() {
           the text length, so it stays readable rather than racing. */}
       <footer className="flex shrink-0 items-center gap-[1vw] px-[1.2vw] py-[1.1vh]" style={{ background: "var(--ink, #13161b)" }}>
         <span className="shrink-0 rounded-[0.3vw] px-[0.8vw] py-[0.35vh] font-bold text-white"
-              style={{ fontSize: "0.95vw", background: "var(--destructive)" }}>
+              style={{ fontSize: "1.15vw", background: "var(--destructive)" }}>
           {lang === "ar" ? "أخبار المبيعات" : "Sales wire"}
         </span>
         {/* Built from the same figures above -- a wire inventing its own items
             would be a second source of truth nobody could reconcile. */}
         <Wire lang={lang} items={model ? wireItems(model, lang, (n) => money(n) ?? "") : [lang === "ar" ? "جارٍ التحميل" : "Loading"]} />
-        <span className="num shrink-0 text-white/70" style={{ fontSize: "0.95vw" }}>{fmtTime(nowDate)}</span>
+        <span className="num shrink-0 text-white/70" style={{ fontSize: "1.15vw" }}>{fmtTime(nowDate)}</span>
       </footer>
     </div>
   );
@@ -1306,7 +1325,7 @@ function Wire({ items, lang }: { items: string[]; lang: "ar" | "en" }) {
         key={text}
         className="wire-track flex w-max whitespace-nowrap text-white/85"
         style={{
-          fontSize: "1.05vw",
+          fontSize: "1.35vw",
           animation: `${lang === "ar" ? "wire-rtl" : "wire-ltr"} ${seconds}s linear infinite`,
         }}
       >
@@ -1330,7 +1349,10 @@ function Wire({ items, lang }: { items: string[]; lang: "ar" | "en" }) {
  * by construction rather than by two numbers that happen to agree today. A
  * contract test below holds them together.
  */
-const CHIP_ROW_H = "7.9vh";
+// Measured on the wall: a stacked chip needs 82px and 7.9vh gave it 71, so the
+// last line of all five was cut. The three bottom panels share this height on
+// purpose, so raising it raises them together and they still line up.
+const CHIP_ROW_H = "9.9vh";
 /** One type scale for both panels, for the same reason as the height. */
 const CHIP_FIGURE = "1.6vw";
 const CHIP_LABEL = "0.64vw";
@@ -1454,35 +1476,52 @@ function Chip({
   figure,
   label,
   note,
+  cols = 3,
 }: {
   tone: keyof typeof TONE;
   lang: "ar" | "en";
+  /** How many chips share the row. Past three there is no room to sit side by side. */
+  cols?: number;
   /** The number. Sits on the left, alone, at one width for the whole row. */
   figure: React.ReactNode;
   label: React.ReactNode;
   note?: React.ReactNode;
 }) {
   const t = TONE[tone];
+  // Measured on the wall at 1600px: five chips share a third of the width, the
+  // fixed number slot takes 2.4vw of each, and the text column is left with
+  // SIXTEEN pixels -- for labels that need 22 to 86. Every one of the ten was
+  // clipped to nothing. Side by side is right for three chips and impossible
+  // for five, so past three the chip stacks: the figure over the words, and
+  // the words get the tile's whole width.
+  const stacked = cols >= 4;
   return (
     <div
-      className="flex min-h-0 items-center gap-[0.5vw] overflow-hidden rounded-[0.5vw] px-[0.5vw] py-[0.4vh]"
+      className={`flex min-h-0 overflow-hidden rounded-[0.5vw] px-[0.5vw] py-[0.4vh] ${
+        stacked ? "flex-col items-center justify-center gap-[0.2vh] text-center" : "items-center gap-[0.5vw]"
+      }`}
       style={{
         background: t.wash,
         boxShadow: `inset 0 0 0 1px ${t.edge}`,
         // The number belongs on the physical left in BOTH languages, and a
         // plain `row` puts the first child on the reading edge -- which is the
         // right in Arabic. Reversing there, and only there, pins the number left
-        // and lets the text start at its own reading edge either way.
-        flexDirection: lang === "ar" ? "row-reverse" : "row",
+        // and lets the text start at its own reading edge either way. A stacked
+        // chip has no left and right to argue about.
+        flexDirection: stacked ? undefined : lang === "ar" ? "row-reverse" : "row",
       }}
     >
       {/* A fixed slot, not a shrink-to-fit one: "5" and "237" are different
           widths, and letting each chip size its own number would step the text
-          column three times across a row of three. */}
-      <span className="flex shrink-0 items-center justify-center" style={{ width: CHIP_FIGURE_W }}>
+          column three times across a row of three. Stacked, the slot is the
+          full tile instead -- there is no column to keep straight. */}
+      <span
+        className={`flex items-center justify-center ${stacked ? "w-full" : "shrink-0"}`}
+        style={stacked ? undefined : { width: CHIP_FIGURE_W }}
+      >
         {figure}
       </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-[0.15vh] text-start">
+      <span className={`flex min-w-0 flex-col gap-[0.15vh] ${stacked ? "w-full text-center" : "flex-1 text-start"}`}>
         {label}
         {note}
       </span>
@@ -1700,7 +1739,7 @@ function Horizons({
 /** A headline card: label and icon, a centred figure with its unit beneath, an
  *  optional gauge, and a footnote. */
 function Kpi({
-  icon: Icon, tone, lang, ar, en, value, unit, foot, gauge,
+  icon: Icon, tone, lang, ar, en, value, unit, foot, gauge, band,
 }: {
   icon: LucideIcon;
   tone: keyof typeof TONE;
@@ -1711,26 +1750,20 @@ function Kpi({
   unit?: string | null;
   foot?: string;
   gauge?: number | null;
+  band?: boolean;
 }) {
   return (
-    <div className="relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1.1vw] py-[1.1vh] shadow-sm">
+    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
         <span className="min-w-0 truncate font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
           {lang === "ar" ? ar : en}
         </span>
-        <span
+        <Icon
+          className="h-[1.7vw] w-[1.7vw] shrink-0"
+          strokeWidth={2}
+          style={{ color: TONE[tone].edge }}
           aria-hidden="true"
-          className="grid shrink-0 place-items-center rounded-[0.45vw]"
-          style={{
-            width: "1.9vw",
-            height: "1.9vw",
-            fontSize: "0.95vw",
-            background: TONE[tone].wash,
-            color: TONE[tone].edge,
-          }}
-        >
-          <Icon className="h-[1.05vw] w-[1.05vw]" strokeWidth={2.25} aria-hidden="true" />
-        </span>
+        />
       </div>
 
       {/* Centred, with the unit UNDER the figure rather than beside it. The eye
@@ -1741,12 +1774,12 @@ function Kpi({
         <div className="flex min-w-0 flex-col items-center">
           <span
             className={`num font-bold leading-none tracking-[-0.02em] ${TONE[tone].text}`}
-            style={{ fontSize: "3.2vw" }}
+            style={{ fontSize: "2.75vw" }}
           >
             {value ?? "\u2014"}
           </span>
           {unit ? (
-            <span className="mt-[0.45vh] w-full truncate text-center text-muted-foreground" style={{ fontSize: "0.74vw" }}>
+            <span className="mt-[0.7vh] w-full truncate text-center text-muted-foreground" style={{ fontSize: "0.78vw" }}>
               {unit}
             </span>
           ) : null}
@@ -1759,7 +1792,7 @@ function Kpi({
         {gauge !== undefined && gauge !== null ? <Gauge value={gauge} tone={tone} /> : null}
       </div>
 
-      <span className="text-center text-muted-foreground" style={{ fontSize: "0.68vw" }}>
+      <span className="mt-[0.7vh] text-center text-muted-foreground" style={{ fontSize: "0.72vw" }}>
         {foot ?? en}
       </span>
     </div>
@@ -1796,7 +1829,7 @@ function Gauge({ value, tone }: { value: number; tone: keyof typeof TONE }) {
 
 /** The same card for a figure whose inputs may not exist. */
 function KpiFigure({
-  icon: Icon, f, lang, money, ar, en, tone, foot,
+  icon: Icon, f, lang, money, ar, en, tone, foot, band,
 }: {
   icon: LucideIcon;
   tone: keyof typeof TONE;
@@ -1807,26 +1840,20 @@ function KpiFigure({
   en: string;
   /** The line under the figure. Null when there is nothing true to put there. */
   foot?: string | null;
+  band?: boolean;
 }) {
   return (
-    <div className="relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 bg-card px-[1.1vw] py-[1.1vh] shadow-sm">
+    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
         <span className="font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
           {lang === "ar" ? ar : en}
         </span>
-        <span
+        <Icon
+          className="h-[1.7vw] w-[1.7vw] shrink-0"
+          strokeWidth={2}
+          style={{ color: TONE[tone].edge }}
           aria-hidden="true"
-          className="grid shrink-0 place-items-center rounded-[0.45vw]"
-          style={{
-            width: "1.9vw",
-            height: "1.9vw",
-            fontSize: "0.95vw",
-            background: TONE[tone].wash,
-            color: TONE[tone].edge,
-          }}
-        >
-          <Icon className="h-[1.05vw] w-[1.05vw]" strokeWidth={2.25} aria-hidden="true" />
-        </span>
+        />
       </div>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <FigureValue f={f} lang={lang} format={(n) => money(n)} size="3.2vw" />
@@ -1843,47 +1870,35 @@ function KpiFigure({
 
 /** A panel with a titled header, matching the mockup's card chrome. */
 function Panel({
-  title, icon: Icon, tone, lang, note, children, dark,
+  title, icon: Icon, tone, lang, note, children, band,
 }: {
   title: string;
   icon: LucideIcon;
   tone: keyof typeof TONE;
-  /**
-   * Darkens the whole panel, as the supplied reference does for this one.
-   *
-   * It inverts the panel's text colours with it. A dark ground under
-   * `text-foreground` is how a card ends up black on near-black -- the
-   * background and the ink are one decision, never two.
-   */
-  dark?: boolean;
+  /** White row or tinted row -- see bandClass. */
+  band?: boolean;
   lang: "ar" | "en";
   note?: string;
   children: React.ReactNode;
 }) {
   return (
     <section
-      className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[0.7vw] border px-[1vw] py-[0.8vh] shadow-sm ${
-        dark ? "board-dark border-white/10" : "border-border/70 bg-card"
-      }`}
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1vw] py-[0.8vh] shadow-sm ${bandClass(band)}`}
     >
-      <div className="mb-[0.5vh] flex items-baseline justify-between">
-        <span className="flex items-baseline gap-[0.4vw]">
-          <span
+      <div className="mb-[0.5vh] flex items-center justify-between">
+        <span className="flex items-center gap-[0.45vw]">
+          <Icon
+            className="h-[1.35vw] w-[1.35vw] shrink-0"
+            strokeWidth={2}
+            style={{ color: TONE[tone].edge }}
             aria-hidden="true"
-            className="grid shrink-0 place-items-center rounded-[0.35vw]"
-            style={{ width: "1.4vw", height: "1.4vw", fontSize: "0.78vw", ...badgeStyle(tone, dark) }}
-          >
-            <Icon className="h-[0.85vw] w-[0.85vw]" strokeWidth={2.25} aria-hidden="true" />
-          </span>
-          <span
-            className={`font-semibold ${dark ? "text-white" : TONE[tone].text}`}
-            style={{ fontSize: "0.92vw" }}
-          >
+          />
+          <span className={`font-semibold ${TONE[tone].text}`} style={{ fontSize: "0.92vw" }}>
             {title}
           </span>
         </span>
         {note ? (
-          <span className={dark ? "text-white/60" : "text-muted-foreground"} style={{ fontSize: "0.66vw" }}>{note}</span>
+          <span className="text-muted-foreground" style={{ fontSize: "0.66vw" }}>{note}</span>
         ) : null}
       </div>
       {children}
@@ -1893,23 +1908,8 @@ function Panel({
 
 /** One "needs attention" figure. `null` means the input does not exist. */
 function Need({
-  n, ar, en, sub, tone, lang, icon: Icon, dark,
+  n, ar, en, sub, tone, lang, icon: Icon,
 }: {
-  /**
-   * Measured, not guessed: on the panel's #0f1a26 ground `text-foreground`
-   * comes out at 1.04:1 and `text-muted-foreground` at 3.63 -- the first is
-   * invisible and the second fails body text. White is 17.56 and white/70 is
-   * 8.61, so the card inverts with the panel rather than keeping its own ink.
-   */
-  dark?: boolean;
-  /**
-   * A missing input prints a dash at the FIGURE's size, not the words "No
-   * data" at half of it. Two sizes in one row is what made the strip look
-   * hand-placed: nothing lined up because one cell's number was a sentence.
-   * Nothing is lost -- the line underneath already names what is missing
-   * ("no expiry recorded"), which says more than "No data" ever did, and the
-   * annual-target card has printed a dash over its reason since it shipped.
-   */
   /** Every figure on this board carries one; these four were the exception. */
   icon: LucideIcon;
   n: number | null;
@@ -1920,37 +1920,33 @@ function Need({
   lang: "ar" | "en";
 }) {
   return (
-    <div
-      className={`flex min-w-0 items-center justify-center gap-[0.5vw] border-e pe-[0.6vw] last:border-e-0 last:pe-0 ${
-        dark ? "border-white/12" : "border-border/50"
-      }`}
-    >
+    <div className="flex min-w-0 items-center justify-center gap-[0.5vw] border-e border-border/50 pe-[0.6vw] last:border-e-0 last:pe-0">
+      {/*
+        A missing input prints a dash at the FIGURE's size, not the words "No
+        data" at half of it. Two sizes in one row is what made the strip look
+        hand-placed: nothing lined up because one cell's number was a sentence.
+        Nothing is lost -- the line underneath already names what is missing.
+      */}
+      {/* Icon, then figure, then the words -- the order the reference reads in.
+          The icon leads because it is the thing the eye finds from across a
+          room; the number is what it came for. */}
+      <Icon
+        className="h-[1.5vw] w-[1.5vw] shrink-0"
+        strokeWidth={2}
+        style={{ color: TONE[tone].edge }}
+        aria-hidden="true"
+      />
       <span
-        className={`num shrink-0 text-end font-bold leading-none ${
-          n === null ? (dark ? "text-white/45" : "text-muted-foreground") : dark ? "text-white" : TONE[tone].text
-        }`}
+        className={`num shrink-0 text-end font-bold leading-none ${n === null ? "text-muted-foreground" : TONE[tone].text}`}
         style={{ fontSize: "2.5vw", minWidth: "2.4vw" }}
       >
-        {n === null ? "—" : formatNumber(n, lang)}
-      </span>
-      <span
-        aria-hidden="true"
-        className="grid shrink-0 place-items-center rounded-[0.35vw]"
-        style={{ width: "1.5vw", height: "1.5vw", fontSize: "0.8vw", ...badgeStyle(tone, dark) }}
-      >
-        <Icon className="h-[0.85vw] w-[0.85vw]" strokeWidth={2.25} aria-hidden="true" />
+        {n === null ? "\u2014" : formatNumber(n, lang)}
       </span>
       <span className="flex min-w-0 flex-col">
-        <span
-          className={`truncate font-semibold ${dark ? "text-white" : "text-foreground"}`}
-          style={{ fontSize: "0.8vw" }}
-        >
+        <span className="truncate font-semibold text-foreground" style={{ fontSize: "0.8vw" }}>
           {lang === "ar" ? ar : en}
         </span>
-        <span
-          className={`truncate ${dark ? "text-white/70" : "text-muted-foreground"}`}
-          style={{ fontSize: "0.65vw" }}
-        >
+        <span className="truncate text-muted-foreground" style={{ fontSize: "0.65vw" }}>
           {sub}
         </span>
       </span>
@@ -1972,9 +1968,11 @@ function Need({
  * would be the board congratulating itself on a dead week.
  */
 function Mini({
-  n, value, ar, en, tone, lang, icon: Icon,
+  n, value, ar, en, tone, lang, icon: Icon, cols,
 }: {
   n: number;
+  /** Forwarded to Chip: past three, the chip stacks instead of clipping. */
+  cols?: number;
   /** Shown above the figure, as in the reference design. */
   icon: LucideIcon;
   value?: string | null;
@@ -1988,10 +1986,14 @@ function Mini({
     <Chip
       tone={tone}
       lang={lang}
+      cols={cols}
       figure={
         <span className="flex flex-col items-center gap-[0.1vh]">
+          {/* 1.3vw needed 88px of an 83px tile once the label wrapped to two
+              lines. Still half again the 0.85vw it replaced -- the ask was a
+              bigger icon, not a clipped label. */}
           {Icon ? (
-            <Icon className={`h-[0.85vw] w-[0.85vw] ${TONE[tone].text}`} strokeWidth={2.25} aria-hidden="true" />
+            <Icon className="h-[1.1vw] w-[1.1vw]" strokeWidth={2} style={{ color: TONE[tone].edge }} aria-hidden="true" />
           ) : null}
           <span
             className={`num font-bold leading-none ${moved ? TONE[tone].text : "text-muted-foreground"}`}
@@ -2002,8 +2004,15 @@ function Mini({
           </span>
         </span>
       }
+      // Stacked, the label may wrap: "Follow-ups closed" needs 86px and the
+      // tile gives it 75, and clipping the last word is how a wall ends up
+      // showing "Follow-ups clos". Side by side it still truncates -- there is
+      // no second line to wrap onto.
       label={
-        <span className="w-full truncate font-semibold text-foreground" style={{ fontSize: CHIP_LABEL }}>
+        <span
+          className={`w-full font-semibold text-foreground ${cols && cols >= 4 ? "leading-tight" : "truncate"}`}
+          style={{ fontSize: CHIP_LABEL }}
+        >
           {lang === "ar" ? ar : en}
         </span>
       }
@@ -2011,7 +2020,10 @@ function Mini({
       // value instead printed it under "+88 new deals" -- a true count above a
       // false caption.
       note={
-        <span className={`num w-full truncate ${moved && value ? TONE[tone].text : "text-muted-foreground"}`} style={{ fontSize: CHIP_NOTE }}>
+        <span
+          className={`num w-full ${cols && cols >= 4 ? "leading-tight" : "truncate"} ${moved && value ? TONE[tone].text : "text-muted-foreground"}`}
+          style={{ fontSize: CHIP_NOTE }}
+        >
           {moved
             ? (value ?? (lang === "ar" ? "بلا قيمة مسجَّلة" : "no value recorded"))
             : lang === "ar" ? "بلا حركة" : "no movement"}

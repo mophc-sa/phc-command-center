@@ -119,7 +119,10 @@ describe("the number sits on the left in both languages", () => {
     // right in Arabic -- so the same markup that reads correctly in English put
     // every number on the wrong side of every chip. Measured in the browser
     // before this line existed: everyFigureOnTheLeft: false, all nine.
-    expect(BOARD).toMatch(/flexDirection:\s*lang === "ar" \? "row-reverse" : "row"/);
+    // A stacked chip has no left and right to argue about, so the rule now
+    // reads "not stacked, then reverse in Arabic" -- the same guarantee for
+    // every chip that still sits side by side.
+    expect(BOARD).toMatch(/flexDirection:\s*stacked \? undefined : lang === "ar" \? "row-reverse" : "row"/);
   });
 
   it("gives the number column a fixed width rather than letting it shrink to fit", () => {
