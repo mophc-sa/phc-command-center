@@ -2,9 +2,9 @@
  * Data Import Center — client-side actions.
  *
  * Role enforcement:
- *   system_admin: upload, parse, map, validate, troubleshoot, view, download
- *   system_admin: CANNOT approve or commit (returns 403 from edge function)
- *   managing_director, general_manager, sales_manager, ceo: full access
+ *   system_admin, managing_director, general_manager, sales_manager, ceo:
+ *     full import access, including approval and commit (commercial approvals
+ *     outside the import pipeline retain their separate role requirements)
  *   bd_manager: own batches only, no approve/commit
  *   salesperson, viewer: blocked entirely
  */
@@ -1470,4 +1470,3 @@ export async function acceptSplitProposalToRow(
     row_status: "ai_split",
   });
 }
-

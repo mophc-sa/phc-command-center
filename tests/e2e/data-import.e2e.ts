@@ -73,13 +73,13 @@ test.describe("Data Import: authorised roles", () => {
     expect(errors).toEqual([]);
   });
 
-  test("system_admin is rejected at the approve and commit trust boundary", async ({ page }) => {
+  test("system_admin import actions reject an unknown batch", async ({ page }) => {
     if (!(await openImportCenter(page, "system_admin"))) return;
     for (const action of ["approve", "dry_run_commit"]) {
       const response = await invokeImportPipelineAsSignedInUser(page, action);
-      expect(response.status()).toBe(403);
+      expect(response.status()).toBe(404);
       const body = await response.json();
-      expect(body.error).toMatch(/system_admin cannot (approve|commit) imports/i);
+      expect(body.error).toMatch(/batch not found/i);
     }
   });
 });
