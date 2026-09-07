@@ -1058,3 +1058,6 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-09-06 · sales codes + unowned-deal assignment · previous: calendar, same day -->
 
 <!-- last reviewed 2026-09-07 · audit F01–F16 remediation; release pending -->
+
+
+تحديث 2026-09-07 — تعليق الذكاء الاصطناعي في لوحة القيادة: يظهر طلب التعليق التلقائي للأدوار المخوّلة بإدارة مسار المبيعات فقط. دور المشاهد يحتفظ بالملخص المحسوب من السجلات دون إرسال طلب AI غير مسموح. يوضح هذا أيضًا قيد التعليق الآلي في قسم 10. التعديل على فرع fix/system-audit-hardening (بعد c1d34ea)، ولم يُنشر بعد.

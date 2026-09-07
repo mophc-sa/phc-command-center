@@ -1,6 +1,8 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canManageSalesPipeline } from "@/lib/roles";
 import {
   Bar,
   BarChart,
@@ -162,6 +164,7 @@ const CHART_H = "h-[240px]";
 const CHART_H_SM = "h-[160px]";
 
 function CommandCenter() {
+  const { user, roles } = useAuth();
   const { t, lang } = useI18n();
   const nav = useNavigate();
 
@@ -494,10 +497,10 @@ function CommandCenter() {
   // facts. `retry: false` because a brief nobody is waiting for is not worth
   // three attempts, and `ok === false` is a normal outcome here, not an error.
   const commentary = useQuery({
-    queryKey: ["cc-brief-commentary"],
+    queryKey: ["cc-brief-commentary", user?.id, roles],
     staleTime: 900_000,
     retry: false,
-    enabled: (data?.opportunities ?? []).length > 0,
+    enabled: canManageSalesPipeline(roles) && (data?.opportunities ?? []).length > 0,
     queryFn: async () => {
       // The registry is the authority: sales_report_insights accepts ONLY the
       // "reports" sentinel entity (ai-guardrails.ts). Sending "opportunities"
