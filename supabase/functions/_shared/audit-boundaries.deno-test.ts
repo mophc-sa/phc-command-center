@@ -31,7 +31,7 @@ Deno.test("Edge account, MFA, batch ownership and file binding fail closed", asy
   Deno.env.delete("SUPABASE_SECRET_KEYS");
   const uid = "a0000000-0000-4000-8000-000000000001";
   const batch = "a0000000-0000-4000-8000-000000000002";
-  let status = "active", role = "bd_manager", foreign = true;
+  let status = "active", role = "bd_manager", foreign = true, forgedPath = false;
   const calls: URL[] = [];
   const reply = (data: unknown, code = 200) => new Response(JSON.stringify(data), { status: code, headers: { "content-type": "application/json" } });
   globalThis.fetch = (async (input: RequestInfo | URL) => {
@@ -44,7 +44,7 @@ Deno.test("Edge account, MFA, batch ownership and file binding fail closed", asy
     if (url.pathname === "/rest/v1/import_batches") return reply({ id: batch, created_by: foreign ? batch : uid, status: "mapping" });
     if (url.pathname === "/rest/v1/audit_log") return new Response(null, { status: 204 });
     if (url.pathname === "/rest/v1/import_errors") return reply([]);
-    if (url.pathname === "/rest/v1/import_files") return reply(null);
+    if (url.pathname === "/rest/v1/import_files") return reply(forgedPath ? { id: uid, batch_id: batch, storage_path: `${uid}/foreign.csv`, file_type: "csv", file_size_bytes: 20 } : null);
     throw new Error(`Unexpected request path: ${url.pathname}`);
   }) as typeof fetch;
   let handler!: (req: Request) => Promise<Response>;
@@ -71,6 +71,9 @@ Deno.test("Edge account, MFA, batch ownership and file binding fail closed", asy
     foreign = false;
     assertEquals((await request("generate_report")).status, 200);
     assertEquals((await request("parse")).status, 404);
+    forgedPath = true;
+    assertEquals((await request("parse")).status, 403, "Owned metadata cannot redirect to a foreign object");
+    assertEquals(calls.some((u) => u.pathname.startsWith("/storage/")), false);
     const fileRead = calls.find((u) => u.pathname === "/rest/v1/import_files");
     assertEquals(fileRead?.searchParams.get("batch_id"), `eq.${batch}`);
   } finally {

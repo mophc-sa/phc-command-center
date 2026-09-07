@@ -8,7 +8,7 @@ Base: `ec89d123ba9953a3f37de75a96e0f67fdbe9773b`.
 |---|---|---|
 | F01–F03 | Profile administrative guard, active-role predicates, restrictive session policies, shared Edge account/MFA checks | SQL inactive/AAL1/AAL2/bootstrap assertions; HTTP boundary tests |
 | F04–F05 | Initial pending approval state, immutable reviewed terms/scope/receipts | Direct SQL bypass attempts and positive first approval |
-| F06 | Central batch authorization, file/batch binding, caller-scoped historical dedup reads | All nine actions reject foreign batch; own report succeeds |
+| F06 | Central batch authorization, file/batch/object-path binding, caller-scoped Storage and historical dedup reads | All nine actions reject foreign batch; own report succeeds |
 | F07/F15 | Vendor SheetJS 0.20.3, lock integrity, bounded sheet read, RFC CSV parser, excluded-sheet warning | Real XLSX Arabic/newline round-trip; CSV malformed and escaping cases |
 | F08 | Locked `convert_lead_atomic`, caller JWT, audit within transaction | Failed review leaves no orphan; retry creates one opportunity |
 | F09 | `commit_import_batch_atomic`, unique candidate receipts, snapshots, `rollback_import_batch_atomic` | Injected receipt/finalization failure, retry, restored updates, conflict preservation |

@@ -115,8 +115,20 @@ handlers["parse"] = async (payload, caller) => {
 
   if (file.file_size_bytes > MAX_FILE_SIZE) return err(`File exceeds ${MAX_FILE_SIZE / 1024 / 1024} MB limit`);
 
-  // Download file from storage
-  const { data: fileData, error: dlError } = await svc.storage
+  // Metadata can be inserted by the batch owner. It is not authority to read
+  // an arbitrary Storage object under the service role.
+  const objectPath = String(file.storage_path ?? "");
+  let invalidPath = !objectPath.startsWith(`${batchId}/`);
+  try {
+    invalidPath ||= objectPath.split("/").some((part) => {
+      const decoded = decodeURIComponent(part);
+      return decoded === "." || decoded === ".." || /[\\/]/.test(decoded);
+    });
+  } catch { invalidPath = true; }
+  if (invalidPath) return err("File storage path does not belong to this batch", 403);
+
+  // The caller's Storage policies apply even if a stored path was tampered with.
+  const { data: fileData, error: dlError } = await caller.client.storage
     .from("imports")
     .download(file.storage_path);
   if (dlError || !fileData) return err("Failed to download file: " + (dlError?.message ?? "unknown"));
