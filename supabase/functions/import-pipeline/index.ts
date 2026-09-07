@@ -118,13 +118,11 @@ handlers["parse"] = async (payload, caller) => {
   // Metadata can be inserted by the batch owner. It is not authority to read
   // an arbitrary Storage object under the service role.
   const objectPath = String(file.storage_path ?? "");
-  let invalidPath = !objectPath.startsWith(`${batchId}/`);
-  try {
-    invalidPath ||= objectPath.split("/").some((part) => {
-      const decoded = decodeURIComponent(part);
-      return decoded === "." || decoded === ".." || /[\\/]/.test(decoded);
-    });
-  } catch { invalidPath = true; }
+  const invalidPath = !objectPath.startsWith(`${batchId}/`) || objectPath.split("/").some((part) => {
+    // Decode path separators/dots without rejecting literal '%' in file names.
+    const decoded = part.replace(/%2e/gi, ".").replace(/%2f/gi, "/").replace(/%5c/gi, "\\");
+    return decoded === "." || decoded === ".." || /[\\/]/.test(decoded);
+  });
   if (invalidPath) return err("File storage path does not belong to this batch", 403);
 
   // The caller's Storage policies apply even if a stored path was tampered with.
