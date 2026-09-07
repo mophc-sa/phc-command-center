@@ -5,7 +5,7 @@ import { verifyReleaseEvidence } from "../../scripts/verify-release-evidence";
 
 test("TOTP matches RFC 6238 SHA-1 vectors", () => {
   // Public RFC test vector, never an account secret.
-  const secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+  const secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"; // gitleaks:allow -- public RFC 6238 test vector
   expect(totp(secret, 59_000, 8)).toBe("94287082");
   expect(totp(secret, 1_111_111_109_000, 8)).toBe("07081804");
   expect(totp(secret, 2_000_000_000_000, 8)).toBe("69279037");

@@ -77,8 +77,8 @@ The mandatory role/account suite fails on missing secrets or any skipped test.
   and a complete TAP plan.
 - Deno checked all four entrypoints with an isolated dependency config and frozen lock;
   13 tests passed, including an actual XLSX round-trip and mocked HTTP auth/ownership checks.
-- `bun audit --audit-level=high` passed. Gitleaks 8.30.1 scanned all 591 historical commits
-  and found no leaks after the 12 exact verified false-positive fingerprints.
+- `bun audit --audit-level=high` passed. Gitleaks 8.30.1 scanned the full repository history
+  and found no leaks after the 13 exact verified false-positive fingerprints.
 - GitHub Protect Main ruleset 18672203 was updated and read back: required checks are
   typecheck-build, playwright-smoke, Secret scan, Dependency audit, CodeQL, and Supabase
   migrations and database tests. Existing review count and other settings were preserved.

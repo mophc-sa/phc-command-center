@@ -11,3 +11,6 @@ f20bf6903ee2a7cfc8abc389131f3719ed9207bc:.env:jwt:2
 f20bf6903ee2a7cfc8abc389131f3719ed9207bc:.env:jwt:5
 1e3b80365ba482f39c2e7944354a3d0d922bb5a4:.env:jwt:2
 1e3b80365ba482f39c2e7944354a3d0d922bb5a4:.env:jwt:5
+
+# Public RFC 6238 SHA-1 test vector, not an enrolled account factor.
+b7b46c4209f81b5b8015fe596058bd54a046bd80:src/lib/audit-hardening.test.ts:generic-api-key:8
