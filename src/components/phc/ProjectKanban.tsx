@@ -1,3 +1,4 @@
+import { isAssignableTeamMember } from "@/lib/team-members";
 // Job Pipeline — a flexible, user-defined Kanban board for a project
 // (2026-08-03 client request). Stages are plain rows the team adds/renames/
 // deletes themselves; there is deliberately no fixed stage enum.
@@ -156,7 +157,7 @@ export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEd
 
   const stages = stagesQ.data ?? [];
   const teamOptions = useMemo(
-    () => (teamQ.data ?? []).map((m: any) => ({ value: m.id, label: m.full_name || m.email })),
+    () => (teamQ.data ?? []).filter(isAssignableTeamMember).map((m: any) => ({ value: m.id, label: m.full_name || m.email })),
     [teamQ.data],
   );
 

@@ -649,6 +649,12 @@ value lives on the RFQ — the same one the Opportunities list's JIH/Tender colu
 reads — and an opportunity that has no RFQ yet gets one created when you set it,
 holding nothing but the answer you gave.
 
+For a promoted historical opportunity with no RFQ classification, Client Details shows
+JIH/Tender from the preserved archive route. This display does not create a new RFQ or
+sales code. A recorded RFQ classification takes precedence. New assignment and mention
+choices include only active, non-display accounts; existing ownership and attribution
+can still show inactive people's names.
+
 Panels you'll use: Alert, Client Details (editable), Qualification, Assignment, Technical
 Notes, **Milestone Checklist** (7 fixed items, independent of stage), Evidence Sources,
 Follow-ups, Approvals, **Discussion** (with @mentions that create a real approval request),
@@ -751,9 +757,33 @@ These are guardrails, not suggestions. They will stop you.
 
 - Automatic AI commentary in Command Center requires sales-pipeline management authority. Viewers retain the deterministic summary without an unauthorized AI request.
 
-### Audit hardening — prepared for release, not yet deployed (2026-09-07)
+### All-years archive activation and production verification (2026-09-07)
 
-After this release, pending/suspended/deleted accounts cannot gain access by editing
+The archive contains 679 preserved source records. PR 287 is deployed at `ba3dd43`.
+The user activated 80 additional eligible rows through their own signed-in account:
+80 opportunities and 80 historical quotations, SAR 150,723,240 excluding VAT. Together
+with 45 earlier promotions, 125 archive records are linked to CRM. The new batch covers
+69 rows from 2025, 3 from 2024 and 8 from 2023. Source row counts and content fingerprints
+were unchanged after activation; linked values and owners matched.
+
+Use Show more to reach every archive row. The undecided status and quality filters work
+across all years; management month/quarter filters do not apply to this archive view.
+554 rows remain outside the active promotion path because of closed/ineligible statuses,
+missing mappings or values, invalid codes, or unresolved collisions. They remain visible
+in the archive. Do not fill gaps with invented values or reopen won/lost work.
+
+Import duplicate suggestions are replaced on rerun and matching decisions are preserved.
+Use the decision selector before reviewing candidates. Final AI Review follows commercial
+approval permissions. A committed batch can include failures: its saved Approval summary
+shows written/failed counts, and Errors remains available after reload.
+
+The current follow-up change displays archive classification on opportunity details and
+removes inactive/display accounts from new assignment choices while retaining attribution.
+It changes no source records, account roles, or historical opportunity states.
+
+### Audit hardening — deployed and verified (2026-09-07)
+
+Pending/suspended/deleted accounts cannot gain access by editing
 profiles or keeping an old session. Sensitive roles must complete MFA before accessing
 business data through either the app or its APIs. Account status changes require an active
 administrator; self-service name, avatar and language edits remain available.
@@ -780,9 +810,9 @@ ceiling per source, above which the metrics are unavailable.
 **العربية:** التفعيل وتغيير الحالة إداريان؛ المصادقة الثنائية مطلوبة عند الوصول للبيانات.
 الموافقة الجديدة تبدأ معلّقة، وتعديل الشروط بعد المراجعة يتطلب طلبًا جديدًا. إعادة تثبيت
 دفعة مكتملة لا تكرر السجلات، والتراجع يحمي التعديلات اللاحقة. تظهر الأوراق غير المستوردة
-وأخطاء اكتمال البيانات بوضوح. هذه التغييرات جاهزة في الفرع وتحتاج نشر المهاجرات والخدمات والواجهة.
+وأخطاء اكتمال البيانات بوضوح. نُشرت هذه التغييرات واجتازت جاهزية الإنتاج. فحوص الأدوار تعمل في قاعدة معزولة ولا تحتاج حسابات اختبار نشطة في الإنتاج.
 
-Verified against production on **2026-08-06**. Read this before trusting a number on screen.
+The following sections retain dated historical observations; use the 2026-09-07 activation summary above for this release.
 
 ### What is actually in production
 Verified live on **2026-08-31**, after the sales-record import: the book holds **690
@@ -1062,4 +1092,6 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-09-07 · audit F01–F16 remediation; release pending -->
 
 
-تحديث 2026-09-07 — تعليق الذكاء الاصطناعي في لوحة القيادة: يظهر طلب التعليق التلقائي للأدوار المخوّلة بإدارة مسار المبيعات فقط. دور المشاهد يحتفظ بالملخص المحسوب من السجلات دون إرسال طلب AI غير مسموح. يوضح هذا أيضًا قيد التعليق الآلي في قسم 10. التعديل على فرع fix/system-audit-hardening (بعد c1d34ea)، ولم يُنشر بعد.
+تحديث 2026-09-07 — تعليق الذكاء الاصطناعي في لوحة القيادة: يظهر طلب التعليق التلقائي للأدوار المخوّلة بإدارة مسار المبيعات فقط. دور المشاهد يحتفظ بالملخص المحسوب من السجلات دون إرسال طلب AI غير مسموح. يوضح هذا أيضًا قيد التعليق الآلي في قسم 10. نُشر التعديل ضمن PR 285، وتستمر قواعد الصلاحية في الإصدار الحالي.
+
+<!-- last reviewed 2026-09-07 · base commit ba3dd43 · all-years activation verified; activated-opportunity display follow-up -->

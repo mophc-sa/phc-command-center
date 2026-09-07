@@ -1,3 +1,4 @@
+import { isAssignableTeamMember } from "@/lib/team-members";
 // PHC Sales OS — Opportunity Review queue (Phase 2).
 //
 // PRD 2026-08-12 §15-19. Every new request lands here before it can go to
@@ -412,7 +413,7 @@ export function IntakeReviewPanel() {
             key: "responsibleId",
             type: "select",
             label: t("rev_responsible"),
-            options: [{ value: "", label: "—" }, ...teamMembers.map((m: any) => ({ value: m.id, label: m.full_name ?? m.email }))],
+            options: [{ value: "", label: "—" }, ...teamMembers.filter(isAssignableTeamMember).map((m: any) => ({ value: m.id, label: m.full_name ?? m.email }))],
           },
           { key: "dueDate", type: "date", label: t("rev_due_date") },
         ]}

@@ -1,3 +1,4 @@
+import { isAssignableTeamMember } from "@/lib/team-members";
 // PHC Sales OS — the single entry form.
 //
 // One form for everything that arrives: an RFQ, a tender, a market signal, a
@@ -120,7 +121,7 @@ export function newIntakeFields(
     { key: "hasSpecs", type: "checkbox", label: t("ibx_has_specs") },
     { key: "notes", type: "textarea", label: t("wf_notes") },
     { key: "evidenceUrl", type: "file_or_url", label: t("ibx_evidence_url"), folder: "inbox" },
-    { key: "assignedOwnerId", type: "select", label: t("ibx_assigned_owner"), options: [{ value: "", label: "—" }, ...teamMembers.map((p: any) => ({ value: p.id, label: p.full_name || p.email }))] },
+    { key: "assignedOwnerId", type: "select", label: t("ibx_assigned_owner"), options: [{ value: "", label: "—" }, ...teamMembers.filter(isAssignableTeamMember).map((p: any) => ({ value: p.id, label: p.full_name || p.email }))] },
     { key: "nextAction", type: "text", label: t("label_next_action") },
     { key: "followUpDate", type: "date", label: t("ibx_follow_up_date") },
   ];
