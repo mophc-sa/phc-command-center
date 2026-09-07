@@ -780,8 +780,13 @@ work, saves full before-images and flags, and preserves original follow-up notes
 Legacy import context on the canonical opportunity. Archived copies link back to it.
 Each row commits atomically; changed data or independent work stops the batch. Refresh
 the preview to resume completed rows safely. There is no hard deletion. Future promotions
-apply the same checks atomically. Reconciliation is pending deployment and execution;
-counts must be verified after the production run.
+apply the same checks atomically. Production reconciliation completed for all 125 promoted opportunities and 126 legacy
+copies, with 126 preserved receipts, no remaining exact promotion/legacy duplicates,
+and unchanged source data and canonical owners/values/stages/quotes. The repeat preview
+confirms that the reviewed batch is complete. Across 679 archive records, 634 have one
+live CRM match, 43 require data/identity review and 2 share an unresolved legacy pair.
+The pair is flagged for commercial review; no owner/company mapping was invented.
+PR 289 is deployed at 7d1b9c4; post-production readiness 34129067951 passed.
 
 Import duplicate suggestions are replaced on rerun and matching decisions are preserved.
 Use the decision selector before reviewing candidates. Final AI Review follows commercial
@@ -1108,3 +1113,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-09-07 · base commit ba3dd43 · all-years activation verified; activated-opportunity display follow-up -->
 
 <!-- last reviewed 2026-09-07 · base commit 04e706c · legacy reconciliation and existing CRM links -->
+
+<!-- last reviewed 2026-09-07 · deployed commit 7d1b9c4 · production reconciliation complete; remaining data review quantified -->

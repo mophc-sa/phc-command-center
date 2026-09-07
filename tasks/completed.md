@@ -166,3 +166,35 @@ PR 287 دُمج ونُشر: `ba3dd43f083d063c32d620d23c31457b8e079fd4`، Worker 
 
 ## 2026-09-07 — Activated opportunity display
 PR 288 merged and deployed (04e706c); readiness 34126413617 passed. Historical classification fallback and active assignment choices completed.
+
+## 2026-09-07 — All-data production reconciliation verified
+
+PR 289 is merged and deployed: `7d1b9c4cfa24ac39cccfed70ac2fea87940de9af`,
+Worker `34d4f0af-eae3-4ff4-b0fa-554926251d8b` at 100%, sales-os-api v49,
+migration `20260928150000`. Production run 34128900769 and post-production
+readiness 34129067951 passed; canary/readiness 34128152747/34128332893 passed.
+Preview URLs were disabled again. A fresh public-data backup preceded execution.
+
+The actual signed-in commercial user reconciled 125 promoted opportunities and
+archived 126 exact legacy copies. Production verifies 126 receipts by the actual
+user, all before-images/legacy notes preserved, zero remaining matches between
+these promotions and live legacy copies, zero open legacy flags or independent
+references, and unchanged owners, companies, stages, values and quotes for all 125.
+821 opportunity rows remain preserved: 695 non-archived and 126 archived. Archive
+source count 679 and digest 29e67ec47426bf7676112331b156ec80 are unchanged.
+The 80 new promotion records were NOT 80 net-new business deals: they overlapped
+legacy imports, as did 45 earlier promotions. The correction removes SAR 214,623,668
+of duplicated legacy values without changing canonical amounts.
+
+All 679 source rows were checked:634 have exactly one live CRM match, 43 cannot be
+linked automatically under complete-identity rules, and 2 map to the same unresolved
+legacy pair (AH23162/ALECFITOUT, no owner/company mapping). This pair is flagged in
+open duplicate group 26d86997-a66b-4fff-b8da-51a923d069d7 for commercial review.
+Do not invent owners, companies, values or reopen won/lost work. The remaining 554
+without historical quotation promotion are not necessarily absent from CRM.
+
+UI verified completion and repeat-preview idempotency, Fairmont legacy follow-up
+notes and both-direction record links, JIH display and active-only assignment choices.
+Validation: 2674 Bun, 17 Deno, 971 full local DB checks + 2 additional behavior cases; all required
+CI/security/database/role checks passed. No further application deployment is required
+for this documentation-only update.
