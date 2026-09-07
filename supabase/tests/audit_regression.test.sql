@@ -1,4 +1,6 @@
 BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SET LOCAL search_path = public, extensions;
 SELECT no_plan();
 INSERT INTO auth.users(id,email) VALUES
  ('a0000000-0000-4000-8000-000000000001','audit-pending@phc-sa.com'),
