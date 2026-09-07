@@ -163,3 +163,6 @@ PR 287 دُمج ونُشر: `ba3dd43f083d063c32d620d23c31457b8e079fd4`، Worker 
 ## 2026-07-20 — Data Import → Live CRM (Part 3/3)
 - الناتج: التزام المرشّحين المعتمَدين إلى الـ CRM الحي.
 - PR: #108 · commit `4c1ffe4`.
+
+## 2026-09-07 — Activated opportunity display
+PR 288 merged and deployed (04e706c); readiness 34126413617 passed. Historical classification fallback and active assignment choices completed.

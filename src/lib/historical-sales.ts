@@ -58,6 +58,8 @@ export type HistoricalSaleRow = {
   promoted_opportunity_id: string | null;
   promoted_quotation_id: string | null;
   collision_class: string | null;
+  /** Exact live CRM matches, including the earlier spreadsheet import. */
+  existing_opportunity_ids?: string[];
 };
 
 export type HistoricalQuality = {

@@ -370,10 +370,40 @@ async function promote_historical_record(
   });
 }
 
+async function preview_historical_reconciliation(_payload: Record<string, unknown>, ctx: SalesOsContext): Promise<Response> {
+  if (!canApproveHistoricalPromotion(ctx.caller.roles)) return err("Sales leadership required", 403);
+  const { data, error } = await ctx.asCaller.rpc("historical_legacy_reconciliation_preview");
+  if (error) return err(error.message, 403);
+  const { data: completed, error: receiptError } = await ctx.asCaller.from("historical_legacy_reconciliations")
+    .select("row_id,canonical_id,legacy_id");
+  if (receiptError) return err(receiptError.message, 403);
+  return json({ records: data ?? [], completed: completed ?? [] });
+}
+
+async function reconcile_historical_duplicates(payload: Record<string, unknown>, ctx: SalesOsContext): Promise<Response> {
+  if (!canApproveHistoricalPromotion(ctx.caller.roles)) return err("Sales leadership required", 403);
+  const rowId = String(payload.rowId ?? "");
+  const expected = payload.expectedLegacy;
+  if (!UUID.test(rowId) || !expected || typeof expected !== "object" || Array.isArray(expected)) {
+    return err("A row UUID and reviewed legacy fingerprints are required");
+  }
+  const entries = Object.entries(expected as Record<string, unknown>);
+  if (entries.length === 0 || entries.length > 20 || entries.some(([id, hash]) => !UUID.test(id) || typeof hash !== "string" || !/^[a-f0-9]{32}$/.test(hash))) {
+    return err("Invalid legacy fingerprints");
+  }
+  const { data, error } = await ctx.asCaller.rpc("reconcile_historical_legacy", {
+    _row_id: rowId, _expected_legacy: expected,
+  });
+  if (error) return err(error.message, error.code === "40001" ? 409 : 403);
+  return json(data);
+}
+
 export const historicalPromotionModule: HandlerModule = {
   name: "historical-promotion",
   handlers: {
     preflight_historical_promotion,
     promote_historical_record,
+    preview_historical_reconciliation,
+    reconcile_historical_duplicates,
   },
 };
