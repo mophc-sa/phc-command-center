@@ -1,3 +1,5 @@
+import { isAssignableTeamMember } from "@/lib/team-members";
+import { opportunityClassification } from "@/lib/opportunity-classification";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -813,7 +815,7 @@ function OpportunityDetail() {
                 defaultValue: rfqQ.data.assigned_to ?? "",
                 options: [
                   { value: "", label: "—" },
-                  ...(teamQ.data ?? []).map((m: any) => ({
+                  ...(teamQ.data ?? []).filter(isAssignableTeamMember).map((m: any) => ({
                     value: m.id,
                     label: m.full_name || m.email,
                   })),
@@ -860,12 +862,13 @@ function OpportunityDetail() {
         // allows and one of the three the edit dialog offers; leaving it out of
         // this map made a deliberate choice render as "—", indistinguishable
         // from never having been asked.
+        const classificationValue = opportunityClassification(rfqQ.data?.classification, o.extra_data);
         const classification =
-          rfqQ.data?.classification === "jih"
+          classificationValue === "jih"
             ? t("class_jih")
-            : rfqQ.data?.classification === "tender"
+            : classificationValue === "tender"
               ? t("class_tender")
-              : rfqQ.data?.classification === "other"
+              : classificationValue === "other"
                 ? t("class_other")
                 : null;
         return (
@@ -1212,7 +1215,7 @@ function OpportunityDetail() {
                   className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="">{t("assignment_set_pic")}</option>
-                  {(teamQ.data ?? []).map((m: any) => (
+                  {(teamQ.data ?? []).filter(isAssignableTeamMember).map((m: any) => (
                     <option key={m.id} value={m.id}>{m.full_name ?? m.email}</option>
                   ))}
                 </select>
@@ -1515,7 +1518,7 @@ function OpportunityDetail() {
                   className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="">{t("discussion_person_in_charge")}</option>
-                  {(teamQ.data ?? []).map((m: any) => (
+                  {(teamQ.data ?? []).filter(isAssignableTeamMember).map((m: any) => (
                     <option key={m.id} value={m.id}>{m.full_name ?? m.email}</option>
                   ))}
                 </select>
@@ -1533,7 +1536,7 @@ function OpportunityDetail() {
                   className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="">{t("discussion_mention_person")}</option>
-                  {(teamQ.data ?? []).map((m: any) => (
+                  {(teamQ.data ?? []).filter(isAssignableTeamMember).map((m: any) => (
                     <option key={m.id} value={m.id}>{m.full_name ?? m.email}</option>
                   ))}
                 </select>
@@ -2113,7 +2116,7 @@ function OpportunityDetail() {
           { value: "__none__", label: t("field_unassigned") },
           // Name and sales code, so the person picking knows which Mohammed
           // they are handing the deal to.
-          ...(teamQ.data ?? []).map((m) => ({
+          ...(teamQ.data ?? []).filter(isAssignableTeamMember).map((m) => ({
             value: m.id,
             label: personLabel(m) || m.id.slice(0, 8),
           })),
