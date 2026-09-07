@@ -92,8 +92,11 @@ CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
      ) $$;
 -- Existing positive-path fixtures represent stepped-up sessions. Security tests
 -- explicitly override test.aal or request.jwt.claims to exercise AAL1.
+-- Raw JWT fixtures receive NO default AAL, matching real Supabase behavior.
 CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$
-  SELECT jsonb_build_object('aal',coalesce(nullif(current_setting('test.aal',true),''),'aal2'))
+  SELECT (CASE WHEN nullif(current_setting('test.uid',true),'') IS NOT NULL
+    THEN jsonb_build_object('aal',coalesce(nullif(current_setting('test.aal',true),''),'aal2'))
+    ELSE '{}'::jsonb END)
     || coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)
 $$;
 
@@ -241,8 +244,11 @@ CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
      ) $$;
 -- Existing positive-path fixtures represent stepped-up sessions. Security tests
 -- explicitly override test.aal or request.jwt.claims to exercise AAL1.
+-- Raw JWT fixtures receive NO default AAL, matching real Supabase behavior.
 CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$
-  SELECT jsonb_build_object('aal',coalesce(nullif(current_setting('test.aal',true),''),'aal2'))
+  SELECT (CASE WHEN nullif(current_setting('test.uid',true),'') IS NOT NULL
+    THEN jsonb_build_object('aal',coalesce(nullif(current_setting('test.aal',true),''),'aal2'))
+    ELSE '{}'::jsonb END)
     || coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)
 $$;
 CREATE TABLE storage.buckets (id text PRIMARY KEY, name text, public boolean DEFAULT false,
