@@ -22,11 +22,11 @@ test("management reads all 1201 rows and rejects partial/error results", async (
 test("production evidence rejects failed security and stale canary, accepts matching receipts", async () => {
   const oldFetch = globalThis.fetch;
   const sha = "a".repeat(40);
-  let security = "success", canarySha = sha, includeReadiness = true;
+  let security = "success", isolated = "success", canarySha = sha, includeReadiness = true;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = String(input);
     let body: unknown;
-    if (url.includes("/workflows/")) body = { workflow_runs: [{ id: 1, head_sha: sha, head_branch: "main", conclusion: url.includes("security") ? security : "success" }] };
+    if (url.includes("/workflows/")) body = { workflow_runs: [{ id: 1, head_sha: sha, head_branch: "main", conclusion: url.includes("security") ? security : url.includes("isolated-readiness") ? isolated : "success" }] };
     else if (url.includes("/artifacts")) body = { artifacts: [
       { name: `canary-deployed-${canarySha}`, expired: false, created_at: "2026-09-07T01:00:00Z", workflow_run: { id: 2, head_sha: canarySha } },
       ...(includeReadiness ? [{ name: `canary-readiness-${sha}`, expired: false, created_at: "2026-09-07T02:00:00Z", workflow_run: { id: 3, head_sha: sha } }] : []),
@@ -36,6 +36,9 @@ test("production evidence rejects failed security and stale canary, accepts matc
   }) as typeof fetch;
   try {
     await verifyReleaseEvidence("production", "owner/repo", sha, "test-token");
+    isolated = "failure";
+    await expect(verifyReleaseEvidence("production", "owner/repo", sha, "test-token")).rejects.toThrow("isolated-readiness.yml");
+    isolated = "success";
     security = "failure";
     await expect(verifyReleaseEvidence("production", "owner/repo", sha, "test-token")).rejects.toThrow("security.yml");
     security = "success"; canarySha = "b".repeat(40);
