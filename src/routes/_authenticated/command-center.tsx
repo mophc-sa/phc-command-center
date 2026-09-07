@@ -2,7 +2,6 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canManageSalesPipeline } from "@/lib/roles";
 import {
   Bar,
   BarChart,
