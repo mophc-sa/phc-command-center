@@ -37,12 +37,12 @@ jobs:
       - name: Lint
         run: bun run lint
       - name: Supabase Edge Function check
-        run: deno check --import-map supabase/functions/import_map.json supabase/functions/sales-os-api/index.ts supabase/functions/ai-orchestrator/index.ts
+        run: deno check --frozen --allow-import --config supabase/functions/deno.json supabase/functions/sales-os-api/index.ts supabase/functions/ai-orchestrator/index.ts supabase/functions/import-pipeline/index.ts supabase/functions/error-ingest/index.ts
       # Deno's default discovery only finds *_test.ts / *.test.ts, and this
       # repo names them *.deno-test.ts — so these files existed and never ran.
       # The CORS allowlist is only a guarantee if something checks it.
       - name: Supabase Edge Function tests
-        run: deno test --allow-env --allow-net --allow-read supabase/functions/_shared/*.deno-test.ts
+        run: deno test --frozen --allow-import --config supabase/functions/deno.json --allow-env --allow-net --allow-read supabase/functions/_shared/*.deno-test.ts
       - name: Unit and contract tests
         run: bun run test
       - name: Production build
@@ -72,29 +72,6 @@ jobs:
       # sit on the date production was already running, verified by starting
       # `wrangler@4 dev` against a build stamped with it. Bump both together.
       COMPATIBILITY_DATE: "2026-08-26"
-      TEST_APP_URL: ${{ secrets.TEST_APP_URL }}
-      TEST_SYSTEM_ADMIN_EMAIL: ${{ secrets.TEST_SYSTEM_ADMIN_EMAIL }}
-      TEST_SYSTEM_ADMIN_PASSWORD: ${{ secrets.TEST_SYSTEM_ADMIN_PASSWORD }}
-      TEST_MANAGING_DIRECTOR_EMAIL: ${{ secrets.TEST_MANAGING_DIRECTOR_EMAIL }}
-      TEST_MANAGING_DIRECTOR_PASSWORD: ${{ secrets.TEST_MANAGING_DIRECTOR_PASSWORD }}
-      TEST_GENERAL_MANAGER_EMAIL: ${{ secrets.TEST_GENERAL_MANAGER_EMAIL }}
-      TEST_GENERAL_MANAGER_PASSWORD: ${{ secrets.TEST_GENERAL_MANAGER_PASSWORD }}
-      TEST_SALES_MANAGER_EMAIL: ${{ secrets.TEST_SALES_MANAGER_EMAIL }}
-      TEST_SALES_MANAGER_PASSWORD: ${{ secrets.TEST_SALES_MANAGER_PASSWORD }}
-      TEST_BD_MANAGER_EMAIL: ${{ secrets.TEST_BD_MANAGER_EMAIL }}
-      TEST_BD_MANAGER_PASSWORD: ${{ secrets.TEST_BD_MANAGER_PASSWORD }}
-      TEST_SALESPERSON_EMAIL: ${{ secrets.TEST_SALESPERSON_EMAIL }}
-      TEST_SALESPERSON_PASSWORD: ${{ secrets.TEST_SALESPERSON_PASSWORD }}
-      TEST_VIEWER_EMAIL: ${{ secrets.TEST_VIEWER_EMAIL }}
-      TEST_VIEWER_PASSWORD: ${{ secrets.TEST_VIEWER_PASSWORD }}
-      TEST_SALES_OPS_EMAIL: ${{ secrets.TEST_SALES_OPS_EMAIL }}
-      TEST_SALES_OPS_PASSWORD: ${{ secrets.TEST_SALES_OPS_PASSWORD }}
-      TEST_CEO_EMAIL: ${{ secrets.TEST_CEO_EMAIL }}
-      TEST_CEO_PASSWORD: ${{ secrets.TEST_CEO_PASSWORD }}
-      TEST_PENDING_EMAIL: ${{ secrets.TEST_PENDING_EMAIL }}
-      TEST_PENDING_PASSWORD: ${{ secrets.TEST_PENDING_PASSWORD }}
-      TEST_SUSPENDED_EMAIL: ${{ secrets.TEST_SUSPENDED_EMAIL }}
-      TEST_SUSPENDED_PASSWORD: ${{ secrets.TEST_SUSPENDED_PASSWORD }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2

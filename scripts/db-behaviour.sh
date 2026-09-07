@@ -19,7 +19,7 @@
 # =============================================================================
 set -uo pipefail
 
-C=phc-db-behaviour
+C=${PHC_TEST_CONTAINER:-phc-db-behaviour}
 PORT=${PORT:-55443}
 IMAGE=pgvector/pgvector:pg15     # pgvector: the RAG migration needs it
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,9 +34,13 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 echo "▸ starting throwaway Postgres…"
-docker rm -f "$C" >/dev/null 2>&1
+if docker inspect "$C" >/dev/null 2>&1; then
+  echo "Refusing to replace existing container $C; choose PHC_TEST_CONTAINER." >&2
+  trap - EXIT
+  exit 1
+fi
 docker run -d --name "$C" -e POSTGRES_PASSWORD=test -e POSTGRES_DB=phc \
-  -p "${PORT}:5432" "$IMAGE" >/dev/null
+  -p "127.0.0.1:${PORT}:5432" "$IMAGE" >/dev/null
 
 for _ in $(seq 1 60); do
   docker exec "$C" pg_isready -U postgres >/dev/null 2>&1 && break
@@ -86,7 +90,15 @@ CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
        NULLIF(current_setting('test.uid', true), '')::uuid,
        NULLIF(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub', '')::uuid
      ) $$;
-CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::jsonb $$;
+-- Existing positive-path fixtures represent stepped-up sessions. Security tests
+-- explicitly override test.aal or request.jwt.claims to exercise AAL1.
+-- Raw JWT fixtures receive NO default AAL, matching real Supabase behavior.
+CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$
+  SELECT (CASE WHEN nullif(current_setting('test.uid',true),'') IS NOT NULL
+    THEN jsonb_build_object('aal',coalesce(nullif(current_setting('test.aal',true),''),'aal2'))
+    ELSE '{}'::jsonb END)
+    || coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)
+$$;
 
 CREATE TABLE storage.buckets (id text PRIMARY KEY, name text, public boolean DEFAULT false,
   file_size_limit bigint, allowed_mime_types text[], owner uuid, created_at timestamptz DEFAULT now());
@@ -230,7 +242,15 @@ CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
        NULLIF(current_setting('test.uid', true), '')::uuid,
        NULLIF(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub', '')::uuid
      ) $$;
-CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::jsonb $$;
+-- Existing positive-path fixtures represent stepped-up sessions. Security tests
+-- explicitly override test.aal or request.jwt.claims to exercise AAL1.
+-- Raw JWT fixtures receive NO default AAL, matching real Supabase behavior.
+CREATE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$
+  SELECT (CASE WHEN nullif(current_setting('test.uid',true),'') IS NOT NULL
+    THEN jsonb_build_object('aal',coalesce(nullif(current_setting('test.aal',true),''),'aal2'))
+    ELSE '{}'::jsonb END)
+    || coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb)
+$$;
 CREATE TABLE storage.buckets (id text PRIMARY KEY, name text, public boolean DEFAULT false,
   file_size_limit bigint, allowed_mime_types text[], owner uuid, created_at timestamptz DEFAULT now());
 CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -369,7 +389,8 @@ if docker exec "$C" bash -c "apt-get update -qq && apt-get install -y -qq postgr
     # -t -A so pgTAP's result rows come out as raw TAP ("ok 1 - ...") at
     # column 0. Without them psql renders a bordered table and every
     # "^not ok" grep silently matches nothing, which reads as a clean run.
-    out=$(psql_ -d phc -q -t -A -v ON_ERROR_STOP=0 < "$f" 2>&1)
+    out=$(psql_ -d phc -q -t -A -v ON_ERROR_STOP=1 < "$f" 2>&1)
+    sql_status=$?
 
     # pgTAP reports failures as lines beginning "not ok". A suite that aborts
     # early emits none at all, so an empty result is treated as a failure the
@@ -378,7 +399,11 @@ if docker exec "$C" bash -c "apt-get update -qq && apt-get install -y -qq postgr
     ok=$(echo "$out"  | grep -c "^ok "    || true)
     echo "$out" | grep -E "^not ok|^# +Failed test|^# +have|^# +want" | head -12 | sed 's/^/  /'
 
-    if [ "$ok" -eq 0 ] && [ "$nok" -eq 0 ]; then
+    if [ "$sql_status" -ne 0 ] || ! echo "$out" | grep -Eq '^1\.\.[0-9]+$'; then
+      echo "  ✗ SQL error or missing TAP plan — suite did not finish"
+      echo "$out" | grep -E "ERROR|CONTEXT" | head -6 | sed 's/^/    /'
+      FAIL=$((FAIL + 1)); FAILED_SUITES="$FAILED_SUITES $(basename "$f")"
+    elif [ "$ok" -eq 0 ] && [ "$nok" -eq 0 ]; then
       echo "  ✗ produced no assertions — treating as a failure"
       echo "$out" | grep -E "^ERROR|^psql.*ERROR" | head -3 | sed 's/^/    /'
       FAIL=$((FAIL + 1)); FAILED_SUITES="$FAILED_SUITES $(basename "$f")"

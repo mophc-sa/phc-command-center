@@ -1,4 +1,5 @@
 import "./lib/error-capture";
+import { localSupabaseCsp } from "./lib/local-supabase-csp";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
@@ -61,6 +62,11 @@ function withSecurityHeaders(request: Request, response: Response): Response {
   // Kept alongside the enforced header so that tightening the policy later can
   // be trialled here first, the way this one should have been.
   headers.set("Content-Security-Policy-Report-Only", CONTENT_SECURITY_POLICY);
+  const localPolicy = localSupabaseCsp(CONTENT_SECURITY_POLICY, import.meta.env.VITE_SUPABASE_URL, request.url);
+  if (localPolicy !== CONTENT_SECURITY_POLICY) {
+    headers.set("Content-Security-Policy", localPolicy);
+    headers.set("Content-Security-Policy-Report-Only", localPolicy);
+  }
   if (new URL(request.url).protocol === "https:") {
     headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }

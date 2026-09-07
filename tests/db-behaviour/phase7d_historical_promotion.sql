@@ -319,8 +319,8 @@ BEGIN
   -- The archive keeps its read-only shape: still exactly one policy per table,
   -- and that policy is still a SELECT.
   SELECT count(*) INTO n FROM pg_policy p JOIN pg_class c ON c.oid=p.polrelid
-   WHERE c.relname LIKE 'historical_sales%' AND p.polcmd <> 'r';
-  RAISE NOTICE '% 39. the archive still has no write policy of any kind (expect 0, got %)',
+   WHERE c.relname LIKE 'historical_sales%' AND p.polcmd <> 'r' AND p.polpermissive;
+  RAISE NOTICE '% 39. the archive still has no permissive write policy (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   RAISE NOTICE '--- phase 7D archive immutability: done ---';

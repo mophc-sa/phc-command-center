@@ -142,9 +142,9 @@ export const canCreateSalesRecords = (r: RoleInput) =>
 export const canExecuteDelete = (r: RoleInput) => inGroup(r, ["system_admin", "bd_manager"]);
 
 // Total Value (RFQ/opportunity) edit authority — per client spec
-// (2026-07-27): Finance Manager, BD Manager, System Admin only.
+// Finance Manager and BD Manager; system_admin confers no commercial authority.
 export const canEditTotalValue = (r: RoleInput) =>
-  inGroup(r, ["finance_manager", "bd_manager", "system_admin"]);
+  inGroup(r, ["finance_manager", "bd_manager"]);
 
 // Mirrors public.can_edit_rfq_number(uuid).
 export const canEditRfqNumber = (r: RoleInput) =>
@@ -158,10 +158,19 @@ export const canViewAllSalesData = (r: RoleInput) =>
 // BAFO / commercial-discount approval chain (client spec, 2026-07-27).
 export const canRequestBafo = (r: RoleInput) => canCreateSalesRecords(r);
 export const canReviewBafoCommercial = (r: RoleInput) =>
-  inGroup(r, ["bd_manager", "sales_manager", "system_admin"]);
+  inGroup(r, ["bd_manager", "sales_manager"]);
 export const canApproveBafoCost = (r: RoleInput) =>
-  inGroup(r, ["estimation_manager", "system_admin"]);
+  inGroup(r, ["estimation_manager"]);
 export const canApproveBafoFinance = (r: RoleInput) =>
-  inGroup(r, ["finance_manager", "system_admin"]);
+  inGroup(r, ["finance_manager"]);
 export const canApproveBafoFinal = (r: RoleInput) =>
-  inGroup(r, [...ROLE_GROUPS.executive, ...ROLE_GROUPS.systemAdmin]);
+  inGroup(r, ROLE_GROUPS.executive);
+
+export const MFA_REQUIRED_ROLES: AppRole[] = [
+  "general_manager",
+  "finance_manager",
+  "sales_manager",
+  "system_admin",
+  "managing_director",
+];
+export const requiresMfa = (r: RoleInput) => inGroup(r, MFA_REQUIRED_ROLES);

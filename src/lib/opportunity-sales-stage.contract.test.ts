@@ -68,7 +68,10 @@ describe("every opportunity INSERT sets sales_stage", () => {
     // 5 sites as of 2026-08-05. A new one is fine — bump this and confirm the
     // new site sets sales_stage. A DROP means an insert moved somewhere
     // unscanned, which is what this test exists to catch.
-    expect(total).toBeGreaterThanOrEqual(5);
+    // Lead conversion moved into the transaction tested in audit_regression.test.sql.
+    const atomic = await fs.readFile("supabase/migrations/20260928110000_audit_atomic_operations.sql", "utf8");
+    expect(atomic).toContain("INSERT INTO public.opportunities");
+    expect(total + 1).toBeGreaterThanOrEqual(5);
   });
 });
 
@@ -84,9 +87,9 @@ describe("the two paths fixed on 2026-08-05", () => {
   test("lead conversion sets the enum entry stage", async () => {
     const fs = await import("fs/promises");
     const src = await fs.readFile("supabase/functions/sales-os-api/handlers/pipeline.ts", "utf8");
-    const body = opportunityInsertBodies(src).find((b) => b.includes("qualified_lead"));
-    expect(body).toBeDefined();
-    expect(body).toContain(`sales_stage: "rfq_received"`);
+    expect(src).toContain('ctx.asCaller.rpc("convert_lead_atomic"');
+    const sql = await fs.readFile("supabase/migrations/20260928110000_audit_atomic_operations.sql", "utf8");
+    expect(sql).toContain("'qualification','rfq_received','qualified_lead'");
   });
 });
 

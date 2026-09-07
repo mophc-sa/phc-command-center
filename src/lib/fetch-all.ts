@@ -91,3 +91,9 @@ export async function fetchAllRows<T>(
 export function allComplete(...results: Array<{ complete: boolean }>): boolean {
   return results.every((r) => r.complete);
 }
+
+export async function fetchRequiredRows<T>(makeQuery: () => RangeQuery<T>): Promise<{ data: T[] }> {
+  const result = await fetchAllRows(makeQuery);
+  if (!result.complete) throw new Error("Dataset exceeds the management view limit");
+  return { data: result.rows };
+}

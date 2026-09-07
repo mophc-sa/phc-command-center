@@ -1,3 +1,4 @@
+import { fetchRequiredRows } from "@/lib/fetch-all";
 // =============================================================================
 // Sales Management (Phase 5) — three views on one route.
 //
@@ -99,26 +100,26 @@ function SalesManagement() {
   // it, quietly turning the whole page into a recompute on every keystroke.
   const ctx: KpiContext = useMemo(() => ({ today, period: periodFor(range, today) }), [range, today]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["sales-management"],
     staleTime: 60_000,
     enabled: allowed.length > 0,
     queryFn: async () => {
       const [opps, flags, tasks, followUps, approvals, intake, transitions, profiles, targets, tenders, runs] =
         await Promise.all([
-          supabase.from("opportunities").select(
+          fetchRequiredRows(() => supabase.from("opportunities").select(
             "id, project_name, owner_id, sales_stage, stage, tier, contract_value, quotation_value, estimated_value_max, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, last_activity_at, next_action, updated_at, created_at, won_at, lost_at, client, main_contractor, source_tender_id",
-          ).limit(500),
-          supabase.from("opportunity_flags").select("*").limit(300),
-          supabase.from("tasks").select("id, title, related_opportunity_id, owner_id, priority, due_date, status, created_at, completed_at").limit(300),
-          supabase.from("follow_ups").select("id, opportunity_id, owner_id, due_date, cadence_tier, channel, status, notes, created_at, last_contact_at").limit(300),
-          supabase.from("approvals").select("id, approval_type, related_opportunity_id, linked_record_type, linked_record_id, requested_by, assigned_approver, status, decision_notes, created_at, decided_at").limit(200),
-          supabase.from("inbox_items").select("id, project_name, company_name, review_state, assigned_owner_id, created_by, request_type, info_due_date, info_responsible_id, created_at, reviewed_at").limit(200),
-          supabase.from("stage_transition_history").select("*").order("created_at", { ascending: false }).limit(300),
-          supabase.from("profiles").select("id, full_name, email, status"),
-          supabase.from("sales_targets").select("user_id, period_type, period_start, sales_target"),
-          supabase.from("tenders").select("id, tender_name, tender_stage, tender_owner_id, estimated_project_value, expected_award_date, created_at, converted_opportunity_id").limit(300),
-          supabase.from("automation_runs").select("started_at, finished_at, raised, notified, error, trigger").order("started_at", { ascending: false }).limit(5),
+          ).order("id")),
+          fetchRequiredRows(() => supabase.from("opportunity_flags").select("*").order("id")),
+          fetchRequiredRows(() => supabase.from("tasks").select("id, title, related_opportunity_id, owner_id, priority, due_date, status, created_at, completed_at").order("id")),
+          fetchRequiredRows(() => supabase.from("follow_ups").select("id, opportunity_id, owner_id, due_date, cadence_tier, channel, status, notes, created_at, last_contact_at").order("id")),
+          fetchRequiredRows(() => supabase.from("approvals").select("id, approval_type, related_opportunity_id, linked_record_type, linked_record_id, requested_by, assigned_approver, status, decision_notes, created_at, decided_at").order("id")),
+          fetchRequiredRows(() => supabase.from("inbox_items").select("id, project_name, company_name, review_state, assigned_owner_id, created_by, request_type, info_due_date, info_responsible_id, created_at, reviewed_at").order("id")),
+          fetchRequiredRows(() => supabase.from("stage_transition_history").select("*").order("created_at", { ascending: false }).order("id")),
+          fetchRequiredRows(() => supabase.from("profiles").select("id, full_name, email, status").order("id")),
+          fetchRequiredRows(() => supabase.from("sales_targets").select("user_id, period_type, period_start, sales_target").order("id")),
+          fetchRequiredRows(() => supabase.from("tenders").select("id, tender_name, tender_stage, tender_owner_id, estimated_project_value, expected_award_date, created_at, converted_opportunity_id").order("id")),
+          supabase.from("automation_runs").select("started_at, finished_at, raised, notified, error, trigger").order("started_at", { ascending: false }).limit(5).throwOnError(),
         ]);
       return {
         opportunities: (opps.data ?? []) as unknown as OppRow[],
@@ -211,6 +212,13 @@ function SalesManagement() {
       </div>
     );
   }
+
+  if (error) return (
+    <div role="alert" className="mx-auto max-w-3xl space-y-4 p-6">
+      <p>{lang === "ar" ? "تعذر تحميل البيانات كاملة. المؤشرات غير متاحة حتى يكتمل التحميل." : "Complete data could not be loaded. Metrics are unavailable until loading succeeds."}</p>
+      <button type="button" onClick={() => void refetch()}>{lang === "ar" ? "إعادة المحاولة" : "Retry"}</button>
+    </div>
+  );
 
   const pill = (active: boolean) =>
     `rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${

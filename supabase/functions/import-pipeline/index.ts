@@ -18,12 +18,14 @@ import { json, err } from "../_shared/respond.ts";
 import {
   resolveCaller,
   serviceClient,
+  userClient,
   hasAny,
   audit,
   type AppRole,
 } from "../_shared/supabase.ts";
 import { compareSignals, type DedupSignals } from "../_shared/import-dedup.ts";
-import { insertLeadServerSide } from "../_shared/leads.ts";
+import { parseCsv, csvCell } from "../_shared/csv.ts";
+import { fetchComplete } from "../_shared/fetch-all.ts";
 import { normalizeContactPayload } from "../_shared/contact-repair.ts";
 
 // User-facing sentinel written into mapped_data by the validate step to mark
@@ -78,32 +80,6 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_ROWS = 10_000;
 
 // -- CSV parser (no external deps) --------------------------------------------
-function parseCsv(text: string): { headers: string[]; rows: string[][] } {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length === 0) return { headers: [], rows: [] };
-  const split = (line: string) => {
-    const result: string[] = [];
-    let current = "";
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-        else inQuotes = !inQuotes;
-      } else if (ch === "," && !inQuotes) {
-        result.push(current.trim());
-        current = "";
-      } else {
-        current += ch;
-      }
-    }
-    result.push(current.trim());
-    return result;
-  };
-  const headers = split(lines[0]);
-  const rows = lines.slice(1).map(split);
-  return { headers, rows };
-}
 
 function uniqueSourceColumns(headers: string[]): string[] {
   const seen = new Map<string, number>();
@@ -120,7 +96,7 @@ function uniqueSourceColumns(headers: string[]): string[] {
 
 type Handler = (
   payload: Record<string, unknown>,
-  caller: { userId: string; roles: AppRole[] },
+  caller: { userId: string; roles: AppRole[]; client: ReturnType<typeof userClient> },
 ) => Promise<Response>;
 
 const handlers: Record<string, Handler> = {};
@@ -133,39 +109,48 @@ handlers["parse"] = async (payload, caller) => {
 
   const svc = serviceClient();
 
-  // Verify batch ownership for bd_manager
-  if (hasAny(caller.roles, [BD_ROLE]) && !hasAny(caller.roles, IMPORT_ROLES)) {
-    const { data: batch } = await svc.from("import_batches").select("created_by").eq("id", batchId).single();
-    if (!batch || batch.created_by !== caller.userId) return err("Access denied", 403);
-  }
-
   // Get file metadata
-  const { data: file } = await svc.from("import_files").select("*").eq("id", fileId).single();
+  const { data: file } = await svc.from("import_files").select("*").eq("id", fileId).eq("batch_id", batchId).maybeSingle().throwOnError();
   if (!file) return err("File not found", 404);
 
   if (file.file_size_bytes > MAX_FILE_SIZE) return err(`File exceeds ${MAX_FILE_SIZE / 1024 / 1024} MB limit`);
 
-  // Download file from storage
-  const { data: fileData, error: dlError } = await svc.storage
+  // Metadata can be inserted by the batch owner. It is not authority to read
+  // an arbitrary Storage object under the service role.
+  const objectPath = String(file.storage_path ?? "");
+  const invalidPath = !objectPath.startsWith(`${batchId}/`) || objectPath.split("/").some((part) => {
+    // Decode path separators/dots without rejecting literal '%' in file names.
+    const decoded = part.replace(/%2e/gi, ".").replace(/%2f/gi, "/").replace(/%5c/gi, "\\");
+    return decoded === "." || decoded === ".." || /[\\/]/.test(decoded);
+  });
+  if (invalidPath) return err("File storage path does not belong to this batch", 403);
+
+  // The caller's Storage policies apply even if a stored path was tampered with.
+  const { data: fileData, error: dlError } = await caller.client.storage
     .from("imports")
     .download(file.storage_path);
   if (dlError || !fileData) return err("Failed to download file: " + (dlError?.message ?? "unknown"));
 
+  if (fileData.size > MAX_FILE_SIZE) return err("Downloaded file exceeds 10 MB limit", 413);
+
   let headers: string[] = [];
   let rows: string[][] = [];
   let sheetCount = 1;
+  let skippedSheets: string[] = [];
 
   if (file.file_type === "csv") {
     const text = await fileData.text();
-    const parsed = parseCsv(text);
-    headers = parsed.headers;
-    rows = parsed.rows;
-  } else if (file.file_type === "xlsx") {
-    // For xlsx, use the npm SheetJS build supported by the edge runtime.
     try {
-      const { read, utils } = await import("npm:xlsx@0.18.5");
+      const parsed = parseCsv(text);
+      headers = parsed.headers;
+      rows = parsed.rows;
+    } catch (e) { return err(e instanceof Error ? e.message : "Invalid CSV"); }
+  } else if (file.file_type === "xlsx") {
+    // Pinned vendor release; the obsolete npm package contains known vulnerabilities.
+    try {
+      const { read, utils } = await import("../_shared/spreadsheet.ts");
       const ab = await fileData.arrayBuffer();
-      const wb = read(new Uint8Array(ab), { type: "array" });
+      const wb = read(new Uint8Array(ab), { type: "array", sheetRows: MAX_ROWS + 2 });
       sheetCount = wb.SheetNames.length;
 
       // If sheet_name is specified, parse that sheet only. Otherwise parse the
@@ -174,6 +159,7 @@ handlers["parse"] = async (payload, caller) => {
         ? [file.sheet_name]
         : wb.SheetNames.slice(0, 1); // default to first sheet for now
 
+      skippedSheets = wb.SheetNames.filter((name) => !sheetNames.includes(name));
       for (const sn of sheetNames) {
         const ws = wb.Sheets[sn];
         if (!ws) return err(`Sheet "${sn}" not found in workbook. Available sheets: ${wb.SheetNames.join(", ")}`);
@@ -194,11 +180,9 @@ handlers["parse"] = async (payload, caller) => {
           // Additional sheets: only append rows if headers match
           const compatible = sheetHeaders.length === headers.length &&
             sheetHeaders.every((h, i) => h === headers[i]);
-          if (compatible) {
-            rows = [...rows, ...sheetRows];
-          }
-          // Silently skip incompatible sheets — they'll be handled in a future PR
-          // with full multi-entity fan-out support.
+          if (!compatible) return err(`Sheet "${sn}" has incompatible headers`);
+          rows = [...rows, ...sheetRows];
+
         }
       }
     } catch (e) {
@@ -220,7 +204,7 @@ handlers["parse"] = async (payload, caller) => {
     column_names: headers,
     row_count: rows.length,
     sheet_count: sheetCount,
-  }).eq("id", fileId);
+  }).eq("id", fileId).throwOnError();
 
   // Insert parsed rows into import_rows
   const rowInserts = rows.map((row, idx) => ({
@@ -234,14 +218,14 @@ handlers["parse"] = async (payload, caller) => {
   // Insert in chunks of 500
   for (let i = 0; i < rowInserts.length; i += 500) {
     const chunk = rowInserts.slice(i, i + 500);
-    await svc.from("import_rows").insert(chunk);
+    await svc.from("import_rows").insert(chunk).throwOnError();
   }
 
   // Update batch status and row count
   await svc.from("import_batches").update({
     status: "mapping",
     total_rows: rows.length,
-  }).eq("id", batchId);
+  }).eq("id", batchId).throwOnError();
 
   await audit(svc, caller.userId, "import_parse", "import_batches", batchId, {
     file_id: fileId,
@@ -253,6 +237,7 @@ handlers["parse"] = async (payload, caller) => {
   return json({
     headers,
     row_count: rows.length,
+    skipped_sheets: skippedSheets,
     preview: rows.slice(0, 20).map((row) =>
       Object.fromEntries(headers.map((h, i) => [h, row[i] ?? null]))
     ),
@@ -267,18 +252,18 @@ handlers["validate"] = async (payload, caller) => {
   const svc = serviceClient();
 
   // Get mappings
-  const { data: mappings } = await svc.from("import_mappings").select("*").eq("batch_id", batchId);
+  const { data: mappings } = await fetchComplete(() => svc.from("import_mappings").select("*").eq("batch_id", batchId).order("id"));
   if (!mappings || mappings.length === 0) return err("No mappings configured");
 
   // Get rows — skip excluded/deleted rows from validation
-  const { data: rows } = await svc.from("import_rows")
+  const { data: rows } = await fetchComplete(() => svc.from("import_rows")
     .select("id, row_number, raw_data, is_excluded, row_status")
     .eq("batch_id", batchId)
-    .order("row_number");
+    .order("row_number").order("id"));
   if (!rows) return err("No rows found");
 
   // Clear old validation errors so re-validate produces a clean report
-  await svc.from("import_errors").delete().eq("batch_id", batchId);
+  await svc.from("import_errors").delete().eq("batch_id", batchId).throwOnError();
 
   const errors: Array<{
     batch_id: string; row_id: string; row_number: number;
@@ -291,7 +276,7 @@ handlers["validate"] = async (payload, caller) => {
   for (const row of rows) {
     // Skip rows the user has excluded or soft-deleted from the batch
     if (row.is_excluded || row.row_status === "excluded" || row.row_status === "deleted") {
-      await svc.from("import_rows").update({ status: "excluded" }).eq("id", row.id);
+      await svc.from("import_rows").update({ status: "excluded" }).eq("id", row.id).throwOnError();
       excludedCount++;
       continue;
     }
@@ -344,7 +329,7 @@ handlers["validate"] = async (payload, caller) => {
     await svc.from("import_rows").update({
       mapped_data: mapped,
       status: rowHasError ? "error" : "valid",
-    }).eq("id", row.id);
+    }).eq("id", row.id).throwOnError();
 
     if (rowHasError) errorCount++;
     else validCount++;
@@ -353,7 +338,7 @@ handlers["validate"] = async (payload, caller) => {
   // Insert errors in chunks
   if (errors.length > 0) {
     for (let i = 0; i < errors.length; i += 500) {
-      await svc.from("import_errors").insert(errors.slice(i, i + 500));
+      await svc.from("import_errors").insert(errors.slice(i, i + 500)).throwOnError();
     }
   }
 
@@ -362,7 +347,7 @@ handlers["validate"] = async (payload, caller) => {
     status: "duplicate_review",
     valid_rows: validCount,
     error_rows: errorCount,
-  }).eq("id", batchId);
+  }).eq("id", batchId).throwOnError();
 
   await audit(svc, caller.userId, "import_validate", "import_batches", batchId, {
     valid: validCount, errors: errorCount, excluded: excludedCount,
@@ -390,21 +375,21 @@ handlers["detect_duplicates"] = async (payload, caller) => {
   const svc = serviceClient();
 
   const { data: batch } = await svc.from("import_batches")
-    .select("id, target_entity").eq("id", batchId).single();
+    .select("id, target_entity").eq("id", batchId).single().throwOnError();
 
   // Only rows that are still in play (valid, not excluded/deleted).
-  const { data: rows } = await svc.from("import_rows")
+  const { data: rows } = await fetchComplete(() => svc.from("import_rows")
     .select("id, row_number, mapped_data, is_excluded, row_status")
     .eq("batch_id", batchId)
     .eq("status", "valid")
-    .order("row_number");
+    .order("row_number").order("id"));
   if (!rows || rows.length === 0) return json({ duplicates: 0 });
   const liveRows = rows.filter((r) => !r.is_excluded && r.row_status !== "deleted" && r.row_status !== "excluded");
 
   // (1) Existing CRM records (companies today; other entities as they gain
   //     matchable fields). Read-only.
-  const { data: companies } = await svc.from("companies")
-    .select("id, name, cr_number, website_domain, email, phone");
+  const { data: companies } = await fetchComplete(() => caller.client.from("companies")
+    .select("id, name, cr_number, website_domain, email, phone").order("id"));
   const crmSignals = (companies ?? []).map((c) => ({
     id: c.id as string,
     signals: {
@@ -414,11 +399,12 @@ handlers["detect_duplicates"] = async (payload, caller) => {
   }));
 
   // (3) Rows from PREVIOUS batches (same target entity), read-only staging.
-  const { data: prevRows } = await svc.from("import_rows")
-    .select("id, mapped_data, batch_id")
+  const { data: prevRows } = await fetchComplete(() => caller.client.from("import_rows")
+    .select("id, mapped_data, batch_id, import_batches!inner(target_entity)")
+    .eq("import_batches.target_entity", batch?.target_entity ?? "companies")
     .neq("batch_id", batchId)
     .neq("row_status", "deleted")
-    .limit(5000);
+    .order("id"));
   const prevSignals = (prevRows ?? []).map((r) => ({
     id: r.id as string, signals: signalsFromMapped(r.mapped_data as Record<string, string | null> | null),
   }));
@@ -460,16 +446,16 @@ handlers["detect_duplicates"] = async (payload, caller) => {
   }
 
   for (const id of flaggedRowIds) {
-    await svc.from("import_rows").update({ status: "duplicate" }).eq("id", id);
+    await svc.from("import_rows").update({ status: "duplicate" }).eq("id", id).throwOnError();
   }
   for (let i = 0; i < dupes.length; i += 500) {
-    if (dupes.length) await svc.from("import_duplicate_candidates").insert(dupes.slice(i, i + 500));
+    if (dupes.length) await svc.from("import_duplicate_candidates").insert(dupes.slice(i, i + 500)).throwOnError();
   }
 
   await svc.from("import_batches").update({
     status: "pending_approval",
     duplicate_rows: flaggedRowIds.size,
-  }).eq("id", batchId);
+  }).eq("id", batchId).throwOnError();
 
   await audit(svc, caller.userId, "import_detect_duplicates", "import_batches", batchId, {
     duplicate_rows: flaggedRowIds.size, candidates: dupes.length,
@@ -498,22 +484,22 @@ handlers["generate_candidates"] = async (payload, caller) => {
 
   const svc = serviceClient();
 
-  const { data: batch } = await svc.from("import_batches").select("id, target_entity").eq("id", batchId).single();
+  const { data: batch } = await svc.from("import_batches").select("id, target_entity").eq("id", batchId).single().throwOnError();
   if (!batch) return err("Batch not found", 404);
 
-  const { data: rows } = await svc.from("import_rows")
+  const { data: rows } = await fetchComplete(() => svc.from("import_rows")
     .select("id, mapped_data, is_excluded, row_status")
     .eq("batch_id", batchId)
-    .eq("status", "valid")
-    .order("row_number");
+    .in("status", ["valid", "duplicate"])
+    .order("row_number").order("id"));
   const liveRows = (rows ?? []).filter((r) => !r.is_excluded && r.row_status !== "deleted" && r.row_status !== "excluded");
 
-  const { data: dupeRows } = await svc.from("import_duplicate_candidates")
+  const { data: dupeRows } = await fetchComplete(() => svc.from("import_duplicate_candidates")
     .select("row_id, existing_record_id, existing_table, resolution, confidence, match_type")
-    .eq("batch_id", batchId);
+    .eq("batch_id", batchId).order("id"));
   const dupeByRow = new Map((dupeRows ?? []).map((d) => [d.row_id as string, d]));
 
-  await svc.from("import_record_candidates").delete().eq("batch_id", batchId);
+  await svc.from("import_record_candidates").delete().eq("batch_id", batchId).throwOnError();
 
   const entityType = batch.target_entity as string;
   const candidates = liveRows.map((row) => {
@@ -563,7 +549,7 @@ handlers["generate_candidates"] = async (payload, caller) => {
   });
 
   for (let i = 0; i < candidates.length; i += 500) {
-    if (candidates.length) await svc.from("import_record_candidates").insert(candidates.slice(i, i + 500));
+    if (candidates.length) await svc.from("import_record_candidates").insert(candidates.slice(i, i + 500)).throwOnError();
   }
 
   await audit(svc, caller.userId, "import_generate_candidates", "import_batches", batchId, {
@@ -584,7 +570,7 @@ handlers["approve"] = async (payload, caller) => {
 
   const svc = serviceClient();
 
-  const { data: batch } = await svc.from("import_batches").select("status").eq("id", batchId).single();
+  const { data: batch } = await svc.from("import_batches").select("status").eq("id", batchId).single().throwOnError();
   if (!batch) return err("Batch not found", 404);
   if (batch.status !== "pending_approval") return err("Batch not in pending_approval status");
 
@@ -592,7 +578,7 @@ handlers["approve"] = async (payload, caller) => {
     status: "approved",
     approved_by: caller.userId,
     approved_at: new Date().toISOString(),
-  }).eq("id", batchId);
+  }).eq("id", batchId).throwOnError();
 
   await svc.from("import_approval_queue").insert({
     batch_id: batchId,
@@ -601,7 +587,7 @@ handlers["approve"] = async (payload, caller) => {
     decided_by: caller.userId,
     decided_at: new Date().toISOString(),
     decision: "approved",
-  });
+  }).throwOnError();
 
   await audit(svc, caller.userId, "import_approve", "import_batches", batchId);
 
@@ -619,16 +605,16 @@ handlers["dry_run_commit"] = async (payload, caller) => {
 
   const svc = serviceClient();
 
-  const { data: batch } = await svc.from("import_batches").select("*").eq("id", batchId).single();
+  const { data: batch } = await svc.from("import_batches").select("*").eq("id", batchId).single().throwOnError();
   if (!batch) return err("Batch not found", 404);
   if (batch.status !== "approved") return err("Batch must be approved before commit");
 
   // Dry-run: mark batch as dry_run, simulate row processing
-  const { data: validRows } = await svc.from("import_rows")
+  const { data: validRows } = await fetchComplete(() => svc.from("import_rows")
     .select("id, mapped_data")
     .eq("batch_id", batchId)
     .eq("status", "valid")
-    .order("row_number");
+    .order("row_number").order("id"));
 
   const summary = {
     total: batch.total_rows,
@@ -641,7 +627,7 @@ handlers["dry_run_commit"] = async (payload, caller) => {
   await svc.from("import_batches").update({
     status: "dry_run",
     dry_run: true,
-  }).eq("id", batchId);
+  }).eq("id", batchId).throwOnError();
 
   await audit(svc, caller.userId, "import_dry_run", "import_batches", batchId, summary);
 
@@ -692,8 +678,9 @@ handlers["commit_candidates"] = async (payload, caller) => {
 
   const svc = serviceClient();
 
-  const { data: batch } = await svc.from("import_batches").select("*").eq("id", batchId).single();
+  const { data: batch } = await svc.from("import_batches").select("*").eq("id", batchId).single().throwOnError();
   if (!batch) return err("Batch not found", 404);
+  if (batch.status === "committed" && batch.commit_summary) return json(batch.commit_summary);
   if (batch.status !== "dry_run") return err("Batch must be in dry_run status before commit");
 
   // Same manual readiness gate the pre-Phase-1.1 commit draft had.
@@ -702,11 +689,11 @@ handlers["commit_candidates"] = async (payload, caller) => {
   const incomplete = MANUAL_KEYS.filter((k) => !checklist[k]);
   if (incomplete.length > 0) return err(`Readiness checklist incomplete. Unchecked items: ${incomplete.join(", ")}`);
 
-  const { data: approved } = await svc
+  const { data: approved } = await fetchComplete(() => svc
     .from("import_record_candidates")
     .select("id, source_row_id, entity_type, proposed_action, existing_record_id, proposed_payload")
     .eq("batch_id", batchId)
-    .eq("review_status", "approved");
+    .eq("review_status", "approved").order("id"));
 
   const candidates = (approved ?? []) as {
     id: string; source_row_id: string; entity_type: string; proposed_action: string;
@@ -714,41 +701,8 @@ handlers["commit_candidates"] = async (payload, caller) => {
   }[];
   if (candidates.length === 0) return err("No approved candidates to commit");
 
-  let committed = 0;
-  let failed = 0;
-  const links: Array<{ batch_id: string; row_id: string; target_table: string; target_id: string; action: string }> = [];
-  const commitErrors: Array<{
-    batch_id: string; row_id: string; row_number: number;
-    column_name: string; error_type: string; message: string; severity: string;
-  }> = [];
-
-  for (const cand of candidates) {
+  const items = candidates.map((cand) => {
     const table = ENTITY_TABLE_MAP[cand.entity_type];
-    // Only create/update ever perform a write. A candidate reviewed and
-    // approved as anything else (duplicate/needs_review/conflict) — or one
-    // whose entity_type has no known table — is skipped, not force-written.
-    if (!table || (cand.proposed_action !== "create" && cand.proposed_action !== "update")) {
-      failed++;
-      commitErrors.push({
-        batch_id: batchId, row_id: cand.source_row_id, row_number: 0,
-        column_name: "*", error_type: "commit_skipped",
-        message: !table
-          ? `Unknown entity_type '${cand.entity_type}' — no target table mapped`
-          : `Approved candidate has proposed_action '${cand.proposed_action}', not create/update — skipped`,
-        severity: "error",
-      });
-      continue;
-    }
-
-    // Best-effort payload: drop empty/null values rather than writing them
-    // over column defaults, but otherwise write whatever was mapped.
-    // Keys prefixed EXTRA_DATA_KEY_PREFIX never map to a real column — they
-    // hold source data the user (or an AI mapping suggestion) explicitly
-    // chose to preserve anyway — so nest them into extra_data (a jsonb
-    // column on every import target table, see
-    // 20260727140000_extra_data_all_import_targets.sql) instead of leaving
-    // them as literal top-level keys, which previously made the insert
-    // itself fail outright for any row with an unmapped column.
     const extraData: Record<string, unknown> = {};
     const payload: Record<string, unknown> = {};
     for (const [key, v] of Object.entries(cand.proposed_payload)) {
@@ -776,138 +730,28 @@ handlers["commit_candidates"] = async (payload, caller) => {
       const normalized = normalizeContactPayload(payload, null);
       if (normalized.moved.length > 0) {
         for (const k of Object.keys(normalized.payload)) payload[k] = normalized.payload[k];
-        commitErrors.push({
-          batch_id: batchId,
-          row_id: cand.source_row_id,
-          row_number: 0,
-          message: `Contact fields separated on import: ${normalized.moved.join(", ")}`,
-          severity: "info",
-        });
+
       }
     }
 
-    try {
-      if (cand.proposed_action === "create") {
-        let created: { id: string };
-        if (table === "leads") {
-          created = await insertLeadServerSide(
-            svc,
-            { project_name: (payload.project_name as string) ?? "Unknown", ...payload },
-            caller.userId,
-            "import",
-            caller.roles,
-          );
-        } else {
-          const { data, error } = await svc.from(table).insert(payload).select("id").single();
-          if (error) throw error;
-          created = data;
-        }
-        links.push({ batch_id: batchId, row_id: cand.source_row_id, target_table: table, target_id: created.id, action: "created" });
-      } else {
-        if (!cand.existing_record_id) throw new Error("Missing existing_record_id for an update action");
-        const { error } = await svc.from(table).update(payload).eq("id", cand.existing_record_id);
-        if (error) throw error;
-        links.push({ batch_id: batchId, row_id: cand.source_row_id, target_table: table, target_id: cand.existing_record_id, action: "updated" });
-      }
-      committed++;
-    } catch (e) {
-      failed++;
-      commitErrors.push({
-        batch_id: batchId, row_id: cand.source_row_id, row_number: 0,
-        column_name: "*", error_type: "commit_error",
-        message: e instanceof Error ? e.message : String(e),
-        severity: "error",
-      });
-    }
-  }
-
-  for (let i = 0; i < commitErrors.length; i += 500) {
-    await svc.from("import_errors").insert(commitErrors.slice(i, i + 500));
-  }
-  for (let i = 0; i < links.length; i += 500) {
-    await svc.from("import_record_links").insert(links.slice(i, i + 500));
-  }
-
-  await svc.from("import_batches").update({
-    status: "committed",
-    committed_at: new Date().toISOString(),
-  }).eq("id", batchId);
-
-  const summary = { committed, failed, total: candidates.length };
-  await audit(svc, caller.userId, "import_commit_candidates", "import_batches", batchId, summary);
-
+    return { id: cand.id, entity_type: cand.entity_type, action: cand.proposed_action,
+      existing_record_id: cand.existing_record_id, source_payload: cand.proposed_payload, payload };
+  });
+  const { data: summary, error } = await svc.rpc("commit_import_batch_atomic", {
+    _batch_id: batchId, _actor_id: caller.userId, _items: items,
+  });
+  if (error) return err(error.message, 409);
   return json(summary);
 };
 
-// ROLLBACK: reverse a committed batch's CRM writes, using the audit trail
-// import_record_links left behind at commit time. This only ever DELETEs a
-// row this pipeline itself created — it never INSERTs/UPSERTs, matching
-// commit_candidates' own action set (see import-readiness.test.ts, updated
-// alongside this to describe the new invariant: live CRM writes exist, but
-// only through the reviewed-candidate commit path).
-//
-// "updated" links can't be reversed: commit never captured the pre-update
-// value, so there is nothing to restore. Those are reported as needing
-// manual review rather than silently skipped or force-reverted. A delete
-// that fails (most likely a foreign-key violation because something else —
-// an opportunity, a follow-up, a contact — now references the record) is
-// left in place rather than cascaded, and counted separately.
-const ROLLBACK_TABLES = new Set(Object.values(ENTITY_TABLE_MAP));
-
+// ROLLBACK: transactional receipts, before-images and conflict detection.
 handlers["rollback"] = async (payload, caller) => {
-  const batchId = payload.batch_id as string;
-  if (!batchId) return err("batch_id required");
-
-  if (!hasAny(caller.roles, APPROVE_COMMIT_ROLES)) {
-    return err("Insufficient role for rollback", 403);
-  }
-
-  const svc = serviceClient();
-
-  const { data: batch } = await svc.from("import_batches").select("status").eq("id", batchId).single();
-  if (!batch) return err("Batch not found", 404);
-  if (batch.status !== "committed") return err("Only a committed batch can be rolled back");
-
-  const { data: links } = await svc
-    .from("import_record_links")
-    .select("id, target_table, target_id, action")
-    .eq("batch_id", batchId);
-
-  const allLinks = (links ?? []) as { id: string; target_table: string; target_id: string; action: string }[];
-
-  let rolledBack = 0;
-  let stillReferenced = 0;
-  let manualReview = 0;
-
-  for (const link of allLinks) {
-    if (link.action !== "created" || !ROLLBACK_TABLES.has(link.target_table)) {
-      manualReview++;
-      continue;
-    }
-    const { error } = await svc.from(link.target_table).delete().eq("id", link.target_id);
-    if (error) {
-      stillReferenced++;
-      continue;
-    }
-    rolledBack++;
-  }
-
-  await svc.from("import_batches").update({
-    status: "rolled_back",
-    rolled_back_at: new Date().toISOString(),
-    rolled_back_by: caller.userId,
-  }).eq("id", batchId);
-
-  const summary = {
-    rolled_back: rolledBack,
-    still_referenced: stillReferenced,
-    manual_review_required: manualReview,
-    total: allLinks.length,
-  };
-
-  await audit(svc, caller.userId, "import_rollback", "import_batches", batchId, summary);
-
-  return json(summary);
+  if (!hasAny(caller.roles, APPROVE_COMMIT_ROLES)) return err("Insufficient role for rollback", 403);
+  const { data, error } = await serviceClient().rpc("rollback_import_batch_atomic", {
+    _batch_id: payload.batch_id, _actor_id: caller.userId,
+  });
+  if (error) return err(error.message, 409);
+  return json(data);
 };
 
 // GENERATE_REPORT: downloadable dry-run reports in CSV (default) or JSON.
@@ -923,19 +767,19 @@ handlers["generate_report"] = async (payload, caller) => {
   let records: Record<string, unknown>[];
 
   if (reportType === "validation_errors") {
-    const { data } = await svc.from("import_errors")
+    const { data } = await fetchComplete(() => svc.from("import_errors")
       .select("row_number, column_name, error_type, message, severity")
-      .eq("batch_id", batchId).order("row_number");
+      .eq("batch_id", batchId).order("row_number").order("id"));
     columns = ["row_number", "column_name", "error_type", "message", "severity"];
     records = (data ?? []) as Record<string, unknown>[];
   } else if (reportType === "duplicate_candidates") {
-    const { data } = await svc.from("import_duplicate_candidates")
+    const { data } = await fetchComplete(() => svc.from("import_duplicate_candidates")
       .select("row_id, existing_record_id, existing_table, match_scope, match_type, reason_code, matched_fields, confidence, suggested_action, resolution")
-      .eq("batch_id", batchId);
+      .eq("batch_id", batchId).order("id"));
     columns = ["row_id", "existing_record_id", "existing_table", "match_scope", "match_type", "reason_code", "matched_fields", "confidence", "suggested_action", "resolution"];
     records = (data ?? []) as Record<string, unknown>[];
   } else if (reportType === "import_summary") {
-    const { data: batch } = await svc.from("import_batches").select("*").eq("id", batchId).single();
+    const { data: batch } = await svc.from("import_batches").select("*").eq("id", batchId).single().throwOnError();
     if (!batch) return err("Batch not found", 404);
     columns = ["field", "value"];
     records = [
@@ -973,13 +817,7 @@ handlers["generate_report"] = async (payload, caller) => {
   });
 };
 
-function quote(s: string | null | undefined): string {
-  if (!s) return "";
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return '"' + s.replace(/"/g, '""') + '"';
-  }
-  return s;
-}
+function quote(s: string | null | undefined): string { return csvCell(s ?? ""); }
 
 // -- Main router ---------------------------------------------------------------
 
@@ -1010,7 +848,17 @@ Deno.serve(async (req: Request) => {
       return err(`Unknown action. Available: ${Object.keys(handlers).join(", ")}`);
     }
 
-    return await handlers[action](body, caller);
+    const batchId = body.batch_id;
+    if (typeof batchId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(batchId)) return err("Valid batch_id required");
+    const client = userClient(authHeader!);
+    const { data: batch, error: batchError } = await serviceClient().from("import_batches")
+      .select("id, created_by, status").eq("id", batchId).single();
+    if (batchError || !batch) return err("Batch not found", 404);
+    if (!hasAny(caller.roles, IMPORT_ROLES) && batch.created_by !== caller.userId) return err("Access denied", 403);
+    if (["committed", "rolled_back"].includes(batch.status) && !["commit_candidates", "rollback", "generate_report"].includes(action)) {
+      return err("A finalized batch cannot be modified", 409);
+    }
+    return await handlers[action](body, { ...caller, client });
   } catch (e: unknown) {
     const status = (e as { status?: number }).status ?? 500;
     const message = (e as { message?: string }).message ?? "Internal error";

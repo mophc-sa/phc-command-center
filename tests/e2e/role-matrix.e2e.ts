@@ -12,6 +12,10 @@ for (const role of ALL_ROLES) {
 
     test("signs in and lands on the correct page (Sprint 1D contract)", async ({ page }) => {
       if (!creds) return;
+      const failedRequests: string[] = [];
+      page.on("response", (response) => {
+        if (response.status() >= 400) failedRequests.push(`${response.status()} ${new URL(response.url()).pathname}`);
+      });
       await signInWithCachedSession(page, creds.email, creds.password);
 
       // Exact landing path per Sprint 1D role landing contract.
@@ -24,7 +28,7 @@ for (const role of ALL_ROLES) {
         if (msg.type() === "error") errors.push(msg.text());
       });
       await page.waitForLoadState("networkidle").catch(() => undefined);
-      expect(errors, `Console/runtime errors for ${role}: ${errors.join(" | ")}`).toEqual([]);
+      expect(errors, `Console/runtime errors for ${role}: ${errors.join(" | ")}; HTTP paths: ${failedRequests.join(" | ")}`).toEqual([]);
     });
 
     for (const route of matrix.allow) {

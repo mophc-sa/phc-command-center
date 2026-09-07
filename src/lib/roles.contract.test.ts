@@ -52,3 +52,16 @@ test("database app_role enum has no values unknown to the app", () => {
   const unknown = dbRoles.filter((r) => !APP_ROLES.includes(r as never));
   expect(unknown, `DB enum values unknown to app: ${unknown.join(", ")}`).toEqual([]);
 });
+
+import * as appCapabilities from "./roles";
+import * as edgeCapabilities from "../../supabase/functions/_shared/roles";
+
+test("all shared capabilities agree for every additive role combination", () => {
+  const edge = edgeCapabilities as unknown as Record<string, (roles: typeof APP_ROLES) => boolean>;
+  const app = appCapabilities as unknown as typeof edge;
+  const names = Object.keys(edge).filter((k) => /^(can|is|requires)/.test(k) && typeof edge[k] === "function");
+  for (let mask = 0; mask < 1 << APP_ROLES.length; mask++) {
+    const roles = APP_ROLES.filter((_, i) => mask & (1 << i));
+    for (const name of names) expect(edge[name](roles), `${name}: ${roles}`).toBe(app[name](roles));
+  }
+});

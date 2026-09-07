@@ -1,3 +1,5 @@
+-- Role authorization cases use AAL2 for privileged roles. AAL1 denials are tested
+-- independently in audit_regression.test.sql; MFA must not mask a broken role rule.
 -- RLS Role Matrix — comprehensive allow/deny coverage
 --
 -- Role capability model:
@@ -128,7 +130,7 @@ set local role authenticated;
 -- ════════════════════ A: opportunities ═══════════════════════════════════════
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}', true);
 
 select is(
   (select count(*)::integer from public.opportunities where project_name = 'fixture-opp'),
@@ -139,7 +141,7 @@ select throws_ok(
   '42501', null, 'A2: viewer cannot insert an opportunity');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal1"}', true);
 
 select lives_ok(
   $$insert into public.opportunities (project_name, owner_id, created_by)
@@ -158,7 +160,7 @@ select throws_ok(
   'A4: DELETE on opportunities is rejected (grant revoked from authenticated; use sales-os-api)');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}', true);
 
 select throws_ok(
   $$delete from public.opportunities where project_name = 'fixture-opp-delete'$$,
@@ -168,7 +170,7 @@ select throws_ok(
 -- ════════════════════ B: leads ════════════════════════════════════════════════
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}', true);
 
 -- Changed in Phase 12 (migration 20260904100000), deliberately.
 --
@@ -192,7 +194,7 @@ select throws_ok(
   '42501', null, 'B2: viewer cannot insert a lead');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal1"}', true);
 
 select lives_ok(
   $$insert into public.leads (project_name, owner_id, created_by)
@@ -211,7 +213,7 @@ select is(
   1, 'B4: salesperson cannot UPDATE a lead they do not own (row unchanged)');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000003","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal1"}', true);
 
 -- bd_manager is a pipeline_operator — can update any lead regardless of owner.
 update public.leads set project_name = 'bd-updated-lead'
@@ -223,7 +225,7 @@ select is(
 -- ════════════════════ C: tenders ══════════════════════════════════════════════
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}', true);
 
 select is(
   (select count(*)::integer from public.tenders where tender_name = 'fixture-tender'),
@@ -234,7 +236,7 @@ select throws_ok(
   '42501', null, 'C2: viewer cannot insert a tender');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal1"}', true);
 
 select lives_ok(
   $$insert into public.tenders (tender_name, tender_owner_id)
@@ -242,7 +244,7 @@ select lives_ok(
   'C3: salesperson can insert a tender');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}', true);
 
 -- Same as A4/A5: DELETE grant revoked from authenticated on tenders.
 select throws_ok(
@@ -256,7 +258,7 @@ select throws_ok(
 -- writable by commercial managers" (ALL; is_commercial_manager).
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}', true);
 
 select ok(
   (select count(*)::integer from public.approvals) >= 0,
@@ -268,7 +270,7 @@ select throws_ok(
   '42501', null, 'D2: viewer cannot insert an approval');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal1"}', true);
 
 select lives_ok(
   $$insert into public.approvals (approval_type, requested_by, status)
@@ -277,7 +279,7 @@ select lives_ok(
 
 -- system_admin is platform_admin but NOT commercial_manager and NOT salesperson.
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000005","role":"authenticated","aal":"aal2"}', true);
 
 select throws_ok(
   $$insert into public.approvals (approval_type, requested_by, status)
@@ -289,21 +291,21 @@ select throws_ok(
 -- ceo, sales_manager). salesperson and bd_manager see 0 rows.
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal1"}', true);
 
 select is(
   (select count(*)::integer from public.audit_log),
   0, 'E1: salesperson sees no audit_log rows (platform_admin required)');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000005","role":"authenticated","aal":"aal2"}', true);
 
 select ok(
   (select count(*)::integer from public.audit_log) >= 1,
   'E2: system_admin can read audit_log (platform_admin)');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}', true);
 
 select ok(
   (select count(*)::integer from public.audit_log) >= 1,
@@ -316,28 +318,28 @@ select ok(
 -- viewer and salesperson each see exactly 1 row: their own seeded role.
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}', true);
 
 select is(
   (select count(*)::integer from public.user_roles),
   1, 'F1: viewer sees only their own user_roles row (own-role policy)');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal1"}', true);
 
 select is(
   (select count(*)::integer from public.user_roles),
   1, 'F2: salesperson sees only their own user_roles row (own-role policy)');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}', true);
 
 select ok(
   (select count(*)::integer from public.user_roles) >= 1,
   'F3: sales_manager can read user_roles (platform_admin)');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000005","role":"authenticated","aal":"aal2"}', true);
 
 select ok(
   (select count(*)::integer from public.user_roles) >= 1,
@@ -349,14 +351,14 @@ select ok(
 -- system_admin is platform_admin but NOT commercial_manager → INSERT blocked.
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal1"}', true);
 
 select is(
   (select count(*)::integer from public.sales_targets),
   0, 'G1: viewer sees no sales_targets (no own targets seeded, not commercial manager)');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}', true);
 
 select lives_ok(
   $$insert into public.sales_targets
@@ -367,7 +369,7 @@ select lives_ok(
   'G2: sales_manager (commercial manager) can insert a sales_target');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000005","role":"authenticated","aal":"aal2"}', true);
 
 select throws_ok(
   $$insert into public.sales_targets
@@ -384,7 +386,7 @@ select throws_ok(
 -- below is the requester — this isolates the is_platform_admin branch.
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000005","role":"authenticated","aal":"aal2"}', true);
 
 select is(
   (select count(*)::integer from public.ai_agent_outputs
@@ -392,7 +394,7 @@ select is(
   1, 'H1: system_admin can read an ai_agent_outputs row it did not request');
 
 select set_config('request.jwt.claims',
-  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+  '{"sub":"20000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal1"}', true);
 
 select is(
   (select count(*)::integer from public.ai_agent_outputs

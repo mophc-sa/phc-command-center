@@ -42,6 +42,7 @@ export function serviceClient(): SupabaseClient {
 export type { AppRole } from "./roles.ts";
 export * from "./roles.ts";
 import type { AppRole } from "./roles.ts";
+import { requiresMfa } from "./roles.ts";
 
 // Resolve the caller: their user id and roles. Throws a 401-style error object
 // if the JWT is missing or invalid.
@@ -53,11 +54,21 @@ export async function resolveCaller(
   const { data: userData, error } = await uc.auth.getUser();
   if (error || !userData.user) throw { status: 401, message: "Not authenticated" };
   const svc = serviceClient();
-  const { data: roleRows } = await svc
+  const { data: profile, error: profileError } = await svc.from("profiles").select("status").eq("id", userData.user.id).single();
+  if (profileError || profile?.status !== "active") throw { status: 403, message: "Active account required" };
+  const { data: roleRows, error: roleError } = await svc
     .from("user_roles")
     .select("role")
     .eq("user_id", userData.user.id);
+  if (roleError) throw { status: 503, message: "Unable to verify account permissions" };
   const roles = (roleRows ?? []).map((r: { role: AppRole }) => r.role);
+  if (requiresMfa(roles)) {
+    // getUser above verifies the token with Auth; getClaims verifies its AAL.
+    const { data: claimsData, error: claimsError } = await uc.auth.getClaims(authHeader.replace(/^Bearer\s+/i, ""));
+    if (claimsError || claimsData?.claims.aal !== "aal2") {
+      throw { status: 403, message: "MFA verification required" };
+    }
+  }
   return { userId: userData.user.id, roles };
 }
 
