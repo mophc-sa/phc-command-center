@@ -389,12 +389,13 @@ handlers["detect_duplicates"] = async (payload, caller) => {
   // (1) Existing CRM records (companies today; other entities as they gain
   //     matchable fields). Read-only.
   const { data: companies } = await fetchComplete(() => caller.client.from("companies")
-    .select("id, name, cr_number, website_domain, email, phone").order("id"));
+    .select("id, name, cr_number, website_domain").order("id"));
   const crmSignals = (companies ?? []).map((c) => ({
     id: c.id as string,
     signals: {
       company_name: c.name, cr_number: c.cr_number, website_domain: c.website_domain,
-      email: (c as { email?: string }).email ?? null, phone: (c as { phone?: string }).phone ?? null,
+      // Email and phone belong to contacts, not the companies table.
+      email: null, phone: null,
     } as DedupSignals,
   }));
 
@@ -865,4 +866,3 @@ Deno.serve(async (req: Request) => {
     return err(message, status);
   }
 });
-

@@ -33,15 +33,37 @@ Deno.test("Edge account, MFA, batch ownership and file binding fail closed", asy
   const batch = "a0000000-0000-4000-8000-000000000002";
   let status = "active", role = "bd_manager", foreign = true, forgedPath = false;
   const calls: URL[] = [];
+  const duplicates: unknown[] = [];
+  let dedupStatus: string | undefined;
   const reply = (data: unknown, code = 200) => new Response(JSON.stringify(data), { status: code, headers: { "content-type": "application/json" } });
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     if (url.hostname !== "audit.invalid") throw new Error("Unexpected external request");
     calls.push(url);
     if (url.pathname === "/auth/v1/user") return reply({ id: uid, aud: "authenticated", role: "authenticated" });
     if (url.pathname === "/rest/v1/profiles") return reply({ status });
     if (url.pathname === "/rest/v1/user_roles") return reply([{ role }]);
-    if (url.pathname === "/rest/v1/import_batches") return reply({ id: batch, created_by: foreign ? batch : uid, status: "mapping" });
+    if (url.pathname === "/rest/v1/import_batches") {
+      if (init?.method === "PATCH") dedupStatus = JSON.parse(String(init.body)).status;
+      return reply({ id: batch, created_by: foreign ? batch : uid, target_entity: "companies", status: "mapping" });
+    }
+    if (url.pathname === "/rest/v1/companies") {
+      // Reproduce PostgREST's production rejection of non-existent company
+      // contact columns, then exercise the actual HTTP handler to completion.
+      const columns = (url.searchParams.get("select") ?? "").split(",");
+      if (columns.some((c) => ["email", "phone"].includes(c.trim()))) {
+        return reply({ code: "42703", message: "column companies.email does not exist" }, 400);
+      }
+      return reply([{ id: uid, name: "Acme", cr_number: "1234567890", website_domain: "acme.invalid" }]);
+    }
+    if (url.pathname === "/rest/v1/import_rows") {
+      if (init?.method === "PATCH" || url.searchParams.get("batch_id")?.startsWith("neq.")) return reply([]);
+      return reply([{ id: uid, row_number: 1, mapped_data: { name: "Acme", cr_number: "1234567890" }, is_excluded: false, row_status: "active" }]);
+    }
+    if (url.pathname === "/rest/v1/import_duplicate_candidates") {
+      duplicates.push(...JSON.parse(String(init?.body)));
+      return new Response(null, { status: 201 });
+    }
     if (url.pathname === "/rest/v1/audit_log") return new Response(null, { status: 204 });
     if (url.pathname === "/rest/v1/import_errors") return reply([]);
     if (url.pathname === "/rest/v1/import_files") return reply(forgedPath ? { id: uid, batch_id: batch, storage_path: `${uid}/foreign.csv`, file_type: "csv", file_size_bytes: 20 } : null);
@@ -76,6 +98,11 @@ Deno.test("Edge account, MFA, batch ownership and file binding fail closed", asy
     assertEquals(calls.some((u) => u.pathname.startsWith("/storage/")), false);
     const fileRead = calls.find((u) => u.pathname === "/rest/v1/import_files");
     assertEquals(fileRead?.searchParams.get("batch_id"), `eq.${batch}`);
+    const dedup = await request("detect_duplicates");
+    assertEquals(dedup.status, 200, "Valid staged company must reach duplicate review without schema errors");
+    assertEquals(await dedup.json(), { duplicates: 1, candidates: 1 });
+    assertEquals(duplicates.length, 1);
+    assertEquals(dedupStatus, "pending_approval");
   } finally {
     globalThis.fetch = oldFetch; Deno.serve = oldServe;
     keys.forEach((k, i) => oldEnv[i] === undefined ? Deno.env.delete(k) : Deno.env.set(k, oldEnv[i]!));
