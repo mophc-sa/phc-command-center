@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { updateRfqDetails } from "@/lib/rfq-actions";
 import { invalidateSalesData } from "@/lib/invalidate-sales";
 import { useI18n, formatCurrency, formatNumber, type Lang, localeFor } from "@/lib/i18n";
+import { LegacyOpportunityContext } from "@/components/phc/LegacyOpportunityContext";
 import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -752,6 +753,8 @@ function OpportunityDetail() {
         </div>
       </Panel>
       )}
+
+      <LegacyOpportunityContext extraData={o.extra_data} ar={lang === "ar"} />
 
       {/* 1.5 CLIENT DETAILS — basic identifying info at a glance, requested
           so opening an Opportunity doesn't require hunting through other

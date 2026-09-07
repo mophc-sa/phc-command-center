@@ -80,7 +80,7 @@ describe("the caller's own identity reaches the database", () => {
   it("exposes no generic SQL or RPC passthrough", () => {
     const c = code(handler);
     const rpcCalls = [...c.matchAll(/\.rpc\(\s*"([a-z_]+)"/g)].map((m) => m[1]);
-    expect([...new Set(rpcCalls)]).toEqual(["promote_historical_row"]);
+    expect([...new Set(rpcCalls)]).toEqual(["promote_historical_row", "historical_legacy_reconciliation_preview", "reconcile_historical_legacy"]);
     expect(c).not.toMatch(/\.rpc\(\s*(payload|String\(payload)/);
   });
 

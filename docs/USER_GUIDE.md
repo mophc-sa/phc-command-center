@@ -768,9 +768,20 @@ were unchanged after activation; linked values and owners matched.
 
 Use Show more to reach every archive row. The undecided status and quality filters work
 across all years; management month/quarter filters do not apply to this archive view.
-554 rows remain outside the active promotion path because of closed/ineligible statuses,
-missing mappings or values, invalid codes, or unresolved collisions. They remain visible
-in the archive. Do not fill gaps with invented values or reopen won/lost work.
+The other 554 rows have not received a governed historical quotation promotion; this
+**does not mean they are absent from CRM**. Most were already imported. Exact matches
+now show Existing CRM record and a link; multiple matches require review. Matching uses
+sales code, contractor, project, amount and currency, with known spreadsheet encoding
+normalization only. Do not invent missing values or reopen won/lost work.
+
+Sales leadership can use Check reconciliation to review the fixed scope of 125 promoted
+opportunities and 126 legacy copies. Confirm archives only copies without independent
+work, saves full before-images and flags, and preserves original follow-up notes under
+Legacy import context on the canonical opportunity. Archived copies link back to it.
+Each row commits atomically; changed data or independent work stops the batch. Refresh
+the preview to resume completed rows safely. There is no hard deletion. Future promotions
+apply the same checks atomically. Reconciliation is pending deployment and execution;
+counts must be verified after the production run.
 
 Import duplicate suggestions are replaced on rerun and matching decisions are preserved.
 Use the decision selector before reviewing candidates. Final AI Review follows commercial
@@ -1095,3 +1106,5 @@ Update this file when the workflow changes.*
 تحديث 2026-09-07 — تعليق الذكاء الاصطناعي في لوحة القيادة: يظهر طلب التعليق التلقائي للأدوار المخوّلة بإدارة مسار المبيعات فقط. دور المشاهد يحتفظ بالملخص المحسوب من السجلات دون إرسال طلب AI غير مسموح. يوضح هذا أيضًا قيد التعليق الآلي في قسم 10. نُشر التعديل ضمن PR 285، وتستمر قواعد الصلاحية في الإصدار الحالي.
 
 <!-- last reviewed 2026-09-07 · base commit ba3dd43 · all-years activation verified; activated-opportunity display follow-up -->
+
+<!-- last reviewed 2026-09-07 · base commit 04e706c · legacy reconciliation and existing CRM links -->

@@ -30,6 +30,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, AlertTriangle, Download, Search, X, Rocket, CheckCircle2, Loader2 } from "lucide-react";
+import { HistoricalReconciliationPanel } from "@/components/phc/HistoricalReconciliationPanel";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canApproveHistoricalPromotion } from "@/lib/roles";
 import {
@@ -209,6 +210,7 @@ export function HistoricalSalesView() {
         </span>
       </div>
 
+      {canPromote ? <HistoricalReconciliationPanel ar={ar} /> : null}
       {/* ---- Approved batch activation, sales leadership only ---------------
           Nothing here selects records. The manifest fixes which 45 rows are
           approved; the server says which are currently eligible; activation
@@ -530,6 +532,7 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
 }) {
   const flags = qualityFlags(r);
   const promoted = r.promotion_status === "promoted";
+  const existingIds = r.existing_opportunity_ids ?? [];
   return (
     <tr className="border-b border-border/40 align-top text-foreground">
       <td className="py-2">
@@ -586,6 +589,10 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
             <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
             {ar ? "في النظام" : "In CRM"}
           </span>
+        ) : existingIds.length ? (
+          <span className="text-2xs text-success">{existingIds.length === 1
+            ? (ar ? "موجود في CRM" : "Existing CRM record")
+            : (ar ? `${existingIds.length} مطابقات — تحتاج مراجعة` : `${existingIds.length} matches — review required`)}</span>
         ) : r.promotion_status === "voided" ? (
           <span className="text-2xs text-muted-foreground">{ar ? "أُلغيت الترقية" : "Promotion voided"}</span>
         ) : r.promotion_status !== "not_promoted" ? (
@@ -610,6 +617,9 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
             {ar ? "فتح الفرصة" : "Open opportunity"}
           </a>
         ) : null}
+        {!promoted ? existingIds.map((id, index) => <a key={id} href={`/opportunities/${id}`} className="mt-0.5 block text-2xs text-primary underline-offset-2 hover:underline">
+          {ar ? "فتح الفرصة" : "Open opportunity"}{existingIds.length > 1 ? ` ${index + 1}` : ""}
+        </a>) : null}
       </td>
     </tr>
   );

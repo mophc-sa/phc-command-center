@@ -1,5 +1,18 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-07 — Legacy reconciliation (implementation; production pending)
+
+PR 288 is deployed at 04e706c; production readiness 34126413617 passed.
+Cross-checking all 679 archive rows found 125 promoted opportunities overlapping
+126 legacy import copies (including 80 newly promoted records). Do not describe
+554 unpromoted rows as absent from CRM: most already exist. Branch
+`fix/historical-legacy-reconciliation` adds exact identity checks, caller/MFA-gated
+reconciliation, preserved before-images/legacy notes, archived-copy links and atomic
+future promotion protection. No correction of production duplicates has run yet.
+Finish tests, merge and guarded deployment, then execute the pinned 126-copy scope
+with the user's real session and verify unchanged archive/owners/amounts.
+
+
 
 ## 2026-09-07 — تفعيل جميع السنوات ونتيجة الإنتاج
 
