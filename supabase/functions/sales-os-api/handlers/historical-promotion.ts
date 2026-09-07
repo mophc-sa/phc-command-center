@@ -91,13 +91,14 @@ function businessYear(r: Row): number | null {
  * re-tests every one of them and is the thing that actually refuses. It exists
  * so the UI can say why a row is not promotable without attempting it.
  */
-function ineligibleReasons(
+export function ineligibleReasons(
   r: Row,
   promotableStatuses: Set<string>,
   flags: CodeFlags | undefined,
+  scope: "2026" | "all" = "2026",
 ): string[] {
   const reasons: string[] = [];
-  if (businessYear(r) !== 2026) reasons.push("not_2026");
+  if (scope === "2026" && businessYear(r) !== 2026) reasons.push("not_2026");
   if (!promotableStatuses.has(String(r.status ?? "").trim().toUpperCase())) reasons.push("status_not_active");
   if (!r.owner_user_id) reasons.push("no_mapped_owner");
   if (!r.company_matched) reasons.push("company_unmatched");
@@ -179,6 +180,8 @@ async function preflight_historical_promotion(
   payload: Record<string, unknown>,
   ctx: SalesOsContext,
 ): Promise<Response> {
+  if (payload.scope !== undefined && !["2026", "all"].includes(String(payload.scope))) return err("Invalid activation scope");
+  const scope = payload.scope === "all" ? "all" : "2026";
   const rowId = payload.rowId === undefined || payload.rowId === null ? null : String(payload.rowId);
   if (rowId !== null && !UUID.test(rowId)) return err("rowId must be a uuid");
 
@@ -202,7 +205,7 @@ async function preflight_historical_promotion(
 
   if (rowId) {
     if (rows.length === 0) return err("Archive row not found, or not readable by you", 404);
-    const reasons = ineligibleReasons(rows[0], statuses, flags.get(rowId));
+    const reasons = ineligibleReasons(rows[0], statuses, flags.get(rowId), "all");
     return json({
       rowId,
       eligible: reasons.length === 0,
@@ -213,7 +216,7 @@ async function preflight_historical_promotion(
   }
 
   const eligible = rows.filter(
-    (r) => ineligibleReasons(r, statuses, flags.get(String(r.row_id))).length === 0,
+    (r) => ineligibleReasons(r, statuses, flags.get(String(r.row_id)), scope).length === 0,
   );
   // Sorted so two callers comparing the same batch compare the same string.
   const rowIds = eligible.map((r) => String(r.row_id)).sort();

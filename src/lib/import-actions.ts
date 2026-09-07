@@ -92,6 +92,7 @@ export type ImportBatchStatus =
   | "pending_approval" | "approved" | "dry_run" | "committed" | "rolled_back" | "failed" | "cancelled";
 
 export type ImportBatch = {
+  commit_summary?: { committed: number; failed: number; total: number } | null;
   id: string;
   created_by: string;
   status: ImportBatchStatus;
@@ -1247,7 +1248,17 @@ export async function callImportAgent(
   });
 
   if (error) {
-    return { ok: false, code: "AI_UNKNOWN_ERROR", message: error.message, traceId: null };
+    let message = error.message;
+    let code = "AI_UNKNOWN_ERROR";
+    let traceId: string | null = null;
+    try {
+      const context = (error as { context?: Response }).context;
+      const detail = context ? await context.json() : null;
+      if (typeof detail?.message === "string") message = detail.message;
+      if (typeof detail?.code === "string") code = detail.code;
+      if (typeof detail?.traceId === "string") traceId = detail.traceId;
+    } catch { /* Keep the transport error when there is no JSON response. */ }
+    return { ok: false, code, message, traceId };
   }
 
   return data as AiAgentCallResult;

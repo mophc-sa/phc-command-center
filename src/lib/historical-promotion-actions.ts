@@ -22,6 +22,7 @@
 
 import { callBackend } from "@/lib/backend";
 import manifest from "@/data/activation-manifest-batch1.json";
+import allYearsManifest from "@/data/activation-manifest-all-years.json";
 
 export type PromotionPreflightRow = {
   row_id: string;
@@ -81,12 +82,14 @@ export const ACTIVATION_MANIFEST = manifest as {
   historicalRowIds: string[];
 };
 
+export const ALL_YEARS_ACTIVATION_MANIFEST = allYearsManifest as typeof ACTIVATION_MANIFEST;
+
 export function preflightRow(rowId: string): Promise<SinglePreflight> {
   return callBackend<SinglePreflight>("preflight_historical_promotion", { rowId });
 }
 
-export function preflightBatch(): Promise<BatchPreflight> {
-  return callBackend<BatchPreflight>("preflight_historical_promotion", {});
+export function preflightBatch(scope: "2026" | "all" = "2026"): Promise<BatchPreflight> {
+  return callBackend<BatchPreflight>("preflight_historical_promotion", { scope });
 }
 
 export function promoteRow(rowId: string): Promise<PromotionResult> {

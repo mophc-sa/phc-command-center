@@ -12,13 +12,14 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { SkeletonCard } from "@/components/phc/Skeleton";
 import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canApproveCommercialAction } from "@/lib/roles";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  getBatch, getMappings, saveMappings, getImportErrors, getDuplicateCandidates,
+  getBatch, getMappings, saveMappings, getImportErrors, getDuplicateCandidates, resolveDuplicate,
   getImportFiles, getImportRows, validateBatch, detectDuplicates,
   approveBatch, dryRunCommit, commitBatch, rollbackBatch,
   suggestImportMappings,
@@ -123,7 +124,7 @@ function candidateStatusClass(status: string): string {
 
 function BatchDetailPage() {
   const { batchId } = Route.useParams();
-  const { hasAnyRole } = useAuth();
+  const { hasAnyRole, roles } = useAuth();
   const qc = useQueryClient();
   const canAccess = hasAnyRole([...UPLOAD_ROLES] as any[]);
   const canApprove = hasAnyRole([...APPROVE_COMMIT_ROLES] as any[]);
@@ -191,14 +192,14 @@ function BatchDetailPage() {
     queryKey: ["import-errors", batchId],
     queryFn: () => getImportErrors(batchId),
     enabled: canAccess && !!batchId && !!batch &&
-      ["validating", "duplicate_review", "pending_approval"].includes(batch.status),
+      ["validating", "duplicate_review", "pending_approval", "committed"].includes(batch.status),
   });
 
   const { data: dupes = [] } = useQuery({
     queryKey: ["import-dupes", batchId],
     queryFn: () => getDuplicateCandidates(batchId),
     enabled: canAccess && !!batchId && !!batch &&
-      ["duplicate_review", "pending_approval", "approved"].includes(batch.status),
+      ["duplicate_review", "pending_approval", "approved", "dry_run"].includes(batch.status),
   });
 
   const { data: candidates = [] } = useQuery<ImportRecordCandidate[]>({
@@ -1205,19 +1206,37 @@ function BatchDetailPage() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-border bg-muted/20">
+                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Source row</th>
                       <th className="px-3 py-2 text-left text-muted-foreground font-medium">Scope</th>
                       <th className="px-3 py-2 text-left text-muted-foreground font-medium">Type</th>
                       <th className="px-3 py-2 text-left text-muted-foreground font-medium">Confidence</th>
                       <th className="px-3 py-2 text-left text-muted-foreground font-medium">Suggested</th>
+                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Decision</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(dupes as any[]).map((d: any) => (
                       <tr key={d.id} className="border-b border-border/50">
+                        <td className="px-3 py-1.5">{rows.find((r) => r.id === d.row_id)?.row_number ?? d.row_id}</td>
                         <td className="px-3 py-1.5">{d.match_scope}</td>
                         <td className="px-3 py-1.5">{d.match_type}</td>
                         <td className="px-3 py-1.5">{d.confidence}%</td>
                         <td className="px-3 py-1.5 text-muted-foreground">{d.suggested_action}</td>
+                        <td className="px-3 py-1.5">
+                          <Select value={d.resolution ?? "pending"} disabled={!!busy || !canApprove}
+                            onValueChange={(value) => runStep("Resolve duplicate", async () => {
+                              await resolveDuplicate(d.id, value as "skip" | "merge" | "create_new");
+                              await generateCandidates(batchId);
+                            })}>
+                            <SelectTrigger aria-label={`Duplicate decision for row ${rows.find((r) => r.id === d.row_id)?.row_number ?? d.row_id}`}><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending" disabled>Needs review</SelectItem>
+                              <SelectItem value="skip">Skip this row</SelectItem>
+                              <SelectItem value="create_new">Create a new record</SelectItem>
+                              {d.existing_table === batch.target_entity && <SelectItem value="merge">Update matched CRM record</SelectItem>}
+                            </SelectContent>
+                          </Select>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1351,6 +1370,7 @@ function BatchDetailPage() {
             batch={batch}
             batchId={batchId}
             canApprove={canApprove}
+            canReviewAi={canApproveCommercialAction(roles)}
             busy={!!busy}
             onStep={runStep}
             reviewerOutput={reviewerOutput}
@@ -1572,13 +1592,14 @@ function MappingPanel({
 // ---------- Approval panel ----------------------------------------------------
 
 function ApprovalPanel({
-  batch, batchId, canApprove, busy, onStep,
+  batch, batchId, canApprove, canReviewAi, busy, onStep,
   reviewerOutput, reviewerRunning, setReviewerOutput, setReviewerRunning,
   approvedCandidateCount,
 }: {
   batch: ImportBatch;
   batchId: string;
   canApprove: boolean;
+  canReviewAi: boolean;
   busy: boolean;
   onStep: (label: string, fn: () => Promise<unknown>) => void;
   reviewerOutput: Record<string, unknown> | null;
@@ -1623,15 +1644,17 @@ function ApprovalPanel({
   );
 
   if (isCommitted) {
+    const result = commitResult ?? batch.commit_summary;
+    const hasFailures = (result?.failed ?? 0) > 0;
     return (
-      <Panel title="Committed">
-        <div className="flex items-center gap-2 text-won">
-          <CheckCircle2 className="h-5 w-5" />
-          <p className="text-sm font-medium">This batch has been committed to the CRM.</p>
+      <Panel title={hasFailures ? "Import completed with errors" : "Committed"}>
+        <div className={cn("flex items-center gap-2", hasFailures ? "text-destructive" : "text-won")}>
+          {hasFailures ? <AlertTriangle className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
+          <p className="text-sm font-medium">{hasFailures ? "Some records failed. Review the Errors tab before retrying them in a new batch." : "This batch has been committed to the CRM."}</p>
         </div>
-        {commitResult && (
+        {result && (
           <p className="mt-2 text-xs text-muted-foreground">
-            {commitResult.committed} created · {commitResult.failed} failed · {commitResult.total} total
+            {result.committed} written · {result.failed} failed · {result.total} total
           </p>
         )}
 
@@ -1737,7 +1760,7 @@ function ApprovalPanel({
 
       <div className="space-y-3">
         {/* import_routing_reviewer — shown in pending_approval for approve-capable users */}
-        {batch?.status === "pending_approval" && canApprove && (
+        {batch?.status === "pending_approval" && canReviewAi && (
           <div className="mb-4 rounded-lg border border-muted bg-muted/30 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">

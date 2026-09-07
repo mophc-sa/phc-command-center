@@ -43,7 +43,7 @@ docker run -d --name "$C" -e POSTGRES_PASSWORD=test -e POSTGRES_DB=phc \
   -p "127.0.0.1:${PORT}:5432" "$IMAGE" >/dev/null
 
 for _ in $(seq 1 60); do
-  docker exec "$C" pg_isready -U postgres >/dev/null 2>&1 && break
+  docker exec "$C" pg_isready -h 127.0.0.1 -U postgres -d phc >/dev/null 2>&1 && break
   sleep 1
 done
 
@@ -357,6 +357,7 @@ run_suite tests/db-behaviour/ai_context_role_isolation.sql run
 run_suite tests/db-behaviour/open_table_reads.sql run
 run_suite tests/db-behaviour/anon_write_surface.sql run
 run_suite tests/db-behaviour/score_integrity.sql run
+run_suite tests/db-behaviour/import_duplicate_refresh.sql run
 run_suite tests/db-behaviour/deal_attached_reads.sql run
 run_suite tests/db-behaviour/last_verified_contact_not_public.sql run
 

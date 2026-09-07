@@ -33,7 +33,7 @@ import { Archive, AlertTriangle, Download, Search, X, Rocket, CheckCircle2, Load
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canApproveHistoricalPromotion } from "@/lib/roles";
 import {
-  ACTIVATION_MANIFEST, checkAgainstManifest, preflightBatch, promoteRow, runApprovedBatch,
+  ALL_YEARS_ACTIVATION_MANIFEST as ACTIVATION_MANIFEST, checkAgainstManifest, preflightBatch, promoteRow, runApprovedBatch,
   type BatchOutcome, type BatchProgress,
 } from "@/lib/historical-promotion-actions";
 import { Panel } from "@/components/phc/Panel";
@@ -69,11 +69,12 @@ const FLAG_SENTENCE: Record<QualityFlag, (n: string, ar: boolean) => string> = {
 export function HistoricalSalesView() {
   const { t, lang } = useI18n();
   const ar = lang === "ar";
+  const [visibleLimit, setVisibleLimit] = useState(100);
   const [f, setF] = useState<HistoricalFilters>(EMPTY_FILTERS);
 
   // One fetch for the archive; 679 rows filter faster in memory than a round
   // trip per keystroke. See listHistoricalSales.
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, error, refetch } = useQuery({
     queryKey: ["historical-sales"],
     queryFn: listHistoricalSales,
     staleTime: 10 * 60_000,
@@ -106,6 +107,7 @@ export function HistoricalSalesView() {
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["historical-sales"] });
     void queryClient.invalidateQueries({ queryKey: ["historical-sales-quality"] });
+    void queryClient.invalidateQueries({ queryKey: ["opportunities"] });
   };
 
   async function promoteOne(rowId: string) {
@@ -126,8 +128,8 @@ export function HistoricalSalesView() {
   async function checkBatch() {
     setBatchState({ phase: "checking" });
     try {
-      const live = await preflightBatch();
-      const check = checkAgainstManifest(live);
+      const live = await preflightBatch("all");
+      const check = checkAgainstManifest(live, ACTIVATION_MANIFEST);
       if (!check.matches) {
         setBatchState({
           phase: "blocked",
@@ -167,13 +169,18 @@ export function HistoricalSalesView() {
   // view, so every chip kept the same number while the table beneath it
   // narrowed -- and the chips ARE the filter, which made it read as broken.
   const qc = useMemo(() => qualityCounts(filtered), [filtered]);
-  const set = <K extends keyof HistoricalFilters>(k: K, v: HistoricalFilters[K]) => setF((p) => ({ ...p, [k]: v }));
+  const wholeQuality = useMemo(() => qualityCounts(rows), [rows]);
+  const set = <K extends keyof HistoricalFilters>(k: K, v: HistoricalFilters[K]) => { setVisibleLimit(100); setF((p) => ({ ...p, [k]: v })); };
   const dirty = JSON.stringify(f) !== JSON.stringify(EMPTY_FILTERS);
 
   const fmtDate = (s: string | null) =>
     s ? new Date(s).toLocaleDateString(localeFor((ar ? "ar" : "en"), "en-GB"), { year: "numeric", month: "short", day: "numeric" }) : "—";
 
   if (isLoading) return <SkeletonTable rows={10} />;
+  if (error) return <div role="alert" className="space-y-2 text-sm text-destructive">
+    <p>{ar ? "تعذر تحميل بيانات المبيعات. حاول مجددًا." : "Sales data could not be loaded. Please retry."}</p>
+    <button type="button" onClick={() => void refetch()}>{ar ? "إعادة المحاولة" : "Retry"}</button>
+  </div>;
 
   // An empty archive for a permitted role means the load has not run; for a
   // role the view refuses it means exactly nothing, and saying "no records"
@@ -197,8 +204,8 @@ export function HistoricalSalesView() {
         <Archive className="h-4 w-4 shrink-0 text-amber-light" aria-hidden="true" />
         <span className="text-xs text-amber-light">
           {ar
-            ? "أرشيف المبيعات التاريخية 2022–2026. سجلات للقراءة فقط. لم تُحوَّل إلى فرص أو عروض أسعار."
-            : "Historical Sales Archive 2022–2026. Read-only records. Not converted to opportunities or quotations."}
+            ? "السجل التاريخي محفوظ. السجلات المفعّلة مرتبطة بفرص وعروض أسعار فعلية عبر «في النظام»."
+            : "Historical source records are preserved. Activated records link to live opportunities and quotations through In CRM."}
         </span>
       </div>
 
@@ -212,7 +219,7 @@ export function HistoricalSalesView() {
             <div className="flex items-center gap-2">
               <Rocket className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
               <span className="text-xs font-medium">
-                {ar ? "تفعيل دفعة 2026 المعتمدة" : "Activate approved 2026 batch"}
+                {ar ? "تفعيل السجلات المؤهلة · جميع السنوات" : "Activate eligible records · all years"}
               </span>
               <span className="text-xs text-muted-foreground">
                 {ar
@@ -312,6 +319,10 @@ export function HistoricalSalesView() {
         </div>
       ) : null}
 
+      {!canPromote && <p className="text-xs text-muted-foreground">
+        {ar ? "تفعيل السجلات يتطلب صلاحية مدير المبيعات أو تطوير الأعمال أو المدير العام." : "Activation requires Sales Manager, BD Manager or General Manager access."}
+      </p>}
+
       {/* Totals for what is on screen, not the whole archive. */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
         <Stat label={ar ? "سجلات" : "Records"} value={formatNumber(sum.count, lang)} />
@@ -335,17 +346,15 @@ export function HistoricalSalesView() {
         >
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             {byStatus.map((b) => {
-              const undecided = b.status === "undecided";
-              const on = !undecided && f.status === b.status;
+              const on = f.status === b.status;
               return (
                 <button
                   key={b.status}
                   type="button"
-                  onClick={() => { if (!undecided) set("status", on ? "" : b.status); }}
-                  disabled={undecided}
+                  onClick={() => set("status", on ? "" : b.status)}
                   className={`rounded-lg border p-2.5 text-start transition-colors ${
                     on ? "border-primary/40 bg-primary/10" : "border-border hover:bg-surface-2/50"
-                  } ${undecided ? "cursor-default opacity-80" : ""}`}
+                  }`}
                 >
                   <div className="text-xs tracking-[0.02em] text-muted-foreground">{b.status}</div>
                   <div className="mt-0.5 text-sm font-medium">{formatNumber(b.count, lang)}</div>
@@ -366,10 +375,10 @@ export function HistoricalSalesView() {
         <Panel title={ar ? "جودة البيانات" : "Data Quality"}
                subtitle={ar ? "على المعروض · الرقم الثاني للأرشيف كله — اضغط للتصفية" : "Over what is on screen · second figure is the whole archive — click to filter"}>
           <div className="flex flex-wrap gap-2">
-            <QualityChip flag="missing_owner"     n={qc.missing_owner}     of={quality.owners_legacy_only}  active={f.flag === "missing_owner"}     onClick={() => set("flag", f.flag === "missing_owner" ? "" : "missing_owner")} lang={lang} />
-            <QualityChip flag="missing_amount"    n={qc.missing_amount}    of={quality.amounts_absent}      active={f.flag === "missing_amount"}    onClick={() => set("flag", f.flag === "missing_amount" ? "" : "missing_amount")} lang={lang} />
-            <QualityChip flag="unmatched_company" n={qc.unmatched_company} of={quality.companies_unmatched} active={f.flag === "unmatched_company"} onClick={() => set("flag", f.flag === "unmatched_company" ? "" : "unmatched_company")} lang={lang} />
-            <QualityChip flag="unparsed_code"     n={qc.unparsed_code}     of={quality.codes_unparsed + quality.codes_placeholder} active={f.flag === "unparsed_code"} onClick={() => set("flag", f.flag === "unparsed_code" ? "" : "unparsed_code")} lang={lang} />
+            <QualityChip flag="missing_owner"     n={qc.missing_owner}     of={wholeQuality.missing_owner}  active={f.flag === "missing_owner"}     onClick={() => set("flag", f.flag === "missing_owner" ? "" : "missing_owner")} lang={lang} />
+            <QualityChip flag="missing_amount"    n={qc.missing_amount}    of={wholeQuality.missing_amount}      active={f.flag === "missing_amount"}    onClick={() => set("flag", f.flag === "missing_amount" ? "" : "missing_amount")} lang={lang} />
+            <QualityChip flag="unmatched_company" n={qc.unmatched_company} of={wholeQuality.unmatched_company} active={f.flag === "unmatched_company"} onClick={() => set("flag", f.flag === "unmatched_company" ? "" : "unmatched_company")} lang={lang} />
+            <QualityChip flag="unparsed_code"     n={qc.unparsed_code}     of={wholeQuality.unparsed_code} active={f.flag === "unparsed_code"} onClick={() => set("flag", f.flag === "unparsed_code" ? "" : "unparsed_code")} lang={lang} />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             {ar
@@ -493,7 +502,7 @@ export function HistoricalSalesView() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.slice(0, 300).map((r) => (
+                {filtered.slice(0, visibleLimit).map((r) => (
                   <Row
                     key={r.row_id} r={r} lang={lang} ar={ar} fmtDate={fmtDate}
                     canPromote={canPromote}
@@ -503,12 +512,10 @@ export function HistoricalSalesView() {
                 ))}
               </tbody>
             </table>
-            {filtered.length > 300 ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {ar
-                  ? `تُعرض أول 300 من ${formatNumber(filtered.length, lang)} — ضيّق التصفية لرؤية الباقي.`
-                  : `Showing the first 300 of ${formatNumber(filtered.length, lang)} — narrow the filters to see the rest.`}
-              </p>
+            {filtered.length > visibleLimit ? (
+              <button type="button" className="mt-3 text-sm text-primary" onClick={() => setVisibleLimit((n) => n + 100)}>
+                {ar ? `عرض المزيد (${Math.min(visibleLimit, filtered.length)} / ${filtered.length})` : `Show more (${Math.min(visibleLimit, filtered.length)} / ${filtered.length})`}
+              </button>
             ) : null}
           </div>
         )}

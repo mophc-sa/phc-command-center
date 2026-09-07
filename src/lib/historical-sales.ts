@@ -205,7 +205,7 @@ export function filterHistorical(rows: HistoricalSaleRow[], f: HistoricalFilters
       // than widening — which is how people actually expect search to behave.
       if (!q.split(/\s+/).every((w) => hay.includes(w))) return false;
     }
-    if (f.status && r.status_canonical !== f.status) return false;
+    if (f.status && (r.status_canonical ?? "undecided") !== f.status) return false;
     if (f.route && r.route !== f.route) return false;
     if (f.owner && r.owner_prefix !== f.owner) return false;
     // A row with no amount is excluded by an amount filter rather than treated
@@ -258,7 +258,8 @@ export const EXPORT_COLUMNS = [
 /** RFC 4180 quoting: double the quotes, wrap anything that could break a cell. */
 function csvCell(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return "";
-  const s = String(v);
+  const raw = String(v);
+  const s = typeof v === "string" && /^[\s]*[=+@-]/.test(raw) ? `'${raw}` : raw;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -316,8 +317,8 @@ export function ownerOptions(rows: HistoricalSaleRow[]): Array<{ prefix: string;
 export function statusOptions(rows: HistoricalSaleRow[]): Array<{ value: string; count: number }> {
   const m = new Map<string, number>();
   for (const r of rows) {
-    if (!r.status_canonical) continue;
-    m.set(r.status_canonical, (m.get(r.status_canonical) ?? 0) + 1);
+    const key = r.status_canonical ?? "undecided";
+    m.set(key, (m.get(key) ?? 0) + 1);
   }
   return [...m.entries()].map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count);
 }
