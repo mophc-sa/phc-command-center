@@ -25,10 +25,11 @@ not authorization to run remote migrations or change production traffic.
 
 1. Review/merge the PR after required CI/Security checks succeed. Capture the actual main
    release SHA. Confirm backup/PITR and current migration history for `lrfdtoexyeghrzynapyn`.
-2. Apply, in order, the three new migrations:
+2. Apply, in order, the four new migrations:
    - `20260928100000_audit_access_boundaries.sql`
    - `20260928110000_audit_atomic_operations.sql`
    - `20260928120000_audit_delete_capability_parity.sql`
+   - `20260928130000_notifications_explicit_read_grant.sql`
 3. Deploy the named Edge Functions from that same SHA: `sales-os-api`, `ai-orchestrator`,
    and `import-pipeline`. The first two share the changed caller-resolution boundary.
    `error-ingest` is checked but needs no separate release for this patch.
@@ -86,3 +87,10 @@ The mandatory role/account suite fails on missing secrets or any skipped test.
   CEO/FINANCE_MANAGER/ESTIMATION_MANAGER EMAIL and PASSWORD pairs, plus the five TOTP
   secrets listed above. No secret values were read or changed. Until provisioned, live
   readiness deliberately fails rather than silently skipping those accounts.
+
+## Disposable readiness without a hosted test project
+
+`Isolated Readiness` creates a runner-local Supabase instance, 13 temporary users and
+five verified MFA factors. See `docs/isolated-readiness.md`. This avoids a Supabase
+upgrade and exposes missing default grants on a clean schema. It does not yet
+replace the hosted canary/production readiness workflow or authorize account retirement.
