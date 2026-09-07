@@ -1346,3 +1346,8 @@ supabase start && bun run test:db && supabase stop --no-backup   # اختبار�
 ## Notes
 - Production Supabase: `lrfdtoexyeghrzynapyn` · Legacy (لا تلمسه): `xpoduufwoklvsbuhywsv`.
 - Production Worker: `mophc-sa-phc-command-center` على `agent.phc-sa.com`.
+
+
+## 2026-09-07 — فصل حسابات الاختبار بدون ترقية
+
+أضيف Isolated Readiness: قاعدة Supabase مؤقتة داخل GitHub Actions، 13 حسابًا و5 عوامل MFA. لا أسرار إنتاج أو مشروع مدفوع. التحقق السحابي ونقل بوابات النشر ما زالا مطلوبين قبل تعطيل حسابات الإنتاج. راجع docs/isolated-readiness.md.
