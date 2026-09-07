@@ -1,6 +1,6 @@
 // Read-only GitHub evidence gate. It never deploys or handles deployment secrets.
 type Run = { id: number; head_sha: string; head_branch: string; conclusion: string; updated_at: string };
-const workflows = ["ci.yml", "security.yml"];
+const workflows = ["ci.yml", "security.yml", "isolated-readiness.yml"];
 export async function verifyReleaseEvidence(mode: "readiness" | "production", repo: string, sha: string, token: string) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !/^[a-f0-9]{40}$/.test(sha) || !token) throw new Error("Release identity or GitHub token missing");
   const api = async (path: string) => {
@@ -23,7 +23,7 @@ export async function verifyReleaseEvidence(mode: "readiness" | "production", re
   if (canaryRun.conclusion !== "success" || canaryRun.head_branch !== "main" || canaryRun.path !== ".github/workflows/deploy-cloudflare.yml") throw new Error("Canary receipt must come from the successful main deployment workflow");
   if (mode === "production") {
     const readiness = artifacts.find((a) => a.name === `canary-readiness-${sha}` && !a.expired && a.created_at > canary.created_at && a.workflow_run.head_sha === sha);
-    if (!readiness) throw new Error("Role/account/MFA readiness must pass after this canary upload");
+    if (!readiness) throw new Error("Isolated role/account/MFA and deployed public readiness must pass after this canary upload");
     const run = await api(`actions/runs/${readiness.workflow_run.id}`) as Run & { path: string };
     if (run.conclusion !== "success" || run.head_branch !== "main" || run.path !== ".github/workflows/production-readiness.yml") throw new Error("Readiness workflow has not succeeded");
   }

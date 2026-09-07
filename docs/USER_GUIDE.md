@@ -749,6 +749,8 @@ These are guardrails, not suggestions. They will stop you.
 
 ## 10. Current limitations
 
+- Automatic AI commentary in Command Center requires sales-pipeline management authority. Viewers retain the deterministic summary without an unauthorized AI request.
+
 ### Audit hardening — prepared for release, not yet deployed (2026-09-07)
 
 After this release, pending/suspended/deleted accounts cannot gain access by editing

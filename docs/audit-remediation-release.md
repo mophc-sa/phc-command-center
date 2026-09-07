@@ -44,13 +44,11 @@ not authorization to run remote migrations or change production traffic.
 
 ## Readiness configuration
 
-The protected `production-readiness` environment needs dedicated test account EMAIL/PASSWORD
-pairs for all eleven roles plus PENDING and SUSPENDED. Sensitive roles also need
-`TEST_SYSTEM_ADMIN_TOTP_SECRET`, `TEST_MANAGING_DIRECTOR_TOTP_SECRET`,
-`TEST_GENERAL_MANAGER_TOTP_SECRET`, `TEST_SALES_MANAGER_TOTP_SECRET`, and
-`TEST_FINANCE_MANAGER_TOTP_SECRET`. Pre-enroll those test factors; do not use employee
-credentials. Workflow `app_url` supplies TEST_APP_URL. Values are never committed.
-The mandatory role/account suite fails on missing secrets or any skipped test.
+The protected `production-readiness` environment runs a required isolated
+role/account/MFA job and then deployed public login and unauthenticated guards.
+Credentials are generated only on the disposable runner. No TEST_* production
+account secrets are required. Canary receipts still bind the tests to the release
+SHA. See `docs/isolated-readiness.md` for the replacement and its limits.
 
 ## Limits and rollback
 
@@ -92,5 +90,6 @@ The mandatory role/account suite fails on missing secrets or any skipped test.
 
 `Isolated Readiness` creates a runner-local Supabase instance, 13 temporary users and
 five verified MFA factors. See `docs/isolated-readiness.md`. This avoids a Supabase
-upgrade and exposes missing default grants on a clean schema. It does not yet
-replace the hosted canary/production readiness workflow or authorize account retirement.
+upgrade and exposes missing default grants on a clean schema. The deployed public boundary checks remain separate; authenticated production journeys
+require real-user release acceptance. Retire test accounts only after the replacement
+workflow has passed on main.

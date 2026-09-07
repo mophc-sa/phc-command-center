@@ -18,42 +18,15 @@ permissions:
 
 jobs:
   role-matrix:
-    name: Required role and account-state matrix
+    uses: ./.github/workflows/isolated-readiness.yml
+  deployment-smoke:
+    name: Deployed authentication boundary without test accounts
+    needs: role-matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: production-readiness
     env:
       TEST_APP_URL: ${{ inputs.app_url }}
-      TEST_SYSTEM_ADMIN_EMAIL: ${{ secrets.TEST_SYSTEM_ADMIN_EMAIL }}
-      TEST_SYSTEM_ADMIN_PASSWORD: ${{ secrets.TEST_SYSTEM_ADMIN_PASSWORD }}
-      TEST_MANAGING_DIRECTOR_EMAIL: ${{ secrets.TEST_MANAGING_DIRECTOR_EMAIL }}
-      TEST_MANAGING_DIRECTOR_PASSWORD: ${{ secrets.TEST_MANAGING_DIRECTOR_PASSWORD }}
-      TEST_GENERAL_MANAGER_EMAIL: ${{ secrets.TEST_GENERAL_MANAGER_EMAIL }}
-      TEST_GENERAL_MANAGER_PASSWORD: ${{ secrets.TEST_GENERAL_MANAGER_PASSWORD }}
-      TEST_SALES_MANAGER_EMAIL: ${{ secrets.TEST_SALES_MANAGER_EMAIL }}
-      TEST_SALES_MANAGER_PASSWORD: ${{ secrets.TEST_SALES_MANAGER_PASSWORD }}
-      TEST_BD_MANAGER_EMAIL: ${{ secrets.TEST_BD_MANAGER_EMAIL }}
-      TEST_BD_MANAGER_PASSWORD: ${{ secrets.TEST_BD_MANAGER_PASSWORD }}
-      TEST_SALES_OPS_EMAIL: ${{ secrets.TEST_SALES_OPS_EMAIL }}
-      TEST_SALES_OPS_PASSWORD: ${{ secrets.TEST_SALES_OPS_PASSWORD }}
-      TEST_SALESPERSON_EMAIL: ${{ secrets.TEST_SALESPERSON_EMAIL }}
-      TEST_SALESPERSON_PASSWORD: ${{ secrets.TEST_SALESPERSON_PASSWORD }}
-      TEST_VIEWER_EMAIL: ${{ secrets.TEST_VIEWER_EMAIL }}
-      TEST_VIEWER_PASSWORD: ${{ secrets.TEST_VIEWER_PASSWORD }}
-      TEST_PENDING_EMAIL: ${{ secrets.TEST_PENDING_EMAIL }}
-      TEST_PENDING_PASSWORD: ${{ secrets.TEST_PENDING_PASSWORD }}
-      TEST_SUSPENDED_EMAIL: ${{ secrets.TEST_SUSPENDED_EMAIL }}
-      TEST_SUSPENDED_PASSWORD: ${{ secrets.TEST_SUSPENDED_PASSWORD }}
-      TEST_CEO_EMAIL: ${{ secrets.TEST_CEO_EMAIL }}
-      TEST_CEO_PASSWORD: ${{ secrets.TEST_CEO_PASSWORD }}
-      TEST_FINANCE_MANAGER_EMAIL: ${{ secrets.TEST_FINANCE_MANAGER_EMAIL }}
-      TEST_FINANCE_MANAGER_PASSWORD: ${{ secrets.TEST_FINANCE_MANAGER_PASSWORD }}
-      TEST_ESTIMATION_MANAGER_EMAIL: ${{ secrets.TEST_ESTIMATION_MANAGER_EMAIL }}
-      TEST_ESTIMATION_MANAGER_PASSWORD: ${{ secrets.TEST_ESTIMATION_MANAGER_PASSWORD }}
-      TEST_SYSTEM_ADMIN_TOTP_SECRET: ${{ secrets.TEST_SYSTEM_ADMIN_TOTP_SECRET }}
-      TEST_MANAGING_DIRECTOR_TOTP_SECRET: ${{ secrets.TEST_MANAGING_DIRECTOR_TOTP_SECRET }}
-      TEST_GENERAL_MANAGER_TOTP_SECRET: ${{ secrets.TEST_GENERAL_MANAGER_TOTP_SECRET }}
-      TEST_SALES_MANAGER_TOTP_SECRET: ${{ secrets.TEST_SALES_MANAGER_TOTP_SECRET }}
-      TEST_FINANCE_MANAGER_TOTP_SECRET: ${{ secrets.TEST_FINANCE_MANAGER_TOTP_SECRET }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -66,12 +39,12 @@ jobs:
         run: bun scripts/verify-release-evidence.ts readiness
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
-      - name: Run readiness suite without credential skips
+      - name: Verify deployed public login and unauthenticated guards
         env:
           PLAYWRIGHT_BASE_URL: ${{ env.TEST_APP_URL }}
-        # One worker lets the E2E session cache reuse each role's Supabase
-        # session and stays below the 30 sign-ins / 5 minutes auth limit.
-        run: bun run test:e2e:readiness -- --workers=1
+        # Role/account/MFA assertions run in the required isolated job above.
+        # The deployed check performs no authenticated production actions.
+        run: bunx playwright test tests/e2e/auth-guards.e2e.ts --grep "auth page smoke|unauthenticated guard" --workers=1 --reporter=list,./tests/e2e/readiness-reporter.ts
       - name: Recheck canary identity after testing
         if: contains(inputs.app_url, 'workers.dev')
         env:
