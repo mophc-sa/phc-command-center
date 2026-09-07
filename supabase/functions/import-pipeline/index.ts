@@ -381,9 +381,9 @@ handlers["detect_duplicates"] = async (payload, caller) => {
   const { data: rows } = await fetchComplete(() => svc.from("import_rows")
     .select("id, row_number, mapped_data, is_excluded, row_status")
     .eq("batch_id", batchId)
-    .eq("status", "valid")
+    .in("status", ["valid", "duplicate"])
     .order("row_number").order("id"));
-  if (!rows || rows.length === 0) return json({ duplicates: 0 });
+
   const liveRows = rows.filter((r) => !r.is_excluded && r.row_status !== "deleted" && r.row_status !== "excluded");
 
   // (1) Existing CRM records (companies today; other entities as they gain
@@ -446,17 +446,10 @@ handlers["detect_duplicates"] = async (payload, caller) => {
     seenInFile.push({ id: row.id, signals });
   }
 
-  for (const id of flaggedRowIds) {
-    await svc.from("import_rows").update({ status: "duplicate" }).eq("id", id).throwOnError();
-  }
-  for (let i = 0; i < dupes.length; i += 500) {
-    if (dupes.length) await svc.from("import_duplicate_candidates").insert(dupes.slice(i, i + 500)).throwOnError();
-  }
-
-  await svc.from("import_batches").update({
-    status: "pending_approval",
-    duplicate_rows: flaggedRowIds.size,
-  }).eq("id", batchId).throwOnError();
+  const { error: refreshError } = await svc.rpc("refresh_import_duplicate_review", {
+    _batch_id: batchId, _candidates: dupes,
+  });
+  if (refreshError) throw new Error(refreshError.message);
 
   await audit(svc, caller.userId, "import_detect_duplicates", "import_batches", batchId, {
     duplicate_rows: flaggedRowIds.size, candidates: dupes.length,

@@ -64,6 +64,13 @@ Deno.test("Edge account, MFA, batch ownership and file binding fail closed", asy
       duplicates.push(...JSON.parse(String(init?.body)));
       return new Response(null, { status: 201 });
     }
+    if (url.pathname === "/rest/v1/rpc/refresh_import_duplicate_review") {
+      const body = JSON.parse(String(init?.body));
+      assertEquals(body._batch_id, batch);
+      duplicates.splice(0, duplicates.length, ...body._candidates);
+      dedupStatus = "pending_approval";
+      return new Response(null, {status:204});
+    }
     if (url.pathname === "/rest/v1/audit_log") return new Response(null, { status: 204 });
     if (url.pathname === "/rest/v1/import_errors") return reply([]);
     if (url.pathname === "/rest/v1/import_files") return reply(forgedPath ? { id: uid, batch_id: batch, storage_path: `${uid}/foreign.csv`, file_type: "csv", file_size_bytes: 20 } : null);
@@ -103,6 +110,8 @@ Deno.test("Edge account, MFA, batch ownership and file binding fail closed", asy
     assertEquals(await dedup.json(), { duplicates: 1, candidates: 1 });
     assertEquals(duplicates.length, 1);
     assertEquals(dedupStatus, "pending_approval");
+    assertEquals((await request("detect_duplicates")).status, 200);
+    assertEquals(duplicates.length, 1, "A rerun replaces suggestions instead of appending them");
   } finally {
     globalThis.fetch = oldFetch; Deno.serve = oldServe;
     keys.forEach((k, i) => oldEnv[i] === undefined ? Deno.env.delete(k) : Deno.env.set(k, oldEnv[i]!));

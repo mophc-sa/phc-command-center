@@ -247,8 +247,8 @@ function SalesManagement() {
               : (lang === "ar" ? "الملخص التنفيذي" : "Executive")}
           </button>
         ))}
-        <span className="mx-1 h-4 w-px bg-border/70" aria-hidden="true" />
-        {(["month", "quarter", "ytd"] as const).map((r) => (
+        {tab !== "historical" && <span className="mx-1 h-4 w-px bg-border/70" aria-hidden="true" />}
+        {tab !== "historical" && (["month", "quarter", "ytd"] as const).map((r) => (
           <button key={r} onClick={() => setRange(r)} className={pill(range === r)}>
             {r === "month" ? (lang === "ar" ? "هذا الشهر" : "This month")
               : r === "quarter" ? (lang === "ar" ? "هذا الربع" : "This quarter")

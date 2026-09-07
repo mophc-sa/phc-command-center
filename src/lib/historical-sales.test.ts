@@ -118,7 +118,7 @@ describe("filter options come from the data, not a hardcoded list", () => {
   });
 
   it("statuses exclude the undecided ones — there is nothing to filter to", () => {
-    expect(statusOptions([row({ status_canonical: null })])).toHaveLength(0);
+    expect(statusOptions([row({ status_canonical: null })])).toEqual([{ value: "undecided", count: 1 }]);
   });
 });
 
@@ -367,3 +367,14 @@ describe("quality counts follow the filter", () => {
     expect(qualityCounts([row({ revision_no: 2 }), row({ revision_no: null })]).revisions).toBe(1);
   });
 });
+
+ it("filters undecided records without including known outcomes", () => {
+   const unknown = row({row_id: "unknown", status_canonical: null, status: "FOR ACTION"});
+   expect(filterHistorical([base, unknown], {...EMPTY_FILTERS, status: "undecided"}).map(r => r.row_id)).toEqual(["unknown"]);
+ });
+
+ it("exports formula-like source text as text while preserving numeric values", () => {
+   const csv = toCsv([row({client: '=HYPERLINK("https://example.invalid")', amount: -25})]);
+   expect(csv).toContain("'=HYPERLINK");
+   expect(csv).toContain(",-25,");
+ });

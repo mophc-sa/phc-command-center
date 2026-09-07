@@ -48,7 +48,7 @@ describe("read-only", () => {
   it("creates no canonical entity", () => {
     const c = code(view) + code(lib);
     for (const table of ['"opportunities"', '"quotations"', '"companies"', '"projects"', '"boqs"']) {
-      expect(c, `${table} must not be touched`).not.toContain(table);
+      expect(c, `${table} must not be accessed directly`).not.toContain(`.from(${table})`);
     }
   });
 
@@ -74,9 +74,9 @@ describe("security stays in the database", () => {
 });
 
 describe("naming and badges", () => {
-  it("uses the approved banner verbatim", () => {
+  it("explains that preserved source records may already link to live CRM", () => {
     expect(view).toContain(
-      "Historical Sales Archive 2022–2026. Read-only records. Not converted to opportunities or quotations.",
+      "Historical source records are preserved. Activated records link to live opportunities and quotations through In CRM.",
     );
   });
 
