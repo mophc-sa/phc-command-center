@@ -1,3 +1,4 @@
+import { totp } from "../../../scripts/totp";
 import type { Page } from "@playwright/test";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -34,6 +35,19 @@ function cacheSession(email: string, entries: SupabaseStorageEntry[]) {
   fs.writeFileSync(sessionCachePath(email), JSON.stringify(entries), { mode: 0o600 });
 }
 
+async function completeMfa(page: Page, email: string, timeout: number) {
+  // Protected navigation settles on either the app or an MFA page.
+  await page.waitForURL((url) => !["/", "/auth"].includes(url.pathname), { timeout });
+  if (new URL(page.url()).pathname === "/mfa-setup") throw new Error("Test account needs pre-enrolled MFA");
+  if (new URL(page.url()).pathname !== "/mfa-verify") return;
+  const emailKey = Object.keys(process.env).find((key) => /^TEST_.+_EMAIL$/.test(key) && process.env[key] === email);
+  const secret = emailKey ? process.env[emailKey.replace(/_EMAIL$/, "_TOTP_SECRET")] : undefined;
+  if (!secret) throw new Error("MFA test account requires its TEST_<ROLE>_TOTP_SECRET");
+  await page.locator('input[autocomplete="one-time-code"]').fill(totp(secret));
+  await page.getByRole("button", { name: /^(Verify|تحقق)$/ }).click();
+  await page.waitForURL((url) => !["/", "/mfa-verify", "/mfa-setup"].includes(url.pathname), { timeout });
+}
+
 export async function signInWithCachedSession(
   page: Page,
   email: string,
@@ -50,6 +64,7 @@ export async function signInWithCachedSession(
     }, cachedSession);
     await page.reload();
     await page.waitForURL((url) => !url.pathname.startsWith("/auth"), { timeout });
+    await completeMfa(page, email, timeout);
     return;
   }
 
@@ -79,6 +94,8 @@ export async function signInWithCachedSession(
   }
 
   await page.waitForURL((url) => !url.pathname.startsWith("/auth"), { timeout });
+
+  await completeMfa(page, email, timeout);
 
   const storageEntries = await page.evaluate(() =>
     Object.entries(localStorage).filter(([key]) => /^sb-[a-z0-9]+-auth-token$/.test(key)),

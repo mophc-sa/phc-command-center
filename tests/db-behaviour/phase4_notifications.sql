@@ -144,6 +144,7 @@ BEGIN
   PERFORM set_config('test.uid', u_other::text, false);
 
   -- ===== 6. Approvals =====
+  PERFORM set_config('test.uid', u_owner::text, false);
   INSERT INTO public.approvals (approval_type, related_opportunity_id, requested_by, assigned_approver, status)
   VALUES ('owner_grant', o_id, u_owner, u_sm, 'pending') RETURNING id INTO a_id;
   SELECT count(*) INTO n FROM public.notifications
@@ -151,6 +152,7 @@ BEGIN
   RAISE NOTICE '% 13. approval_requested reaches the approver (expect 1, got %)',
     CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
 
+  PERFORM set_config('test.uid', u_sm::text, false);
   UPDATE public.approvals SET status='approved', decided_at=now() WHERE id=a_id;
   SELECT count(*) INTO n FROM public.notifications
    WHERE notification_type='approval_approved' AND recipient_user_id=u_owner;

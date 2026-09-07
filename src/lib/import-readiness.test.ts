@@ -86,8 +86,12 @@ test("only commit_candidates writes to live CRM tables — no other handler does
   // (a variable), not a literal table name, so it's checked structurally
   // instead: it must actually perform a generic insert/update, and it must
   // gate on review_status = 'approved' before ever reading a candidate.
-  expect(commitCandidatesSrc).toMatch(/\.from\(table\)\.insert\(/);
-  expect(commitCandidatesSrc).toMatch(/\.from\(table\)\.update\(/);
+  expect(commitCandidatesSrc).toContain('rpc("commit_import_batch_atomic"');
+  const sql = readFileSync(join(repoRoot, "supabase/migrations/20260928110000_audit_atomic_operations.sql"), "utf8");
+  expect(sql).toContain("INSERT INTO public.%I");
+  expect(sql).toContain("UPDATE public.%I");
+  expect(sql).toContain("INSERT INTO public.import_record_links");
+  expect(sql).toContain("c.review_status <> 'approved'");
   expect(commitCandidatesSrc).toMatch(/review_status.*approved/);
 });
 

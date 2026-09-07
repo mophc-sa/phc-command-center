@@ -704,7 +704,7 @@ opportunity page with the follow-up already scheduled. Don't go looking for the 
 ### Estimation Manager / Finance Manager
 
 - **Estimation:** cost approval on BAFO requests; BOQ verification.
-- **Finance:** finance approval on BAFO; you are one of only three roles that can set
+- **Finance:** finance approval on BAFO; you are one of only two roles that can set
   **Total Value**.
 
 ### General Manager / Managing Director
@@ -748,6 +748,37 @@ These are guardrails, not suggestions. They will stop you.
 ---
 
 ## 10. Current limitations
+
+### Audit hardening — prepared for release, not yet deployed (2026-09-07)
+
+After this release, pending/suspended/deleted accounts cannot gain access by editing
+profiles or keeping an old session. Sensitive roles must complete MFA before accessing
+business data through either the app or its APIs. Account status changes require an active
+administrator; self-service name, avatar and language edits remain available.
+
+BAFO and general approval requests start pending. Reviewed BAFO terms and an approval's
+record/action/payload cannot be changed: submit a new request for revised terms. BAFO
+approver and sending receipts cannot be rewritten. Technical administration grants no
+commercial approval or Total Value authority. BD can execute a previously approved deletion
+under the existing governed deletion workflow; the approval and record checks still apply.
+
+Import reports and processing read all pages. CSV quoted newlines are preserved; malformed
+records produce an error. Excel imports identify sheets that were not imported. Upload
+other required sheets as separate files/batches. Reviewed duplicate rows remain eligible
+for candidate generation. Repeating a completed commit returns its saved result without
+creating records again. Each successful record and its provenance commit together; failed
+candidates are reported. Start a new reviewed batch to correct failed candidates.
+
+Rollback restores an imported update only while its target still matches the recorded
+post-import state. Later edits, referenced records, and legacy imports without snapshots
+require manual review. A partial rollback remains retryable. Management metrics show a
+loading failure instead of using incomplete results; the management view has a 10,000-row
+ceiling per source, above which the metrics are unavailable.
+
+**العربية:** التفعيل وتغيير الحالة إداريان؛ المصادقة الثنائية مطلوبة عند الوصول للبيانات.
+الموافقة الجديدة تبدأ معلّقة، وتعديل الشروط بعد المراجعة يتطلب طلبًا جديدًا. إعادة تثبيت
+دفعة مكتملة لا تكرر السجلات، والتراجع يحمي التعديلات اللاحقة. تظهر الأوراق غير المستوردة
+وأخطاء اكتمال البيانات بوضوح. هذه التغييرات جاهزة في الفرع وتحتاج نشر المهاجرات والخدمات والواجهة.
 
 Verified against production on **2026-08-06**. Read this before trusting a number on screen.
 
@@ -1025,3 +1056,5 @@ scrolling news wire — is on this branch and **not yet deployed**.
 Update this file when the workflow changes.*
 
 <!-- last reviewed 2026-09-06 · sales codes + unowned-deal assignment · previous: calendar, same day -->
+
+<!-- last reviewed 2026-09-07 · audit F01–F16 remediation; release pending -->

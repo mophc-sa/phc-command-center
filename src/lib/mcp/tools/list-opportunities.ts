@@ -1,3 +1,4 @@
+import { CANONICAL_STAGES } from "../../stage-canonical";
 import { createClient } from "@supabase/supabase-js";
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
@@ -15,10 +16,11 @@ export default defineTool({
   description: "List opportunities visible to the signed-in user (RLS applies).",
   inputSchema: {
     limit: z.number().int().min(1).max(100).default(20).describe("Max rows to return."),
-    status: z.string().optional().describe("Optional status filter."),
+    sales_stage: z.enum(CANONICAL_STAGES).optional().describe("Optional commercial sales stage."),
+    status: z.enum(CANONICAL_STAGES).optional().describe("Legacy alias for sales_stage."),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ limit, status }, ctx) => {
+  handler: async ({ limit, status, sales_stage }, ctx) => {
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
@@ -30,7 +32,9 @@ export default defineTool({
       )
       .order("created_at", { ascending: false })
       .limit(limit);
-    if (status) q = q.eq("status", status);
+    if (status && sales_stage && status !== sales_stage) return { content: [{ type: "text", text: "Conflicting stage filters" }], isError: true };
+    const stage = sales_stage ?? status;
+    if (stage) q = q.eq("sales_stage", stage);
     const { data, error } = await q;
     if (error)
       return { content: [{ type: "text", text: "Unable to list opportunities" }], isError: true };

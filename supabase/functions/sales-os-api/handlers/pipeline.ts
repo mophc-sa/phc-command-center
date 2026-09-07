@@ -88,55 +88,13 @@ async function convert_lead(
   payload: Record<string, unknown>,
   ctx: SalesOsContext,
 ): Promise<Response> {
-  const { caller, audit: auditLog } = ctx;
+  const { caller } = ctx;
   if (!canManageSalesPipeline(caller.roles)) return err("Sales pipeline role required", 403);
   const leadId = String(payload.leadId ?? "");
   if (!leadId) return err("leadId is required");
-  const svc = ctx.svc;
-  const { data: lead, error: lErr } = await svc.from("leads").select("*").eq("id", leadId).single();
-  if (lErr || !lead) return err("Lead not found", 404);
-  if (lead.lead_stage !== "human_review" && lead.lead_stage !== "scored") {
-    return err("Lead must reach 'scored' or 'human_review' before conversion", 409);
-  }
-  const { data: opp, error } = await svc
-    .from("opportunities")
-    .insert({
-      project_name: lead.project_name,
-      main_contractor: lead.main_contractor_guess,
-      location: lead.location,
-      estimated_value_max: lead.estimated_value,
-      stage: "qualification",
-      // Omitting sales_stage leaves the row NULL and hidden from every JIH
-      // view, even though the write path (advance_sales_stage) silently treats
-      // NULL as "jih". The read and write paths disagreed; this settles it at
-      // creation time.
-      //
-      // `rfq_received` is exactly right here rather than a compromise — see
-      // docs/DECISIONS.md D6. The client spec keeps pre-RFQ work in the BD
-      // module and converts a lead only "when an RFQ is received" (§33), so
-      // the moment of conversion IS the RFQ-received moment.
-      sales_stage: "rfq_received",
-      pipeline_step: "qualified_lead",
-      owner_id: lead.owner_id ?? caller.userId,
-      created_by: caller.userId,
-    })
-    .select()
-    .single();
-  if (error) return err(error.message, 400);
-  await svc
-    .from("leads")
-    .update({ lead_stage: "converted", converted_opportunity_id: opp.id })
-    .eq("id", leadId);
-  await auditLog(
-    svc,
-    caller.userId,
-    "lead.converted",
-    "lead",
-    leadId,
-    { opportunity_id: opp.id },
-    caller.roles,
-  );
-  return json({ ok: true, opportunity: opp });
+  const { data: opportunity, error } = await ctx.asCaller.rpc("convert_lead_atomic", { _lead_id: leadId });
+  if (error) return err(error.message, error.code === "42501" ? 403 : 409);
+  return json({ ok: true, opportunity });
 }
 
 // Reassign an account owner — managers only.

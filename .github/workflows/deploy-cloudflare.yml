@@ -38,6 +38,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   # One deployment per target at a time; canary and production are separate.
@@ -117,6 +118,12 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.3.14
+
+      - name: Require successful security, canary and readiness evidence
+        if: inputs.target == 'production'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/verify-release-evidence.ts production
 
       - name: Normalize and verify Cloudflare deployment access
         shell: bash
@@ -258,6 +265,19 @@ jobs:
             echo "- url: ${canary_url}"
             echo "- health check: \`${canary_url}/auth\` responded"
           } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Record verified canary source
+        if: env.DEPLOY_TARGET == 'canary'
+        run: echo "$GITHUB_SHA" > "${RUNNER_TEMP}/canary-sha.txt"
+
+      - name: Preserve verified canary receipt
+        if: env.DEPLOY_TARGET == 'canary'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: canary-deployed-${{ github.sha }}
+          path: ${{ runner.temp }}/canary-sha.txt
+          retention-days: 7
+          if-no-files-found: error
 
       - name: Snapshot production DNS for rollback
         if: env.DEPLOY_TARGET == 'production'

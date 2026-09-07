@@ -88,7 +88,7 @@ function fmtDate(iso: string) {
 // ---------- main component ----------------------------------------------------
 
 function DataImportLanding() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const navigate = useNavigate();
   const { hasAnyRole } = useAuth();
   const qc = useQueryClient();
@@ -147,7 +147,12 @@ function DataImportLanding() {
       const { fileId } = await uploadImportFile(batch.id, newFile);
 
       setAutoStep("Parsing file…");
-      const { headers: sourceColumns } = await parseFile(batch.id, fileId);
+      const { headers: sourceColumns, skipped_sheets = [] } = await parseFile(batch.id, fileId);
+      if (skipped_sheets.length) toast.warning(
+        lang === "ar" ? `أوراق لم تُستورد: ${skipped_sheets.join("، ")}. ارفع كل ورقة مطلوبة في دفعة مستقلة.`
+          : `Sheets not imported: ${skipped_sheets.join(", ")}. Upload each required sheet in a separate batch.`,
+        { duration: 12_000 },
+      );
 
       // 2. AI classification — detect source kind and primary entity from file content
       setAutoStep("Classifying file with AI…");

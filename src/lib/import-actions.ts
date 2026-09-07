@@ -404,6 +404,7 @@ export async function parseFile(batchId: string, fileId: string) {
     headers: string[];
     row_count: number;
     preview: Record<string, unknown>[];
+    skipped_sheets?: string[];
   }>;
 }
 

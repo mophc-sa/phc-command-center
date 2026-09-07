@@ -1,0 +1,80 @@
+import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { parseCsv, csvCell } from "./csv.ts";
+import { fetchComplete } from "./fetch-all.ts";
+import { resolveCaller } from "./supabase.ts";
+
+Deno.test("CSV multiline, escaped quotes, BOM, CRLF and malformed records", () => {
+  assertEquals(parseCsv('\uFEFFname,notes\r\nAcme,"first\nsecond, ""quoted"""\r\n'), {
+    headers: ["name", "notes"], rows: [["Acme", 'first\nsecond, "quoted"']],
+  });
+  for (const bad of ['a,b\nx,"unterminated', 'a,b\nx,y,z', 'a,b\nx,"y"z']) {
+    let failed = false; try { parseCsv(bad); } catch { failed = true; }
+    assertEquals(failed, true);
+  }
+  assertEquals(csvCell("=SUM(A1:A9)"), '"\'=SUM(A1:A9)"');
+});
+
+Deno.test("Complete pagination reads beyond 1000 and rejects failed pages/ceilings", async () => {
+  const rows = Array.from({ length: 1501 }, (_, id) => ({ id }));
+  assertEquals((await fetchComplete(() => ({ range: (a, b) => Promise.resolve({ data: rows.slice(a, b + 1), error: null }) }))).data.length, 1501);
+  await assertRejects(() => fetchComplete(() => ({ range: () => Promise.resolve({ data: null, error: new Error("query failed") }) })), Error, "query failed");
+  await assertRejects(() => fetchComplete(() => ({ range: (a, b) => Promise.resolve({ data: rows.slice(a, b + 1), error: null }) }), 1000), Error, "exceeds");
+});
+
+Deno.test("Edge account, MFA, batch ownership and file binding fail closed", async () => {
+  const oldFetch = globalThis.fetch, oldServe = Deno.serve;
+  const keys = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEYS"];
+  const oldEnv = keys.map((k) => Deno.env.get(k));
+  Deno.env.set("SUPABASE_URL", "https://audit.invalid");
+  Deno.env.set("SUPABASE_ANON_KEY", "audit-public");
+  Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "audit-service");
+  Deno.env.delete("SUPABASE_SECRET_KEYS");
+  const uid = "a0000000-0000-4000-8000-000000000001";
+  const batch = "a0000000-0000-4000-8000-000000000002";
+  let status = "active", role = "bd_manager", foreign = true;
+  const calls: URL[] = [];
+  const reply = (data: unknown, code = 200) => new Response(JSON.stringify(data), { status: code, headers: { "content-type": "application/json" } });
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    if (url.hostname !== "audit.invalid") throw new Error("Unexpected external request");
+    calls.push(url);
+    if (url.pathname === "/auth/v1/user") return reply({ id: uid, aud: "authenticated", role: "authenticated" });
+    if (url.pathname === "/rest/v1/profiles") return reply({ status });
+    if (url.pathname === "/rest/v1/user_roles") return reply([{ role }]);
+    if (url.pathname === "/rest/v1/import_batches") return reply({ id: batch, created_by: foreign ? batch : uid, status: "mapping" });
+    if (url.pathname === "/rest/v1/audit_log") return new Response(null, { status: 204 });
+    if (url.pathname === "/rest/v1/import_errors") return reply([]);
+    if (url.pathname === "/rest/v1/import_files") return reply(null);
+    throw new Error(`Unexpected request path: ${url.pathname}`);
+  }) as typeof fetch;
+  let handler!: (req: Request) => Promise<Response>;
+  Deno.serve = ((fn: typeof handler) => { handler = fn; return {}; }) as never;
+  try {
+    await import("../import-pipeline/index.ts");
+    status = "suspended";
+    try { await resolveCaller("Bearer test"); throw new Error("Expected rejection"); }
+    catch (e) { assertEquals((e as { status: number }).status, 403); }
+    status = "active"; role = "sales_manager";
+    const token = (aal: string) => {
+      const encode = (value: unknown) => btoa(JSON.stringify(value)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+      return `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub: uid, aal, exp: Math.floor(Date.now() / 1000) + 3600, aud: "authenticated" })}.${encode("synthetic-signature")}`;
+    };
+    try { await resolveCaller(`Bearer ${token("aal1")}`); throw new Error("Expected MFA rejection"); }
+    catch (e) { assertEquals((e as { status: number }).status, 403); }
+    assertEquals((await resolveCaller(`Bearer ${token("aal2")}`)).userId, uid);
+    role = "bd_manager";
+    const request = (action: string) => handler(new Request("https://audit.invalid/function", { method: "POST", headers: { authorization: "Bearer test" }, body: JSON.stringify({ action, batch_id: batch, file_id: uid, report_type: "validation_errors" }) }));
+    for (const action of ["parse", "validate", "detect_duplicates", "generate_candidates", "approve", "dry_run_commit", "commit_candidates", "rollback", "generate_report"]) {
+      assertEquals((await request(action)).status, 403, action);
+    }
+    assertEquals(calls.some((u) => u.pathname === "/rest/v1/import_errors"), false);
+    foreign = false;
+    assertEquals((await request("generate_report")).status, 200);
+    assertEquals((await request("parse")).status, 404);
+    const fileRead = calls.find((u) => u.pathname === "/rest/v1/import_files");
+    assertEquals(fileRead?.searchParams.get("batch_id"), `eq.${batch}`);
+  } finally {
+    globalThis.fetch = oldFetch; Deno.serve = oldServe;
+    keys.forEach((k, i) => oldEnv[i] === undefined ? Deno.env.delete(k) : Deno.env.set(k, oldEnv[i]!));
+  }
+});

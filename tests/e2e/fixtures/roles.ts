@@ -32,7 +32,9 @@ export type RoleName =
   | "bd_manager"
   | "sales_ops"
   | "salesperson"
-  | "viewer";
+  | "viewer"
+  | "finance_manager"
+  | "estimation_manager";
 
 export type RoleCredentials = {
   role: RoleName;
@@ -41,6 +43,8 @@ export type RoleCredentials = {
 };
 
 const ENV_KEYS: Record<RoleName, { email: string; password: string }> = {
+  finance_manager: { email: "TEST_FINANCE_MANAGER_EMAIL", password: "TEST_FINANCE_MANAGER_PASSWORD" },
+  estimation_manager: { email: "TEST_ESTIMATION_MANAGER_EMAIL", password: "TEST_ESTIMATION_MANAGER_PASSWORD" },
   system_admin: { email: "TEST_SYSTEM_ADMIN_EMAIL", password: "TEST_SYSTEM_ADMIN_PASSWORD" },
   managing_director: {
     email: "TEST_MANAGING_DIRECTOR_EMAIL",
@@ -67,6 +71,8 @@ export function getRoleCredentials(role: RoleName): RoleCredentials | null {
 }
 
 export const ALL_ROLES: RoleName[] = [
+  "finance_manager",
+  "estimation_manager",
   "system_admin",
   "managing_director",
   "general_manager",
@@ -85,6 +91,8 @@ export const ROLE_MATRIX: Record<
   RoleName,
   { landing: string; allow: string[]; deny: string[]; sidebarGroups: string[] }
 > = {
+  finance_manager: { landing: "/command-center", allow: ["/command-center", "/opportunities", "/settings"], deny: ["/admin-settings"], sidebarGroups: [] },
+  estimation_manager: { landing: "/command-center", allow: ["/command-center", "/settings"], deny: ["/admin-settings"], sidebarGroups: [] },
   system_admin: {
     landing: "/admin-settings",
     allow: ["/admin-settings", "/settings", "/approvals", "/award-queue"],
@@ -130,7 +138,7 @@ export const ROLE_MATRIX: Record<
     sidebarGroups: ["nav_group_crm"],
   },
   salesperson: {
-    landing: "/command-center",
+    landing: "/my-workspace",
     allow: ["/command-center", "/follow-ups", "/opportunities"],
     deny: ["/admin-settings"],
     sidebarGroups: ["nav_group_pipeline"],
