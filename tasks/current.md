@@ -1,13 +1,11 @@
 # Current Task — PHC Command Center
 
-## 2026-09-08 — Board final production verification
+## 2026-09-08 — Board label-fit follow-up
 
 PR 291 is deployed at d885f47 (Worker 127a5c12-b5ed-4907-ad91-f275afe61c9f, 100%).
 Implementation/testing/deployment moved to completed.md. Post-production
-readiness is recorded in run 34194781057. The actual user's session expired upon reload; await
-sign-in/MFA, then inspect /board and observe automatic timestamp changes across
-60-second cycles. No further code or database deployment is needed unless that
-verification finds a defect.
+readiness is recorded in run 34194781057. The renewed user session verified the totals and two automatic refresh cycles. Correct
+clipped pipeline footnote and Unassigned label, then finish release/visual check. Ship the small frontend-only label correction through the usual gates.
 
 
 ## بند متبقٍ — استكمال بيانات تحتاج قرارًا تجاريًا

@@ -1,5 +1,9 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-08 — Authenticated board verification and label fit
+
+Actual moalagab session confirms 414 open deals / SAR 569.8M and matching team total. Last-success time advanced automatically from 09:40:08 to 09:41:11 Riyadh without reload. Visual review found the pipeline footnote wrapping outside the card and Unassigned truncating. Shorten the redundant coverage wording and rebalance team columns to show the owner label. No metric, data or permission change. Follow-up release pending.
+
 ## 2026-09-08 — Board release deployed; authenticated visual check pending
 
 PR 291 is merged and deployed at `d885f47dbd980682a9e2c5c653d274065b43d7aa`.

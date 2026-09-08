@@ -976,7 +976,7 @@ function BoardPage() {
                 (model.year.target && model.year.target > 0
                   ? lang === "ar"
                     ? `تغطية ×${(model.standing.openTotal / model.year.target).toFixed(1)} غير مرجّحة · ${dealsLabel(model.standing.openCount, lang)}`
-                    : `${(model.standing.openTotal / model.year.target).toFixed(1)}× coverage, unweighted · ${dealsLabel(model.standing.openCount, lang)}`
+                    : `${(model.standing.openTotal / model.year.target).toFixed(1)}× unweighted · ${dealsLabel(model.standing.openCount, lang)}`
                   : dealsLabel(model.standing.openCount, lang))
                   + (model.standing.openUnvalued ? (lang === "ar" ? ` · ${model.standing.openUnvalued} بلا قيمة` : ` · ${model.standing.openUnvalued} unvalued`) : "")
               }
@@ -1052,7 +1052,7 @@ function BoardPage() {
           money that has to stay readable from across a room; team
           performance is four short rows of initials and figures and was
           holding a third of the width to show them. */}
-          <div className="grid min-h-0 grid-cols-[1.8fr_1.1fr_0.7fr] gap-[0.7vw]">
+          <div className="grid min-h-0 grid-cols-[1.7fr_1.1fr_0.8fr] gap-[0.7vw]">
             <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon={Flame} tone="amber" lang={lang}
                    note={lang === "ar" ? "أعلى 20 حسب القيمة" : "top 20 by value"}>
               {/* Same fix as the pipeline below: the table stacked to its natural
