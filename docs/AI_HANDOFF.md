@@ -1,16 +1,30 @@
 # AI Handoff ⭐ — PHC Command Center
 
-## 2026-09-08 — Authenticated board verification and label fit
+## 2026-09-08 — Board production follow-up (PR 293)
 
-Actual moalagab session confirms 414 open deals / SAR 569.8M and matching team total. Last-success time advanced automatically from 09:40:08 to 09:41:11 Riyadh without reload. Visual review found the pipeline footnote wrapping outside the card and Unassigned truncating. Shorten the redundant coverage wording and rebalance team columns to show the owner label. No metric, data or permission change. Follow-up release pending.
+PR 293 is deployed at `181573202587e5c43b68413c3a9981a3dd268d65`.
+Worker `896d9bda-22de-46f1-a9ac-b99a8141c9d9` serves 100%, verified in the
+Cloudflare dashboard; workers.dev and preview URLs are disabled. Canary
+34196920338, canary readiness 34197018411 and production 34197484881 passed.
+Local verify passed (2682 tests); all required PR checks passed. No data or role changes.
 
-## 2026-09-08 — Board release deployed; authenticated visual check pending
+The actual moalagab session verified 414 open deals / SAR 569.8M and the same
+team total. Last-success timestamps advanced without reload at 09:40:08,
+09:41:11 and 09:42:15 Riyadh. The follow-up shortens the pipeline footnote and
+widens the team panel to fit Unassigned while preserving numeric header widths.
+Final authenticated visual verification passed at 10:32:40 Riyadh: Unassigned
+text fits (93.9px text / 111.0px available), and the pipeline footnote occupies
+one line (273.8px text / 318.5px available). Totals still match. Post-production
+readiness 34197658875 passed on attempt 2; attempt 1 stopped on an isolated
+runner port collision before app tests. No release gates bypassed.
+
+
+## 2026-09-08 — Board release deployed (PR 291; verification completed above)
 
 PR 291 is merged and deployed at `d885f47dbd980682a9e2c5c653d274065b43d7aa`.
 Production run 34194643810 passed; Worker `127a5c12-b5ed-4907-ad91-f275afe61c9f`
 serves 100%. Canary 34194060680 and canary readiness 34194234299 passed. Preview
-URLs are disabled again. Post-production readiness: run 34194781057 (check its
-final result). No database, role, commercial-record or subscription changes.
+URLs are disabled again. Post-production readiness: run 34194781057 passed. No database, role, commercial-record or subscription changes.
 
 Validation: `bun run verify` passed with 2682 tests; isolated readiness 34193721474
 passed all 76 browser/role/MFA checks, including changed-input polling, read-error
@@ -19,13 +33,8 @@ real `created_at` column. Production aggregate reads before/after agree: 414 ope
 or paused opportunities, SAR 569,805,376.93; unassigned value SAR 155,703,615;
 52 open rows without a monetary value. Won YTD SAR 7,909,835; annual target SAR 25M.
 
-Reloading the actual user's production board after deployment reached /auth: the
-session had expired. User was asked to sign back in as moalagab@phc-sa.com and
-complete MFA without sharing secrets. Once signed in, navigate to /board, verify
-414 / 569.8M and matching team total, inspect layout, and observe the last-success
-timestamp advance across two 60-second cycles without reload. Do not claim this
-final authenticated visual check has passed before observing it. System realtime
-publication is empty; the deliberate refresh path is 60-second polling plus
+The original renewed-session check is complete; see the final follow-up above.
+System realtime publication is empty; refresh uses 60-second polling plus
 focus/reconnect, with stale/error status and user-scoped cache.
 
 
