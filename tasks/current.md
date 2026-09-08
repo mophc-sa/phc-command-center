@@ -1,6 +1,10 @@
 # Current Task — PHC Command Center
 
-## بند نشط — استكمال بيانات تحتاج قرارًا تجاريًا
+## 2026-09-08 — Board consistency and live refresh (active)
+
+Audit `/board` against actual sales data; include all open years and unassigned owners, remove imported activations from new-business movement, correct outcomes/stalled wording and follow-up reads. Complete pagination with explicit failure status, user-scoped cache and 60-second refresh/reconnect. Verify calculations, run required checks, then canary and production release under the existing authorization. No role or commercial-data changes.
+
+## بند متبقٍ — استكمال بيانات تحتاج قرارًا تجاريًا
 
 إصلاحات PR 287–289 منشورة ومتحقق منها. معالجة 125 فرصة وأرشفة126 نسخة متطابقة مكتملة؛ نُقلت نتيجتها إلى completed.md. جميع679 سجلات الأرشيف فُحصت:634 لها رابطCRM وحيد،43 تحتاج استكمالًا أو مراجعة تطابق، وسجلان ضمن مجموعة التكرار26d86997-a66b-4fff-b8da-51a923d069d7. المتبقي يحتاج بيانات العميل/المالك/القيمة/الهوية من العمل الفعلي؛ لا تعيين افتراضي ولا تغيير لحالات الفوز والخسارة. الحالات التاريخية أدناه محفوظة كسياق سابق، ولا تعني أن النشر ما زال معلقًا.
 

@@ -604,7 +604,7 @@ project does **not** create a duplicate.
 |---|---|
 | **Reports** `/reports` | Pipeline by stage, quotation funnel, loss reasons, plus an **AI Weekly Report**. |
 | **Targets & Performance** `/targets` | Set and track targets. Salesperson and manager metric views. |
-| **Wall board** `/board` | The screen for the sales manager's office — built to run unattended for weeks on a display nobody logs into. It refreshes every 60 seconds **including in a background tab**, and it says so: after two missed rounds the status reads *slow*, after four it dims and states that the figures are old. Five headline cards (won year-to-date against the same window last year, annual target, weighted forecast, qualified pipeline, target achievement), then what needs attention, the biggest deals, pipeline health by stage, team performance, what changed since yesterday, the sales pulse, the 30/60/90 outlook, and a news wire along the bottom. **Every figure that cannot be computed says so and names what is missing** — it never prints SAR 0 for a number nobody has entered. Colour carries meaning throughout: in the stage bars, cool means nothing is awarded yet, amber is a verbal award (won, and still losable), green means a contract exists. Open it on a laptop or tablet signed in as a `bd_manager` account and lock the device down — the page has no navigation, but it is **not a security boundary**, and that account can read all sales data for anyone who types a different address. |
+| **Wall board** `/board` | Refreshes automatically every 60 seconds, including background tabs, and catches up when focus or connectivity returns. **Updated** shows the last complete successful read; failed reads retain the previous figures with a visible warning. Open pipeline and team totals include all years, paused deals and unassigned owners; stage values use the same canonical stages and amount precedence as the sales system. **Won MTD** is this month; headline won is year-to-date. Historical imports/activations are excluded from new deals. Stalled means no recorded activity for over 10 days. Figures reflect the signed-in account’s existing permissions. Keep the dedicated display device secured; a navigation-free page is not an access boundary. |
 
 ### Resources — الموارد
 
@@ -754,6 +754,10 @@ These are guardrails, not suggestions. They will stop you.
 ---
 
 ## 10. Current limitations
+
+### Board freshness and scope (2026-09-08)
+
+The board reads every page of each source up to the management safety limit and rejects an incomplete or failed refresh instead of displaying misleading zeros. Polling is every 60 seconds; production does not currently publish realtime table changes. A sleeping device, expired session or offline browser cannot guarantee that interval; the last-success timestamp and stale warning expose this. Missing probabilities, values and expected close dates still require real business input. Forecasts computed from only some eligible deals are labelled Partial; the 30/60/90 figures are cumulative weighted totals, not three different confidence levels. Unassigned opportunities remain visible without inventing owners.
 
 - Automatic AI commentary in Command Center requires sales-pipeline management authority. Viewers retain the deterministic summary without an unauthorized AI request.
 
@@ -1115,3 +1119,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-09-07 · base commit 04e706c · legacy reconciliation and existing CRM links -->
 
 <!-- last reviewed 2026-09-07 · deployed commit 7d1b9c4 · production reconciliation complete; remaining data review quantified -->
+
+<!-- last reviewed 2026-09-08 · base commit 3c15ce7 · board completeness, canonical scope and verified-refresh status -->

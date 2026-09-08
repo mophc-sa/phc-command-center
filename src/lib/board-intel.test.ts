@@ -404,7 +404,7 @@ describe("the news wire", () => {
       sar,
     );
     expect(w[0]).toContain("MURABBA");
-    expect(w[0]).toContain("12 days late");
+    expect(w[0]).toContain("oldest flagged issue 12d");
     expect(w[1]).toContain("BIGGER");
   });
 
@@ -440,7 +440,7 @@ describe("the news wire", () => {
       "en",
       sar,
     );
-    expect(w[0]).toBe("⚠ NO VALUE · 40 days late");
+    expect(w[0]).toBe("⚠ NO VALUE · oldest flagged issue 40d");
   });
 });
 

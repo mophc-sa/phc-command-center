@@ -31,7 +31,7 @@ import { localeFor } from "@/lib/i18n";
 import type { CanonicalStage } from "@/lib/stage-canonical";
 import { opportunityValue, sumOpportunityValue } from "@/lib/opportunity-value";
 
-/** The seven pipeline stages, in the order the ramp draws them. */
+/** Every open stage, including paused work, matching the headline total. */
 export const BOARD_STAGES: CanonicalStage[] = [
   "rfq_received",
   "jih",
@@ -40,6 +40,7 @@ export const BOARD_STAGES: CanonicalStage[] = [
   "verbally_awarded",
   "contract_received",
   "contract_signed",
+  "on_hold",
 ];
 
 /** Stages that are committed and still losable -- the number worth watching. */
@@ -91,15 +92,8 @@ export type StageSlice = {
   share: number;
 };
 
-/**
- * How far back a deal can have arrived and still count as open pipeline.
- *
- * Without a window the board read 633.7M against a 25M target -- because the
- * import carried four years of quotations, and a proposal sent in 2023 that was
- * never answered is not a live opportunity. It sits in an open STAGE only
- * because nobody ever closed it, which is a record-keeping fact, not a
- * commercial one.
- */
+/** Legacy default for callers requesting a recent cohort. The live board
+ * passes null explicitly: open work remains open regardless of its age. */
 export const OPEN_WINDOW_MONTHS = 12;
 
 export type Standing = {
@@ -184,11 +178,11 @@ export function computePulse(input: {
 export function computeStanding(
   opps: readonly BoardOpp[],
   now: Date,
-  windowMonths: number = OPEN_WINDOW_MONTHS,
+  windowMonths: number | null = OPEN_WINDOW_MONTHS,
 ): Standing {
   const month = monthBounds(now);
   // Half-open [cutoff, now). A deal received exactly on the boundary day is in.
-  const cutoff = new Date(
+  const cutoff = windowMonths === null ? "" : new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - windowMonths, now.getUTCDate()),
   )
     .toISOString()
@@ -270,24 +264,28 @@ export function computeTeam(
   targets: ReadonlyMap<string, number>,
   labels: ReadonlyMap<string, string>,
   now: Date,
-  windowMonths: number = OPEN_WINDOW_MONTHS,
+  windowMonths: number | null = OPEN_WINDOW_MONTHS,
+  includeUnassigned = false,
 ): PersonRow[] {
   const month = monthBounds(now);
   // Same window as the headline. A per-person pipeline computed on different
   // rows than the total is a column that will never add up to the number above
   // it, and someone will eventually notice and trust neither.
-  const cutoff = new Date(
+  const cutoff = windowMonths === null ? "" : new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - windowMonths, now.getUTCDate()),
   )
     .toISOString()
     .slice(0, 10);
   const owners = new Set<string>();
-  for (const o of opps) if (o.owner_id) owners.add(o.owner_id);
+  for (const o of opps) {
+    if (o.owner_id) owners.add(o.owner_id);
+    else if (includeUnassigned) owners.add("unassigned");
+  }
   for (const id of targets.keys()) owners.add(id);
 
   const rows: PersonRow[] = [];
   for (const ownerId of owners) {
-    const mine = opps.filter((o) => o.owner_id === ownerId);
+    const mine = opps.filter((o) => (o.owner_id ?? "unassigned") === ownerId);
     const won = mine.filter((o) => {
       if (canonicalStageOf(o as never) !== "won") return false;
       const d = (o.won_at ?? "").slice(0, 10);
@@ -303,7 +301,7 @@ export function computeTeam(
     const target = targets.get(ownerId) ?? null;
     rows.push({
       ownerId,
-      label: labels.get(ownerId) ?? "—",
+      label: ownerId === "unassigned" ? "Unassigned" : labels.get(ownerId) ?? "—",
       won: wonValue,
       target,
       // Dividing by a target nobody set produces a confident lie.
@@ -384,7 +382,7 @@ export function yearProgress(
     opps.filter((o) => {
       if (canonicalStageOf(o as never) !== "won") return false;
       const w = (o.won_at ?? "").slice(0, 10);
-      return w >= start;
+      return w >= start && w <= now.toISOString();
     }),
   ).total;
   const yearStart = Date.UTC(y, 0, 1);
@@ -486,7 +484,7 @@ export function yearOnYear(opps: readonly BoardOpp[], now: Date): YearOnYear {
   const md = now.toISOString().slice(4, 10); // "-MM-DD"
   const inWindow = (year: number) => (o: BoardOpp) => {
     const w = (o.won_at ?? "").slice(0, 10);
-    return !!w && w >= `${year}-01-01` && w <= `${year}${md}`;
+    return canonicalStageOf(o as never) === "won" && !!w && w >= `${year}-01-01` && w <= `${year}${md}`;
   };
   const cur = opps.filter(inWindow(y));
   const prev = opps.filter(inWindow(y - 1));

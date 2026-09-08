@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:e2e": "playwright test",
-    "test:e2e:readiness": "bun scripts/verify-e2e-env.ts && playwright test tests/e2e/role-matrix.e2e.ts tests/e2e/auth-guards.e2e.ts --reporter=list,./tests/e2e/readiness-reporter.ts",
+    "test:e2e:readiness": "bun scripts/verify-e2e-env.ts && playwright test tests/e2e/role-matrix.e2e.ts tests/e2e/auth-guards.e2e.ts tests/e2e/board-live.e2e.ts --reporter=list,./tests/e2e/readiness-reporter.ts",
     "test:deno": "deno test --frozen --allow-import --config supabase/functions/deno.json --allow-env --allow-net --allow-read supabase/functions/_shared/*.deno-test.ts",
     "test:db": "supabase test db",
     "test:db:behaviour": "bash scripts/db-behaviour.sh",

@@ -27,7 +27,7 @@
 // Pure. `now` is passed in; nothing here reads a clock.
 // =============================================================================
 
-import { canonicalStageOf } from "@/lib/sales-kpis";
+import { canonicalStageOf, OPEN_STAGES } from "@/lib/sales-kpis";
 import type { CanonicalStage } from "@/lib/stage-canonical";
 import { opportunityValue, sumOpportunityValue } from "@/lib/opportunity-value";
 
@@ -72,6 +72,8 @@ export type IntelOpp = {
   last_activity_at?: string | null;
   won_at?: string | null;
   created_at?: string | null;
+  lost_at?: string | null;
+  extra_data?: { source?: string } | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -131,6 +133,11 @@ export function pipelineBuckets(opps: readonly IntelOpp[]): Bucket[] {
 // The figures that need inputs nobody has entered
 // ---------------------------------------------------------------------------
 
+function hasProbability(o: IntelOpp): boolean {
+  const p = o.human_win_probability;
+  return typeof p === "number" && Number.isFinite(p) && p >= 0 && p <= 100;
+}
+
 /**
  * Probability-weighted pipeline.
  *
@@ -140,14 +147,14 @@ export function pipelineBuckets(opps: readonly IntelOpp[]): Bucket[] {
  * how likely anything is".
  */
 export function weightedPipeline(opps: readonly IntelOpp[]): Figure {
-  const openStages = [...PIPELINE_BUCKETS.open, ...PIPELINE_BUCKETS.lateStage] as readonly string[];
+  const openStages: readonly string[] = OPEN_STAGES;
   const open = opps.filter((o) => {
     const st = canonicalStageOf(o as never);
     return !!st && openStages.includes(st);
   });
   if (open.length === 0) return { value: null, state: "no_data", reasonAr: "لا فرص مفتوحة", reasonEn: "no open deals" };
 
-  const withProb = open.filter((o) => typeof o.human_win_probability === "number");
+  const withProb = open.filter(hasProbability);
   if (withProb.length === 0) {
     return missing(
       open.length,
@@ -156,11 +163,13 @@ export function weightedPipeline(opps: readonly IntelOpp[]): Figure {
     );
   }
 
-  const total = withProb.reduce((sum, o) => {
+  const valued = withProb.filter((o) => opportunityValue(o) !== null);
+  if (valued.length === 0) return missing(open.length, "لا قيمة مسجّلة للفرص ذات الاحتمالية", "No value entered on deals with a probability");
+  const total = valued.reduce((sum, o) => {
     const v = opportunityValue(o as never);
     return v === null ? sum : sum + v * ((o.human_win_probability as number) / 100);
   }, 0);
-  return { ...ok(total), missing: open.length - withProb.length };
+  return { ...ok(total), missing: open.length - valued.length };
 }
 
 /**
@@ -250,7 +259,7 @@ export function attentionItems(
   const overdueByOpp = new Map<string, { count: number; oldestDays: number }>();
   for (const f of followUps) {
     const d = (f.due_date ?? "").slice(0, 10);
-    if (!d || d >= today) continue;
+    if ((f.status && f.status !== "scheduled") || !d || d >= today) continue;
     const age = Math.floor((now.getTime() - new Date(d).getTime()) / dayMs);
     const cur = overdueByOpp.get(f.opportunity_id);
     overdueByOpp.set(f.opportunity_id, {
@@ -323,11 +332,7 @@ export type HotOpportunity = {
 
 /** Top open deals by value. Value only: probability does not exist yet. */
 export function hotOpportunities(opps: readonly IntelOpp[], limit = 5): HotOpportunity[] {
-  const openStages = [
-    ...PIPELINE_BUCKETS.open,
-    ...PIPELINE_BUCKETS.lateStage,
-    ...PIPELINE_BUCKETS.awardedPendingContract,
-  ] as readonly string[];
+  const openStages: readonly string[] = OPEN_STAGES;
   return opps
     .map((o) => ({ o, st: canonicalStageOf(o as never), v: opportunityValue(o as never) }))
     .filter((x) => !!x.st && openStages.includes(x.st) && x.v !== null)
@@ -338,7 +343,7 @@ export function hotOpportunities(opps: readonly IntelOpp[], limit = 5): HotOppor
       projectName: x.o.project_name ?? "—",
       value: x.v,
       stage: x.st as CanonicalStage,
-      probability: typeof x.o.human_win_probability === "number" ? x.o.human_win_probability : null,
+      probability: hasProbability(x.o) ? x.o.human_win_probability! : null,
       ownerId: x.o.owner_id,
     }));
 }
@@ -359,19 +364,19 @@ export function horizonForecast(
   opps: readonly IntelOpp[],
   now: Date = new Date(),
 ): { d30: Figure; d60: Figure; d90: Figure } {
-  const openStages = [...PIPELINE_BUCKETS.open, ...PIPELINE_BUCKETS.lateStage] as readonly string[];
+  const openStages: readonly string[] = OPEN_STAGES;
   const open = opps.filter((o) => {
     const st = canonicalStageOf(o as never);
     return !!st && openStages.includes(st);
   });
 
-  const hasProb = (o: IntelOpp) => typeof o.human_win_probability === "number";
+  const hasProb = hasProbability;
   // `expected_contract_date`, not `next_action_due`. They were treated as the
   // same field and they are not: "call them Tuesday" is a next action, and a
   // forecast built on it would place a deal in the 30-day column because
   // somebody scheduled a phone call, not because the deal closes then. The
   // message already said "expected close date"; now the code reads one.
-  const hasDate = (o: IntelOpp) => !!o.expected_contract_date;
+  const hasDate = (o: IntelOpp) => !!o.expected_contract_date && Number.isFinite(Date.parse(o.expected_contract_date));
   const usable = open.filter((o) => hasProb(o) && hasDate(o));
 
   if (usable.length === 0) {
@@ -421,10 +426,11 @@ export function horizonForecast(
       return v === null ? sum : sum + v * ((o.human_win_probability as number) / 100);
     }, 0);
     const unvalued = inWindow.filter((o) => opportunityValue(o as never) === null).length;
+    if (inWindow.length > 0 && unvalued === inWindow.length) return missing(unvalued, "لا قيمة مسجّلة للفرص المتوقعة", "No value entered on forecast deals");
     return {
       value: Math.round(value),
       state: "ok",
-      missing: open.length - usable.length,
+      missing: open.length - usable.length + unvalued,
       ...(unvalued > 0
         ? {
             reasonAr: `${unvalued} صفقة بلا قيمة مسجَّلة غير محسوبة`,
@@ -507,16 +513,16 @@ export function movement(
   const since = new Date(now.getTime() - days * 86_400_000).toISOString();
   const src = opts.importedSource;
   const isImported = (o: IntelOpp) =>
-    !!src && (o as unknown as { extra_data?: { source?: string } }).extra_data?.source === src;
+    (!!src && o.extra_data?.source === src) || o.extra_data?.source === "historical_promotion";
 
-  const won = opps.filter((o) => (o.won_at ?? "") >= since);
-  const fresh = opps.filter((o) => !isImported(o) && (o.created_at ?? "") >= since);
+  const won = opps.filter((o) => canonicalStageOf(o as never) === "won" && (o.won_at ?? "") >= since && (o.won_at ?? "") <= now.toISOString());
+  const fresh = opps.filter((o) => !!canonicalStageOf(o as never) && !isImported(o) && (o.created_at ?? "") >= since && (o.created_at ?? "") <= now.toISOString());
   return {
-    advanced: transitions.filter((t) => (t.changed_at ?? "") >= since).length,
+    advanced: transitions.filter((t) => (t.changed_at ?? "") >= since && (t.changed_at ?? "") <= now.toISOString()).length,
     won: won.length,
     wonValue: sumOpportunityValue(won).total,
     lost: opps.filter(
-      (o) => canonicalStageOf(o as never) === "lost" && (o.created_at ?? "") >= since,
+      (o) => canonicalStageOf(o as never) === "lost" && (o.lost_at ?? "") >= since && (o.lost_at ?? "") <= now.toISOString(),
     ).length,
     newDeals: fresh.length,
     newValue: sumOpportunityValue(fresh as never).total,
@@ -527,7 +533,7 @@ export function movement(
       (t) => (t.changed_at ?? "") >= since && (t.to_stage ?? "") === "jih_bafo",
     ).length,
     followUpsClosed: (opts.followUps ?? []).filter(
-      (f) => f.status === "completed" && (f.updated_at ?? "") >= since,
+      (f) => f.status === "completed" && (f.updated_at ?? "") >= since && (f.updated_at ?? "") <= now.toISOString(),
     ).length,
   };
 }
@@ -569,8 +575,8 @@ export function wireItems(
     const size = a.value === null ? null : money(a.value);
     out.push(
       ar
-        ? `⚠ ${a.projectName}${size ? ` · ${size}` : ""} · متأخّر ${a.worstAgeDays} يومًا`
-        : `⚠ ${a.projectName}${size ? ` · ${size}` : ""} · ${a.worstAgeDays} days late`,
+        ? `⚠ ${a.projectName}${size ? ` · ${size}` : ""} · أقدم سبب للتنبيه ${a.worstAgeDays} يومًا`
+        : `⚠ ${a.projectName}${size ? ` · ${size}` : ""} · oldest flagged issue ${a.worstAgeDays}d`,
     );
   }
 
@@ -713,8 +719,8 @@ export function pulseSentences(
   if (p.staleCount > 0) {
     out.push(
       ar
-        ? `${p.staleCount} منها بلا أي تفاعل مع العميل منذ أكثر من ${p.staleAfterDays} أيام.`
-        : `${p.staleCount} of them have had no client contact in over ${p.staleAfterDays} days.`,
+        ? `${p.staleCount} فرصة بلا نشاط مسجّل منذ أكثر من ${p.staleAfterDays} أيام.`
+        : `${p.staleCount} open deals have had no recorded activity in over ${p.staleAfterDays} days.`,
     );
   }
 
