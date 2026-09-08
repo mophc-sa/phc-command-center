@@ -224,8 +224,8 @@ function useBoardData() {
           fetchRequiredRows(() => supabase.from("leads").select("id").eq("lead_stage", "detected").is("archived_at", null).order("id")),
           fetchRequiredRows(() => supabase.from("sales_targets").select("user_id, sales_target, period_type, period_start").order("id")),
           fetchRequiredRows(() => supabase.from("profiles").select("id, full_name").order("id")),
-          fetchRequiredRows(() => supabase.from("stage_transition_history").select("changed_at, to_stage")
-            .eq("record_type", "opportunity").gte("changed_at", new Date(Date.now() - 7 * 86_400_000).toISOString()).order("id")),
+          fetchRequiredRows(() => supabase.from("stage_transition_history").select("changed_at:created_at, to_stage")
+            .eq("record_type", "opportunity").gte("created_at", new Date(Date.now() - 7 * 86_400_000).toISOString()).order("id")),
         ]);
       return { opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves };
     },
@@ -967,17 +967,18 @@ function BoardPage() {
             <Kpi
               icon={Filter} tone="teal" lang={lang}
               ar="الفرص المفتوحة" en="Open pipeline"
-              value={splitCompact(model.standing.openTotal, lang)?.n ?? null}
+              value={model.standing.openCount > 0 && model.standing.openUnvalued === model.standing.openCount ? null : splitCompact(model.standing.openTotal, lang)?.n ?? null}
               unit={splitCompact(model.standing.openTotal, lang)?.unit}
               foot={
                 // Unweighted coverage: real, and labelled as such. The weighted
                 // ratio the mockup shows needs a probability nobody has entered,
                 // and an unlabelled ratio would be read as the weighted one.
-                model.year.target && model.year.target > 0
+                (model.year.target && model.year.target > 0
                   ? lang === "ar"
                     ? `تغطية ×${(model.standing.openTotal / model.year.target).toFixed(1)} غير مرجّحة · ${dealsLabel(model.standing.openCount, lang)}`
                     : `${(model.standing.openTotal / model.year.target).toFixed(1)}× coverage, unweighted · ${dealsLabel(model.standing.openCount, lang)}`
-                  : dealsLabel(model.standing.openCount, lang)
+                  : dealsLabel(model.standing.openCount, lang))
+                  + (model.standing.openUnvalued ? (lang === "ar" ? ` · ${model.standing.openUnvalued} بلا قيمة` : ` · ${model.standing.openUnvalued} unvalued`) : "")
               }
             />
             <Kpi

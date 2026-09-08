@@ -8,6 +8,10 @@ test("board polls changed inputs, preserves data on read failure and recovers wi
   test.skip(!creds, "Sales manager readiness credentials required");
   if (!creds) return;
   await signInWithCachedSession(page, creds.email, creds.password);
+  const readErrors: string[] = [];
+  page.on("response", async (response) => {
+    if (response.status() >= 400 && response.url().includes("/rest/v1/")) readErrors.push(`${response.status()} ${new URL(response.url()).pathname}: ${await response.text()}`);
+  });
   let name = "BOARD-REFRESH-BEFORE";
   let fail = false;
   // Only replace the board's opportunity response. Authentication, RLS-backed
@@ -25,7 +29,9 @@ test("board polls changed inputs, preserves data on read failure and recovers wi
   });
   await page.clock.install();
   await page.goto("/board");
-  await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(name, { exact: true }).first()).toBeVisible().catch(async (error) => {
+    throw new Error(`${String(error)}; URL=${page.url()}; reads=${readErrors.join(" | ")}; body=${(await page.locator("body").innerText()).slice(0, 3000)}`);
+  });
   await expect(page.getByTestId("board-last-updated")).toContainText("every 60s");
   name = "BOARD-REFRESH-AFTER";
   await page.clock.runFor(61_000);

@@ -575,8 +575,8 @@ export function wireItems(
     const size = a.value === null ? null : money(a.value);
     out.push(
       ar
-        ? `⚠ ${a.projectName}${size ? ` · ${size}` : ""} · متأخّر ${a.worstAgeDays} يومًا`
-        : `⚠ ${a.projectName}${size ? ` · ${size}` : ""} · ${a.worstAgeDays} days late`,
+        ? `⚠ ${a.projectName}${size ? ` · ${size}` : ""} · أقدم سبب للتنبيه ${a.worstAgeDays} يومًا`
+        : `⚠ ${a.projectName}${size ? ` · ${size}` : ""} · oldest flagged issue ${a.worstAgeDays}d`,
     );
   }
 
