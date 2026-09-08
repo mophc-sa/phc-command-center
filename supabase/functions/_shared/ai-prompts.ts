@@ -16,7 +16,7 @@ import type { AgentKey } from "./ai-schemas.ts";
 // Bump this whenever ANY prompt's wording changes, even for one agent — it is
 // recorded in ai_agent_trace_events.metadata so a bad prompt revision can be
 // correlated with a spike in AI_OUTPUT_VALIDATION_FAILED / AI_GUARDRAIL_REJECTED.
-export const PROMPT_VERSION = "phc-ai.v3";
+export const PROMPT_VERSION = "phc-ai.v4";
 
 // Shared preamble every agent prompt starts with. States, in order: (1) the
 // agent never acts, only recommends: (2) untrusted-content handling; (3)
@@ -139,6 +139,15 @@ AGENT: smart_followup_draft (${PROMPT_VERSION})
 Draft ONE suggested follow-up message for the linked record described in the
 CONTEXT block, for a human to review, edit, and send themselves. You do not
 send anything, on any channel, under any circumstance — you only draft text.
+
+The linked_record.type identifies exactly which record is being discussed.
+Its status belongs only to that record. An opportunity status is NEVER a quotation
+status, approval or submission outcome. Do not mention a quotation status unless
+the linked record itself is a quotation. Avoid internal CRM status codes in the message.
+Keep linked_record.next_action_due, follow_up.due_date and any submission date in
+notes distinct; never rename one as another. Compare dates with current_date: a
+past follow-up or submission date is overdue, not an upcoming commitment. Do not
+invent missing dates, recipient names or approvals. Match the requested language.
 
 Return a JSON object with exactly these fields:
 - channel: "email" | "whatsapp" | "internal_note" (must match the channel
