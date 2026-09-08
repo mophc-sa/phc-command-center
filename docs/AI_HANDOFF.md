@@ -112,6 +112,52 @@ PR 287 دُمج ونُشر: `ba3dd43f083d063c32d620d23c31457b8e079fd4`، Worker 
 أداة replay/pgTAP تفشل الآن عند SQL error أو غياب خطة TAP، حتى إن نجحت assertions سابقة.
 Deno معزول بإعداد `nodeModulesDir: none`؛ لا تستعمل `--node-modules-dir=auto` لأنه يلوث اعتمادات Bun.
 
+## 2026-09-06 — Wall board visual pass (PR 284)
+
+PR 284 is merged at `ec89d12` and deployed; production run 34037150795 passed
+with `Deploy production custom domain` and `Upload canary version` skipped.
+Verified by reading the live bundle rather than the workflow report: `board-dark`,
+`DARK_GROUND`, `badgeStyle` and `#0f1a26` are absent from both the JS and the CSS;
+`bandClass` and the two `n%2==1?bg-muted` stripe rules are present; grid rows read
+`0.9/0.85/1.78/1.02`; the list is twenty. Eleven commits, no migration, no role or
+data change. The two remaining `var(--stage-)` uses are the pipeline-health bars,
+which is their original purpose.
+
+Changes: alternating white/tinted row grounds chosen once in `bandClass` (`--muted`
+measures 1.17:1 against the white card, `--surface-2` only 1.06:1); the dark
+attention panel removed together with everything that supported it; icons stripped
+of their tinted badges and enlarged to five sizes, one per role; Top opportunities
+at twenty rows, striped, 1.15vw, with the rank badge dropped because the list is
+sorted by value and the order already is the rank; Team performance converted from
+a table to rows so it can stripe and scroll, showing every rep without the initials
+disc; the lists row raised 304→361px with rows one and two giving up the height;
+the sales wire 1.05→1.35vw.
+
+METHOD, AND WHY IT MATTERS FOR THE NEXT SESSION
+
+`/board` is behind authentication and no credentials are entered into any field,
+so the page was rendered from a copy of the route at `/board-preview` with a fixed
+fixture, measured, and deleted before merge (server stopped, file removed,
+`routeTree.gen.ts` restored).
+
+Rendering found three defects no test caught. The movement tiles were clipping all
+ten of their strings to sixteen pixels against labels needing up to 86. The marquee
+had stopped twice because the panel grew until the list fit — 200px of content in a
+197px box against a threshold of 8 — so row count and row height are one decision,
+not two. The headline figure was 38% of its card's height and crowded everything
+around it.
+
+The first clipping check reported zero problems while five tiles were visibly cut:
+it compared `scrollWidth` to `clientWidth` on leaf elements, and the clipping is on
+the CONTAINER, whose `overflow` is hidden while the leaf inside it sits at its
+natural size. The correct check walks elements whose computed overflow is hidden,
+compares both dimensions, and excludes `.board-marquee` and the wire, whose overflow
+is the point.
+
+A JSX comment placed inside a ternary's expression slot — `{cond ? ( {/* … */} <X/> )
+: null}` — blanked the page twice in one session. It is two expressions in a slot
+that takes one.
+
 ## سياق سابق محفوظ
 
 ## Date

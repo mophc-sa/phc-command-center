@@ -33,6 +33,23 @@ passed. Authenticated metric and automatic-refresh checks subsequently passed; s
 Branch `fix/board-live-consistency`, base `3c15ce7`. Board reads are paginated, error-propagating and scoped to the signed-in user. All-year open pipeline includes paused/unassigned work; team and stage totals reconcile. Historical promotions no longer appear as new business, loss dates and completed follow-ups use their correct fields, and stale-activity wording matches 10 days. Canonical outcomes govern YTD comparison; weighted figures validate inputs and include all open stages. Last successful update is visible; automatic 60-second polling, focus and reconnect refresh remain independent of realtime (production publication has no tables). No database, role or commercial-record changes. Local `bun run verify` passed: typecheck, lint, 2682 tests and production build. Browser polling/error-recovery test added to isolated readiness; CI and deployment verification pending.
 
 
+## 2026-09-06 — Wall board visual pass (PR 284)
+
+Merged at `ec89d12` and deployed; production run 34037150795 passed. Verified from
+the live bundle: the dark panel and its supporting code are absent from JS and CSS,
+`bandClass` and both stripe rules are present, grid rows `0.9/0.85/1.78/1.02`, list
+of twenty. Eleven commits, no migration.
+
+Alternating row grounds, the dark attention panel removed, icons without badges at
+five sizes, Top opportunities striped at twenty rows without the rank badge, Team
+performance converted to striped scrolling rows showing every rep, lists row raised
+304→361px, sales wire 1.05→1.35vw.
+
+Rendered before shipping from a temporary unauthenticated copy of the route, which
+found three defects no test caught — most notably every movement-tile label clipped
+to sixteen pixels. See `docs/AI_HANDOFF.md` for the method and the two tooling
+mistakes worth not repeating.
+
 ## 2026-09-07 — All-data production reconciliation verified
 
 PR 289 is merged and deployed: `7d1b9c4cfa24ac39cccfed70ac2fea87940de9af`,
