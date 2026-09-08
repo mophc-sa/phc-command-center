@@ -230,12 +230,15 @@ export function ActionDialog({
   destructive,
   onSubmit,
   draftId,
+  sections,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   title: string;
   description?: ReactNode;
   fields: DialogField[];
+  /** Wide grouped presentation; omitted by other dialogs. */
+  sections?: { title: string; keys: string[] }[];
   submitLabel: string;
   destructive?: boolean;
   onSubmit: (values: Record<string, string>) => Promise<void> | void;
@@ -398,48 +401,9 @@ export function ActionDialog({
   // textarea, 2-3 fields) are untouched.
   const isWide = fields.length > 6;
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent dir={dir} className={cn("flex flex-col", isWide ? "sm:max-w-2xl" : "sm:max-w-md")}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description ? (
-            <DialogDescription>{description}</DialogDescription>
-          ) : (
-            // Radix requires DialogContent to have an aria-describedby target;
-            // most callers here don't pass a visible description, so this
-            // sr-only fallback keeps every dialog accessible without adding
-            // visible copy (found via /qa: every ActionDialog without a
-            // description prop was logging a Radix a11y warning on open).
-            <DialogDescription className="sr-only">{title}</DialogDescription>
-          )}
-        </DialogHeader>
-
-        {/* Never a silent restore. Repopulating a form without saying so is a
-            way to file last week's answers under today's date. */}
-        {restoredAt !== null ? (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-amber/40 bg-amber/10 px-3 py-2">
-            <span className="text-xs text-foreground">
-              {t("draft_restored")}
-              {" · "}
-              <span className="text-muted-foreground">
-                {draftAgeLabel(draftAgeMinutes(restoredAt, Date.now()), t)}
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={discardDraft}
-              className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              {t("draft_discard")}
-            </button>
-          </div>
-        ) : null}
-
-        <div className={cn("grid gap-4 overflow-y-auto py-2", isWide && "sm:grid-cols-2 max-h-[55vh] pe-1")}>
-          {fields.filter(isVisible).map((f) => (
-            <div key={f.key} className={cn("grid gap-1.5", isWide && (f.type === "textarea" || f.type === "file" || f.type === "file_or_url") && "sm:col-span-2")}>
-              <Label htmlFor={f.key} className="text-xs tracking-[0.02em] text-muted-foreground">
+  const renderField = (f: DialogField) => (
+            <div key={f.key} className={cn("grid min-w-0 content-start gap-1.5", isWide && (f.type === "textarea" || f.type === "file" || f.type === "file_or_url") && "sm:col-span-2")}>
+              <Label htmlFor={f.key} className={cn("text-xs tracking-[0.02em] text-muted-foreground", sections && f.type === "checkbox" && "sr-only")}>
                 {f.label}
                 {f.required ? <span aria-hidden="true"> *</span> : ""}
               </Label>
@@ -455,7 +419,7 @@ export function ActionDialog({
                     setValues((v) => ({ ...v, [f.key]: e.target.value }));
                     clearFieldError(f.key);
                   }}
-                  rows={4}
+                  rows={sections ? 2 : 4}
                 />
               ) : f.type === "file" ? (
                 <div className="flex items-center gap-2">
@@ -608,7 +572,7 @@ export function ActionDialog({
                 // The chip is a label, not a value: what gets stored always
                 // carries its own country code, so a number is never ambiguous
                 // once it leaves this box.
-                <div className={cn(
+                <div dir={sections ? "ltr" : undefined} className={cn(
                   "flex items-center gap-2 rounded-md border bg-transparent ps-2",
                   errors[f.key] ? "border-destructive" : "border-input",
                 )}>
@@ -661,9 +625,60 @@ export function ActionDialog({
                 </p>
               ) : null}
             </div>
-          ))}
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent dir={dir} className={cn("flex flex-col", sections ? "w-[calc(100%-1.5rem)] max-w-[1680px] sm:max-w-[1680px] max-h-[calc(100dvh-1.5rem)] overflow-hidden gap-3 p-4" : isWide ? "sm:max-w-2xl" : "sm:max-w-md")}>
+        <DialogHeader className={sections ? "shrink-0 px-7 text-start sm:text-start" : undefined}>
+          <DialogTitle>{title}</DialogTitle>
+          {description ? (
+            <DialogDescription>{description}</DialogDescription>
+          ) : (
+            // Radix requires DialogContent to have an aria-describedby target;
+            // most callers here don't pass a visible description, so this
+            // sr-only fallback keeps every dialog accessible without adding
+            // visible copy (found via /qa: every ActionDialog without a
+            // description prop was logging a Radix a11y warning on open).
+            <DialogDescription className="sr-only">{title}</DialogDescription>
+          )}
+        </DialogHeader>
+
+        {/* Never a silent restore. Repopulating a form without saying so is a
+            way to file last week's answers under today's date. */}
+        {restoredAt !== null ? (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-amber/40 bg-amber/10 px-3 py-2">
+            <span className="text-xs text-foreground">
+              {t("draft_restored")}
+              {" · "}
+              <span className="text-muted-foreground">
+                {draftAgeLabel(draftAgeMinutes(restoredAt, Date.now()), t)}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={discardDraft}
+              className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {t("draft_discard")}
+            </button>
+          </div>
+        ) : null}
+
+        <div className={cn("grid gap-4 overflow-y-auto py-2", sections ? "min-h-0 grid-cols-1 items-start gap-3 pe-1 md:grid-cols-2 xl:grid-cols-3" : isWide && "sm:grid-cols-2 max-h-[55vh] pe-1")}>
+          {sections ? sections.map((section) => (
+            <fieldset key={section.title} className="min-w-0 rounded-lg border border-border bg-muted/20 p-3">
+              <legend className="px-2 text-sm font-semibold">{section.title}</legend>
+              <div className="grid grid-cols-1 content-start gap-x-3 gap-y-3 sm:grid-cols-2">
+                {section.keys.flatMap((key) => {
+                  const field = fields.find((candidate) => candidate.key === key);
+                  return field && isVisible(field) ? [renderField(field)] : [];
+                })}
+              </div>
+            </fieldset>
+          )) : fields.filter(isVisible).map(renderField)}
         </div>
-        <DialogFooter className="gap-2">
+        <DialogFooter className={cn("gap-2", sections && "shrink-0 border-t pt-3")}>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
             {t("cancel")}
           </Button>

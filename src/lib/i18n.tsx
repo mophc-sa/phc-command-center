@@ -1667,6 +1667,9 @@ export const strings = {
 
   // Phase 0 UX — ActionDialog inline validation
   dialog_field_required: { en: "This field is required", ar: "هذا الحقل مطلوب" },
+  intake_section_contact: { en: "Client & request source", ar: "العميل ومصدر الطلب" },
+  intake_section_project: { en: "Project & scope", ar: "المشروع ونطاق العمل" },
+  intake_section_followup: { en: "Follow-up & attachments", ar: "المتابعة والمرفقات" },
   intake_routes_itself: { en: "Set the project type and name and this goes straight to the right track — no extra steps.", ar: "حدِّد نوع المشروع واسمه ليذهب مباشرة لمساره الصحيح — بلا خطوات إضافية." },
   intake_routed_opportunity: { en: "Opportunity created — opening it now", ar: "أُنشئت الفرصة — جارٍ فتحها" },
   intake_routed_tender: { en: "Tender created on the monitoring board", ar: "أُنشئت المناقصة في لوحة المراقبة" },
