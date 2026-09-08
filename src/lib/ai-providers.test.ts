@@ -219,3 +219,18 @@ test("provider settings trim accidental surrounding whitespace without selecting
   if(r.ok) expect(r.config).toMatchObject({provider:"anthropic",apiKey:"test-key",model:"claude-sonnet-4-6"});
   expect(resolveProviderConfig(makeEnv({OPENAI_API_KEY:"key",OPENAI_MODEL:"  "}),null,false)).toEqual({ok:false,provider:"openai",reason:"not_configured"});
 });
+
+test("Sonnet 4.6 uses constrained JSON structure while preserving original bounds", async () => {
+  const schema = { type: "object", properties: { minimum: { type: "string", maxLength: 20 } }, required: ["minimum"], additionalProperties: false };
+  let sent: Record<string, any> = {};
+  const fetchImpl = (async (_url, options) => {
+    sent = JSON.parse(options?.body as string);
+    return jsonResponse({ content: [{ type: "text", text: '{"minimum":"ok"}' }] });
+  }) as FetchLike;
+  const result = await generateStructured({ ...config("anthropic"), model: "claude-sonnet-4-6" }, { ...baseInput, jsonSchema: schema }, fetchImpl);
+  expect(result.ok).toBe(true);
+  expect(sent.output_config.format.type).toBe("json_schema");
+  expect(sent.output_config.format.schema.properties.minimum).toEqual({ type: "string", description: "Required constraints: maxLength: 20." });
+  expect(schema.properties.minimum.maxLength).toBe(20);
+  expect(sent.system).toContain('"maxLength":20');
+});
