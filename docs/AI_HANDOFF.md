@@ -8,8 +8,8 @@ Cloudflare dashboard; workers.dev and preview URLs are disabled. Canary
 34196920338, canary readiness 34197018411 and production 34197484881 passed.
 Local verify passed (2682 tests); all required PR checks passed. No data or role changes.
 
-The actual moalagab session verified 414 open deals / SAR 569.8M and the same
-team total. Last-success timestamps advanced without reload at 09:40:08,
+The authenticated production session verified matching pipeline and team totals.
+Actual commercial figures are retained in private release evidence. Last-success timestamps advanced without reload at 09:40:08,
 09:41:11 and 09:42:15 Riyadh. The follow-up shortens the pipeline footnote and
 widens the team panel to fit Unassigned while preserving numeric header widths.
 Final authenticated visual verification passed at 10:32:40 Riyadh: Unassigned
@@ -29,9 +29,9 @@ URLs are disabled again. Post-production readiness: run 34194781057 passed. No d
 Validation: `bun run verify` passed with 2682 tests; isolated readiness 34193721474
 passed all 76 browser/role/MFA checks, including changed-input polling, read-error
 retention and recovery without a page reload. The transition query now reads the
-real `created_at` column. Production aggregate reads before/after agree: 414 open
-or paused opportunities, SAR 569,805,376.93; unassigned value SAR 155,703,615;
-52 open rows without a monetary value. Won YTD SAR 7,909,835; annual target SAR 25M.
+real `created_at` column. Production aggregate reads before/after agree for pipeline counts and value,
+unassigned value, missing-value counts, won YTD and annual target. Actual
+commercial figures are retained in private release evidence.
 
 The original renewed-session check is complete; see the final follow-up above.
 System realtime publication is empty; refresh uses 60-second polling plus

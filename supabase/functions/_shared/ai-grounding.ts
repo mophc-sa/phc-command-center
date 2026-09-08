@@ -67,6 +67,7 @@ export const GROUNDED_PROMPT = `You assist PHC employees in Arabic or English as
 Use only the supplied source excerpts. Every factual claim, task suggestion and draft must cite source IDs from the supplied list.
 Do not invent facts, prices, quantities, names, promises, approvals, deadlines or completion of actions. Unknown values remain unknown.
 A reference project's year is a recorded year, never a completion date, schedule, or proof of delivered work. A listed scope is recorded scope, not proof that all work was completed.
+For reference_project sources, explicitly say "the reference records" / "يسجّل المرجع" before describing scope or year. Never say the project was completed, executed, delivered or implemented / تم تنفيذ المشروع or تم تنفيذه. Reference records alone do not establish completion.
 Compare dates with current_date. Label past deadlines as overdue; never schedule a proposed action in the past.
 A response deadline or scheduled follow-up is not evidence that a quotation was submitted, contact occurred or documents were received.
 Draft follow-ups as neutral status inquiries. Do not assert previous submission, sending, contact, meetings, agreements or document receipt. Ask for confirmation when that information is absent.
@@ -77,4 +78,51 @@ You do not send messages or modify business records. Drafts and task suggestions
 export function draftHasUnsupportedCompletion(answer: GroundedAnswer): boolean {
   const body=answer.draft?.body ?? "";
   return /\b(?:we|i)\s+(?:have\s+)?(?:submitted|sent|completed|approved|agreed|met)\b|\bour\s+(?:(?:recent|previous)\s+)?submission\b|\bour\s+(?:last|recent|previous)\s+(?:meeting|call)\b|(?:قمنا|قمت|سبق لنا)\s+(?:بإرسال|بتقديم|باعتماد|بالتسليم)|(?:عرضنا|طلبنا)\s+(?:المرسل|المقدم)/i.test(body);
+}
+
+/** A reference-year/scope record cannot support an assertion of delivered work. */
+export function referenceHasUnsupportedCompletion(answer: GroundedAnswer, sources: readonly AiCitation[]): boolean {
+  const referenceIds = new Set(sources.filter((s) => s.source_type === "reference_project").map((s) => s.id));
+  const completed = /\b(?:completed|executed|delivered|implemented|finished|scheduled|planned)\b|المقرر|من المتوقع|سيتم|تم\s+(?:تنفيذ|إنجاز|انجاز|إكمال|اكمال|تسليم)|(?:أُنجز|أنجز|انجز|أكمل|اكتمل|نُفذ|نُفّذ|نفذ|نَفّذ|نفّذ)/iu;
+  const statements = [
+    ...answer.claims.map((c) => ({ text: c.text, citations: c.citations })),
+    ...answer.suggested_tasks.map((t) => ({ text: `${t.title} ${t.rationale}`, citations: t.citations })),
+    ...(answer.draft ? [{ text: answer.draft.body, citations: answer.draft.citations }] : []),
+  ];
+  return statements.some((s) => s.citations.length > 0 && s.citations.every((id) => referenceIds.has(id)) && completed.test(s.text));
+}
+
+/** On this grounding failure, return attributed source text, never the model's assertion. */
+export function referenceEvidenceFallback(answer: GroundedAnswer, sources: readonly AiCitation[], language: "ar" | "en"): GroundedAnswer {
+  const cited = new Set(answer.claims.flatMap((c) => c.citations));
+  return {
+    claims: sources.filter((s) => s.source_type === "reference_project" && cited.has(s.id)).slice(0, 6).map((s) => ({
+      text: `${language === "ar" ? "مقتطف حرفي من المرجع؛ لا يكفي وحده لإثبات الإنجاز أو تاريخه:" : "Verbatim reference excerpt; this alone does not establish completion or its date:"}\n${s.content.slice(0, 1000)}${s.content.length > 1000 ? "…" : ""}`,
+      citations: [s.id],
+    })),
+    questions: [language === "ar" ? "هل تتوفر وثيقة معتمدة تثبت حالة الإنجاز وتاريخه؟" : "Is an approved document available to verify completion and its date?"],
+    suggested_tasks: [],
+    draft: null,
+    insufficient_evidence: true,
+  };
+}
+
+/** Reference metadata is displayed verbatim; document answers may be synthesized.
+ * A knowledge question never creates unsolicited outreach or execution proposals.
+ */
+export function groundCompanyKnowledge(answer: GroundedAnswer, sources: readonly AiCitation[], language: "ar" | "en"): GroundedAnswer {
+  const refIds = new Set(sources.filter((s) => s.source_type === "reference_project").map((s) => s.id));
+  const documentClaims = answer.claims.filter((c) => c.citations.every((id) => !refIds.has(id)));
+  const evidence = referenceEvidenceFallback(answer, sources, language);
+  const referenceClaims = evidence.claims;
+  const claims = [...documentClaims, ...referenceClaims];
+  const insufficient = answer.insufficient_evidence || claims.length > 10 || referenceHasUnsupportedCompletion(answer, sources);
+  return {
+    ...answer,
+    claims: claims.slice(0, 10),
+    questions: referenceClaims.length ? (insufficient ? evidence.questions : []) : answer.questions,
+    suggested_tasks: [],
+    draft: null,
+    insufficient_evidence: insufficient,
+  };
 }

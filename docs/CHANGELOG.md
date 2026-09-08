@@ -8,8 +8,8 @@ Cloudflare dashboard; workers.dev and preview URLs are disabled. Canary
 34196920338, canary readiness 34197018411 and production 34197484881 passed.
 Local verify passed (2682 tests); all required PR checks passed. No data or role changes.
 
-The actual moalagab session verified 414 open deals / SAR 569.8M and the same
-team total. Last-success timestamps advanced without reload at 09:40:08,
+The authenticated production session verified matching pipeline and team totals.
+Actual commercial figures are retained in private release evidence. Last-success timestamps advanced without reload at 09:40:08,
 09:41:11 and 09:42:15 Riyadh. The follow-up shortens the pipeline footnote and
 widens the team panel to fit Unassigned while preserving numeric header widths.
 Final authenticated visual verification passed at 10:32:40 Riyadh: Unassigned

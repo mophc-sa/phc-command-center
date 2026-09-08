@@ -4,6 +4,9 @@ import {
   verifyCitations,
   draftHasUnsupportedCompletion,
   groundedModel,
+  referenceHasUnsupportedCompletion,
+  referenceEvidenceFallback,
+  groundCompanyKnowledge,
   type GroundedAnswer,
 } from "../../supabase/functions/_shared/ai-grounding";
 import { gradeEvaluation, estimateAiCost } from "../../supabase/functions/_shared/ai-quality";
@@ -13,6 +16,31 @@ test("measured knowledge routing preserves daily and explicitly configured alter
   expect(groundedModel("daily_meeting_brief", "openai", "gpt-4o-mini")).toBe("gpt-4o-mini");
   expect(groundedModel("company_knowledge", "anthropic", "claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
   expect(groundedModel("company_knowledge", "openai", "custom-model")).toBe("custom-model");
+});
+test("reference years cannot be converted into English or Arabic completion claims", () => {
+  const source = { id: "ref", source_type: "reference_project", source_id: "project", title: "Reference", content: "Recorded year: 2025; scope: signage" };
+  const answer = (text: string): GroundedAnswer => ({ claims: [{ text, citations: ["ref"] }], questions: [], suggested_tasks: [], draft: null, insufficient_evidence: false });
+  expect(referenceHasUnsupportedCompletion(answer("المشروع تم تنفيذه في عام 2025"), [source])).toBe(true);
+  expect(referenceHasUnsupportedCompletion(answer("The project was completed in 2025"), [source])).toBe(true);
+  expect(referenceHasUnsupportedCompletion(answer("The reference records year 2025 and signage scope"), [source])).toBe(false);
+  expect(referenceHasUnsupportedCompletion(answer("يسجّل المرجع عام 2025 ونطاق اللوحات"), [source])).toBe(false);
+  expect(referenceHasUnsupportedCompletion(answer("The project was completed in 2025"), [{ ...source, source_type: "document" }])).toBe(false);
+  const fallback = referenceEvidenceFallback(answer("المشروع تم تنفيذه في عام 2025"), [source, { ...source, id: "uncited", content: "Unrelated source" }], "ar");
+  expect(fallback.claims).toHaveLength(1);
+  expect(fallback.claims[0].text).toContain(source.content);
+  expect(fallback.claims[0].text).not.toContain("تم تنفيذه");
+  expect(fallback.insufficient_evidence).toBe(true);
+  expect(fallback.suggested_tasks).toEqual([]);
+  expect(fallback.draft).toBeNull();
+  expect(verifyCitations(fallback, [source])).toBe(true);
+  const knowledge = groundCompanyKnowledge(answer("المشروع من المقرر أن يكون في عام 2025"), [source], "ar");
+  expect(knowledge.claims[0].text).toContain(source.content);
+  expect(knowledge.claims[0].text).not.toContain("من المقرر");
+  expect(knowledge.draft).toBeNull();
+  expect(knowledge.insufficient_evidence).toBe(true);
+  const factual = groundCompanyKnowledge(answer("يسجّل المرجع عام 2025 ونطاق اللوحات"), [source], "ar");
+  expect(factual.claims[0].text).toContain(source.content);
+  expect(factual.insufficient_evidence).toBe(false);
 });
 
 describe("employee assistant decisions", () => {

@@ -10,6 +10,9 @@ import {
   groundedModel,
   verifyCitations,
   draftHasUnsupportedCompletion,
+  referenceHasUnsupportedCompletion,
+  referenceEvidenceFallback,
+  groundCompanyKnowledge,
   type AiCitation,
 } from "../../_shared/ai-grounding.ts";
 import { generateStructured, resolveProviderConfig } from "../../_shared/ai-providers.ts";
@@ -189,7 +192,7 @@ async function groundedAnswer(
   };
   await ctx.svc
     .from("ai_agent_trace_events")
-    .insert({ ...traceBase, status: "started", metadata: { promptVersion: "phc-grounded.v3" } })
+    .insert({ ...traceBase, status: "started", metadata: { promptVersion: "phc-grounded.v4" } })
     .throwOnError();
   const response = await generateStructured(configured.config, {
     systemPrompt: GROUNDED_PROMPT,
@@ -203,12 +206,17 @@ async function groundedAnswer(
     maxOutputTokens: 2400,
   });
   const parsed = response.ok ? GroundedAnswerSchema.safeParse(response.data) : null;
+  const referenceFallback = parsed?.success && referenceHasUnsupportedCompletion(parsed.data, sources);
+  const result = parsed?.success && verifyCitations(parsed.data, sources)
+    ? kind === "company_knowledge" ? groundCompanyKnowledge(parsed.data, sources, language)
+    : referenceFallback ? referenceEvidenceFallback(parsed.data, sources, language) : parsed.data
+    : null;
   if (
     !response.ok ||
-    !parsed?.success ||
-    !verifyCitations(parsed.data, sources) ||
-    draftHasUnsupportedCompletion(parsed.data) ||
-    scanForGuardrailViolations(parsed.data).length
+    !result ||
+    !verifyCitations(result, sources) ||
+    draftHasUnsupportedCompletion(result) ||
+    scanForGuardrailViolations(result).length
   ) {
     await ctx.svc
       .from("ai_agent_trace_events")
@@ -230,13 +238,13 @@ async function groundedAnswer(
       input_token_count: response.usage?.inputTokens,
       output_token_count: response.usage?.outputTokens,
       context_manifest: { source_count: sources.length },
-      metadata: { promptVersion: "phc-grounded.v3" },
+      metadata: { promptVersion: "phc-grounded.v4", reference_excerpt_fallback: !!referenceFallback },
     })
     .throwOnError();
   return json({
     ok: true,
     traceId: trace,
-    result: parsed.data,
+    result,
     sources,
     model: response.model,
     as_of: new Date().toISOString(),
