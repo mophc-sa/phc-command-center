@@ -8,6 +8,7 @@ import {
   GroundedAnswerSchema,
   GROUNDED_PROMPT,
   verifyCitations,
+  draftHasUnsupportedCompletion,
   type AiCitation,
 } from "../../_shared/ai-grounding.ts";
 import { generateStructured, resolveProviderConfig } from "../../_shared/ai-providers.ts";
@@ -186,13 +187,13 @@ async function groundedAnswer(
   };
   await ctx.svc
     .from("ai_agent_trace_events")
-    .insert({ ...traceBase, status: "started", metadata: { promptVersion: "phc-grounded.v1" } })
+    .insert({ ...traceBase, status: "started", metadata: { promptVersion: "phc-grounded.v2" } })
     .throwOnError();
   const response = await generateStructured(configured.config, {
     systemPrompt: GROUNDED_PROMPT,
     userPrompt: delimitUntrustedContext(
       "sources",
-      JSON.stringify({ language, request: query, sources }),
+      JSON.stringify({ current_date: new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Riyadh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()), language, request: query, sources }),
     ),
     schemaName: "phc_grounded_answer",
     jsonSchema: z.toJSONSchema(GroundedAnswerSchema),
@@ -204,6 +205,7 @@ async function groundedAnswer(
     !response.ok ||
     !parsed?.success ||
     !verifyCitations(parsed.data, sources) ||
+    draftHasUnsupportedCompletion(parsed.data) ||
     scanForGuardrailViolations(parsed.data).length
   ) {
     await ctx.svc
@@ -226,7 +228,7 @@ async function groundedAnswer(
       input_token_count: response.usage?.inputTokens,
       output_token_count: response.usage?.outputTokens,
       context_manifest: { source_count: sources.length },
-      metadata: { promptVersion: "phc-grounded.v1" },
+      metadata: { promptVersion: "phc-grounded.v2" },
     })
     .throwOnError();
   return json({

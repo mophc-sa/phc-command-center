@@ -83,6 +83,7 @@ export function AiOperationsPanel() {
             className="flex gap-2"
             onSubmit={(e) => {
               e.preventDefault();
+              setAnswer(null);
               act("ask", async () => setAnswer(await askCompanyKnowledge(query, lang)));
             }}
           >

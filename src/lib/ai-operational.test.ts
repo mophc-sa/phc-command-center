@@ -2,6 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { buildDailyAssistant } from "../../supabase/functions/_shared/ai-daily";
 import {
   verifyCitations,
+  draftHasUnsupportedCompletion,
   type GroundedAnswer,
 } from "../../supabase/functions/_shared/ai-grounding";
 import { gradeEvaluation, estimateAiCost } from "../../supabase/functions/_shared/ai-quality";
@@ -187,4 +188,11 @@ test("multilingual embeddings request one fixed vector space and reject invalid 
     embedKnowledge("text", "test-key", (async () =>
       Response.json({ data: [{ embedding: Array(383).fill(1) }] })) as typeof fetch),
   ).rejects.toThrow("Invalid company knowledge embedding");
+});
+
+
+test("grounded drafts do not invent an employee's previous submission", () => {
+  const base: GroundedAnswer={claims:[],questions:[],suggested_tasks:[],insufficient_evidence:false,draft:{subject:"RFQ follow-up",body:"I am following up on our recent submission.",citations:["rfq"]}};
+  expect(draftHasUnsupportedCompletion(base)).toBe(true);
+  expect(draftHasUnsupportedCompletion({...base,draft:{...base.draft!,body:"Please confirm the current status and any outstanding information required for the RFQ."}})).toBe(false);
 });
