@@ -12,6 +12,7 @@ import {
   draftHasUnsupportedCompletion,
   referenceHasUnsupportedCompletion,
   referenceEvidenceFallback,
+  groundCompanyKnowledge,
   type AiCitation,
 } from "../../_shared/ai-grounding.ts";
 import { generateStructured, resolveProviderConfig } from "../../_shared/ai-providers.ts";
@@ -206,7 +207,10 @@ async function groundedAnswer(
   });
   const parsed = response.ok ? GroundedAnswerSchema.safeParse(response.data) : null;
   const referenceFallback = parsed?.success && referenceHasUnsupportedCompletion(parsed.data, sources);
-  const result = parsed?.success ? (referenceFallback ? referenceEvidenceFallback(parsed.data, sources, language) : parsed.data) : null;
+  const result = parsed?.success && verifyCitations(parsed.data, sources)
+    ? kind === "company_knowledge" ? groundCompanyKnowledge(parsed.data, sources, language)
+    : referenceFallback ? referenceEvidenceFallback(parsed.data, sources, language) : parsed.data
+    : null;
   if (
     !response.ok ||
     !result ||

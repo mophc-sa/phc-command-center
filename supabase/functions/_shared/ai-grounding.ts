@@ -83,7 +83,7 @@ export function draftHasUnsupportedCompletion(answer: GroundedAnswer): boolean {
 /** A reference-year/scope record cannot support an assertion of delivered work. */
 export function referenceHasUnsupportedCompletion(answer: GroundedAnswer, sources: readonly AiCitation[]): boolean {
   const referenceIds = new Set(sources.filter((s) => s.source_type === "reference_project").map((s) => s.id));
-  const completed = /\b(?:completed|executed|delivered|implemented|finished)\b|تم\s+(?:تنفيذ|إنجاز|انجاز|إكمال|اكمال|تسليم)|(?:أُنجز|انجز|أكمل|اكتمل|نُفذ|نُفّذ|نفذ|نَفّذ|نفّذ)/iu;
+  const completed = /\b(?:completed|executed|delivered|implemented|finished|scheduled|planned)\b|المقرر|من المتوقع|سيتم|تم\s+(?:تنفيذ|إنجاز|انجاز|إكمال|اكمال|تسليم)|(?:أُنجز|أنجز|انجز|أكمل|اكتمل|نُفذ|نُفّذ|نفذ|نَفّذ|نفّذ)/iu;
   const statements = [
     ...answer.claims.map((c) => ({ text: c.text, citations: c.citations })),
     ...answer.suggested_tasks.map((t) => ({ text: `${t.title} ${t.rationale}`, citations: t.citations })),
@@ -104,5 +104,25 @@ export function referenceEvidenceFallback(answer: GroundedAnswer, sources: reado
     suggested_tasks: [],
     draft: null,
     insufficient_evidence: true,
+  };
+}
+
+/** Reference metadata is displayed verbatim; document answers may be synthesized.
+ * A knowledge question never creates unsolicited outreach or execution proposals.
+ */
+export function groundCompanyKnowledge(answer: GroundedAnswer, sources: readonly AiCitation[], language: "ar" | "en"): GroundedAnswer {
+  const refIds = new Set(sources.filter((s) => s.source_type === "reference_project").map((s) => s.id));
+  const documentClaims = answer.claims.filter((c) => c.citations.every((id) => !refIds.has(id)));
+  const evidence = referenceEvidenceFallback(answer, sources, language);
+  const referenceClaims = evidence.claims;
+  const claims = [...documentClaims, ...referenceClaims];
+  const insufficient = answer.insufficient_evidence || claims.length > 10 || referenceHasUnsupportedCompletion(answer, sources);
+  return {
+    ...answer,
+    claims: claims.slice(0, 10),
+    questions: referenceClaims.length ? (insufficient ? evidence.questions : []) : answer.questions,
+    suggested_tasks: [],
+    draft: null,
+    insufficient_evidence: insufficient,
   };
 }

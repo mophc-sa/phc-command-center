@@ -6,6 +6,7 @@ import {
   groundedModel,
   referenceHasUnsupportedCompletion,
   referenceEvidenceFallback,
+  groundCompanyKnowledge,
   type GroundedAnswer,
 } from "../../supabase/functions/_shared/ai-grounding";
 import { gradeEvaluation, estimateAiCost } from "../../supabase/functions/_shared/ai-quality";
@@ -32,6 +33,14 @@ test("reference years cannot be converted into English or Arabic completion clai
   expect(fallback.suggested_tasks).toEqual([]);
   expect(fallback.draft).toBeNull();
   expect(verifyCitations(fallback, [source])).toBe(true);
+  const knowledge = groundCompanyKnowledge(answer("المشروع من المقرر أن يكون في عام 2025"), [source], "ar");
+  expect(knowledge.claims[0].text).toContain(source.content);
+  expect(knowledge.claims[0].text).not.toContain("من المقرر");
+  expect(knowledge.draft).toBeNull();
+  expect(knowledge.insufficient_evidence).toBe(true);
+  const factual = groundCompanyKnowledge(answer("يسجّل المرجع عام 2025 ونطاق اللوحات"), [source], "ar");
+  expect(factual.claims[0].text).toContain(source.content);
+  expect(factual.insufficient_evidence).toBe(false);
 });
 
 describe("employee assistant decisions", () => {
