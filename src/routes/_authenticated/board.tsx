@@ -1052,7 +1052,7 @@ function BoardPage() {
           money that has to stay readable from across a room; team
           performance is four short rows of initials and figures and was
           holding a third of the width to show them. */}
-          <div className="grid min-h-0 grid-cols-[1.8fr_1.1fr_0.7fr] gap-[0.7vw]">
+          <div className="grid min-h-0 grid-cols-[1.7fr_1.1fr_0.8fr] gap-[0.7vw]">
             <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon={Flame} tone="amber" lang={lang}
                    note={lang === "ar" ? "أعلى 20 حسب القيمة" : "top 20 by value"}>
               {/* Same fix as the pipeline below: the table stacked to its natural
@@ -1174,11 +1174,11 @@ function BoardPage() {
                   the one thing a marquee cannot wrap: it would have to sit in
                   a <div>, and that is not valid inside a table. */}
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.35vw] px-[0.3vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.76vw" }}>
+                <div className="flex shrink-0 items-center gap-[0.5vw] px-[0.3vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.76vw" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "العضو" : "Member"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "3vw" }}>{lang === "ar" ? "محقّق الشهر" : "Won MTD"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "محقّق الشهر" : "Won MTD"}</span>
                   <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "المسار" : "Pipeline"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "2.7vw" }}>{lang === "ar" ? "متأخّرة" : "Overdue"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "3.4vw" }}>{lang === "ar" ? "متأخّرة" : "Overdue"}</span>
                 </div>
 
                 <AutoScroll className="flex min-h-0 flex-1 flex-col">
@@ -1192,11 +1192,11 @@ function BoardPage() {
                     return (
                       <div
                         key={p.ownerId}
-                        className={`flex min-h-0 flex-1 items-center gap-[0.35vw] px-[0.3vw] ${idx % 2 === 1 ? "bg-muted" : ""}`}
+                        className={`flex min-h-0 flex-1 items-center gap-[0.5vw] px-[0.3vw] ${idx % 2 === 1 ? "bg-muted" : ""}`}
                         style={{ fontSize: "0.88vw" }}
                       >
                         <span className="min-w-0 flex-1 truncate text-foreground">{p.label}</span>
-                        <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "3vw" }} data-tabular="true">
+                        <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "4vw" }} data-tabular="true">
                           {money(p.won)}
                         </span>
                         <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "4vw" }} data-tabular="true">
@@ -1204,7 +1204,7 @@ function BoardPage() {
                         </span>
                         <span
                           className={`num shrink-0 text-end ${late > 0 ? "font-semibold text-destructive-on-tint" : "text-muted-foreground"}`}
-                          style={{ width: "2.7vw" }}
+                          style={{ width: "3.4vw" }}
                           data-tabular="true"
                         >
                           {formatNumber(late, lang)}
