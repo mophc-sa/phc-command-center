@@ -11,6 +11,7 @@ import {
   verifyCitations,
   draftHasUnsupportedCompletion,
   referenceHasUnsupportedCompletion,
+  referenceEvidenceFallback,
   type AiCitation,
 } from "../../_shared/ai-grounding.ts";
 import { generateStructured, resolveProviderConfig } from "../../_shared/ai-providers.ts";
@@ -204,13 +205,14 @@ async function groundedAnswer(
     maxOutputTokens: 2400,
   });
   const parsed = response.ok ? GroundedAnswerSchema.safeParse(response.data) : null;
+  const referenceFallback = parsed?.success && referenceHasUnsupportedCompletion(parsed.data, sources);
+  const result = parsed?.success ? (referenceFallback ? referenceEvidenceFallback(parsed.data, sources, language) : parsed.data) : null;
   if (
     !response.ok ||
-    !parsed?.success ||
-    !verifyCitations(parsed.data, sources) ||
-    draftHasUnsupportedCompletion(parsed.data) ||
-    referenceHasUnsupportedCompletion(parsed.data, sources) ||
-    scanForGuardrailViolations(parsed.data).length
+    !result ||
+    !verifyCitations(result, sources) ||
+    draftHasUnsupportedCompletion(result) ||
+    scanForGuardrailViolations(result).length
   ) {
     await ctx.svc
       .from("ai_agent_trace_events")
@@ -232,13 +234,13 @@ async function groundedAnswer(
       input_token_count: response.usage?.inputTokens,
       output_token_count: response.usage?.outputTokens,
       context_manifest: { source_count: sources.length },
-      metadata: { promptVersion: "phc-grounded.v4" },
+      metadata: { promptVersion: "phc-grounded.v4", reference_excerpt_fallback: !!referenceFallback },
     })
     .throwOnError();
   return json({
     ok: true,
     traceId: trace,
-    result: parsed.data,
+    result,
     sources,
     model: response.model,
     as_of: new Date().toISOString(),

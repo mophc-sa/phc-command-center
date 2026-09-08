@@ -91,3 +91,18 @@ export function referenceHasUnsupportedCompletion(answer: GroundedAnswer, source
   ];
   return statements.some((s) => s.citations.length > 0 && s.citations.every((id) => referenceIds.has(id)) && completed.test(s.text));
 }
+
+/** On this grounding failure, return attributed source text, never the model's assertion. */
+export function referenceEvidenceFallback(answer: GroundedAnswer, sources: readonly AiCitation[], language: "ar" | "en"): GroundedAnswer {
+  const cited = new Set(answer.claims.flatMap((c) => c.citations));
+  return {
+    claims: sources.filter((s) => s.source_type === "reference_project" && cited.has(s.id)).slice(0, 6).map((s) => ({
+      text: `${language === "ar" ? "مقتطف حرفي من المرجع؛ لا يكفي وحده لإثبات الإنجاز أو تاريخه:" : "Verbatim reference excerpt; this alone does not establish completion or its date:"}\n${s.content.slice(0, 1000)}${s.content.length > 1000 ? "…" : ""}`,
+      citations: [s.id],
+    })),
+    questions: [language === "ar" ? "هل تتوفر وثيقة معتمدة تثبت حالة الإنجاز وتاريخه؟" : "Is an approved document available to verify completion and its date?"],
+    suggested_tasks: [],
+    draft: null,
+    insufficient_evidence: true,
+  };
+}
