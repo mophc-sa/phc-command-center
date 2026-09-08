@@ -57,6 +57,9 @@ import {
 } from "lucide-react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canonicalStageOf } from "@/lib/sales-kpis";
+import { fetchRequiredRows } from "@/lib/fetch-all";
 import { supabase } from "@/integrations/supabase/client";
 import { dueForRefresh, keepAlive } from "@/lib/session-keepalive";
 import { useI18n, formatNumber, localeFor } from "@/lib/i18n";
@@ -86,7 +89,6 @@ import {
   compactValue,
   splitCompact,
   yearOnYear,
-  OPEN_WINDOW_MONTHS,
   wonTrend,
   yearProgress,
   type BoardOpp,
@@ -104,6 +106,7 @@ const phcLogo = { url: "/phc-logo.png" };
 
 /** Values move in minutes, not seconds. A tighter poll would only add load. */
 const POLL_MS = 60_000;
+const STALLED_AFTER_DAYS = 10;
 
 /**
  * Ask for a fresh access token on our own clock.
@@ -160,14 +163,10 @@ const STAGE_LABEL: Record<string, [string, string]> = {
   verbally_awarded: ["ترسية شفهية", "Verbal award"],
   contract_received: ["استُلم العقد", "Contract in"],
   contract_signed: ["عقد موقّع", "Signed"],
+  on_hold: ["معلّقة", "On hold"],
 };
 
-/**
- * A PostgREST result is `{ data, error }`, and on a select error `data` is
- * null. Every read here degrades to an empty list rather than throwing: one
- * failed table must not blank a board that six other tables could still fill.
- * The header's freshness indicator is what tells the reader something is off.
- */
+/** Only complete successful source reads reach this model. */
 function rows<T>(res: { data: unknown } | undefined): T[] {
   const d = res?.data;
   return Array.isArray(d) ? (d as T[]) : [];
@@ -195,8 +194,10 @@ function useNow(tickMs: number) {
 }
 
 function useBoardData() {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["board"],
+    queryKey: ["board", user?.id],
+    enabled: !!user,
     refetchInterval: POLL_MS,
     // React Query pauses interval refetching when the tab loses focus. On a
     // desk that is a kindness; on a wall it is a defect -- a screensaver, a
@@ -205,35 +206,26 @@ function useBoardData() {
     // eventually, but the right answer is not to stop polling in the first
     // place. A wall display has no user to come back and wake it.
     refetchIntervalInBackground: true,
-    // The screen has no focus events -- nobody alt-tabs a wall.
-    refetchOnWindowFocus: false,
+    // Catch up immediately when a laptop tab or network returns.
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     staleTime: POLL_MS / 2,
     queryFn: async () => {
       const [opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves] =
         await Promise.all([
-          supabase
-            .from("opportunities")
-            .select(
-              "id, project_name, client, owner_id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, human_win_probability, expected_contract_date, next_action, next_action_due, last_activity_at, won_at, created_at",
-            ),
-          supabase.from("approvals").select("created_at").eq("status", "pending"),
-          supabase.from("follow_ups").select("opportunity_id, due_date, status").eq("status", "scheduled"),
-          // `valid_until` is the quotation's own deadline. There is no
-          // "due_date" column -- the typechecker caught that guess.
-          // The view, not the table: it exposes the two columns the pulse
-          // needs and no others, so a display account never reaches a
-          // quotation's value. security_invoker, so RLS still decides rows.
-          supabase.from("board_quotation_pulse").select("valid_until, status"),
-          supabase.from("tenders").select("tender_stage, created_at"),
-          supabase.from("leads").select("id").eq("lead_stage", "detected"),
-          supabase.from("sales_targets").select("user_id, sales_target, period_type, period_start"),
-          supabase.from("profiles").select("id, full_name"),
-          supabase
-            .from("stage_transition_history")
-            // to_stage as well: "moved to BAFO since yesterday" is a
-            // transition, not a stage anyone happens to be sitting in.
-            .select("changed_at, to_stage")
-            .gte("changed_at", new Date(Date.now() - 7 * 86_400_000).toISOString()),
+          fetchRequiredRows(() => supabase.from("opportunities").select(
+            "id, project_name, client, owner_id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, human_win_probability, expected_contract_date, next_action, next_action_due, last_activity_at, won_at, lost_at, created_at, extra_data",
+          ).neq("stage", "archived").order("id")),
+          fetchRequiredRows(() => supabase.from("approvals").select("created_at").eq("status", "pending").order("id")),
+          fetchRequiredRows(() => supabase.from("follow_ups").select("opportunity_id, due_date, status, updated_at").in("status", ["scheduled", "completed"]).order("id")),
+          // The restricted view preserves the display account's quotation scope.
+          fetchRequiredRows(() => supabase.from("board_quotation_pulse").select("valid_until, status").order("id")),
+          fetchRequiredRows(() => supabase.from("tenders").select("tender_stage, created_at").is("archived_at", null).order("id")),
+          fetchRequiredRows(() => supabase.from("leads").select("id").eq("lead_stage", "detected").is("archived_at", null).order("id")),
+          fetchRequiredRows(() => supabase.from("sales_targets").select("user_id, sales_target, period_type, period_start").order("id")),
+          fetchRequiredRows(() => supabase.from("profiles").select("id, full_name").order("id")),
+          fetchRequiredRows(() => supabase.from("stage_transition_history").select("changed_at, to_stage")
+            .eq("record_type", "opportunity").gte("changed_at", new Date(Date.now() - 7 * 86_400_000).toISOString()).order("id")),
         ]);
       return { opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves };
     },
@@ -622,14 +614,14 @@ function Ladder({
             <span className="relative h-[1.35vh] min-w-0 flex-1 overflow-hidden rounded-[0.2vw] bg-muted">
               <span
                 className="absolute inset-y-0 start-0 rounded-[0.2vw]"
-                style={{ width: `${w}%`, background: `var(--stage-${i + 1})` }}
+                style={{ width: `${w}%`, background: c.stage === "on_hold" ? "var(--muted-foreground)" : `var(--stage-${i + 1})` }}
               />
               {/* Deals here, but nothing priced. A bare track would read as an
                   empty stage; this marks it as unpriced instead. */}
               {!empty && c.value === 0 ? (
                 <span
                   className="absolute inset-y-0 start-0"
-                  style={{ width: "0.5vw", background: `var(--stage-${i + 1})`, opacity: 0.5 }}
+                  style={{ width: "0.5vw", background: c.stage === "on_hold" ? "var(--muted-foreground)" : `var(--stage-${i + 1})`, opacity: 0.5 }}
                 />
               ) : null}
             </span>
@@ -760,10 +752,16 @@ function BoardPage() {
   const model = useMemo(() => {
     if (!data) return null;
     const opps = rows<BoardOpp>(data.opps);
+    const openIds = new Set(opps.filter((o) => {
+      const stage = canonicalStageOf(o);
+      return stage && stage !== "won" && stage !== "lost";
+    }).map((o) => o.id));
+    const allFollowUps = rows<{ opportunity_id: string; due_date: string | null; status: string; updated_at: string | null }>(data.followUps);
+    const scheduledFollowUps = allFollowUps.filter((f) => f.status === "scheduled" && openIds.has(f.opportunity_id));
     const pulse = computePulse({
       approvalsPendingAt: rows<{ created_at: string }>(data.approvals).map((r) => r.created_at),
-      followUpDueDates: rows<{ due_date: string }>(data.followUps).map((r) => r.due_date),
-      quotationDueDates: rows<{ valid_until: string | null }>(data.quotations).map((r) => r.valid_until),
+      followUpDueDates: scheduledFollowUps.map((r) => r.due_date),
+      quotationDueDates: rows<{ valid_until: string | null; status: string | null }>(data.quotations).filter((q) => q.status && ["submitted", "follow_up", "negotiation", "revised"].includes(q.status)).map((r) => r.valid_until),
       // The rule lives in dashboard-helpers; the board only counts its verdict.
       // `tenders` has no submission date column, so received (created_at) is
       // the reference the helper falls back to anyway.
@@ -777,7 +775,7 @@ function BoardPage() {
       inboxUnclassified: rows(data.inbox).length,
       now: nowDate,
     });
-    const standing = computeStanding(opps, nowDate);
+    const standing = computeStanding(opps, nowDate, null);
 
     const year = String(nowDate.getUTCFullYear());
     const targets = new Map<string, number>();
@@ -803,7 +801,7 @@ function BoardPage() {
     return {
       pulse,
       standing,
-      team: computeTeam(opps, targets, labels, nowDate),
+      team: computeTeam(opps, targets, labels, nowDate, null, true),
       trend: wonTrend(opps, nowDate, 6),
       year: yearProgress(opps, annual, nowDate),
       buckets: pipelineBuckets(intel),
@@ -823,11 +821,11 @@ function BoardPage() {
       hot: hotOpportunities(intel, 20),
       yoy: yearOnYear(opps, nowDate),
       oldestOverdue: oldestOverdueDays(
-        rows<{ due_date: string | null }>(data.followUps).map((f) => f.due_date),
+        scheduledFollowUps.map((f) => f.due_date),
         nowDate,
       ),
       upcoming: upcoming(
-        rows<{ due_date: string | null }>(data.followUps).map((f) => f.due_date),
+        scheduledFollowUps.map((f) => f.due_date),
         nowDate,
       ),
       movement: movement(
@@ -837,20 +835,21 @@ function BoardPage() {
         1,
         {
           importedSource: "PHC Quotation List 2022-2026",
-          followUps: rows<{ status: string | null; updated_at: string | null }>(data.followUps),
+          followUps: allFollowUps,
         },
       ),
       attention: attentionItems(
         intel,
-        rows<{ opportunity_id: string; due_date: string | null }>(data.followUps),
+        scheduledFollowUps,
         nowDate,
+        { stalledAfterDays: STALLED_AFTER_DAYS },
       ),
       labels,
     };
   }, [data, nowDate]);
 
   const fmtTime = (d: Date) =>
-    new Intl.DateTimeFormat(localeFor(lang), { hour: "2-digit", minute: "2-digit", hour12: true }).format(d);
+    new Intl.DateTimeFormat(localeFor(lang), { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }).format(d);
   const fmtDate = (d: Date) =>
     new Intl.DateTimeFormat(localeFor(lang), {
       weekday: "long", day: "numeric", month: "long", year: "numeric",
@@ -882,6 +881,7 @@ function BoardPage() {
         </div>
         <div className="flex items-center gap-[1.3vw] text-muted-foreground" style={{ fontSize: "0.85vw" }}>
           <Dot f={fresh} lang={lang} />
+          <span data-testid="board-last-updated">{dataUpdatedAt ? `Updated ${fmtTime(new Date(dataUpdatedAt))} · every 60s` : "Waiting for data"}</span>
           <span className="h-[2.4vh] w-px bg-border" aria-hidden="true" />
           <span className="num">{fmtDate(nowDate)}</span>
           <span className="h-[2.4vh] w-px bg-border" aria-hidden="true" />
@@ -897,14 +897,14 @@ function BoardPage() {
           style={{ fontSize: "0.85vw" }}
         >
           {fresh === "stale"
-            ? lang === "ar" ? "الاتصال منقطع — الأرقام أدناه قديمة ولا يُبنى عليها قرار" : "Disconnected — figures below are old"
+            ? lang === "ar" ? "الاتصال منقطع — الأرقام أدناه قديمة ولا يُبنى عليها قرار" : "Update unavailable — showing the last complete data"
             : lang === "ar" ? "التحديث متأخّر" : "Update is late"}
         </div>
       ) : null}
 
       {!model ? (
         <div className="grid flex-1 place-items-center text-muted-foreground" style={{ fontSize: "1.2vw" }}>
-          {lang === "ar" ? "يُحمّل…" : "Loading…"}
+          {isError ? (lang === "ar" ? "تعذّر تحميل البيانات — ستتم إعادة المحاولة تلقائيًا" : "Data unavailable — retrying automatically") : (lang === "ar" ? "يُحمّل…" : "Loading…")}
         </div>
       ) : (
         <main
@@ -966,7 +966,7 @@ function BoardPage() {
             />
             <Kpi
               icon={Filter} tone="teal" lang={lang}
-              ar="الفرص المؤهلة (المسار)" en="Qualified pipeline"
+              ar="الفرص المفتوحة" en="Open pipeline"
               value={splitCompact(model.standing.openTotal, lang)?.n ?? null}
               unit={splitCompact(model.standing.openTotal, lang)?.unit}
               foot={
@@ -1141,12 +1141,12 @@ function BoardPage() {
                         <span className="relative h-[0.85vh] min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
                           <span
                             className="absolute inset-y-0 start-0 rounded-full"
-                            style={{ width: `${c.share * 100}%`, background: `var(--stage-${i + 1})` }}
+                            style={{ width: `${c.share * 100}%`, background: c.stage === "on_hold" ? "var(--muted-foreground)" : `var(--stage-${i + 1})` }}
                           />
                           {/* Deals here, but nothing priced. A bare track reads as
                               an empty stage; this marks it unpriced instead. */}
                           {c.count > 0 && c.value === 0 ? (
-                            <span className="absolute inset-y-0 start-0" style={{ width: "0.35vw", background: `var(--stage-${i + 1})`, opacity: 0.55 }} />
+                            <span className="absolute inset-y-0 start-0" style={{ width: "0.35vw", background: c.stage === "on_hold" ? "var(--muted-foreground)" : `var(--stage-${i + 1})`, opacity: 0.55 }} />
                           ) : null}
                         </span>
                         <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.78vw", width: "2vw" }} data-tabular="true">
@@ -1167,7 +1167,7 @@ function BoardPage() {
             </Panel>
 
             <Panel title={lang === "ar" ? "أداء فريق المبيعات" : "Team performance"} icon={Users} tone="teal" lang={lang}
-                   note={lang === "ar" ? `${formatNumber(model.team.length, lang)} مندوبًا` : `${model.team.length} reps`}>
+                   note={lang === "ar" ? `${formatNumber(model.team.length, lang)} مندوبًا` : `${model.team.filter((p) => p.ownerId !== "unassigned").length} reps`}>
               {/* Rows, not a table -- the same shape as Top opportunities, so
                   the two panels stripe and scroll the same way. A <tbody> is
                   the one thing a marquee cannot wrap: it would have to sit in
@@ -1175,7 +1175,7 @@ function BoardPage() {
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex shrink-0 items-center gap-[0.5vw] px-[0.3vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.76vw" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "العضو" : "Member"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "المحقّق" : "Won"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "محقّق الشهر" : "Won MTD"}</span>
                   <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "المسار" : "Pipeline"}</span>
                   <span className="shrink-0 text-end" style={{ width: "3.4vw" }}>{lang === "ar" ? "متأخّرة" : "Overdue"}</span>
                 </div>
@@ -1186,7 +1186,7 @@ function BoardPage() {
                       and the panel scrolls -- there is no reason to choose. */}
                   {model.team.map((p, idx) => {
                     const late = model.attention.filter(
-                      (a) => a.ownerId === p.ownerId && a.reasons.includes("followups_overdue"),
+                      (a) => (a.ownerId ?? "unassigned") === p.ownerId && a.reasons.includes("followups_overdue"),
                     ).length;
                     return (
                       <div
@@ -1242,9 +1242,9 @@ function BoardPage() {
                     so too. `advanced` is the opposite fact -- deals that MOVED --
                     and putting it under a pause icon was reading the picture
                     carelessly. Stalled comes from the attention list, which
-                    already defines it as no client contact in the window. */}
-                <Mini cols={5} icon={PauseCircle} n={model.attention.filter((a) => a.reasons.includes("stalled")).length}
-                      ar="صفقات متوقفة" en="Stalled deals" tone="info" lang={lang} />
+                    defines it as no recorded activity in the window. */}
+                <Mini cols={5} icon={PauseCircle} snapshot n={model.attention.filter((a) => a.reasons.includes("stalled")).length}
+                      ar="متوقفة حاليًا" en="Currently stalled" tone="info" lang={lang} />
                 <Mini cols={5} icon={CheckCircle2} n={model.movement.followUpsClosed} ar="متابعات أُغلقت" en="Follow-ups closed" tone="teal" lang={lang} />
               </ChipRow>
             </Panel>
@@ -1255,10 +1255,10 @@ function BoardPage() {
                 criticalValue={model.attention
                   .filter((a) => a.priority === "critical")
                   .reduce<number | null>((a, x) => (x.value === null ? a : (a ?? 0) + x.value), null)}
-                // "no client contact in over N days" is the stalled reason the
+                // "no recorded activity in over N days" is the stalled reason the
                 // attention list already computes, not a second definition.
                 stale={model.attention.filter((a) => a.reasons.includes("stalled")).length}
-                staleAfterDays={7}
+                staleAfterDays={STALLED_AFTER_DAYS}
                 weighted={model.weighted}
                 target={model.year.target}
                 wonYtd={model.yoy.thisYear}
@@ -1968,9 +1968,10 @@ function Need({
  * would be the board congratulating itself on a dead week.
  */
 function Mini({
-  n, value, ar, en, tone, lang, icon: Icon, cols,
+  n, value, ar, en, tone, lang, icon: Icon, cols, snapshot = false,
 }: {
   n: number;
+  snapshot?: boolean;
   /** Forwarded to Chip: past three, the chip stacks instead of clipping. */
   cols?: number;
   /** Shown above the figure, as in the reference design. */
@@ -2000,7 +2001,7 @@ function Mini({
             style={{ fontSize: CHIP_FIGURE }}
             data-tabular="true"
           >
-            {moved ? "+" : ""}{formatNumber(n, lang)}
+            {moved && !snapshot ? "+" : ""}{formatNumber(n, lang)}
           </span>
         </span>
       }
@@ -2024,8 +2025,8 @@ function Mini({
           className={`num w-full ${cols && cols >= 4 ? "leading-tight" : "truncate"} ${moved && value ? TONE[tone].text : "text-muted-foreground"}`}
           style={{ fontSize: CHIP_NOTE }}
         >
-          {moved
-            ? (value ?? (lang === "ar" ? "بلا قيمة مسجَّلة" : "no value recorded"))
+          {snapshot ? (lang === "ar" ? "بلا نشاط > 10 أيام" : "inactive > 10 days") : moved
+            ? (value === undefined ? "—" : value ?? (lang === "ar" ? "بلا قيمة مسجَّلة" : "no value recorded"))
             : lang === "ar" ? "بلا حركة" : "no movement"}
         </span>
       }

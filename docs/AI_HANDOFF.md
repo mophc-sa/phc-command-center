@@ -1,5 +1,10 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-08 — Board consistency and refresh
+
+Branch `fix/board-live-consistency`, base `3c15ce7`. Board reads are paginated, error-propagating and scoped to the signed-in user. All-year open pipeline includes paused/unassigned work; team and stage totals reconcile. Historical promotions no longer appear as new business, loss dates and completed follow-ups use their correct fields, and stale-activity wording matches 10 days. Canonical outcomes govern YTD comparison; weighted figures validate inputs and include all open stages. Last successful update is visible; automatic 60-second polling, focus and reconnect refresh remain independent of realtime (production publication has no tables). No database, role or commercial-record changes. Local `bun run verify` passed: typecheck, lint, 2682 tests and production build. Browser polling/error-recovery test added to isolated readiness; CI and deployment verification pending.
+
+
 ## 2026-09-07 — All-data production reconciliation verified
 
 PR 289 is merged and deployed: `7d1b9c4cfa24ac39cccfed70ac2fea87940de9af`,
