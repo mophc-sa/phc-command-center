@@ -84,7 +84,7 @@ export function buildEvidencePanel(rec: AiRecommendation, evidence: AiEvidenceIt
 }
 
 // ---- Queries ----------------------------------------------------------------
-export async function listRecommendations(status = "pending"): Promise<AiRecommendation[]> {
+export async function listRecommendations(status = "open"): Promise<AiRecommendation[]> {
   const { data, error } = await db
     .from("ai_recommendations")
     .select("*")

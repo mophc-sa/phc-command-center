@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { resolveCanonicalStage, CANONICAL_ACTIVE_STAGES } from "@/lib/stage-canonical";
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
+import { DailyAssistantPanel } from "@/components/phc/DailyAssistantPanel";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { TodayPanel } from "@/components/phc/TodayPanel";
 import { ChartFrame } from "@/components/phc/ChartFrame";
@@ -168,6 +169,7 @@ function WorkspacePage() {
       ) : (
         <ExistingWorkspaceContent uid={uid} user={user} />
       )}
+      <DailyAssistantPanel />
       <TodayPanel uid={uid} />
     </>
   );
@@ -297,7 +299,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         agent: "smart_followup_draft",
         entityType: "opportunities",
         entityId: opportunityId,
-        input: { follow_up_id: followUpId, channel: normalizeFollowUpChannel(channel) },
+        input: { follow_up_id: followUpId, language: lang, channel: normalizeFollowUpChannel(channel) },
       });
       if (!result.ok) throw new Error(result.message);
       const draft = result.result?.message ?? JSON.stringify(result.result ?? {}, null, 2);
@@ -845,7 +847,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         agent: "smart_followup_draft",
         entityType: "opportunities",
         entityId: opportunityId,
-        input: { follow_up_id: followUpId, channel: normalizeFollowUpChannel(channel) },
+        input: { follow_up_id: followUpId, language: lang, channel: normalizeFollowUpChannel(channel) },
       });
       if (!result.ok) throw new Error(result.message);
       const draft = result.result?.message ?? JSON.stringify(result.result ?? {}, null, 2);

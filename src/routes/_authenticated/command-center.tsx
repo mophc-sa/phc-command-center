@@ -512,6 +512,7 @@ function CommandCenter() {
         agent: "sales_report_insights",
         entityType: "reports",
         entityId: AGGREGATE_ENTITY_ID,
+        input: { language: lang },
       });
       return res.ok ? res : null;
     },

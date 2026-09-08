@@ -1,7 +1,7 @@
 import { callBackend } from "@/lib/backend";
 
 // Semantic search over the PHC knowledge base. Embedding + similarity search run
-// server-side in the sales-os-api Edge Function (Supabase gte-small + pgvector).
+// server-side in the sales-os-api Edge Function (multilingual text-embedding-3-small + permission-filtered pgvector).
 export type KnowledgeMatch = {
   id: string;
   source_type: string;

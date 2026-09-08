@@ -57,13 +57,9 @@ export async function writeRecommendation(
   rec: Record<string, unknown>,
   evidence: Record<string, unknown>[],
 ): Promise<{ id: string } | null> {
-  const { data } = await svc.from("ai_recommendations").insert(rec).select().single();
-  if (data && evidence.length) {
-    await svc
-      .from("ai_evidence_items")
-      .insert(evidence.map((e) => ({ recommendation_id: data.id, ...e })));
-  }
-  return data as { id: string } | null;
+  const { data, error } = await svc.rpc("create_ai_recommendation", { _rec: rec, _evidence: evidence });
+  if (error || !data) throw new Error("AI recommendation and evidence could not be saved");
+  return data as { id: string };
 }
 
 // Record an agent run row and return its id.
@@ -76,7 +72,7 @@ export async function startAgentRun(
     .from("ai_agent_runs")
     .insert({ agent_key: agentKey, status: "running", created_by: actorId })
     .select("id")
-    .single();
+    .single().throwOnError();
   return (data as { id: string } | null)?.id ?? null;
 }
 
@@ -89,7 +85,7 @@ export async function finishAgentRun(
   await svc
     .from("ai_agent_runs")
     .update({ completed_at: new Date().toISOString(), ...patch })
-    .eq("id", runId);
+    .eq("id", runId).throwOnError();
 }
 
 // Honest scaffold for an agent whose external dependency is not configured.
@@ -137,29 +133,6 @@ export function tenderReviewRecord(tender: Record<string, unknown>): Record<stri
     ...tender,
     signage_package_confidence: tender.signage_package_confidence ?? tender.signage_potential,
   };
-}
-
-// Supabase's built-in embeddings model (gte-small, 384 dims). Runs natively in
-// the Edge runtime — no external embeddings API / key.
-declare const Supabase: {
-  ai: {
-    Session: new (model: string) => {
-      run: (input: string, opts: { mean_pool: boolean; normalize: boolean }) => Promise<number[]>;
-    };
-  };
-};
-const embedSession = new Supabase.ai.Session("gte-small");
-export async function embed(text: string): Promise<number[]> {
-  return await embedSession.run(text, { mean_pool: true, normalize: true });
-}
-
-export function chunkText(text: string, size = 800): string[] {
-  const clean = text.replace(/\s+/g, " ").trim();
-  if (!clean) return [];
-  if (clean.length <= size) return [clean];
-  const chunks: string[] = [];
-  for (let i = 0; i < clean.length; i += size) chunks.push(clean.slice(i, i + size));
-  return chunks;
 }
 
 // Flatten a reference project into a single searchable string.

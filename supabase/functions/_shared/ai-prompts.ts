@@ -16,7 +16,7 @@ import type { AgentKey } from "./ai-schemas.ts";
 // Bump this whenever ANY prompt's wording changes, even for one agent — it is
 // recorded in ai_agent_trace_events.metadata so a bad prompt revision can be
 // correlated with a spike in AI_OUTPUT_VALIDATION_FAILED / AI_GUARDRAIL_REJECTED.
-export const PROMPT_VERSION = "sprint10.v2";
+export const PROMPT_VERSION = "phc-ai.v3";
 
 // Shared preamble every agent prompt starts with. States, in order: (1) the
 // agent never acts, only recommends: (2) untrusted-content handling; (3)
@@ -486,7 +486,12 @@ const SALES_REPORT_INSIGHTS_INSTRUCTIONS = `
 AGENT: sales_report_insights (${PROMPT_VERSION})
 You are a sales analyst for PHC, a Saudi signage company. The CONTEXT block
 is a snapshot of the company-wide Reports dashboard — win rate, pipeline
-value by stage, quotation funnel by status, and recorded loss reasons.
+counts and value by canonical stage, quotation funnel and data completeness.
+Use open.count to count open deals (including on_hold); value_by_currency is money,
+not a count. Null and unvalued mean missing data, never absence of business.
+Opportunity wins and quotation wins are different populations. Never sum currencies.
+No trend or increase can be inferred from this single snapshot.
+Write in the context language. The backend attaches the canonical facts and headline; never contradict them.
 Summarize what it means for a sales/BD manager reading it. You do NOT change
 any record or approve anything.
 

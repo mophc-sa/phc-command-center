@@ -1,3 +1,4 @@
+import { readAll } from "../../../supabase/functions/_shared/ai-facts";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -61,21 +62,24 @@ function humanize(s: string) {
 function ReportsPage() {
   const { t, lang } = useI18n();
 
-  const { data: opps = [], isLoading: l1 } = useQuery({
-    queryKey: ["report-opps"],
-    queryFn: async () =>
-      (
-        await supabase
-          .from("opportunities")
-          .select("id, stage, sales_stage, quotation_value, estimated_value_max")
-      ).data ?? [],
+  const { user } = useAuth();
+  const [reportCurrency, setReportCurrency] = useState("SAR");
+  const { data: opps = [], isLoading: l1, error: opportunityError } = useQuery({
+    queryKey: ["report-opps", user?.id],
+    enabled: !!user, refetchInterval: 60000,
+    queryFn: () => readAll((from,to) => supabase.from("opportunities")
+      .select("id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, currency")
+      .order("id").range(from,to)),
   });
-
-  const { data: quotes = [], isLoading: l2 } = useQuery({
-    queryKey: ["report-quotes"],
-    queryFn: async () =>
-      (await supabase.from("quotations").select("id, status, value, win_loss_reason")).data ?? [],
+  const { data: allQuotes = [], isLoading: l2, error: quotationError } = useQuery({
+    queryKey: ["report-quotes", user?.id],
+    enabled: !!user, refetchInterval: 60000,
+    queryFn: () => readAll((from,to) => supabase.from("quotations")
+      .select("id, status, value, win_loss_reason, currency").order("id").range(from,to)),
   });
+  const currencies = [...new Set(["SAR", ...opps.map(o => o.currency || "UNKNOWN"), ...allQuotes.map(q => q.currency || "UNKNOWN")])].sort();
+  const quotes = useMemo(() => allQuotes.filter(q => (q.currency || "UNKNOWN") === reportCurrency), [allQuotes, reportCurrency]);
+  const money = (value: number) => `${formatNumber(value,lang)} ${reportCurrency}`;
 
   // Latest AI weekly report — stored as an audit log entry (action = 'ai.weekly_report')
   const { data: weeklyReport } = useQuery({
@@ -98,7 +102,7 @@ function ReportsPage() {
   // the two columns are only synchronised at won/lost.
   const stageRows = useMemo(
     () =>
-      groupByCanonicalStage(opps as unknown as Parameters<typeof groupByCanonicalStage>[0])
+      groupByCanonicalStage(opps.filter(o => (o.currency || "UNKNOWN") === reportCurrency) as unknown as Parameters<typeof groupByCanonicalStage>[0])
         .buckets.map((b) => ({
           key: b.stage,
           label: t(canonicalStageLabelKey(b.stage)),
@@ -106,7 +110,7 @@ function ReportsPage() {
           value: b.value,
         }))
         .filter((r) => r.count > 0),
-    [opps, t],
+    [opps, t, reportCurrency],
   );
 
   const quoteRows = useMemo(
@@ -155,7 +159,13 @@ function ReportsPage() {
         description={lang === "ar" ? "نظرة تنفيذية على خط الأنابيب والعروض والفوز/الخسارة." : "Executive view of pipeline, quotations, and win/loss."}
       />
 
-      {isLoading ? (
+      <label className="mb-4 flex items-center gap-2 text-sm">
+        {lang === "ar" ? "عملة الأرقام والرسوم" : "Currency for figures and charts"}
+        <select className="rounded border bg-background px-2 py-1" value={reportCurrency} onChange={e => setReportCurrency(e.target.value)}>
+          {currencies.map(currency => <option key={currency} value={currency}>{currency === "UNKNOWN" ? (lang === "ar" ? "عملة غير مسجلة" : "Unspecified currency") : currency}</option>)}
+        </select>
+      </label>
+      {opportunityError || quotationError ? <p role="alert" className="text-destructive">{lang === "ar" ? "تعذرت قراءة بيانات التقرير كاملة. أعد تحميل الصفحة." : "The complete report data could not be read. Reload to retry."}</p> : isLoading ? (
         <SkeletonChart kpis={3} charts={2} />
       ) : !hasData ? (
         <EmptyState message={t("empty_report")} />
@@ -163,19 +173,19 @@ function ReportsPage() {
         <div className="space-y-6">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <KpiCard
-              label={t("report_win_rate")}
+              label={lang === "ar" ? "نسبة الفوز بعروض الأسعار" : "Quotation win rate"}
               value={winRate === null ? "—" : `${formatNumber(winRate, lang)}%`}
               hint={closed > 0 ? `${formatNumber(wonQuotes.length, lang)} / ${formatNumber(closed, lang)}` : undefined}
               icon={<TrendingUp className="h-3.5 w-3.5" />}
               trend={winRate !== null ? (winRate >= 50 ? "up" : winRate >= 25 ? "flat" : "down") : undefined}
             />
-            <KpiCard label={t("report_won_value")} value={formatCurrency(wonValue, lang)} icon={<Wallet className="h-3.5 w-3.5" />} />
+            <KpiCard label={lang === "ar" ? "قيمة عروض الأسعار الفائزة" : "Won quotation value"} value={money(wonValue)} icon={<Wallet className="h-3.5 w-3.5" />} />
             <KpiCard
               label={t("report_open_quotes_value")}
-              value={formatCurrency(openQuotesValue, lang)}
+              value={money(openQuotesValue)}
               icon={<AlertCircle className="h-3.5 w-3.5" />}
             />
-            <KpiCard label={t("report_lost_value")} value={formatCurrency(lostValue, lang)} icon={<XCircle className="h-3.5 w-3.5" />} />
+            <KpiCard label={lang === "ar" ? "قيمة عروض الأسعار الخاسرة" : "Lost quotation value"} value={money(lostValue)} icon={<XCircle className="h-3.5 w-3.5" />} />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -193,7 +203,7 @@ function ReportsPage() {
                       <Tooltip
                         contentStyle={tooltipStyle}
                         cursor={{ fill: "var(--color-muted)" }}
-                        formatter={(v: any, _n, p: any) => [formatCurrency(Number(v), lang), p?.payload?.label]}
+                        formatter={(v: any, _n, p: any) => [money(Number(v)), p?.payload?.label]}
                       />
                       <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                         {stageRows.map((r) => (
@@ -317,7 +327,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
     setRunning(true);
     setError(null);
     try {
-      const result = await runAiAgent({ agent: "sales_report_insights", entityType: "reports", entityId: REPORTS_ENTITY_ID });
+      const result = await runAiAgent({ agent: "sales_report_insights", entityType: "reports", entityId: REPORTS_ENTITY_ID, input: { language: lang } });
       if (!result.ok) throw new Error(result.message);
       outputQ.refetch();
     } catch (e: any) {
@@ -342,12 +352,13 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
   if (!canRun) return null;
 
   const output = outputQ.data;
-  const display = output?.structured_output as any;
+  const savedDisplay = output?.structured_output as any;
+  const display = savedDisplay?.system_facts ? savedDisplay : null;
 
   return (
     <ChartFrame
       title={lang === "ar" ? "رؤى الذكاء الاصطناعي" : "AI Insights"}
-      subtitle={lang === "ar" ? "تحليل عند الطلب لأرقام هذه الصفحة" : "On-demand analysis of this page's own numbers"}
+      subtitle={lang === "ar" ? "لقطة شاملة للمبيعات؛ يوضّح وقت التحليل تاريخ الأرقام" : "Company-wide sales snapshot; figures are dated at analysis time"}
     >
       <div className="space-y-3">
         <button
@@ -364,8 +375,13 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>
         )}
 
+        {savedDisplay && !display && <p className="text-xs text-muted-foreground">{lang === "ar" ? "التحليل السابق يحتاج إعادة توليد باستخدام مصدر الأرقام الموحّد." : "Regenerate the previous analysis using the unified source of figures."}</p>}
         {display && (
           <div className="space-y-3 text-sm">
+            <div className="rounded border p-3 text-xs">
+              <p>{lang === "ar" ? "أرقام محسوبة من النظام" : "System-calculated facts"} · {new Date(display.system_facts.generated_at).toLocaleString(lang)}</p>
+              {Object.entries(display.system_facts.open.value_by_currency as Record<string, number>).map(([currency,value]) => <p key={currency}>{currency}: {Number(value).toLocaleString(lang)} · {lang === "ar" ? "قيمة الفرص المفتوحة" : "Open pipeline value"}</p>)}
+            </div>
             {display.headline && <div className="font-medium text-foreground">{display.headline}</div>}
             {display.key_insights?.length > 0 && (
               <div>
