@@ -1,13 +1,5 @@
 # Current Task — PHC Command Center
 
-## 2026-09-08 — Board label-fit follow-up
-
-PR 291 is deployed at d885f47 (Worker 127a5c12-b5ed-4907-ad91-f275afe61c9f, 100%).
-Implementation/testing/deployment moved to completed.md. Post-production
-readiness is recorded in run 34194781057. The renewed user session verified the totals and two automatic refresh cycles. Correct
-clipped pipeline footnote and Unassigned label, then finish release/visual check. Ship the small frontend-only label correction through the usual gates.
-
-
 ## بند متبقٍ — استكمال بيانات تحتاج قرارًا تجاريًا
 
 إصلاحات PR 287–289 منشورة ومتحقق منها. معالجة 125 فرصة وأرشفة126 نسخة متطابقة مكتملة؛ نُقلت نتيجتها إلى completed.md. جميع679 سجلات الأرشيف فُحصت:634 لها رابطCRM وحيد،43 تحتاج استكمالًا أو مراجعة تطابق، وسجلان ضمن مجموعة التكرار26d86997-a66b-4fff-b8da-51a923d069d7. المتبقي يحتاج بيانات العميل/المالك/القيمة/الهوية من العمل الفعلي؛ لا تعيين افتراضي ولا تغيير لحالات الفوز والخسارة. الحالات التاريخية أدناه محفوظة كسياق سابق، ولا تعني أن النشر ما زال معلقًا.

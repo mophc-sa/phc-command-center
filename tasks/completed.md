@@ -1,13 +1,26 @@
 # Completed — PHC Command Center
 
+## 2026-09-08 — Board authenticated verification complete
+
+PR 293 (`1815732`) is deployed at 100% on Worker
+`896d9bda-22de-46f1-a9ac-b99a8141c9d9`; preview URLs are disabled.
+Canary/readiness 34196920338/34197018411, production 34197484881 and
+post-production readiness 34197658875 (attempt 2) passed. First readiness
+attempt stopped on a disposable-runner port collision before app tests.
+Actual moalagab session verified 414 open deals / SAR 569.8M and matching team
+total; automatic timestamps 09:40:08 → 09:41:11 → 09:42:15 Riyadh, no reload.
+Final frontend at 10:32:40 shows the full Unassigned label and single-line
+52-unvalued footnote. No business records or permissions changed.
+
+
 ## 2026-09-08 — Board consistency implementation and deployment
 
 PR 291 (`d885f47`) fixes complete source reads, canonical all-year totals including
 paused/unassigned work, historical movement exclusions, actual transition dates,
 follow-up/quotation inputs, stale wording and partial forecasts. 2682 tests and 76
 isolated browser/MFA/role scenarios passed. Canary/readiness 34194060680/34194234299
-and production 34194643810 passed. Authenticated visual confirmation remains in
-current.md because the user's session expired. Source reads found unchanged
+and production 34194643810 passed. Actual-user metrics and two automatic refresh cycles subsequently passed.
+PR 293 additionally deployed the label-fit fix; its final visual check passed as recorded above. Source reads found unchanged
 production aggregates before/after. No business records or permissions changed.
 
 

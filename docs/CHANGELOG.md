@@ -1,8 +1,23 @@
 # CHANGELOG — PHC Command Center
 
-## 2026-09-08 — Authenticated board verification and label fit
+## 2026-09-08 — Board production follow-up (PR 293)
 
-Actual moalagab session confirms 414 open deals / SAR 569.8M and matching team total. Last-success time advanced automatically from 09:40:08 to 09:41:11 Riyadh without reload. Visual review found the pipeline footnote wrapping outside the card and Unassigned truncating. Shorten the redundant coverage wording and rebalance team columns to show the owner label. No metric, data or permission change. Follow-up release pending.
+PR 293 is deployed at `181573202587e5c43b68413c3a9981a3dd268d65`.
+Worker `896d9bda-22de-46f1-a9ac-b99a8141c9d9` serves 100%, verified in the
+Cloudflare dashboard; workers.dev and preview URLs are disabled. Canary
+34196920338, canary readiness 34197018411 and production 34197484881 passed.
+Local verify passed (2682 tests); all required PR checks passed. No data or role changes.
+
+The actual moalagab session verified 414 open deals / SAR 569.8M and the same
+team total. Last-success timestamps advanced without reload at 09:40:08,
+09:41:11 and 09:42:15 Riyadh. The follow-up shortens the pipeline footnote and
+widens the team panel to fit Unassigned while preserving numeric header widths.
+Final authenticated visual verification passed at 10:32:40 Riyadh: Unassigned
+text fits (93.9px text / 111.0px available), and the pipeline footnote occupies
+one line (273.8px text / 318.5px available). Totals still match. Post-production
+readiness 34197658875 passed on attempt 2; attempt 1 stopped on an isolated
+runner port collision before app tests. No release gates bypassed.
+
 
 ## 2026-09-08 — Board production release (PR 291)
 
@@ -10,7 +25,7 @@ Deployed `d885f47` via production run 34194643810 after passing canary/readiness
 Complete all-year pipeline, paused/unassigned totals, correct source timestamps
 and movement filters, visible missing/partial inputs and last-success refresh
 status are live. 2682 unit/contract checks and 76 isolated browser/role/MFA checks
-passed. Final authenticated production visual check awaits renewed user login.
+passed. Authenticated metric and automatic-refresh checks subsequently passed; see PR 293 above.
 
 
 ## 2026-09-08 — Board consistency and refresh
