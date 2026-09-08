@@ -92,15 +92,8 @@ export type StageSlice = {
   share: number;
 };
 
-/**
- * How far back a deal can have arrived and still count as open pipeline.
- *
- * Without a window the board read 633.7M against a 25M target -- because the
- * import carried four years of quotations, and a proposal sent in 2023 that was
- * never answered is not a live opportunity. It sits in an open STAGE only
- * because nobody ever closed it, which is a record-keeping fact, not a
- * commercial one.
- */
+/** Legacy default for callers requesting a recent cohort. The live board
+ * passes null explicitly: open work remains open regardless of its age. */
 export const OPEN_WINDOW_MONTHS = 12;
 
 export type Standing = {

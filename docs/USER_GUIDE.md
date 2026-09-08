@@ -757,7 +757,7 @@ These are guardrails, not suggestions. They will stop you.
 
 ### Board freshness and scope (2026-09-08)
 
-The board reads every page of each source up to the management safety limit and rejects an incomplete or failed refresh instead of displaying misleading zeros. Polling is every 60 seconds; production does not currently publish realtime table changes. A sleeping device, expired session or offline browser cannot guarantee that interval; the last-success timestamp and stale warning expose this. Missing probabilities, values and expected close dates still require real business input. Unassigned opportunities remain visible without inventing owners.
+The board reads every page of each source up to the management safety limit and rejects an incomplete or failed refresh instead of displaying misleading zeros. Polling is every 60 seconds; production does not currently publish realtime table changes. A sleeping device, expired session or offline browser cannot guarantee that interval; the last-success timestamp and stale warning expose this. Missing probabilities, values and expected close dates still require real business input. Forecasts computed from only some eligible deals are labelled Partial; the 30/60/90 figures are cumulative weighted totals, not three different confidence levels. Unassigned opportunities remain visible without inventing owners.
 
 - Automatic AI commentary in Command Center requires sales-pipeline management authority. Viewers retain the deterministic summary without an unauthorized AI request.
 

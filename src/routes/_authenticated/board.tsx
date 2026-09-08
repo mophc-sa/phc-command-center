@@ -1035,7 +1035,7 @@ function BoardPage() {
                   {([
                     [lang === "ar" ? "اليوم" : "Today", model.upcoming.todayCount],
                     [lang === "ar" ? "غدًا" : "Tomorrow", model.upcoming.tomorrowCount],
-                    [lang === "ar" ? "هذا الأسبوع" : "This week", model.upcoming.weekCount],
+                    [lang === "ar" ? "الأيام 2–7" : "Days 2–7", model.upcoming.weekCount],
                   ] as const).map(([l, n]) => (
                     <div key={l} className="flex items-baseline justify-between border-b border-border/40 pb-[0.2vh]">
                       <span className="text-muted-foreground">{l}</span>
@@ -1662,9 +1662,9 @@ function Horizons({
     { key: "d30", f: h.d30, tone: "amber" as const, ar: "30 يومًا", en: "30 days",
       caption: lang === "ar" ? "مرجّح" : "Weighted" },
     { key: "d60", f: h.d60, tone: "violet" as const, ar: "60 يومًا", en: "60 days",
-      caption: lang === "ar" ? "الأكثر ترجيحًا" : "Most likely" },
+      caption: lang === "ar" ? "مرجّح تراكمي" : "Cumulative weighted" },
     { key: "d90", f: h.d90, tone: "teal" as const, ar: "90 يومًا", en: "90 days",
-      caption: lang === "ar" ? "فرصة إضافية محتملة" : "Potential upside" },
+      caption: lang === "ar" ? "مرجّح تراكمي" : "Cumulative weighted" },
   ];
   const shared = sharedReason([h.d30, h.d60, h.d90], lang);
 
@@ -1727,7 +1727,7 @@ function Horizons({
               </span>
             )}
             <span className="mt-[0.2vh] w-full truncate text-muted-foreground" style={{ fontSize: "0.6vw" }}>
-              {ok ? c.caption : state}
+              {ok ? (c.f.missing ? (lang === "ar" ? `جزئي · ${c.f.missing} غير محسوبة` : `Partial · ${c.f.missing} omitted`) : c.caption) : state}
             </span>
           </div>
         );
@@ -1857,6 +1857,7 @@ function KpiFigure({
       </div>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <FigureValue f={f} lang={lang} format={(n) => money(n)} size="3.2vw" />
+        {f.state === "ok" && !!f.missing ? <span className="mt-[0.4vh] text-muted-foreground" style={{ fontSize: "0.65vw" }}>{lang === "ar" ? `جزئي · ${f.missing} فرصة بلا مدخلات كافية` : `Partial · ${f.missing} deals missing inputs`}</span> : null}
       </div>
       {/* The other four cards carry a line saying what the number means next
           to. This one used to carry its own English title instead, which is

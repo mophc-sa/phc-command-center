@@ -343,7 +343,7 @@ export function hotOpportunities(opps: readonly IntelOpp[], limit = 5): HotOppor
       projectName: x.o.project_name ?? "—",
       value: x.v,
       stage: x.st as CanonicalStage,
-      probability: typeof x.o.human_win_probability === "number" ? x.o.human_win_probability : null,
+      probability: hasProbability(x.o) ? x.o.human_win_probability! : null,
       ownerId: x.o.owner_id,
     }));
 }
@@ -430,7 +430,7 @@ export function horizonForecast(
     return {
       value: Math.round(value),
       state: "ok",
-      missing: open.length - usable.length,
+      missing: open.length - usable.length + unvalued,
       ...(unvalued > 0
         ? {
             reasonAr: `${unvalued} صفقة بلا قيمة مسجَّلة غير محسوبة`,
