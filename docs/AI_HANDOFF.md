@@ -1,5 +1,30 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-08 — Board release deployed; authenticated visual check pending
+
+PR 291 is merged and deployed at `d885f47dbd980682a9e2c5c653d274065b43d7aa`.
+Production run 34194643810 passed; Worker `127a5c12-b5ed-4907-ad91-f275afe61c9f`
+serves 100%. Canary 34194060680 and canary readiness 34194234299 passed. Preview
+URLs are disabled again. Post-production readiness: run 34194781057 (check its
+final result). No database, role, commercial-record or subscription changes.
+
+Validation: `bun run verify` passed with 2682 tests; isolated readiness 34193721474
+passed all 76 browser/role/MFA checks, including changed-input polling, read-error
+retention and recovery without a page reload. The transition query now reads the
+real `created_at` column. Production aggregate reads before/after agree: 414 open
+or paused opportunities, SAR 569,805,376.93; unassigned value SAR 155,703,615;
+52 open rows without a monetary value. Won YTD SAR 7,909,835; annual target SAR 25M.
+
+Reloading the actual user's production board after deployment reached /auth: the
+session had expired. User was asked to sign back in as moalagab@phc-sa.com and
+complete MFA without sharing secrets. Once signed in, navigate to /board, verify
+414 / 569.8M and matching team total, inspect layout, and observe the last-success
+timestamp advance across two 60-second cycles without reload. Do not claim this
+final authenticated visual check has passed before observing it. System realtime
+publication is empty; the deliberate refresh path is 60-second polling plus
+focus/reconnect, with stale/error status and user-scoped cache.
+
+
 ## 2026-09-08 — Board consistency and refresh
 
 Branch `fix/board-live-consistency`, base `3c15ce7`. Board reads are paginated, error-propagating and scoped to the signed-in user. All-year open pipeline includes paused/unassigned work; team and stage totals reconcile. Historical promotions no longer appear as new business, loss dates and completed follow-ups use their correct fields, and stale-activity wording matches 10 days. Canonical outcomes govern YTD comparison; weighted figures validate inputs and include all open stages. The old transition read referenced nonexistent `changed_at`; it now aliases `created_at` and filters that real column. Last successful update is visible; automatic 60-second polling, focus and reconnect refresh remain independent of realtime (production publication has no tables). No database, role or commercial-record changes. Local `bun run verify` passed: typecheck, lint, 2682 tests and production build. Browser polling/error-recovery test added to isolated readiness; CI and deployment verification pending.

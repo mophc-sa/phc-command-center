@@ -1,5 +1,16 @@
 # Completed — PHC Command Center
 
+## 2026-09-08 — Board consistency implementation and deployment
+
+PR 291 (`d885f47`) fixes complete source reads, canonical all-year totals including
+paused/unassigned work, historical movement exclusions, actual transition dates,
+follow-up/quotation inputs, stale wording and partial forecasts. 2682 tests and 76
+isolated browser/MFA/role scenarios passed. Canary/readiness 34194060680/34194234299
+and production 34194643810 passed. Authenticated visual confirmation remains in
+current.md because the user's session expired. Source reads found unchanged
+production aggregates before/after. No business records or permissions changed.
+
+
 ## 2026-09-07 — مكتمل: PR 285–287 وتفعيل البيانات المؤهلة
 
 PR 287 دُمج ونُشر: `ba3dd43f083d063c32d620d23c31457b8e079fd4`، Worker `c6288e11-e6c1-406b-a10d-1d4d826d398b` بمرور 100%، `sales-os-api` v48 و`import-pipeline` v37، وترحيل `20260928140000`. جاهزية الإنتاج نجحت في run 34123345922؛ Preview URLs أُعيدت مغلقة. أخذت نسخة public-data قبل الترحيل.
