@@ -4,6 +4,7 @@ import {
   verifyCitations,
   draftHasUnsupportedCompletion,
   groundedModel,
+  referenceHasUnsupportedCompletion,
   type GroundedAnswer,
 } from "../../supabase/functions/_shared/ai-grounding";
 import { gradeEvaluation, estimateAiCost } from "../../supabase/functions/_shared/ai-quality";
@@ -13,6 +14,15 @@ test("measured knowledge routing preserves daily and explicitly configured alter
   expect(groundedModel("daily_meeting_brief", "openai", "gpt-4o-mini")).toBe("gpt-4o-mini");
   expect(groundedModel("company_knowledge", "anthropic", "claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
   expect(groundedModel("company_knowledge", "openai", "custom-model")).toBe("custom-model");
+});
+test("reference years cannot be converted into English or Arabic completion claims", () => {
+  const source = { id: "ref", source_type: "reference_project", source_id: "project", title: "Reference", content: "Recorded year: 2025; scope: signage" };
+  const answer = (text: string): GroundedAnswer => ({ claims: [{ text, citations: ["ref"] }], questions: [], suggested_tasks: [], draft: null, insufficient_evidence: false });
+  expect(referenceHasUnsupportedCompletion(answer("المشروع تم تنفيذه في عام 2025"), [source])).toBe(true);
+  expect(referenceHasUnsupportedCompletion(answer("The project was completed in 2025"), [source])).toBe(true);
+  expect(referenceHasUnsupportedCompletion(answer("The reference records year 2025 and signage scope"), [source])).toBe(false);
+  expect(referenceHasUnsupportedCompletion(answer("يسجّل المرجع عام 2025 ونطاق اللوحات"), [source])).toBe(false);
+  expect(referenceHasUnsupportedCompletion(answer("The project was completed in 2025"), [{ ...source, source_type: "document" }])).toBe(false);
 });
 
 describe("employee assistant decisions", () => {

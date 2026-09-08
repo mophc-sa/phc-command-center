@@ -33,3 +33,7 @@
 - Production Worker: `mophc-sa-phc-command-center`
 - Production custom domain: `agent.phc-sa.com`
 - Lovable transition: keep `lovable-fallback` and Lovable hosting available until two consecutive Cloudflare production releases pass Production Readiness
+
+## Public documentation
+
+This repository is public. Keep production sales amounts, private record identifiers, employee task details and customer document excerpts out of commits and pull request text. Record those details in the authorized private release evidence instead; public documentation should describe behavior and verification without live commercial data.

@@ -14,7 +14,7 @@ Quality evaluation runs Arabic and English PHC cases for pipeline numbers, RFQ c
 
 ## Validation and release
 
-- Full local `bun run verify`: 2,697 tests passed; TypeScript, lint and build passed. Existing lint warnings remain.
+- Full local `bun run verify`: 2,698 tests passed; TypeScript, lint and build passed. Existing lint warnings remain.
 - Deno runtime tests: 21 passed, including actual PDF extraction and Arabic text. Both named function entrypoints passed Deno type checking.
 - Complete disposable database migration replay and behavioral checks: 995 passed, including MFA, source permission revocation, atomic decisions, repeated approvals, quotas and legacy recommendation restrictions.
 - Applied migrations on PHC project `lrfdtoexyeghrzynapyn`: `20260929100000`, `20260929110000`, `20260929120000`.
@@ -23,11 +23,11 @@ Quality evaluation runs Arabic and English PHC cases for pipeline numbers, RFQ c
 
 ## Production acceptance evidence — 2026-09-08
 
-- Independently recomputed every permitted live opportunity and matched the accepted AI report exactly: 414 open, 48 won, 233 lost, 52 unvalued open, SAR 569,805,376.93 open value. These are a dated snapshot, not constants.
+- Independently recomputed every permitted live opportunity and matched the accepted AI report exactly. Actual production counts and amounts are retained in the private release evidence, not this public repository.
 - Indexed all 45 current reference projects and the three current readable documents: one PDF quotation and two XLSX BOQs. Their 48 approved current sources contain 124 chunks. Document text approval is permission to use that version as internal evidence, not commercial approval or a correctness certification of the underlying quotation.
-- Created one real self-owned Janadriya follow-up task; repeated approval returned the same task. Its title is “متابعة Janadriya Cultural Square وتسجيل نتيجة التواصل والخطوة التالية”, due 2026-09-08. It remains open for the employee; no outbound message was sent.
-- Live follow-up testing found and fixed confusion between opportunity and quotation states, overdue and future dates, and an unsupported claim of prior submission. Prompt v4 and grounded v3 keep record states/deadlines distinct, frame unverified submissions as questions, and reject common unsupported completion assertions in drafts.
-- Company retrieval balances project and document evidence so a long BOQ does not crowd out all project references. Arabic questions receive Arabic answers. A reference year is not treated as a completion date.
+- Created one real self-owned follow-up task; repeated approval returned the same task. Its identity and business details are retained in the private release evidence. It remains open for the employee; no outbound message was sent.
+- Live follow-up testing found and fixed confusion between opportunity and quotation states, overdue and future dates, and an unsupported claim of prior submission. Prompt v4 and grounded v4 keep record states/deadlines distinct, frame unverified submissions as questions, and reject common unsupported completion assertions in drafts.
+- Company retrieval balances project and document evidence so a long BOQ does not crowd out all project references. Arabic questions receive Arabic answers. A reference year is not evidence of a completion date. A final live Arabic check exposed an unsupported completion statement despite prompt instructions; grounded v4 adds a fail-closed output check for completion claims cited only to reference metadata, with Arabic/English regression coverage.
 - The configured Claude model had surrounding whitespace. Configuration is normalized without changing provider/model selection. Sonnet 4.6 uses its supported constrained JSON output; original Zod bounds remain enforced. Evaluation v2 gives every candidate the same bounded 60-second budget and records schema errors without source content or secrets. Interactive deadlines are unchanged.
 - Completed all four evaluation cases in Arabic and English for all three candidates: 24 final attempts, with 12 earlier diagnostic attempts retained. All candidates passed both numerical snapshot and no-evidence abstention cases. Raw RFQ counting/field-set compliance failed for every candidate; actual operational counts therefore remain deterministic server results. Citation cases passed in both languages for gpt-4.1-mini, English only for Claude, and neither for gpt-4o-mini under the strict combined rubric.
 - Full-rubric results: gpt-4.1-mini 6/8 (2.75s mean, $0.0036912 total); Claude 5/8 (9.70s, $0.079137); gpt-4o-mini 4/8 (2.07s, $0.0013224). This small dated sample is directional evidence, not a population guarantee. The UI displays overall pass/fail separately from provider completion and individual checks.
