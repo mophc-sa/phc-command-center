@@ -234,7 +234,7 @@ async function run_ai_evaluation(payload: Record<string, unknown>, ctx: SalesOsC
           }
         : {
             status: "failed",
-            error_code: response.ok ? "AI_OUTPUT_VALIDATION_FAILED" : response.code,
+            error_code: response.ok ? "AI_OUTPUT_VALIDATION_FAILED" : response.code + (response.providerStatus ? `_HTTP_${response.providerStatus}` : ""),
             cost_basis: cost.basis,
           };
     const { data: saved } = await ctx.svc

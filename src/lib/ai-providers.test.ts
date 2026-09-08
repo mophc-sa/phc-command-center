@@ -191,6 +191,7 @@ test("generateStructured maps a non-ok HTTP response to AI_PROVIDER_ERROR withou
   if (!result.ok) {
     expect(result.code).toBe("AI_PROVIDER_ERROR");
     expect(result.message).not.toContain("sk-secret-leak-value");
+    expect(result.providerStatus).toBe(401);
   }
 });
 
@@ -209,4 +210,12 @@ test("generateStructured never throws — a fetch-level network error still reso
   const result = await generateStructured(config("openai"), baseInput, fetchImpl);
   expect(result.ok).toBe(false);
   if (!result.ok) expect(result.code).toBe("AI_PROVIDER_ERROR");
+});
+
+
+test("provider settings trim accidental surrounding whitespace without selecting a different model", () => {
+  const r = resolveProviderConfig(makeEnv({AI_PROVIDER:" anthropic ", ANTHROPIC_API_KEY:" test-key ", ANTHROPIC_MODEL:" claude-sonnet-4-6 "}),null,false);
+  expect(r.ok).toBe(true);
+  if(r.ok) expect(r.config).toMatchObject({provider:"anthropic",apiKey:"test-key",model:"claude-sonnet-4-6"});
+  expect(resolveProviderConfig(makeEnv({OPENAI_API_KEY:"key",OPENAI_MODEL:"  "}),null,false)).toEqual({ok:false,provider:"openai",reason:"not_configured"});
 });
