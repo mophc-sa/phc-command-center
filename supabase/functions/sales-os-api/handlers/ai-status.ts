@@ -2,6 +2,7 @@ import type { HandlerModule, SalesOsContext } from "../contracts.ts";
 import { json, err, canManageSalesPipeline } from "../shared.ts";
 import { readAll } from "../../_shared/ai-facts.ts";
 import { resolveProviderConfig } from "../../_shared/ai-providers.ts";
+import { groundedModel } from "../../_shared/ai-grounding.ts";
 async function ai_operations_status(_payload: Record<string, unknown>, ctx: SalesOsContext) {
   const [sources, documents, limits, usage] = await Promise.all([
     readAll((from, to) =>
@@ -43,7 +44,7 @@ async function ai_operations_status(_payload: Record<string, unknown>, ctx: Sale
     usage: usage.data,
     runs,
     provider: provider.ok
-      ? { configured: true, provider: provider.config.provider, model: provider.config.model }
+      ? { configured: true, provider: provider.config.provider, model: provider.config.model, knowledge_model: groundedModel("company_knowledge", provider.config.provider, provider.config.model) }
       : { configured: false },
     as_of: new Date().toISOString(),
   });

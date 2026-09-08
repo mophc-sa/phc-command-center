@@ -7,6 +7,7 @@ import { buildDailyAssistant } from "../../_shared/ai-daily.ts";
 import {
   GroundedAnswerSchema,
   GROUNDED_PROMPT,
+  groundedModel,
   verifyCitations,
   draftHasUnsupportedCompletion,
   type AiCitation,
@@ -172,6 +173,7 @@ async function groundedAnswer(
     });
   const configured = resolveProviderConfig((k) => Deno.env.get(k), null, false);
   if (!configured.ok) return err("AI service is not configured", 503);
+  configured.config.model = groundedModel(kind, configured.config.provider, configured.config.model);
   const { data: reserved } = await ctx.svc
     .rpc("reserve_ai_usage", { _user: ctx.caller.userId, _kind: "interactive" })
     .throwOnError();

@@ -1,4 +1,9 @@
 import { z } from "zod";
+/** PHC bilingual evaluation 2026-09-08: route citation work only; preserve other configured models. */
+export function groundedModel(kind: string, provider: string, model: string): string {
+  return kind === "company_knowledge" && provider === "openai" && model === "gpt-4o-mini"
+    ? "gpt-4.1-mini" : model;
+}
 export const GroundedAnswerSchema = z
   .object({
     claims: z

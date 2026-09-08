@@ -3,10 +3,17 @@ import { buildDailyAssistant } from "../../supabase/functions/_shared/ai-daily";
 import {
   verifyCitations,
   draftHasUnsupportedCompletion,
+  groundedModel,
   type GroundedAnswer,
 } from "../../supabase/functions/_shared/ai-grounding";
 import { gradeEvaluation, estimateAiCost } from "../../supabase/functions/_shared/ai-quality";
 import { embedKnowledge } from "../../supabase/functions/_shared/knowledge-embedding";
+test("measured knowledge routing preserves daily and explicitly configured alternatives", () => {
+  expect(groundedModel("company_knowledge", "openai", "gpt-4o-mini")).toBe("gpt-4.1-mini");
+  expect(groundedModel("daily_meeting_brief", "openai", "gpt-4o-mini")).toBe("gpt-4o-mini");
+  expect(groundedModel("company_knowledge", "anthropic", "claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
+  expect(groundedModel("company_knowledge", "openai", "custom-model")).toBe("custom-model");
+});
 
 describe("employee assistant decisions", () => {
   test("overdue work outranks future follow-ups; terminal deals do not generate next-action tasks", () => {

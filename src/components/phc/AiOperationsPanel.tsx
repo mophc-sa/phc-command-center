@@ -239,6 +239,9 @@ export function AiOperationsPanel() {
                   ? "غير متاح"
                   : "Unavailable"}
             </p>
+            {state.data?.provider.knowledge_model && <p className="text-xs text-muted-foreground">
+              {ar ? "نموذج إجابات معرفة الشركة" : "Company knowledge model"}: {state.data.provider.knowledge_model}
+            </p>}
             <p className="text-sm text-muted-foreground">
               {ar
                 ? "قارن حالات PHC نفسها بالعربية والإنجليزية. تُقاس صحة الحقائق والمراجع آليًا؛ قيّم الفائدة من 1 إلى 5 بعد قراءة النتيجة. المقارنة لا تغيّر نموذج الإنتاج."
@@ -314,6 +317,7 @@ export function AiOperationsPanel() {
                       ? [
                           "النموذج والحالة",
                           "اللغة",
+                          "اجتياز الاختبار",
                           "دقة الأرقام",
                           "المراجع",
                           "المدة",
@@ -323,6 +327,7 @@ export function AiOperationsPanel() {
                       : [
                           "Model / case",
                           "Language",
+                          "Overall check",
                           "Numbers",
                           "Citations",
                           "Duration",
@@ -357,10 +362,13 @@ export function AiOperationsPanel() {
                       </td>
                       <td className="p-2">{r.language}</td>
                       <td className="p-2">
-                        {r.checks ? `${Math.round(r.checks.numerical_accuracy * 100)}%` : "—"}
+                        {r.checks?.passed === true ? (ar ? "اجتاز" : "Passed") : r.checks?.passed === false || r.status === "failed" ? (ar ? "لم يجتز" : "Failed") : "—"}
                       </td>
                       <td className="p-2">
-                        {r.checks ? (r.checks.citations_valid ? "✓" : "✕") : "—"}
+                        {typeof r.checks?.numerical_accuracy === "number" ? `${Math.round(r.checks.numerical_accuracy * 100)}%` : "—"}
+                      </td>
+                      <td className="p-2">
+                        {typeof r.checks?.citations_valid === "boolean" ? (r.checks.citations_valid ? "✓" : "✕") : "—"}
                       </td>
                       <td className="p-2">
                         {r.duration_ms != null ? `${(r.duration_ms / 1000).toFixed(1)}s` : "—"}
@@ -467,7 +475,7 @@ export function AiOperationsPanel() {
             </DialogDescription>
           </DialogHeader>
           <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded border p-3 text-sm">
-            {JSON.stringify(reviewRun?.output ?? { error: reviewRun?.error_code }, null, 2)}
+            {JSON.stringify({ result: reviewRun?.output ?? { error: reviewRun?.error_code }, checks: reviewRun?.checks }, null, 2)}
           </pre>
           <p className="text-xs">{reviewRun?.cost_basis}</p>
           <label>
