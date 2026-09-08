@@ -187,7 +187,7 @@ async function groundedAnswer(
   };
   await ctx.svc
     .from("ai_agent_trace_events")
-    .insert({ ...traceBase, status: "started", metadata: { promptVersion: "phc-grounded.v2" } })
+    .insert({ ...traceBase, status: "started", metadata: { promptVersion: "phc-grounded.v3" } })
     .throwOnError();
   const response = await generateStructured(configured.config, {
     systemPrompt: GROUNDED_PROMPT,
@@ -228,7 +228,7 @@ async function groundedAnswer(
       input_token_count: response.usage?.inputTokens,
       output_token_count: response.usage?.outputTokens,
       context_manifest: { source_count: sources.length },
-      metadata: { promptVersion: "phc-grounded.v2" },
+      metadata: { promptVersion: "phc-grounded.v3" },
     })
     .throwOnError();
   return json({
@@ -244,8 +244,8 @@ async function ask_company_knowledge(payload: Record<string, unknown>, ctx: Sale
   const query = String(payload.query ?? "");
   return await groundedAnswer(
     query,
-    payload.language === "ar" ? "ar" : "en",
-    await retrieveKnowledge(query, ctx),
+    /\p{Script=Arabic}/u.test(query) || payload.language === "ar" ? "ar" : "en",
+    await retrieveKnowledge(query, ctx, 12),
     "company_knowledge",
     ctx,
   );
