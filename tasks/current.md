@@ -1,8 +1,14 @@
 # Current Task — PHC Command Center
 
-## 2026-09-08 — Board consistency and live refresh (active)
+## 2026-09-08 — Board final production verification
 
-Audit `/board` against actual sales data; include all open years and unassigned owners, remove imported activations from new-business movement, correct outcomes/stalled wording and follow-up reads. Complete pagination with explicit failure status, user-scoped cache and 60-second refresh/reconnect. Verify calculations, run required checks, then canary and production release under the existing authorization. No role or commercial-data changes.
+PR 291 is deployed at d885f47 (Worker 127a5c12-b5ed-4907-ad91-f275afe61c9f, 100%).
+Implementation/testing/deployment moved to completed.md. Post-production
+readiness is recorded in run 34194781057. The actual user's session expired upon reload; await
+sign-in/MFA, then inspect /board and observe automatic timestamp changes across
+60-second cycles. No further code or database deployment is needed unless that
+verification finds a defect.
+
 
 ## بند متبقٍ — استكمال بيانات تحتاج قرارًا تجاريًا
 

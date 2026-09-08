@@ -1121,3 +1121,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-09-07 · deployed commit 7d1b9c4 · production reconciliation complete; remaining data review quantified -->
 
 <!-- last reviewed 2026-09-08 · base commit 3c15ce7 · board completeness, canonical scope and verified-refresh status -->
+
+<!-- last reviewed 2026-09-08 · deployed commit d885f47 · PR 291 board fixes; 60-second polling and complete commercial scope -->

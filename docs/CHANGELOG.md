@@ -1,5 +1,14 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-09-08 — Board production release (PR 291)
+
+Deployed `d885f47` via production run 34194643810 after passing canary/readiness.
+Complete all-year pipeline, paused/unassigned totals, correct source timestamps
+and movement filters, visible missing/partial inputs and last-success refresh
+status are live. 2682 unit/contract checks and 76 isolated browser/role/MFA checks
+passed. Final authenticated production visual check awaits renewed user login.
+
+
 ## 2026-09-08 — Board consistency and refresh
 
 Branch `fix/board-live-consistency`, base `3c15ce7`. Board reads are paginated, error-propagating and scoped to the signed-in user. All-year open pipeline includes paused/unassigned work; team and stage totals reconcile. Historical promotions no longer appear as new business, loss dates and completed follow-ups use their correct fields, and stale-activity wording matches 10 days. Canonical outcomes govern YTD comparison; weighted figures validate inputs and include all open stages. Last successful update is visible; automatic 60-second polling, focus and reconnect refresh remain independent of realtime (production publication has no tables). No database, role or commercial-record changes. Local `bun run verify` passed: typecheck, lint, 2682 tests and production build. Browser polling/error-recovery test added to isolated readiness; CI and deployment verification pending.
