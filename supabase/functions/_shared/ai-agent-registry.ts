@@ -304,12 +304,13 @@ async function checkOldDataClassifierAccess(): Promise<AgentAccessResult> {
 
 const FOLLOWUP_ENTITY_TABLES: Record<string, { select: string; toSummary: (r: Record<string, unknown>) => Record<string, unknown> }> = {
   opportunities: {
-    select: "id, project_name, stage, next_action, next_action_due, last_activity_at",
+    select: "id, project_name, stage, sales_stage, next_action, next_action_due, last_activity_at",
     toSummary: (r) => ({
       type: "opportunity",
       reference: r.project_name,
-      status: r.stage,
+      status: resolveCanonicalStage({ stage: r.stage as string | null, sales_stage: r.sales_stage as string | null }).stage,
       next_action: r.next_action,
+      next_action_due: r.next_action_due,
       last_activity_at: r.last_activity_at,
     }),
   },
@@ -372,7 +373,7 @@ async function loadSmartFollowupDraftContext(
     if (!data) return { ok: false, code: "AI_INPUT_INVALID", message: "Follow-up is not linked to this opportunity." };
     followUp = data;
   }
-  const contextText = JSON.stringify({ requested_channel: requestedChannel, language, linked_record: summary, follow_up: followUp }, null, 2);
+  const contextText = JSON.stringify({ current_date: new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Riyadh", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date()), requested_channel: requestedChannel, language, linked_record: summary, follow_up: followUp }, null, 2);
   const manifest: ContextManifest = {
     fields_loaded: Object.keys(summary),
     record_counts: { [entityType]: 1 },

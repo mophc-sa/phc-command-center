@@ -70,6 +70,7 @@ export function DailyAssistantPanel() {
   async function prepare(s: DailySuggestion) {
     if (!s.opportunity_id) return;
     setBusy(s.source_id);
+    setMeeting(null);
     try {
       setMeeting({ answer: await prepareAiMeeting(s.opportunity_id, lang), source: s });
     } catch (e) {

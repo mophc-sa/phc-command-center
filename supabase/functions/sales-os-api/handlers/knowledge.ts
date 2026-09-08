@@ -178,13 +178,19 @@ export async function retrieveKnowledge(
   if (!query.trim() || query.length > 2000)
     throw new Error("Knowledge query must be 1–2,000 characters");
   const vector = await embed(query, ctx);
-  const { data } = await ctx.asCaller
-    .rpc("match_knowledge", {
+  const limit = Number.isFinite(count) ? Math.max(1, Math.min(Math.floor(count), 12)) : 6;
+  // Long BOQs must not crowd every project reference out of company answers.
+  // Both searches retain the caller's RLS and current-source checks.
+  const types = sourceType ? [sourceType] : ["reference_project", "document"];
+  const results = await Promise.all(types.map(async (type) => {
+    const { data } = await ctx.asCaller.rpc("match_knowledge", {
       query_embedding: vector,
-      match_count: Number.isFinite(count) ? Math.max(1, Math.min(Math.floor(count), 12)) : 6,
-      filter_source_type: sourceType,
-    })
-    .throwOnError();
+      match_count: sourceType ? limit : Math.ceil(limit / 2),
+      filter_source_type: type,
+    }).throwOnError();
+    return data ?? [];
+  }));
+  const data = results.flat().sort((a, b) => b.similarity - a.similarity).slice(0, limit);
   return (data ?? []) as {
     id: string;
     source_type: string;

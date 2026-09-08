@@ -2,10 +2,18 @@ import { describe, test, expect } from "bun:test";
 import { buildDailyAssistant } from "../../supabase/functions/_shared/ai-daily";
 import {
   verifyCitations,
+  draftHasUnsupportedCompletion,
+  groundedModel,
   type GroundedAnswer,
 } from "../../supabase/functions/_shared/ai-grounding";
 import { gradeEvaluation, estimateAiCost } from "../../supabase/functions/_shared/ai-quality";
 import { embedKnowledge } from "../../supabase/functions/_shared/knowledge-embedding";
+test("measured knowledge routing preserves daily and explicitly configured alternatives", () => {
+  expect(groundedModel("company_knowledge", "openai", "gpt-4o-mini")).toBe("gpt-4.1-mini");
+  expect(groundedModel("daily_meeting_brief", "openai", "gpt-4o-mini")).toBe("gpt-4o-mini");
+  expect(groundedModel("company_knowledge", "anthropic", "claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
+  expect(groundedModel("company_knowledge", "openai", "custom-model")).toBe("custom-model");
+});
 
 describe("employee assistant decisions", () => {
   test("overdue work outranks future follow-ups; terminal deals do not generate next-action tasks", () => {
@@ -167,6 +175,8 @@ describe("grounding and evaluation", () => {
   test("unknown prices remain unknown rather than reporting free AI", () => {
     expect(estimateAiCost("unknown", 1000, 1000).usd).toBeNull();
     expect(estimateAiCost("gpt-4o-mini", 1000, 1000).usd).toBeCloseTo(0.00075, 9);
+    expect(estimateAiCost("claude-sonnet-4-6", 1000, 1000).usd).toBeCloseTo(0.018, 9);
+    expect(estimateAiCost("claude-sonnet-4-6", 1000, 1000).basis).toContain("Anthropic");
     expect(estimateAiCost("gpt-4o-mini").usd).toBeNull();
   });
 });
@@ -187,4 +197,11 @@ test("multilingual embeddings request one fixed vector space and reject invalid 
     embedKnowledge("text", "test-key", (async () =>
       Response.json({ data: [{ embedding: Array(383).fill(1) }] })) as typeof fetch),
   ).rejects.toThrow("Invalid company knowledge embedding");
+});
+
+
+test("grounded drafts do not invent an employee's previous submission", () => {
+  const base: GroundedAnswer={claims:[],questions:[],suggested_tasks:[],insufficient_evidence:false,draft:{subject:"RFQ follow-up",body:"I am following up on our recent submission.",citations:["rfq"]}};
+  expect(draftHasUnsupportedCompletion(base)).toBe(true);
+  expect(draftHasUnsupportedCompletion({...base,draft:{...base.draft!,body:"Please confirm the current status and any outstanding information required for the RFQ."}})).toBe(false);
 });

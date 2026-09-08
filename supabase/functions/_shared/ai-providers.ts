@@ -63,7 +63,7 @@ export function resolveProviderConfig(
   requestedProvider: ProviderName | null | undefined,
   adminOverrideAllowed: boolean,
 ): ResolveProviderConfigResult {
-  const configuredDefault = env("AI_PROVIDER");
+  const configuredDefault = env("AI_PROVIDER")?.trim();
   const effectiveProvider: string =
     (requestedProvider && adminOverrideAllowed ? requestedProvider : undefined) ?? configuredDefault ?? "openai";
 
@@ -72,8 +72,8 @@ export function resolveProviderConfig(
   }
   const provider = effectiveProvider as ProviderName;
 
-  const apiKey = provider === "openai" ? env("OPENAI_API_KEY") : env("ANTHROPIC_API_KEY");
-  const model = provider === "openai" ? env("OPENAI_MODEL") : env("ANTHROPIC_MODEL");
+  const apiKey = (provider === "openai" ? env("OPENAI_API_KEY") : env("ANTHROPIC_API_KEY"))?.trim();
+  const model = (provider === "openai" ? env("OPENAI_MODEL") : env("ANTHROPIC_MODEL"))?.trim();
   if (!apiKey || !model) {
     return { ok: false, reason: "not_configured", provider };
   }
@@ -92,7 +92,7 @@ export function resolveProviderConfig(
 
 export type AiProviderResult<T> =
   | { ok: true; data: T; model: string; usage?: { inputTokens?: number; outputTokens?: number } }
-  | { ok: false; code: "AI_PROVIDER_TIMEOUT" | "AI_PROVIDER_ERROR" | "AI_RESPONSE_PARSE_FAILED"; message: string };
+  | { ok: false; code: "AI_PROVIDER_TIMEOUT" | "AI_PROVIDER_ERROR" | "AI_RESPONSE_PARSE_FAILED"; message: string; providerStatus?: number };
 
 export type GenerateStructuredInput = {
   systemPrompt: string;
@@ -155,6 +155,26 @@ async function callOpenAi(
   };
 }
 
+/** Anthropic grammar supports structure; the caller still validates original bounds. */
+export function anthropicOutputSchema(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(anthropicOutputSchema);
+  if (!value || typeof value !== "object") return value;
+  const result: Record<string, unknown> = {};
+  const constraints: string[] = [];
+  for (const [key, child] of Object.entries(value)) {
+    if (["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength", "maxLength", "minItems", "maxItems"].includes(key)) {
+      constraints.push(`${key}: ${child}`);
+    } else if (key !== "$schema") {
+      // Property names are data: a field named "minimum" must not disappear.
+      result[key] = key === "properties" || key === "$defs" || key === "definitions"
+        ? Object.fromEntries(Object.entries(child as Record<string, unknown>).map(([name, schema]) => [name, anthropicOutputSchema(schema)]))
+        : anthropicOutputSchema(child);
+    }
+  }
+  if (constraints.length) result.description = `${result.description ?? ""} Required constraints: ${constraints.join(", ")}.`.trim();
+  return result;
+}
+
 async function callAnthropic(
   config: ProviderConfig,
   input: GenerateStructuredInput,
@@ -170,6 +190,9 @@ async function callAnthropic(
       messages: [{ role: "user", content: input.userPrompt }],
       max_tokens: input.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
       temperature: input.temperature ?? DEFAULT_TEMPERATURE,
+      ...(input.jsonSchema && config.model === "claude-sonnet-4-6" ? {
+        output_config: { format: { type: "json_schema", schema: anthropicOutputSchema(input.jsonSchema) } },
+      } : {}),
     }),
     signal,
   });
@@ -213,7 +236,9 @@ export async function generateStructured(
     if (controller.signal.aborted) {
       return { ok: false, code: "AI_PROVIDER_TIMEOUT", message: "Provider request timed out." };
     }
-    return { ok: false, code: "AI_PROVIDER_ERROR", message: "Provider request failed." };
+    const statusMatch = e instanceof Error ? /^(?:openai|anthropic)_http_(\d{3})$/.exec(e.message) : null;
+    const providerStatus = statusMatch ? Number(statusMatch[1]) : undefined;
+    return { ok: false, code: "AI_PROVIDER_ERROR", message: providerStatus ? `Provider returned HTTP ${providerStatus}.` : "Provider request failed.", ...(providerStatus ? {providerStatus} : {}) };
   } finally {
     clearTimeout(timer);
   }

@@ -7,7 +7,9 @@ import { buildDailyAssistant } from "../../_shared/ai-daily.ts";
 import {
   GroundedAnswerSchema,
   GROUNDED_PROMPT,
+  groundedModel,
   verifyCitations,
+  draftHasUnsupportedCompletion,
   type AiCitation,
 } from "../../_shared/ai-grounding.ts";
 import { generateStructured, resolveProviderConfig } from "../../_shared/ai-providers.ts";
@@ -171,6 +173,7 @@ async function groundedAnswer(
     });
   const configured = resolveProviderConfig((k) => Deno.env.get(k), null, false);
   if (!configured.ok) return err("AI service is not configured", 503);
+  configured.config.model = groundedModel(kind, configured.config.provider, configured.config.model);
   const { data: reserved } = await ctx.svc
     .rpc("reserve_ai_usage", { _user: ctx.caller.userId, _kind: "interactive" })
     .throwOnError();
@@ -186,13 +189,13 @@ async function groundedAnswer(
   };
   await ctx.svc
     .from("ai_agent_trace_events")
-    .insert({ ...traceBase, status: "started", metadata: { promptVersion: "phc-grounded.v1" } })
+    .insert({ ...traceBase, status: "started", metadata: { promptVersion: "phc-grounded.v3" } })
     .throwOnError();
   const response = await generateStructured(configured.config, {
     systemPrompt: GROUNDED_PROMPT,
     userPrompt: delimitUntrustedContext(
       "sources",
-      JSON.stringify({ language, request: query, sources }),
+      JSON.stringify({ current_date: new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Riyadh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()), language, request: query, sources }),
     ),
     schemaName: "phc_grounded_answer",
     jsonSchema: z.toJSONSchema(GroundedAnswerSchema),
@@ -204,6 +207,7 @@ async function groundedAnswer(
     !response.ok ||
     !parsed?.success ||
     !verifyCitations(parsed.data, sources) ||
+    draftHasUnsupportedCompletion(parsed.data) ||
     scanForGuardrailViolations(parsed.data).length
   ) {
     await ctx.svc
@@ -226,7 +230,7 @@ async function groundedAnswer(
       input_token_count: response.usage?.inputTokens,
       output_token_count: response.usage?.outputTokens,
       context_manifest: { source_count: sources.length },
-      metadata: { promptVersion: "phc-grounded.v1" },
+      metadata: { promptVersion: "phc-grounded.v3" },
     })
     .throwOnError();
   return json({
@@ -242,8 +246,8 @@ async function ask_company_knowledge(payload: Record<string, unknown>, ctx: Sale
   const query = String(payload.query ?? "");
   return await groundedAnswer(
     query,
-    payload.language === "ar" ? "ar" : "en",
-    await retrieveKnowledge(query, ctx),
+    /\p{Script=Arabic}/u.test(query) || payload.language === "ar" ? "ar" : "en",
+    await retrieveKnowledge(query, ctx, 12),
     "company_knowledge",
     ctx,
   );

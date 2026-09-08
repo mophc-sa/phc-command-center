@@ -47,12 +47,13 @@ export function estimateAiCost(model: string, input?: number, output?: number) {
   const prices: Record<string, [number, number]> = {
     "gpt-4o-mini": [0.15, 0.6],
     "gpt-4.1-mini": [0.4, 1.6],
+    "claude-sonnet-4-6": [3, 15],
   };
   const price = prices[model];
   return !price || input == null || output == null
     ? { usd: null, basis: "Price or token usage unavailable; not zero" }
     : {
         usd: (input * price[0] + output * price[1]) / 1000000,
-        basis: `OpenAI model pricing verified 2026-09-08; USD per 1M input/output: ${price.join("/")}; uncached estimate, not invoice`,
+        basis: `${model.startsWith("claude-") ? "Anthropic" : "OpenAI"} model pricing verified 2026-09-08; USD per 1M input/output: ${price.join("/")}; uncached estimate, not invoice`,
       };
 }

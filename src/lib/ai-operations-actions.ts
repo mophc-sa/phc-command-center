@@ -58,7 +58,7 @@ export type AiOperationsStatus = {
   sources: KnowledgeSource[];
   documents: { id: string; title: string | null; original_filename: string; mime_type: string }[];
   runs: QualityRun[];
-  provider: { configured: boolean; provider?: string; model?: string };
+  provider: { configured: boolean; provider?: string; model?: string; knowledge_model?: string };
   limits: { kind: string; daily_per_user: number; daily_global: number }[];
   usage: { kind: string; calls: number }[];
 };
