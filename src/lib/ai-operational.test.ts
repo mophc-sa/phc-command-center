@@ -168,6 +168,8 @@ describe("grounding and evaluation", () => {
   test("unknown prices remain unknown rather than reporting free AI", () => {
     expect(estimateAiCost("unknown", 1000, 1000).usd).toBeNull();
     expect(estimateAiCost("gpt-4o-mini", 1000, 1000).usd).toBeCloseTo(0.00075, 9);
+    expect(estimateAiCost("claude-sonnet-4-6", 1000, 1000).usd).toBeCloseTo(0.018, 9);
+    expect(estimateAiCost("claude-sonnet-4-6", 1000, 1000).basis).toContain("Anthropic");
     expect(estimateAiCost("gpt-4o-mini").usd).toBeNull();
   });
 });
