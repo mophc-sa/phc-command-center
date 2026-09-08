@@ -148,7 +148,7 @@ test("the effective provider override is resolved once and reused for both the f
   expect(occurrences.length).toBe(1);
 });
 
-test("index.ts handles claim.kind === 'conflict' before context loading, provider resolution, the provider call, and the output insert", () => {
+test("index.ts handles claim.kind === 'conflict' before provider resolution, the provider call, and the output insert; context is read to invalidate automatic cache keys", () => {
   const conflictIdx = orchestratorIndex.indexOf('claim.kind === "conflict"');
   const contextLoadIdx = orchestratorIndex.indexOf("agentDef.loadContext(");
   const providerResolveIdx = orchestratorIndex.indexOf("resolveProviderConfig((key) => Deno.env.get(key)");
@@ -159,7 +159,7 @@ test("index.ts handles claim.kind === 'conflict' before context loading, provide
   expect(providerResolveIdx).toBeGreaterThan(-1);
   expect(providerCallIdx).toBeGreaterThan(-1);
   expect(outputInsertIdx).toBeGreaterThan(-1);
-  expect(conflictIdx).toBeLessThan(contextLoadIdx);
+  expect(orchestratorIndex.indexOf("agentDef.checkAccess(")).toBeLessThan(contextLoadIdx);
   expect(conflictIdx).toBeLessThan(providerResolveIdx);
   expect(conflictIdx).toBeLessThan(providerCallIdx);
   expect(conflictIdx).toBeLessThan(outputInsertIdx);

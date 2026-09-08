@@ -44,6 +44,8 @@ BEGIN
   INSERT INTO public.ai_recommendations
     (agent_key, title, recommendation, status, generated_by)
     VALUES ('housekeeping', 'Stale records', 'Archive them', 'open', 'ai-orchestrator');
+  INSERT INTO public.ai_evidence_items(recommendation_id,label,value,source_ref)
+    SELECT id,'Activity gap','21 days','opportunity:'||o1 FROM public.ai_recommendations WHERE title='Deal has gone quiet';
 END $$;
 
 CREATE TEMP TABLE ai1 AS SELECT
@@ -126,17 +128,17 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'PASS 12. …nor what it is about'; END;
 
   -- ===== a human decides, once, with attribution =====
-  BEGIN UPDATE public.ai_recommendations SET status='dismissed' WHERE id=r1;
+  BEGIN PERFORM public.decide_ai_recommendation(r1,'dismiss',NULL);
     RAISE NOTICE 'FAIL 13. advice was dismissed with no reason';
   EXCEPTION WHEN check_violation THEN RAISE NOTICE 'PASS 13. dismissing advice requires a reason'; END;
 
-  UPDATE public.ai_recommendations SET status='accepted' WHERE id=r1;
+  PERFORM public.decide_ai_recommendation(r1,'accept',NULL);
   SELECT count(*) INTO n FROM public.ai_recommendations
    WHERE id=r1 AND status='accepted' AND decided_by=s1 AND decided_at IS NOT NULL;
   RAISE NOTICE '% 14. accepting stamps who and when from the session (expect 1, got %)',
     CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
 
-  BEGIN UPDATE public.ai_recommendations SET status='dismissed', decision_note='changed my mind' WHERE id=r1;
+  BEGIN PERFORM public.decide_ai_recommendation(r1,'dismiss','changed my mind');
     RAISE NOTICE 'FAIL 15. a decided recommendation was decided again';
   EXCEPTION WHEN check_violation THEN RAISE NOTICE 'PASS 15. a recommendation is decided once'; END;
 

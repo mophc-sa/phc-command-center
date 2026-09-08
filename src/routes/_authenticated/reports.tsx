@@ -317,7 +317,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
     setRunning(true);
     setError(null);
     try {
-      const result = await runAiAgent({ agent: "sales_report_insights", entityType: "reports", entityId: REPORTS_ENTITY_ID });
+      const result = await runAiAgent({ agent: "sales_report_insights", entityType: "reports", entityId: REPORTS_ENTITY_ID, input: { language: lang } });
       if (!result.ok) throw new Error(result.message);
       outputQ.refetch();
     } catch (e: any) {
@@ -342,12 +342,13 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
   if (!canRun) return null;
 
   const output = outputQ.data;
-  const display = output?.structured_output as any;
+  const savedDisplay = output?.structured_output as any;
+  const display = savedDisplay?.system_facts ? savedDisplay : null;
 
   return (
     <ChartFrame
       title={lang === "ar" ? "رؤى الذكاء الاصطناعي" : "AI Insights"}
-      subtitle={lang === "ar" ? "تحليل عند الطلب لأرقام هذه الصفحة" : "On-demand analysis of this page's own numbers"}
+      subtitle={lang === "ar" ? "لقطة شاملة للمبيعات؛ يوضّح وقت التحليل تاريخ الأرقام" : "Company-wide sales snapshot; figures are dated at analysis time"}
     >
       <div className="space-y-3">
         <button
@@ -364,8 +365,13 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
           <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>
         )}
 
+        {savedDisplay && !display && <p className="text-xs text-muted-foreground">{lang === "ar" ? "التحليل السابق يحتاج إعادة توليد باستخدام مصدر الأرقام الموحّد." : "Regenerate the previous analysis using the unified source of figures."}</p>}
         {display && (
           <div className="space-y-3 text-sm">
+            <div className="rounded border p-3 text-xs">
+              <p>{lang === "ar" ? "أرقام محسوبة من النظام" : "System-calculated facts"} · {new Date(display.system_facts.generated_at).toLocaleString(lang)}</p>
+              {Object.entries(display.system_facts.open.value_by_currency as Record<string, number>).map(([currency,value]) => <p key={currency}>{currency}: {Number(value).toLocaleString(lang)} · {lang === "ar" ? "قيمة الفرص المفتوحة" : "Open pipeline value"}</p>)}
+            </div>
             {display.headline && <div className="font-medium text-foreground">{display.headline}</div>}
             {display.key_insights?.length > 0 && (
               <div>

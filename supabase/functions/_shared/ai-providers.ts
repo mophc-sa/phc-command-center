@@ -98,6 +98,7 @@ export type GenerateStructuredInput = {
   systemPrompt: string;
   userPrompt: string;
   schemaName: string;
+  jsonSchema?: Record<string, unknown>;
   traceId: string;
   temperature?: number;
   maxOutputTokens?: number;
@@ -135,7 +136,7 @@ async function callOpenAi(
         { role: "system", content: input.systemPrompt },
         { role: "user", content: input.userPrompt },
       ],
-      response_format: { type: "json_object" },
+      response_format: input.jsonSchema ? { type: "json_schema", json_schema: { name: input.schemaName, strict: true, schema: input.jsonSchema } } : { type: "json_object" },
       temperature: input.temperature ?? DEFAULT_TEMPERATURE,
       max_tokens: input.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
     }),
@@ -165,7 +166,7 @@ async function callAnthropic(
     headers: { "Content-Type": "application/json", "x-api-key": config.apiKey, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model: config.model,
-      system: input.systemPrompt,
+      system: input.systemPrompt + (input.jsonSchema ? `\nRequired JSON schema (return only matching JSON): ${JSON.stringify(input.jsonSchema)}` : ""),
       messages: [{ role: "user", content: input.userPrompt }],
       max_tokens: input.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
       temperature: input.temperature ?? DEFAULT_TEMPERATURE,

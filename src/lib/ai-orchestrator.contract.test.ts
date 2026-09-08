@@ -167,11 +167,11 @@ test("every insert/update in ai-orchestrator's index.ts targets only the three A
   }
 });
 
-test("index.ts's only RPC call is the request-claim function — no other server-side procedure is invoked", () => {
+test("index.ts only calls request claiming and bounded AI usage reservation, never commercial write procedures", () => {
   const rpcCalls = [...orchestratorIndex.matchAll(/\.rpc\(\s*["'`]([\w]+)["'`]/g)].map((m) => m[1]);
   expect(rpcCalls.length).toBeGreaterThan(0);
   for (const name of rpcCalls) {
-    expect(name).toBe("claim_ai_agent_request");
+    expect(["claim_ai_agent_request", "reserve_ai_usage"]).toContain(name);
   }
 });
 
@@ -205,7 +205,8 @@ test("the idempotency lookup happens before any provider call in index.ts (sourc
 
 test("every error path in index.ts uses a code from AI_ERROR_CODES, not an ad-hoc string", () => {
   const codesInSchema = [...aiSchemasSource.matchAll(/"(AI_[A-Z_]+)"/g)].map((m) => m[1]);
-  const codesUsedInOrchestrator = new Set([...orchestratorIndex.matchAll(/"(AI_[A-Z_]+)"/g)].map((m) => m[1]));
+  const withoutEnvironmentKeys = orchestratorIndex.replace(/Deno\.env\.get\("[A-Z_]+"\)/g, "");
+  const codesUsedInOrchestrator = new Set([...withoutEnvironmentKeys.matchAll(/"(AI_[A-Z_]+)"/g)].map((m) => m[1]));
   for (const code of codesUsedInOrchestrator) {
     expect(codesInSchema, `code used in orchestrator but not declared in AI_ERROR_CODES: ${code}`).toContain(code);
   }

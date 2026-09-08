@@ -1,3 +1,8 @@
+import { useState } from "react";
+import { useI18n } from "@/lib/i18n";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canCreateSalesRecords } from "@/lib/roles";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, Eye, ShieldAlert, FileSearch } from "lucide-react";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -17,14 +22,19 @@ export function AiEvidencePanel({
   busy,
 }: {
   rec: AiRecommendation;
-  onAction: (action: FeedbackAction) => void;
+  onAction: (action: FeedbackAction, note?: string) => void;
   busy?: boolean;
 }) {
+  const { lang } = useI18n();
+  const { roles } = useAuth();
+  const [dismissing, setDismissing] = useState(false);
+  const [note, setNote] = useState("");
   const { data: evidence = [], isLoading } = useQuery({
     queryKey: ["ai-evidence", rec.id],
     queryFn: () => listEvidence(rec.id),
   });
   const panel = buildEvidencePanel(rec, evidence);
+  const disabled = busy || isLoading || evidence.length === 0 || !canCreateSalesRecords(roles) || rec.status !== "open";
 
   return (
     <div className="rounded-xl border border-border/70 bg-surface/60 p-5">
@@ -32,7 +42,7 @@ export function AiEvidencePanel({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <StatusPill tone={rec.severity === "high" ? "attention" : "muted"}>{rec.agent_key}</StatusPill>
-            {panel.requiresApproval ? (
+        {panel.requiresApproval ? (
               <StatusPill tone="attention">
                 <ShieldAlert className="me-1 inline h-3 w-3" /> approval required
               </StatusPill>
@@ -88,22 +98,24 @@ export function AiEvidencePanel({
       {/* Actions */}
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-4">
         <EmptyEmailBtn rec={rec} />
-        <button disabled={busy} onClick={() => onAction("dismiss")} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50">
+        <button disabled={disabled} onClick={() => setDismissing(true)} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50">
           <XCircle className="h-3.5 w-3.5" /> Dismiss
         </button>
-        <button disabled={busy} onClick={() => onAction("request_review")} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50">
+        {rec.entity_type === "opportunity" && <button disabled={disabled} onClick={() => onAction("request_review")} className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50">
           <Eye className="h-3.5 w-3.5" /> Request review
-        </button>
+        </button>}
+        {!panel.requiresApproval && <button disabled={disabled} onClick={() => onAction("create_task")} className="rounded-md border px-3 py-1.5 text-xs">{lang === "ar" ? "اعتماد وإنشاء مهمة لي" : "Approve and create my task"}</button>}
         {panel.requiresApproval ? (
-          <button disabled={busy} onClick={() => onAction("create_approval")} className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20 disabled:opacity-50">
+          <button disabled={disabled} onClick={() => onAction("create_approval")} className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20 disabled:opacity-50">
             <ShieldAlert className="h-3.5 w-3.5" /> Create approval
           </button>
         ) : (
-          <button disabled={busy} onClick={() => onAction("accept")} className="inline-flex items-center gap-1.5 rounded-md border border-won/40 bg-won/10 px-3 py-1.5 text-xs font-medium text-won hover:bg-won/[0.16] disabled:opacity-50">
+          <button disabled={disabled} onClick={() => onAction("accept")} className="inline-flex items-center gap-1.5 rounded-md border border-won/40 bg-won/10 px-3 py-1.5 text-xs font-medium text-won hover:bg-won/[0.16] disabled:opacity-50">
             <CheckCircle2 className="h-3.5 w-3.5" /> Accept
           </button>
         )}
       </div>
+      <Dialog open={dismissing} onOpenChange={setDismissing}><DialogContent><DialogHeader><DialogTitle>{lang === "ar" ? "سبب رفض التوصية" : "Reason for dismissing advice"}</DialogTitle><DialogDescription>{lang === "ar" ? "يساعد السبب في قياس جودة الاقتراحات وتحسينها." : "The reason helps measure and improve suggestion quality."}</DialogDescription></DialogHeader><label>{lang === "ar" ? "السبب" : "Reason"}<textarea value={note} maxLength={2000} onChange={e => setNote(e.target.value)} className="mt-1 w-full rounded border bg-background p-2" /></label><button disabled={disabled || !note.trim()} className="rounded border px-3 py-2 disabled:opacity-50" onClick={() => { onAction("dismiss", note); setDismissing(false); }}>{lang === "ar" ? "تسجيل الرفض" : "Record dismissal"}</button></DialogContent></Dialog>
     </div>
   );
 }

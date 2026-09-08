@@ -7,6 +7,10 @@ import { aiOutputsModule } from "./handlers/ai-outputs.ts";
 import { approvalsModule } from "./handlers/approvals.ts";
 import { automationModule } from "./handlers/automation.ts";
 import { historicalPromotionModule } from "./handlers/historical-promotion.ts";
+import { aiStatusModule } from "./handlers/ai-status.ts";
+import { aiQualityModule } from "./handlers/ai-quality.ts";
+import { dailyAssistantModule } from "./handlers/daily-assistant.ts";
+import { knowledgeModule } from "./handlers/knowledge.ts";
 import { intelligenceModule } from "./handlers/intelligence.ts";
 import { lifecycleModule } from "./handlers/lifecycle.ts";
 import { pipelineModule } from "./handlers/pipeline.ts";
@@ -16,6 +20,10 @@ const registry = createHandlerRegistry([
   approvalsModule,
   pipelineModule,
   intelligenceModule,
+  knowledgeModule,
+  dailyAssistantModule,
+  aiQualityModule,
+  aiStatusModule,
   automationModule,
   lifecycleModule,
   aiOutputsModule,

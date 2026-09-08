@@ -86,8 +86,8 @@ select ok(
 
 select ok(
   has_function_privilege('authenticated', 'public.match_knowledge(extensions.vector, integer, text)', 'EXECUTE')
-  and has_function_privilege('service_role', 'public.match_knowledge(extensions.vector, integer, text)', 'EXECUTE'),
-  'authorized roles retain semantic knowledge search'
+  and not has_function_privilege('service_role', 'public.match_knowledge(extensions.vector, integer, text)', 'EXECUTE'),
+  'semantic search requires the caller identity instead of service-role bypass'
 );
 
 select ok(

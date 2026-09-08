@@ -32,6 +32,9 @@ import {
 } from "./ai-guardrails.ts";
 import { canManageSalesPipeline, type AppRole } from "./roles.ts";
 import type { z } from "zod";
+import { readAll, salesFacts } from "./ai-facts.ts";
+import { opportunityValue } from "./opportunity-value.ts";
+import { resolveCanonicalStage } from "./stage-canonical.ts";
 
 // Redacts a UUID for the trace's context_manifest (audit-safe summary only —
 // the real ID is still used in the actual prompt content sent to the
@@ -95,7 +98,7 @@ async function checkOwnershipAccess(
   if (bypassesOwnership(roles)) return { ok: true };
   const ownerField = ownerFieldFor(entityType);
   if (!ownerField) return { ok: true };
-  const { data } = await svc.from(entityType).select(ownerField).eq("id", entityId).maybeSingle();
+  const { data } = await svc.from(entityType).select(ownerField).eq("id", entityId).maybeSingle().throwOnError();
   const ownerValue = isPlainRecord(data) ? data[ownerField] : null;
   if (!isOwnedBy(ownerValue, userId)) {
     return { ok: false, code: "AI_RECORD_ACCESS_DENIED", message: "You do not have access to this record." };
@@ -115,10 +118,10 @@ async function loadOpportunityEvaluationContext(
   const { data: opp, error } = await svc
     .from("opportunities")
     .select(
-      "id, project_name, stage, tier, estimated_value_min, estimated_value_max, quotation_value, currency, next_action, next_action_due, last_activity_at, sector, win_confidence",
+      "id, project_name, stage, sales_stage, contract_value, tier, estimated_value_min, estimated_value_max, quotation_value, currency, next_action, next_action_due, last_activity_at, sector, win_confidence",
     )
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (error || !opp) return { ok: false, code: "AI_INPUT_INVALID", message: "Opportunity not found." };
 
   // Limited recent activity only — last 5 follow-ups, not the full history.
@@ -127,20 +130,20 @@ async function loadOpportunityEvaluationContext(
     .select("due_date, status, channel, last_contact_at")
     .eq("opportunity_id", entityId)
     .order("due_date", { ascending: false })
-    .limit(5);
+    .limit(5).throwOnError();
 
-  const { data: rfqs } = await svc.from("rfqs").select("id, status, rfq_number").eq("opportunity_id", entityId).limit(3);
+  const { data: rfqs } = await svc.from("rfqs").select("id, status, rfq_number").eq("opportunity_id", entityId).limit(3).throwOnError();
   const { data: tenders } = await svc
     .from("tenders")
     .select("id, tender_stage, tender_name")
     .eq("converted_opportunity_id", entityId)
-    .limit(3);
+    .limit(3).throwOnError();
 
   const opportunitySummary = {
     reference: opp.project_name,
-    stage: opp.stage,
+    stage: resolveCanonicalStage(opp).stage,
     tier: opp.tier,
-    value: opp.quotation_value ?? opp.estimated_value_max ?? opp.estimated_value_min ?? null,
+    value: opportunityValue(opp),
     currency: opp.currency,
     next_step: opp.next_action,
     next_step_due: opp.next_action_due,
@@ -217,15 +220,15 @@ async function loadOldDataClassifierContext(
     .from("import_rows")
     .select("id, batch_id, file_id, row_number, raw_data, mapped_data, status")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (error || !row) return { ok: false, code: "AI_INPUT_INVALID", message: "Staged row not found." };
 
   const { data: batch } = await svc
     .from("import_batches")
     .select("status, source_type, target_entity, total_rows")
     .eq("id", row.batch_id)
-    .maybeSingle();
-  const { data: file } = await svc.from("import_files").select("column_names").eq("id", row.file_id).maybeSingle();
+    .maybeSingle().throwOnError();
+  const { data: file } = await svc.from("import_files").select("column_names").eq("id", row.file_id).maybeSingle().throwOnError();
   // No standalone "field dictionary" table exists in this schema (checked
   // during discovery) — the closest equivalent, already-chosen column
   // mappings for this batch, is substituted instead.
@@ -233,12 +236,12 @@ async function loadOldDataClassifierContext(
     .from("import_mappings")
     .select("source_column, target_table, target_column, is_key")
     .eq("batch_id", row.batch_id)
-    .limit(OLD_DATA_MAPPINGS_LIMIT);
+    .limit(OLD_DATA_MAPPINGS_LIMIT).throwOnError();
   const { data: dupes } = await svc
     .from("import_duplicate_candidates")
     .select("existing_table, existing_record_id, match_type, confidence")
     .eq("row_id", entityId)
-    .limit(OLD_DATA_DUPES_LIMIT);
+    .limit(OLD_DATA_DUPES_LIMIT).throwOnError();
 
   const detectedHeaders = (file?.column_names ?? []).slice(0, OLD_DATA_HEADERS_LIMIT);
 
@@ -356,12 +359,20 @@ async function loadSmartFollowupDraftContext(
   const entry = FOLLOWUP_ENTITY_TABLES[entityType];
   if (!entry) return { ok: false, code: "AI_ENTITY_NOT_ALLOWED", message: "Unsupported entity type for this agent." };
 
-  const { data: record } = await svc.from(entityType).select(entry.select).eq("id", entityId).maybeSingle();
+  const { data: record } = await svc.from(entityType).select(entry.select).eq("id", entityId).maybeSingle().throwOnError();
   if (!isPlainRecord(record)) return { ok: false, code: "AI_INPUT_INVALID", message: "Linked record not found." };
 
   const summary = entry.toSummary(record);
   const language = typeof input.language === "string" && (input.language === "en" || input.language === "ar") ? input.language : "en";
-  const contextText = JSON.stringify({ requested_channel: requestedChannel, language, linked_record: summary }, null, 2);
+  let followUp = null;
+  if (input.follow_up_id) {
+    if (entityType !== "opportunities" || typeof input.follow_up_id !== "string") return { ok: false, code: "AI_INPUT_INVALID", message: "Follow-up requires its linked opportunity." };
+    const { data } = await svc.from("follow_ups").select("id, due_date, status, channel, last_contact_at, notes")
+      .eq("id", input.follow_up_id).eq("opportunity_id", entityId).maybeSingle().throwOnError();
+    if (!data) return { ok: false, code: "AI_INPUT_INVALID", message: "Follow-up is not linked to this opportunity." };
+    followUp = data;
+  }
+  const contextText = JSON.stringify({ requested_channel: requestedChannel, language, linked_record: summary, follow_up: followUp }, null, 2);
   const manifest: ContextManifest = {
     fields_loaded: Object.keys(summary),
     record_counts: { [entityType]: 1 },
@@ -386,14 +397,14 @@ async function loadDataCleanupContext(
     .from("import_batches")
     .select("id, status, source_type, target_entity, total_rows, created_at")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (batchError || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
 
   const { data: rows } = await svc
     .from("import_rows")
-    .select("id, raw_data, mapped_data, detected_headers, status")
+    .select("id, raw_data, mapped_data, status")
     .eq("batch_id", entityId)
-    .limit(DATA_CLEANUP_ROWS_LIMIT);
+    .limit(DATA_CLEANUP_ROWS_LIMIT).throwOnError();
 
   const contextText = JSON.stringify(
     {
@@ -409,7 +420,7 @@ async function loadDataCleanupContext(
         id: r.id,
         raw_data: r.raw_data,
         mapped_data: r.mapped_data,
-        detected_headers: r.detected_headers,
+        detected_headers: r.raw_data && typeof r.raw_data === "object" ? Object.keys(r.raw_data) : [],
         status: r.status,
       })),
     },
@@ -447,14 +458,14 @@ async function loadContactMappingContext(
     .from("import_batches")
     .select("id, status, source_type, target_entity, total_rows, created_at")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (batchError || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
 
   const { data: rows } = await svc
     .from("import_rows")
-    .select("id, raw_data, mapped_data, detected_headers, status")
+    .select("id, raw_data, mapped_data, status")
     .eq("batch_id", entityId)
-    .limit(CONTACT_MAPPING_ROWS_LIMIT);
+    .limit(CONTACT_MAPPING_ROWS_LIMIT).throwOnError();
 
   const contextText = JSON.stringify(
     {
@@ -470,7 +481,7 @@ async function loadContactMappingContext(
         id: r.id,
         raw_data: r.raw_data,
         mapped_data: r.mapped_data,
-        detected_headers: r.detected_headers,
+        detected_headers: r.raw_data && typeof r.raw_data === "object" ? Object.keys(r.raw_data) : [],
         status: r.status,
       })),
     },
@@ -509,34 +520,36 @@ async function loadProjectRadarContext(
 ): Promise<AgentContextResult> {
   const { data: opps } = await svc
     .from("opportunities")
-    .select("id, project_name, stage, updated_at, estimated_value_max, owner_id")
+    .select("id, project_name, stage, sales_stage, contract_value, quotation_value, updated_at, estimated_value_max, owner_id")
+    .neq("stage", "archived")
     .order("updated_at", { ascending: false })
-    .limit(PIPELINE_OPPS_LIMIT);
+    .limit(PIPELINE_OPPS_LIMIT).throwOnError();
 
   const { data: leads } = await svc
     .from("leads")
-    .select("id, project_name, location, stage, created_at")
+    .select("id, project_name, location, lead_stage, created_at")
     .order("created_at", { ascending: false })
-    .limit(PIPELINE_LEADS_LIMIT);
+    .limit(PIPELINE_LEADS_LIMIT).throwOnError();
 
   const contextText = JSON.stringify(
     {
       pipeline_snapshot: {
         as_of: new Date().toISOString(),
+        scope: "Recent sample only; do not infer company totals or absence of other opportunities.",
       },
       opportunities: (opps ?? []).map((o) => ({
         id: o.id,
         project_name: o.project_name,
-        stage: o.stage,
+        stage: resolveCanonicalStage(o).stage,
         updated_at: o.updated_at,
-        value: o.estimated_value_max ?? null,
+        value: opportunityValue(o),
         owner_id: o.owner_id,
       })),
       leads: (leads ?? []).map((l) => ({
         id: l.id,
         project_name: l.project_name,
         location: l.location,
-        stage: l.stage,
+        stage: l.lead_stage,
         created_at: l.created_at,
       })),
     },
@@ -572,10 +585,10 @@ async function loadRiskFinanceContext(
   const { data: opp, error } = await svc
     .from("opportunities")
     .select(
-      "id, project_name, stage, tier, estimated_value_min, estimated_value_max, quotation_value, currency, next_action, next_action_due, last_activity_at, sector, company_id",
+      "id, project_name, stage, sales_stage, contract_value, tier, estimated_value_min, estimated_value_max, quotation_value, currency, next_action, next_action_due, last_activity_at, sector, company_id",
     )
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (error || !opp) return { ok: false, code: "AI_INPUT_INVALID", message: "Opportunity not found." };
 
   // Linked company for client-type risk assessment.
@@ -585,7 +598,7 @@ async function loadRiskFinanceContext(
       .from("companies")
       .select("name, company_type, relationship_level")
       .eq("id", opp.company_id)
-      .maybeSingle();
+      .maybeSingle().throwOnError();
     if (isPlainRecord(co)) {
       company = { name: co.name, company_type: co.company_type, relationship_level: co.relationship_level };
     }
@@ -595,23 +608,21 @@ async function loadRiskFinanceContext(
   const { count: quotationCount } = await svc
     .from("quotations")
     .select("id", { count: "exact", head: true })
-    .eq("opportunity_id", entityId);
+    .eq("related_opportunity_id", entityId).throwOnError();
 
   const { count: boqCount } = await svc
-    .from("boq_items")
+    .from("boqs")
     .select("id", { count: "exact", head: true })
-    .eq("opportunity_id", entityId);
+    .eq("related_opportunity_id", entityId).throwOnError();
 
   const contextText = JSON.stringify(
     {
       opportunity: {
         id: opp.id,
         project_name: opp.project_name,
-        stage: opp.stage,
+        stage: resolveCanonicalStage(opp).stage,
         tier: opp.tier,
-        value_min: opp.estimated_value_min,
-        value_max: opp.estimated_value_max,
-        quotation_value: opp.quotation_value,
+        value: opportunityValue(opp),
         currency: opp.currency,
         next_action: opp.next_action,
         next_action_due: opp.next_action_due,
@@ -621,7 +632,7 @@ async function loadRiskFinanceContext(
       client: company,
       document_presence: {
         linked_quotations: quotationCount ?? 0,
-        linked_boq_items: boqCount ?? 0,
+        linked_boqs: boqCount ?? 0,
       },
     },
     null,
@@ -667,11 +678,11 @@ async function loadCommercialRiskContext(
       .from("companies")
       .select("id, name, company_type, account_status, relationship_level, next_action, next_action_due, last_contact_at")
       .eq("id", entityId)
-      .maybeSingle();
+      .maybeSingle().throwOnError();
     if (!isPlainRecord(co)) return { ok: false, code: "AI_INPUT_INVALID", message: "Company not found." };
 
-    const { count: opportunityCount } = await svc.from("opportunities").select("id", { count: "exact", head: true }).eq("company_id", entityId);
-    const { count: contactCount } = await svc.from("contacts").select("id", { count: "exact", head: true }).eq("company_id", entityId);
+    const { count: opportunityCount } = await svc.from("opportunities").select("id", { count: "exact", head: true }).eq("company_id", entityId).throwOnError();
+    const { count: contactCount } = await svc.from("contacts").select("id", { count: "exact", head: true }).eq("company_id", entityId).throwOnError();
 
     const contextText = JSON.stringify(
       { record_type: "companies", record: co, linked_counts: { opportunities: opportunityCount ?? 0, contacts: contactCount ?? 0 } },
@@ -699,7 +710,7 @@ async function loadCommercialRiskContext(
       .from("rfqs")
       .select("id, rfq_number, classification, status, received_date, response_due_date, estimated_value, project_id, company_id")
       .eq("id", entityId)
-      .maybeSingle();
+      .maybeSingle().throwOnError();
     if (!isPlainRecord(data)) return { ok: false, code: "AI_INPUT_INVALID", message: "RFQ not found." };
     record = data;
     projectId = data.project_id;
@@ -709,7 +720,7 @@ async function loadCommercialRiskContext(
       .from("tenders")
       .select("id, tender_name, tender_stage, tender_priority_classification, expected_award_date, estimated_project_value, signage_potential, project_id")
       .eq("id", entityId)
-      .maybeSingle();
+      .maybeSingle().throwOnError();
     if (!isPlainRecord(data)) return { ok: false, code: "AI_INPUT_INVALID", message: "Tender not found." };
     record = data;
     projectId = data.project_id;
@@ -718,11 +729,11 @@ async function loadCommercialRiskContext(
       .from("quotations")
       .select("id, quote_number, version, status, value, currency, valid_until, issued_date, last_follow_up_at, related_opportunity_id")
       .eq("id", entityId)
-      .maybeSingle();
+      .maybeSingle().throwOnError();
     if (!isPlainRecord(data)) return { ok: false, code: "AI_INPUT_INVALID", message: "Quotation not found." };
     record = data;
     if (typeof data.related_opportunity_id === "string") {
-      const { data: opp } = await svc.from("opportunities").select("project_id, company_id").eq("id", data.related_opportunity_id).maybeSingle();
+      const { data: opp } = await svc.from("opportunities").select("project_id, company_id").eq("id", data.related_opportunity_id).maybeSingle().throwOnError();
       if (isPlainRecord(opp)) {
         projectId = opp.project_id;
         companyId = opp.company_id;
@@ -732,13 +743,13 @@ async function loadCommercialRiskContext(
 
   let project: { name: unknown; project_stage: unknown } | null = null;
   if (typeof projectId === "string") {
-    const { data: proj } = await svc.from("projects").select("name, project_stage").eq("id", projectId).maybeSingle();
+    const { data: proj } = await svc.from("projects").select("name, project_stage").eq("id", projectId).maybeSingle().throwOnError();
     if (isPlainRecord(proj)) project = { name: proj.name, project_stage: proj.project_stage };
   }
 
   let company: { name: unknown; company_type: unknown } | null = null;
   if (typeof companyId === "string") {
-    const { data: co } = await svc.from("companies").select("name, company_type").eq("id", companyId).maybeSingle();
+    const { data: co } = await svc.from("companies").select("name, company_type").eq("id", companyId).maybeSingle().throwOnError();
     if (isPlainRecord(co)) company = { name: co.name, company_type: co.company_type };
   }
 
@@ -770,24 +781,24 @@ async function loadProjectJobNotesContext(
     .from("project_jobs")
     .select("id, title, description, due_date, stage_id, assignee_id, project_id")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (!isPlainRecord(job)) return { ok: false, code: "AI_INPUT_INVALID", message: "Job not found." };
 
   let stageName: unknown = null;
   if (typeof job.stage_id === "string") {
-    const { data: stage } = await svc.from("project_job_stages").select("name").eq("id", job.stage_id).maybeSingle();
+    const { data: stage } = await svc.from("project_job_stages").select("name").eq("id", job.stage_id).maybeSingle().throwOnError();
     if (isPlainRecord(stage)) stageName = stage.name;
   }
 
   let project: { name: unknown; project_number: unknown; project_stage: unknown } | null = null;
   if (typeof job.project_id === "string") {
-    const { data: proj } = await svc.from("projects").select("name, project_number, project_stage").eq("id", job.project_id).maybeSingle();
+    const { data: proj } = await svc.from("projects").select("name, project_number, project_stage").eq("id", job.project_id).maybeSingle().throwOnError();
     if (isPlainRecord(proj)) project = { name: proj.name, project_number: proj.project_number, project_stage: proj.project_stage };
   }
 
   let assigneeName: unknown = null;
   if (typeof job.assignee_id === "string") {
-    const { data: profile } = await svc.from("profiles").select("full_name").eq("id", job.assignee_id).maybeSingle();
+    const { data: profile } = await svc.from("profiles").select("full_name").eq("id", job.assignee_id).maybeSingle().throwOnError();
     if (isPlainRecord(profile)) assigneeName = profile.full_name;
   }
 
@@ -826,28 +837,36 @@ async function loadProjectBudgetVarianceContext(
     .from("projects")
     .select("id, name, project_number, total_value, project_stage")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (!isPlainRecord(project)) return { ok: false, code: "AI_INPUT_INVALID", message: "Project not found." };
 
-  const { data: items } = await svc
-    .from("project_budget_items")
-    .select("category, description, planned_amount, actual_amount, currency")
-    .eq("project_id", entityId)
-    .order("created_at", { ascending: true })
-    .limit(BUDGET_VARIANCE_ITEMS_LIMIT);
-  const budgetItems = Array.isArray(items) ? items : [];
+  const allItems = await readAll((from, to) => svc.from("project_budget_items")
+    .select("id, category, description, planned_amount, actual_amount, currency")
+    .eq("project_id", entityId).order("id").range(from, to));
+  const totals: Record<string, { planned: number; actual: number; missing_planned: number; missing_actual: number; count: number }> = {};
+  for (const item of allItems) {
+    const group = totals[item.currency || "UNKNOWN"] ??= { planned: 0, actual: 0, missing_planned: 0, missing_actual: 0, count: 0 };
+    group.count++;
+    if (item.planned_amount == null) group.missing_planned++; else group.planned += Number(item.planned_amount);
+    if (item.actual_amount == null) group.missing_actual++; else group.actual += Number(item.actual_amount);
+  }
+  const budgetItems = allItems.slice(0, BUDGET_VARIANCE_ITEMS_LIMIT);
 
   const contextText = JSON.stringify(
     {
       project: { name: project.name, project_number: project.project_number, total_value: project.total_value, project_stage: project.project_stage },
-      budget_items: budgetItems,
+      budget_items_sample: budgetItems,
+      complete_totals_by_currency: totals,
+      total_items: allItems.length,
+      sampled_items: budgetItems.length,
+      instruction: "Use complete totals for variance. Sample descriptions are not the full budget. Missing costs are unknown, never zero.",
     },
     null,
     2,
   );
   const manifest: ContextManifest = {
     fields_loaded: ["project.name", "project.project_number", "project.total_value", "project.project_stage", "budget_items"],
-    record_counts: { projects: 1, project_budget_items: budgetItems.length },
+    record_counts: { projects: 1, project_budget_items: allItems.length },
     source_entity_types: ["projects", "project_budget_items"],
     redacted_identifiers: { entity_id: redactId(entityId) },
   };
@@ -867,66 +886,22 @@ async function checkSalesReportInsightsAccess(): Promise<AgentAccessResult> {
   return { ok: true };
 }
 
-const REPORT_OPPS_LIMIT = 500;
-const REPORT_QUOTES_LIMIT = 500;
-
 async function loadSalesReportInsightsContext(
   svc: SupabaseClient,
   _entityType: EntityType,
   _entityId: string,
+  input: Record<string, unknown>,
 ): Promise<AgentContextResult> {
-  const { data: opps } = await svc
-    .from("opportunities")
-    .select("stage, estimated_value_max")
-    .order("updated_at", { ascending: false })
-    .limit(REPORT_OPPS_LIMIT);
-  const { data: quotes } = await svc
-    .from("quotations")
-    .select("status, value, win_loss_reason")
-    .order("created_at", { ascending: false })
-    .limit(REPORT_QUOTES_LIMIT);
-
-  const oppsList = Array.isArray(opps) ? opps : [];
-  const quotesList = Array.isArray(quotes) ? quotes : [];
-
-  const pipelineByStage: Record<string, number> = {};
-  for (const o of oppsList as { stage: unknown; estimated_value_max: unknown }[]) {
-    const stage = typeof o.stage === "string" ? o.stage : "unknown";
-    pipelineByStage[stage] = (pipelineByStage[stage] ?? 0) + (typeof o.estimated_value_max === "number" ? o.estimated_value_max : 0);
-  }
-
-  const quotationFunnel: Record<string, { count: number; value: number }> = {};
-  for (const q of quotesList as { status: unknown; value: unknown }[]) {
-    const status = typeof q.status === "string" ? q.status : "unknown";
-    const bucket = quotationFunnel[status] ?? { count: 0, value: 0 };
-    bucket.count += 1;
-    bucket.value += typeof q.value === "number" ? q.value : 0;
-    quotationFunnel[status] = bucket;
-  }
-
-  const won = quotesList.filter((q: any) => q.status === "won").length;
-  const lost = quotesList.filter((q: any) => q.status === "lost").length;
-  const winRatePct = won + lost > 0 ? Math.round((won / (won + lost)) * 100) : null;
-
-  const lostReasonCounts: Record<string, number> = {};
-  for (const q of quotesList as { status: unknown; win_loss_reason: unknown }[]) {
-    if (q.status !== "lost" || typeof q.win_loss_reason !== "string" || !q.win_loss_reason.trim()) continue;
-    const reason = q.win_loss_reason.trim();
-    lostReasonCounts[reason] = (lostReasonCounts[reason] ?? 0) + 1;
-  }
-
-  const contextText = JSON.stringify(
-    { win_rate_pct: winRatePct, pipeline_value_by_stage: pipelineByStage, quotation_funnel: quotationFunnel, lost_reason_counts: lostReasonCounts },
-    null,
-    2,
-  );
-  const manifest: ContextManifest = {
-    fields_loaded: ["win_rate_pct", "pipeline_value_by_stage", "quotation_funnel", "lost_reason_counts"],
-    record_counts: { opportunities: oppsList.length, quotations: quotesList.length },
-    source_entity_types: ["opportunities", "quotations"],
-    redacted_identifiers: {},
+  const [opps, quotes] = await Promise.all([
+    readAll((from, to) => svc.from("opportunities").select("id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, currency").order("id").range(from, to)),
+    readAll((from, to) => svc.from("quotations").select("id, status, value, currency").order("id").range(from, to)),
+  ]);
+  const facts = salesFacts(opps, quotes);
+  return {
+    ok: true, contextText: JSON.stringify({ ...facts, language: input.language === "ar" ? "ar" : "en" }), recordCount: 1,
+    manifest: { fields_loaded: Object.keys(facts), record_counts: { opportunities: opps.length, quotations: quotes.length },
+      source_entity_types: ["opportunities", "quotations"], redacted_identifiers: {} },
   };
-  return { ok: true, contextText, manifest, recordCount: 1 };
 }
 
 // ---------------------------------------------------------------------------
@@ -949,7 +924,7 @@ async function loadWorkbookClassifierContext(
     .from("import_batches")
     .select("id, status, source_type, target_entity, total_rows, created_at, ai_suggestions_enabled")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
 
   const { data: file } = await svc
@@ -957,7 +932,7 @@ async function loadWorkbookClassifierContext(
     .select("id, file_type, column_names, row_count, sheet_count")
     .eq("batch_id", entityId)
     .limit(1)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
 
   // Up to 5 preview rows — raw_data only, no mapped_data needed at this stage.
   const { data: previewRows } = await svc
@@ -965,7 +940,7 @@ async function loadWorkbookClassifierContext(
     .select("row_number, raw_data")
     .eq("batch_id", entityId)
     .order("row_number")
-    .limit(5);
+    .limit(5).throwOnError();
 
   const contextText = JSON.stringify(
     {
@@ -1014,7 +989,7 @@ async function loadSheetClassifierContext(
     .from("import_batches")
     .select("id, status, target_entity")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
 
   const { data: file } = await svc
@@ -1022,7 +997,7 @@ async function loadSheetClassifierContext(
     .select("file_type, column_names, sheet_count, file_name")
     .eq("batch_id", entityId)
     .limit(1)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
 
   if (!file || file.file_type !== "xlsx") {
     return { ok: false, code: "AI_INPUT_INVALID", message: "sheet_classifier requires an xlsx file." };
@@ -1068,7 +1043,7 @@ async function loadSemanticFieldMapperContext(
     .from("import_batches")
     .select("id, target_entity")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
 
   const { data: file } = await svc
@@ -1076,7 +1051,7 @@ async function loadSemanticFieldMapperContext(
     .select("column_names")
     .eq("batch_id", entityId)
     .limit(1)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
 
   const columns: string[] = (file?.column_names ?? []).slice(0, 100);
 
@@ -1085,7 +1060,7 @@ async function loadSemanticFieldMapperContext(
     .from("import_rows")
     .select("raw_data")
     .eq("batch_id", entityId)
-    .limit(MAPPER_SAMPLE_VALUES);
+    .limit(MAPPER_SAMPLE_VALUES).throwOnError();
 
   // Build per-column sample values.
   const columnSamples: Record<string, unknown[]> = {};
@@ -1100,7 +1075,7 @@ async function loadSemanticFieldMapperContext(
     .from("import_mappings")
     .select("source_column, target_column, is_key")
     .eq("batch_id", entityId)
-    .limit(MAPPER_MAPPINGS_LIMIT);
+    .limit(MAPPER_MAPPINGS_LIMIT).throwOnError();
 
   const mappedColumns = new Set((existingMappings ?? []).map((m) => m.source_column));
   const unmappedColumns = columns.filter((c) => !mappedColumns.has(c));
@@ -1148,7 +1123,7 @@ async function loadEntityExtractorContext(
     .from("import_batches")
     .select("id, status, target_entity, total_rows")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
 
   const { data: rows } = await svc
@@ -1157,7 +1132,7 @@ async function loadEntityExtractorContext(
     .eq("batch_id", entityId)
     .eq("status", "valid")
     .order("row_number")
-    .limit(EXTRACTOR_ROWS_LIMIT);
+    .limit(EXTRACTOR_ROWS_LIMIT).throwOnError();
 
   const contextText = JSON.stringify(
     {
@@ -1196,7 +1171,7 @@ async function loadRelationshipResolverContext(
     .from("import_batches")
     .select("id, target_entity")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
 
   // Accepted split proposals for this batch.
@@ -1205,7 +1180,7 @@ async function loadRelationshipResolverContext(
     .select("id, source_row_id, entity_type, proposed_payload, role")
     .eq("batch_id", entityId)
     .eq("review_status", "accepted")
-    .limit(RESOLVER_PROPOSALS_LIMIT);
+    .limit(RESOLVER_PROPOSALS_LIMIT).throwOnError();
 
   if (!proposals || proposals.length === 0) {
     return {
@@ -1220,12 +1195,12 @@ async function loadRelationshipResolverContext(
     .from("companies")
     .select("id, name")
     .order("name")
-    .limit(RESOLVER_CRM_HINTS);
+    .limit(RESOLVER_CRM_HINTS).throwOnError();
   const { data: crmContacts } = await svc
     .from("contacts")
     .select("id, name")
     .order("name")
-    .limit(RESOLVER_CRM_HINTS);
+    .limit(RESOLVER_CRM_HINTS).throwOnError();
 
   const contextText = JSON.stringify(
     {
@@ -1273,7 +1248,7 @@ async function loadChangeInterpreterContext(
     .from("import_batches")
     .select("id, status, source_type, target_entity, total_rows, valid_rows, error_rows, duplicate_rows, source_profile_id, created_at")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
 
   if (!batch.source_profile_id) {
@@ -1292,14 +1267,14 @@ async function loadChangeInterpreterContext(
     .neq("id", entityId)
     .order("created_at", { ascending: false })
     .limit(1)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
 
   // Sample duplicate candidates to understand what changed.
   const { data: dupes } = await svc
     .from("import_duplicate_candidates")
     .select("match_type, match_scope, confidence, matched_fields, suggested_action")
     .eq("batch_id", entityId)
-    .limit(CHANGE_DUPES_LIMIT);
+    .limit(CHANGE_DUPES_LIMIT).throwOnError();
 
   const contextText = JSON.stringify(
     {
@@ -1361,7 +1336,7 @@ async function loadImportRoutingReviewerContext(
     .from("import_batches")
     .select("id, status, source_type, target_entity, total_rows, valid_rows, error_rows, duplicate_rows, dry_run, readiness_checklist, ai_suggestions_enabled, created_at")
     .eq("id", entityId)
-    .maybeSingle();
+    .maybeSingle().throwOnError();
   if (error || !batch) return { ok: false, code: "AI_INPUT_INVALID", message: "Import batch not found." };
 
   // Summaries of prior agent outputs for this batch (not full payloads — just metadata).
@@ -1371,7 +1346,7 @@ async function loadImportRoutingReviewerContext(
     .eq("entity_id", entityId)
     .eq("entity_type", "import_batches")
     .order("created_at", { ascending: false })
-    .limit(REVIEWER_OUTPUTS_LIMIT);
+    .limit(REVIEWER_OUTPUTS_LIMIT).throwOnError();
 
   const contextText = JSON.stringify(
     {

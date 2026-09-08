@@ -92,15 +92,15 @@ test("AI_REQUEST_IN_PROGRESS is declared in the shared error-code list, not an a
 // Required Fix 3 — trace persistence is checked, not fire-and-forget
 // ---------------------------------------------------------------------------
 
-test("the started trace event's result is checked, and the flow aborts before context/provider on failure", () => {
+test("the started trace event's result is checked, and the flow aborts before the paid provider call on failure", () => {
   const startedInsertIdx = orchestratorIndex.indexOf('status: "started"');
   const abortCheckIdx = orchestratorIndex.indexOf("if (!startedTrace.ok)");
-  const contextLoadIdx = orchestratorIndex.indexOf("agentDef.loadContext(");
+  const providerCallIdx = orchestratorIndex.indexOf("generateStructured(config");
   expect(startedInsertIdx).toBeGreaterThan(-1);
   expect(abortCheckIdx).toBeGreaterThan(-1);
-  expect(contextLoadIdx).toBeGreaterThan(-1);
+  expect(providerCallIdx).toBeGreaterThan(-1);
   expect(startedInsertIdx).toBeLessThan(abortCheckIdx);
-  expect(abortCheckIdx).toBeLessThan(contextLoadIdx);
+  expect(abortCheckIdx).toBeLessThan(providerCallIdx);
 });
 
 test("insertTraceEvent's caller-visible return type can report failure — it is not a fire-and-forget void", () => {

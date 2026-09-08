@@ -4,6 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Users, Copy, FileBarChart } from "lucide-react";
+import { AiOperationsPanel } from "@/components/phc/AiOperationsPanel";
+import { DailyAssistantPanel } from "@/components/phc/DailyAssistantPanel";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -35,7 +37,7 @@ function AiAgentsPage() {
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
 
-  const { data: recs = [], isLoading } = useQuery({ queryKey: ["ai-recs"], queryFn: () => listRecommendations("pending") });
+  const { data: recs = [], isLoading } = useQuery({ queryKey: ["ai-recs"], queryFn: () => listRecommendations("open") });
   const { data: runs = [] } = useQuery({ queryKey: ["ai-runs"], queryFn: listAgentRuns });
 
   const refresh = () => {
@@ -57,10 +59,10 @@ function AiAgentsPage() {
     }
   }
 
-  async function onAction(recId: string, action: FeedbackAction) {
+  async function onAction(recId: string, action: FeedbackAction, note?: string) {
     setBusy(recId);
     try {
-      await sendRecommendationFeedback(recId, action);
+      await sendRecommendationFeedback(recId, action, note);
       toast.success(`Recommendation ${action}`);
       refresh();
     } catch (e) {
@@ -74,18 +76,21 @@ function AiAgentsPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader eyebrow={t("ag_eyebrow_intelligence")} title={t("ag_title")} description={t("ag_description")} />
 
+      <DailyAssistantPanel />
+      <AiOperationsPanel />
+
       {canRun ? (
         <Panel title={t("ag_run_agents")}>
           <div className="flex flex-wrap gap-2">
             <RunButton icon={<Sparkles className="h-3.5 w-3.5" />} label={t("ag_lead_scoring")} busy={busy === "Lead Scoring"} onClick={() => run("Lead Scoring", runLeadScoring)} />
             <RunButton icon={<Copy className="h-3.5 w-3.5" />} label={t("ag_duplicate_detection")} busy={busy === "Duplicate Detection"} onClick={() => run("Duplicate Detection", runDuplicateDetection)} />
             <RunButton icon={<FileBarChart className="h-3.5 w-3.5" />} label={t("ag_weekly_report")} busy={busy === "Weekly Report"} onClick={() => run("Weekly Report", generateWeeklyReport)} />
-            {Object.entries(AGENT_ACTIONS).map(([key, action]) => (
-              <RunButton key={key} icon={<Users className="h-3.5 w-3.5" />} label={key} muted busy={busy === key} onClick={() => run(key, () => runAgent(action))} />
-            ))}
+            <a href="/agent-activity" className="rounded-md border px-3 py-1.5 text-xs">{t("ag_recent_runs")}</a>
+            <a href="/reports" className="rounded-md border px-3 py-1.5 text-xs">Reports AI</a>
+            <a href="/data-import" className="rounded-md border px-3 py-1.5 text-xs">Import Intelligence</a>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Muted agents need an external source/credential and will honestly report “not configured”.
+            Analysis and drafts run from their linked records. The operations above show real indexed knowledge, daily work and measured quality.
           </p>
         </Panel>
       ) : null}
@@ -98,7 +103,7 @@ function AiAgentsPage() {
         ) : (
           <div className="space-y-3">
             {recs.map((rec) => (
-              <AiEvidencePanel key={rec.id} rec={rec} busy={busy === rec.id} onAction={(a) => onAction(rec.id, a)} />
+              <AiEvidencePanel key={rec.id} rec={rec} busy={busy === rec.id} onAction={(a, note) => onAction(rec.id, a, note)} />
             ))}
           </div>
         )}

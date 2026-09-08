@@ -52,6 +52,7 @@ import {
   resolveMaxInputChars,
 } from "../_shared/ai-guardrails.ts";
 import { resolveProviderConfig, generateStructured } from "../_shared/ai-providers.ts";
+import { z } from "zod";
 import { PROMPT_VERSION } from "../_shared/ai-prompts.ts";
 import { interpretClaimRpcResult, type ClaimRpcRow } from "../_shared/ai-idempotency.ts";
 import { computeRequestFingerprint, resolveEffectiveProviderOverride } from "../_shared/ai-fingerprint.ts";
@@ -230,6 +231,28 @@ async function handleRequest(req: Request): Promise<Response> {
   const adminOverrideAllowed = isSystemAdmin(caller.roles);
   const effectiveProviderOverride = resolveEffectiveProviderOverride(request.provider ?? null, adminOverrideAllowed);
 
+  // Read before automatic deduplication: a changed source must invalidate the
+  // cached result even inside the five-minute window. Caller access was checked above.
+  let preloadedContext;
+  try {
+    preloadedContext = await agentDef.loadContext(svc, entityType, entityId, request.input as Record<string, unknown>);
+  } catch {
+    await insertTraceEvent(svc, { traceId, requestedBy: caller.userId, agentKey: request.agent,
+      entityType, entityId, status: "failed", errorCode: "AI_CONTEXT_READ_FAILED",
+      errorMessage: "Required system data could not be read." });
+    return errorEnvelope("AI_CONTEXT_READ_FAILED", "Required system data could not be read. No analysis was generated.", traceId, 503);
+  }
+  if (!preloadedContext.ok) return errorEnvelope(preloadedContext.code, preloadedContext.message, traceId, 400);
+  if (!request.clientRequestId) {
+    const stableContext = JSON.parse(preloadedContext.contextText);
+    delete stableContext.generated_at;
+    if (stableContext.pipeline_snapshot) delete stableContext.pipeline_snapshot.as_of;
+    const digest = await computeRequestFingerprint({ input: { input: request.input, context: stableContext,
+      promptVersion: PROMPT_VERSION, model: Deno.env.get((effectiveProviderOverride ?? Deno.env.get("AI_PROVIDER")) === "anthropic" ? "ANTHROPIC_MODEL" : "OPENAI_MODEL") },
+      providerOverride: effectiveProviderOverride });
+    request.clientRequestId = `auto:${digest}:${Math.floor(Date.now() / 300000)}`;
+  }
+
   // ---- Atomic claim (Required Fix 1 + 2 + idempotency payload-conflict fix) --
   // Only attempted once the caller is known to be authorized — an
   // unauthorized request never creates a claim row at all. A matching prior
@@ -389,10 +412,7 @@ async function handleRequest(req: Request): Promise<Response> {
   };
 
   // ---- 7. Load minimal context ------------------------------------------------
-  const contextResult = await agentDef.loadContext(svc, entityType, entityId, request.input as Record<string, unknown>);
-  if (!contextResult.ok) {
-    return await fail(contextResult.code, contextResult.message, 400);
-  }
+  const contextResult = preloadedContext;
 
   // ---- 8. Enforce context size — record count AND character length ------------
   // (Required Fix 4: record count alone previously let an oversized single
@@ -425,12 +445,16 @@ async function handleRequest(req: Request): Promise<Response> {
     return await skip("AI_NOT_CONFIGURED", "AI service is not configured.", 200);
   }
   const { config } = providerResolution;
+  const usageKind = entityType === "import_batches" || entityType === "import_rows" ? "import" : "interactive";
+  const { data: reserved, error: usageError } = await svc.rpc("reserve_ai_usage", { _user: caller.userId, _kind: usageKind });
+  if (usageError || !reserved) return await fail("AI_USAGE_LIMIT", "AI usage could not be reserved or the daily limit was reached.", 429);
 
   // ---- 11 & 12. Call provider with timeout, parse response ----------------------------
   const providerResult = await generateStructured(config, {
     systemPrompt: prompt.systemPrompt,
     userPrompt: prompt.userPrompt,
     schemaName: prompt.schemaName,
+    jsonSchema: request.agent === "sales_report_insights" ? z.toJSONSchema(agentDef.outputSchema) : undefined,
     traceId,
   });
   if (!providerResult.ok) {
@@ -451,6 +475,14 @@ async function handleRequest(req: Request): Promise<Response> {
     });
   }
   const structuredOutput = validation.data as Record<string, unknown>;
+
+  if (request.agent === "sales_report_insights") {
+    const facts = JSON.parse(contextResult.contextText);
+    structuredOutput.system_facts = facts;
+    structuredOutput.headline = facts.language === "ar"
+      ? `${facts.open.count} فرصة مفتوحة؛ ${facts.won_count} فرصة فائزة؛ ${facts.open.unvalued} فرصة مفتوحة بلا قيمة مسجلة.`
+      : `${facts.open.count} open opportunities; ${facts.won_count} won; ${facts.open.unvalued} open opportunities with no recorded value.`;
+  }
 
   // ---- 14. Apply output guardrails -------------------------------------------------------
   if (!isOutputWithinSizeLimit(structuredOutput)) {

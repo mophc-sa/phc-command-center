@@ -39,6 +39,10 @@ async function review_ai_agent_output(
   if (!outputId) return err("outputId is required");
   if (!VALID_DECISIONS.has(decision)) return err("decision must be 'accepted' or 'rejected'");
 
+  const { data: visible, error: accessError } = await ctx.asCaller.from("ai_agent_outputs")
+    .select("id").eq("id", outputId).maybeSingle();
+  if (accessError || !visible) return err("Output not available to your account", 403);
+
   const svc = ctx.svc;
   const nowIso = new Date().toISOString();
   const { data, error } = await svc
