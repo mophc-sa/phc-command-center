@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { signInWithCachedSession } from "./fixtures/auth";
+import { totp } from "../../scripts/totp";
 import { getRoleCredentials } from "./fixtures/roles";
 
 test("board polls changed inputs, preserves data on read failure and recovers without reload", async ({ page }) => {
@@ -27,6 +28,18 @@ test("board polls changed inputs, preserves data on read failure and recovers wi
       created_at: "2023-01-01T00:00:00Z", extra_data: {},
     }]) });
   });
+  // A fresh password login can briefly land on the app before its AAL
+  // guard redirects. Finish the real MFA challenge before installing timers.
+  await page.goto("/board");
+  const code = page.locator('input[autocomplete="one-time-code"]');
+  await expect(page.getByTestId("board-last-updated").or(code)).toBeVisible({ timeout: 15_000 });
+  if (await code.isVisible()) {
+    const secret = process.env.TEST_SALES_MANAGER_TOTP_SECRET;
+    if (!secret) throw new Error("Sales manager MFA secret is required");
+    await code.fill(totp(secret));
+    await page.getByRole("button", { name: /^(Verify|تحقق)$/ }).click();
+    await expect(code).toHaveCount(0, { timeout: 15_000 });
+  }
   await page.clock.install();
   await page.goto("/board");
   await expect(page.getByText(name, { exact: true }).first()).toBeVisible().catch(async (error) => {
