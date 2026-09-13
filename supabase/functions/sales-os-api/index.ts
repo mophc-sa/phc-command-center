@@ -13,6 +13,7 @@ import { dailyAssistantModule } from "./handlers/daily-assistant.ts";
 import { knowledgeModule } from "./handlers/knowledge.ts";
 import { intelligenceModule } from "./handlers/intelligence.ts";
 import { lifecycleModule } from "./handlers/lifecycle.ts";
+import { mailModule } from "./handlers/mail.ts";
 import { pipelineModule } from "./handlers/pipeline.ts";
 import { createSalesOsRequestHandler } from "./router.ts";
 
@@ -28,6 +29,7 @@ const registry = createHandlerRegistry([
   lifecycleModule,
   aiOutputsModule,
   historicalPromotionModule,
+  mailModule,
 ]);
 
 export const salesOsActions = registry.actions;

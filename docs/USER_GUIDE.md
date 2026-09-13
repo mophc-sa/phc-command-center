@@ -755,6 +755,25 @@ These are guardrails, not suggestions. They will stop you.
 
 ## 10. Current limitations
 
+### Sending email from the system (2026-09-13)
+
+The email window now has a **Send** button — but only once sending has been set up.
+Until then it looks and works exactly as before: **Open in Outlook** hands the draft to
+your mail app, and nothing leaves from PHC.
+
+When Send is available:
+
+- The email goes out from **your own company address**. You cannot send as anyone else.
+- A client's reply arrives in **your Outlook**, as it always would.
+- You get a copy of what you sent in your Outlook inbox. It will **not** appear in your
+  Outlook Sent folder, because it was not sent from Outlook.
+- The email is recorded on the deal as sent, and counts as client contact.
+- Only your click sends. Nothing is ever sent automatically, on a schedule, or by AI.
+- Only sales roles can send. Others still see Open in Outlook.
+
+**Not yet working:** attaching client replies to the deal needs the reply-capture step,
+which ships separately. Calendar sync is also not built yet.
+
 ### Board freshness and scope (2026-09-08)
 
 The pipeline footnote keeps the unvalued count visible on one line, and the team columns reserve room for Unassigned.
@@ -1126,4 +1145,4 @@ Update this file when the workflow changes.*
 
 <!-- last reviewed 2026-09-08 · deployed commit d885f47 · PR 291 board fixes; 60-second polling and complete commercial scope -->
 
-<!-- last reviewed 2026-09-08 · base 66562dc · authenticated board label-fit correction -->
+<!-- last reviewed 2026-09-13 · send email from the system (Phase 2) · previous: 2026-09-08 -->
