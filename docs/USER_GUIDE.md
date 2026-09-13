@@ -505,7 +505,7 @@ Old tenders are not allowed to sit active forever.
 | **My Workspace** `/my-workspace` | Your personal command centre. Opens with **What needs you today** — one ranked list of your highest-priority work drawn from every queue. Below it, the dashboard your role already had: target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups and submissions. **A salesperson's home base.** |
 | **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
 | **Approvals** `/approvals` | One decision desk for all three approval workflows: **intake review**, the **BAFO chain** (showing which of the four steps is waiting and on which role), and record approvals — verbal award, contract, won, deletion, sure-win. |
-| **Calendar** `/calendar` | Everything that carries a date, on one month grid — **sixteen kinds**: follow-ups due, RFQ response deadlines, next actions, expected contract and hold-review dates, enquiry deadlines and their follow-ups and information-due dates, flags, commitments, tasks, quotation expiry, expected BOQ and signage dates, and tender award and follow-up dates. If a form let you record a date, this page shows it. Each day shows a dot per item — red for overdue, amber for today — and opens a panel listing them. **New follow-up** creates one through the same path the rest of the app uses, so it also appears in Action Required and Follow-ups; there is no second task list to reconcile. Undated work does not appear at all: the calendar arranges dates, it never invents one. Closed deals and completed follow-ups drop off rather than sitting greyed out, so nothing on the grid is safe to skim past. |
+| **Calendar** `/calendar` | Everything that carries a date, on one month grid — **sixteen kinds**: follow-ups due, RFQ response deadlines, next actions, expected contract and hold-review dates, enquiry deadlines and their follow-ups and information-due dates, flags, commitments, tasks, quotation expiry, expected BOQ and signage dates, and tender award and follow-up dates. If a form let you record a date, this page shows it. Each day shows a dot per item — red for overdue, amber for today — and opens a panel listing them. **New follow-up** creates one through the same path the rest of the app uses, so it also appears in Action Required and Follow-ups; there is no second task list to reconcile. Undated work does not appear at all: the calendar arranges dates, it never invents one. Closed deals and completed follow-ups drop off rather than sitting greyed out, so nothing on the grid is safe to skim past. **Add to Outlook** puts your own dated work into your Outlook calendar through a private link — see *Your work in your Outlook calendar* in section 10. |
 | **Notifications** (bell) | Opens the drawer, not a page. Shows **what happened**: unread count on the bell, mark-one/mark-all read, dismiss, and a deep link to the record. Distinct from actions — see Section 7b. |
 
 ### 7a. What counts as a sale
@@ -754,6 +754,46 @@ These are guardrails, not suggestions. They will stop you.
 ---
 
 ## 10. Current limitations
+
+### Sending email from the system (2026-09-13)
+
+The email window now has a **Send** button — but only once sending has been set up.
+Until then it looks and works exactly as before: **Open in Outlook** hands the draft to
+your mail app, and nothing leaves from PHC.
+
+When Send is available:
+
+- The email goes out from **your own company address**. You cannot send as anyone else.
+- A client's reply arrives in **your Outlook**, as it always would.
+- You get a copy of what you sent in your Outlook inbox. It will **not** appear in your
+  Outlook Sent folder, because it was not sent from Outlook.
+- The email is recorded on the deal as sent, and counts as client contact.
+- Only your click sends. Nothing is ever sent automatically, on a schedule, or by AI.
+- Only sales roles can send. Others still see Open in Outlook.
+
+**When reply capture is also set up:** a client's reply to an email you sent from the
+system appears on that deal's timeline automatically, and counts as client contact.
+It still arrives in your Outlook too. Only replies to emails sent from the system are
+captured — an email a client starts fresh to your Outlook is not.
+
+### Your work in your Outlook calendar (2026-09-13)
+
+On **Calendar**, **Add to Outlook** gives you a private link. In Outlook choose
+**Add calendar → Subscribe from web**, paste the link, and your follow-ups, RFQ
+deadlines, next actions, tasks, commitments, flags, quotation expiries, tender dates
+and enquiry dates appear as all-day entries in a calendar named *PHC — My work*.
+Clicking an entry's link opens the deal in PHC.
+
+- **Only what you own.** A manager's link shows their own work, not the team's.
+  Project BOQ and signage dates are not included — projects have no single owner.
+- **Not instant.** Outlook refreshes subscribed calendars on its own schedule —
+  about every three hours, sometimes more than a day — and has no refresh button.
+  For today's exact list, use the Calendar page.
+- **Read-only.** Changing or deleting an entry in Outlook changes nothing in PHC.
+- **Keep the link private.** Anyone who has it can see your schedule. It is shown
+  once; if you lose it or think it leaked, **Create new link** — the old one stops
+  working at once. **Revoke link** turns it off entirely.
+- Closed work and anything more than 60 days overdue is left out.
 
 ### Board freshness and scope (2026-09-08)
 
@@ -1126,4 +1166,6 @@ Update this file when the workflow changes.*
 
 <!-- last reviewed 2026-09-08 · deployed commit d885f47 · PR 291 board fixes; 60-second polling and complete commercial scope -->
 
-<!-- last reviewed 2026-09-08 · base 66562dc · authenticated board label-fit correction -->
+<!-- last reviewed 2026-09-13 · send email from the system (Phase 2) · previous: 2026-09-08 -->
+
+<!-- last reviewed 2026-09-13 · Outlook calendar subscription link · previous: send email from the system, same day -->
