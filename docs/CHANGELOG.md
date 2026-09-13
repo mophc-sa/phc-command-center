@@ -1,5 +1,13 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-09-13 — Postmark live in test mode; send-log fix
+
+- Postmark Server, Cloudflare DKIM/Return-Path and Supabase secrets configured;
+  Send works to `@phc-sa.com` while the Postmark account awaits approval.
+- PR 306: setup guide corrected — DNS is at Cloudflare; Return-Path host `pm-bounces`.
+- PR 308: a sent email is logged on the deal even when a page passes a bad link
+  (stakeholder id as contact); `sales-os-api` v61.
+
 ## 2026-09-13 — Outlook integration released
 
 - Production `0aaefce` (Worker `de30c5e9`): send email from the system, client
