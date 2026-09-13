@@ -108,12 +108,32 @@ change where `@phc-sa.com` mail goes.
 starts fresh to someone's Outlook is not captured, and mail that reaches the capture
 address without a valid reply id is discarded without being stored.
 
+## 7. Calendar in Outlook — no provider, no DNS
+
+This part needs neither Postmark nor any mail record. Each person creates their own
+private link from **Calendar → Add to Outlook** and subscribes to it in Outlook.
+
+1. Apply migration `20260930130000_calendar_feed_tokens.sql`.
+2. Deploy the `calendar-feed` function and `sales-os-api`. `calendar-feed` is
+   configured with `verify_jwt = false` — Outlook polls without a session, and the
+   link's token is the credential. Do not change that.
+3. Optional secret `PUBLIC_APP_URL` — the address entries link back to. Defaults to
+   `https://agent.phc-sa.com`.
+4. **Test:** create a link, open it in a browser (it downloads `phc-my-work.ics`),
+   then subscribe to it in Outlook. Expect the first entries within a few hours.
+
+**What a link serves:** the owner's own open, dated work — nine sources, each
+filtered by its owner column — and nothing for a suspended account. A wrong,
+revoked or suspended link all get the same 404.
+
 ## Turning it off
 
 - **Sending:** delete `POSTMARK_SERVER_TOKEN`. The Send button disappears on the next
   page load and the window returns to Open in Outlook.
 - **Reply capture:** delete `MAIL_INBOUND_SECRET`. New sends stop carrying a capture
   address immediately, and the webhook refuses every request.
+- **Calendar links:** a person revokes their own from the dialog. To stop all of them,
+  delete the rows in `calendar_feed_tokens` (service role); every link returns 404.
 
 Emails and replies already recorded stay on their deals.
 

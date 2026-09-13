@@ -115,7 +115,7 @@ describe("authorization runs before the send, because the send cannot be undone"
   it("is registered on the backend", () => {
     const index = read("supabase/functions/sales-os-api/index.ts");
     expect(index).toContain('import { mailModule } from "./handlers/mail.ts";');
-    expect(index).toMatch(/\n\s+mailModule,\n\]\);/);
+    expect(index).toMatch(/createHandlerRegistry\(\[[^\]]*\n\s+mailModule,\n/);
   });
 });
 

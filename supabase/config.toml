@@ -37,3 +37,9 @@ verify_jwt = true
 # default (true) the gateway would reject every client reply before the code ran.
 [functions.mail-inbound]
 verify_jwt = false
+
+# Polled by Outlook on its own schedule, with no session. The token in the query
+# string is the credential and the function enforces it; with the gateway default
+# every subscription fetch would be refused.
+[functions.calendar-feed]
+verify_jwt = false
