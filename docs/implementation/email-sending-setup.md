@@ -56,11 +56,10 @@ Supabase dashboard → Project Settings → Edge Functions → **Secrets**:
 | `POSTMARK_SERVER_TOKEN` | Postmark → Server → API Tokens → **Server API token** |
 | `MAIL_FROM_DOMAIN` | `phc-sa.com` |
 
-Leave `MAIL_CAPTURE_DOMAIN` and `MAIL_INBOUND_SECRET` **unset**. They switch on
-reply capture, which ships in a later release; setting the domain now would put a
-capture address in Reply-To that nothing receives yet, and clients who reply would
-get a bounce. The code refuses to enable capture without the inbound secret, but
-leaving both unset is the clear signal.
+Leave `MAIL_CAPTURE_DOMAIN` and `MAIL_INBOUND_SECRET` **unset** for now. They switch
+on reply capture (§6). Setting the domain before the receiver works would put a
+capture address in Reply-To that nothing receives, and clients who reply would get
+a bounce — which is why the code refuses to enable capture without the secret.
 
 ## 5. Deploy and check
 
@@ -76,11 +75,47 @@ leaving both unset is the clear signal.
    `dkim=pass` and `dmarc=pass`. If either fails, recheck step 3 before anyone
    else sends.
 
+## 6. Reply capture — client replies attach to the deal
+
+Do this only after steps 1–5 work. It adds a **subdomain** for replies; it does not
+change where `@phc-sa.com` mail goes.
+
+1. **Generate a secret** of at least 32 characters with a password manager. It never
+   goes into chat, a ticket or code.
+2. **Postmark → Servers → PHC Command Center → Inbound stream → Settings:**
+   - Inbound domain: `crm.phc-sa.com`
+   - Webhook URL: `https://postmark:<SECRET>@<project-ref>.supabase.co/functions/v1/mail-inbound`
+     (the username must be exactly `postmark`; attachments are not stored).
+3. **GoDaddy DNS:** add an `MX` record for host `crm` → `inbound.postmarkapp.com`,
+   priority `10`. This is the capture subdomain only — leave the `@` MX pointing at
+   Outlook exactly as it is.
+4. **Supabase secrets:**
+
+   | Name | Value |
+   |---|---|
+   | `MAIL_CAPTURE_DOMAIN` | `crm.phc-sa.com` |
+   | `MAIL_INBOUND_SECRET` | the secret from step 1 |
+
+5. **Deploy** migrations `20260930110000` and `20260930120000` (in that order — the
+   first adds the activity type the second uses) and the `mail-inbound` function.
+   It is configured with `verify_jwt = false`; do not change that, or the gateway
+   rejects every reply before the function can check the secret.
+6. **Test:** send an email from the system to an address you control, reply to it,
+   and within about a minute the reply appears on that deal's timeline as a received
+   email. Your reply still arrives in the salesperson's Outlook too.
+
+**What is captured:** replies to emails sent **from the system**. A message a client
+starts fresh to someone's Outlook is not captured, and mail that reaches the capture
+address without a valid reply id is discarded without being stored.
+
 ## Turning it off
 
-Delete `POSTMARK_SERVER_TOKEN` from the Supabase secrets. The Send button
-disappears on the next page load and the window returns to Open in Outlook.
-Emails already sent stay recorded on their deals.
+- **Sending:** delete `POSTMARK_SERVER_TOKEN`. The Send button disappears on the next
+  page load and the window returns to Open in Outlook.
+- **Reply capture:** delete `MAIL_INBOUND_SECRET`. New sends stop carrying a capture
+  address immediately, and the webhook refuses every request.
+
+Emails and replies already recorded stay on their deals.
 
 ## Cost
 

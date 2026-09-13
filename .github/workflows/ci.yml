@@ -37,7 +37,7 @@ jobs:
       - name: Lint
         run: bun run lint
       - name: Supabase Edge Function check
-        run: deno check --frozen --allow-import --config supabase/functions/deno.json supabase/functions/sales-os-api/index.ts supabase/functions/ai-orchestrator/index.ts supabase/functions/import-pipeline/index.ts supabase/functions/error-ingest/index.ts
+        run: deno check --frozen --allow-import --config supabase/functions/deno.json supabase/functions/sales-os-api/index.ts supabase/functions/ai-orchestrator/index.ts supabase/functions/import-pipeline/index.ts supabase/functions/error-ingest/index.ts supabase/functions/mail-inbound/index.ts
       # Deno's default discovery only finds *_test.ts / *.test.ts, and this
       # repo names them *.deno-test.ts — so these files existed and never ran.
       # The CORS allowlist is only a guarantee if something checks it.

@@ -771,8 +771,12 @@ When Send is available:
 - Only your click sends. Nothing is ever sent automatically, on a schedule, or by AI.
 - Only sales roles can send. Others still see Open in Outlook.
 
-**Not yet working:** attaching client replies to the deal needs the reply-capture step,
-which ships separately. Calendar sync is also not built yet.
+**When reply capture is also set up:** a client's reply to an email you sent from the
+system appears on that deal's timeline automatically, and counts as client contact.
+It still arrives in your Outlook too. Only replies to emails sent from the system are
+captured — an email a client starts fresh to your Outlook is not.
+
+**Not built yet:** calendar sync.
 
 ### Board freshness and scope (2026-09-08)
 
