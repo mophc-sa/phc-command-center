@@ -1,5 +1,35 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-13 — Outlook integration released (PRs 301–304, plus undeployed 295–300, 255)
+
+Production serves `0aaefce83db9e38df5d6fb5c121ce54ac52a1f07`. Worker version
+`de30c5e9-79c3-482c-b634-8e3e966c7975` on agent.phc-sa.com (run 34756409409); the
+live bundle carries the `0aaefce` stamp and the Add to Outlook code. Canary
+`50590472-57c2-4df9-9f98-769d790d9c60` (run 34755432979), canary readiness
+34755605092 and post-production readiness 34758544210 passed. Stale run
+34474097266 (`2400477`) was cancelled: it held the production concurrency group.
+
+Supabase `lrfdtoexyeghrzynapyn`, applied by the user from this machine:
+- Backup first: `~/.phc-release-backups/public-data-20260913T113639Z-pre-20260930.sql`.
+- Migrations `20260930100000`, `…110000`, `…120000`, `…130000` — dry run listed
+  exactly these four; `migration list --linked` now local == remote.
+- `sales-os-api` v57 → v58 (Docker bundle; also carries PRs 295–297),
+  `mail-inbound` v1 and `calendar-feed` v1 (both `verify_jwt = false`, `--use-api`).
+  Probes: calendar-feed bad token 404, mail-inbound without auth 403,
+  sales-os-api without JWT 401.
+
+Gotchas: `--use-api` cannot bundle `sales-os-api` — server bundling refuses
+`cdn.sheetjs.com` (`_shared/spreadsheet.ts`, reached via `knowledge-document.ts`);
+deploy it with Docker. The CLI on this machine was once signed in to another
+account (403 on PHC); `supabase login` fixed it. Classifier blocks agent-run
+`db push`, production dispatch and run cancel until the user permits them.
+
+Not active yet: email send and reply capture need a Postmark account, domain DNS
+(DKIM, `pm_bounces` Return-Path, capture-subdomain MX) and the secrets in
+`docs/implementation/email-sending-setup.md`. The calendar link works now.
+Still open: disable Cloudflare Preview URLs; fix SPF/DKIM at GoDaddy; PR 254
+(TypeScript 7) and 258 (draft) stay open.
+
 ## 2026-09-13 — Outlook integration: built without Microsoft admin (PRs 301–304)
 
 Requested: send from the system, capture incoming client email, sync the calendar.

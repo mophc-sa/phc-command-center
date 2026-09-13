@@ -1,5 +1,13 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-09-13 — Outlook integration released
+
+- Production `0aaefce` (Worker `de30c5e9`): send email from the system, client
+  replies on the deal, and a private Outlook calendar link (PRs 302–304), with the
+  earlier undeployed PRs 295–300 and 255.
+- Supabase: four migrations; `sales-os-api` v58, new `mail-inbound` v1 and
+  `calendar-feed` v1. Email features stay off until Postmark is configured.
+
 ## 2026-09-13 — Outlook integration design; audit and dependency fixes
 
 - PR 301 (open): Outlook integration design and decision — Graph blocked on a
