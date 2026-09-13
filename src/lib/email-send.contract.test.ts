@@ -112,6 +112,21 @@ describe("authorization runs before the send, because the send cannot be undone"
     expect(at("composeOutbound(")).toBeLessThan(send);
   });
 
+  it("resolves every optional link against its own table before sending", () => {
+    // A link that does not resolve fails the activity's foreign key. Found in
+    // production: the email left, and its record on the deal was lost.
+    const send = at("await fetch(POSTMARK_URL");
+    for (const table of ["companies", "contacts", "rfqs", "tenders", "communication_templates"]) {
+      expect(at(`resolve("${table}"`)).toBeLessThan(send);
+    }
+    expect(handler).not.toMatch(/const (companyId|contactId|rfqId|tenderId|templateId) = typeof payload/);
+  });
+
+  it("never passes a stakeholder id as the contact", () => {
+    const page = read("src/routes/_authenticated/opportunities.$id.tsx");
+    expect(page).not.toMatch(/contactId:\s*primary\?\.id/);
+  });
+
   it("is registered on the backend", () => {
     const index = read("supabase/functions/sales-os-api/index.ts");
     expect(index).toContain('import { mailModule } from "./handlers/mail.ts";');
