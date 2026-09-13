@@ -82,8 +82,8 @@ for (const role of ALL_ROLES) {
 
 
 test.describe("operational UX regression", () => {
-  const creds = getRoleCredentials("system_admin");
-  test.skip(!creds, "Requires the isolated administrator fixture");
+  const creds = getRoleCredentials("bd_manager");
+  test.skip(!creds, "Requires the isolated intake operator fixture");
 
   for (const lang of ["en", "ar"] as const) {
     test(`request form retains input after a failed save (${lang}, mobile)`, async ({ page }) => {
@@ -92,6 +92,7 @@ test.describe("operational UX regression", () => {
       await page.evaluate(language => localStorage.setItem("phc-lang", language), lang);
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto("/lead-tender-inbox");
+      await expect(page).toHaveURL(url => url.pathname === "/lead-tender-inbox");
       await page.getByRole("button", { name: lang === "ar" ? "إدخال جديد" : "New Intake", exact: true }).click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
