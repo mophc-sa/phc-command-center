@@ -1,5 +1,46 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-13 — Outlook integration: built without Microsoft admin (PRs 301–304)
+
+Requested: send from the system, capture incoming client email, sync the calendar.
+The company has no Microsoft relationship beyond Outlook as a mail client (M365 via
+GoDaddy, tenant `1b17e1ac-5944-4398-860e-4a07ac7c8476`, realm `Federated` via
+`sso.godaddy.com`), so Microsoft Graph is blocked on a Global Admin nobody holds.
+The user approved paid services if they automate the work. Built instead:
+
+- **PR 302 — send** via Postmark from the caller's own `@phc-sa.com` address; Bcc and
+  Reply-To the caller; logged on the deal; audit has no body. Only a click sends:
+  `send_email` stays in `AI_FORBIDDEN_ACTIONS`, unreachable from automation.
+- **PR 303 — reply capture** (stacked on 302): `reply+<id>@<capture domain>` on
+  Reply-To, Postmark inbound webhook `mail-inbound` (`verify_jwt = false`, Basic
+  auth user `postmark`), binds only by SHA-256 of the id; a reply is
+  `email_received` and counts as client contact in both SQL and TS (drift test).
+- **PR 304 — calendar** (stacked on 303): per-person private ICS link
+  (`calendar-feed`, `verify_jwt = false`), token hashed, nine owner-filtered
+  sources, contract test pins each filter. Outlook refreshes ~3h, can exceed 24h.
+
+Nothing works until the user acts: create the Postmark account, verify the domain
+(DKIM TXT, Return-Path CNAME `pm_bounces` → `pm.mtasv.net`), capture subdomain MX,
+Supabase secrets, then an approved deploy of migrations `20260930100000`,
+`…110000`, `…120000`, `…130000` and the functions. Steps:
+`docs/implementation/email-sending-setup.md`. Calendar needs no provider.
+
+Independent defect, live today: SPF is `include:secureserver.net -all` with no
+DKIM, so mail sent from Exchange Online fails SPF; DMARC `p=none` is why it still
+delivers. DNS fix in §2 of the design doc; the user's action at GoDaddy.
+
+Gotchas met: gitleaks scans every PR commit (a renamed fixture needed a squash);
+CodeQL flags `.includes("host")` URL checks — use an anchored regex. Local
+`deno check --frozen` reports a stale lockfile; CI does not.
+
+Release state at session end: main `2400477`; production still serves `120529f`
+(PR 296). Deploy run 34474097266 for PRs 297, 299, 300, 298, 255 awaits approval.
+PR 297 also changes Edge Functions, which the Cloudflare deploy does not carry.
+Open and deliberately unmerged: 254 (TypeScript 7 breaks typescript-eslint),
+258 (draft, blocked on Azure). The active `gh` account keeps reverting to
+`moalagab`, which cannot push; switch with `gh auth switch --user mophc-sa`.
+In-app calendar still shows historical quotations' expiry; the feed excludes them.
+
 ## 2026-09-08 — Board production follow-up (PR 293)
 
 PR 293 is deployed at `181573202587e5c43b68413c3a9981a3dd268d65`.
