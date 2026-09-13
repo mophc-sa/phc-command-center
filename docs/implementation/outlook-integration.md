@@ -60,7 +60,7 @@ This affects every email PHC sends from Outlook now, before any integration. It
 also decides whether mail sent through Graph arrives at all, so it is the first
 prerequisite, not a footnote.
 
-**Fix (DNS, at GoDaddy — no code):**
+**Fix (DNS, in Cloudflare — the domain's nameservers, although GoDaddy is the registrar — no code):**
 1. SPF → `v=spf1 include:spf.protection.outlook.com include:secureserver.net -all`
 2. Enable DKIM in the Microsoft 365 Defender portal, then publish the two CNAMEs it
    generates (`selector1._domainkey`, `selector2._domainkey`).
