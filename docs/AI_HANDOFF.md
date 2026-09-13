@@ -25,9 +25,9 @@ account (403 on PHC); `supabase login` fixed it. Classifier blocks agent-run
 `db push`, production dispatch and run cancel until the user permits them.
 
 Not active yet: email send and reply capture need a Postmark account, domain DNS
-(DKIM, `pm_bounces` Return-Path, capture-subdomain MX) and the secrets in
+(DKIM, `pm-bounces` Return-Path, capture-subdomain MX — all in Cloudflare DNS) and the secrets in
 `docs/implementation/email-sending-setup.md`. The calendar link works now.
-Still open: disable Cloudflare Preview URLs; fix SPF/DKIM at GoDaddy; PR 254
+Still open: disable Cloudflare Preview URLs; fix SPF (DNS is at Cloudflare; M365 DKIM needs the tenant admin); PR 254
 (TypeScript 7) and 258 (draft) stay open.
 
 ## 2026-09-13 — Outlook integration: built without Microsoft admin (PRs 301–304)
@@ -50,14 +50,15 @@ The user approved paid services if they automate the work. Built instead:
   sources, contract test pins each filter. Outlook refreshes ~3h, can exceed 24h.
 
 Nothing works until the user acts: create the Postmark account, verify the domain
-(DKIM TXT, Return-Path CNAME `pm_bounces` → `pm.mtasv.net`), capture subdomain MX,
+(DKIM TXT, Return-Path CNAME `pm-bounces` → `pm.mtasv.net`), capture subdomain MX,
 Supabase secrets, then an approved deploy of migrations `20260930100000`,
 `…110000`, `…120000`, `…130000` and the functions. Steps:
 `docs/implementation/email-sending-setup.md`. Calendar needs no provider.
 
 Independent defect, live today: SPF is `include:secureserver.net -all` with no
 DKIM, so mail sent from Exchange Online fails SPF; DMARC `p=none` is why it still
-delivers. DNS fix in §2 of the design doc; the user's action at GoDaddy.
+delivers. DNS fix in §2 of the design doc; the user's action in Cloudflare DNS (nameservers
+are Cloudflare although the registrar is GoDaddy).
 
 Gotchas met: gitleaks scans every PR commit (a renamed fixture needed a squash);
 CodeQL flags `.includes("host")` URL checks — use an anchored regex. Local
