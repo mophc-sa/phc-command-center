@@ -1,8 +1,15 @@
 # Outlook integration — design and prerequisites
 
-> Status: **design, not built.** Blocked on Microsoft 365 admin access, which is
-> undetermined. Nothing below ships until §1 is answered — see §8 for why no code
-> is written ahead of it.
+> **Decision 2026-09-13 — superseded in part.** PHC confirmed it has no direct
+> relationship with Microsoft: Outlook is only the app mail is read in, and the
+> Microsoft 365 tenant is GoDaddy's. The Graph design below therefore stays blocked,
+> and **the built path is Postmark on the phc-sa.com domain, which needs no
+> Microsoft admin** — see §9. Sending shipped in PR 302 (off until configured; setup
+> in `email-sending-setup.md`). Reply capture and calendar sync follow.
+>
+> IMAP and SMTP were checked as a way around the admin and are not one: IMAP needs
+> OAuth, and SMTP basic auth is disabled by default for existing tenants from the
+> end of December 2026 (Microsoft Exchange Team, updated deprecation timeline).
 
 Requested 2026-09-13: send from inside the system, capture incoming client email
 onto records, and sync the calendar. All three, through the company's Outlook.
@@ -215,3 +222,18 @@ confirmed, in this order:
 3. Send (§4.1)
 4. Calendar, one-way (§4.3)
 5. Capture incoming (§4.2)
+
+---
+
+## 9. The path actually built — no Microsoft admin required
+
+| Feature | How | Trade-off against Graph |
+|---|---|---|
+| **Send** (PR 302) | Postmark sends from the salesperson's own `@phc-sa.com` address; Reply-To is their address; they are Bcc'd a copy | The copy lands in their inbox, not their Outlook Sent folder |
+| **Capture replies** | Reply-To also carries `reply+ID@<capture subdomain>`; Postmark inbound posts the reply to an Edge Function, bound to the deal by that id | Automatic for replies to mail sent from the system; a thread a client starts fresh in Outlook still needs forwarding |
+| **Calendar** | A private per-user calendar feed Outlook subscribes to once | One-way, and Outlook refreshes subscribed calendars on its own schedule |
+
+The capture subdomain gets its own MX record, so `@phc-sa.com` delivery to Outlook
+is never touched. Every piece ships off and turns on only when its secret is set.
+If PHC later takes the tenant from GoDaddy, each feature can move to Graph behind
+the same UI and the same activity records.
