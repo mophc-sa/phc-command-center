@@ -1,3 +1,4 @@
+import { humanize } from "@/lib/utils";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import React, { useState } from "react";
 import { toast } from "sonner";
@@ -330,7 +331,7 @@ function BatchDetailPage() {
           eyebrow="Import Batch"
           title={batch.file_name ?? "Unnamed Batch"}
           description={`${batch.target_entity} · created ${fmtDate(batch.created_at)}`}
-          actions={<StatusPill tone={statusTone(batch.status)}>{batch.status}</StatusPill>}
+          actions={<StatusPill tone={statusTone(batch.status)}>{humanize(batch.status)}</StatusPill>}
         />
       </div>
 
@@ -869,7 +870,7 @@ function BatchDetailPage() {
               {([
                 ["Batch ID",    batch.id.slice(0, 8) + "…"],
                 ["Entity",      batch.target_entity],
-                ["Status",      batch.status],
+                ["Status",      humanize(batch.status)],
                 ["File",        batch.file_name ?? "—"],
                 ["Created",     fmtDate(batch.created_at)],
                 ["Approved by", batch.approved_by ? batch.approved_by.slice(0, 8) + "…" : "—"],

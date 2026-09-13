@@ -589,7 +589,7 @@
 
 /* =============================================================================
    The wall board's news wire.
-   
+
    Two keyframes rather than one, because a ticker has to move AGAINST the
    reading direction or it is unreadable. In English the first character must
    appear at the right edge and travel left, so the eye meets the start of a
@@ -597,7 +597,7 @@
    the right of the phrase, so it must appear at the LEFT edge and travel right.
    The same animation in both directions would show every Arabic headline
    ending-first.
-   
+
    The content is duplicated in the markup, and each pass travels exactly half
    the track -- so the second copy arrives where the first began and the loop
    has no visible seam.
@@ -625,3 +625,24 @@
   .board-marquee { animation: none !important; transform: none !important; }
 }
 
+
+/* Shared interaction and reflow requirements for operational screens. */
+@media (pointer: coarse) {
+  #main-content button, #main-content [role="button"], [role="dialog"] button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+#main-content :where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 3px;
+}
+[role="dialog"] { overscroll-behavior: contain; }

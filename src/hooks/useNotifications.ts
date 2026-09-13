@@ -43,7 +43,15 @@ export function useNotifications(limit = 50) {
         .order("created_at", { ascending: false })
         .limit(limit);
       if (error) throw error;
-      return (data ?? []) as unknown as NotificationRow[];
+      const notifications = (data ?? []) as unknown as NotificationRow[];
+      const oppIds = [...new Set(notifications.filter(n => n.entity_type === "opportunity" && n.entity_id).map(n => n.entity_id!))];
+      const intakeIds = [...new Set(notifications.filter(n => n.entity_type === "inbox_item" && n.entity_id).map(n => n.entity_id!))];
+      const [opps, intake] = await Promise.all([
+        oppIds.length ? supabase.from("opportunities").select("id, project_name").in("id", oppIds) : Promise.resolve({ data: [] }),
+        intakeIds.length ? supabase.from("inbox_items").select("id, project_name").in("id", intakeIds) : Promise.resolve({ data: [] }),
+      ]);
+      const subjects = new Map([...(opps.data ?? []), ...(intake.data ?? [])].map(r => [r.id, r.project_name]));
+      return notifications.map(n => ({ ...n, subject: n.entity_id ? subjects.get(n.entity_id) ?? null : null }));
     },
   });
 }

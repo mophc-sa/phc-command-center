@@ -199,7 +199,7 @@ function ReportsPage() {
                     <BarChart data={stageRows} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
                       <CartesianGrid stroke={CHART.grid} strokeDasharray="2 4" vertical={false} />
                       <XAxis dataKey="label" tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} />
-                      <YAxis tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} width={48} />
+                      <YAxis tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} width={72} tickFormatter={(value: number) => new Intl.NumberFormat(localeFor(lang), { notation: "compact", maximumFractionDigits: 1 }).format(value)} />
                       <Tooltip
                         contentStyle={tooltipStyle}
                         cursor={{ fill: "var(--color-muted)" }}

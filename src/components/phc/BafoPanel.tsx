@@ -178,7 +178,9 @@ export function BafoPanel({ opportunityId }: { opportunityId: string }) {
             refresh();
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
 
@@ -203,7 +205,9 @@ export function BafoPanel({ opportunityId }: { opportunityId: string }) {
             refresh();
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
     </Panel>

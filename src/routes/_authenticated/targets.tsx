@@ -463,7 +463,9 @@ function TargetsPage() {
             qc.invalidateQueries({ queryKey: ["targets", period] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
     </div>

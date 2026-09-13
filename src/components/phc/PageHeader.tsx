@@ -20,7 +20,7 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("mb-8 flex flex-col gap-4 md:mb-10 md:flex-row md:items-end md:justify-between", className)}>
+    <div className={cn("mb-5 flex flex-col gap-3 md:mb-6 md:flex-row md:items-end md:justify-between", className)}>
       <div className="min-w-0">
         {/* The eyebrow sits ABOVE the title, so it is the first thing read on
             every page — and it is the least useful thing on the page, naming a

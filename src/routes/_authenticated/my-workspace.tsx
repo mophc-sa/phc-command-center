@@ -1,3 +1,4 @@
+import { thisMonth, yearToDate, inPeriod, wonDate } from "@/lib/sales-kpis";
 import { createFileRoute, Link, useNavigate, type LinkProps } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
@@ -220,14 +221,14 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
       const annYear = `${new Date().getFullYear()}-01-01`;
       const ann = await supabase.from("sales_targets").select("*").eq("user_id", uid).eq("period_type", "annual").eq("period_start", annYear).maybeSingle();
       if (ann.data) return ann.data;
-      const mon = await supabase.from("sales_targets").select("*").eq("user_id", uid).eq("period_type", "monthly").order("period_start", { ascending: false }).limit(1).maybeSingle();
+      const mon = await supabase.from("sales_targets").select("*").eq("user_id", uid).eq("period_type", "monthly").eq("period_start", monthStart()).maybeSingle();
       return mon.data ?? null;
     },
   });
 
-  const { data: awardedOpps = [], isLoading: loadingAwarded } = useQuery({
+  const { data: allAwardedOpps = [], isLoading: loadingAwarded } = useQuery({
     queryKey: ["ws-awarded-full", uid], enabled: !!uid,
-    queryFn: async () => ((await supabase.from("opportunities").select("id, project_name, client, main_contractor, estimated_value_max, contract_value, currency, updated_at, sales_stage, stage").eq("owner_id", uid).gte("updated_at", yearStart()).order("updated_at", { ascending: false })).data ?? []).filter(isCanonicallyWon),
+    queryFn: async () => ((await supabase.from("opportunities").select("id, project_name, client, main_contractor, estimated_value_max, contract_value, quotation_value, currency, updated_at, won_at, sales_stage, stage").eq("owner_id", uid).order("updated_at", { ascending: false })).data ?? []).filter(isCanonicallyWon),
   });
 
   const { data: stageOpps = [] } = useQuery({
@@ -258,7 +259,17 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
       // and the row has to open the record (§9 "Open full opportunity"). Pull
       // opportunity_id so the row knows where to navigate, plus the related
       // project/company names so the user recognises the deal at a glance.
-      return (await supabase.from("rfqs").select("id, rfq_number, response_due_date, estimated_value, status, opportunity_id, projects(name), companies(name)").eq("sales_owner_id", uid).eq("status", "open").not("response_due_date", "is", null).lte("response_due_date", sevenDaysOut.toISOString().slice(0, 10)).order("response_due_date", { ascending: true })).data ?? [];
+      const result = await supabase.from("rfqs").select("id, rfq_number, response_due_date, estimated_value, status, opportunity_id, projects(name), companies(name)").eq("sales_owner_id", uid).eq("status", "open").not("response_due_date", "is", null).lte("response_due_date", sevenDaysOut.toISOString().slice(0, 10)).order("response_due_date", { ascending: true });
+      if (result.error) throw result.error;
+      const rows = result.data ?? [];
+      const ids = [...new Set(rows.map(r => r.opportunity_id).filter((id): id is string => !!id))];
+      const latest = new Map<string, string>();
+      if (ids.length) {
+        const quotes = await supabase.from("quotations").select("related_opportunity_id, status, created_at").in("related_opportunity_id", ids).order("created_at", { ascending: false });
+        if (quotes.error) throw quotes.error;
+        for (const quote of quotes.data ?? []) if (!latest.has(quote.related_opportunity_id)) latest.set(quote.related_opportunity_id, quote.status);
+      }
+      return rows.map(r => ({ ...r, latest_quotation_status: r.opportunity_id ? latest.get(r.opportunity_id) : undefined }));
     },
   });
 
@@ -279,6 +290,10 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   const displayName = (profile as any)?.full_name ?? user?.email?.split("@")[0] ?? "—";
   const tgt = annualTarget;
+  const awardPeriod = tgt?.period_type === "monthly" ? thisMonth(new Date().toISOString().slice(0,10)) : yearToDate(new Date().toISOString().slice(0,10));
+  const awardedOpps = allAwardedOpps.filter(o => inPeriod(wonDate(o), awardPeriod));
+  const undatedAwards = allAwardedOpps.filter(o => !wonDate(o)).length;
+
   const salesTarget = tgt ? Number(tgt.sales_target) : 0;
   const awardedValue = computeAwardedTotal(awardedOpps as any[]);
   const achievementPct = targetAchievementPct(awardedValue, salesTarget);
@@ -343,6 +358,121 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
           </div>
         </div>
 
+        {/* Row 3: Urgent Follow-ups + Urgent Quotation Submissions */}
+        <div className="grid gap-4 lg:grid-cols-2">
+
+          {/* Urgent Follow-ups table */}
+          <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
+            <div className="border-b border-border/40 px-4 py-3 flex items-center justify-between">
+              <div>
+                <div className="text-base font-semibold text-foreground">{lang === "ar" ? "متابعات عاجلة" : "Urgent Follow Ups"}</div>
+                <div className="text-xs text-muted-foreground">
+                  {(urgentFUs as any[]).filter(f => (daysUntil(f.due_date) ?? 1) < 0).length} {lang === "ar" ? "متأخرة" : "overdue"} · {(urgentFUs as any[]).length} {lang === "ar" ? "إجمالي" : "total"}
+                </div>
+              </div>
+            </div>
+            {(urgentFUs as any[]).length === 0 ? (
+              <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا متابعات عاجلة" : "No urgent follow-ups"} compact /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/30">
+                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
+                      <th className="px-4 py-2 text-right text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "القيمة" : "Amount"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(urgentFUs as any[]).slice(0, 8).map(f => {
+                      const opp = f.opportunities as any;
+                      const days = daysUntil(f.due_date);
+                      return (
+                        <tr key={f.id} className="border-t border-border/20 hover:bg-surface-2/30">
+                          <td className="px-4 py-2.5">
+                            {f.opportunity_id ? (
+                              <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{opp?.project_name ?? "—"}</Link>
+                            ) : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-right num text-muted-foreground">{opp?.estimated_value_max ? formatCurrency(opp.estimated_value_max, lang, "SAR") : "—"}</td>
+                          <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CheckCheck className="h-3 w-3" /></button>
+                              <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CalendarClock className="h-3 w-3" /></button>
+                              {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Urgent Quotation Submissions table */}
+          <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
+            <div className="border-b border-border/40 px-4 py-3">
+              <div className="text-base font-semibold text-foreground">{lang === "ar" ? "تقديمات عروض أسعار عاجلة" : "Urgent Quotation Submissions"}</div>
+              <div className="text-xs text-muted-foreground">{lang === "ar" ? "المتأخر والمستحق خلال 7 أيام" : "Overdue and due within 7 days"}</div>
+            </div>
+            {(urgentRfqs as any[]).length === 0 ? (
+              <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا تقديمات عاجلة هذا الأسبوع" : "No urgent submissions this week"} compact /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/30">
+                      {/* Header said "رقم الطلب" in Arabic and "Project Name" in
+                          English while the cell showed neither reliably — it fell
+                          back to a raw UUID fragment. Split into the two columns
+                          spec §16 actually asks for. */}
+                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "رقم الطلب" : "RFQ No."}</th>
+                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع / العميل" : "Project / Client"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Deadline"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "أحدث عرض للفرصة" : "Latest opportunity quotation"}</th>
+                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الإلحاح" : "Urgency"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(urgentRfqs as any[]).map(r => {
+                      const days = daysUntil(r.response_due_date);
+                      // The row used to be inert — it had a hover highlight, so it
+                      // looked clickable, and did nothing (field report 2026-08-05).
+                      // Spec §9/§16 require it to open the record. An RFQ that has
+                      // been converted has an opportunity to open; one that has not
+                      // still lives on the RFQ & JIH board.
+                      const projectLabel = r.projects?.name ?? r.companies?.name ?? null;
+                      return (
+                        <tr key={r.id} className="border-t border-border/20 hover:bg-surface-2/30">
+                          <td className="px-4 py-2.5 font-medium text-foreground">
+                            {r.opportunity_id ? (
+                              <Link to="/opportunities/$id" params={{ id: r.opportunity_id }} className="text-foreground hover:underline">
+                                {r.rfq_number || (lang === "ar" ? "بلا رقم" : "No number")}
+                              </Link>
+                            ) : (
+                              <Link to="/quotations" search={{ tab: "rfq_jih" }} className="text-foreground hover:underline">
+                                {r.rfq_number || (lang === "ar" ? "بلا رقم" : "No number")}
+                              </Link>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-muted-foreground">{projectLabel ?? "—"}</td>
+                          <td className="px-4 py-2.5 num text-muted-foreground">{r.response_due_date || "—"}</td>
+                          <td className="px-4 py-2.5">{r.latest_quotation_status ? humanize(r.latest_quotation_status) : (lang === "ar" ? "لا عرض مرتبط" : "No linked quotation")}</td>
+                          <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+        {undatedAwards > 0 ? <p className="rounded-md border border-amber/40 p-3 text-sm" role="status">{lang === "ar" ? `${undatedAwards} ترسية بلا تاريخ؛ مستبعدة من مقارنة الهدف لهذه الفترة.` : `${undatedAwards} awards have no date and are excluded from this period's target comparison.`}</p> : null}
         {/* Row 1: Circular gauge + Target KPIs */}
         <div className="rounded-xl border border-border/60 bg-surface/40 p-5">
           <div className="flex flex-wrap items-center gap-6">
@@ -406,18 +536,21 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
               label={lang === "ar" ? "عرض الترسيات الرسمية" : "View Awarded Contracts"}
               count={awardedOpps.length}
               to="/opportunities"
+              search={{ stage: "won", owner: uid, view: "table", from: awardPeriod.from, to: awardPeriod.to }}
               tone="positive"
             />
             <StageDashLink
-              label={lang === "ar" ? "عرض التفاوض النهائي" : "View Final Negotiation"}
+              label={lang === "ar" ? "عرض العقود المستلمة والموقعة" : "View Received & Signed Contracts"}
               count={contractOpps.length}
               to="/opportunities"
+              search={{ stage: "contract_received,contract_signed", owner: uid, view: "table" }}
               tone="attention"
             />
             <StageDashLink
               label={lang === "ar" ? "عرض الترسيات الشفهية" : "View Verbally Awarded"}
               count={verballyAwardedOpps.length}
               to="/opportunities"
+              search={{ stage: "verbally_awarded", owner: uid, view: "table" }}
               tone="neutral"
             />
           </div>
@@ -447,120 +580,6 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
           </div>
         </div>
 
-        {/* Row 3: Urgent Follow-ups + Urgent Quotation Submissions */}
-        <div className="grid gap-4 lg:grid-cols-2">
-
-          {/* Urgent Follow-ups table */}
-          <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
-            <div className="border-b border-border/40 px-4 py-3 flex items-center justify-between">
-              <div>
-                <div className="text-base font-semibold text-foreground">{lang === "ar" ? "متابعات عاجلة" : "Urgent Follow Ups"}</div>
-                <div className="text-xs text-muted-foreground">
-                  {(urgentFUs as any[]).filter(f => (daysUntil(f.due_date) ?? 1) <= 0).length} {lang === "ar" ? "متأخرة" : "overdue"} · {(urgentFUs as any[]).length} {lang === "ar" ? "إجمالي" : "total"}
-                </div>
-              </div>
-            </div>
-            {(urgentFUs as any[]).length === 0 ? (
-              <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا متابعات عاجلة" : "No urgent follow-ups"} compact /></div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/30">
-                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
-                      <th className="px-4 py-2 text-right text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "القيمة" : "Amount"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(urgentFUs as any[]).slice(0, 8).map(f => {
-                      const opp = f.opportunities as any;
-                      const days = daysUntil(f.due_date);
-                      return (
-                        <tr key={f.id} className="border-t border-border/20 hover:bg-surface-2/30">
-                          <td className="px-4 py-2.5">
-                            {f.opportunity_id ? (
-                              <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="block max-w-[140px] truncate font-medium text-foreground hover:underline">{opp?.project_name ?? "—"}</Link>
-                            ) : <span className="text-muted-foreground">—</span>}
-                          </td>
-                          <td className="px-4 py-2.5 text-right num text-muted-foreground">{opp?.estimated_value_max ? formatCurrency(opp.estimated_value_max, lang, "SAR") : "—"}</td>
-                          <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
-                          <td className="px-4 py-2.5">
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CheckCheck className="h-3 w-3" /></button>
-                              <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CalendarClock className="h-3 w-3" /></button>
-                              {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Urgent Quotation Submissions table */}
-          <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
-            <div className="border-b border-border/40 px-4 py-3">
-              <div className="text-base font-semibold text-foreground">{lang === "ar" ? "تقديمات عروض أسعار عاجلة" : "Urgent Quotation Submissions"}</div>
-              <div className="text-xs text-muted-foreground">{lang === "ar" ? "خلال 7 أيام القادمة" : "Due within 7 days"}</div>
-            </div>
-            {(urgentRfqs as any[]).length === 0 ? (
-              <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا تقديمات عاجلة هذا الأسبوع" : "No urgent submissions this week"} compact /></div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/30">
-                      {/* Header said "رقم الطلب" in Arabic and "Project Name" in
-                          English while the cell showed neither reliably — it fell
-                          back to a raw UUID fragment. Split into the two columns
-                          spec §16 actually asks for. */}
-                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "رقم الطلب" : "RFQ No."}</th>
-                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع / العميل" : "Project / Client"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Deadline"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("label_submission_status")}</th>
-                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("label_pending_on")}</th>
-                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الإلحاح" : "Urgency"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(urgentRfqs as any[]).map(r => {
-                      const days = daysUntil(r.response_due_date);
-                      // The row used to be inert — it had a hover highlight, so it
-                      // looked clickable, and did nothing (field report 2026-08-05).
-                      // Spec §9/§16 require it to open the record. An RFQ that has
-                      // been converted has an opportunity to open; one that has not
-                      // still lives on the RFQ & JIH board.
-                      const projectLabel = r.projects?.name ?? r.companies?.name ?? null;
-                      return (
-                        <tr key={r.id} className="border-t border-border/20 hover:bg-surface-2/30">
-                          <td className="px-4 py-2.5 font-medium text-foreground">
-                            {r.opportunity_id ? (
-                              <Link to="/opportunities/$id" params={{ id: r.opportunity_id }} className="text-foreground hover:underline">
-                                {r.rfq_number || (lang === "ar" ? "بلا رقم" : "No number")}
-                              </Link>
-                            ) : (
-                              <Link to="/quotations" search={{ tab: "rfq_jih" }} className="text-foreground hover:underline">
-                                {r.rfq_number || (lang === "ar" ? "بلا رقم" : "No number")}
-                              </Link>
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 text-muted-foreground">{projectLabel ?? "—"}</td>
-                          <td className="px-4 py-2.5 num text-muted-foreground">{r.response_due_date || "—"}</td>
-                          <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
@@ -579,7 +598,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
               <span className="rounded-full bg-won-surface/80 px-2 py-0.5 text-xs num text-won">{awardedOpps.length}</span>
             </div>
             {(awardedOpps as any[]).length === 0 ? (
-              <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا ترسيات هذا العام" : "No awarded contracts this year"} compact /></div>
+              <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا ترسيات في الفترة المحددة" : "No awarded contracts in this period"} compact /></div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -737,7 +756,9 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         ]}
         onSubmit={async v => {
           try { await logActivity({ type: v.type as ActivityType, opportunityId: v.opportunityId || null, summary: v.summary || undefined, draftContent: v.draftContent || undefined }); toast.success(t("crm_saved")); }
-          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -745,7 +766,9 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         fields={[{ key: "outcome", type: "textarea", label: t("field_outcome"), required: true }]}
         onSubmit={async v => {
           try { await completeFollowUp({ followUpId: completeFor!.id, opportunityId: completeFor!.oppId, outcome: v.outcome }); toast.success(t("toast_complete_ok" as never)); qc.invalidateQueries({ queryKey: ["ws-urgent-fus", uid] }); }
-          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -753,7 +776,9 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         fields={[{ key: "dueDate", type: "date", label: lang === "ar" ? "التاريخ الجديد" : "New date", required: true, defaultValue: rescheduleFor?.currentDate ?? "" }, { key: "notes", type: "textarea", label: lang === "ar" ? "ملاحظات" : "Notes (optional)" }]}
         onSubmit={async v => {
           try { await rescheduleFollowUp({ followUpId: rescheduleFor!.id, opportunityId: rescheduleFor!.oppId, dueDate: v.dueDate, notes: v.notes || undefined }); toast.success(lang === "ar" ? "تمت إعادة الجدولة" : "Rescheduled"); qc.invalidateQueries({ queryKey: ["ws-urgent-fus", uid] }); }
-          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -1022,7 +1047,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
           <div className="border-b border-border/40 px-4 py-3">
             <div className="text-base font-semibold text-foreground">{lang === "ar" ? "عروض أسعار عاجلة" : "Urgent Quotations"}</div>
-            <div className="text-xs text-muted-foreground">{lang === "ar" ? "خلال 7 أيام القادمة" : "Due within 7 days"}</div>
+            <div className="text-xs text-muted-foreground">{lang === "ar" ? "المتأخر والمستحق خلال 7 أيام" : "Overdue and due within 7 days"}</div>
           </div>
           {(urgentQuotations as any[]).length === 0 ? (
             <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا عروض أسعار عاجلة" : "No urgent quotations this week"} compact /></div>
@@ -1082,7 +1107,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
                     {(tierAOpps as any[]).slice(0, 6).map((o: any) => (
                       <tr key={o.id} className="border-t border-won-border/40 hover:bg-won-surface">
                         <td className="px-3 py-2.5">
-                          <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[140px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
+                          <Link to="/opportunities/$id" params={{ id: o.id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{o.project_name}</Link>
                         </td>
                         <td className="px-3 py-2.5 text-right num text-xs text-won">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</td>
                       </tr>
@@ -1118,7 +1143,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
                       <tr key={a.id} className="border-t border-amber/10 hover:bg-amber/5">
                         <td className="px-3 py-2.5">
                           {a.related_opportunity_id
-                            ? <Link to="/opportunities/$id" params={{ id: a.related_opportunity_id }} className="block max-w-[140px] truncate font-medium text-foreground hover:underline">{oppName(a.related_opportunity_id)}</Link>
+                            ? <Link to="/opportunities/$id" params={{ id: a.related_opportunity_id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{oppName(a.related_opportunity_id)}</Link>
                             : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="px-3 py-2.5"><StatusPill tone="attention">{humanize(a.approval_type)}</StatusPill></td>
@@ -1153,7 +1178,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
                   <tbody>
                     {(missingDataFlags as any[]).slice(0, 6).map((f: any) => (
                       <tr key={f.id} className="border-t border-border/20 hover:bg-surface-2/30">
-                        <td className="px-3 py-2.5 max-w-[140px] truncate text-foreground">{f.reason ?? humanize(f.flag_kind)}</td>
+                        <td className="px-3 py-2.5 min-w-[160px] whitespace-normal text-foreground">{f.reason ?? humanize(f.flag_kind)}</td>
                         <td className="px-3 py-2.5"><StatusPill tone={f.flag_kind === "risk" ? "danger" : "attention"}>{humanize(f.priority ?? f.flag_kind)}</StatusPill></td>
                       </tr>
                     ))}
@@ -1186,7 +1211,9 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         ]}
         onSubmit={async v => {
           try { await logActivity({ type: v.type as ActivityType, opportunityId: v.opportunityId || null, summary: v.summary || undefined, draftContent: v.draftContent || undefined }); toast.success(t("crm_saved")); qc.invalidateQueries({ queryKey: ["workspace", uid] }); }
-          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -1194,7 +1221,9 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         fields={[{ key: "outcome", type: "textarea", label: t("field_outcome"), required: true }]}
         onSubmit={async v => {
           try { await completeFollowUp({ followUpId: completeFor!.id, opportunityId: completeFor!.oppId, outcome: v.outcome }); toast.success(t("toast_complete_ok" as never)); qc.invalidateQueries({ queryKey: ["workspace", uid] }); qc.invalidateQueries({ queryKey: ["all-followups"] }); }
-          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -1202,7 +1231,9 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         fields={[{ key: "dueDate", type: "date", label: lang === "ar" ? "التاريخ الجديد" : "New date", required: true, defaultValue: rescheduleFor?.currentDate ?? "" }, { key: "notes", type: "textarea", label: lang === "ar" ? "ملاحظات" : "Notes (optional)" }]}
         onSubmit={async v => {
           try { await rescheduleFollowUp({ followUpId: rescheduleFor!.id, opportunityId: rescheduleFor!.oppId, dueDate: v.dueDate, notes: v.notes || undefined }); toast.success(lang === "ar" ? "تمت إعادة الجدولة" : "Rescheduled"); qc.invalidateQueries({ queryKey: ["workspace", uid] }); qc.invalidateQueries({ queryKey: ["all-followups"] }); }
-          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -1358,7 +1389,7 @@ function StageToggleRow({ id, label, count, value, lang, tone, isOpen, onToggle,
   const border = tone === "positive" ? "border-won/25 bg-won/[0.05] text-won" : tone === "attention" ? "border-amber/25 bg-amber/5 text-amber-light" : "border-border/60 bg-surface-2/20 text-foreground";
   return (
     <div className={`rounded-lg border overflow-hidden ${border}`}>
-      <button onClick={onToggle} className="flex w-full items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-foreground/[0.03]">
+      <button onClick={onToggle} aria-expanded={isOpen} aria-controls={id} className="flex w-full items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:bg-foreground/[0.03]">
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-base font-semibold">{label}</span>
           <span className="rounded-full bg-foreground/10 px-2 py-0.5 text-xs num">{count}</span>
@@ -1368,7 +1399,7 @@ function StageToggleRow({ id, label, count, value, lang, tone, isOpen, onToggle,
           {isOpen ? <ChevronDown className="h-4 w-4 opacity-60" /> : <ChevronRight className="h-4 w-4 opacity-60" />}
         </div>
       </button>
-      {isOpen && <div className="border-t border-white/10 bg-background/50 px-5 py-4">{children}</div>}
+      {isOpen && <div id={id} className="border-t border-white/10 bg-background/50 px-5 py-4">{children}</div>}
     </div>
   );
 }
@@ -1449,6 +1480,7 @@ function StageDashLink({
   label,
   count,
   to,
+  search,
   tone,
 }: {
   label: string;
@@ -1459,6 +1491,7 @@ function StageDashLink({
   // generated route tree, and the cast threw that check away. Typed against
   // the route tree, a bad path is now a build error.
   to: LinkProps["to"];
+  search?: LinkProps["search"];
   tone: "positive" | "attention" | "neutral";
 }) {
   const borderCls =
@@ -1476,6 +1509,7 @@ function StageDashLink({
   return (
     <Link
       to={to}
+      search={search}
       className={`flex items-center justify-between rounded-lg border px-4 py-3 text-base font-medium text-foreground transition-colors ${borderCls}`}
     >
       <span>{label}</span>

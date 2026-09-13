@@ -371,7 +371,9 @@ function TenderMonitor() {
             await advanceTenderStage({ tenderId: advance.tender.id, toStage: advance.toStage, fields: v });
             toast.success(t("crm_saved"));
             refresh();
-          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -399,7 +401,9 @@ function TenderMonitor() {
             qc.invalidateQueries({ queryKey: ["tenders"] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
 

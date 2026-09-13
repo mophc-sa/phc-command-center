@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { CheckCircle2, HelpCircle, Eye, XCircle, RotateCcw, ChevronRight, Check, Minus, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Panel } from "@/components/phc/Panel";
+import { QueryFailure } from "@/components/phc/QueryFailure";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
@@ -160,13 +161,13 @@ const REVIEW_TONE: Record<IntakeReviewState, "attention" | "positive" | "danger"
   rejected: "danger",
 };
 
-export function IntakeReviewPanel() {
+export function IntakeReviewPanel({ selectedId }: { selectedId?: string } = {}) {
   const { t } = useI18n();
   const { roles } = useAuth();
   const qc = useQueryClient();
   const canReview = canReviewIntake(roles);
 
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(selectedId ?? null);
   const [infoFor, setInfoFor] = useState<any>(null);
   const [rejectFor, setRejectFor] = useState<any>(null);
   const [editFor, setEditFor] = useState<any>(null);
@@ -174,12 +175,11 @@ export function IntakeReviewPanel() {
 
   const { data: teamMembers = [] } = useQuery({ queryKey: ["team-members-min"], queryFn: listTeamMembers });
 
-  const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["intake-review-queue"],
+  const { data: rows = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ["intake-review-queue", selectedId],
     staleTime: 15_000,
-    queryFn: async () =>
-      (
-        await supabase
+    queryFn: async () => {
+      let query = supabase
           .from("inbox_items")
           // Widened for the expandable detail. Approving for pricing creates an
           // opportunity and hands the file to Commercial, and this queue used
@@ -197,8 +197,12 @@ export function IntakeReviewPanel() {
           )
           .in("review_state", ["pending_review", "need_information"])
           .order("created_at", { ascending: true })
-          .limit(100)
-      ).data ?? [],
+          .limit(100);
+      if (selectedId) query = query.eq("id", selectedId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 
   const refresh = () => {
@@ -251,6 +255,8 @@ export function IntakeReviewPanel() {
 
       {isLoading ? (
         <SkeletonTable />
+      ) : isError ? (
+        <QueryFailure retry={refetch} />
       ) : rows.length === 0 ? (
         <EmptyState message={t("rev_empty")} />
       ) : (
@@ -274,7 +280,7 @@ export function IntakeReviewPanel() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r: any) => {
+              {rows.filter((r: any) => !selectedId || r.id === selectedId).map((r: any) => {
                 const state = r.review_state as IntakeReviewState;
                 const disabled = busy === r.id;
                 return (

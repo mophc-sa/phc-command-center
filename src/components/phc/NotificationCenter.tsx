@@ -66,7 +66,7 @@ export function NotificationCenter({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side={dir === "rtl" ? "left" : "right"}
-        className="flex w-80 flex-col gap-0 p-0 sm:max-w-80"
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
       >
         <SheetHeader className="border-b border-border/70 px-5 py-4">
           <div className="flex items-center justify-between gap-2">
@@ -182,8 +182,8 @@ function NotifRow({
                 {label}
               </span>
             </div>
-            <div className={`mt-0.5 truncate text-sm ${unread ? "font-semibold" : "font-medium"} text-foreground`}>
-              {n.title}
+            <div className={`mt-0.5 whitespace-normal pe-5 text-sm ${unread ? "font-semibold" : "font-medium"} text-foreground`}>
+              {n.subject ? `${n.subject} — ` : ""}{n.title}
             </div>
             {n.body && <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.body}</div>}
           </div>
@@ -194,7 +194,7 @@ function NotifRow({
         onClick={onDismiss}
         aria-label={dismissLabel}
         title={dismissLabel}
-        className="absolute end-1 top-1 grid h-5 w-5 place-items-center rounded text-muted-foreground/50 opacity-0 transition-opacity hover:bg-surface-2 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+        className="absolute end-1 top-1 grid h-8 w-8 place-items-center rounded text-muted-foreground/50 opacity-100 transition-opacity hover:bg-surface-2 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
       >
         <X className="h-3 w-3" />
       </button>

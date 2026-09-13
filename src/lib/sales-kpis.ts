@@ -1121,7 +1121,7 @@ export function bucketKpi(opps: OppRow[], ctx: KpiContext, bucket: ManagementBuc
     ...(rows.length > 0 && priced.length < rows.length
       ? {
           caveat: msg("cav_counted_not_summed", { count: rows.length - priced.length, total: rows.length }),
-          fix: { labelKey: "fix_add_value", to: OPP_LIST, search: { stage: "open", missing: "value" } },
+          fix: { labelKey: "fix_add_value", to: OPP_LIST, search: { stage: def.stages.join(","), missing: "value" } },
         }
       : {}),
   });

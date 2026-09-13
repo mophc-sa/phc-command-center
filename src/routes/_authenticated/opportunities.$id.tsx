@@ -851,7 +851,9 @@ function OpportunityDetail() {
                 qc.invalidateQueries({ queryKey: ["ws-urgent-rfqs"] });
               } catch (e) {
                 toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-              }
+
+          throw e;
+        }
             }}
           />
         </Panel>
@@ -958,7 +960,9 @@ function OpportunityDetail() {
                   qc.invalidateQueries({ queryKey: ["opp-rfq", id] });
                 } catch (e) {
                   toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-                }
+
+          throw e;
+        }
               }}
             />
           </Panel>
@@ -2388,7 +2392,9 @@ function OpportunityDetail() {
             qc.invalidateQueries({ queryKey: ["opp", id] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
     </div>

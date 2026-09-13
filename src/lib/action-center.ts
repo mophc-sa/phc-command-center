@@ -179,6 +179,7 @@ const LIST_ROUTE: Record<string, string> = {
 };
 
 export function actionHref(entityType: string, entityId: string): string {
+  if (entityType === "inbox_item" && entityId) return `/lead-tender-inbox?item=${encodeURIComponent(entityId)}`;
   if (entityType === "opportunity" && entityId) return `/opportunities/${entityId}`;
   return LIST_ROUTE[entityType] ?? "/action-center";
 }

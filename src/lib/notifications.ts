@@ -19,6 +19,7 @@ export type NotificationRow = {
   entity_type: string;
   entity_id: string | null;
   title: string;
+  subject?: string | null;
   body: string | null;
   severity: NotificationSeverity;
   source_event: string;

@@ -1,3 +1,5 @@
+import { queryRows } from "@/lib/query-rows";
+import { QueryFailure } from "@/components/phc/QueryFailure";
 import { useWindowedList } from "@/lib/windowed-list";
 import { ListWindowFooter } from "@/components/phc/ListWindowFooter";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -43,23 +45,24 @@ function statusTone(s: AccountStatus): "positive" | "attention" | "muted" | "dan
 }
 
 function AccountsPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const qc = useQueryClient();
+  const [view, setView] = useState<"table" | "cards">("table");
   const [createOpen, setCreateOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<CompanyType | "all">("all");
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
 
-  const { data: companies = [], isLoading } = useQuery({
+  const { data: companies = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["companies"],
     staleTime: 60_000,
-    queryFn: async () =>
+    queryFn: async () => queryRows(
       (
         await supabase
           .from("companies")
           .select("*, projects:projects!projects_main_contractor_id_fkey(id), contacts(id)")
           .order("updated_at", { ascending: false })
-      ).data ?? [],
+      )),
   });
 
   const typeLabel = (ct: CompanyType) => t(`company_type_${ct}` as never);
@@ -148,7 +151,10 @@ function AccountsPage() {
         </div>
       </div>
 
-      {isLoading ? (
+      <div className="mb-3 flex gap-2">
+        {(["table", "cards"] as const).map(v => <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className="min-h-11 rounded-md border px-3 text-sm aria-pressed:bg-foreground aria-pressed:text-background">{v === "table" ? (lang === "ar" ? "جدول" : "Table") : (lang === "ar" ? "بطاقات" : "Cards")}</button>)}
+      </div>
+      {isError ? <QueryFailure retry={refetch} /> : isLoading ? (
         <SkeletonCard count={6} />
       ) : filtered.length === 0 ? (
         companies.length === 0 ? (
@@ -168,7 +174,19 @@ function AccountsPage() {
         )
       ) : (
         <>
-        <div className="grid gap-3 md:grid-cols-2">
+        {view === "table" ? <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full min-w-[680px] text-sm">
+            <caption className="sr-only">{t("nav_accounts")}</caption>
+            <thead><tr>{[t("nav_accounts"), t("crm_filter_all_types"), lang === "ar" ? "الحالة" : "Status", t("crm_next_action"), t("crm_linked_contacts")].map(label => <th key={label} scope="col" className="px-4 py-3 text-start font-medium text-muted-foreground">{label}</th>)}</tr></thead>
+            <tbody>{win.visible.map((c: any) => <tr key={c.id} className="border-t align-top hover:bg-muted/40">
+              <th scope="row" className="max-w-xs px-4 py-3 text-start font-medium"><Link to="/accounts/$id" params={{ id: c.id }} className="hover:underline">{c.name}</Link></th>
+              <td className="px-4 py-3">{typeLabel(c.company_type)}</td>
+              <td className="px-4 py-3"><StatusPill tone={statusTone(c.account_status)}>{c.account_status === "pending_review" ? t("crm_pending_review") : t(`account_status_${c.account_status}` as never)}</StatusPill></td>
+              <td className="max-w-xs px-4 py-3">{c.next_action || "—"}</td>
+              <td className="num px-4 py-3">{c.contacts?.length ?? 0}</td>
+            </tr>)}</tbody>
+          </table>
+        </div> : <div className="grid gap-3 md:grid-cols-2">
           {win.visible.map((c: any) => (
             <Link
               key={c.id}
@@ -195,7 +213,7 @@ function AccountsPage() {
               </div>
             </Link>
           ))}
-        </div>
+        </div>}
           <ListWindowFooter win={win} />
         </>
       )}
@@ -236,7 +254,9 @@ function AccountsPage() {
             qc.invalidateQueries({ queryKey: ["companies"] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
     </div>

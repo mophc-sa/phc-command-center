@@ -29,6 +29,7 @@ import {
 import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/lead-tender-inbox")({
+  validateSearch: (s: Record<string, unknown>): { item?: string } => ({ item: typeof s.item === "string" ? s.item : typeof s.focus === "string" ? s.focus : undefined }),
   head: () => ({ meta: [{ title: "Lead & Tender Inbox — PHC" }, { name: "robots", content: "noindex" }] }),
   component: LeadTenderInbox,
 });
@@ -58,13 +59,14 @@ function DuplicateWarning({ checking, candidates, t }: { checking: boolean; cand
 
 function LeadTenderInbox() {
   const { t, lang } = useI18n();
+  const { item } = Route.useSearch();
   const { user, roles } = useAuth();
   // Which inbox cards are expanded. A card asks you to classify, convert or
   // mark a request duplicate while showing only company, project and contact —
   // scope, value, deadline and what documents arrived are exactly what those
   // decisions turn on. The review queue above already expands for the same
   // reason; this brings the cards in line with it.
-  const [openDetail, setOpenDetail] = useState<Set<string>>(new Set());
+  const [openDetail, setOpenDetail] = useState<Set<string>>(new Set(item ? [item] : []));
   const toggleDetail = (id: string) =>
     setOpenDetail((prev) => {
       const next = new Set(prev);
@@ -91,8 +93,14 @@ function LeadTenderInbox() {
   const [creatingCompanyFor, setCreatingCompanyFor] = useState<((result: { value: string; label: string } | null) => void) | null>(null);
 
   const { data: items = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ["inbox-items"],
-    queryFn: async () => (await supabase.from("inbox_items").select("*").order("created_at", { ascending: false })).data ?? [],
+    queryKey: ["inbox-items", item],
+    queryFn: async () => {
+      let query = supabase.from("inbox_items").select("*").order("created_at", { ascending: false });
+      if (item) query = query.eq("id", item);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data ?? [];
+    },
   });
   const { data: teamMembers = [] } = useQuery({ queryKey: ["team-members-min"], queryFn: listTeamMembers });
   const { data: companies = [] } = useQuery({
@@ -110,14 +118,14 @@ function LeadTenderInbox() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items
-      .filter((x: any) => statusFilter === "all" || !["converted", "marked_duplicate", "archived"].includes(x.status))
+      .filter((x: any) => item ? x.id === item : statusFilter === "all" || !["converted", "marked_duplicate", "archived"].includes(x.status))
       .filter((x: any) =>
         !q ||
         (x.company_name ?? "").toLowerCase().includes(q) ||
         (x.project_name ?? "").toLowerCase().includes(q) ||
         (x.contact_name ?? "").toLowerCase().includes(q),
       );
-  }, [items, statusFilter, query]);
+  }, [items, statusFilter, query, item]);
 
   const kpis = useMemo(() => {
     const total = items.length;
@@ -169,7 +177,11 @@ function LeadTenderInbox() {
 
       {/* Phase 2: the review gate sits above the raw inbox, because deciding
           what enters the pipeline is now the first job on this page. */}
-      <IntakeReviewPanel />
+      {item ? <div className="mb-4 flex items-center justify-between rounded-lg border p-3 text-sm">
+        <span>{lang === "ar" ? "عرض الطلب المرتبط" : "Viewing the linked request"}</span>
+        <button type="button" className="min-h-11 underline" onClick={() => navigate({ to: "/lead-tender-inbox", search: {} })}>{lang === "ar" ? "كل الطلبات" : "All requests"}</button>
+      </div> : null}
+      <IntakeReviewPanel key={item ?? "all"} selectedId={item} />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard label={t("ibx_title")} value={kpis.total} icon={<InboxIcon className="h-3.5 w-3.5" />} />
@@ -215,11 +227,11 @@ function LeadTenderInbox() {
                 <button
                   type="button"
                   onClick={() => toggleDetail(x.id)}
-                  aria-expanded={openDetail.has(x.id)}
+                  aria-expanded={(item === x.id || openDetail.has(x.id))}
                   className="flex min-w-0 flex-1 items-center gap-1.5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
                 >
                   <ChevronRight
-                    className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${openDetail.has(x.id) ? "rotate-90" : "rtl:-scale-x-100"}`}
+                    className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${(item === x.id || openDetail.has(x.id)) ? "rotate-90" : "rtl:-scale-x-100"}`}
                   />
                   <span className="truncate text-sm font-medium text-foreground">{x.company_name || x.project_name || x.contact_name || t("wf_source")}</span>
                 </button>
@@ -253,7 +265,7 @@ function LeadTenderInbox() {
               </div>
               {x.next_action ? <div className="mt-1 text-xs text-muted-foreground"><span className="text-amber-light">{t("label_next_action")}:</span> {x.next_action}</div> : null}
 
-              {openDetail.has(x.id) ? (
+              {(item === x.id || openDetail.has(x.id)) ? (
                 <div className="mt-2 border-t border-border/60 pt-2.5">
                   <IntakeDetail r={x} />
                 </div>
@@ -302,7 +314,9 @@ function LeadTenderInbox() {
             await classifyInboxItem(classifyFor.id, v.classification as InboxClassification);
             toast.success(t("crm_saved"));
             refresh();
-          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -411,7 +425,9 @@ function LeadTenderInbox() {
             }
             toast.success(t("crm_saved"));
             refresh();
-          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -432,7 +448,9 @@ function LeadTenderInbox() {
             creatingCompanyFor?.(null);
             setCreatingCompanyFor(null);
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
 
@@ -448,7 +466,9 @@ function LeadTenderInbox() {
             await sendInboxToMissingData(missingDataFor.id, v.reason);
             toast.success(t("crm_saved"));
             refresh();
-          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -477,7 +497,9 @@ function LeadTenderInbox() {
             }
             toast.success(t("crm_saved"));
             refresh();
-          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -493,7 +515,9 @@ function LeadTenderInbox() {
             await archiveInboxItem(archiveFor.id, v.reason);
             toast.success(t("crm_saved"));
             refresh();
-          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
     </div>

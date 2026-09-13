@@ -231,6 +231,7 @@ export function ActionDialog({
   onSubmit,
   draftId,
   sections,
+  progressive = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -239,6 +240,7 @@ export function ActionDialog({
   fields: DialogField[];
   /** Wide grouped presentation; omitted by other dialogs. */
   sections?: { title: string; keys: string[] }[];
+  progressive?: boolean;
   submitLabel: string;
   destructive?: boolean;
   onSubmit: (values: Record<string, string>) => Promise<void> | void;
@@ -255,6 +257,8 @@ export function ActionDialog({
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [expandedSections, setExpandedSections] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [extraOptions, setExtraOptions] = useState<Record<string, { value: string; label: string }[]>>({});
   const [creating, setCreating] = useState<string | null>(null);
@@ -300,6 +304,8 @@ export function ActionDialog({
           // cannot open because of a draft is worse than one that lost it.
         }
       }
+      setExpandedSections([]);
+      setSubmitError(null);
       setValues(seed);
       setRestoredAt(restored);
       setErrors({});
@@ -379,9 +385,14 @@ export function ActionDialog({
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      if (progressive && sections) {
+        setExpandedSections(sections.filter(s => s.keys.some(k => newErrors[k])).map(s => s.title));
+      }
+      requestAnimationFrame(() => document.getElementById(Object.keys(newErrors)[0])?.focus());
       return;
     }
     setErrors({});
+    setSubmitError(null);
     setBusy(true);
     try {
       await onSubmit(values);
@@ -390,6 +401,8 @@ export function ActionDialog({
       clearDraft();
       setRestoredAt(null);
       onOpenChange(false);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : t("error_generic"));
     } finally {
       setBusy(false);
     }
@@ -629,7 +642,7 @@ export function ActionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent dir={dir} className={cn("flex flex-col", sections ? "w-[calc(100%-1.5rem)] max-w-[1680px] sm:max-w-[1680px] max-h-[calc(100dvh-1.5rem)] overflow-hidden gap-3 p-4" : isWide ? "sm:max-w-2xl" : "sm:max-w-md")}>
+      <DialogContent dir={dir} className={cn("flex flex-col", sections ? "w-[calc(100%-1.5rem)] max-w-3xl sm:max-w-3xl max-h-[calc(100dvh-1.5rem)] overflow-hidden gap-3 p-4" : isWide ? "sm:max-w-2xl" : "sm:max-w-md")}>
         <DialogHeader className={sections ? "shrink-0 px-7 text-start sm:text-start" : undefined}>
           <DialogTitle>{title}</DialogTitle>
           {description ? (
@@ -665,19 +678,26 @@ export function ActionDialog({
           </div>
         ) : null}
 
-        <div className={cn("grid gap-4 overflow-y-auto py-2", sections ? "min-h-0 grid-cols-1 items-start gap-3 pe-1 md:grid-cols-2 xl:grid-cols-3" : isWide && "sm:grid-cols-2 max-h-[55vh] pe-1")}>
-          {sections ? sections.map((section) => (
-            <fieldset key={section.title} className="min-w-0 rounded-lg border border-border bg-muted/20 p-3">
-              <legend className="px-2 text-sm font-semibold">{section.title}</legend>
-              <div className="grid grid-cols-1 content-start gap-x-3 gap-y-3 sm:grid-cols-2">
-                {section.keys.flatMap((key) => {
-                  const field = fields.find((candidate) => candidate.key === key);
-                  return field && isVisible(field) ? [renderField(field)] : [];
-                })}
+        <div className={cn("grid gap-4 overflow-y-auto py-2", sections ? "min-h-0 grid-cols-1 items-start gap-3 pe-1" : isWide && "sm:grid-cols-2 max-h-[55vh] pe-1")}>
+          {sections ? sections.map((section, index) => {
+            const expanded = !progressive || index === 0 || expandedSections.includes(section.title);
+            const panelId = `dialog-section-${index}`;
+            return <section key={section.title} className="min-w-0 rounded-lg border border-border bg-muted/20 p-3">
+              {progressive && index > 0 ? <button type="button" className="flex min-h-11 w-full items-center justify-between text-start text-sm font-semibold" aria-expanded={expanded} aria-controls={panelId} onClick={() => setExpandedSections(prev => expanded ? prev.filter(s => s !== section.title) : [...prev, section.title])}>
+                {section.title}<span aria-hidden="true">{expanded ? "−" : "+"}</span>
+              </button> : <h2 className="mb-3 text-sm font-semibold">{section.title}</h2>}
+              <div id={panelId} hidden={!expanded}>
+                <div className="grid grid-cols-1 content-start gap-x-3 gap-y-3 sm:grid-cols-2">
+                  {section.keys.flatMap(key => {
+                    const field = fields.find(candidate => candidate.key === key);
+                    return field && isVisible(field) ? [renderField(field)] : [];
+                  })}
+                </div>
               </div>
-            </fieldset>
-          )) : fields.filter(isVisible).map(renderField)}
+            </section>;
+          }) : fields.filter(isVisible).map(renderField)}
         </div>
+        {submitError ? <p role="alert" className="rounded-md border border-destructive/30 p-3 text-sm text-destructive">{submitError}</p> : null}
         <DialogFooter className={cn("gap-2", sections && "shrink-0 border-t pt-3")}>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
             {t("cancel")}

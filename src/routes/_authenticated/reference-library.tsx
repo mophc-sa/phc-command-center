@@ -1,3 +1,5 @@
+import { queryRows } from "@/lib/query-rows";
+import { QueryFailure } from "@/components/phc/QueryFailure";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -31,9 +33,9 @@ function ReferenceLibraryPage() {
   const [shareableOnly, setShareableOnly] = useState(false);
   const canEdit = canManageSalesPipeline(roles);
 
-  const { data: refs = [], isLoading } = useQuery({
+  const { data: refs = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["reference-projects"],
-    queryFn: async () => (await supabase.from("reference_projects").select("*").order("year", { ascending: false })).data ?? [],
+    queryFn: async () => queryRows( (await supabase.from("reference_projects").select("*").order("year", { ascending: false }))),
   });
 
   const sectors = useMemo(() => {
@@ -104,17 +106,17 @@ function ReferenceLibraryPage() {
         </label>
       </div>
 
-      {isLoading ? (
+      {isError ? <QueryFailure retry={refetch} /> : isLoading ? (
         <SkeletonTable rows={6} />
       ) : filtered.length === 0 ? (
-        <EmptyState message={t("ref_no_projects")} hint={term || sector !== "all" || shareableOnly ? "Try clearing filters" : undefined} />
+        <EmptyState variant={term || sector !== "all" || shareableOnly ? "no-results" : "empty"} title={t("ref_no_projects")} secondaryAction={term || sector !== "all" || shareableOnly ? { label: t("empty_clear_filters"), onClick: () => { setQ(""); setSector("all"); setShareableOnly(false); } } : undefined} />
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((r: any) => (
             <div key={r.id} className="flex flex-col rounded-xl border border-border/70 bg-surface/60 px-4 py-3 transition-colors hover:border-border-strong/70 hover:bg-surface">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium text-foreground">{r.name}</div>
+                  <div className="whitespace-normal text-sm font-medium text-foreground">{r.name}</div>
                   <div className="mt-0.5 text-xs text-muted-foreground">
                     {[r.project_type, r.city, r.year].filter(Boolean).join(" · ") || "—"}
                   </div>
@@ -129,7 +131,7 @@ function ReferenceLibraryPage() {
                 </div>
               ) : null}
               <div className="mt-3 grid grid-cols-2 gap-3">
-                {r.phc_scope ? <DataField label={t("ref_scope")} value={r.phc_scope} className="col-span-2" /> : null}
+                {r.phc_scope ? <DataField label={t("ref_scope")} value={String(r.phc_scope).replace(/\[src:[^\]]*\]/g, "").trim()} className="col-span-2" /> : null}
                 {r.client_or_contractor ? <DataField label={t("crm_main_contractor")} value={r.client_or_contractor} /> : null}
                 {r.sign_types ? <DataField label={t("ref_sign_types")} value={r.sign_types} /> : null}
                 {r.project_value != null ? <DataField label={t("crm_total_value")} value={formatCurrency(r.project_value, lang, r.currency)} mono /> : null}
@@ -176,7 +178,9 @@ function ReferenceLibraryPage() {
             qc.invalidateQueries({ queryKey: ["reference-projects"] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
     </div>

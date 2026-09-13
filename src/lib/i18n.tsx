@@ -20,7 +20,7 @@ export const strings = {
   nav_targets: { en: "Targets & Performance", ar: "الأهداف والأداء" },
   nav_reports: { en: "Reports", ar: "التقارير" },
   nav_sales_management: { en: "Sales Management", ar: "إدارة المبيعات" },
-  nav_agent_activity: { en: "Agent Activity", ar: "نشاط الوكيل" },
+  nav_agent_activity: { en: "AI Audit", ar: "نشاط الوكيل" },
   nav_settings: { en: "Settings", ar: "الإعدادات" },
   nav_admin_settings: { en: "Admin Settings", ar: "إعدادات المسؤول" },
   nav_workspace: { en: "My Workspace", ar: "مساحتي" },
@@ -30,12 +30,12 @@ export const strings = {
   nav_vendors: { en: "Vendors", ar: "الموردون" },
   nav_reference_library: { en: "Reference Library", ar: "مكتبة المراجع" },
   nav_knowledge: { en: "Knowledge Search", ar: "البحث المعرفي" },
-  nav_ai_agents: { en: "AI Agents", ar: "وكلاء الذكاء" },
+  nav_ai_agents: { en: "AI Configuration", ar: "إعدادات الذكاء الاصطناعي" },
   nav_rfq_jih: { en: "RFQ & JIH Board", ar: "لوحة RFQ والفرص القائمة" },
   nav_tenders: { en: "Tender Monitor", ar: "مراقب المناقصات" },
   tender_monitor_intro: { en: "Track live tenders, deadlines, and conversion readiness.", ar: "تتبع المناقصات الحية والمواعيد النهائية وجاهزية التحويل." },
   nav_award_queue: { en: "Award & Contract Queue", ar: "طابور الترسية والعقود" },
-  nav_action_center: { en: "Action Required", ar: "الإجراءات المطلوبة" },
+  nav_action_center: { en: "Work Queue", ar: "قائمة العمل" },
   nav_tender_conversion: { en: "Tender Conversion", ar: "تحويل المناقصات" },
   nav_lead_tender_inbox: { en: "Lead & Tender Inbox", ar: "صندوق العملاء والمناقصات" },
 
@@ -47,7 +47,7 @@ export const strings = {
 
   // Sidebar / nav groups
   navgroup_overview: { en: "Overview", ar: "نظرة عامة" },
-  navgroup_home: { en: "Home", ar: "الرئيسية" },
+  navgroup_home: { en: "My work", ar: "عملي" },
   navgroup_crm: { en: "CRM", ar: "إدارة العلاقات" },
   navgroup_production: { en: "Production", ar: "الإنتاج" },
   navgroup_pipeline: { en: "Pipeline", ar: "خط المبيعات" },
@@ -158,7 +158,7 @@ export const strings = {
   ac_reason: { en: "Reason", ar: "السبب" },
 
   // Sales Action Queue — Sprint 5
-  ac_title: { en: "Sales Action Queue", ar: "قائمة إجراءات المبيعات" },
+  ac_title: { en: "Work Queue", ar: "قائمة العمل" },
   ac_subtitle: { en: "Every follow-up, review, and gap the daily action engine has surfaced for the team.", ar: "كل متابعة أو مراجعة أو نقص بيانات رصدها محرك الإجراءات اليومي للفريق." },
   ac_tab_active: { en: "Active", ar: "نشطة" },
   ac_tab_completed: { en: "Completed", ar: "مكتملة" },
@@ -558,7 +558,7 @@ export const strings = {
   pipeline_step_label: { en: "Pipeline Step", ar: "خطوة المسار" },
 
   // Lead Intake (Project Radar)
-  lead_intake_title: { en: "Lead Intake Queue", ar: "طابور الفرص الواردة" },
+  lead_intake_title: { en: "Project Radar", ar: "رادار المشاريع" },
   lead_intake_hint: { en: "Raw leads qualified step-by-step. A lead never becomes an opportunity automatically — a human decides.", ar: "فرص خام تُؤهَّل خطوة بخطوة. لا يتحول Lead إلى فرصة تلقائيًا — القرار بشري." },
   lead_new: { en: "New Lead", ar: "فرصة جديدة" },
   lead_source: { en: "Source", ar: "المصدر" },
@@ -652,7 +652,7 @@ export const strings = {
   high_priority_opportunities: { en: "High-Priority Opportunities", ar: "الفرص ذات الأولوية العالية" },
   follow_ups_due: { en: "Follow-ups Due", ar: "المتابعات المستحقة" },
   new_opportunities: { en: "New Opportunities", ar: "فرص جديدة" },
-  agent_activity: { en: "Agent Activity", ar: "نشاط الوكيل" },
+  agent_activity: { en: "AI Audit", ar: "نشاط الوكيل" },
 
   // Metrics
   metric_pipeline_value: { en: "Open Pipeline Value", ar: "قيمة الفرص المفتوحة" },
@@ -1683,7 +1683,7 @@ export const strings = {
   intake_section_contact: { en: "Client & request source", ar: "العميل ومصدر الطلب" },
   intake_section_project: { en: "Project & scope", ar: "المشروع ونطاق العمل" },
   intake_section_followup: { en: "Follow-up & attachments", ar: "المتابعة والمرفقات" },
-  intake_routes_itself: { en: "Set the project type and name and this goes straight to the right track — no extra steps.", ar: "حدِّد نوع المشروع واسمه ليذهب مباشرة لمساره الصحيح — بلا خطوات إضافية." },
+  intake_routes_itself: { en: "Start with the required details. Expand the other sections when needed; your draft is saved on this browser.", ar: "ابدأ بالبيانات المطلوبة وافتح الأقسام الأخرى عند الحاجة. تُحفظ المسودة على هذا المتصفح." },
   intake_routed_opportunity: { en: "Opportunity created — opening it now", ar: "أُنشئت الفرصة — جارٍ فتحها" },
   intake_routed_tender: { en: "Tender created on the monitoring board", ar: "أُنشئت المناقصة في لوحة المراقبة" },
   nav_new_intake: { en: "New Entry", ar: "إدخال جديد" },
@@ -1757,7 +1757,7 @@ export const strings = {
   aa_status_not_configured: { en: "Not configured", ar: "غير مُهيأة" },
 
   ag_eyebrow_intelligence: { en: "Intelligence", ar: "الذكاء" },
-  ag_title: { en: "AI Agents", ar: "وكلاء الذكاء" },
+  ag_title: { en: "AI Configuration", ar: "إعدادات الذكاء الاصطناعي" },
   ag_description: {
     en: "Real-data agents. Every recommendation shows its evidence; nothing is applied automatically.",
     ar: "وكلاء تعمل على بيانات حقيقية. كل توصية تعرض دليلها، ولا يُطبَّق شيء تلقائياً.",

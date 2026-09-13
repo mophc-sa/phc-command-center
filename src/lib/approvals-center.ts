@@ -264,7 +264,7 @@ export function fromIntakeApproval(o: IntakeApprovalRowIn): UnifiedApproval {
     decidedAt: o.reviewed_at,
     notes: o.review_notes ?? o.reject_reason,
     evidence: docs.length ? docs.join(" · ") : "No documents attached",
-    href: "/lead-tender-inbox",
+    href: `/lead-tender-inbox?item=${encodeURIComponent(o.id)}`,
   };
 }
 

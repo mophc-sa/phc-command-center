@@ -178,10 +178,12 @@ export function NewIntakeDialog({
       draftId="intake"
       description={t("intake_routes_itself")}
       submitLabel={t("crm_add")}
+      progressive
       sections={[
-        { title: t("intake_section_contact"), keys: ["sourceType", "dateReceived", "companyName", "clientType", "clientTypeOther", "contactName", "phone", "email", "rfqFrom", "rfqFromOther", "clientRfqReference", "internalRfqReference"] },
-        { title: t("intake_section_project"), keys: ["projectName", "requestType", "clientOwner", "mainContractor", "consultant", "ownerEntity", "scopeType", "scopeTypeOther", "locationCity", "locationOther", "completionPct", "deadline"] },
-        { title: t("intake_section_followup"), keys: ["assignedOwnerId", "followUpDate", "nextAction", "saabPortal", "hasBoq", "hasDrawings", "hasSpecs", "notes", "evidenceUrl"] },
+        { title: t("ibx_new_item"), keys: ["sourceType", "requestType", "projectName", "companyName", "contactName", "phone", "assignedOwnerId"] },
+        { title: t("intake_section_contact"), keys: ["dateReceived", "clientType", "clientTypeOther", "email", "rfqFrom", "rfqFromOther", "clientRfqReference", "internalRfqReference"] },
+        { title: t("intake_section_project"), keys: ["clientOwner", "mainContractor", "consultant", "ownerEntity", "scopeType", "scopeTypeOther", "locationCity", "locationOther", "completionPct", "deadline"] },
+        { title: t("intake_section_followup"), keys: ["followUpDate", "nextAction", "saabPortal", "hasBoq", "hasDrawings", "hasSpecs", "notes", "evidenceUrl"] },
       ]}
       fields={newIntakeFields((k) => t(k as never), teamMembers, known)}
       onSubmit={async (v) => {
@@ -247,6 +249,8 @@ export function NewIntakeDialog({
           void navigate({ to: "/lead-tender-inbox" });
         } catch (e) {
           toast.error(e instanceof Error ? e.message : t("error_generic"));
+
+          throw e;
         }
       }}
     />

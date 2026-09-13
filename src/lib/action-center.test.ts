@@ -190,7 +190,7 @@ describe("projections", () => {
   it("maps intake to the inbox, not to an opportunity", () => {
     const a = fromIntake(intake())!;
     expect(a.entityType).toBe("inbox_item");
-    expect(a.href).toBe("/lead-tender-inbox");
+    expect(a.href).toBe("/lead-tender-inbox?item=i1");
   });
 
   it("splits pending_review from need_information into different owners", () => {
