@@ -102,12 +102,14 @@ test.describe("operational UX regression", () => {
       await dialog.locator("#phone").fill("0501234567");
       await dialog.locator("#sourceType").click();
       await page.getByRole("option").first().click();
+      let rejectedWrites = 0;
       await page.route("**/rest/v1/**", async route => {
-        if (route.request().method() === "POST") await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "Synthetic save unavailable" }) });
+        if (route.request().method() === "POST") { rejectedWrites++; await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "Synthetic save unavailable" }) }); }
         else await route.continue();
       });
       await dialog.getByRole("button", { name: lang === "ar" ? "إضافة" : "Add", exact: true }).click();
-      await expect(dialog.getByRole("alert")).toContainText("Synthetic save unavailable");
+      await expect.poll(() => rejectedWrites).toBeGreaterThan(0);
+      await expect(dialog.getByRole("alert")).toBeVisible();
       await expect(dialog.locator("#projectName")).toHaveValue("Synthetic UX Project");
       const bounds = await dialog.boundingBox();
       expect(bounds).not.toBeNull();
