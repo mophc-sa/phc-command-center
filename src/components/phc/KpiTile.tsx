@@ -115,7 +115,7 @@ export function KpiTile({
               {icon}
             </span>
           ) : null}
-          <span className="truncate text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</span>
+          <span className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</span>
         </span>
         <TooltipProvider delayDuration={150}>
           <Tooltip>
@@ -203,9 +203,9 @@ export function KpiTile({
           them side by side read as a broken page. This is the way out, scoped
           to the exact records that are missing the input. */}
       {kpi.fix ? (
-        <div className="mt-1.5 text-2xs font-medium text-amber-light underline-offset-2 hover:underline">
+        <Link to={kpi.fix.to} search={kpi.fix.search} className="pointer-events-auto relative z-10 mt-2 inline-flex min-h-6 items-center text-xs font-medium text-amber-light underline underline-offset-2">
           {t(kpi.fix.labelKey as never)} →
-        </div>
+        </Link>
       ) : null}
     </>
   );
@@ -228,12 +228,8 @@ export function KpiTile({
   const content = <div className="pointer-events-none">{body}</div>;
   const openLabel = lang === "ar" ? `افتح ${label}` : `Open ${label}`;
 
-  // One link per tile — a fix link nested inside a drilldown link is invalid
-  // markup and the inner one never fires. When a metric cannot be computed the
-  // fix takes the tile, because drilling into records that cannot answer the
-  // question is not the action the reader needs.
-  // An explicit in-page handler wins: it is the more specific intent, and it
-  // keeps the reader on the dashboard rather than navigating away.
+  // Drilldown and repair are sibling links with independent destinations.
+  // An explicit in-page handler takes precedence for the main tile action.
   if (onOpen) {
     return (
       <div className={`${shell} ${interactive}`}>
@@ -243,11 +239,9 @@ export function KpiTile({
     );
   }
 
-  const target = kpi.fix
-    ? { to: kpi.fix.to, search: kpi.fix.search }
-    : clickable
-      ? { to: kpi.drilldown!.to, search: kpi.drilldown!.search }
-      : null;
+  const target = clickable
+    ? { to: kpi.drilldown!.to, search: kpi.drilldown!.search }
+    : null;
 
   // A 3px edge, INSIDE the card. The reference dashboards carry their colour on
   // the cards; this app's warm-neutral canvas is its identity and stays put.

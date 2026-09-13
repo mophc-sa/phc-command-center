@@ -1,3 +1,5 @@
+import { queryRows } from "@/lib/query-rows";
+import { QueryFailure } from "@/components/phc/QueryFailure";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -22,7 +24,7 @@ export const Route = createFileRoute("/_authenticated/vendors")({
 });
 
 function VendorsPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { roles } = useAuth();
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
@@ -32,9 +34,9 @@ function VendorsPage() {
   const isManager = canManageSalesPipeline(roles);
   const source = isManager ? "vendors_full" : "vendors";
 
-  const { data: vendors = [], isLoading } = useQuery({
+  const { data: vendors = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["vendors", source],
-    queryFn: async () => (await supabase.from(source as "vendors").select("*").order("name")).data ?? [],
+    queryFn: async () => queryRows( (await supabase.from(source as "vendors").select("*").order("name"))),
   });
 
   const scopes = useMemo(() => {
@@ -81,7 +83,7 @@ function VendorsPage() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div hidden={vendors.length === 0} className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label={t("nav_vendors")} value={vendors.length} hint={`${scopes.length} ${scopes.length === 1 ? "category" : "categories"}`} />
         <KpiCard label={t("vendor_scope")} value={scopes.length || "—"} />
         {isManager ? (
@@ -119,10 +121,15 @@ function VendorsPage() {
         </select>
       </div>
 
-      {isLoading ? (
+      {isError ? <QueryFailure retry={refetch} /> : isLoading ? (
         <SkeletonTable rows={6} />
       ) : filtered.length === 0 ? (
-        <EmptyState message={t("vendor_no_vendors")} hint={term || scope !== "all" ? "Try clearing filters" : undefined} />
+        <EmptyState
+          variant={term || scope !== "all" ? "no-results" : "empty"}
+          title={term || scope !== "all" ? (lang === "ar" ? "لا نتائج مطابقة" : "No matching vendors") : t("vendor_no_vendors")}
+          description={lang === "ar" ? "احفظ تخصص المورد ووسائل التواصل معه في مكان واحد." : "Keep vendor scope and contact details together."}
+          primaryAction={term || scope !== "all" ? { label: lang === "ar" ? "مسح المرشحات" : "Clear filters", onClick: () => { setQ(""); setScope("all"); } } : isManager ? { label: t("vendor_new"), onClick: () => setCreateOpen(true) } : undefined}
+        />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {filtered.map((v: any) => (
@@ -210,7 +217,9 @@ function VendorsPage() {
             qc.invalidateQueries({ queryKey: ["vendors", source] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
     </div>

@@ -176,30 +176,12 @@ function AccountDetail() {
           <DataField label={t("crm_relationship")} value={c.relationship_level} />
           <DataField label={t("crm_next_action")} value={c.next_action} />
         </div>
-        {c.internal_notes ? (
+        {c.internal_notes && !/^\s*[[{]/.test(c.internal_notes) ? (
           <div className="mt-4">
             <DataField label={t("crm_internal_notes")} value={c.internal_notes} />
           </div>
         ) : null}
       </Panel>
-
-      <AiRiskAssessment
-        entityType="companies"
-        entityId={id}
-        agentKey="commercial_risk_assessment"
-        title={lang === "ar" ? "تقييم صحة العلاقة (AI)" : "Relationship Health (AI)"}
-      />
-
-      {/* Extra data from import — dynamic columns preserved from uploaded files */}
-      {c.extra_data && Object.keys(c.extra_data).length > 0 ? (
-        <Panel title={t("crm_additional_data" as never)}>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-3">
-            {Object.entries(c.extra_data as Record<string, string>).map(([key, val]) => (
-              <DataField key={key} label={key} value={val} />
-            ))}
-          </div>
-        </Panel>
-      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">
         <Panel title={t("crm_linked_contacts")} subtitle={String(contactCount)}>
@@ -278,7 +260,7 @@ function AccountDetail() {
             </ul>
           )}
           {canCreateOpp ? (
-            <ActionDialog
+      <ActionDialog
               open={newOppOpen}
               onOpenChange={setNewOppOpen}
               title={t("crm_new_opportunity")}
@@ -298,7 +280,9 @@ function AccountDetail() {
                   navigate({ to: "/opportunities/$id", params: { id: opp.id } });
                 } catch (e) {
                   toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-                }
+
+          throw e;
+        }
               }}
             />
           ) : null}
@@ -309,6 +293,27 @@ function AccountDetail() {
         <CommunicationTimeline filter={{ companyId: c.id }} />
       </Panel>
 
+            <details className="rounded-lg border border-border p-4">
+        <summary className="cursor-pointer text-sm font-medium">{lang === "ar" ? "تحليل العلاقة وبيانات المصدر" : "Relationship analysis & source details"}</summary>
+      <AiRiskAssessment
+        entityType="companies"
+        entityId={id}
+        agentKey="commercial_risk_assessment"
+        title={lang === "ar" ? "تقييم صحة العلاقة (AI)" : "Relationship Health (AI)"}
+      />
+
+      {/* Extra data from import — dynamic columns preserved from uploaded files */}
+      {c.extra_data && Object.keys(c.extra_data).length > 0 ? (
+        <Panel title={t("crm_additional_data" as never)}>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-3">
+            {Object.entries(c.extra_data as Record<string, string>).map(([key, val]) => (
+              <DataField key={key} label={key} value={val} />
+            ))}
+          </div>
+        </Panel>
+      ) : null}
+
+      </details>
       <ActionDialog
         open={editOpen}
         onOpenChange={setEditOpen}
@@ -336,7 +341,9 @@ function AccountDetail() {
             qc.invalidateQueries({ queryKey: ["company", id] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
 
@@ -364,7 +371,9 @@ function AccountDetail() {
             qc.invalidateQueries({ queryKey: ["company", id] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
     </div>

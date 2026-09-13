@@ -178,19 +178,21 @@ export function NewIntakeDialog({
       draftId="intake"
       description={t("intake_routes_itself")}
       submitLabel={t("crm_add")}
+      progressive
       sections={[
-        { title: t("intake_section_contact"), keys: ["sourceType", "dateReceived", "companyName", "clientType", "clientTypeOther", "contactName", "phone", "email", "rfqFrom", "rfqFromOther", "clientRfqReference", "internalRfqReference"] },
-        { title: t("intake_section_project"), keys: ["projectName", "requestType", "clientOwner", "mainContractor", "consultant", "ownerEntity", "scopeType", "scopeTypeOther", "locationCity", "locationOther", "completionPct", "deadline"] },
-        { title: t("intake_section_followup"), keys: ["assignedOwnerId", "followUpDate", "nextAction", "saabPortal", "hasBoq", "hasDrawings", "hasSpecs", "notes", "evidenceUrl"] },
+        { title: t("ibx_new_item"), keys: ["sourceType", "requestType", "projectName", "companyName", "contactName", "phone", "assignedOwnerId"] },
+        { title: t("intake_section_contact"), keys: ["dateReceived", "clientType", "clientTypeOther", "email", "rfqFrom", "rfqFromOther", "clientRfqReference", "internalRfqReference"] },
+        { title: t("intake_section_project"), keys: ["clientOwner", "mainContractor", "consultant", "ownerEntity", "scopeType", "scopeTypeOther", "locationCity", "locationOther", "completionPct", "deadline"] },
+        { title: t("intake_section_followup"), keys: ["followUpDate", "nextAction", "saabPortal", "hasBoq", "hasDrawings", "hasSpecs", "notes", "evidenceUrl"] },
       ]}
       fields={newIntakeFields((k) => t(k as never), teamMembers, known)}
       onSubmit={async (v) => {
-        if (!v.sourceType) { toast.error(t("ibx_no_source")); return; }
+        if (!v.sourceType) throw new Error(t("ibx_no_source"));
         // A percentage or nothing. The database rejects anything else anyway;
         // saying so here costs a round trip less and names the field.
         const pct = v.completionPct?.trim();
-        if (pct && !/^\d{1,3}$/.test(pct)) { toast.error(t("ibx_completion_invalid")); return; }
-        if (pct && Number(pct) > 100) { toast.error(t("ibx_completion_invalid")); return; }
+        if (pct && !/^\d{1,3}$/.test(pct)) throw new Error(t("ibx_completion_invalid"));
+        if (pct && Number(pct) > 100) throw new Error(t("ibx_completion_invalid"));
         try {
           const res = await createInboxItemAndRoute({
             sourceType: v.sourceType as never,
@@ -247,6 +249,8 @@ export function NewIntakeDialog({
           void navigate({ to: "/lead-tender-inbox" });
         } catch (e) {
           toast.error(e instanceof Error ? e.message : t("error_generic"));
+
+          throw e;
         }
       }}
     />

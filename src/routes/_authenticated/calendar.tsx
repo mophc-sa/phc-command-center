@@ -70,11 +70,12 @@ function CalendarPage() {
     y: Number(today.slice(0, 4)),
     m: Number(today.slice(5, 7)),
   }));
+  const [view, setView] = useState<"month" | "agenda">("month");
   const [selected, setSelected] = useState<string>(today);
   const [createOpen, setCreateOpen] = useState(false);
   const [outlookOpen, setOutlookOpen] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["calendar-sources"],
     staleTime: 60_000,
     queryFn: async () => {
@@ -114,6 +115,7 @@ function CalendarPage() {
       // salesperson has no business reading every quotation, and that is not
       // a reason to deny them their own follow-ups.
       return {
+        incomplete: [followUps, rfqs, opps, inbox, flags, commitments, tasks, quotations, projects, tenders].some(result => !!result.error),
         followUps: followUps.data ?? [],
         rfqs: rfqs.data ?? [],
         opportunities: opps.data ?? [],
@@ -149,7 +151,7 @@ function CalendarPage() {
   const days = useMemo(() => byDay(events), [events]);
   const summary = useMemo(() => calendarSummary(events), [events]);
   const grid = useMemo(() => monthGrid(cursor.y, cursor.m), [cursor]);
-  const selectedEvents = days.get(selected) ?? [];
+  const selectedEvents = view === "agenda" ? events.filter(e => e.state !== "done").sort((a, b) => a.date.localeCompare(b.date)) : days.get(selected) ?? [];
 
   const monthLabel = new Date(Date.UTC(cursor.y, cursor.m - 1, 1)).toLocaleDateString(localeFor((ar ? "ar" : "en"), "en"),
     { month: "long", year: "numeric", timeZone: "UTC" },
@@ -176,7 +178,7 @@ function CalendarPage() {
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-7xl">
       <PageHeader
         eyebrow={ar ? "التخطيط" : "Planning"}
         title={ar ? "التقويم" : "Calendar"}
@@ -216,17 +218,22 @@ function CalendarPage() {
       {summary.overdue > 0 ? (
         <Callout tone="critical" className="mb-5" compact>
           {ar
-            ? `${summary.overdue} بندًا فات موعده. المتأخر لا يختفي بمرور الوقت — يزداد فقط.`
-            : `${summary.overdue} items are past their date. Late work does not age out; it only accumulates.`}
+            ? `${summary.overdue} بندًا فات موعده. راجع الأجندة لترتيب المتابعة.`
+            : `${summary.overdue} items are overdue. Open the agenda to plan follow-up.`}
         </Callout>
       ) : null}
 
+      <div className="mb-4 flex flex-wrap items-center gap-2" aria-label={ar ? "عرض التقويم" : "Calendar view"}>
+        <button type="button" className="min-h-11 rounded-md border px-4 text-sm" onClick={() => { setSelected(today); setCursor({ y: Number(today.slice(0,4)), m: Number(today.slice(5,7)) }); }}>{ar ? "اليوم" : "Today"}</button>
+        {(["month", "agenda"] as const).map(v => <button key={v} type="button" aria-pressed={view === v} className="min-h-11 rounded-md border px-4 text-sm aria-pressed:bg-foreground aria-pressed:text-background" onClick={() => setView(v)}>{v === "month" ? (ar ? "الشهر" : "Month") : (ar ? "الأجندة" : "Agenda")}</button>)}
+      </div>
+      {data?.incomplete ? <div role="alert" className="mb-4 rounded-lg border border-amber p-3 text-sm">{ar ? "بعض مصادر التقويم غير متاحة؛ قد تكون المواعيد المعروضة غير مكتملة." : "Some calendar sources are unavailable; displayed dates may be incomplete."} <button type="button" className="min-h-11 underline" onClick={() => void refetch()}>{ar ? "إعادة المحاولة" : "Try again"}</button></div> : null}
       {isLoading ? (
         <SkeletonTable />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className={view === "month" ? "grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : "grid gap-4"}>
           {/* ---- the month ---- */}
-          <div className="rounded-xl border border-border/70 bg-surface/60 p-3">
+          <div hidden={view !== "month"} className="rounded-xl border border-border/70 bg-surface/60 p-3">
             <div className="mb-3 flex items-center justify-between gap-2">
               <button
                 type="button"
@@ -264,7 +271,7 @@ function CalendarPage() {
                     key={day}
                     type="button"
                     onClick={() => setSelected(day)}
-                    aria-label={day}
+                    aria-label={`${day} · ${list.length} ${ar ? "مواعيد" : "events"}`}
                     aria-current={isToday ? "date" : undefined}
                     className={[
                       "min-h-[3.25rem] rounded-md border p-1 text-start transition-colors",
@@ -304,7 +311,7 @@ function CalendarPage() {
           <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
             <div className="mb-3 flex items-center gap-2">
               <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-              <span className="num text-base font-medium text-foreground">{selected}</span>
+              <span className="num text-base font-medium text-foreground">{view === "agenda" ? (ar ? "المواعيد المفتوحة" : "Open agenda") : selected}</span>
               {selected === today ? <StatusPill tone="attention">{t("cal_today" as never)}</StatusPill> : null}
             </div>
 
@@ -315,6 +322,7 @@ function CalendarPage() {
                 {selectedEvents.map((e) => (
                   <li key={e.id} className="rounded-lg border border-border/50 px-3 py-2">
                     <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                      {view === "agenda" ? <time className="num text-sm" dateTime={e.date}>{e.date}</time> : null}
                       <StatusPill tone={STATE_TONE[e.state]}>
                         {formatMessage(e.label, (k) => t(k as never), String)}
                       </StatusPill>

@@ -79,3 +79,44 @@ for (const role of ALL_ROLES) {
     });
   });
 }
+
+
+test.describe("operational UX regression", () => {
+  const creds = getRoleCredentials("bd_manager");
+  test.skip(!creds, "Requires the isolated intake operator fixture");
+
+  for (const lang of ["en", "ar"] as const) {
+    test(`request form retains input after a failed save (${lang}, mobile)`, async ({ page }) => {
+      if (!creds) return;
+      await signInWithCachedSession(page, creds.email, creds.password);
+      await page.evaluate(language => localStorage.setItem("phc-lang", language), lang);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto("/lead-tender-inbox");
+      await expect(page).toHaveURL(url => url.pathname === "/lead-tender-inbox");
+      await page.getByRole("button", { name: lang === "ar" ? "إدخال جديد" : "New Intake", exact: true }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await dialog.locator("#companyName").fill("Synthetic UX Company");
+      await dialog.locator("#projectName").fill("Synthetic UX Project");
+      await dialog.locator("#contactName").fill("Synthetic Contact");
+      await dialog.locator("#phone").fill("0501234567");
+      await dialog.locator("#sourceType").click();
+      await page.getByRole("option").first().click();
+      let rejectedWrites = 0;
+      await page.route("**/rest/v1/**", async route => {
+        if (route.request().method() === "POST") { rejectedWrites++; await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "Synthetic save unavailable" }) }); }
+        else await route.continue();
+      });
+      await dialog.getByRole("button", { name: lang === "ar" ? "إضافة" : "Add", exact: true }).click();
+      await expect.poll(() => rejectedWrites).toBeGreaterThan(0);
+      await expect(dialog.getByRole("alert")).toBeVisible();
+      await expect(dialog.locator("#projectName")).toHaveValue("Synthetic UX Project");
+      const bounds = await dialog.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(391);
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+    });
+  }
+});

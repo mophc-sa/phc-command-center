@@ -702,6 +702,59 @@ function CommandCenter() {
         <ExecutiveBrief brief={brief} commentaryState={commentaryState} />
       )}
 
+      <section className="mt-6">
+        <div className="mb-2 grid gap-3 sm:grid-cols-3">
+          {([
+            ["at_risk", attentionSummary.atRisk, lang === "ar" ? "معرَّضة للخطر" : "At risk"],
+            ["stalled", attentionSummary.stalled, lang === "ar" ? "متوقفة" : "Stalled"],
+            ["closing", attentionSummary.closingSoon, lang === "ar" ? "إغلاق قريب" : "Closing soon"],
+          ] as const).map(([key, roll, label]) => (
+            <div key={key} className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3">
+              <div className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</div>
+              <div className="num mt-1 text-[20px] font-semibold leading-none text-foreground" data-tabular="true">
+                {formatNumber(roll.count, lang)}
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {roll.count === 0
+                  ? "—"
+                  : roll.value > 0
+                    ? formatCurrency(roll.value, lang)
+                    : lang === "ar"
+                      ? "بلا قيمة مسجَّلة"
+                      : "No value recorded"}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <ChartFrame
+          title={t("needs_attention")}
+          subtitle={
+            lang === "ar"
+              ? "صف واحد لكل فرصة · اضغط لترى القواعد التي أطلقت التصنيف"
+              : "One row per opportunity · open a row to see which rules fired"
+          }
+          action={
+            <button
+              onClick={() => nav({ to: "/action-center" })}
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/70 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {lang === "ar" ? "الكل" : "View all"} <ArrowRight className="h-3 w-3" />
+            </button>
+          }
+          padded={false}
+          bodyClassName="p-0"
+        >
+          {isLoading ? (
+            <SkeletonTable rows={4} />
+          ) : attention.length === 0 ? (
+            <div className="px-3 py-6"><EmptyState message={t("empty_needs_attention")} /></div>
+          ) : (
+            <NeedsAttentionPanel items={attention.slice(0, 8)} />
+          )}
+        </ChartFrame>
+      </section>
+
       {/* The total, and what it is made of, before anything else.
           It used to be stated twice — once here and once on the commercial
           ladder below — as two identical cards with no breakdown anywhere. A
@@ -753,7 +806,7 @@ function CommandCenter() {
           were pushed off the screen by them. */}
       <KpiGroup
         title={lang === "ar" ? "مؤشرات المبيعات" : "Sales performance"}
-        subtitle={lang === "ar" ? "هذا الشهر · اضغط أي رقم لفتح سجلاته" : "This month · click any number to open its records"}
+        subtitle={lang === "ar" ? "النتائج: هذا الشهر · الفرص المفتوحة: الوضع الحالي" : "Outcomes: this month · open pipeline: current snapshot"}
         entries={[
           {
             kpi: execKpis.openPipeline,
@@ -813,59 +866,6 @@ function CommandCenter() {
           it. This sat at the bottom of the page under the charts; it is the one
           section a sales manager opens the dashboard to read, so it now sits
           directly under the numbers and above every chart. */}
-      <section className="mt-6">
-        <div className="mb-2 grid gap-3 sm:grid-cols-3">
-          {([
-            ["at_risk", attentionSummary.atRisk, lang === "ar" ? "معرَّضة للخطر" : "At risk"],
-            ["stalled", attentionSummary.stalled, lang === "ar" ? "متوقفة" : "Stalled"],
-            ["closing", attentionSummary.closingSoon, lang === "ar" ? "إغلاق قريب" : "Closing soon"],
-          ] as const).map(([key, roll, label]) => (
-            <div key={key} className="rounded-xl border border-border/70 bg-surface/60 px-4 py-3">
-              <div className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</div>
-              <div className="num mt-1 text-[20px] font-semibold leading-none text-foreground" data-tabular="true">
-                {formatNumber(roll.count, lang)}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                {roll.count === 0
-                  ? "—"
-                  : roll.value > 0
-                    ? formatCurrency(roll.value, lang)
-                    : lang === "ar"
-                      ? "بلا قيمة مسجَّلة"
-                      : "No value recorded"}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <ChartFrame
-          title={t("needs_attention")}
-          subtitle={
-            lang === "ar"
-              ? "صف واحد لكل فرصة · اضغط لترى القواعد التي أطلقت التصنيف"
-              : "One row per opportunity · open a row to see which rules fired"
-          }
-          action={
-            <button
-              onClick={() => nav({ to: "/action-center" })}
-              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/70 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {lang === "ar" ? "الكل" : "View all"} <ArrowRight className="h-3 w-3" />
-            </button>
-          }
-          padded={false}
-          bodyClassName="p-0"
-        >
-          {isLoading ? (
-            <SkeletonTable rows={4} />
-          ) : attention.length === 0 ? (
-            <div className="px-3 py-6"><EmptyState message={t("empty_needs_attention")} /></div>
-          ) : (
-            <NeedsAttentionPanel items={attention.slice(0, 8)} />
-          )}
-        </ChartFrame>
-      </section>
-
       {/* KPI row */}
       <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiCard

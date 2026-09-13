@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Users, Copy, FileBarChart } from "lucide-react";
 import { AiOperationsPanel } from "@/components/phc/AiOperationsPanel";
-import { DailyAssistantPanel } from "@/components/phc/DailyAssistantPanel";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -76,7 +75,7 @@ function AiAgentsPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader eyebrow={t("ag_eyebrow_intelligence")} title={t("ag_title")} description={t("ag_description")} />
 
-      <DailyAssistantPanel />
+
       <AiOperationsPanel />
 
       {canRun ? (

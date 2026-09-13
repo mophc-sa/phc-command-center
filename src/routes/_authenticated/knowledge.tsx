@@ -1,3 +1,4 @@
+import { QueryFailure } from "@/components/phc/QueryFailure";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -100,7 +101,7 @@ function KnowledgePage() {
       ) : null}
 
       <div className="mt-6">
-        {results === null ? (
+        {search.isError ? <QueryFailure retry={() => search.mutate()} /> : results === null ? (
           <EmptyState message={t("knowledge_empty_hint")} hint={t("knowledge_results_hint")} />
         ) : results.length === 0 ? (
           <EmptyState message={t("knowledge_no_results")} hint="Try broader or different keywords." />

@@ -16,8 +16,8 @@
 // without them.
 // =============================================================================
 
-import { resolveCanonicalStage, type CanonicalStage } from "@/lib/stage-canonical";
-import { AWARDED_STAGES, LATE_STAGE_EXPOSURE, OPEN_STAGES, type Period } from "@/lib/sales-kpis";
+import { resolveCanonicalStage, CANONICAL_STAGES, type CanonicalStage } from "@/lib/stage-canonical";
+import { opportunityValue, AWARDED_STAGES, LATE_STAGE_EXPOSURE, OPEN_STAGES, type Period } from "@/lib/sales-kpis";
 
 /**
  * Group filters that are not themselves canonical stages. They exist because
@@ -51,6 +51,11 @@ export function matchesStageFilter(
   filter: string,
 ): boolean {
   if (filter === "all") return true;
+  if (filter.includes(",")) {
+    const stages = filter.split(",").map(stage => stage.trim());
+    if (!stages.every(stage => (CANONICAL_STAGES as readonly string[]).includes(stage))) return false;
+    return stages.some(stage => matchesStageFilter(row, stage));
+  }
   const canonical = resolveCanonicalStage(row).stage;
   if (canonical === null) return false;
 
@@ -68,6 +73,7 @@ export type OpportunitySearch = {
   stage: string;
   tier: string;
   view: "table" | "cards";
+  missing?: "value" | "probability";
   owner: string;
   from: string;
   to: string;
@@ -87,6 +93,7 @@ export const DEFAULT_SEARCH: OpportunitySearch = {
 export function parseOpportunitySearch(s: Record<string, unknown>): OpportunitySearch {
   const str = (v: unknown, d: string) => (typeof v === "string" && v !== "" ? v : d);
   return {
+    ...(s.missing === "value" || s.missing === "probability" ? { missing: s.missing } : {}),
     q: str(s.q, ""),
     stage: str(s.stage, "all"),
     tier: str(s.tier, "all"),
@@ -124,7 +131,7 @@ export function buildDrilldown(input: {
 
 /** True when the incoming search actually narrows anything. */
 export function hasActiveFilters(s: OpportunitySearch): boolean {
-  return s.q !== "" || s.stage !== "all" || s.tier !== "all" || s.owner !== "all" || s.from !== "" || s.to !== "";
+  return !!s.missing || s.q !== "" || s.stage !== "all" || s.tier !== "all" || s.owner !== "all" || s.from !== "" || s.to !== "";
 }
 
 /**
@@ -137,6 +144,7 @@ export function hasActiveFilters(s: OpportunitySearch): boolean {
  * free of the i18n dependency.
  */
 export type FilterChip =
+  | { kind: "missing"; field: "value" | "probability" }
   | { kind: "stage"; stage: string }
   | { kind: "tier"; tier: string }
   | { kind: "owner" }
@@ -145,6 +153,7 @@ export type FilterChip =
 
 export function describeFilters(s: OpportunitySearch): FilterChip[] {
   const out: FilterChip[] = [];
+  if (s.missing) out.push({ kind: "missing", field: s.missing });
   if (s.stage !== "all") out.push({ kind: "stage", stage: s.stage });
   if (s.tier !== "all") out.push({ kind: "tier", tier: s.tier });
   if (s.owner !== "all") out.push({ kind: "owner" });
@@ -202,6 +211,12 @@ export function matchesOpportunitySearch(
     stage?: string | null;
     tier?: string | null;
     updated_at?: string | null;
+    won_at?: string | null;
+    lost_at?: string | null;
+    contract_value?: number | string | null;
+    quotation_value?: number | string | null;
+    estimated_value_max?: number | string | null;
+    human_win_probability?: number | null;
     project_name?: string | null;
     client?: string | null;
     main_contractor?: string | null;
@@ -211,6 +226,8 @@ export function matchesOpportunitySearch(
   s: OpportunitySearch,
 ): boolean {
   if (!matchesStageFilter(o, s.stage)) return false;
+  if (s.missing === "value" && opportunityValue(o) !== null) return false;
+  if (s.missing === "probability" && o.human_win_probability != null && Number.isFinite(o.human_win_probability) && o.human_win_probability >= 0 && o.human_win_probability <= 100) return false;
   if (s.tier !== "all" && o.tier !== s.tier) return false;
   if (s.owner && s.owner !== "all" && o.owner_id !== s.owner) return false;
 
@@ -218,8 +235,9 @@ export function matchesOpportunitySearch(
     // Won and lost are events, so they are bounded by the period. Everything
     // else is a current-state snapshot and must not be narrowed by a range.
     const canonical = resolveCanonicalStage(o).stage;
-    const d = canonical === "won" || canonical === "lost" ? (o.updated_at ?? null) : null;
-    if (d !== null) {
+    const d = canonical === "won" ? o.won_at : canonical === "lost" ? o.lost_at : null;
+    if ((canonical === "won" || canonical === "lost") && !d) return false;
+    if (d != null) {
       if (s.from && d < s.from) return false;
       if (s.to && d >= s.to) return false;
     }

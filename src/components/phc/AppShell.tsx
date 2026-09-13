@@ -120,7 +120,6 @@ const NAV_GROUPS: NavGroup[] = [
     key: "navgroup_home",
     fallback: "Home",
     items: [
-      { kind: "link",   to: "/command-center",   key: "nav_command_center",    icon: LayoutDashboard },
       { kind: "link",   to: "/my-workspace",     key: "nav_my_day",            icon: Briefcase },
       { kind: "link",   to: "/action-center",    key: "nav_action_center",     icon: BellRing },
       // Beside the day's work, not filed under reports: a calendar answers
@@ -184,6 +183,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       // Phase 5: the management surface. Role-gated inside — a viewer with no
       // commercial role gets an explanation, not a blank page.
+      { kind: "link",   to: "/command-center",   key: "nav_command_center",    icon: LayoutDashboard },
       { kind: "link", to: "/sales-management", key: "nav_sales_management", icon: Gauge },
       { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart },
     ],
@@ -718,7 +718,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main id="main-content" tabIndex={-1} className="flex-1 px-4 py-6 md:px-10 md:py-10">
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-4 py-5 md:px-8 md:py-6">
           {children}
         </main>
       </div>

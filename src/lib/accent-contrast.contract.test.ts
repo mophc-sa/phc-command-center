@@ -119,11 +119,12 @@ describe("text on its own tint is a different question", () => {
     });
   }
 
-  it("the plain tokens would NOT have passed — which is why these exist", () => {
-    // Stated as an assertion so the record cannot rot into a comment nobody
-    // believes. If a future palette change makes --won pass here, this fails
-    // and someone gets to simplify deliberately rather than by accident.
-    expect(ratio(luminanceOf(rgbOf("won")), tintLum("won"))).toBeLessThan(4.5);
+  it("the darker plain success and error tokens also support body text on tint", () => {
+    // These tokens are used directly by legacy text-won/text-destructive controls.
+    // Keep both those controls and the explicit on-tint tokens readable.
+    for (const token of ["won", "destructive"]) {
+      expect(ratio(luminanceOf(rgbOf(token)), tintLum(token))).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });
 

@@ -267,8 +267,8 @@ describe("matchesOpportunitySearch — the opportunity list's predicate", () => 
   // current state, so a period from a drilldown must not narrow it.
   it("bounds won/lost rows by the period", () => {
     const s = { ...DEFAULT_SEARCH, stage: "won", from: "2026-08-01", to: "2026-09-01" };
-    expect(matchesOpportunitySearch(row({ sales_stage: "won", updated_at: "2026-08-05" }), s)).toBe(true);
-    expect(matchesOpportunitySearch(row({ sales_stage: "won", updated_at: "2026-07-05" }), s)).toBe(false);
+    expect(matchesOpportunitySearch(row({ sales_stage: "won", won_at: "2026-08-05" }), s)).toBe(true);
+    expect(matchesOpportunitySearch(row({ sales_stage: "won", won_at: "2026-07-05" }), s)).toBe(false);
   });
 
   it("does not bound a snapshot stage by the period", () => {

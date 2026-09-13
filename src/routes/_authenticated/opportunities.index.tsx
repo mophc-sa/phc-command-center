@@ -1,3 +1,4 @@
+import { SavedOpportunityViews } from "@/components/phc/SavedOpportunityViews";
 import { createFileRoute, useNavigate, type SearchSchemaInput } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWindowedList } from "@/lib/windowed-list";
@@ -77,6 +78,7 @@ const STAGE_GROUP_FILTERS = ["open", "late_stage", "awarded", "closed"] as const
 
 /** One label for a stage filter, whether it names a group or a single stage. */
 function stageFilterLabel(stage: string, t: (k: string) => string): string {
+  if (stage.includes(",")) return stage.split(",").map(s => t(canonicalStageLabelKey(s.trim() as (typeof CANONICAL_STAGES)[number]))).join(" / ");
   return (STAGE_GROUP_FILTERS as readonly string[]).includes(stage)
     ? t(`filter_stage_${stage}`)
     : t(canonicalStageLabelKey(stage as (typeof CANONICAL_STAGES)[number]));
@@ -130,15 +132,16 @@ function OppList() {
   const clearFilters = () =>
     navigate({ to: ".", search: { ...DEFAULT_SEARCH, view }, replace: true });
 
-  const { data = [], isLoading } = useQuery({
+  const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["opps"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("opportunities")
         .select(
           "*, company:companies!opportunities_company_id_fkey(id, name), rfqs(classification, rfq_number, created_at), quotations(status, value, issued_date, created_at)",
         )
         .order("last_activity_at", { ascending: false, nullsFirst: false });
+      if (error) throw error;
       return (data ?? []) as unknown as OpportunityRow[];
     },
   });
@@ -192,7 +195,7 @@ function OppList() {
         case "classification": return rfq?.classification ?? "";
         case "sales_code": return rfq?.rfq_number ?? "";
         case "project_name": return o.project_name ?? "";
-        case "amount": return quote?.value ?? opportunityValue(o as never) ?? o.estimated_value_min ?? 0;
+        case "amount": return opportunityValue(o as never) ?? 0;
         case "quotation_status": return quote?.status ?? "";
         case "submission_date": return quote?.issued_date ?? "";
         case "client_company": return o.company?.name ?? o.client ?? "";
@@ -277,6 +280,9 @@ function OppList() {
         }
       />
 
+      <details className="mb-4 rounded-lg border border-border p-3">
+        <summary className="cursor-pointer text-sm font-medium">{lang === "ar" ? "ملخص المبيعات العام — جميع السجلات المتاحة، مستقل عن مرشحات القائمة" : "Sales overview — all accessible records, independent of list filters"}</summary>
+        <div className="mt-3">
       {/* Client feedback 2026-08-25, slide 4. This strip used to lead with Open
           Value / Tier A / Win Rate / Showing. Two of those were structurally
           stuck: Tier A read 0 because tiers are unset and Win Rate read 0%
@@ -308,6 +314,9 @@ function OppList() {
         </div>
       </section>
 
+        </div>
+      </details>
+      <SavedOpportunityViews search={routeSearch} onSelect={next => void patch(next)} />
       {/* Filter bar */}
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-surface/60 p-2">
         <div className="relative min-w-0 w-full flex-1 sm:max-w-sm">
@@ -341,6 +350,7 @@ function OppList() {
           <SelectTrigger className="h-9 w-full sm:w-[180px] text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("filter_all_stages")}</SelectItem>
+            {stage.includes(",") ? <SelectItem value={stage}>{stageFilterLabel(stage, k => t(k as never))}</SelectItem> : null}
             <SelectSeparator />
             {/* Radix requires SelectLabel to sit inside a SelectGroup — outside
                 one it throws and takes the whole page to the error boundary. */}
@@ -404,7 +414,7 @@ function OppList() {
               key={chip.kind}
               className="rounded-full border border-border/70 bg-background/50 px-2 py-0.5 text-xs text-foreground"
             >
-              {chip.kind === "stage"
+              {chip.kind === "missing" ? (chip.field === "value" ? (lang === "ar" ? "القيمة غير مسجلة" : "Missing value") : (lang === "ar" ? "الاحتمال غير مسجل" : "Missing probability")) : chip.kind === "stage"
                 ? `${t("filter_chip_stage" as never)}: ${stageFilterLabel(chip.stage, t as (k: string) => string)}`
                 : chip.kind === "tier"
                   ? `${t("filter_chip_tier" as never)} ${chip.tier}`
@@ -424,7 +434,8 @@ function OppList() {
         </div>
       )}
 
-      {isLoading ? (
+      <p className="mb-3 text-sm text-muted-foreground" role="status">{filtered.length} {lang === "ar" ? "نتيجة ضمن المرشحات الحالية" : "results matching current filters"}</p>
+      {isError ? <EmptyState variant="error" title={lang === "ar" ? "تعذر تحميل الفرص" : "Could not load opportunities"} primaryAction={{ label: lang === "ar" ? "إعادة المحاولة" : "Try again", onClick: () => void refetch() }} /> : isLoading ? (
         <SkeletonTable rows={8} />
       ) : data.length === 0 ? (
         <EmptyState title={t("empty_opportunities")} description={t("empty_desc_opportunities")} />
@@ -446,58 +457,36 @@ function OppList() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
           <div className="overflow-x-auto">
-          <div className="min-w-[900px] grid grid-cols-[90px_130px_minmax(0,2fr)_130px_150px_110px_minmax(0,1.2fr)] items-center gap-3 border-b border-border/60 px-4 py-2.5 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
-            <SortHeader label={lang === "ar" ? "JIH / منافسة" : "JIH / Tender"} active={sort?.key === "classification"} dir={sort?.dir} onClick={() => toggleSort("classification")} />
-            <SortHeader label={lang === "ar" ? "كود المبيعات" : "Sales Code"} active={sort?.key === "sales_code"} dir={sort?.dir} onClick={() => toggleSort("sales_code")} />
-            <SortHeader label={lang === "ar" ? "اسم المشروع" : "Project Name"} active={sort?.key === "project_name"} dir={sort?.dir} onClick={() => toggleSort("project_name")} />
-            <SortHeader label={lang === "ar" ? "القيمة" : "Amount"} active={sort?.key === "amount"} dir={sort?.dir} onClick={() => toggleSort("amount")} className="justify-end text-right" />
-            <SortHeader label={lang === "ar" ? "حالة العرض" : "Quotation Status"} active={sort?.key === "quotation_status"} dir={sort?.dir} onClick={() => toggleSort("quotation_status")} />
-            <SortHeader label={lang === "ar" ? "تاريخ التقديم" : "Submission Date"} active={sort?.key === "submission_date"} dir={sort?.dir} onClick={() => toggleSort("submission_date")} />
-            <SortHeader label={lang === "ar" ? "شركة العميل" : "Client Company"} active={sort?.key === "client_company"} dir={sort?.dir} onClick={() => toggleSort("client_company")} />
-          </div>
-          <ul>
-            {win.visible.map((o: any) => {
+          <table className="w-full min-w-[960px] text-sm">
+            <caption className="sr-only">{t("nav_opportunities")}</caption>
+            <thead><tr className="border-b text-start text-muted-foreground">
+              {([
+                ["project_name", lang === "ar" ? "المشروع / الإجراء القادم" : "Project / next action"],
+                ["client_company", lang === "ar" ? "العميل" : "Client"],
+                ["classification", lang === "ar" ? "التصنيف" : "Classification"],
+                ["amount", lang === "ar" ? "القيمة" : "Amount"],
+                ["quotation_status", lang === "ar" ? "حالة العرض" : "Quotation status"],
+                ["submission_date", lang === "ar" ? "تاريخ التقديم" : "Submission date"],
+              ] as const).map(([key, label]) => <th key={key} scope="col" className="px-4 py-3 text-start font-medium" aria-sort={sort?.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}><SortHeader label={label} active={sort?.key === key} dir={sort?.dir} onClick={() => toggleSort(key)} /></th>)}
+            </tr></thead>
+            <tbody>{win.visible.map((o: any) => {
               const rfq = latestRfq(o);
               const quote = latestQuotation(o);
-              const amount = quote?.value ?? opportunityValue(o as never) ?? o.estimated_value_min;
-              return (
-                <li key={o.id} className="transition-colors hover:bg-surface-2/40">
-                  <Link
-                    to="/opportunities/$id"
-                    params={{ id: o.id }}
-                    className="min-w-[900px] grid grid-cols-[90px_130px_minmax(0,2fr)_130px_150px_110px_minmax(0,1.2fr)] items-center gap-3 border-t border-border/60 px-4 py-3 first:border-t-0"
-                  >
-                    {rfq?.classification ? (
-                      <StatusPill tone={rfq.classification === "tender" ? "attention" : "muted"}>
-                        {rfq.classification === "jih" ? "JIH" : humanize(rfq.classification)}
-                      </StatusPill>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                    <div className="truncate text-sm text-foreground" data-tabular="true">{rfq?.rfq_number ?? "—"}</div>
-                    <div className="min-w-0">
-                      <div className="truncate text-base font-medium text-foreground">{o.project_name}</div>
-                      <div className="mt-0.5 truncate text-xs text-muted-foreground">{o.location ?? "—"}</div>
-                    </div>
-                    <div className="num text-right text-sm font-medium text-foreground" data-tabular="true">
-                      {formatCurrency(amount, lang, o.currency)}
-                    </div>
-                    {quote?.status ? (
-                      <StatusPill tone={quote.status === "won" ? "positive" : quote.status === "lost" || quote.status === "expired" ? "danger" : "muted"}>
-                        {humanize(quote.status)}
-                      </StatusPill>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                    <div className="truncate text-xs text-muted-foreground" data-tabular="true">
-                      {quote?.issued_date ? new Date(quote.issued_date).toLocaleDateString(localeFor(lang)) : "—"}
-                    </div>
-                    <div className="truncate text-sm text-foreground">{o.company?.name ?? o.client ?? "—"}</div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+              const amount = opportunityValue(o as never);
+              return <tr key={o.id} className="border-b border-border/50 align-top hover:bg-muted/40">
+                <th scope="row" className="max-w-sm px-4 py-3 text-start font-normal">
+                  <Link to="/opportunities/$id" params={{ id: o.id }} className="font-semibold text-foreground hover:underline">{o.project_name}</Link>
+                  <div className="mt-1 text-xs text-muted-foreground">{o.next_action || (lang === "ar" ? "الإجراء القادم غير مسجل" : "No next action recorded")}</div>
+                  {rfq?.rfq_number ? <div className="num mt-1 text-xs text-muted-foreground">{rfq.rfq_number}</div> : null}
+                </th>
+                <td className="max-w-48 px-4 py-3">{o.company?.name ?? o.client ?? "—"}</td>
+                <td className="px-4 py-3">{rfq?.classification ? humanize(rfq.classification) : "—"}</td>
+                <td className="num whitespace-nowrap px-4 py-3">{amount === null ? (lang === "ar" ? "غير مسجل" : "Not recorded") : formatCurrency(amount, lang, o.currency)}</td>
+                <td className="px-4 py-3">{quote?.status ? <StatusPill tone={quote.status === "won" ? "positive" : "neutral"}>{humanize(quote.status)}</StatusPill> : "—"}</td>
+                <td className="num whitespace-nowrap px-4 py-3">{quote?.issued_date ? new Date(quote.issued_date).toLocaleDateString(localeFor(lang)) : "—"}</td>
+              </tr>;
+            })}</tbody>
+          </table>
           </div>
 
         <ListWindowFooter win={win} />

@@ -84,7 +84,7 @@ export function CommunicationActions({
         <Phone className="h-3.5 w-3.5" aria-hidden="true" /> {iconOnly ? null : t("comm_log_activity")}
       </button>
 
-      <EmailComposeButton
+      {linked.type !== "contact" || recipientEmail ? <EmailComposeButton
         template={emailTemplate}
         context={{
           recipientName: recipientName ?? undefined,
@@ -99,7 +99,7 @@ export function CommunicationActions({
           ...linkedIds,
         }}
         size={size}
-      />
+      /> : <span className="text-xs text-muted-foreground">{lang === "ar" ? "البريد غير مسجل" : "No email recorded"}</span>}
 
       <button
         title={t("wa_button")}
@@ -151,7 +151,9 @@ export function CommunicationActions({
             toast.success(t("crm_saved"));
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
 
@@ -190,7 +192,9 @@ export function CommunicationActions({
             toast.success(t("crm_saved"));
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
     </div>

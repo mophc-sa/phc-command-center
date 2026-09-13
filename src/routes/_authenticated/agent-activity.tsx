@@ -70,7 +70,7 @@ function AgentActivityPage() {
   const [radarRunning, setRadarRunning] = useState(false);
   const [radarError, setRadarError] = useState<string | null>(null);
 
-  const [mainTab, setMainTab] = useState<"runs" | "outputs">("runs");
+  const [mainTab, setMainTab] = useState<"runs" | "outputs">("outputs");
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["ai-agent-runs-all"],
@@ -507,7 +507,9 @@ function AgentActivityPage() {
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
             qc.invalidateQueries({ queryKey: ["ai-agent-outputs"] });
-          }
+
+          throw e;
+        }
         }}
       />
     </div>

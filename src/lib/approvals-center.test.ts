@@ -205,7 +205,7 @@ describe("intake approvals", () => {
   });
 
   it("links to the inbox, where the record actually lives", () => {
-    expect(fromIntakeApproval(intakeRow()).href).toBe("/lead-tender-inbox");
+    expect(fromIntakeApproval(intakeRow()).href).toBe("/lead-tender-inbox?item=i1");
   });
 });
 

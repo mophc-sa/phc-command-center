@@ -114,7 +114,7 @@ function ActionCenter() {
   // ── Sources ────────────────────────────────────────────────────────────────
   // Each source keeps its own table and lifecycle; this page only projects them.
   // Fetched together so one refetch key invalidates the whole queue.
-  const { data: sources, isLoading } = useQuery({
+  const { data: sources, isLoading, isError, refetch } = useQuery({
     queryKey: ["unified-actions", filters.status],
     staleTime: 30_000,
     queryFn: async () => {
@@ -145,6 +145,7 @@ function ActionCenter() {
           .in("review_state", ["pending_review", "need_information"])
           .limit(200),
       ]);
+      for (const result of [flags, tasks, followUps, approvals, intake]) if (result.error) throw result.error;
       return {
         flags: (flags.data ?? []) as unknown as FlagRowIn[],
         tasks: (tasks.data ?? []) as unknown as TaskRowIn[],
@@ -169,6 +170,21 @@ function ActionCenter() {
     [actions, filters, uid, today],
   );
 
+  const opportunityIds = [...new Set(visible.filter(a => a.entityType === "opportunity").map(a => a.entityId))].sort();
+  const { data: recordNames = new Map<string, string>() } = useQuery({
+    queryKey: ["action-record-names", opportunityIds],
+    enabled: opportunityIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("opportunities").select("id, project_name").in("id", opportunityIds);
+      if (error) throw error;
+      return new Map((data ?? []).map(row => [row.id, row.project_name]));
+    },
+  });
+  const groups = new Map<string, typeof visible>();
+  for (const action of visible) {
+    const key = `${action.entityType}:${action.entityId || action.id}`;
+    groups.set(key, [...(groups.get(key) ?? []), action]);
+  }
   // KPIs describe the personal queue — a team-wide count is not something an
   // individual can act on, and this page's job is "what do I do next".
   const counts = useMemo(
@@ -363,7 +379,7 @@ function ActionCenter() {
         </div>
       </div>
 
-      {isLoading ? (
+      {isError ? <EmptyState variant="error" title={lang === "ar" ? "تعذر تحميل قائمة العمل" : "Could not load the work queue"} primaryAction={{ label: lang === "ar" ? "إعادة المحاولة" : "Try again", onClick: () => void refetch() }} /> : isLoading ? (
         <SkeletonTable rows={6} />
       ) : visible.length === 0 ? (
         <EmptyState
@@ -372,20 +388,15 @@ function ActionCenter() {
           description={t("empty_desc_action_center")}
         />
       ) : (
-        <ul className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
-          {visible.map((a) => (
-            <ActionRow
-              key={a.id}
-              a={a}
-              today={today}
-              ownerName={a.ownerUserId ? owners?.get(a.ownerUserId) : undefined}
-              t={t}
-              lang={lang}
-              onStart={() => handleStart(a.sourceRecordId)}
-              onDialog={(kind) => setDialog({ kind, flagId: a.sourceRecordId })}
-            />
-          ))}
-        </ul>
+        <div className="space-y-3">
+          {[...groups.entries()].map(([key, rows], index) => <details key={key} open={index < 3} className="overflow-hidden rounded-xl border border-border bg-surface">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
+              {recordNames.get(rows[0].entityId) ?? rows[0].context ?? rows[0].title}
+              <span className="ms-2 text-xs font-normal text-muted-foreground">{rows.length} {lang === "ar" ? "إجراءات" : "actions"}</span>
+            </summary>
+            <ul>{rows.map(a => <ActionRow key={a.id} a={a} today={today} ownerName={a.ownerUserId ? owners?.get(a.ownerUserId) : undefined} t={t} lang={lang} onStart={() => handleStart(a.sourceRecordId)} onDialog={kind => setDialog({ kind, flagId: a.sourceRecordId })} />)}</ul>
+          </details>)}
+        </div>
       )}
 
       {dialog ? (
@@ -478,7 +489,7 @@ function ActionRow({
             ) : null}
           </div>
 
-          <Link to={a.href as never} className="mt-1.5 block truncate text-base font-medium text-foreground hover:underline">
+          <Link to={a.href as never} className="mt-1.5 block whitespace-normal text-base font-medium text-foreground hover:underline">
             {a.title}
           </Link>
 

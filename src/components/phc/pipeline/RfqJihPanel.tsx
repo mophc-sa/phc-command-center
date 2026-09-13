@@ -342,7 +342,9 @@ export function RfqJihPanel() {
             toast.success(r?.pending_exception ? t("wf_pending_exception") : t("crm_saved"));
             refresh();
             qc.invalidateQueries({ queryKey: ["opportunities"] });
-          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 
@@ -367,7 +369,9 @@ export function RfqJihPanel() {
             toast.success(res?.pending_approval ? t("wf_pending_approval") : t("crm_saved"));
             refresh();
             qc.invalidateQueries({ queryKey: ["approvals"] });
-          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          throw e;
+        }
         }}
       />
 

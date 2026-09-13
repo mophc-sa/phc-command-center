@@ -1,3 +1,5 @@
+import { queryRows } from "@/lib/query-rows";
+import { QueryFailure } from "@/components/phc/QueryFailure";
 import { useWindowedList } from "@/lib/windowed-list";
 import { ListWindowFooter } from "@/components/phc/ListWindowFooter";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -64,15 +66,15 @@ function ContactsPage() {
   }, [initialQuery]);
   const [showArchived, setShowArchived] = useState(false);
 
-  const { data: contacts = [], isLoading } = useQuery({
+  const { data: contacts = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["contacts"],
-    queryFn: async () =>
+    queryFn: async () => queryRows(
       (
         await supabase
           .from("contacts")
           .select("*, companies(id, name, website)")
           .order("updated_at", { ascending: false })
-      ).data ?? [],
+      )),
   });
 
   const { data: companies = [] } = useQuery({
@@ -181,7 +183,7 @@ function ContactsPage() {
         </div>
       </div>
 
-      {isLoading ? (
+      {isError ? <QueryFailure retry={refetch} /> : isLoading ? (
         <SkeletonTable rows={8} />
       ) : contacts.length === 0 ? (
         <EmptyState
@@ -352,7 +354,9 @@ function ContactsPage() {
             qc.invalidateQueries({ queryKey: ["contacts"] });
           } catch (e) {
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
 
@@ -375,7 +379,9 @@ function ContactsPage() {
             creatingCompanyFor?.(null);
             setCreatingCompanyFor(null);
             toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-          }
+
+          throw e;
+        }
         }}
       />
     </div>

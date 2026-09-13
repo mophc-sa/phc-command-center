@@ -41,14 +41,14 @@ function SettingsPage() {
       <PageHeader
         eyebrow="Administration"
         title={t("nav_settings")}
-        description="Personal preferences for your PHC workspace."
+        description={lang === "ar" ? "تفضيلاتك الشخصية في منصة PHC." : "Personal preferences for your PHC workspace."}
       />
 
       <section className="rounded-xl border border-border/70 bg-surface/60">
         <header className="border-b border-border/60 px-5 py-4">
           <div className="text-sm font-medium text-foreground">{t("language")}</div>
           <div className="mt-0.5 text-xs text-muted-foreground">
-            Choose the display language for the interface. This does not affect stored data.
+            {lang === "ar" ? "اختر لغة الواجهة. لا تتغير البيانات المحفوظة." : "Choose the display language. Stored data remains unchanged."}
           </div>
         </header>
         <div className="grid gap-2 p-4 sm:grid-cols-2">

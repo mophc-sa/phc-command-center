@@ -235,7 +235,10 @@ function AdminSettingsPage() {
         description={t("admin_settings_intro")}
       />
 
-      <GitSyncStatus />
+      <details className="rounded-lg border border-border p-3">
+        <summary className="cursor-pointer text-sm font-medium">{lang === "ar" ? "تفاصيل النظام والنشر" : "System & deployment details"}</summary>
+        <GitSyncStatus />
+      </details>
 
       {/* ── Pending Registrations ── */}
       {canManage && (
