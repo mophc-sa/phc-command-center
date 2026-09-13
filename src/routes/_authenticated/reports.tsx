@@ -1,3 +1,6 @@
+import { inReportCohort } from "@/lib/report-scope";
+import { listTeamMembers } from "@/lib/opportunity-actions";
+import { QueryFailure } from "@/components/phc/QueryFailure";
 import { readAll } from "../../../supabase/functions/_shared/ai-facts";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
@@ -64,21 +67,25 @@ function ReportsPage() {
 
   const { user } = useAuth();
   const [reportCurrency, setReportCurrency] = useState("SAR");
-  const { data: opps = [], isLoading: l1, error: opportunityError } = useQuery({
+  const [scope, setScope] = useState({ owner: "all", from: "", to: "" });
+  const { data: members = [] } = useQuery({ queryKey: ["team-members-min"], queryFn: listTeamMembers });
+  const { data: allOpps = [], isLoading: l1, error: opportunityError, refetch: reloadOpps } = useQuery({
     queryKey: ["report-opps", user?.id],
     enabled: !!user, refetchInterval: 60000,
     queryFn: () => readAll((from,to) => supabase.from("opportunities")
-      .select("id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, currency")
+      .select("id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, currency, owner_id, created_at")
       .order("id").range(from,to)),
   });
-  const { data: allQuotes = [], isLoading: l2, error: quotationError } = useQuery({
+  const { data: allQuotes = [], isLoading: l2, error: quotationError, refetch: reloadQuotes } = useQuery({
     queryKey: ["report-quotes", user?.id],
     enabled: !!user, refetchInterval: 60000,
     queryFn: () => readAll((from,to) => supabase.from("quotations")
-      .select("id, status, value, win_loss_reason, currency").order("id").range(from,to)),
+      .select("id, status, value, win_loss_reason, currency, related_opportunity_id, created_at").order("id").range(from,to)),
   });
+  const opps = useMemo(() => allOpps.filter(o => inReportCohort(o, scope)), [allOpps, scope]);
+  const ownerIds = useMemo(() => new Set(allOpps.filter(o => scope.owner === "all" || o.owner_id === scope.owner).map(o => o.id)), [allOpps, scope.owner]);
   const currencies = [...new Set(["SAR", ...opps.map(o => o.currency || "UNKNOWN"), ...allQuotes.map(q => q.currency || "UNKNOWN")])].sort();
-  const quotes = useMemo(() => allQuotes.filter(q => (q.currency || "UNKNOWN") === reportCurrency), [allQuotes, reportCurrency]);
+  const quotes = useMemo(() => allQuotes.filter(q => (q.currency || "UNKNOWN") === reportCurrency && inReportCohort(q, { ...scope, owner: "all" }) && (scope.owner === "all" || (q.related_opportunity_id && ownerIds.has(q.related_opportunity_id)))), [allQuotes, reportCurrency, scope, ownerIds]);
   const money = (value: number) => `${formatNumber(value,lang)} ${reportCurrency}`;
 
   // Latest AI weekly report — stored as an audit log entry (action = 'ai.weekly_report')
@@ -159,13 +166,26 @@ function ReportsPage() {
         description={lang === "ar" ? "نظرة تنفيذية على خط الأنابيب والعروض والفوز/الخسارة." : "Executive view of pipeline, quotations, and win/loss."}
       />
 
+      <fieldset className="mb-4 grid gap-3 rounded-lg border p-3 sm:grid-cols-3">
+        <legend className="px-2 text-sm font-medium">{lang === "ar" ? "نطاق التقرير" : "Report scope"}</legend>
+        <label className="grid gap-1 text-sm">{lang === "ar" ? "المسؤول" : "Owner"}
+          <select className="min-h-11 rounded border bg-background px-2" value={scope.owner} onChange={e => setScope({ ...scope, owner: e.target.value })}>
+            <option value="all">{lang === "ar" ? "كل المسؤولين المتاحين" : "All accessible owners"}</option>
+            {members.map(m => <option key={m.id} value={m.id}>{m.full_name || m.email}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm">{lang === "ar" ? "أُنشئ من" : "Created from"}<input type="date" className="min-h-11 rounded border bg-background px-2" max={scope.to || undefined} value={scope.from} onChange={e => setScope({ ...scope, from: e.target.value })} /></label>
+        <label className="grid gap-1 text-sm">{lang === "ar" ? "أُنشئ حتى" : "Created through"}<input type="date" className="min-h-11 rounded border bg-background px-2" min={scope.from || undefined} value={scope.to} onChange={e => setScope({ ...scope, to: e.target.value })} /></label>
+        <p className="text-xs text-muted-foreground sm:col-span-3">{lang === "ar" ? "الفترة تختار السجلات حسب تاريخ إنشائها، والقيم تمثل حالتها الحالية. مسؤول العرض مأخوذ من الفرصة المرتبطة؛ العروض غير المرتبطة تظهر عند اختيار الكل." : "Dates select records by creation date; values reflect their current state. Quotation owner comes from the linked opportunity; unlinked quotations appear under all owners."}</p>
+        <button type="button" className="min-h-11 text-start text-sm underline" onClick={() => setScope({ owner: "all", from: "", to: "" })}>{lang === "ar" ? "مسح المرشحات" : "Clear filters"}</button>
+      </fieldset>
       <label className="mb-4 flex items-center gap-2 text-sm">
         {lang === "ar" ? "عملة الأرقام والرسوم" : "Currency for figures and charts"}
         <select className="rounded border bg-background px-2 py-1" value={reportCurrency} onChange={e => setReportCurrency(e.target.value)}>
           {currencies.map(currency => <option key={currency} value={currency}>{currency === "UNKNOWN" ? (lang === "ar" ? "عملة غير مسجلة" : "Unspecified currency") : currency}</option>)}
         </select>
       </label>
-      {opportunityError || quotationError ? <p role="alert" className="text-destructive">{lang === "ar" ? "تعذرت قراءة بيانات التقرير كاملة. أعد تحميل الصفحة." : "The complete report data could not be read. Reload to retry."}</p> : isLoading ? (
+      {opportunityError || quotationError ? <QueryFailure retry={() => Promise.all([reloadOpps(), reloadQuotes()])} /> : isLoading ? (
         <SkeletonChart kpis={3} charts={2} />
       ) : !hasData ? (
         <EmptyState message={t("empty_report")} />
@@ -242,7 +262,7 @@ function ReportsPage() {
                       <Tooltip
                         contentStyle={tooltipStyle}
                         cursor={{ fill: "var(--color-muted)" }}
-                        formatter={(v: any, _n, p: any) => [`${formatNumber(Number(v), lang)} · ${formatCurrency(p?.payload?.value ?? 0, lang)}`, p?.payload?.label]}
+                        formatter={(v: any, _n, p: any) => [`${formatNumber(Number(v), lang)} · ${money(p?.payload?.value ?? 0)}`, p?.payload?.label]}
                       />
                       <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                         {quoteRows.map((r) => (
@@ -269,6 +289,17 @@ function ReportsPage() {
             </ChartFrame>
           ) : null}
 
+          <details className="rounded-lg border p-4">
+            <summary className="cursor-pointer font-medium">{lang === "ar" ? "تعريف المؤشرات وبيانات الرسوم" : "Metric definitions and chart data"}</summary>
+            <p className="my-3 text-sm">{lang === "ar" ? "نسبة الفوز = عدد العروض الفائزة ÷ مجموع الفائزة والخاسرة. القيم تجمع العروض داخل العملة والنطاق المحددين؛ الفرص المفتوحة تمثل وضعها الحالي." : "Win rate = won quotations / (won + lost quotations). Values sum quotations in the selected currency and scope; open opportunities reflect current state."}</p>
+            {[{ title: t("report_pipeline_by_stage"), rows: stageRows }, { title: t("report_quotation_funnel"), rows: quoteRows }].map(group => <div key={group.title} className="mb-4 overflow-x-auto">
+              <table className="w-full text-sm"><caption className="py-2 text-start font-medium">{group.title}</caption>
+                <thead><tr><th scope="col" className="text-start">{lang === "ar" ? "المرحلة" : "Stage"}</th><th scope="col">{lang === "ar" ? "العدد" : "Count"}</th><th scope="col">{lang === "ar" ? "القيمة" : "Value"}</th></tr></thead>
+                <tbody>{group.rows.map(row => <tr key={row.key} className="border-t"><th scope="row" className="py-2 text-start font-normal">{row.label}</th><td className="text-center">{formatNumber(row.count, lang)}</td><td className="text-center">{money(row.value)}</td></tr>)}</tbody>
+              </table>
+            </div>)}
+          </details>
+          <p className="rounded-lg border p-3 text-sm text-muted-foreground">{lang === "ar" ? "ملخصات الذكاء الاصطناعي التالية تقارير محفوظة بنطاقها الأصلي، ولا تتغير بمرشحات هذه الصفحة." : "The AI summaries below are stored reports with their original scope; this page’s filters do not change them."}</p>
           <SalesReportInsightsPanel lang={lang} />
 
           {weeklyReport ? (

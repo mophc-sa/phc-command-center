@@ -6,16 +6,12 @@ import { AlertTriangle, Archive as ArchiveIcon, CheckCircle2, ChevronRight, Inbo
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
-import { EmptyState } from "@/components/phc/EmptyState";
-import { SkeletonTable } from "@/components/phc/Skeleton";
-import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { NewIntakeDialog } from "@/components/phc/NewIntakeDialog";
 import { IntakeReviewPanel } from "@/components/phc/IntakeReviewPanel";
-import { useI18n, formatCurrency } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
-import { IntakeDetail } from "@/components/phc/IntakeReviewPanel";
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import { createCompany } from "@/lib/crm-actions";
 import {
@@ -61,19 +57,6 @@ function LeadTenderInbox() {
   const { t, lang } = useI18n();
   const { item } = Route.useSearch();
   const { user, roles } = useAuth();
-  // Which inbox cards are expanded. A card asks you to classify, convert or
-  // mark a request duplicate while showing only company, project and contact —
-  // scope, value, deadline and what documents arrived are exactly what those
-  // decisions turn on. The review queue above already expands for the same
-  // reason; this brings the cards in line with it.
-  const [openDetail, setOpenDetail] = useState<Set<string>>(new Set(item ? [item] : []));
-  const toggleDetail = (id: string) =>
-    setOpenDetail((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
   const uid = user?.id ?? "";
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -181,7 +164,7 @@ function LeadTenderInbox() {
         <span>{lang === "ar" ? "عرض الطلب المرتبط" : "Viewing the linked request"}</span>
         <button type="button" className="min-h-11 underline" onClick={() => navigate({ to: "/lead-tender-inbox", search: {} })}>{lang === "ar" ? "كل الطلبات" : "All requests"}</button>
       </div> : null}
-      <IntakeReviewPanel key={item ?? "all"} selectedId={item} />
+
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard label={t("ibx_title")} value={kpis.total} icon={<InboxIcon className="h-3.5 w-3.5" />} />
@@ -197,80 +180,26 @@ function LeadTenderInbox() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search company, project, contact"
+            aria-label={lang === "ar" ? "بحث في الطلبات" : "Search requests"}
+            placeholder={lang === "ar" ? "ابحث بالشركة أو المشروع أو جهة الاتصال" : "Search company, project, contact"}
             className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
           />
         </div>
         <div className="flex rounded-md border border-border p-0.5">
           {(["active", "all"] as const).map((v) => (
             <button key={v} onClick={() => setStatusFilter(v)} className={`rounded px-2.5 py-1 text-xs capitalize ${statusFilter === v ? "bg-surface text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-              {v}
+              {v === "active" ? (lang === "ar" ? "النشطة" : "Active") : (lang === "ar" ? "الكل" : "All")}
             </button>
           ))}
         </div>
       </div>
 
-      {isLoading ? (
-        <SkeletonTable rows={6} />
-      ) : isError ? (
-        <div className="rounded-xl border border-border/70 bg-surface/60 p-6 text-sm">
-          <div className="text-foreground">{t("error_generic")}</div>
-          <button onClick={() => refetch()} className="mt-3 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:bg-muted">{t("retry")}</button>
+      <IntakeReviewPanel key={item ?? "all"} selectedId={item} items={filtered} loading={isLoading} failed={isError} retry={refetch} renderRecordActions={(x) => <div className="mt-3 border-t pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm">{t("label_owner")}: {x.assigned_owner_id ? teamMap.get(x.assigned_owner_id) ?? "—" : "—"}</span>
+          <RecordLifecycleMenu entityType="inbox_items" entityId={x.id} roles={roles} onDone={refresh} />
         </div>
-      ) : filtered.length === 0 ? (
-        <EmptyState message={t("wf_no_records")} />
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((x: any) => (
-            <div key={x.id} className="rounded-md border border-border/70 bg-background/40 px-3 py-2.5">
-              <div className="flex items-start justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggleDetail(x.id)}
-                  aria-expanded={(item === x.id || openDetail.has(x.id))}
-                  className="flex min-w-0 flex-1 items-center gap-1.5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
-                >
-                  <ChevronRight
-                    className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${(item === x.id || openDetail.has(x.id)) ? "rotate-90" : "rtl:-scale-x-100"}`}
-                  />
-                  <span className="truncate text-sm font-medium text-foreground">{x.company_name || x.project_name || x.contact_name || t("wf_source")}</span>
-                </button>
-                <div className="flex shrink-0 items-center gap-1">
-                  <StatusPill tone={statusTone(x.status)}>{t(`ibxst_${x.status}` as never)}</StatusPill>
-                  {/* inbox_items is one of the five DELETABLE_ENTITY_TYPES, and
-                      the request → manager approval → atomic execute flow has
-                      been built and wired since Sprint 8 — but no page mounted
-                      the menu, so nothing could reach it. A row could only be
-                      classified, converted or archived, and only while its
-                      status was new or in_review; after that it had no actions
-                      at all and no way out of the list.
-                      inbox_items is not in ARCHIVABLE_ENTITY_TYPES, so this
-                      renders Request Delete alone and does not duplicate the
-                      archive button below. */}
-                  <RecordLifecycleMenu
-                    entityType="inbox_items"
-                    entityId={x.id}
-                    roles={roles}
-                    onDone={refresh}
-                  />
-                </div>
-              </div>
-              <div className="mt-0.5 text-xs text-muted-foreground">{t(`src_${x.source_type}` as never)}{x.source_name ? ` · ${x.source_name}` : ""}</div>
-              {x.project_name && x.company_name ? <div className="mt-1 truncate text-xs text-muted-foreground">{t("label_project")}: {x.project_name}</div> : null}
-              {x.contact_name ? <div className="truncate text-xs text-muted-foreground">{x.contact_name}{x.phone ? ` · ${x.phone}` : ""}{x.email ? ` · ${x.email}` : ""}</div> : null}
-              {x.estimated_value != null ? <div className="mt-1 text-xs text-muted-foreground num" data-tabular="true">{formatCurrency(x.estimated_value, lang, "SAR")}</div> : null}
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                <StatusPill tone="muted">{t(`cls_${x.classification}` as never)}</StatusPill>
-                <span>{t("label_owner")}: {x.assigned_owner_id ? teamMap.get(x.assigned_owner_id) ?? "—" : "—"}</span>
-              </div>
-              {x.next_action ? <div className="mt-1 text-xs text-muted-foreground"><span className="text-amber-light">{t("label_next_action")}:</span> {x.next_action}</div> : null}
-
-              {(item === x.id || openDetail.has(x.id)) ? (
-                <div className="mt-2 border-t border-border/60 pt-2.5">
-                  <IntakeDetail r={x} />
-                </div>
-              ) : null}
-
+        {x.next_action ? <p className="my-2 text-sm">{t("label_next_action")}: {x.next_action}</p> : null}
               {x.status === "new" || x.status === "in_review" ? (
                 <div className="mt-2 flex flex-wrap justify-end gap-1 border-t border-border/60 pt-1.5">
                   <button onClick={() => setClassifyFor(x)} className="rounded border border-border px-1.5 py-0.5 text-2xs text-muted-foreground hover:text-foreground">
@@ -292,10 +221,7 @@ function LeadTenderInbox() {
                   </button>
                 </div>
               ) : null}
-            </div>
-          ))}
-        </div>
-      )}
+      </div>} />
 
       {/* The one entry form, shared with the shell header (see D11). */}
       <NewIntakeDialog open={newItem} onOpenChange={setNewItem} onSaved={refresh} />

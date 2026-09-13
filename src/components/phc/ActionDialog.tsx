@@ -641,7 +641,7 @@ export function ActionDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => { if (!busy && !uploading) onOpenChange(next); }}>
       <DialogContent dir={dir} className={cn("flex flex-col", sections ? "w-[calc(100%-1.5rem)] max-w-3xl sm:max-w-3xl max-h-[calc(100dvh-1.5rem)] overflow-hidden gap-3 p-4" : isWide ? "sm:max-w-2xl" : "sm:max-w-md")}>
         <DialogHeader className={sections ? "shrink-0 px-7 text-start sm:text-start" : undefined}>
           <DialogTitle>{title}</DialogTitle>
@@ -699,7 +699,7 @@ export function ActionDialog({
         </div>
         {submitError ? <p role="alert" className="rounded-md border border-destructive/30 p-3 text-sm text-destructive">{submitError}</p> : null}
         <DialogFooter className={cn("gap-2", sections && "shrink-0 border-t pt-3")}>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy || uploading}>
             {t("cancel")}
           </Button>
           <Button

@@ -21,12 +21,12 @@ The reconstructed baseline tree exactly matches upstream main at `f155e60516dcbd
 
 Browser security policy blocked local visual inspection. Automated checks do not establish WCAG conformance or prove mobile layout quality. Before release, review the approved preview in Arabic/RTL and English at desktop and mobile widths; exercise keyboard focus, failed saves, network errors and supported roles. Follow the repository's canary and protected production release procedure.
 
-## Deeper redesign still outstanding
+## Follow-up implementation
 
 - Validate the revised information architecture with actual user tasks and role-based usability testing.
-- Unify the intake review table and duplicate card workflow into one workspace.
-- Add shared/server-synced views and richer contextual record panels if validated by users.
-- Standardize report/team/time filters and finish the dashboard metric dictionary.
-- Complete responsive and screen-reader audits, measured contrast checks, and scenario coverage for every loading, empty, permission and error state.
+- Unified intake review and record actions in one expandable table. Failed information requests and rejection saves retain input.
+- Added permission-scoped filter links for sharing and use on another device. Personal saved views remain browser-local; server synchronization is a separate feature.
+- Added owner and creation-cohort date filters to reports, explicit AI scope labels, metric definitions and accessible chart data tables.
+- Added measured 4.5:1 contrast regression checks for core body-text semantic colors across three surfaces, and mobile English/Arabic failed-save interaction tests to the isolated role suite. Calendar warns about incomplete sources.
 
-These items are not represented as completed by this implementation.
+User research and a full assistive-technology audit remain validation activities; automated tests are not a WCAG certification. Deployment follows passing CI, isolated readiness, canary and production readiness gates.

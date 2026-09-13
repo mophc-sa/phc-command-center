@@ -235,12 +235,12 @@
   --amber-foreground: oklch(0.99 0.002 90);
 
   /* Won / awarded — fresh semantic green, distinct from amber attention */
-  --won: oklch(0.60 0.135 155);
+  --won: oklch(0.48 0.11 155);
   --won-surface: oklch(0.60 0.135 155 / 0.10);
   --won-border: oklch(0.60 0.135 155 / 0.22);
 
   /* Info — cool steel-blue for neutral supplementary labels (data counts, etc.) */
-  --info: oklch(0.55 0.11 240);
+  --info: oklch(0.52 0.11 240);
 
   /* Chart colour tokens — keep charts in sync with the design system. */
   --chart-primary:     oklch(0.20 0.010 253);
@@ -358,7 +358,7 @@
   --stage-6: oklch(0.60 0.115 155); /* استُلم العقد */
   --stage-7: oklch(0.52 0.135 155); /* عقد موقّع */
 
-  --destructive: oklch(0.60 0.195 25);
+  --destructive: oklch(0.51 0.17 25);
   --destructive-foreground: oklch(0.99 0.002 90);
 
   /* Hairline borders — 1px, low contrast on white */

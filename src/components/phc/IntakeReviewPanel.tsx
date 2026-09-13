@@ -161,7 +161,14 @@ const REVIEW_TONE: Record<IntakeReviewState, "attention" | "positive" | "danger"
   rejected: "danger",
 };
 
-export function IntakeReviewPanel({ selectedId }: { selectedId?: string } = {}) {
+export function IntakeReviewPanel({ selectedId, items, loading, failed, retry, renderRecordActions }: {
+  selectedId?: string;
+  items?: any[];
+  loading?: boolean;
+  failed?: boolean;
+  retry?: () => unknown;
+  renderRecordActions?: (row: any) => React.ReactNode;
+} = {}) {
   const { t } = useI18n();
   const { roles } = useAuth();
   const qc = useQueryClient();
@@ -175,8 +182,9 @@ export function IntakeReviewPanel({ selectedId }: { selectedId?: string } = {}) 
 
   const { data: teamMembers = [] } = useQuery({ queryKey: ["team-members-min"], queryFn: listTeamMembers });
 
-  const { data: rows = [], isLoading, isError, refetch } = useQuery({
+  const { data: fetchedRows = [], isLoading: fetching, isError: fetchFailed, refetch } = useQuery({
     queryKey: ["intake-review-queue", selectedId],
+    enabled: items === undefined,
     staleTime: 15_000,
     queryFn: async () => {
       let query = supabase
@@ -204,6 +212,10 @@ export function IntakeReviewPanel({ selectedId }: { selectedId?: string } = {}) 
       return data ?? [];
     },
   });
+
+  const rows = items ?? fetchedRows;
+  const isLoading = loading ?? fetching;
+  const isError = failed ?? fetchFailed;
 
   const refresh = () => {
     // Approving intake for pricing creates an opportunity and moves handoff
@@ -256,7 +268,7 @@ export function IntakeReviewPanel({ selectedId }: { selectedId?: string } = {}) 
       {isLoading ? (
         <SkeletonTable />
       ) : isError ? (
-        <QueryFailure retry={refetch} />
+        <QueryFailure retry={retry ?? refetch} />
       ) : rows.length === 0 ? (
         <EmptyState message={t("rev_empty")} />
       ) : (
@@ -326,7 +338,7 @@ export function IntakeReviewPanel({ selectedId }: { selectedId?: string } = {}) 
                     </td>
                     <td className="px-3 py-2.5 num" data-tabular="true">{r.deadline ?? "—"}</td>
                     <td className="px-3 py-2.5">
-                      <StatusPill tone={REVIEW_TONE[state]}>{t(`rev_state_${state}` as never)}</StatusPill>
+                      <StatusPill tone={REVIEW_TONE[state] ?? "muted"}>{state ? t(`rev_state_${state}` as never) : t(`ibxst_${r.status}` as never)}</StatusPill>
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -396,6 +408,7 @@ export function IntakeReviewPanel({ selectedId }: { selectedId?: string } = {}) 
                           </button>
                         </div>
                         <IntakeDetail r={r} />
+                        {renderRecordActions?.(r)}
                       </td>
                     </tr>
                   )}
@@ -425,18 +438,13 @@ export function IntakeReviewPanel({ selectedId }: { selectedId?: string } = {}) 
         ]}
         onSubmit={async (v) => {
           const id = infoFor.id;
+          await requestIntakeInformation(id, {
+            requiredItems: (v.requiredItems ?? "").split("\n"), comment: v.comment, responsibleId: v.responsibleId || null, dueDate: v.dueDate || null,
+          });
+          toast.success(t("rev_info_requested"));
+          refresh();
           setInfoFor(null);
-          await run(
-            id,
-            () =>
-              requestIntakeInformation(id, {
-                requiredItems: (v.requiredItems ?? "").split("\n"),
-                comment: v.comment,
-                responsibleId: v.responsibleId || null,
-                dueDate: v.dueDate || null,
-              }),
-            t("rev_info_requested"),
-          );
+
         }}
       />
 
@@ -448,8 +456,10 @@ export function IntakeReviewPanel({ selectedId }: { selectedId?: string } = {}) 
         fields={[{ key: "reason", type: "textarea", label: t("rev_reject_reason"), required: true }]}
         onSubmit={async (v) => {
           const id = rejectFor.id;
+          await rejectIntake(id, v.reason ?? "");
+          toast.success(t("rev_rejected_done"));
+          refresh();
           setRejectFor(null);
-          await run(id, () => rejectIntake(id, v.reason ?? ""), t("rev_rejected_done"));
         }}
       />
 

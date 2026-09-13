@@ -187,12 +187,12 @@ export function NewIntakeDialog({
       ]}
       fields={newIntakeFields((k) => t(k as never), teamMembers, known)}
       onSubmit={async (v) => {
-        if (!v.sourceType) { toast.error(t("ibx_no_source")); return; }
+        if (!v.sourceType) throw new Error(t("ibx_no_source"));
         // A percentage or nothing. The database rejects anything else anyway;
         // saying so here costs a round trip less and names the field.
         const pct = v.completionPct?.trim();
-        if (pct && !/^\d{1,3}$/.test(pct)) { toast.error(t("ibx_completion_invalid")); return; }
-        if (pct && Number(pct) > 100) { toast.error(t("ibx_completion_invalid")); return; }
+        if (pct && !/^\d{1,3}$/.test(pct)) throw new Error(t("ibx_completion_invalid"));
+        if (pct && Number(pct) > 100) throw new Error(t("ibx_completion_invalid"));
         try {
           const res = await createInboxItemAndRoute({
             sourceType: v.sourceType as never,

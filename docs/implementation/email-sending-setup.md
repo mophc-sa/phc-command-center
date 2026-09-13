@@ -4,13 +4,18 @@ The code ships **off**. Until every step below is done, the email window behaves
 exactly as before: Open in Outlook, nothing sent from PHC. Nothing here needs
 Microsoft 365 admin access. Background: `outlook-integration.md`.
 
-Only a person with access to GoDaddy DNS and the Supabase project can do this.
+Only a person with access to the Cloudflare DNS for `phc-sa.com` and the Supabase project can do this.
+
+**DNS is hosted at Cloudflare, not GoDaddy.** The domain is registered at GoDaddy, but its
+nameservers are `bruce`/`simone.ns.cloudflare.com`; a record added at GoDaddy is never
+seen. Every DNS step below is done in Cloudflare → `phc-sa.com` → DNS, with CNAMEs set
+to **DNS only** (grey cloud).
 **Never paste a token into chat, a ticket, a document or source code** — only into
 the Supabase secrets screen.
 
 ---
 
-## 1. Fix the company mail records first (GoDaddy DNS)
+## 1. Fix the company mail records first (Cloudflare DNS)
 
 Independent of this feature, and it protects every email PHC sends today.
 
@@ -29,20 +34,21 @@ Postmark's own records are added in step 3; do not add them yet.
 3. New accounts start in test mode and can only send to their own domain. Request
    approval from inside Postmark before real clients will receive mail.
 
-## 3. Verify the sending domain (GoDaddy DNS)
+## 3. Verify the sending domain (Cloudflare DNS)
 
 In Postmark → Sender Signatures → **Add Domain** → `phc-sa.com`. Postmark shows:
 
 | Record | Purpose |
 |---|---|
 | DKIM — `TXT`, hostname and value **copied exactly from the Postmark page** | Signs mail as `phc-sa.com` |
-| Return-Path — `CNAME`, host `pm_bounces` → `pm.mtasv.net` | Aligns SPF for DMARC |
+| Return-Path — `CNAME`, host `pm-bounces` → `pm.mtasv.net`, DNS only | Aligns SPF for DMARC |
 
 The DKIM hostname is generated per account, so copy it rather than typing a
-guess. The Return-Path host uses an **underscore** (`pm_bounces`), not a hyphen.
-(Checked against Postmark's domain-verification article, 2026-09-13.)
+guess. The Return-Path host is `pm-bounces`, with a **hyphen** — Postmark's default.
+An earlier version of this page said underscore; that was wrong (Postmark article
+910, checked 2026-09-13).
 
-Add both in GoDaddy and click **Verify** in Postmark. Both must show green.
+Add both in Cloudflare and click **Verify** in Postmark. Both must show green.
 
 This does **not** change where `@phc-sa.com` mail is delivered. Mailboxes stay in
 Outlook; the MX record is not touched.
@@ -86,7 +92,7 @@ change where `@phc-sa.com` mail goes.
    - Inbound domain: `crm.phc-sa.com`
    - Webhook URL: `https://postmark:<SECRET>@<project-ref>.supabase.co/functions/v1/mail-inbound`
      (the username must be exactly `postmark`; attachments are not stored).
-3. **GoDaddy DNS:** add an `MX` record for host `crm` → `inbound.postmarkapp.com`,
+3. **Cloudflare DNS:** add an `MX` record for host `crm` → `inbound.postmarkapp.com`,
    priority `10`. This is the capture subdomain only — leave the `@` MX pointing at
    Outlook exactly as it is.
 4. **Supabase secrets:**

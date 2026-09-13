@@ -75,7 +75,7 @@ function CalendarPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [outlookOpen, setOutlookOpen] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["calendar-sources"],
     staleTime: 60_000,
     queryFn: async () => {
@@ -115,6 +115,7 @@ function CalendarPage() {
       // salesperson has no business reading every quotation, and that is not
       // a reason to deny them their own follow-ups.
       return {
+        incomplete: [followUps, rfqs, opps, inbox, flags, commitments, tasks, quotations, projects, tenders].some(result => !!result.error),
         followUps: followUps.data ?? [],
         rfqs: rfqs.data ?? [],
         opportunities: opps.data ?? [],
@@ -226,6 +227,7 @@ function CalendarPage() {
         <button type="button" className="min-h-11 rounded-md border px-4 text-sm" onClick={() => { setSelected(today); setCursor({ y: Number(today.slice(0,4)), m: Number(today.slice(5,7)) }); }}>{ar ? "اليوم" : "Today"}</button>
         {(["month", "agenda"] as const).map(v => <button key={v} type="button" aria-pressed={view === v} className="min-h-11 rounded-md border px-4 text-sm aria-pressed:bg-foreground aria-pressed:text-background" onClick={() => setView(v)}>{v === "month" ? (ar ? "الشهر" : "Month") : (ar ? "الأجندة" : "Agenda")}</button>)}
       </div>
+      {data?.incomplete ? <div role="alert" className="mb-4 rounded-lg border border-amber p-3 text-sm">{ar ? "بعض مصادر التقويم غير متاحة؛ قد تكون المواعيد المعروضة غير مكتملة." : "Some calendar sources are unavailable; displayed dates may be incomplete."} <button type="button" className="min-h-11 underline" onClick={() => void refetch()}>{ar ? "إعادة المحاولة" : "Try again"}</button></div> : null}
       {isLoading ? (
         <SkeletonTable />
       ) : (

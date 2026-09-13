@@ -15,6 +15,7 @@ export function SavedOpportunityViews({ search, onSelect }: {
   const ar = lang === "ar";
   const [name, setName] = useState("");
   const [views, setViews] = useState<SavedView[]>([]);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState(false);
   const key = user ? `phc:opportunity-views:${user.id}` : null;
   useEffect(() => {
@@ -31,6 +32,14 @@ export function SavedOpportunityViews({ search, onSelect }: {
   return <details className="mb-4 rounded-lg border border-border p-3">
     <summary className="cursor-pointer text-sm font-medium">{ar ? "مشاهدي المحفوظة" : "My saved views"}</summary>
     <p className="my-2 text-xs text-muted-foreground">{ar ? "تُحفظ المرشحات لهذا الحساب على هذا المتصفح." : "Filters are saved for your account in this browser."}</p>
+    <button type="button" className="mb-2 min-h-11 rounded-md border px-3 text-sm" onClick={async () => {
+      try {
+        const url = new URL("/opportunities", window.location.origin);
+        Object.entries(search).forEach(([key, value]) => { if (value) url.searchParams.set(key, String(value)); });
+        await navigator.clipboard.writeText(url.toString()); setCopied(true); setError(false);
+      } catch { setError(true); }
+    }}>{ar ? "نسخ رابط المرشحات" : "Copy filter link"}</button>
+    {copied ? <p role="status" className="mb-2 text-sm">{ar ? "نُسخ الرابط. البيانات المعروضة تخضع لصلاحيات من يفتحه." : "Link copied. Visible records depend on the recipient’s permissions."}</p> : null}
     <div className="flex flex-wrap gap-2">
       {views.map(v => <div key={v.name} className="flex rounded-md border">
         <button type="button" className="min-h-11 px-3 text-sm" onClick={() => onSelect(v.search)}>{v.name}</button>
@@ -42,6 +51,6 @@ export function SavedOpportunityViews({ search, onSelect }: {
       <input id="view-name" value={name} maxLength={60} onChange={e => setName(e.target.value)} placeholder={ar ? "اسم المشهد" : "View name"} className="min-h-11 rounded-md border bg-background px-3 text-sm" />
       <button type="submit" disabled={!key || !name.trim()} className="min-h-11 rounded-md border px-3 text-sm disabled:opacity-50">{ar ? "حفظ المرشحات الحالية" : "Save current filters"}</button>
     </form>
-    {error ? <p role="alert" className="mt-2 text-sm text-destructive">{ar ? "تعذر الحفظ في هذا المتصفح." : "This browser could not save the view."}</p> : null}
+    {error ? <p role="alert" className="mt-2 text-sm text-destructive">{ar ? "تعذر الحفظ أو النسخ في هذا المتصفح." : "This browser could not save or copy the view."}</p> : null}
   </details>;
 }
