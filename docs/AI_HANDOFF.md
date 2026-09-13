@@ -1,5 +1,33 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-13 — Outlook integration: design only, blocked on tenant admin (PR 301)
+
+Requested: send from the system, capture incoming client email, sync the calendar.
+PR 301 adds `docs/implementation/outlook-integration.md` and **no code**.
+
+Measured from public DNS and Microsoft discovery: MX is
+`phcsa-com0i.mail.protection.outlook.com`, so this is Microsoft 365 bought through
+GoDaddy (tenant `1b17e1ac-5944-4398-860e-4a07ac7c8476`) and the path is Microsoft
+Graph. The realm is `Federated` via `sso.godaddy.com`; GoDaddy usually holds Global
+Admin, which app registration and consent need. Who holds it is **unknown** — the
+user has the two-minute check in §6 of the doc. Same blocker as PR 258.
+
+Independent defect, live today: SPF is `include:secureserver.net -all` with no
+DKIM, so mail sent from Exchange Online fails SPF; DMARC `p=none` is why it still
+delivers. DNS fix in §2 of the doc; it is the user's action at GoDaddy.
+
+Design is delegated-only (application `Mail.Read` reads every mailbox in the
+tenant) and stores nothing for unmatched senders. A subscription lifetime written
+from memory as three days was wrong — Graph reference says 10,080 minutes for
+Outlook messages, 1,440 with resource data; corrected with source.
+
+Release state at session end: main `2400477`; production still serves `120529f`
+(PR 296). Deploy run 34474097266 for PRs 297, 299, 300, 298, 255 awaits approval.
+PR 297 also changes Edge Functions, which the Cloudflare deploy does not carry.
+Open and deliberately unmerged: 254 (TypeScript 7 breaks typescript-eslint),
+258 (draft, blocked on Azure). The active `gh` account keeps reverting to
+`moalagab`, which cannot push; switch with `gh auth switch --user mophc-sa`.
+
 ## 2026-09-08 — Board production follow-up (PR 293)
 
 PR 293 is deployed at `181573202587e5c43b68413c3a9981a3dd268d65`.

@@ -1,5 +1,16 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-09-13 — Outlook integration design; audit and dependency fixes
+
+- PR 301 (open): Outlook/Microsoft Graph design, no code. Blocked on Microsoft 365
+  Global Admin, held by an unknown party in a GoDaddy-federated tenant. Records a
+  live SPF/DKIM deliverability defect.
+- PR 300: `js-yaml` 4.3.2 — `Dependency audit` was failing on main and blocking
+  every PR (GHSA-2883-xcg3-v3hh).
+- PR 298: recorded PR 284 in the handoff and changelog.
+- PR 255: `@lovable.dev/mcp-js` 0.20.1 → 0.28.0, verified locally (2698 tests).
+- PR 254 left open: TypeScript 7 is unsupported by typescript-eslint, lint fails.
+
 ## 2026-09-08 — Board production follow-up (PR 293)
 
 PR 293 is deployed at `181573202587e5c43b68413c3a9981a3dd268d65`.
