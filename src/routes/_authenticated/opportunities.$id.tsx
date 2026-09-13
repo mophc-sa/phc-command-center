@@ -732,7 +732,9 @@ function OpportunityDetail() {
                     label: o.project_name,
                     opportunityId: o.id,
                     companyId: o.company?.id ?? null,
-                    contactId: primary?.id ?? null,
+                    // A stakeholder is not a row in contacts; passing its id as
+                    // contactId broke the activity's foreign key.
+                    contactId: null,
                   }}
                   recipientName={primary?.name ?? null}
                   recipientEmail={primary?.email ?? null}

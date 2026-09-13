@@ -70,17 +70,31 @@ async function send_email(payload: Record<string, unknown>, ctx: SalesOsContext)
   if (contributor !== true) return err("Your role cannot send email from the system", 403);
 
   // 3 ─ the linked records, seen through the caller's own RLS
-  const opportunityId = typeof payload.opportunityId === "string" ? payload.opportunityId : null;
-  const companyId = typeof payload.companyId === "string" ? payload.companyId : null;
-  const contactId = typeof payload.contactId === "string" ? payload.contactId : null;
-  const rfqId = typeof payload.rfqId === "string" ? payload.rfqId : null;
-  const tenderId = typeof payload.tenderId === "string" ? payload.tenderId : null;
-  const templateId = typeof payload.templateId === "string" ? payload.templateId : null;
+  const str = (v: unknown) => (typeof v === "string" && v ? v : null);
+  const opportunityId = str(payload.opportunityId);
 
   if (opportunityId) {
     const { data: opp } = await ctx.asCaller.from("opportunities").select("id").eq("id", opportunityId).maybeSingle();
     if (!opp) return err("Opportunity not found", 404);
   }
+
+  // The other links are hints from the page, and each is a foreign key on the
+  // activity row. One that does not resolve — an opportunity page once passed a
+  // stakeholder id as the contact — made the insert fail AFTER the email had
+  // left, losing its record. So an id the caller cannot see in its own table is
+  // dropped here, before sending, and the email is still logged on the deal.
+  const resolve = async (table: string, id: string | null) => {
+    if (!id) return null;
+    const { data } = await ctx.asCaller.from(table).select("id").eq("id", id).maybeSingle();
+    return data ? id : null;
+  };
+  const [companyId, contactId, rfqId, tenderId, templateId] = await Promise.all([
+    resolve("companies", str(payload.companyId)),
+    resolve("contacts", str(payload.contactId)),
+    resolve("rfqs", str(payload.rfqId)),
+    resolve("tenders", str(payload.tenderId)),
+    resolve("communication_templates", str(payload.templateId)),
+  ]);
 
   // The sender is the caller's own profile — never a field in the payload.
   const { data: profile } = await ctx.asCaller
