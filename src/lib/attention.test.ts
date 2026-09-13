@@ -365,6 +365,28 @@ describe("stalled requires evidence of what 'too long' means", () => {
     expect(isMeaningfulClientActivity({ ...base, status: "sent" })).toBe(true);
   });
 
+  it("a reply received from the client is contact, whatever its status", () => {
+    // Captured by mail-inbound as status 'logged'. Unlike a draft there is no
+    // unsent state to exclude: it proves the client read us and answered.
+    const base = { id: "r", opportunity_id: "a", activity_type: "email_received", created_at: TODAY };
+    expect(isMeaningfulClientActivity({ ...base, status: "logged" })).toBe(true);
+  });
+
+  it("the TypeScript rule and the SQL function name the same always-counting types", () => {
+    // Both files say "the two must not drift". This is what makes that true.
+    const { readFileSync } = require("node:fs") as typeof import("node:fs");
+    const { join } = require("node:path") as typeof import("node:path");
+    const ts = readFileSync(join(import.meta.dir, "attention.ts"), "utf8");
+    const sql = readFileSync(
+      join(import.meta.dir, "..", "..", "supabase", "migrations", "20260930120000_inbound_reply_counts_as_contact.sql"),
+      "utf8",
+    );
+    const tsTypes = (ts.match(/ALWAYS_CLIENT_FACING = new Set\(\[([^\]]*)\]\)/)?.[1] ?? "").match(/"([a-z_]+)"/g)?.map((x) => x.slice(1, -1)).sort();
+    const sqlTypes = (sql.match(/a\.activity_type IN \(([^)]*)\)\s*\n\s*OR/)?.[1] ?? "").match(/'([a-z_]+)'/g)?.map((x) => x.slice(1, -1)).sort();
+    expect(tsTypes).toEqual(["call", "email_received", "meeting", "visit"]);
+    expect(sqlTypes).toEqual(tsTypes);
+  });
+
   it("a real meeting clears the inactivity reason", () => {
     const meeting: ActivityRow = { id: "m", opportunity_id: "a", activity_type: "meeting", status: "logged", created_at: TODAY };
     const items = buildAttention({

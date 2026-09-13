@@ -6,17 +6,20 @@
 // Answering "what does Thursday look like?" meant opening three pages.
 //
 // Everything shown is read from those three tables and arranged by
-// src/lib/calendar.ts, which computes no new fact. The one write on this
-// screen goes through scheduleFollowUp — the same function the rest of the
+// src/lib/calendar.ts, which computes no new fact. The one record write on
+// this screen goes through scheduleFollowUp — the same function the rest of the
 // app uses — so a follow-up created here is indistinguishable from one
 // created anywhere else, and there is no second task system to reconcile.
+//
+// "Add to Outlook" shows the same kind of dates in the person's own Outlook
+// calendar through a private subscription link. It writes no record.
 // =============================================================================
 
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -24,6 +27,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { Callout } from "@/components/phc/Callout";
 import { ActionDialog } from "@/components/phc/ActionDialog";
+import { OutlookCalendarDialog } from "@/components/phc/OutlookCalendarDialog";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { formatMessage } from "@/lib/messages";
 import { scheduleFollowUp } from "@/lib/opportunity-actions";
@@ -68,6 +72,7 @@ function CalendarPage() {
   }));
   const [selected, setSelected] = useState<string>(today);
   const [createOpen, setCreateOpen] = useState(false);
+  const [outlookOpen, setOutlookOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["calendar-sources"],
@@ -181,14 +186,24 @@ function CalendarPage() {
             : "Follow-ups, RFQ deadlines and next actions — everything with a date, on one grid."
         }
         actions={
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20"
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            {t("cal_new_followup" as never)}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setOutlookOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <CalendarPlus className="h-3.5 w-3.5" aria-hidden="true" />
+              {ar ? "إضافة إلى Outlook" : "Add to Outlook"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light hover:bg-amber/20"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              {t("cal_new_followup" as never)}
+            </button>
+          </div>
         }
       />
 
@@ -325,7 +340,9 @@ function CalendarPage() {
         </div>
       )}
 
-      {/* The only write on this screen, and it goes through the app's existing
+      <OutlookCalendarDialog open={outlookOpen} onOpenChange={setOutlookOpen} />
+
+      {/* The only record write on this screen, and it goes through the app's existing
           follow-up creator rather than a second one. */}
       <ActionDialog
         open={createOpen}

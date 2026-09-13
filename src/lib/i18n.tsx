@@ -1579,6 +1579,19 @@ export const strings = {
   // Email via Outlook (Phase 1 — compose only, mailto handoff)
   email_via_outlook: { en: "Email via Outlook", ar: "بريد عبر Outlook" },
   email_open_in_outlook: { en: "Open in Outlook", ar: "فتح في Outlook" },
+  // Sending from inside the system (Phase 2). The compose window keeps "Open in
+  // Outlook" as the fallback, so a person is never stuck when sending is not set up.
+  email_send: { en: "Send", ar: "إرسال" },
+  email_sending: { en: "Sending…", ar: "جارٍ الإرسال…" },
+  email_sent_ok: { en: "Email sent and logged to the record", ar: "أُرسل البريد وسُجِّل على السجل" },
+  email_sent_unlogged: {
+    en: "Email sent, but it could not be logged to the record",
+    ar: "أُرسل البريد، لكن تعذّر تسجيله على السجل",
+  },
+  email_send_desc: {
+    en: "Sent from your company address. The client's reply reaches your Outlook, and a copy is attached to this record.",
+    ar: "يُرسل من بريدك في الشركة. يصل ردّ العميل إلى Outlook عندك، وتُرفق نسخة منه بهذا السجل.",
+  },
   email_copy_text: { en: "Copy email text", ar: "نسخ نص البريد" },
   email_copied: { en: "Email text copied", ar: "تم نسخ نص البريد" },
   email_to: { en: "To", ar: "إلى" },

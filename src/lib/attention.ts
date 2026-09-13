@@ -80,7 +80,10 @@ export type StageTransitionRow = {
 // which is the precise failure "no client response for nine days" is meant to
 // catch.
 
-const ALWAYS_CLIENT_FACING = new Set(["call", "visit", "meeting"]);
+// A reply received from the client (captured by mail-inbound) always counts: it
+// has no unsent state, and it proves the client read us and answered. Mirrors
+// last_verified_client_contact() in 20260930120000 — the two must not drift.
+const ALWAYS_CLIENT_FACING = new Set(["call", "visit", "meeting", "email_received"]);
 const CLIENT_FACING_WHEN_SENT = new Set(["email_draft", "whatsapp_draft"]);
 
 export function isMeaningfulClientActivity(a: ActivityRow): boolean {
