@@ -1,5 +1,45 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-13 (evening) — Postmark setup in progress; paused by the user
+
+**Where we stopped:** the user was about to re-test Send after the #308 fix went
+live. Next session starts there.
+
+Done today, verified:
+- Postmark: account and Server `PHC Command Center` (type Live), Transactional
+  stream `outbound`. **Account still pending approval** — until approved, mail goes
+  only to `@phc-sa.com` recipients (Postmark rejects others with a clear message).
+- DNS is at **Cloudflare** (registrar GoDaddy; nameservers bruce/simone). Verified
+  live: DKIM TXT `20260913131209pm._domainkey.phc-sa.com` (k=rsa) and Return-Path
+  CNAME `pm-bounces` → `pm.mtasv.net`. `pm-bounces` (hyphen) is correct; the guide
+  was fixed in PR 306.
+- Supabase secrets in `lrfdtoexyeghrzynapyn`: `POSTMARK_SERVER_TOKEN` and
+  `MAIL_FROM_DOMAIN` (digest-checked equal to `phc-sa.com`). Send button appears.
+- First send (14:01 UTC) delivered but was not logged: the opportunity page passed
+  a stakeholder id as `contactId`, failing `activities.contact_id` FK after send.
+  Fixed in PR 308 (`570247a`): handler resolves optional links before sending;
+  page stops passing stakeholder ids. `sales-os-api` v61 deployed by the user
+  from the fix commit (Docker bundle). The page change awaits the next frontend
+  release; the backend fix alone resolves it.
+
+Next, in order:
+1. User re-tests Send to an `@phc-sa.com` address: expect "Email sent", an activity
+   on the deal, and `dkim=pass` / `dmarc=pass` in the received headers.
+2. User submits **Request approval** in Postmark (honest description: individual
+   sales emails, no marketing). After approval, client recipients work.
+3. Security: a screenshot shared in chat showed the Server API token. Confirm the
+   token in Supabase was regenerated afterwards; if not, rotate it in Postmark and
+   replace the secret. The user also pasted Postmark's curl command (with a token)
+   into the Supabase SQL editor — ask them to delete that saved query.
+4. Optional: add an activity for the 14:01 test send (audit has message id
+   `77fd5536-…`), or leave it.
+5. Then reply capture (setup guide §6): secret of letters/digits only (it sits in
+   the webhook URL), Postmark inbound domain `crm.phc-sa.com`, Cloudflare MX
+   `crm` → `inbound.postmarkapp.com` (10), secrets `MAIL_CAPTURE_DOMAIN` and
+   `MAIL_INBOUND_SECRET` together.
+6. Next frontend release (canary → readiness → production) ships PR 308's page change.
+7. User: disable Cloudflare Preview URLs; SPF fix in Cloudflare DNS.
+
 ## 2026-09-13 — Outlook integration released (PRs 301–304, plus undeployed 295–300, 255)
 
 Production serves `0aaefce83db9e38df5d6fb5c121ce54ac52a1f07`. Worker version
