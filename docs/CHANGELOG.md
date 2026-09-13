@@ -2,9 +2,12 @@
 
 ## 2026-09-13 — Outlook integration design; audit and dependency fixes
 
-- PR 301 (open): Outlook/Microsoft Graph design, no code. Blocked on Microsoft 365
-  Global Admin, held by an unknown party in a GoDaddy-federated tenant. Records a
-  live SPF/DKIM deliverability defect.
+- PR 301 (open): Outlook integration design and decision — Graph blocked on a
+  GoDaddy-held Global Admin; records a live SPF/DKIM deliverability defect.
+- PR 302 (open): send email from inside the system via Postmark, from your own address.
+- PR 303 (open, on 302): client replies attach to the deal and count as contact.
+- PR 304 (open, on 303): private Outlook calendar subscription of your own work.
+- All three need Postmark/DNS/secrets setup and an approved deploy before use.
 - PR 300: `js-yaml` 4.3.2 — `Dependency audit` was failing on main and blocking
   every PR (GHSA-2883-xcg3-v3hh).
 - PR 298: recorded PR 284 in the handoff and changelog.
