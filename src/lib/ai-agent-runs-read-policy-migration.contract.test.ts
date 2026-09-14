@@ -11,7 +11,10 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "../..");
-const migrationPath = join(repoRoot, "supabase/migrations/20260727100000_ai_agent_runs_read_policy.sql");
+const migrationPath = join(
+  repoRoot,
+  "supabase/migrations/20260727100000_ai_agent_runs_read_policy.sql",
+);
 const sql = readFileSync(migrationPath, "utf8");
 
 test("grants SELECT on ai_agent_runs to any authenticated user", () => {
@@ -28,6 +31,11 @@ test("no application code still queries the dead legacy agent_runs table", () =>
   for (const rel of filesToCheck) {
     const src = readFileSync(join(repoRoot, rel), "utf8");
     expect(src).not.toMatch(/from\(["']agent_runs["']\)/);
-    expect(src).toMatch(/from\(["']ai_agent_runs["']\)/);
+    if (!rel.endsWith("command-center.tsx")) {
+      expect(src).toMatch(/from\(["']ai_agent_runs["']\)/);
+    } else {
+      // Executive metrics do not need the unrelated audit trail query.
+      expect(src).not.toMatch(/from\(["']ai_agent_runs["']\)/);
+    }
   }
 });

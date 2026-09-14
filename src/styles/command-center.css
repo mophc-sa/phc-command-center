@@ -1,0 +1,68 @@
+/* Executive page only: preserve the application theme and RTL layout. */
+.executive-command .executive-action {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-foreground);
+  background: var(--color-surface);
+}
+.executive-command .executive-action:hover {
+  background: var(--color-surface-2);
+}
+.executive-command .executive-action:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 3px;
+}
+.executive-command .executive-action:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.executive-command .executive-action-primary {
+  background: var(--color-foreground);
+  color: var(--color-background);
+}
+.executive-command .executive-action-primary:hover {
+  opacity: 0.9;
+  background: var(--color-foreground);
+}
+.executive-command .executive-scorecard > div {
+  min-height: 168px;
+  padding: 1.25rem;
+  background: var(--color-surface);
+}
+.executive-command .executive-scorecard .num {
+  overflow-wrap: anywhere;
+}
+.executive-command .section-label {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.executive-command table th {
+  font-size: 0.8125rem;
+  padding-block: 0.875rem;
+}
+.executive-command table td {
+  padding-block: 1rem;
+}
+.executive-command table tbody tr:hover {
+  background: var(--color-surface-2);
+}
+.executive-command > section,
+.executive-command > div {
+  min-width: 0;
+}
+.executive-command .executive-disclosure:not([open]) > div {
+  display: none;
+}
+@media (max-width: 639px) {
+  .executive-command .executive-scorecard > div {
+    min-height: 140px;
+  }
+}
