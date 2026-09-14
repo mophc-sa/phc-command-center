@@ -66,3 +66,6 @@
     min-height: 140px;
   }
 }
+
+.executive-command .executive-scorecard [data-tabular="true"] { font-size: clamp(1.375rem, 2vw, 1.75rem); line-height: 1.35; margin-block: .75rem; }
+.executive-command .executive-scorecard .text-xs { font-size: .875rem; }

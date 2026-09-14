@@ -257,7 +257,7 @@ function CommandCenter() {
   // team's aggregated target, not just their own — mirrors my-workspace.tsx's
   // per-user annual-then-monthly-fallback pattern, summed across every rep
   // instead of scoped to one user_id.
-  const { data: teamTarget } = useQuery({
+  const { data: teamTarget, isError: targetError, refetch: refetchTarget } = useQuery({
     queryKey: ["cc-team-target"],
     staleTime: 60_000,
     queryFn: async () => {
@@ -645,7 +645,7 @@ function CommandCenter() {
     };
   }, [data, teamTarget]);
 
-  if (isError) return <QueryFailure retry={refetch} />;
+  if (isError || targetError) return <QueryFailure retry={() => Promise.all([refetch(), refetchTarget()])} />;
 
   return (
     <div
@@ -668,7 +668,7 @@ function CommandCenter() {
           <>
             <button
               type="button"
-              onClick={() => void refetch()}
+              onClick={() => void Promise.all([refetch(), refetchTarget()])}
               disabled={isFetching}
               className="executive-action"
             >
