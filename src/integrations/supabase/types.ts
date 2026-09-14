@@ -5829,6 +5829,7 @@ export type Database = {
           response_due_date: string | null
           rfq_number: string | null
           sales_owner_id: string | null
+          source_inbox_id: string | null
           signage_package_confidence: Database["public"]["Enums"]["confidence_level"]
           signage_package_status: Database["public"]["Enums"]["signage_package_status"]
           source_type: string | null
@@ -5866,6 +5867,7 @@ export type Database = {
           response_due_date?: string | null
           rfq_number?: string | null
           sales_owner_id?: string | null
+          source_inbox_id?: string | null
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
           source_type?: string | null
@@ -5903,6 +5905,7 @@ export type Database = {
           response_due_date?: string | null
           rfq_number?: string | null
           sales_owner_id?: string | null
+          source_inbox_id?: string | null
           signage_package_confidence?: Database["public"]["Enums"]["confidence_level"]
           signage_package_status?: Database["public"]["Enums"]["signage_package_status"]
           source_type?: string | null
