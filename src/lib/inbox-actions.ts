@@ -559,6 +559,9 @@ export async function convertInboxToRfq(id: Uuid, input: {
     // row would be leaving them where nobody looks.
     saabPortal: item.saab_portal ?? false,
     completionPct: item.completion_pct ?? null,
+    // The RFQ keeps the intake's Project Code (<rep code>-<YY>-<NNNN>) rather
+    // than drawing a second number for the same project.
+    sourceInboxId: id,
   });
 
   // Point the intake item at the opportunity: that is the record the user

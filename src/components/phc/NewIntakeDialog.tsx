@@ -88,7 +88,7 @@ export function newIntakeFields(
     { key: "projectName", type: "autocomplete", label: t("label_project"), required: true,
       suggestions: known.projects, knownHint: t("ibx_project_known") },
     // Project Number intentionally omitted — auto-generated server-side
-    // (INT-{year}-{seq}, generate_inbox_project_number() trigger),
+    // (<rep code>-{YY}-{seq}, generate_inbox_project_number() trigger),
     // not typed manually (2026-08-03).
     { key: "rfqFrom", type: "select", label: t("ibx_rfq_from"), options: [{ value: "", label: "—" }, ...INBOX_RFQ_FROM.map((r) => ({ value: r, label: t(`ibx_rfq_from_${r}`) }))] },
     { key: "rfqFromOther", type: "text", label: t("ibx_rfq_from_specify"), required: true, showWhen: { field: "rfqFrom", equals: "other" } },

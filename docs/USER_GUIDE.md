@@ -230,7 +230,8 @@ somewhere first to start.
 
 This is the only entry form in the system. Everything arrives through it: an RFQ, a tender,
 a market rumour, a half-captured lead. Fill in what you know — you do **not** need everything
-up front. The system assigns an intake number automatically (`INT-2026-0001`); don't type one.
+up front. The system gives the request its **Project Code** automatically — **`FA-26-0015`**:
+the code of the person entering it, the year, the sequence. Don't type one.
 
 **Two fields decide where it goes:**
 
@@ -323,11 +324,17 @@ Open the opportunity and use **Edit** on the **Submission** panel. You can chang
 The RFQ number, the company and the contact are not editable here. Those identify the
 record; changing them would make it a different record.
 
-### Your RFQ number carries your code
+### Your Project Code carries your code
 
-Numbers look like **`FA-26-0001`** — your code, the year, the sequence. The code comes from
-your profile, so a number tells you whose deal it is without opening it. Ask an admin if
-yours is wrong or missing.
+Codes look like **`FA-26-0001`** — your code, the year, the sequence. The code comes from
+the profile of whoever entered the request, so a code tells you whose request it is without
+opening it. Ask an admin if yours is wrong or missing.
+
+**One code per project (2026-09-14).** The code is issued when the request is entered, and
+the RFQ it becomes after approval **keeps the same code** — it no longer gets a second
+number. Requests entered before this date kept `INT-2026-…`; the three still awaiting review
+on that day were given their creator's code. An RFQ created directly, not from a request,
+is numbered with its owner's code as before.
 
 ### Step 3 — Manual classify and convert (only for what didn't route)
 
@@ -1169,3 +1176,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-09-13 · send email from the system (Phase 2) · previous: 2026-09-08 -->
 
 <!-- last reviewed 2026-09-13 · Outlook calendar subscription link · previous: send email from the system, same day -->
+
+<!-- last reviewed 2026-09-14 · Project Code follows the entering rep and carries to the RFQ · previous: Outlook calendar link, 2026-09-13 -->
