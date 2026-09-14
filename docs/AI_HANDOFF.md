@@ -1,5 +1,31 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-14 — Email: send works and logs; reply capture not yet arriving (parked)
+
+Parked by the user until Postmark answers the approval request (submitted
+2026-09-14 ~13:50 Riyadh; Postmark says within 24h, or Monday).
+
+Verified today:
+- Frontend `be5f5ae` (includes PR 308 page fix) is live; Cloudflare Preview URLs
+  are off (canary alias 404).
+- Send: test at 11:34 UTC logged on deal `93f2455b…` as `email_draft`/`sent`,
+  audit `logged: true`, `email_threads` row created. Postmark shows 2 sent, 0% bounce.
+- Reply capture configured: `MAIL_INBOUND_SECRET` (set 11:14 UTC via the
+  generate-and-pbcopy command; never shown), `MAIL_CAPTURE_DOMAIN` =
+  `crm.phc-sa.com` (digest-checked), Cloudflare MX `crm` → `inbound.postmarkapp.com`
+  (10), Postmark inbound webhook + inbound domain set by the user. Probes:
+  webhook without/with wrong secret → 403.
+- **Open problem:** the user replied from Outlook to `reply+<id>@crm.phc-sa.com`
+  (id verified to hash to that deal's thread); no `email_received` row after
+  10+ minutes, and no Outlook bounce. Next diagnostic: Postmark → Default Inbound
+  Stream → **Activity** — empty (not reaching Postmark / inbound domain), 403
+  (secret mismatch: regenerate and re-paste), 503 (capture env not read: redeploy
+  `mail-inbound`), 200 without a row (code bug in `readInbound`).
+
+Still pending: Postmark approval (client recipients rejected until then);
+confirm the Server token was rotated after the screenshot; delete the saved
+`curl` query in Supabase SQL editor; SPF record fix in Cloudflare.
+
 ## 2026-09-13 (evening) — Postmark setup in progress; paused by the user
 
 **Where we stopped:** the user was about to re-test Send after the #308 fix went
