@@ -1,9 +1,16 @@
 # AI Handoff ⭐ — PHC Command Center
 
-## 2026-09-15 — Project Code follows the entering rep (PR 314): DB live, frontend blocked
+## 2026-09-15 — Project Code follows the entering rep (PR 314): released
 
-PR 314 (`421697f`): intake Project Code is `<rep code>-<YY>-<NNNN>` from the RFQ
-sequence, using the creator's sales code; an RFQ converted from an open intake
+Production serves `421697f6fe973af2d9f81302d1818ac9dcb87989`, Worker version
+`48a856d0-b87c-4edd-8d72-f066c250ec94` (run 34942168261). Canary `840cef98`
+(run 34941299553), canary readiness 34941643123 and post-production readiness
+34942382842 passed. The live bundle carries the `421697f` stamp and the
+`sourceInboxId` conversion wiring (crawled 168 chunks with curl; Cloudflare 403s
+Python's user agent, and assets need `--compressed`).
+
+PR 314: intake Project Code is `<rep code>-<YY>-<NNNN>` from the RFQ sequence,
+using the creator's sales code; an RFQ converted from an open intake
 (`rfqs.source_inbox_id`, caller may convert it, code unused) keeps that code.
 
 - Migration `20260930140000` applied by the user 2026-09-14 14:04 UTC. Pre-change
@@ -11,22 +18,16 @@ sequence, using the creator's sales code; an RFQ converted from an open intake
   `~/.phc-release-backups/numbering-snapshot-20260914T140331Z-pre-20260930140000.json`.
   Renumbered and audited (`inbox.project_number_renumbered`): INT-2026-0001 →
   FA-26-0013 (Janadriya), INT-2026-0013 → AB-26-0014 (Seven Al Ahsa),
-  INT-2026-0014 → AB-26-0015 (KeyStone). Sequence now at 15.
-- **Frontend not deployed.** Canary 34853494650 uploaded version `6c416316` but
-  Cloudflare issued no preview URL: Preview URLs are still off for Worker
-  `mophc-sa-phc-command-center` (alias returns 404). A production run approved
-  early (34853328313) failed safely at the evidence gate; live site still `be5f5ae`.
-  Main CI, Security and Isolated Readiness passed for `421697f`.
-- **Until the frontend ships, do not approve the three open intakes**: the RFQ
-  would draw a new number instead of inheriting the code.
+  INT-2026-0014 → AB-26-0015 (KeyStone).
+- Release notes: the first canary (34853494650) got no preview URL because Preview
+  URLs were off; a production run approved before any canary (34853328313) failed
+  safely at the evidence gate. The docs PR was held so main's SHA did not move
+  between canary and production.
+- First real conversion of one of the three intakes should be checked: its RFQ
+  number must equal the intake code.
 
-Next: user enables Preview URLs (Settings → Domains & Routes → Preview URLs, not
-workers.dev) → re-dispatch canary → readiness on canary → user dispatches and
-approves production → verify stamp → user disables Preview URLs.
-
-Also open: PR 310 (Dependabot `@lovable.dev/mcp-js` 0.28 → 2.0.4, major; its
-lockfile fails `--frozen-lockfile` and it backs the MCP routes) needs its own
-review. Email items below are unchanged.
+Open: user disables Cloudflare Preview URLs again. PR 310 (Dependabot
+`@lovable.dev/mcp-js` 0.28 → 2.0.4, major, lockfile fails) needs its own review.
 
 ## 2026-09-14 — Email: send works and logs; reply capture not yet arriving (parked)
 
