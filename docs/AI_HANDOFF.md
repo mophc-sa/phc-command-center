@@ -1,5 +1,33 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-15 — Project Code follows the entering rep (PR 314): DB live, frontend blocked
+
+PR 314 (`421697f`): intake Project Code is `<rep code>-<YY>-<NNNN>` from the RFQ
+sequence, using the creator's sales code; an RFQ converted from an open intake
+(`rfqs.source_inbox_id`, caller may convert it, code unused) keeps that code.
+
+- Migration `20260930140000` applied by the user 2026-09-14 14:04 UTC. Pre-change
+  snapshot (Docker was off, so no full dump):
+  `~/.phc-release-backups/numbering-snapshot-20260914T140331Z-pre-20260930140000.json`.
+  Renumbered and audited (`inbox.project_number_renumbered`): INT-2026-0001 →
+  FA-26-0013 (Janadriya), INT-2026-0013 → AB-26-0014 (Seven Al Ahsa),
+  INT-2026-0014 → AB-26-0015 (KeyStone). Sequence now at 15.
+- **Frontend not deployed.** Canary 34853494650 uploaded version `6c416316` but
+  Cloudflare issued no preview URL: Preview URLs are still off for Worker
+  `mophc-sa-phc-command-center` (alias returns 404). A production run approved
+  early (34853328313) failed safely at the evidence gate; live site still `be5f5ae`.
+  Main CI, Security and Isolated Readiness passed for `421697f`.
+- **Until the frontend ships, do not approve the three open intakes**: the RFQ
+  would draw a new number instead of inheriting the code.
+
+Next: user enables Preview URLs (Settings → Domains & Routes → Preview URLs, not
+workers.dev) → re-dispatch canary → readiness on canary → user dispatches and
+approves production → verify stamp → user disables Preview URLs.
+
+Also open: PR 310 (Dependabot `@lovable.dev/mcp-js` 0.28 → 2.0.4, major; its
+lockfile fails `--frozen-lockfile` and it backs the MCP routes) needs its own
+review. Email items below are unchanged.
+
 ## 2026-09-14 — Email: send works and logs; reply capture not yet arriving (parked)
 
 Parked by the user until Postmark answers the approval request (submitted

@@ -1,5 +1,11 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-09-14 — Project Code follows the entering rep (database live)
+
+- PR 314: intakes are numbered with the entering rep's code (`AB-26-0015`), and the
+  RFQ converted from an intake keeps that code. Migration applied; the three open
+  intakes were renumbered with audit. Frontend conversion wiring awaits release.
+
 ## 2026-09-13 — Postmark live in test mode; send-log fix
 
 - Postmark Server, Cloudflare DKIM/Return-Path and Supabase secrets configured;
