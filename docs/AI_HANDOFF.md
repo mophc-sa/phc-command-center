@@ -1,5 +1,60 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-15 — Project Code follows the entering rep (PR 314): released
+
+Production serves `421697f6fe973af2d9f81302d1818ac9dcb87989`, Worker version
+`48a856d0-b87c-4edd-8d72-f066c250ec94` (run 34942168261). Canary `840cef98`
+(run 34941299553), canary readiness 34941643123 and post-production readiness
+34942382842 passed. The live bundle carries the `421697f` stamp and the
+`sourceInboxId` conversion wiring (crawled 168 chunks with curl; Cloudflare 403s
+Python's user agent, and assets need `--compressed`).
+
+PR 314: intake Project Code is `<rep code>-<YY>-<NNNN>` from the RFQ sequence,
+using the creator's sales code; an RFQ converted from an open intake
+(`rfqs.source_inbox_id`, caller may convert it, code unused) keeps that code.
+
+- Migration `20260930140000` applied by the user 2026-09-14 14:04 UTC. Pre-change
+  snapshot (Docker was off, so no full dump):
+  `~/.phc-release-backups/numbering-snapshot-20260914T140331Z-pre-20260930140000.json`.
+  Renumbered and audited (`inbox.project_number_renumbered`): INT-2026-0001 →
+  FA-26-0013 (Janadriya), INT-2026-0013 → AB-26-0014 (Seven Al Ahsa),
+  INT-2026-0014 → AB-26-0015 (KeyStone).
+- Release notes: the first canary (34853494650) got no preview URL because Preview
+  URLs were off; a production run approved before any canary (34853328313) failed
+  safely at the evidence gate. The docs PR was held so main's SHA did not move
+  between canary and production.
+- First real conversion of one of the three intakes should be checked: its RFQ
+  number must equal the intake code.
+
+Open: user disables Cloudflare Preview URLs again. PR 310 (Dependabot
+`@lovable.dev/mcp-js` 0.28 → 2.0.4, major, lockfile fails) needs its own review.
+
+## 2026-09-14 — Email: send works and logs; reply capture not yet arriving (parked)
+
+Parked by the user until Postmark answers the approval request (submitted
+2026-09-14 ~13:50 Riyadh; Postmark says within 24h, or Monday).
+
+Verified today:
+- Frontend `be5f5ae` (includes PR 308 page fix) is live; Cloudflare Preview URLs
+  are off (canary alias 404).
+- Send: test at 11:34 UTC logged on deal `93f2455b…` as `email_draft`/`sent`,
+  audit `logged: true`, `email_threads` row created. Postmark shows 2 sent, 0% bounce.
+- Reply capture configured: `MAIL_INBOUND_SECRET` (set 11:14 UTC via the
+  generate-and-pbcopy command; never shown), `MAIL_CAPTURE_DOMAIN` =
+  `crm.phc-sa.com` (digest-checked), Cloudflare MX `crm` → `inbound.postmarkapp.com`
+  (10), Postmark inbound webhook + inbound domain set by the user. Probes:
+  webhook without/with wrong secret → 403.
+- **Open problem:** the user replied from Outlook to `reply+<id>@crm.phc-sa.com`
+  (id verified to hash to that deal's thread); no `email_received` row after
+  10+ minutes, and no Outlook bounce. Next diagnostic: Postmark → Default Inbound
+  Stream → **Activity** — empty (not reaching Postmark / inbound domain), 403
+  (secret mismatch: regenerate and re-paste), 503 (capture env not read: redeploy
+  `mail-inbound`), 200 without a row (code bug in `readInbound`).
+
+Still pending: Postmark approval (client recipients rejected until then);
+confirm the Server token was rotated after the screenshot; delete the saved
+`curl` query in Supabase SQL editor; SPF record fix in Cloudflare.
+
 ## 2026-09-13 (evening) — Postmark setup in progress; paused by the user
 
 **Where we stopped:** the user was about to re-test Send after the #308 fix went
