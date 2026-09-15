@@ -31,12 +31,16 @@ export async function createRfq(input: {
   /** Links the RFQ to the opportunity it belongs to (spec §25.2/§25.10).
    *  Left null by the intake-conversion path, which creates the RFQ first. */
   opportunityId?: Uuid | null;
+  /** The intake this RFQ comes from. The database gives the RFQ that intake's
+   *  Project Code, so a project keeps one code from intake onward. */
+  sourceInboxId?: Uuid | null;
 }) {
   const uid = await currentUserId();
   const { data, error } = await supabase
     .from("rfqs")
     .insert({
       opportunity_id: input.opportunityId ?? null,
+      source_inbox_id: input.sourceInboxId ?? null,
       rfq_number: input.rfqNumber ?? null,
       source_type: input.sourceType ?? null,
       project_id: input.projectId ?? null,
@@ -122,6 +126,8 @@ export async function createRfqWithOpportunity(input: {
    */
   saabPortal?: boolean | null;
   completionPct?: number | null;
+  /** The intake being converted; its Project Code becomes the RFQ number. */
+  sourceInboxId?: string | null;
 }) {
   const uid = await currentUserId();
 
@@ -200,6 +206,7 @@ export async function createRfqWithOpportunity(input: {
     // 2026-08-05 — the database looked correct, the screen did not.
     classification: input.opportunityType === "tender" ? "tender" : "jih",
     claimOwner: true,
+    sourceInboxId: input.sourceInboxId ?? null,
   });
 
   // 4b. Stakeholder — so the person actually shows on the opportunity.
