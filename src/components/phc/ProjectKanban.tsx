@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   closestCorners,
   useSensor,
@@ -14,7 +15,12 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Plus, X, Pencil, Trash2, GripVertical, Sparkles } from "lucide-react";
@@ -71,7 +77,13 @@ export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEd
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stagesQ.data, jobsQ.data]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  // Moving a job between stages was mouse-only: the grip took focus and then
+  // did nothing, so anyone working from the keyboard could not run the board at
+  // all. Space picks a card up, the arrow keys move it, Space drops it.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const [addStageOpen, setAddStageOpen] = useState(false);
   const [addJobFor, setAddJobFor] = useState<string | null>(null);
@@ -337,10 +349,10 @@ function KanbanColumn({
           <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-2xs text-muted-foreground">{jobs.length}</span>
           {canEdit ? (
             <>
-              <button type="button" onClick={onRenameStage} className="text-muted-foreground hover:text-foreground" aria-label="Rename">
+              <button type="button" onClick={onRenameStage} className="text-muted-foreground hover:text-foreground" aria-label={lang === "ar" ? "إعادة تسمية المرحلة" : "Rename stage"}>
                 <Pencil className="h-3 w-3" />
               </button>
-              <button type="button" onClick={onDeleteStage} className="text-muted-foreground hover:text-destructive" aria-label="Delete">
+              <button type="button" onClick={onDeleteStage} className="text-muted-foreground hover:text-destructive" aria-label={lang === "ar" ? "حذف المرحلة" : "Delete stage"}>
                 <X className="h-3 w-3" />
               </button>
             </>
@@ -397,7 +409,13 @@ function JobCard({
     >
       <div className="flex items-start gap-1.5">
         {canEdit ? (
-          <button type="button" {...sortable.attributes} {...sortable.listeners} className="mt-0.5 shrink-0 cursor-grab text-muted-foreground hover:text-muted-foreground" aria-label="Drag">
+          <button
+            type="button"
+            {...sortable.attributes}
+            {...sortable.listeners}
+            className="mt-0.5 shrink-0 cursor-grab rounded text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:text-foreground"
+            aria-label={lang === "ar" ? `حرّك ${job.title}` : `Move ${job.title}`}
+          >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
         ) : null}
@@ -412,12 +430,12 @@ function JobCard({
           ) : null}
         </button>
         {canEdit && onAiAssist ? (
-          <button type="button" onClick={onAiAssist} className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-amber-light group-hover:opacity-100" aria-label="AI Assist">
+          <button type="button" onClick={onAiAssist} className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-amber-light group-hover:opacity-100" aria-label={lang === "ar" ? "مساعدة الذكاء الاصطناعي" : "AI assist"}>
             <Sparkles className="h-3 w-3" />
           </button>
         ) : null}
         {canEdit ? (
-          <button type="button" onClick={onDelete} className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100" aria-label="Delete">
+          <button type="button" onClick={onDelete} className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100" aria-label={lang === "ar" ? `حذف ${job.title}` : `Delete ${job.title}`}>
             <Trash2 className="h-3 w-3" />
           </button>
         ) : null}

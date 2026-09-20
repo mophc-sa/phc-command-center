@@ -51,7 +51,7 @@ export function AiEvidencePanel({
           <div className="mt-1.5 text-md font-medium text-foreground">{panel.title}</div>
           <div className="mt-0.5 text-sm text-muted-foreground">{rec.recommendation}</div>
         </div>
-        <div className="text-right">
+        <div className="text-end">
           <div className="text-2xs tracking-[0.02em] text-muted-foreground">Confidence</div>
           <div className="text-lg font-semibold text-foreground num" data-tabular="true">
             {panel.confidence != null ? `${Math.round(panel.confidence)}%` : "—"}

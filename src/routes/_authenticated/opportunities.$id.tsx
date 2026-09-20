@@ -1395,7 +1395,7 @@ function OpportunityDetail() {
                       <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{f.notes}</div>
                     ) : null}
                   </div>
-                  <div className="text-right rtl:text-left">
+                  <div className="text-end">
                     <StatusPill
                       tone={
                         f.status === "completed"
@@ -1411,7 +1411,7 @@ function OpportunityDetail() {
                       {t("label_due")}: {fmtDate(f.due_date, lang)}
                     </div>
                     {f.status !== "completed" ? (
-                      <div className="mt-1.5 flex justify-end gap-3 text-xs rtl:justify-start">
+                      <div className="mt-1.5 flex justify-end gap-3 text-xs">
                         <button
                           onClick={() => setCompleteId(f.id)}
                           className="text-amber-light hover:underline"
@@ -1456,7 +1456,7 @@ function OpportunityDetail() {
                     {fmtDate(a.decided_at ?? a.created_at, lang)}
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-1 rtl:items-start">
+                <div className="flex flex-col items-end gap-1">
                   {a.recommendation ? (
                     <StatusPill tone="muted">{humanize(a.recommendation)}</StatusPill>
                   ) : null}

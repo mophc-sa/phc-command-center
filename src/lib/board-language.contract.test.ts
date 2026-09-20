@@ -52,7 +52,9 @@ describe("the ticker is sized for a room", () => {
   it("is bigger than the panel text around it", () => {
     // It was 0.76vw — the same size as a table cell, on the one strip that is
     // read from across the room and in motion.
-    const m = BOARD.match(/fontSize: "([\d.]+)vw",\n\s*animation: `\$\{lang/);
+    // Sizes are clamped now (2026-09-20) so the board stays readable on a small
+    // window; the viewport term is still what sizes it on the wall.
+    const m = BOARD.match(/fontSize: "clamp\(\d+px, ([\d.]+)vw, \d+px\)",\n\s*animation: `\$\{lang/);
     expect(m).not.toBeNull();
     expect(Number(m![1])).toBeGreaterThanOrEqual(1);
   });

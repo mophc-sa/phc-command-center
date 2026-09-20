@@ -319,16 +319,16 @@ function DataImportLanding() {
       <Tabs defaultValue="active">
         <TabsList className="mb-4">
           <TabsTrigger value="active">
-            Active <span className="ml-1.5 rounded-full bg-muted px-1.5 text-2xs">{active.length}</span>
+            Active <span className="ms-1.5 rounded-full bg-muted px-1.5 text-2xs">{active.length}</span>
           </TabsTrigger>
           <TabsTrigger value="recurring">
-            Recurring <span className="ml-1.5 rounded-full bg-muted px-1.5 text-2xs">{profiles.length}</span>
+            Recurring <span className="ms-1.5 rounded-full bg-muted px-1.5 text-2xs">{profiles.length}</span>
           </TabsTrigger>
           <TabsTrigger value="processed">
-            Processed <span className="ml-1.5 rounded-full bg-muted px-1.5 text-2xs">{processed.length}</span>
+            Processed <span className="ms-1.5 rounded-full bg-muted px-1.5 text-2xs">{processed.length}</span>
           </TabsTrigger>
           <TabsTrigger value="archived">
-            {t("di_archived_tab")} <span className="ml-1.5 rounded-full bg-muted px-1.5 text-2xs">{archived.length}</span>
+            {t("di_archived_tab")} <span className="ms-1.5 rounded-full bg-muted px-1.5 text-2xs">{archived.length}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -434,7 +434,7 @@ function DataImportLanding() {
               Cancel
             </Button>
             <Button size="sm" onClick={handleCreate} disabled={creating || !newFile}>
-              {creating ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Processing…</> : "Upload & Auto-Import"}
+              {creating ? <><Loader2 className="h-3.5 w-3.5 animate-spin me-1.5" />Processing…</> : "Upload & Auto-Import"}
             </Button>
           </DialogFooter>
         </DialogContent>

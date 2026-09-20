@@ -404,7 +404,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="px-3 pt-3 pb-1">
         <button
           onClick={() => { setPaletteOpen(true); setMobileOpen(false); }}
-          className="flex w-full items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-left text-sm text-muted-foreground shadow-card transition-all duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex w-full items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-start text-sm text-muted-foreground shadow-card transition-all duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           aria-label={t("cmd_placeholder")}
         >
           <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -465,7 +465,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <CollapsibleTrigger asChild>
                   <button className="flex w-full items-center gap-1 px-3 pb-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground hover:text-muted-foreground">
-                    <span className="flex-1 text-left">{tSafe(g.key, g.fallback)}</span>
+                    <span className="flex-1 text-start">{tSafe(g.key, g.fallback)}</span>
                     <ChevronDown
                       className={cn("h-3 w-3 transition-transform", adminOpen && "rotate-180")}
                       aria-hidden="true"
@@ -556,8 +556,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         className={cn(
           "fixed inset-y-0 z-40 hidden w-[15.5rem] bg-sidebar md:block",
           dir === "rtl"
-            ? "right-0 border-l border-sidebar-border"
-            : "left-0 border-r border-sidebar-border",
+            ? "end-0 border-l border-sidebar-border"
+            : "start-0 border-r border-sidebar-border",
         )}
       >
         {sidebar}
@@ -575,8 +575,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             className={cn(
               "absolute inset-y-0 w-[min(18rem,85vw)] bg-sidebar",
               dir === "rtl"
-                ? "right-0 border-l border-sidebar-border"
-                : "left-0 border-r border-sidebar-border",
+                ? "end-0 border-l border-sidebar-border"
+                : "start-0 border-r border-sidebar-border",
             )}
           >
             {sidebar}
@@ -708,7 +708,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {notifCount > 0 && (
                   <span
                     aria-hidden="true"
-                    className="num absolute -end-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-amber px-1 text-[9px] font-semibold leading-none text-black"
+                    className="num absolute -end-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-amber px-1 text-2xs font-semibold leading-none text-black"
                   >
                     {badgeLabel(notifCount)}
                   </span>

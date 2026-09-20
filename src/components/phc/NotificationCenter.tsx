@@ -176,7 +176,10 @@ function NotifRow({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               {unread && (
-                <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber" />
+                <>
+                  <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber" />
+                  <span className="sr-only">{lang === "ar" ? "غير مقروء" : "Unread"}</span>
+                </>
               )}
               <span className="truncate text-2xs tracking-[0.02em] text-muted-foreground">
                 {label}

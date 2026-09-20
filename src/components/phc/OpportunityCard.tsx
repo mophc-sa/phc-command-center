@@ -65,7 +65,7 @@ export function OpportunityCard({ o, lang }: { o: OpportunityRow; lang: Lang }) 
             {o.client ?? "—"}{o.main_contractor ? ` · ${o.main_contractor}` : ""}
           </div>
         </div>
-        <div className="text-right rtl:text-left">
+        <div className="text-end">
           <div className="text-sm font-semibold text-foreground num" data-tabular="true">
             {formatCurrency(val, lang, o.currency)}
           </div>
