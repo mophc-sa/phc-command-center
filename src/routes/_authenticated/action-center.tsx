@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
@@ -276,7 +277,7 @@ function ActionCenter() {
         }
       />
 
-      <section className="mb-6 grid gap-3 sm:grid-cols-4">
+      <KpiRow>
         <KpiCard label={t("ac_kpi_open")} value={formatNumber(counts.total, lang)} hint={lang === "ar" ? "في قائمتك" : "In your queue"} />
         <KpiCard
           label={t("ac_kpi_blocking")}
@@ -291,7 +292,7 @@ function ActionCenter() {
           trend={counts.overdue > 0 ? "down" : "flat"}
         />
         <KpiCard label={t("ac_kpi_due_today")} value={formatNumber(counts.dueToday, lang)} hint={lang === "ar" ? "اليوم" : "Today"} />
-      </section>
+      </KpiRow>
 
       {/* Scope + urgency */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5">

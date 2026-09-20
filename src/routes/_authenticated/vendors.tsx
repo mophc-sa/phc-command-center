@@ -1,5 +1,6 @@
 import { queryRows } from "@/lib/query-rows";
 import { QueryFailure } from "@/components/phc/QueryFailure";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -83,7 +84,7 @@ function VendorsPage() {
         }
       />
 
-      <div hidden={vendors.length === 0} className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiRow>
         <KpiCard label={t("nav_vendors")} value={vendors.length} hint={`${scopes.length} ${scopes.length === 1 ? "category" : "categories"}`} />
         <KpiCard label={t("vendor_scope")} value={scopes.length || "—"} />
         {isManager ? (
@@ -97,7 +98,7 @@ function VendorsPage() {
             <KpiCard label="Restricted" value={<Lock className="h-5 w-5 text-muted-foreground" />} hint="Manager-only fields" />
           </>
         )}
-      </div>
+      </KpiRow>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px] max-w-md">

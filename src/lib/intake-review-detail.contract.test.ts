@@ -60,8 +60,8 @@ describe("a reviewer can open a request without leaving the queue", () => {
   // Derive it from the header instead: the detail row must span every column
   // the table actually renders.
   it("the detail row spans every column the header declares", () => {
-    const head = body.slice(body.indexOf("<thead>"), body.indexOf("</thead>"));
-    const columns = (head.match(/<th\b/g) ?? []).length;
+    const head = body.slice(body.indexOf("<TableHeader>"), body.indexOf("</TableHeader>"));
+    const columns = (head.match(/<TableHead\b/g) ?? []).length;
     expect(columns).toBeGreaterThan(0);
     expect(body).toContain(`colSpan={${columns}}`);
   });

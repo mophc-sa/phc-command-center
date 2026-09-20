@@ -1,5 +1,6 @@
 import { queryRows } from "@/lib/query-rows";
 import { QueryFailure } from "@/components/phc/QueryFailure";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -75,12 +76,12 @@ function ReferenceLibraryPage() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiRow>
         <KpiCard label="Projects" value={refs.length} />
         <KpiCard label="Shareable" value={shareable} hint={refs.length ? `${Math.round((shareable / refs.length) * 100)}% of library` : undefined} />
         <KpiCard label="Sectors" value={sectors.length || "—"} />
         <KpiCard label={`${currentYear}`} value={thisYear} hint="delivered this year" />
-      </div>
+      </KpiRow>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[240px] max-w-md">

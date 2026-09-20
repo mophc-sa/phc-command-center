@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { RecommendationCard } from "@/components/phc/RecommendationCard";
 import { TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useI18n, formatCurrency, formatNumber, type Lang, localeFor } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { isSalesperson } from "@/lib/roles";
@@ -374,42 +375,41 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             {(urgentFUs as any[]).length === 0 ? (
               <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا متابعات عاجلة" : "No urgent follow-ups"} compact /></div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/30">
-                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
-                      <th className="px-4 py-2 text-right text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "القيمة" : "Amount"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(urgentFUs as any[]).slice(0, 8).map(f => {
-                      const opp = f.opportunities as any;
-                      const days = daysUntil(f.due_date);
-                      return (
-                        <tr key={f.id} className="border-t border-border/20 hover:bg-surface-2/30">
-                          <td className="px-4 py-2.5">
-                            {f.opportunity_id ? (
-                              <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{opp?.project_name ?? "—"}</Link>
-                            ) : <span className="text-muted-foreground">—</span>}
-                          </td>
-                          <td className="px-4 py-2.5 text-right num text-muted-foreground">{opp?.estimated_value_max ? formatCurrency(opp.estimated_value_max, lang, "SAR") : "—"}</td>
-                          <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
-                          <td className="px-4 py-2.5">
-                            <div className="flex items-center gap-1">
-                              <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CheckCheck className="h-3 w-3" /></button>
-                              <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CalendarClock className="h-3 w-3" /></button>
-                              {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableCaption>{lang === "ar" ? "متابعات عاجلة" : "Urgent follow-ups"}</TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{lang === "ar" ? "المشروع" : "Project Name"}</TableHead>
+                    <TableHead className="text-end">{lang === "ar" ? "القيمة" : "Amount"}</TableHead>
+                    <TableHead>{lang === "ar" ? "الحالة" : "Status"}</TableHead>
+                    <TableHead>{lang === "ar" ? "إجراء" : "Action"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(urgentFUs as any[]).slice(0, 8).map(f => {
+                    const opp = f.opportunities as any;
+                    const days = daysUntil(f.due_date);
+                    return (
+                      <TableRow key={f.id}>
+                        <TableCell>
+                          {f.opportunity_id ? (
+                            <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{opp?.project_name ?? "—"}</Link>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell className="text-end num text-muted-foreground">{opp?.estimated_value_max ? formatCurrency(opp.estimated_value_max, lang, "SAR") : "—"}</TableCell>
+                        <TableCell><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CheckCheck className="h-3 w-3" /></button>
+                            <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CalendarClock className="h-3 w-3" /></button>
+                            {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             )}
           </div>
 
@@ -422,53 +422,52 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             {(urgentRfqs as any[]).length === 0 ? (
               <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا تقديمات عاجلة هذا الأسبوع" : "No urgent submissions this week"} compact /></div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/30">
-                      {/* Header said "رقم الطلب" in Arabic and "Project Name" in
-                          English while the cell showed neither reliably — it fell
-                          back to a raw UUID fragment. Split into the two columns
-                          spec §16 actually asks for. */}
-                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "رقم الطلب" : "RFQ No."}</th>
-                      <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع / العميل" : "Project / Client"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Deadline"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "أحدث عرض للفرصة" : "Latest opportunity quotation"}</th>
-                      <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الإلحاح" : "Urgency"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(urgentRfqs as any[]).map(r => {
-                      const days = daysUntil(r.response_due_date);
-                      // The row used to be inert — it had a hover highlight, so it
-                      // looked clickable, and did nothing (field report 2026-08-05).
-                      // Spec §9/§16 require it to open the record. An RFQ that has
-                      // been converted has an opportunity to open; one that has not
-                      // still lives on the RFQ & JIH board.
-                      const projectLabel = r.projects?.name ?? r.companies?.name ?? null;
-                      return (
-                        <tr key={r.id} className="border-t border-border/20 hover:bg-surface-2/30">
-                          <td className="px-4 py-2.5 font-medium text-foreground">
-                            {r.opportunity_id ? (
-                              <Link to="/opportunities/$id" params={{ id: r.opportunity_id }} className="text-foreground hover:underline">
-                                {r.rfq_number || (lang === "ar" ? "بلا رقم" : "No number")}
-                              </Link>
-                            ) : (
-                              <Link to="/quotations" search={{ tab: "rfq_jih" }} className="text-foreground hover:underline">
-                                {r.rfq_number || (lang === "ar" ? "بلا رقم" : "No number")}
-                              </Link>
-                            )}
-                          </td>
-                          <td className="px-4 py-2.5 text-muted-foreground">{projectLabel ?? "—"}</td>
-                          <td className="px-4 py-2.5 num text-muted-foreground">{r.response_due_date || "—"}</td>
-                          <td className="px-4 py-2.5">{r.latest_quotation_status ? humanize(r.latest_quotation_status) : (lang === "ar" ? "لا عرض مرتبط" : "No linked quotation")}</td>
-                          <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableCaption>{lang === "ar" ? "تقديمات عروض أسعار عاجلة" : "Urgent quotation submissions"}</TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    {/* Header said "رقم الطلب" in Arabic and "Project Name" in
+                        English while the cell showed neither reliably — it fell
+                        back to a raw UUID fragment. Split into the two columns
+                        spec §16 actually asks for. */}
+                    <TableHead>{lang === "ar" ? "رقم الطلب" : "RFQ No."}</TableHead>
+                    <TableHead>{lang === "ar" ? "المشروع / العميل" : "Project / Client"}</TableHead>
+                    <TableHead>{lang === "ar" ? "الموعد النهائي" : "Deadline"}</TableHead>
+                    <TableHead>{lang === "ar" ? "أحدث عرض للفرصة" : "Latest opportunity quotation"}</TableHead>
+                    <TableHead>{lang === "ar" ? "الإلحاح" : "Urgency"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(urgentRfqs as any[]).map(r => {
+                    const days = daysUntil(r.response_due_date);
+                    // The row used to be inert — it had a hover highlight, so it
+                    // looked clickable, and did nothing (field report 2026-08-05).
+                    // Spec §9/§16 require it to open the record. An RFQ that has
+                    // been converted has an opportunity to open; one that has not
+                    // still lives on the RFQ & JIH board.
+                    const projectLabel = r.projects?.name ?? r.companies?.name ?? null;
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium text-foreground">
+                          {r.opportunity_id ? (
+                            <Link to="/opportunities/$id" params={{ id: r.opportunity_id }} className="text-foreground hover:underline">
+                              {r.rfq_number || (lang === "ar" ? "بلا رقم" : "No number")}
+                            </Link>
+                          ) : (
+                            <Link to="/quotations" search={{ tab: "rfq_jih" }} className="text-foreground hover:underline">
+                              {r.rfq_number || (lang === "ar" ? "بلا رقم" : "No number")}
+                            </Link>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{projectLabel ?? "—"}</TableCell>
+                        <TableCell className="num text-muted-foreground">{r.response_due_date || "—"}</TableCell>
+                        <TableCell>{r.latest_quotation_status ? humanize(r.latest_quotation_status) : (lang === "ar" ? "لا عرض مرتبط" : "No linked quotation")}</TableCell>
+                        <TableCell><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             )}
           </div>
         </div>
@@ -600,28 +599,27 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             {(awardedOpps as any[]).length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا ترسيات في الفترة المحددة" : "No awarded contracts in this period"} compact /></div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-won-border/40">
-                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                      <th className="px-3 py-2 text-right text-2xs font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
-                      <th className="px-3 py-2 text-2xs font-medium text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(awardedOpps as any[]).slice(0, 6).map(o => (
-                      <tr key={o.id} className="border-t border-won-border/40 hover:bg-won-surface">
-                        <td className="px-3 py-2.5">
-                          <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
-                        </td>
-                        <td className="px-3 py-2.5 text-right num text-xs text-won">{formatCurrency(opportunityValue(o as never), lang, o.currency || "SAR")}</td>
-                        <td className="px-3 py-2.5"><StatusPill tone="positive">{lang === "ar" ? "رسمي" : "Won"}</StatusPill></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableCaption>{lang === "ar" ? "الترسيات الرسمية" : "Awarded projects"}</TableCaption>
+                <TableHeader>
+                  <TableRow className="border-won-border/40">
+                    <TableHead>{lang === "ar" ? "المشروع" : "Project"}</TableHead>
+                    <TableHead className="text-end">{lang === "ar" ? "القيمة" : "Value"}</TableHead>
+                    <TableHead>{lang === "ar" ? "الحالة" : "Status"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(awardedOpps as any[]).slice(0, 6).map(o => (
+                    <TableRow key={o.id} className="border-won-border/40 hover:bg-won-surface">
+                      <TableCell>
+                        <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
+                      </TableCell>
+                      <TableCell className="text-end num text-won">{formatCurrency(opportunityValue(o as never), lang, o.currency || "SAR")}</TableCell>
+                      <TableCell><StatusPill tone="positive">{lang === "ar" ? "رسمي" : "Won"}</StatusPill></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </div>
 
@@ -637,28 +635,27 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             {contractOpps.length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا عقود بانتظار المراجعة" : "No contracts pending"} compact /></div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-amber/10">
-                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                      <th className="px-3 py-2 text-right text-2xs font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
-                      <th className="px-3 py-2 text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المرحلة" : "Current Status"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contractOpps.slice(0, 6).map((o: any) => (
-                      <tr key={o.id} className="border-t border-amber/10 hover:bg-amber/5">
-                        <td className="px-3 py-2.5">
-                          <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
-                        </td>
-                        <td className="px-3 py-2.5 text-right num text-xs">{formatCurrency(opportunityValue(o as never), lang, o.currency || "SAR")}</td>
-                        <td className="px-3 py-2.5"><StatusPill tone="attention">{t(`sstage_${o.sales_stage}` as never)}</StatusPill></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableCaption>{lang === "ar" ? "التفاوض النهائي" : "Final negotiation"}</TableCaption>
+                <TableHeader>
+                  <TableRow className="border-amber/10">
+                    <TableHead>{lang === "ar" ? "المشروع" : "Project"}</TableHead>
+                    <TableHead className="text-end">{lang === "ar" ? "القيمة" : "Value"}</TableHead>
+                    <TableHead>{lang === "ar" ? "المرحلة" : "Current Status"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contractOpps.slice(0, 6).map((o: any) => (
+                    <TableRow key={o.id} className="border-amber/10 hover:bg-amber/5">
+                      <TableCell>
+                        <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
+                      </TableCell>
+                      <TableCell className="text-end num">{formatCurrency(opportunityValue(o as never), lang, o.currency || "SAR")}</TableCell>
+                      <TableCell><StatusPill tone="attention">{t(`sstage_${o.sales_stage}` as never)}</StatusPill></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </div>
 
@@ -674,35 +671,34 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             {verballyAwardedOpps.length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا ترسيات شفهية" : "No verbal awards"} compact /></div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/30">
-                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                      <th className="px-3 py-2 text-right text-2xs font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
-                      <th className="px-3 py-2 text-2xs font-medium text-muted-foreground">{lang === "ar" ? "أيام انتظار" : "Waiting"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {verballyAwardedOpps.slice(0, 6).map((o: any) => {
-                      const waitDays = daysSince(o.verbal_award_date);
-                      return (
-                        <tr key={o.id} className="border-t border-border/20 hover:bg-surface-2/30">
-                          <td className="px-3 py-2.5">
-                            <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
-                          </td>
-                          <td className="px-3 py-2.5 text-right num text-xs">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</td>
-                          <td className="px-3 py-2.5">
-                            {waitDays !== null
-                              ? <StatusPill tone={waitDays > 30 ? "danger" : waitDays > 14 ? "attention" : "neutral"}>{waitDays}{lang === "ar" ? "ي" : "d"}</StatusPill>
-                              : <span className="text-muted-foreground">—</span>}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableCaption>{lang === "ar" ? "ترسية شفهية" : "Verbally awarded"}</TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{lang === "ar" ? "المشروع" : "Project"}</TableHead>
+                    <TableHead className="text-end">{lang === "ar" ? "القيمة" : "Value"}</TableHead>
+                    <TableHead>{lang === "ar" ? "أيام انتظار" : "Waiting"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {verballyAwardedOpps.slice(0, 6).map((o: any) => {
+                    const waitDays = daysSince(o.verbal_award_date);
+                    return (
+                      <TableRow key={o.id}>
+                        <TableCell>
+                          <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
+                        </TableCell>
+                        <TableCell className="text-end num">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</TableCell>
+                        <TableCell>
+                          {waitDays !== null
+                            ? <StatusPill tone={waitDays > 30 ? "danger" : waitDays > 14 ? "attention" : "neutral"}>{waitDays}{lang === "ar" ? "ي" : "d"}</StatusPill>
+                            : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             )}
           </div>
         </div>
@@ -788,7 +784,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             <AlertDialogTitle>{lang === "ar" ? "مسودة المتابعة" : "Follow-up Draft"}</AlertDialogTitle>
             <AlertDialogDescription>{lang === "ar" ? "مسودة مقترحة من الذكاء الاصطناعي — راجعها قبل الإرسال." : "AI-suggested draft — review before sending."}</AlertDialogDescription>
           </AlertDialogHeader>
-          <textarea value={draftContent} onChange={e => setDraftContent(e.target.value)} rows={10} className="mt-2 w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none" />
+          <textarea value={draftContent} onChange={e => setDraftContent(e.target.value)} rows={10} className="mt-2 w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
           <AlertDialogFooter>
             <AlertDialogCancel>{lang === "ar" ? "إغلاق" : "Close"}</AlertDialogCancel>
             <AlertDialogAction onClick={() => { if (draftContent) navigator.clipboard.writeText(draftContent).then(() => toast.success(lang === "ar" ? "تم النسخ" : "Copied")).catch(() => {}); setDraftOpen(false); }}>{lang === "ar" ? "نسخ" : "Copy"}</AlertDialogAction>
@@ -1007,39 +1003,38 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
           {[...overdueFU, ...todayFU].length === 0 ? (
             <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا متابعات عاجلة" : "No urgent follow-ups"} compact /></div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/30">
-                    <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project Name"}</th>
-                    <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
-                    <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "إجراء" : "Action"}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...overdueFU, ...todayFU].slice(0, 8).map((f: any) => {
-                    const days = daysUntil(f.due_date);
-                    return (
-                      <tr key={f.id} className="border-t border-border/20 hover:bg-surface-2/30">
-                        <td className="px-4 py-2.5">
-                          {f.opportunity_id ? (
-                            <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="block max-w-[160px] truncate font-medium text-foreground hover:underline">{oppName(f.opportunity_id)}</Link>
-                          ) : <span className="text-muted-foreground">—</span>}
-                        </td>
-                        <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CheckCheck className="h-3 w-3" /></button>
-                            <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CalendarClock className="h-3 w-3" /></button>
-                            {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <TableCaption>{lang === "ar" ? "متابعات عاجلة" : "Urgent follow-ups"}</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{lang === "ar" ? "المشروع" : "Project Name"}</TableHead>
+                  <TableHead>{lang === "ar" ? "الحالة" : "Status"}</TableHead>
+                  <TableHead>{lang === "ar" ? "إجراء" : "Action"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[...overdueFU, ...todayFU].slice(0, 8).map((f: any) => {
+                  const days = daysUntil(f.due_date);
+                  return (
+                    <TableRow key={f.id}>
+                      <TableCell>
+                        {f.opportunity_id ? (
+                          <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="block max-w-[160px] truncate font-medium text-foreground hover:underline">{oppName(f.opportunity_id)}</Link>
+                        ) : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CheckCheck className="h-3 w-3" /></button>
+                          <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CalendarClock className="h-3 w-3" /></button>
+                          {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
         </div>
 
@@ -1052,29 +1047,28 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
           {(urgentQuotations as any[]).length === 0 ? (
             <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا عروض أسعار عاجلة" : "No urgent quotations this week"} compact /></div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/30">
-                    <th className="px-4 py-2 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                    <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الموعد النهائي" : "Due"}</th>
-                    <th className="px-4 py-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "الحالة" : "Status"}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(urgentQuotations as any[]).map((q: any) => {
-                    const days = daysUntil(q.valid_until);
-                    return (
-                      <tr key={q.id} className="border-t border-border/20 hover:bg-surface-2/30">
-                        <td className="px-4 py-2.5 font-medium text-foreground">{q.related_opportunity_id ? oppName(q.related_opportunity_id) : "—"}</td>
-                        <td className="px-4 py-2.5 num text-muted-foreground">{q.valid_until || "—"}</td>
-                        <td className="px-4 py-2.5"><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <TableCaption>{lang === "ar" ? "عروض أسعار عاجلة" : "Urgent quotations"}</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{lang === "ar" ? "المشروع" : "Project"}</TableHead>
+                  <TableHead>{lang === "ar" ? "الموعد النهائي" : "Due"}</TableHead>
+                  <TableHead>{lang === "ar" ? "الحالة" : "Status"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(urgentQuotations as any[]).map((q: any) => {
+                  const days = daysUntil(q.valid_until);
+                  return (
+                    <TableRow key={q.id}>
+                      <TableCell className="font-medium text-foreground">{q.related_opportunity_id ? oppName(q.related_opportunity_id) : "—"}</TableCell>
+                      <TableCell className="num text-muted-foreground">{q.valid_until || "—"}</TableCell>
+                      <TableCell><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
         </div>
       </div>
@@ -1095,26 +1089,25 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
             {tierAOpps.length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا فرص فئة A" : "No Tier A opportunities"} compact /></div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-won-border/40">
-                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                      <th className="px-3 py-2 text-right text-2xs font-medium text-muted-foreground">{lang === "ar" ? "القيمة" : "Value"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(tierAOpps as any[]).slice(0, 6).map((o: any) => (
-                      <tr key={o.id} className="border-t border-won-border/40 hover:bg-won-surface">
-                        <td className="px-3 py-2.5">
-                          <Link to="/opportunities/$id" params={{ id: o.id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{o.project_name}</Link>
-                        </td>
-                        <td className="px-3 py-2.5 text-right num text-xs text-won">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableCaption>{lang === "ar" ? "فرص الفئة A" : "Tier A opportunities"}</TableCaption>
+                <TableHeader>
+                  <TableRow className="border-won-border/40">
+                    <TableHead>{lang === "ar" ? "المشروع" : "Project"}</TableHead>
+                    <TableHead className="text-end">{lang === "ar" ? "القيمة" : "Value"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(tierAOpps as any[]).slice(0, 6).map((o: any) => (
+                    <TableRow key={o.id} className="border-won-border/40 hover:bg-won-surface">
+                      <TableCell>
+                        <Link to="/opportunities/$id" params={{ id: o.id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{o.project_name}</Link>
+                      </TableCell>
+                      <TableCell className="text-end num text-won">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </div>
 
@@ -1130,28 +1123,27 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
             {myApprovals.length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا قرارات معلقة" : "No pending approvals"} compact /></div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-amber/10">
-                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "المشروع" : "Project"}</th>
-                      <th className="px-3 py-2 text-2xs font-medium text-muted-foreground">{lang === "ar" ? "النوع" : "Type"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(myApprovals as any[]).slice(0, 6).map((a: any) => (
-                      <tr key={a.id} className="border-t border-amber/10 hover:bg-amber/5">
-                        <td className="px-3 py-2.5">
-                          {a.related_opportunity_id
-                            ? <Link to="/opportunities/$id" params={{ id: a.related_opportunity_id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{oppName(a.related_opportunity_id)}</Link>
-                            : <span className="text-muted-foreground">—</span>}
-                        </td>
-                        <td className="px-3 py-2.5"><StatusPill tone="attention">{humanize(a.approval_type)}</StatusPill></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableCaption>{lang === "ar" ? "قرارات بانتظار الموافقة" : "Pending approvals"}</TableCaption>
+                <TableHeader>
+                  <TableRow className="border-amber/10">
+                    <TableHead>{lang === "ar" ? "المشروع" : "Project"}</TableHead>
+                    <TableHead>{lang === "ar" ? "النوع" : "Type"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(myApprovals as any[]).slice(0, 6).map((a: any) => (
+                    <TableRow key={a.id} className="border-amber/10 hover:bg-amber/5">
+                      <TableCell>
+                        {a.related_opportunity_id
+                          ? <Link to="/opportunities/$id" params={{ id: a.related_opportunity_id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{oppName(a.related_opportunity_id)}</Link>
+                          : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell><StatusPill tone="attention">{humanize(a.approval_type)}</StatusPill></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </div>
 
@@ -1167,24 +1159,23 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
             {missingDataFlags.length === 0 ? (
               <div className="px-4 py-6"><EmptyState message={lang === "ar" ? "لا بنود تتطلب إجراء" : "No action required"} compact /></div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/30">
-                      <th className="px-3 py-2 text-left text-2xs font-medium text-muted-foreground">{lang === "ar" ? "السبب" : "Reason"}</th>
-                      <th className="px-3 py-2 text-2xs font-medium text-muted-foreground">{lang === "ar" ? "الأولوية" : "Priority"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(missingDataFlags as any[]).slice(0, 6).map((f: any) => (
-                      <tr key={f.id} className="border-t border-border/20 hover:bg-surface-2/30">
-                        <td className="px-3 py-2.5 min-w-[160px] whitespace-normal text-foreground">{f.reason ?? humanize(f.flag_kind)}</td>
-                        <td className="px-3 py-2.5"><StatusPill tone={f.flag_kind === "risk" ? "danger" : "attention"}>{humanize(f.priority ?? f.flag_kind)}</StatusPill></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table>
+                <TableCaption>{lang === "ar" ? "بنود تتطلب إجراء" : "Action required"}</TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{lang === "ar" ? "السبب" : "Reason"}</TableHead>
+                    <TableHead>{lang === "ar" ? "الأولوية" : "Priority"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(missingDataFlags as any[]).slice(0, 6).map((f: any) => (
+                    <TableRow key={f.id}>
+                      <TableCell className="min-w-[160px] whitespace-normal text-foreground">{f.reason ?? humanize(f.flag_kind)}</TableCell>
+                      <TableCell><StatusPill tone={f.flag_kind === "risk" ? "danger" : "attention"}>{humanize(f.priority ?? f.flag_kind)}</StatusPill></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </div>
         </div>
@@ -1243,7 +1234,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
             <AlertDialogTitle>{lang === "ar" ? "مسودة المتابعة" : "Follow-up Draft"}</AlertDialogTitle>
             <AlertDialogDescription>{lang === "ar" ? "مسودة مقترحة من الذكاء الاصطناعي — راجعها قبل الإرسال." : "AI-suggested draft — review before sending."}</AlertDialogDescription>
           </AlertDialogHeader>
-          <textarea value={draftContent} onChange={e => setDraftContent(e.target.value)} rows={10} className="mt-2 w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none" />
+          <textarea value={draftContent} onChange={e => setDraftContent(e.target.value)} rows={10} className="mt-2 w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
           <AlertDialogFooter>
             <AlertDialogCancel>{lang === "ar" ? "إغلاق" : "Close"}</AlertDialogCancel>
             <AlertDialogAction onClick={() => { if (draftContent) navigator.clipboard.writeText(draftContent).then(() => toast.success(lang === "ar" ? "تم النسخ" : "Copied")).catch(() => {}); setDraftOpen(false); }}>{lang === "ar" ? "نسخ" : "Copy"}</AlertDialogAction>
@@ -1404,14 +1395,15 @@ function StageToggleRow({ id, label, count, value, lang, tone, isOpen, onToggle,
   );
 }
 
-function StageTable({ headers, children }: { headers: string[]; children: React.ReactNode }) {
+function StageTable({ caption, headers, children }: { caption: string; headers: string[]; children: React.ReactNode }) {
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr>{headers.map(h => <th key={h} className="pb-2 pr-4 text-left text-2xs font-medium tracking-[0.02em] text-muted-foreground last:pr-0">{h}</th>)}</tr>
-      </thead>
-      <tbody>{children}</tbody>
-    </table>
+    <Table>
+      <TableCaption>{caption}</TableCaption>
+      <TableHeader>
+        <TableRow>{headers.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow>
+      </TableHeader>
+      <TableBody>{children}</TableBody>
+    </Table>
   );
 }
 

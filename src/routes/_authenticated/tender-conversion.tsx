@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
@@ -78,12 +79,12 @@ function TenderConversionReview() {
         description="Decision workspace for converting awarded tenders into JIH opportunities."
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiRow>
         <KpiCard label={t("tc_pending_reviews")} value={kpis.total} icon={<ShieldCheck className="h-3.5 w-3.5" />} />
         <KpiCard label="Combined value" value={<span className="num" data-tabular="true">{formatCurrency(kpis.totalValue, lang, "SAR")}</span>} />
         <KpiCard label="Missing evidence" value={kpis.missingEvidence} />
         <KpiCard label="High value (≥ 300k)" value={kpis.highValue} />
-      </div>
+      </KpiRow>
 
       {isLoading ? (
         <SkeletonTable rows={5} />

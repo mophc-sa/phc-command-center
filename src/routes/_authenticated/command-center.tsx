@@ -6,6 +6,8 @@ import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Activity, AlertTriangle, ArrowRight, Clock, Sparkles, Target, Wallet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { KpiTile } from "@/components/phc/KpiTile";
+import { KpiRow } from "@/components/phc/KpiRow";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   MANAGEMENT_BUCKETS,
   bucketKpi,
@@ -741,7 +743,7 @@ function CommandCenter() {
                 {targetPeriodLabel}
               </span>
             </div>
-            <div className="executive-scorecard grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <KpiRow className="executive-scorecard">
               <KpiTile
                 size="lead"
                 kpi={forecast.target}
@@ -778,7 +780,7 @@ function CommandCenter() {
                 accent="money"
                 icon={<Activity className="h-4 w-4" />}
               />
-            </div>
+            </KpiRow>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               {lang === "ar"
                 ? "المحقق والمستهدف لنفس الفترة. خط المبيعات والتوقع يمثلان الوضع الحالي، ولا يُعدّان إيرادًا محققًا."
@@ -810,7 +812,7 @@ function CommandCenter() {
             </button>
           </div>
           <section id="executive-decisions" className="scroll-mt-6">
-            <div className="mb-2 grid gap-3 sm:grid-cols-3">
+            <KpiRow columns={3} className="mb-2">
               {(
                 [
                   ["at_risk", attentionSummary.atRisk, lang === "ar" ? "معرَّضة للخطر" : "At risk"],
@@ -846,7 +848,7 @@ function CommandCenter() {
                   </div>
                 </div>
               ))}
-            </div>
+            </KpiRow>
 
             <ChartFrame
               title={
@@ -950,89 +952,62 @@ function CommandCenter() {
                   />
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-sm">
-                    <thead>
-                      <tr className="border-b border-border text-start text-2xs tracking-[0.02em] text-muted-foreground">
-                        <th className="px-4 py-2 text-start">
-                          {lang === "ar" ? "المندوب" : "Salesperson"}
-                        </th>
-                        <th className="px-3 py-2 text-end">{lang === "ar" ? "مفتوح" : "Open"}</th>
-                        <th className="px-3 py-2 text-end">
-                          {lang === "ar" ? "مرجّح" : "Weighted"}
-                        </th>
-                        <th className="px-3 py-2 text-end">
-                          {lang === "ar" ? "متابعات" : "Follow-ups"}
-                        </th>
-                        <th className="px-3 py-2 text-end">
-                          {lang === "ar" ? "اجتماعات" : "Meetings"}
-                        </th>
-                        <th className="px-3 py-2 text-end">
-                          {lang === "ar" ? "متوقفة" : "Stalled"}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {execution.map((r) => (
-                        <tr key={r.ownerId} className="border-b border-border/50">
-                          <td className="px-4 py-2.5 text-foreground">{teamName(r.ownerId)}</td>
-                          <td className="num px-3 py-2.5 text-end" data-tabular="true">
-                            {r.openPipeline === null ? (
-                              <span className="text-xs text-muted-foreground">
-                                {lang === "ar"
-                                  ? `بلا قيمة (${r.unpricedCount})`
-                                  : `No value (${r.unpricedCount})`}
-                              </span>
-                            ) : (
-                              <span className="text-foreground">
-                                {formatCurrency(r.openPipeline, lang)}
-                              </span>
-                            )}
-                          </td>
-                          <td className="num px-3 py-2.5 text-end" data-tabular="true">
-                            {/* Null, not zero: a book nobody has scored is not a
-                            book worth nothing. Same rule as the company total. */}
-                            {r.weightedPipeline === null ? (
-                              <span className="text-xs text-muted-foreground">
-                                {lang === "ar"
-                                  ? `غير محتسَب (${r.unscoredCount})`
-                                  : `Not calculated (${r.unscoredCount})`}
-                              </span>
-                            ) : (
-                              <span className="text-foreground">
-                                {formatCurrency(r.weightedPipeline, lang)}
-                              </span>
-                            )}
-                          </td>
-                          <td
-                            className="num px-3 py-2.5 text-end text-foreground"
-                            data-tabular="true"
-                          >
-                            {formatNumber(r.followUpsDue, lang)}
-                          </td>
-                          <td
-                            className="num px-3 py-2.5 text-end text-foreground"
-                            data-tabular="true"
-                          >
-                            {formatNumber(r.meetings, lang)}
-                          </td>
-                          <td className="num px-3 py-2.5 text-end" data-tabular="true">
-                            {r.stalledCount === 0 ? (
-                              <span className="text-muted-foreground">—</span>
-                            ) : (
-                              <span className="text-amber-light">
-                                {formatNumber(r.stalledCount, lang)}
-                                {r.stalledValue > 0
-                                  ? ` · ${formatCurrency(r.stalledValue, lang)}`
-                                  : ""}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table className="min-w-[560px]">
+                  <TableCaption>{lang === "ar" ? "تنفيذ الفريق حسب المندوب" : "Team execution by salesperson"}</TableCaption>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{lang === "ar" ? "المندوب" : "Salesperson"}</TableHead>
+                      <TableHead className="text-end">{lang === "ar" ? "مفتوح" : "Open"}</TableHead>
+                      <TableHead className="text-end">{lang === "ar" ? "مرجّح" : "Weighted"}</TableHead>
+                      <TableHead className="text-end">{lang === "ar" ? "متابعات" : "Follow-ups"}</TableHead>
+                      <TableHead className="text-end">{lang === "ar" ? "اجتماعات" : "Meetings"}</TableHead>
+                      <TableHead className="text-end">{lang === "ar" ? "متوقفة" : "Stalled"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {execution.map((r) => (
+                      <TableRow key={r.ownerId}>
+                        <TableCell className="text-foreground">{teamName(r.ownerId)}</TableCell>
+                        <TableCell className="num text-end" data-tabular="true">
+                          {r.openPipeline === null ? (
+                            <span className="text-xs text-muted-foreground">
+                              {lang === "ar" ? `بلا قيمة (${r.unpricedCount})` : `No value (${r.unpricedCount})`}
+                            </span>
+                          ) : (
+                            <span className="text-foreground">{formatCurrency(r.openPipeline, lang)}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="num text-end" data-tabular="true">
+                          {/* Null, not zero: a book nobody has scored is not a
+                          book worth nothing. Same rule as the company total. */}
+                          {r.weightedPipeline === null ? (
+                            <span className="text-xs text-muted-foreground">
+                              {lang === "ar" ? `غير محتسَب (${r.unscoredCount})` : `Not calculated (${r.unscoredCount})`}
+                            </span>
+                          ) : (
+                            <span className="text-foreground">{formatCurrency(r.weightedPipeline, lang)}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="num text-end text-foreground" data-tabular="true">
+                          {formatNumber(r.followUpsDue, lang)}
+                        </TableCell>
+                        <TableCell className="num text-end text-foreground" data-tabular="true">
+                          {formatNumber(r.meetings, lang)}
+                        </TableCell>
+                        <TableCell className="num text-end" data-tabular="true">
+                          {r.stalledCount === 0 ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <span className="text-amber-light">
+                              {formatNumber(r.stalledCount, lang)}
+                              {r.stalledValue > 0 ? ` · ${formatCurrency(r.stalledValue, lang)}` : ""}
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </ChartFrame>
           </section>

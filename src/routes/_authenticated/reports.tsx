@@ -1,6 +1,7 @@
 import { inReportCohort } from "@/lib/report-scope";
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import { QueryFailure } from "@/components/phc/QueryFailure";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { readAll } from "../../../supabase/functions/_shared/ai-facts";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
@@ -23,6 +24,15 @@ import { KpiCard } from "@/components/phc/KpiCard";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { groupByCanonicalStage, canonicalStageLabelKey } from "@/lib/stage-canonical";
 import { EmptyState } from "@/components/phc/EmptyState";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { SkeletonChart } from "@/components/phc/Skeleton";
 import { useI18n, formatCurrency, formatNumber, localeFor } from "@/lib/i18n";
 import { computeQuotationWinRatePct } from "@/lib/dashboard-helpers";
@@ -191,7 +201,7 @@ function ReportsPage() {
         <EmptyState message={t("empty_report")} />
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiRow>
             <KpiCard
               label={lang === "ar" ? "نسبة الفوز بعروض الأسعار" : "Quotation win rate"}
               value={winRate === null ? "—" : `${formatNumber(winRate, lang)}%`}
@@ -206,7 +216,7 @@ function ReportsPage() {
               icon={<AlertCircle className="h-3.5 w-3.5" />}
             />
             <KpiCard label={lang === "ar" ? "قيمة عروض الأسعار الخاسرة" : "Lost quotation value"} value={money(lostValue)} icon={<XCircle className="h-3.5 w-3.5" />} />
-          </div>
+          </KpiRow>
 
           <div className="grid gap-4 lg:grid-cols-2">
             {stageRows.length > 0 ? (
@@ -292,11 +302,26 @@ function ReportsPage() {
           <details className="rounded-lg border p-4">
             <summary className="cursor-pointer font-medium">{lang === "ar" ? "تعريف المؤشرات وبيانات الرسوم" : "Metric definitions and chart data"}</summary>
             <p className="my-3 text-sm">{lang === "ar" ? "نسبة الفوز = عدد العروض الفائزة ÷ مجموع الفائزة والخاسرة. القيم تجمع العروض داخل العملة والنطاق المحددين؛ الفرص المفتوحة تمثل وضعها الحالي." : "Win rate = won quotations / (won + lost quotations). Values sum quotations in the selected currency and scope; open opportunities reflect current state."}</p>
-            {[{ title: t("report_pipeline_by_stage"), rows: stageRows }, { title: t("report_quotation_funnel"), rows: quoteRows }].map(group => <div key={group.title} className="mb-4 overflow-x-auto">
-              <table className="w-full text-sm"><caption className="py-2 text-start font-medium">{group.title}</caption>
-                <thead><tr><th scope="col" className="text-start">{lang === "ar" ? "المرحلة" : "Stage"}</th><th scope="col">{lang === "ar" ? "العدد" : "Count"}</th><th scope="col">{lang === "ar" ? "القيمة" : "Value"}</th></tr></thead>
-                <tbody>{group.rows.map(row => <tr key={row.key} className="border-t"><th scope="row" className="py-2 text-start font-normal">{row.label}</th><td className="text-center">{formatNumber(row.count, lang)}</td><td className="text-center">{money(row.value)}</td></tr>)}</tbody>
-              </table>
+            {[{ title: t("report_pipeline_by_stage"), rows: stageRows }, { title: t("report_quotation_funnel"), rows: quoteRows }].map(group => <div key={group.title} className="mb-4">
+              <Table>
+                <TableCaption className="not-sr-only py-2 text-start font-medium">{group.title}</TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{lang === "ar" ? "المرحلة" : "Stage"}</TableHead>
+                    <TableHead className="text-center">{lang === "ar" ? "العدد" : "Count"}</TableHead>
+                    <TableHead className="text-center">{lang === "ar" ? "القيمة" : "Value"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {group.rows.map(row => (
+                    <TableRow key={row.key}>
+                      <TableHead scope="row" className="font-normal text-foreground">{row.label}</TableHead>
+                      <TableCell className="text-center">{formatNumber(row.count, lang)}</TableCell>
+                      <TableCell className="text-center">{money(row.value)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>)}
           </details>
           <p className="rounded-lg border p-3 text-sm text-muted-foreground">{lang === "ar" ? "ملخصات الذكاء الاصطناعي التالية تقارير محفوظة بنطاقها الأصلي، ولا تتغير بمرشحات هذه الصفحة." : "The AI summaries below are stored reports with their original scope; this page’s filters do not change them."}</p>

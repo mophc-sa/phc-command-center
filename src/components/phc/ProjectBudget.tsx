@@ -10,6 +10,15 @@ import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { EmptyState } from "@/components/phc/EmptyState";
 import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   listBudgetItems,
   createBudgetItem,
   updateBudgetItem,
@@ -78,24 +87,25 @@ export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEd
         />
       ) : (
         <div className="overflow-hidden rounded-lg border border-border/70">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border/60 bg-surface/60 text-2xs tracking-[0.02em] text-muted-foreground">
-                <th className="px-3 py-2 text-start">{lang === "ar" ? "البند" : "Category"}</th>
-                <th className="px-3 py-2 text-start">{lang === "ar" ? "الوصف" : "Description"}</th>
-                <th className="px-3 py-2 text-end">{lang === "ar" ? "المخطط" : "Planned"}</th>
-                <th className="px-3 py-2 text-end">{lang === "ar" ? "الفعلي" : "Actual"}</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableCaption>{lang === "ar" ? "بنود ميزانية المشروع" : "Project budget line items"}</TableCaption>
+            <TableHeader>
+              <TableRow className="bg-surface/60">
+                <TableHead>{lang === "ar" ? "البند" : "Category"}</TableHead>
+                <TableHead>{lang === "ar" ? "الوصف" : "Description"}</TableHead>
+                <TableHead className="text-end">{lang === "ar" ? "المخطط" : "Planned"}</TableHead>
+                <TableHead className="text-end">{lang === "ar" ? "الفعلي" : "Actual"}</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((item) => (
-                <tr key={item.id} className="border-t border-border/60 bg-surface/40">
-                  <td className="px-3 py-2 font-medium text-foreground">{item.category}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{item.description ?? "—"}</td>
-                  <td className="num px-3 py-2 text-end text-foreground">{item.planned_amount != null ? formatCurrency(item.planned_amount, lang, item.currency) : "—"}</td>
-                  <td className="num px-3 py-2 text-end text-foreground">{item.actual_amount != null ? formatCurrency(item.actual_amount, lang, item.currency) : "—"}</td>
-                  <td className="px-3 py-2">
+                <TableRow key={item.id} className="bg-surface/40">
+                  <TableCell className="font-medium text-foreground">{item.category}</TableCell>
+                  <TableCell className="text-muted-foreground">{item.description ?? "—"}</TableCell>
+                  <TableCell className="num text-end text-foreground">{item.planned_amount != null ? formatCurrency(item.planned_amount, lang, item.currency) : "—"}</TableCell>
+                  <TableCell className="num text-end text-foreground">{item.actual_amount != null ? formatCurrency(item.actual_amount, lang, item.currency) : "—"}</TableCell>
+                  <TableCell>
                     {canEdit ? (
                       <div className="flex items-center justify-end gap-2">
                         <button type="button" onClick={() => setEditItem(item)} className="text-muted-foreground hover:text-foreground" aria-label="Edit">
@@ -106,11 +116,11 @@ export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEd
                         </button>
                       </div>
                     ) : null}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 

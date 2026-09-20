@@ -15,6 +15,15 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
 import { createBoq, addBoqItem, type BoqStatus } from "@/lib/sales-actions";
 
@@ -220,40 +229,39 @@ export function BoqPanel() {
                     {items.length === 0 ? (
                       <div className="text-xs text-muted-foreground">—</div>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead>
-                            <tr className="text-start tracking-[0.02em] text-muted-foreground">
-                              <th className="py-2 text-start font-medium">{t("field_sign_type")}</th>
-                              <th className="py-2 text-start font-medium">{t("field_size")}</th>
-                              <th className="py-2 text-start font-medium">{t("field_material")}</th>
-                              <th className="py-2 text-start font-medium">{t("field_location")}</th>
-                              <th className="py-2 text-end font-medium">{t("field_quantity")}</th>
+                      <Table>
+                        <TableCaption>{t("label_items")}</TableCaption>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t("field_sign_type")}</TableHead>
+                            <TableHead>{t("field_size")}</TableHead>
+                            <TableHead>{t("field_material")}</TableHead>
+                            <TableHead>{t("field_location")}</TableHead>
+                            <TableHead className="text-end">{t("field_quantity")}</TableHead>
+                            {canSeeCost ? (
+                              <TableHead className="text-end">{t("field_unit_rate")}</TableHead>
+                            ) : null}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {items.map((it: any) => (
+                            <TableRow key={it.id} className="text-foreground">
+                              <TableCell>{it.sign_type}</TableCell>
+                              <TableCell>{it.size ?? "—"}</TableCell>
+                              <TableCell>{it.material ?? "—"}</TableCell>
+                              <TableCell>{it.location ?? "—"}</TableCell>
+                              <TableCell className="num text-end" data-tabular="true">
+                                {formatNumber(it.quantity, lang)}
+                              </TableCell>
                               {canSeeCost ? (
-                                <th className="py-2 text-end font-medium">{t("field_unit_rate")}</th>
+                                <TableCell className="num text-end" data-tabular="true">
+                                  {formatCurrency(rateByItem.get(it.id) ?? null, lang)}
+                                </TableCell>
                               ) : null}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {items.map((it: any) => (
-                              <tr key={it.id} className="border-t border-border/40 text-foreground">
-                                <td className="py-2">{it.sign_type}</td>
-                                <td className="py-2">{it.size ?? "—"}</td>
-                                <td className="py-2">{it.material ?? "—"}</td>
-                                <td className="py-2">{it.location ?? "—"}</td>
-                                <td className="num py-2 text-end" data-tabular="true">
-                                  {formatNumber(it.quantity, lang)}
-                                </td>
-                                {canSeeCost ? (
-                                  <td className="num py-2 text-end" data-tabular="true">
-                                    {formatCurrency(rateByItem.get(it.id) ?? null, lang)}
-                                  </td>
-                                ) : null}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     )}
                   </div>
                 ) : null}

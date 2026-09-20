@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { Panel } from "@/components/phc/Panel";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { ChartFrame } from "@/components/phc/ChartFrame";
@@ -308,12 +309,12 @@ function AgentActivityPage() {
       <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">
         {lang === "ar" ? "الفحص الدفعي (نظام أقدم)" : "Batch Scans (legacy system)"}
       </div>
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiRow>
         <KpiCard label={t("aa_kpi_runs")} value={kpis.total} icon={<Activity className="h-3.5 w-3.5" />} />
         <KpiCard label={t("aa_kpi_completed")} value={kpis.completed} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
         <KpiCard label={t("aa_kpi_not_configured")} value={kpis.notConfigured} icon={<PauseCircle className="h-3.5 w-3.5" />} />
         <KpiCard label={t("aa_kpi_errors")} value={kpis.errors} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
-      </div>
+      </KpiRow>
 
       {/* Per-request orchestrator system (ai-orchestrator / ai_agent_outputs)
           — a separate, complementary model from the batch-scan KPIs above
@@ -323,7 +324,7 @@ function AgentActivityPage() {
       <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">
         {lang === "ar" ? "مخرجات الوكلاء (لكل طلب — النظام الحالي)" : "Agent Outputs (per-request — current system)"}
       </div>
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiRow>
         <KpiCard label={lang === "ar" ? "إجمالي (آخر 200)" : "Total (recent 200)"} value={outputsKpis.total} icon={<Activity className="h-3.5 w-3.5" />} />
         <KpiCard
           label={lang === "ar" ? "بانتظار قرارك" : "Awaiting your decision"}
@@ -342,7 +343,7 @@ function AgentActivityPage() {
           icon={<Activity className="h-3.5 w-3.5" />}
         />
         <KpiCard label={lang === "ar" ? "مقبول" : "Accepted"} value={outputsKpis.accepted} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
-      </div>
+      </KpiRow>
 
       <div className="mb-6">
         <ChartFrame title={t("aa_runs_last_7")}>
@@ -373,13 +374,13 @@ function AgentActivityPage() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("aa_search_placeholder")}
             aria-label={t("aa_search_placeholder")}
-          className="w-full max-w-xs rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
+          className="w-full max-w-xs rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
         <div className="flex flex-wrap items-center gap-2">
           <select
             value={agent}
             onChange={(e) => setAgent(e.target.value)}
-            className="rounded-md border border-border bg-surface/60 px-2.5 py-1.5 text-xs text-foreground focus:border-border-strong focus:outline-none"
+            className="rounded-md border border-border bg-surface/60 px-2.5 py-1.5 text-xs text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value="all">{t("aa_all_agents")}</option>
             {agents.map((a) => <option key={a} value={a}>{a}</option>)}

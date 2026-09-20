@@ -1,5 +1,6 @@
 import { queryRows } from "@/lib/query-rows";
 import { QueryFailure } from "@/components/phc/QueryFailure";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { useWindowedList } from "@/lib/windowed-list";
 import { ListWindowFooter } from "@/components/phc/ListWindowFooter";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -19,6 +20,7 @@ import { useI18n } from "@/lib/i18n";
 import { createContact, createCompany, type ContactAuthority, type ContactLocation, type ContactConfidenceLevel } from "@/lib/crm-actions";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { ArchivedBadge, RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const Route = createFileRoute("/_authenticated/contacts")({
   // `?q=` lets the command palette deep-link straight to a named contact.
@@ -141,12 +143,12 @@ function ContactsPage() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiRow>
         <KpiCard label={t("nav_contacts")} value={kpis.total} icon={<Users className="h-3.5 w-3.5" />} />
         <KpiCard label={t("authority_decision_maker" as never) || "Decision makers"} value={kpis.dm} />
         <KpiCard label={t("crm_email" as never) || "Email"} value={kpis.withEmail} />
         <KpiCard label={t("crm_phone" as never) || "Phone"} value={kpis.withPhone} />
-      </div>
+      </KpiRow>
 
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full md:max-w-xs">
@@ -202,36 +204,37 @@ function ContactsPage() {
         />
       ) : (
         <>
-        <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
+        <div className="rounded-xl border border-border/70 bg-surface/60">
           {/* `table-fixed` so one 90-character imported name cannot set the
                 width of every column. Without it the table measured 1076px
                 inside a 719px pane and scrolled sideways — the complaint that
                 started this. */}
-            <table className="w-full table-fixed text-base">
-            <thead>
-              <tr className="border-b border-border/60 text-start text-2xs tracking-[0.02em] text-muted-foreground">
+            <Table className="table-fixed">
+            <TableCaption>{t("nav_contacts")}</TableCaption>
+            <TableHeader>
+              <TableRow>
                 {/* Five columns, not ten. Website and confidence are empty on
                     every row in this book and location on all but one, so they
                     cost width and told the reader nothing; they now sit under
                     the name where they appear only when filled. Ten columns
                     could not fit any screen without sideways scrolling. */}
-                <th className="w-[22%] px-3 py-2 text-start font-medium">{t("ibx_contact_name" as never)}</th>
-                <th className="w-[16%] px-3 py-2 text-start font-medium">{t("crm_company")}</th>
-                <th className="w-[13%] px-3 py-2 text-start font-medium">{t("crm_phone")}</th>
-                <th className="w-[19%] px-3 py-2 text-start font-medium">{t("crm_email")}</th>
-                <th className="w-[10%] px-3 py-2 text-start font-medium">{t("crm_authority")}</th>
-                <th className="w-[20%] px-3 py-2 text-end font-medium">{t("comm_log_activity")}</th>
-              </tr>
-            </thead>
-            <tbody>
+                <TableHead className="w-[22%]">{t("ibx_contact_name" as never)}</TableHead>
+                <TableHead className="w-[16%]">{t("crm_company")}</TableHead>
+                <TableHead className="w-[13%]">{t("crm_phone")}</TableHead>
+                <TableHead className="w-[19%]">{t("crm_email")}</TableHead>
+                <TableHead className="w-[10%]">{t("crm_authority")}</TableHead>
+                <TableHead className="w-[20%] text-end">{t("comm_log_activity")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {win.visible.map((c: any) => (
-                <tr key={c.id} className="border-b border-border/40 text-foreground last:border-0 hover:bg-surface">
+                <TableRow key={c.id} className="text-foreground">
                   {/* Name carries what used to be its own columns. Title,
                       location and website are filled on almost no row in this
                       book, so as columns they bought width and told the reader
                       nothing; here they appear only when there is something to
                       show. */}
-                  <td className="px-3 py-2 align-top">
+                  <TableCell className="align-top">
                     <div className="flex items-center gap-1.5">
                       {/* Truncated, with the full value on hover. An imported
                           name can run to ninety characters; wrapping it made
@@ -260,22 +263,22 @@ function ContactsPage() {
                         ) : null}
                       </div>
                     ) : null}
-                  </td>
-                  <td className="px-3 py-2 align-top text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="align-top text-muted-foreground">
                     <span className="block truncate" title={c.companies?.name ?? ""}>{c.companies?.name ?? "—"}</span>
-                  </td>
-                  <td className="px-3 py-2 align-top text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="align-top text-muted-foreground">
                     {c.phone ? <a href={`tel:${c.phone}`} className="hover:text-foreground">{c.phone}</a> : "—"}
-                  </td>
-                  <td className="px-3 py-2 align-top text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="align-top text-muted-foreground">
                     {c.email
                       ? <a href={`mailto:${c.email}`} className="block truncate hover:text-foreground transition-colors">{c.email}</a>
                       : "—"}
-                  </td>
-                  <td className="px-3 py-2 align-top">
+                  </TableCell>
+                  <TableCell className="align-top">
                     <StatusPill tone={authorityTone(c.authority)}>{authorityLabel(c.authority)}</StatusPill>
-                  </td>
-                  <td className="px-3 py-2 align-top text-end">
+                  </TableCell>
+                  <TableCell className="align-top text-end">
                     <div className="flex flex-nowrap items-center justify-end gap-0.5">
                       <CommunicationActions
                         size="xs"
@@ -305,11 +308,11 @@ function ContactsPage() {
                         onDone={() => qc.invalidateQueries({ queryKey: ["contacts"] })}
                       />
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
           <ListWindowFooter win={win} />
         </>

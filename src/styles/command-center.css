@@ -39,16 +39,6 @@
   font-size: 0.8125rem;
   line-height: 1.6;
 }
-.executive-command table th {
-  font-size: 0.8125rem;
-  padding-block: 0.875rem;
-}
-.executive-command table td {
-  padding-block: 1rem;
-}
-.executive-command table tbody tr:hover {
-  background: var(--color-surface-2);
-}
 .executive-command > section,
 .executive-command > div {
   min-width: 0;

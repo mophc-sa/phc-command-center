@@ -24,6 +24,15 @@ import { QueryFailure } from "@/components/phc/QueryFailure";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { updateInboxItem } from "@/lib/inbox-actions";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { formatCurrency, useI18n } from "@/lib/i18n";
@@ -272,152 +281,151 @@ export function IntakeReviewPanel({ selectedId, items, loading, failed, retry, r
       ) : rows.length === 0 ? (
         <EmptyState message={t("rev_empty")} />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border text-start text-xs tracking-[0.02em] text-muted-foreground">
-                {/* Client feedback 2026-08-25: these five, in this order. Project
-                    Code is new — the number was already fetched and only shown
-                    once the row was expanded, so a reviewer scanning the queue
-                    could not tell two similarly-named projects apart. The last
-                    header said "Pending review", which is a STATE, not a column
-                    name — and it sat above a cell that could say something else
-                    entirely. */}
-                <th className="px-3 py-2 text-start">{t("label_project_name" as never)}</th>
-                <th className="px-3 py-2 text-start">{t("label_project_code" as never)}</th>
-                <th className="px-3 py-2 text-start">{t("ibx_request_type")}</th>
-                <th className="px-3 py-2 text-start">{t("ibx_deadline")}</th>
-                <th className="px-3 py-2 text-start">{t("label_status")}</th>
-                <th className="px-3 py-2 text-end">—</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.filter((r: any) => !selectedId || r.id === selectedId).map((r: any) => {
-                const state = r.review_state as IntakeReviewState;
-                const disabled = busy === r.id;
-                return (
-                  <Fragment key={r.id}>
-                  <tr className="border-b border-border/50">
-                    <td className="px-3 py-2.5">
-                      {/* The row IS the disclosure. A review queue is worked
-                          top to bottom; sending someone to a detail page and
-                          back for each of ten requests loses their place every
-                          time. */}
-                      <button
-                        type="button"
-                        onClick={() => setExpanded(expanded === r.id ? null : r.id)}
-                        aria-expanded={expanded === r.id}
-                        aria-controls={`intake-detail-${r.id}`}
-                        className="flex items-start gap-1.5 text-start hover:underline"
-                      >
-                        <ChevronRight
-                          className={`mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform rtl:-scale-x-100 ${expanded === r.id ? "rotate-90" : ""}`}
-                          aria-hidden="true"
-                        />
-                        <span>
-                          <span className="block font-medium text-foreground">{r.project_name || "—"}</span>
-                          <span className="block text-xs text-muted-foreground">{r.company_name || "—"}</span>
-                        </span>
-                      </button>
-                      <span className="sr-only">
-                        {expanded === r.id ? t("rev_hide_details") : t("rev_show_details")}
+        <Table>
+          <TableCaption>{t("rev_queue_title")}</TableCaption>
+          <TableHeader>
+            <TableRow>
+              {/* Client feedback 2026-08-25: these five, in this order. Project
+                  Code is new — the number was already fetched and only shown
+                  once the row was expanded, so a reviewer scanning the queue
+                  could not tell two similarly-named projects apart. The last
+                  header said "Pending review", which is a STATE, not a column
+                  name — and it sat above a cell that could say something else
+                  entirely. */}
+              <TableHead>{t("label_project_name" as never)}</TableHead>
+              <TableHead>{t("label_project_code" as never)}</TableHead>
+              <TableHead>{t("ibx_request_type")}</TableHead>
+              <TableHead>{t("ibx_deadline")}</TableHead>
+              <TableHead>{t("label_status")}</TableHead>
+              <TableHead className="text-end">—</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.filter((r: any) => !selectedId || r.id === selectedId).map((r: any) => {
+              const state = r.review_state as IntakeReviewState;
+              const disabled = busy === r.id;
+              return (
+                <Fragment key={r.id}>
+                <TableRow>
+                  <TableCell>
+                    {/* The row IS the disclosure. A review queue is worked
+                        top to bottom; sending someone to a detail page and
+                        back for each of ten requests loses their place every
+                        time. */}
+                    <button
+                      type="button"
+                      onClick={() => setExpanded(expanded === r.id ? null : r.id)}
+                      aria-expanded={expanded === r.id}
+                      aria-controls={`intake-detail-${r.id}`}
+                      className="flex items-start gap-1.5 text-start hover:underline"
+                    >
+                      <ChevronRight
+                        className={`mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform rtl:-scale-x-100 ${expanded === r.id ? "rotate-90" : ""}`}
+                        aria-hidden="true"
+                      />
+                      <span>
+                        <span className="block font-medium text-foreground">{r.project_name || "—"}</span>
+                        <span className="block text-xs text-muted-foreground">{r.company_name || "—"}</span>
                       </span>
+                    </button>
+                    <span className="sr-only">
+                      {expanded === r.id ? t("rev_hide_details") : t("rev_show_details")}
+                    </span>
+                    {state === "need_information" && (
+                      <div className="mt-1 text-xs text-amber-light">
+                        {(r.info_required_items ?? []).join(" · ") || r.info_comment}
+                        {r.info_due_date && ` · ${t("ibx_info_due")}: ${r.info_due_date}`}
+                        {r.resubmit_count > 0 && ` · ${t("rev_resubmit_count")}: ${r.resubmit_count}`}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="num" data-tabular="true">
+                    {r.project_number || "—"}
+                  </TableCell>
+                  <TableCell>
+                    {r.request_type ? t(`ibx_rtype_short_${r.request_type}` as never) : "—"}
+                  </TableCell>
+                  <TableCell className="num" data-tabular="true">{r.deadline ?? "—"}</TableCell>
+                  <TableCell>
+                    <StatusPill tone={REVIEW_TONE[state] ?? "muted"}>{state ? t(`rev_state_${state}` as never) : t(`ibxst_${r.status}` as never)}</StatusPill>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
                       {state === "need_information" && (
-                        <div className="mt-1 text-xs text-amber-light">
-                          {(r.info_required_items ?? []).join(" · ") || r.info_comment}
-                          {r.info_due_date && ` · ${t("ibx_info_due")}: ${r.info_due_date}`}
-                          {r.resubmit_count > 0 && ` · ${t("rev_resubmit_count")}: ${r.resubmit_count}`}
-                        </div>
+                        <button
+                          disabled={disabled}
+                          onClick={() => run(r.id, () => resubmitIntake(r.id), t("rev_resubmitted"))}
+                          className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-60"
+                        >
+                          <RotateCcw className="h-3 w-3" /> {t("rev_resubmit")}
+                        </button>
                       )}
-                    </td>
-                    <td className="px-3 py-2.5 num" data-tabular="true">
-                      {r.project_number || "—"}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {r.request_type ? t(`ibx_rtype_short_${r.request_type}` as never) : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 num" data-tabular="true">{r.deadline ?? "—"}</td>
-                    <td className="px-3 py-2.5">
-                      <StatusPill tone={REVIEW_TONE[state] ?? "muted"}>{state ? t(`rev_state_${state}` as never) : t(`ibxst_${r.status}` as never)}</StatusPill>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex flex-wrap items-center justify-end gap-1.5">
-                        {state === "need_information" && (
+                      {canReview && state === "pending_review" && (
+                        <>
                           <button
                             disabled={disabled}
-                            onClick={() => run(r.id, () => resubmitIntake(r.id), t("rev_resubmitted"))}
+                            onClick={() => approve(r)}
+                            className="inline-flex items-center gap-1 rounded border border-won/40 bg-won/10 px-2 py-1 text-xs text-won hover:bg-won/20 disabled:opacity-60"
+                          >
+                            <CheckCircle2 className="h-3 w-3" /> {t("rev_approve")}
+                          </button>
+                          <button
+                            disabled={disabled}
+                            onClick={() => setInfoFor(r)}
                             className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-60"
                           >
-                            <RotateCcw className="h-3 w-3" /> {t("rev_resubmit")}
+                            <HelpCircle className="h-3 w-3" /> {t("rev_need_info")}
                           </button>
-                        )}
-                        {canReview && state === "pending_review" && (
-                          <>
-                            <button
-                              disabled={disabled}
-                              onClick={() => approve(r)}
-                              className="inline-flex items-center gap-1 rounded border border-won/40 bg-won/10 px-2 py-1 text-xs text-won hover:bg-won/20 disabled:opacity-60"
-                            >
-                              <CheckCircle2 className="h-3 w-3" /> {t("rev_approve")}
-                            </button>
-                            <button
-                              disabled={disabled}
-                              onClick={() => setInfoFor(r)}
-                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-60"
-                            >
-                              <HelpCircle className="h-3 w-3" /> {t("rev_need_info")}
-                            </button>
-                            <button
-                              disabled={disabled}
-                              onClick={() => run(r.id, () => monitorIntake(r.id), t("rev_monitored_done"))}
-                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-60"
-                            >
-                              <Eye className="h-3 w-3" /> {t("rev_monitor")}
-                            </button>
-                            <button
-                              disabled={disabled}
-                              onClick={() => setRejectFor(r)}
-                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-danger hover:bg-muted disabled:opacity-60"
-                            >
-                              <XCircle className="h-3 w-3" /> {t("rev_reject")}
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  {expanded === r.id && (
-                    <tr id={`intake-detail-${r.id}`} className="border-b border-border/50 bg-surface-2/40">
-                      {/* 6, not 5 — Project Code was added above. A short colSpan
-                          leaves the detail panel one column narrow and pushes an
-                          empty cell onto the end of the row. */}
-                      <td colSpan={6} className="px-3 py-3">
-                        <div className="mb-2 flex justify-end">
-                          {/* Client feedback 2026-08-25: "ADD EDIT PROJECT DETAILS".
-                              A reviewer who spots a wrong deadline or a missing
-                              scope could read it here and had no way to correct
-                              it — the only actions were approve, reject, ask for
-                              information, or monitor. */}
                           <button
-                            type="button"
-                            onClick={() => setEditFor(r)}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                            disabled={disabled}
+                            onClick={() => run(r.id, () => monitorIntake(r.id), t("rev_monitored_done"))}
+                            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-60"
                           >
-                            <Pencil className="h-3 w-3" aria-hidden="true" />
-                            {t("rev_edit_project_details" as never)}
+                            <Eye className="h-3 w-3" /> {t("rev_monitor")}
                           </button>
-                        </div>
-                        <IntakeDetail r={r} />
-                        {renderRecordActions?.(r)}
-                      </td>
-                    </tr>
-                  )}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                          <button
+                            disabled={disabled}
+                            onClick={() => setRejectFor(r)}
+                            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-danger hover:bg-muted disabled:opacity-60"
+                          >
+                            <XCircle className="h-3 w-3" /> {t("rev_reject")}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+                {expanded === r.id && (
+                  <TableRow id={`intake-detail-${r.id}`} className="bg-surface-2/40">
+                    {/* 6, not 5 — Project Code was added above. A short colSpan
+                        leaves the detail panel one column narrow and pushes an
+                        empty cell onto the end of the row. */}
+                    <TableCell colSpan={6}>
+                      <div className="mb-2 flex justify-end">
+                        {/* Client feedback 2026-08-25: "ADD EDIT PROJECT DETAILS".
+                            A reviewer who spots a wrong deadline or a missing
+                            scope could read it here and had no way to correct
+                            it — the only actions were approve, reject, ask for
+                            information, or monitor. */}
+                        <button
+                          type="button"
+                          onClick={() => setEditFor(r)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                        >
+                          <Pencil className="h-3 w-3" aria-hidden="true" />
+                          {t("rev_edit_project_details" as never)}
+                        </button>
+                      </div>
+                      <IntakeDetail r={r} />
+                      {renderRecordActions?.(r)}
+                    </TableCell>
+                  </TableRow>
+                )}
+                </Fragment>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
 
       <ActionDialog

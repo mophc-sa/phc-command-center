@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Check, Wrench } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
@@ -201,12 +202,12 @@ function ContactRepairPage() {
         </Link>
       </div>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiRow>
         <KpiCard label={ar ? "سجلات فيها اقتراح" : "Rows with a proposal"} value={summary.total - summary.none} />
         <KpiCard label={ar ? "سليمة — لا تُمَس" : "Clean — left alone"} value={summary.none} />
         <KpiCard label={ar ? "عناوين بريد تُصلَح" : "Email addresses repaired"} value={summary.emails} />
         <KpiCard label={ar ? "تحتاج عينًا بشرية" : "Needs a human eye"} value={summary.low} />
-      </div>
+      </KpiRow>
 
       {/* The one thing a reader should understand before ticking anything. */}
       <Callout tone="info" className="mb-5">
@@ -279,7 +280,7 @@ function ContactRepairPage() {
                           onChange={(e) =>
                             setEdited((p) => ({ ...p, [r.id]: { ...p[r.id], [f]: e.target.value } }))
                           }
-                          className="w-full rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground focus:border-border-strong focus:outline-none"
+                          className="w-full rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         />
                       </div>
                     ))}

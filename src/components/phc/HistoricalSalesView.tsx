@@ -41,6 +41,15 @@ import { Panel } from "@/components/phc/Panel";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatCurrency, formatNumber, useI18n, localeFor } from "@/lib/i18n";
 import {
   EMPTY_FILTERS, exportFilename, filterHistorical, getHistoricalQuality, listHistoricalSales,
@@ -489,21 +498,22 @@ export function HistoricalSalesView() {
             description={ar ? "جرّب توسيع التصفية." : "Try widening the filters."}
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground">
-                  <th className="py-2 text-start font-medium">{ar ? "الرمز" : "Sales code"}</th>
-                  <th className="py-2 text-start font-medium">{ar ? "العميل" : "Client"}</th>
-                  <th className="py-2 text-start font-medium">{ar ? "المشروع" : "Project"}</th>
-                  <th className="py-2 text-start font-medium">{ar ? "المالك" : "Owner"}</th>
-                  <th className="py-2 text-start font-medium">{ar ? "الحالة" : "Status"}</th>
-                  <th className="py-2 text-end font-medium">{ar ? "القيمة" : "Amount"}</th>
-                  <th className="py-2 text-start font-medium">{ar ? "تاريخ التقديم" : "Submitted"}</th>
-                  <th className="py-2 text-start font-medium">{ar ? "الترقية" : "Promotion"}</th>
-                </tr>
-              </thead>
-              <tbody>
+          <>
+            <Table className="min-w-[860px]">
+              <TableCaption>{ar ? "سجل المبيعات التاريخي" : "Historical sales archive"}</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{ar ? "الرمز" : "Sales code"}</TableHead>
+                  <TableHead>{ar ? "العميل" : "Client"}</TableHead>
+                  <TableHead>{ar ? "المشروع" : "Project"}</TableHead>
+                  <TableHead>{ar ? "المالك" : "Owner"}</TableHead>
+                  <TableHead>{ar ? "الحالة" : "Status"}</TableHead>
+                  <TableHead className="text-end">{ar ? "القيمة" : "Amount"}</TableHead>
+                  <TableHead>{ar ? "تاريخ التقديم" : "Submitted"}</TableHead>
+                  <TableHead>{ar ? "الترقية" : "Promotion"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filtered.slice(0, visibleLimit).map((r) => (
                   <Row
                     key={r.row_id} r={r} lang={lang} ar={ar} fmtDate={fmtDate}
@@ -512,14 +522,14 @@ export function HistoricalSalesView() {
                     busy={busyRowId === r.row_id}
                   />
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
             {filtered.length > visibleLimit ? (
               <button type="button" className="mt-3 text-sm text-primary" onClick={() => setVisibleLimit((n) => n + 100)}>
                 {ar ? `عرض المزيد (${Math.min(visibleLimit, filtered.length)} / ${filtered.length})` : `Show more (${Math.min(visibleLimit, filtered.length)} / ${filtered.length})`}
               </button>
             ) : null}
-          </div>
+          </>
         )}
       </Panel>
     </div>
@@ -534,8 +544,8 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
   const promoted = r.promotion_status === "promoted";
   const existingIds = r.existing_opportunity_ids ?? [];
   return (
-    <tr className="border-b border-border/40 align-top text-foreground">
-      <td className="py-2">
+    <TableRow className="align-top text-foreground">
+      <TableCell>
         <span className="font-medium">{r.sales_code ?? "—"}</span>
         {r.revision_no ? (
           <span className="ms-1 rounded bg-surface-2 px-1 text-2xs text-muted-foreground">rev {r.revision_no}</span>
@@ -551,27 +561,27 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
         <span className="ms-1 rounded bg-amber/15 px-1 text-2xs text-amber-light">
           {ar ? "تاريخي" : "Historical"}
         </span>
-      </td>
-      <td className="py-2">
+      </TableCell>
+      <TableCell>
         <span className="block max-w-[170px] truncate">{r.client ?? "—"}</span>
         {!r.company_matched && r.client ? (
           <span className="text-2xs text-muted-foreground">{ar ? "غير مرتبط بشركة" : "not linked to a company"}</span>
         ) : null}
-      </td>
-      <td className="py-2"><span className="block max-w-[210px] truncate">{r.project ?? "—"}</span>
+      </TableCell>
+      <TableCell><span className="block max-w-[210px] truncate">{r.project ?? "—"}</span>
         {r.location ? <span className="text-2xs text-muted-foreground">{r.location}</span> : null}
-      </td>
-      <td className="py-2"><span className="block max-w-[130px] truncate text-muted-foreground">{r.owner ?? "—"}</span></td>
-      <td className="py-2">
+      </TableCell>
+      <TableCell><span className="block max-w-[130px] truncate text-muted-foreground">{r.owner ?? "—"}</span></TableCell>
+      <TableCell>
         <span>{r.status_canonical ?? r.status ?? "—"}</span>
         {!r.status_canonical && r.status ? (
           <span className="ms-1 text-2xs text-amber-light">{ar ? "يحتاج قرارًا" : "needs decision"}</span>
         ) : null}
-      </td>
-      <td className="num py-2 text-end" data-tabular="true">
+      </TableCell>
+      <TableCell className="num text-end" data-tabular="true">
         {r.amount !== null ? formatCurrency(r.amount, lang, r.currency || "SAR") : <span className="text-muted-foreground">—</span>}
-      </td>
-      <td className="py-2 text-muted-foreground">
+      </TableCell>
+      <TableCell className="text-muted-foreground">
         {fmtDate(r.date_submitted)}
         {flags.length ? (
           <span className="mt-0.5 flex items-center gap-1 text-2xs text-amber-light" title={flags.map((x) => FLAG_LABEL[x][ar ? "ar" : "en"]).join(" · ")}>
@@ -579,11 +589,11 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
             {flags.length}
           </span>
         ) : null}
-      </td>
+      </TableCell>
       {/* What became of this row. Visible to everyone who may read the archive:
           seeing that a deal is already live is how the same job stops being
           worked twice, and it discloses nothing the pipeline would not. */}
-      <td className="py-2">
+      <TableCell>
         {promoted ? (
           <span className="flex items-center gap-1 text-2xs text-success" title={ar ? "مُرقّى إلى النظام الحي" : "Promoted into the live CRM"}>
             <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
@@ -620,8 +630,8 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
         {!promoted ? existingIds.map((id, index) => <a key={id} href={`/opportunities/${id}`} className="mt-0.5 block text-2xs text-primary underline-offset-2 hover:underline">
           {ar ? "فتح الفرصة" : "Open opportunity"}{existingIds.length > 1 ? ` ${index + 1}` : ""}
         </a>) : null}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
