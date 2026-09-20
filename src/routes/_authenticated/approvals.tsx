@@ -244,7 +244,7 @@ function ApprovalsPage() {
                     {a.step ? <StatusPill tone="neutral">{a.step}</StatusPill> : null}
                     <StatusPill tone="muted">{a.requiredRole}</StatusPill>
                     {a.state === "pending" && age != null ? (
-                      <span className={`num text-xs ${urgent ? "text-destructive/80" : "text-muted-foreground"}`} data-tabular="true">
+                      <span className={`num text-xs ${urgent ? "text-destructive" : "text-muted-foreground"}`} data-tabular="true">
                         {age}d waiting
                       </span>
                     ) : null}
@@ -284,7 +284,7 @@ function ApprovalsPage() {
                   (rec as { execution_status?: string }).execution_status !== "executed" &&
                   canExecute ? (
                     <button
-                      className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive/90 transition-colors duration-150 hover:bg-destructive/[0.16]"
+                      className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive transition-colors duration-150 hover:bg-destructive/[0.16]"
                       onClick={() => setExecuteFor({ id: a.sourceRecordId })}
                     >
                       {t("lifecycle_execute_delete")}

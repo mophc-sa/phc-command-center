@@ -296,13 +296,13 @@ function ActionCenter() {
       {/* Scope + urgency */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         {(["mine", "team", "all"] as const).map((s) => (
-          <button key={s} onClick={() => set("scope", s)} className={pill(filters.scope === s)}>
+          <button key={s} type="button" aria-pressed={filters.scope === s} onClick={() => set("scope", s)} className={pill(filters.scope === s)}>
             {t(`ac_scope_${s}` as never)}
           </button>
         ))}
         <span className="mx-1 h-4 w-px bg-border/70" aria-hidden="true" />
         {(["all", "overdue", "due_today", "upcoming"] as const).map((u) => (
-          <button key={u} onClick={() => set("urgency", u)} className={pill(filters.urgency === u)}>
+          <button key={u} type="button" aria-pressed={filters.urgency === u} onClick={() => set("urgency", u)} className={pill(filters.urgency === u)}>
             {t(`ac_urgency_${u}` as never)}
           </button>
         ))}
@@ -312,7 +312,7 @@ function ActionCenter() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="flex gap-1.5">
           {(["active", "done", "dismissed", "all"] as const).map((s) => (
-            <button key={s} onClick={() => set("status", s)} className={pill(filters.status === s)}>
+            <button key={s} type="button" aria-pressed={filters.status === s} onClick={() => set("status", s)} className={pill(filters.status === s)}>
               {t((s === "active" ? "ac_tab_active" : s === "done" ? "ac_tab_completed" : s === "dismissed" ? "ac_tab_dismissed" : "ac_tab_all") as never)}
             </button>
           ))}
@@ -320,7 +320,7 @@ function ActionCenter() {
 
         <div className="ms-auto flex flex-wrap gap-2">
           <Select value={filters.type} onValueChange={(v) => set("type", v)}>
-            <SelectTrigger className="h-8 w-auto min-w-[9rem] border-border/70 bg-surface/60 text-xs">
+            <SelectTrigger aria-label={t("ac_filter_type")} className="h-8 w-auto min-w-[9rem] border-border/70 bg-surface/60 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -334,7 +334,7 @@ function ActionCenter() {
           </Select>
 
           <Select value={filters.entityType} onValueChange={(v) => set("entityType", v)}>
-            <SelectTrigger className="h-8 w-auto min-w-[8rem] border-border/70 bg-surface/60 text-xs">
+            <SelectTrigger aria-label={t("ac_filter_entity")} className="h-8 w-auto min-w-[8rem] border-border/70 bg-surface/60 text-xs">
               <SelectValue placeholder={t("ac_filter_entity")} />
             </SelectTrigger>
             <SelectContent>
@@ -348,7 +348,7 @@ function ActionCenter() {
           </Select>
 
           <Select value={filters.priority} onValueChange={(v) => set("priority", v as ActionFilters["priority"])}>
-            <SelectTrigger className="h-8 w-auto min-w-[7rem] border-border/70 bg-surface/60 text-xs">
+            <SelectTrigger aria-label={t("ac_filter_priority")} className="h-8 w-auto min-w-[7rem] border-border/70 bg-surface/60 text-xs">
               <SelectValue placeholder={t("ac_filter_priority")} />
             </SelectTrigger>
             <SelectContent>
@@ -363,7 +363,7 @@ function ActionCenter() {
 
           {ownerIds.length > 0 && (
             <Select value={filters.owner} onValueChange={(v) => set("owner", v)}>
-              <SelectTrigger className="h-8 w-auto min-w-[8rem] border-border/70 bg-surface/60 text-xs">
+              <SelectTrigger aria-label={t("ac_filter_owner")} className="h-8 w-auto min-w-[8rem] border-border/70 bg-surface/60 text-xs">
                 <SelectValue placeholder={t("ac_filter_owner")} />
               </SelectTrigger>
               <SelectContent>

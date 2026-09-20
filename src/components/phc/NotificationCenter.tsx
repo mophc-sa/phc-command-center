@@ -82,7 +82,7 @@ export function NotificationCenter({
               <button
                 onClick={() => markAllRead.mutate()}
                 disabled={markAllRead.isPending}
-                className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/60 px-2 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/60 px-2 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
               >
                 <CheckCheck className="h-3 w-3" />
                 {t("notif_mark_all_read")}
@@ -101,7 +101,7 @@ export function NotificationCenter({
             </div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 px-5 py-14 text-center">
-              <BellOff className="h-9 w-9 text-muted-foreground/30" strokeWidth={1.5} aria-hidden="true" />
+              <BellOff className="h-9 w-9 text-muted-foreground" strokeWidth={1.5} aria-hidden="true" />
               <p className="text-sm font-medium text-foreground">{t("notif_empty")}</p>
               <p className="max-w-[200px] text-xs text-muted-foreground">{t("notif_empty_desc")}</p>
             </div>
@@ -124,7 +124,7 @@ export function NotificationCenter({
 
         {items.length > 0 && (
           <div className="border-t border-border/70 px-5 py-3">
-            <p className="text-center text-xs text-muted-foreground/60">
+            <p className="text-center text-xs text-muted-foreground">
               {lang === "ar"
                 ? `${unread} غير مقروء من ${items.length}`
                 : `${unread} unread of ${items.length}`}
@@ -178,7 +178,7 @@ function NotifRow({
               {unread && (
                 <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber" />
               )}
-              <span className="truncate text-2xs tracking-[0.02em] text-muted-foreground/70">
+              <span className="truncate text-2xs tracking-[0.02em] text-muted-foreground">
                 {label}
               </span>
             </div>
@@ -187,14 +187,14 @@ function NotifRow({
             </div>
             {n.body && <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.body}</div>}
           </div>
-          <span className="shrink-0 text-2xs text-muted-foreground/60">{date}</span>
+          <span className="shrink-0 text-2xs text-muted-foreground">{date}</span>
         </div>
       </button>
       <button
         onClick={onDismiss}
         aria-label={dismissLabel}
         title={dismissLabel}
-        className="absolute end-1 top-1 grid h-8 w-8 place-items-center rounded text-muted-foreground/50 opacity-100 transition-opacity hover:bg-surface-2 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+        className="absolute end-1 top-1 grid h-8 w-8 place-items-center rounded text-muted-foreground opacity-100 transition-opacity hover:bg-surface-2 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
       >
         <X className="h-3 w-3" />
       </button>

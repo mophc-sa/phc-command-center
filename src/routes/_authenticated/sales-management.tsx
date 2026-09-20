@@ -240,7 +240,7 @@ function SalesManagement() {
 
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
         {allowed.map((k) => (
-          <button key={k} onClick={() => setTab(k)} className={pill(tab === k)}>
+          <button key={k} type="button" aria-pressed={tab === k} onClick={() => setTab(k)} className={pill(tab === k)}>
             {k === "team" ? (lang === "ar" ? "الفريق اليوم" : "Team today")
               : k === "strategic" ? (lang === "ar" ? "استراتيجي ومناقصات" : "Strategic & tenders")
               : k === "historical" ? (lang === "ar" ? "أرشيف المبيعات التاريخية" : "Historical Sales Archive")
@@ -249,7 +249,7 @@ function SalesManagement() {
         ))}
         {tab !== "historical" && <span className="mx-1 h-4 w-px bg-border/70" aria-hidden="true" />}
         {tab !== "historical" && (["month", "quarter", "ytd"] as const).map((r) => (
-          <button key={r} onClick={() => setRange(r)} className={pill(range === r)}>
+          <button key={r} type="button" aria-pressed={range === r} onClick={() => setRange(r)} className={pill(range === r)}>
             {r === "month" ? (lang === "ar" ? "هذا الشهر" : "This month")
               : r === "quarter" ? (lang === "ar" ? "هذا الربع" : "This quarter")
               : (lang === "ar" ? "منذ بداية العام" : "Year to date")}
@@ -455,7 +455,7 @@ function TeamView(props: {
               <ul className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
                 {g.events.slice(0, 25).map((e) => (
                   <li key={e.id} className="flex flex-wrap items-center gap-2 border-t border-border/60 px-5 py-2.5 first:border-t-0">
-                    <Clock className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+                    <Clock className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <span className="text-sm font-medium text-foreground">{e.title}</span>
                     {e.from && e.to ? (
                       <span className="text-xs text-muted-foreground">
@@ -463,7 +463,7 @@ function TeamView(props: {
                       </span>
                     ) : null}
                     <span className="text-xs text-muted-foreground">· {nameOf(e.actorId)}</span>
-                    <span className="ms-auto num text-2xs text-muted-foreground/70" data-tabular="true">
+                    <span className="ms-auto num text-2xs text-muted-foreground" data-tabular="true">
                       {e.at.slice(0, 16).replace("T", " ")}
                     </span>
                     {e.href ? (
@@ -613,7 +613,7 @@ function StrategicView(props: {
         {byClient.slice(0, 8).map((c) => (
           <li key={c.key} className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-2.5 text-sm first:border-t-0">
             <span className="flex items-center gap-2 truncate text-foreground">
-              <Building2 className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+              <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
               {c.label}
             </span>
             <span className="flex shrink-0 items-center gap-3 text-muted-foreground">
@@ -790,7 +790,7 @@ function ExecutiveView(props: {
           <li key={r.userId} className="border-t border-border/60 first:border-t-0">
             <Link to={r.drilldown.to as never} search={r.drilldown.search as never} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm hover:bg-surface-2/40">
               <span className="flex items-center gap-2 truncate text-foreground">
-                <Users className="h-3 w-3 shrink-0 text-muted-foreground/60" aria-hidden="true" />
+                <Users className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
                 {nameOf(r.userId)}
               </span>
               <span className="flex shrink-0 items-center gap-3 text-muted-foreground">

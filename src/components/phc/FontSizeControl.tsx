@@ -27,7 +27,7 @@ export function FontSizeControl() {
         onClick={decrement}
         disabled={atMin}
         aria-label={decLabel}
-        className="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground"
+        className="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60 disabled:hover:text-muted-foreground"
       >
         <Minus className="h-3 w-3" />
       </button>
@@ -45,7 +45,7 @@ export function FontSizeControl() {
         onClick={increment}
         disabled={atMax}
         aria-label={incLabel}
-        className="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground"
+        className="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60 disabled:hover:text-muted-foreground"
       >
         <Plus className="h-3 w-3" />
       </button>

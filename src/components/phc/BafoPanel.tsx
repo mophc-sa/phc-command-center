@@ -139,7 +139,7 @@ export function BafoPanel({ opportunityId }: { opportunityId: string }) {
                           </button>
                           <button
                             onClick={() => setDecideTarget({ request: r, step, decision: "rejected" })}
-                            className="rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-2xs text-destructive/90 hover:bg-destructive/20"
+                            className="rounded border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-2xs text-destructive hover:bg-destructive/20"
                           >
                             {t("bafo_reject" as never)}
                           </button>

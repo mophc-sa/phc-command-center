@@ -150,7 +150,7 @@ export function NeedsAttentionPanel({ items }: { items: AttentionItem[] }) {
                           typeof v === "number" ? formatNumber(v, lang) : t(`src_${v}` as never) || String(v),
                         )}
                       </span>
-                      <span className="ms-auto shrink-0 text-muted-foreground/70">+{r.points}</span>
+                      <span className="ms-auto shrink-0 text-muted-foreground">+{r.points}</span>
                     </li>
                   ))}
                 </ul>

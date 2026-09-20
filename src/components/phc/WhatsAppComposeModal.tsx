@@ -181,7 +181,7 @@ export function WhatsAppComposeModal({
             <div className="grid gap-1.5">
               <Label className="text-xs tracking-[0.02em] text-muted-foreground">{t("wa_template")}</Label>
               <Select value={templateId || "__none__"} onValueChange={(v) => applyTemplate(v === "__none__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectTrigger aria-label={t("wa_template")}><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">—</SelectItem>
                   {templates.map((tpl) => (

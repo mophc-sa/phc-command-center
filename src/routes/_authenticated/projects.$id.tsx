@@ -162,7 +162,7 @@ function ProjectDetail() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingCover}
-              className="absolute bottom-3 end-3 inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-background/90 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur transition-opacity hover:bg-background disabled:opacity-50"
+              className="absolute bottom-3 end-3 inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-background/90 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur transition-opacity hover:bg-background disabled:opacity-60"
             >
               {uploadingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
               {coverUrlQ.data ? (lang === "ar" ? "تغيير الصورة" : "Change photo") : (lang === "ar" ? "إضافة صورة" : "Add photo")}

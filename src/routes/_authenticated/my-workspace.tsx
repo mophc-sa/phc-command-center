@@ -401,7 +401,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                             <div className="flex items-center gap-1">
                               <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CheckCheck className="h-3 w-3" /></button>
                               <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CalendarClock className="h-3 w-3" /></button>
-                              {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
+                              {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
                             </div>
                           </td>
                         </tr>
@@ -734,7 +734,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
               <div className="text-base font-semibold text-amber-light">
                 {oldTenders.length} {lang === "ar" ? "مناقصة تجاوزت 90 يومًا دون مراجعة" : "tenders older than 90 days without review"}
               </div>
-              <p className="mt-0.5 text-sm text-amber-light/80">
+              <p className="mt-0.5 text-sm text-amber-light">
                 {lang === "ar" ? "يرجى تأكيد نتيجة المناقصة واتخاذ أحد الإجراءات: تحويل إلى JIH، وضع علامة خاملة، أو إغلاق." : "Confirm the main contract result and take action: convert to JIH, mark dormant, or close."}
               </p>
               <Link to="/tenders" className="mt-2 inline-flex items-center gap-1 text-sm text-amber-light hover:underline">
@@ -1031,7 +1031,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
                           <div className="flex items-center gap-1">
                             <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CheckCheck className="h-3 w-3" /></button>
                             <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CalendarClock className="h-3 w-3" /></button>
-                            {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
+                            {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title="AI Draft" className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
                           </div>
                         </td>
                       </tr>
@@ -1466,7 +1466,7 @@ function PipelineStageBox({
       </div>
       {!isLast && (
         <div
-          className="flex shrink-0 items-center justify-center text-muted-foreground/40"
+          className="flex shrink-0 items-center justify-center text-muted-foreground"
           style={{ width: ARROW_W }}
         >
           <ChevronRight className="h-4 w-4" />

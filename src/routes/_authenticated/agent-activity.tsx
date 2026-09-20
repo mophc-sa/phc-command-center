@@ -224,7 +224,7 @@ function AgentActivityPage() {
               <button
                 disabled={radarRunning}
                 onClick={handleRunRadar}
-                className="inline-flex items-center gap-1.5 rounded-md border border-won/40 bg-won/10 px-3 py-1.5 text-xs text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-won/40 bg-won/10 px-3 py-1.5 text-xs text-won transition-colors hover:bg-won/[0.16] disabled:opacity-60"
               >
                 <Activity className="h-3.5 w-3.5" />
                 {radarRunning ? t("aa_scanning") : t("aa_scan_pipeline")}
@@ -247,7 +247,7 @@ function AgentActivityPage() {
             )}
 
             {radarError && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive/90">
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {radarError}
               </div>
             )}
@@ -286,7 +286,7 @@ function AgentActivityPage() {
                             <p className="text-muted-foreground leading-relaxed">{alert.description}</p>
                           )}
                           {alert.recommended_action && (
-                            <p className="mt-1 text-muted-foreground/80 italic">{alert.recommended_action}</p>
+                            <p className="mt-1 text-muted-foreground italic">{alert.recommended_action}</p>
                           )}
                         </div>
                       ))}
@@ -372,6 +372,7 @@ function AgentActivityPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("aa_search_placeholder")}
+            aria-label={t("aa_search_placeholder")}
           className="w-full max-w-xs rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
         />
         <div className="flex flex-wrap items-center gap-2">
@@ -472,7 +473,7 @@ function AgentActivityPage() {
                             {t("action_accept")}
                           </button>
                           <button
-                            className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive/90 hover:bg-destructive/[0.16] transition-colors duration-150"
+                            className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/[0.16] transition-colors duration-150"
                             onClick={() => setRejectFor({ id: o.id })}
                           >
                             {t("action_reject")}

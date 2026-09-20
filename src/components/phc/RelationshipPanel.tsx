@@ -101,7 +101,7 @@ export function RelationshipPanel({
                 )}
 
                 {legacy ? (
-                  <span className="text-2xs text-muted-foreground/70">
+                  <span className="text-2xs text-muted-foreground">
                     {lang === "ar" ? "من نص قديم" : "read from legacy text"}
                   </span>
                 ) : null}

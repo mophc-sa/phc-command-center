@@ -1,4 +1,4 @@
-import { useI18n } from "@/lib/i18n";
+import { useI18n, localeFor } from "@/lib/i18n";
 import { toast } from "sonner";
 import type { GroundedResult } from "@/lib/ai-operations-actions";
 export function GroundedAiAnswer({
@@ -28,7 +28,7 @@ export function GroundedAiAnswer({
     <div className="space-y-4 rounded-lg border p-4" aria-live="polite">
       <p className="text-xs text-muted-foreground">
         {ar ? "مقترح للمراجعة البشرية" : "For human review"} ·{" "}
-        {new Date(answer.as_of).toLocaleString(lang)}
+        {new Date(answer.as_of).toLocaleString(localeFor(lang))}
         {answer.model ? ` · ${answer.model}` : ""}
       </p>
       {answer.result.insufficient_evidence && (

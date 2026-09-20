@@ -154,7 +154,7 @@ function SecuritySection({ lang }: { lang: "en" | "ar" }) {
             {mfaEnabled ? (
               <ShieldCheck className="h-5 w-5 shrink-0 text-won" />
             ) : (
-              <ShieldAlert className="h-5 w-5 shrink-0 text-destructive/90" />
+              <ShieldAlert className="h-5 w-5 shrink-0 text-destructive" />
             )}
             <div className="min-w-0 flex-1 text-sm">
               {mfaEnabled === null

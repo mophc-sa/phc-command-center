@@ -282,7 +282,7 @@ function ReportsPage() {
                 {lostReasons.map((r, i) => (
                   <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
                     <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-destructive/70" />
-                    <span className="text-foreground/90">{r}</span>
+                    <span className="text-foreground">{r}</span>
                   </li>
                 ))}
               </ul>
@@ -396,7 +396,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
           type="button"
           onClick={handleRun}
           disabled={running}
-          className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-60"
         >
           <Sparkles className="h-3 w-3" />
           {running ? (lang === "ar" ? "جارٍ التحليل…" : "Analyzing…") : (lang === "ar" ? "تحليل الآن" : "Analyze now")}
@@ -410,8 +410,8 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
         {display && (
           <div className="space-y-3 text-sm">
             <div className="rounded border p-3 text-xs">
-              <p>{lang === "ar" ? "أرقام محسوبة من النظام" : "System-calculated facts"} · {new Date(display.system_facts.generated_at).toLocaleString(lang)}</p>
-              {Object.entries(display.system_facts.open.value_by_currency as Record<string, number>).map(([currency,value]) => <p key={currency}>{currency}: {Number(value).toLocaleString(lang)} · {lang === "ar" ? "قيمة الفرص المفتوحة" : "Open pipeline value"}</p>)}
+              <p>{lang === "ar" ? "أرقام محسوبة من النظام" : "System-calculated facts"} · {new Date(display.system_facts.generated_at).toLocaleString(localeFor(lang))}</p>
+              {Object.entries(display.system_facts.open.value_by_currency as Record<string, number>).map(([currency,value]) => <p key={currency}>{currency}: {Number(value).toLocaleString(localeFor(lang))} · {lang === "ar" ? "قيمة الفرص المفتوحة" : "Open pipeline value"}</p>)}
             </div>
             {display.headline && <div className="font-medium text-foreground">{display.headline}</div>}
             {display.key_insights?.length > 0 && (
@@ -429,7 +429,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
                 <div className="mb-1 text-xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "مخاطر" : "Risks"}</div>
                 <ul className="space-y-1">
                   {display.risks.map((s: string, i: number) => (
-                    <li key={i} className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive/90">{s}</li>
+                    <li key={i} className="rounded-md border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">{s}</li>
                   ))}
                 </ul>
               </div>
@@ -461,7 +461,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
                       type="button"
                       disabled={reviewingId === output.id}
                       onClick={() => handleDecide(output, "accepted")}
-                      className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+                      className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-60"
                     >
                       {lang === "ar" ? "قبول" : "Accept"}
                     </button>
@@ -469,7 +469,7 @@ function SalesReportInsightsPanel({ lang }: { lang: "en" | "ar" }) {
                       type="button"
                       disabled={reviewingId === output.id}
                       onClick={() => handleDecide(output, "rejected")}
-                      className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+                      className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/[0.16] disabled:opacity-60"
                     >
                       {lang === "ar" ? "رفض" : "Reject"}
                     </button>

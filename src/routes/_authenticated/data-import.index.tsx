@@ -500,7 +500,7 @@ function BatchCard({ batch, onArchived }: { batch: ImportBatch; onArchived?: () 
           disabled={busy}
           title={archived ? t("di_unarchive") : t("di_archive")}
           aria-label={archived ? t("di_unarchive") : t("di_archive")}
-          className="grid h-7 w-7 place-items-center rounded-md border border-border/70 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:opacity-40"
+          className="grid h-7 w-7 place-items-center rounded-md border border-border/70 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:opacity-60"
         >
           {archived
             ? <ArchiveRestore className="h-3.5 w-3.5" />

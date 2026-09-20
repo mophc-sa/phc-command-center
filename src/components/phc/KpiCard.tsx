@@ -45,7 +45,7 @@ export function KpiCard({
   const valueText = typeof value === "string" ? value : "";
   const isAbsent = /^[—–-]$/.test(valueText.trim());
   const valueSizeClass = isAbsent
-    ? "text-[22px] text-muted-foreground/70"
+    ? "text-[22px] text-muted-foreground"
     : valueText.length > 9
       ? "text-[26px]"
       : "text-[40px]";
@@ -68,7 +68,7 @@ export function KpiCard({
           // The icon sat in a filled circle, which made it a second focal point
           // competing with the number for the eye. It is an aid to scanning a
           // grid, not a subject: no chip, lower contrast, out of the way.
-          <span className="shrink-0 text-muted-foreground/50">{icon}</span>
+          <span className="shrink-0 text-muted-foreground">{icon}</span>
         ) : null}
       </div>
       <div className="mt-3 flex items-center gap-2.5">

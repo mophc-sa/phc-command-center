@@ -101,10 +101,11 @@ function FollowUpsPage() {
             return (
               <li key={f.id} className="border-t border-border/60 first:border-t-0">
                 <div className="grid grid-cols-[3px_minmax(0,1fr)_auto] items-stretch">
-                  <div className={isOverdue ? "bg-amber/70" : isToday ? "bg-foreground/40" : "bg-transparent"} />
+                  {/* Overdue is the same red everywhere in the app; today is a neutral rail. */}
+                  <div className={isOverdue ? "bg-destructive" : isToday ? "bg-structural" : "bg-transparent"} />
                   <div className="px-5 py-4">
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusPill tone={isOverdue ? "attention" : isToday ? "neutral" : "muted"}>
+                      <StatusPill tone={isOverdue ? "danger" : isToday ? "neutral" : "muted"}>
                         {isOverdue ? (lang === "ar" ? "متأخر" : "Overdue") : isToday ? (lang === "ar" ? "اليوم" : "Today") : humanize(f.status)}
                       </StatusPill>
                       {opp?.tier ? <StatusPill tone={opp.tier === "A" ? "attention" : "muted"}>{t("label_tier")} {opp.tier}</StatusPill> : null}

@@ -183,6 +183,7 @@ function TenderMonitor() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search tenders or contractor"
+            aria-label="Search tenders or contractor"
             className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
@@ -255,7 +256,7 @@ function TenderMonitor() {
                           <span className="num" data-tabular="true">{formatCurrency(x.estimated_project_value, lang, "SAR")}</span>
                         </div>
                         {d != null ? (
-                          <div className={`mt-1 flex items-center gap-1 text-xs ${overdue ? "text-destructive/80" : urgent ? "text-amber-light" : "text-muted-foreground"}`}>
+                          <div className={`mt-1 flex items-center gap-1 text-xs ${overdue ? "text-destructive" : urgent ? "text-amber-light" : "text-muted-foreground"}`}>
                             {(overdue || urgent) ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
                             <span>{overdue ? `${t("urgency_overdue")} ${Math.abs(d)}d` : urgent ? `${t("urgency_due_soon")} · ${d}d` : `${d}d`}</span>
                           </div>
@@ -343,7 +344,7 @@ function TenderMonitor() {
                     <td className="px-4 py-2.5"><StatusPill tone={stageTone(x.tender_stage)}>{tstageLabel(x.tender_stage)}</StatusPill></td>
                     <td className="px-4 py-2.5 text-muted-foreground">{x.tender_priority_classification ?? "—"}</td>
                     <td className="px-4 py-2.5 text-right text-foreground num" data-tabular="true">{formatCurrency(x.estimated_project_value, lang, "SAR")}</td>
-                    <td className={`px-4 py-2.5 text-right num ${overdue ? "text-destructive/80" : urgent ? "text-amber-light" : "text-muted-foreground"}`} data-tabular="true">
+                    <td className={`px-4 py-2.5 text-right num ${overdue ? "text-destructive" : urgent ? "text-amber-light" : "text-muted-foreground"}`} data-tabular="true">
                       {d == null ? "—" : (
                         <span className="inline-flex items-center justify-end gap-1">
                           {(overdue || urgent) ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}

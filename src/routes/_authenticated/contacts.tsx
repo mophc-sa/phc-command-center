@@ -155,6 +155,7 @@ function ContactsPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("crm_search_contacts" as never) || "Search"}
+            aria-label={t("crm_search_contacts" as never) || "Search"}
             className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>

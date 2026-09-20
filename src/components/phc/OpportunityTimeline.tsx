@@ -194,7 +194,7 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
                     {e.detail ? (
                       <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{e.detail}</div>
                     ) : null}
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground/70">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-muted-foreground">
                       <span className="num" data-tabular="true">{e.at.slice(0, 16).replace("T", " ")}</span>
                       <span aria-hidden="true">·</span>
                       <span>{nameOf(e.actorId)}</span>

@@ -397,7 +397,7 @@ function JobCard({
     >
       <div className="flex items-start gap-1.5">
         {canEdit ? (
-          <button type="button" {...sortable.attributes} {...sortable.listeners} className="mt-0.5 shrink-0 cursor-grab text-muted-foreground/50 hover:text-muted-foreground" aria-label="Drag">
+          <button type="button" {...sortable.attributes} {...sortable.listeners} className="mt-0.5 shrink-0 cursor-grab text-muted-foreground hover:text-muted-foreground" aria-label="Drag">
             <GripVertical className="h-3.5 w-3.5" />
           </button>
         ) : null}
@@ -500,7 +500,7 @@ function AiJobNotesPanel({
         type="button"
         onClick={handleRun}
         disabled={running}
-        className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-60"
       >
         <Sparkles className="h-3 w-3" />
         {running ? (lang === "ar" ? "جارٍ التحليل…" : "Analyzing…") : (lang === "ar" ? "اقتراح ملاحظة" : "Suggest a note")}
@@ -545,7 +545,7 @@ function AiJobNotesPanel({
               type="button"
               disabled={applying}
               onClick={() => handleApply(display.suggested_notes)}
-              className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+              className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-60"
             >
               {lang === "ar" ? "تطبيق كملاحظة" : "Apply as note"}
             </button>
@@ -566,7 +566,7 @@ function AiJobNotesPanel({
                     type="button"
                     disabled={reviewingId === output.id}
                     onClick={() => handleDecide(output, "accepted")}
-                    className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+                    className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-60"
                   >
                     {lang === "ar" ? "قبول" : "Accept"}
                   </button>
@@ -574,7 +574,7 @@ function AiJobNotesPanel({
                     type="button"
                     disabled={reviewingId === output.id}
                     onClick={() => handleDecide(output, "rejected")}
-                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+                    className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/[0.16] disabled:opacity-60"
                   >
                     {lang === "ar" ? "رفض" : "Reject"}
                   </button>

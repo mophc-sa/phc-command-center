@@ -320,7 +320,7 @@ function ContactRepairPage() {
               type="button"
               onClick={applySelected}
               disabled={saving || selectedCount === 0}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-amber px-4 py-2 text-sm font-medium text-amber-foreground disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber px-4 py-2 text-sm font-medium text-amber-foreground disabled:opacity-60"
             >
               <Wrench className="h-3.5 w-3.5" aria-hidden="true" />
               {saving ? (ar ? "جارٍ الحفظ…" : "Saving…") : (ar ? "احفظ المحدَّد" : "Save selected")}

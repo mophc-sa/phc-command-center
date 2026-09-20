@@ -474,7 +474,7 @@ export function HistoricalSalesView() {
             type="button"
             disabled={filtered.length === 0}
             onClick={() => downloadCsv(filtered)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             {ar
@@ -602,7 +602,7 @@ function Row({ r, lang, ar, fmtDate, canPromote, onPromote, busy }: {
             type="button"
             onClick={() => onPromote(r.row_id)}
             disabled={busy}
-            className="rounded border border-border px-1.5 py-0.5 text-2xs hover:bg-surface-2 disabled:opacity-50"
+            className="rounded border border-border px-1.5 py-0.5 text-2xs hover:bg-surface-2 disabled:opacity-60"
           >
             {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : (ar ? "ترقية" : "Promote")}
           </button>
