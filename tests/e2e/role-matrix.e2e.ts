@@ -76,6 +76,15 @@ for (const role of ALL_ROLES) {
       await page.evaluate(() => localStorage.setItem("phc-lang", "ar"));
       await page.reload();
       await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+      // The attribute alone passed on 2026-09-21 while the sidebar was drawn on
+      // the left, over the page. Check where it actually is.
+      await page.setViewportSize({ width: 1280, height: 800 });
+      const sidebar = page.locator("aside").first();
+      await expect(sidebar).toBeVisible();
+      const box = await sidebar.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x + box!.width).toBeGreaterThanOrEqual(1280 - 1);
+      expect(box!.x).toBeGreaterThan(1280 / 2);
     });
   });
 }
