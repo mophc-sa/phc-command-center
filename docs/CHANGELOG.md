@@ -1,11 +1,11 @@
 # CHANGELOG — PHC Command Center
 
-## 2026-09-21 — Interface audit (PRs 315–317)
+## 2026-09-21 — Interface audit released (PRs 315–317)
 
 - Legible text and disabled states, Arabic-safe dates and numbers, named filters.
 - One table primitive for all 17 lists, one KPI row shape, visible focus rings.
 - Arabic mirroring, keyboard drag-and-drop on the project board, 12px text floor.
-- 18 contract rules guard the result. Not yet released.
+- 18 contract rules guard the result. Released to production `9a547d6` (Worker `8c20a1a3`).
 
 ## 2026-09-15 — Project Code follows the entering rep (released)
 
