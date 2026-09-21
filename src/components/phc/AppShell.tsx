@@ -555,9 +555,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <aside
         className={cn(
           "fixed inset-y-0 z-40 hidden w-[15.5rem] bg-sidebar md:block",
+          // Already branched on `dir`, so the side is physical on purpose:
+          // a logical `end-0` here would flip a second time and land left.
           dir === "rtl"
-            ? "end-0 border-l border-sidebar-border"
-            : "start-0 border-r border-sidebar-border",
+            ? "right-0 border-l border-sidebar-border"
+            : "left-0 border-r border-sidebar-border",
         )}
       >
         {sidebar}
@@ -575,8 +577,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             className={cn(
               "absolute inset-y-0 w-[min(18rem,85vw)] bg-sidebar",
               dir === "rtl"
-                ? "end-0 border-l border-sidebar-border"
-                : "start-0 border-r border-sidebar-border",
+                ? "right-0 border-l border-sidebar-border"
+                : "left-0 border-r border-sidebar-border",
             )}
           >
             {sidebar}
