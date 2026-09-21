@@ -1,5 +1,25 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-21 — RTL sidebar hotfix released (PR 319)
+
+The interface release (`9a547d6`) drew the Arabic sidebar on the left, over every
+page. Cause: the phase-3 codemod turned `right-0`/`left-0` into `end-0`/`start-0`
+inside AppShell's existing `dir === "rtl" ? … : …` branch, flipping the side a
+second time. Fixed back to physical sides; a contract rule forbids logical sides
+inside any `dir === "rtl"` class branch, and the readiness suite now measures the
+Arabic sidebar's box on the intake-operator account (the per-role check could
+not see the shell for MFA-gated roles).
+
+Production serves `274fca676e443a338fa84eed1da5a7e7cfb46087`, Worker version
+`8bcb1288-8629-4dd6-85d2-4a95258668d8` (run 35576351556). Canary `54d726a2`
+(35575676694), canary readiness 35575890864, post-production readiness
+35578416995 — the new sidebar test passed against the live site. The live bundle
+carries the `274fca6` stamp and the `right-0` RTL branch. User disables Preview
+URLs again.
+
+Lesson: a direction codemod must skip any code that already branches on `dir`,
+and vendored overlay positioning (`left-[50%] translate-x`) — both double-flip.
+
 ## 2026-09-21 — Interface audit released (PRs 315–317)
 
 Production serves `9a547d63b2c592bbd705037db256088bd6e0cf52`, Worker version

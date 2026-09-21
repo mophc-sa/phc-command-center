@@ -1,5 +1,10 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-09-21 — Arabic sidebar back on the right (PR 319)
+
+- Hotfix for the interface release: the Arabic sidebar was drawn on the left, over
+  the page. Released as `274fca6` (Worker `8bcb1288`), verified live.
+
 ## 2026-09-21 — Interface audit released (PRs 315–317)
 
 - Legible text and disabled states, Arabic-safe dates and numbers, named filters.
