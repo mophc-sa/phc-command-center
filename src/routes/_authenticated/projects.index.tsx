@@ -4,6 +4,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Plus, Search, Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
@@ -117,12 +118,12 @@ function ProjectsPage() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiRow>
         <KpiCard label={t("nav_projects")} value={kpis.total} icon={<Layers className="h-3.5 w-3.5" />} />
         <KpiCard label={humanize("under_construction")} value={kpis.uc} />
         <KpiCard label={humanize("near_handover")} value={kpis.near} hint={t("crm_signage_package" as never) || undefined} />
         <KpiCard label={t("crm_total_value")} value={formatCurrency(kpis.totalValue, lang)} />
-      </div>
+      </KpiRow>
 
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full md:max-w-xs">
@@ -132,7 +133,7 @@ function ProjectsPage() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("crm_search_projects" as never) || "Search projects"}
             aria-label={t("crm_search_projects" as never) || "Search projects"}
-            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
+            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
         <div className="flex flex-wrap gap-1.5">

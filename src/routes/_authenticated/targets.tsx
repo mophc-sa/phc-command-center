@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Target as TargetIcon, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
@@ -319,7 +320,7 @@ function TargetsPage() {
         )
       ) : teamMetrics ? (
         <div className="space-y-6">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiRow>
             <KpiCard
               label={t("mgr_team_target")}
               value={formatCurrency(teamMetrics.teamActual, lang)}
@@ -333,7 +334,7 @@ function TargetsPage() {
             />
             <KpiCard label={t("mgr_tier_a")} value={formatNumber(teamMetrics.tierAOpenCount, lang)} hint={formatCurrency(teamMetrics.tierAOpenValue, lang)} />
             <KpiCard label={t("mgr_forecast")} value={formatCurrency(teamMetrics.forecast, lang)} />
-          </div>
+          </KpiRow>
 
           <div className="grid gap-4 lg:grid-cols-3">
             <KpiCard label={t("mgr_rfq_conversion")} value={`${teamMetrics.rfqConversionPct}%`} />

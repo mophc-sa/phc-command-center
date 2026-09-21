@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Gavel, AlertTriangle, Trophy, GitMerge, History, Sparkles } from "lucide-react";
 import { AiRiskAssessment } from "@/components/phc/AiRiskAssessment";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -19,6 +20,7 @@ import {
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -169,12 +171,12 @@ function TenderMonitor() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiRow>
         <KpiCard label={t("nav_tenders")} value={tenders.length} icon={<Gavel className="h-3.5 w-3.5" />} hint={`${kpis.active} active`} />
         <KpiCard label="Award pressure ≤ 14d" value={kpis.urgent} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
         <KpiCard label={t("tstage_awarded_to_contractor")} value={kpis.awarded} icon={<Trophy className="h-3.5 w-3.5" />} />
         <KpiCard label={t("tstage_converted_to_jih")} value={kpis.converted} icon={<GitMerge className="h-3.5 w-3.5" />} />
-      </div>
+      </KpiRow>
 
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full md:max-w-xs">
@@ -320,43 +322,44 @@ function TenderMonitor() {
           })}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-border/70 text-2xs tracking-[0.02em] text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2.5">Tender</th>
-                <th className="px-4 py-2.5">Contractor</th>
-                <th className="px-4 py-2.5">Stage</th>
-                <th className="px-4 py-2.5">Class</th>
-                <th className="px-4 py-2.5 text-right">Value</th>
-                <th className="px-4 py-2.5 text-right">Deadline</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="rounded-xl border border-border/70 bg-surface/60">
+          <Table>
+            <TableCaption>{t("nav_tenders")}</TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tender</TableHead>
+                <TableHead>Contractor</TableHead>
+                <TableHead>Stage</TableHead>
+                <TableHead>Class</TableHead>
+                <TableHead className="text-end">Value</TableHead>
+                <TableHead className="text-end">Deadline</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filtered.map((x: any) => {
                 const d = daysUntil(x.expected_award_date);
                 const overdue = d != null && d < 0;
                 const urgent = d != null && d <= 14 && d >= 0;
                 return (
-                  <tr key={x.id} className="border-t border-border/60">
-                    <td className="px-4 py-2.5 text-foreground">{x.tender_name}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{x.main_contractor?.name ?? "—"}</td>
-                    <td className="px-4 py-2.5"><StatusPill tone={stageTone(x.tender_stage)}>{tstageLabel(x.tender_stage)}</StatusPill></td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{x.tender_priority_classification ?? "—"}</td>
-                    <td className="px-4 py-2.5 text-right text-foreground num" data-tabular="true">{formatCurrency(x.estimated_project_value, lang, "SAR")}</td>
-                    <td className={`px-4 py-2.5 text-right num ${overdue ? "text-destructive" : urgent ? "text-amber-light" : "text-muted-foreground"}`} data-tabular="true">
+                  <TableRow key={x.id}>
+                    <TableCell className="text-foreground">{x.tender_name}</TableCell>
+                    <TableCell className="text-muted-foreground">{x.main_contractor?.name ?? "—"}</TableCell>
+                    <TableCell><StatusPill tone={stageTone(x.tender_stage)}>{tstageLabel(x.tender_stage)}</StatusPill></TableCell>
+                    <TableCell className="text-muted-foreground">{x.tender_priority_classification ?? "—"}</TableCell>
+                    <TableCell className="text-end text-foreground num" data-tabular="true">{formatCurrency(x.estimated_project_value, lang, "SAR")}</TableCell>
+                    <TableCell className={`text-end num ${overdue ? "text-destructive" : urgent ? "text-amber-light" : "text-muted-foreground"}`} data-tabular="true">
                       {d == null ? "—" : (
                         <span className="inline-flex items-center justify-end gap-1">
                           {(overdue || urgent) ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
                           {overdue ? `${t("urgency_overdue")} ${Math.abs(d)}d` : urgent ? `${t("urgency_due_soon")} · ${d}d` : `${d}d`}
                         </span>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 

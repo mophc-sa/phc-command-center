@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, CheckCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -65,11 +66,11 @@ function FollowUpsPage() {
         description={lang === "ar" ? "المتابعات المستحقة والمتأخرة والمجدولة عبر خط الأنابيب." : "Due, overdue, and scheduled follow-ups across the pipeline."}
       />
 
-      <section className="mb-6 grid gap-3 sm:grid-cols-3">
+      <KpiRow columns={3}>
         <KpiCard label={lang === "ar" ? "متأخر" : "Overdue"} value={formatNumber(grouped.overdue.length, lang)} hint={lang === "ar" ? "تجاوزت الاستحقاق" : "Past due date"} trend={grouped.overdue.length > 0 ? "down" : "flat"} />
         <KpiCard label={lang === "ar" ? "اليوم" : "Today"} value={formatNumber(grouped.today.length, lang)} hint={lang === "ar" ? "مستحق الآن" : "Due today"} />
         <KpiCard label={lang === "ar" ? "قادم" : "Upcoming"} value={formatNumber(grouped.upcoming.length, lang)} hint={lang === "ar" ? "مجدول لاحقاً" : "Scheduled later"} />
-      </section>
+      </KpiRow>
 
       <div className="mb-4 flex gap-1.5">
         {(["all", "overdue", "today", "upcoming"] as const).map((k) => (

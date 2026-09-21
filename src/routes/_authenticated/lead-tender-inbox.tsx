@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Archive as ArchiveIcon, CheckCircle2, ChevronRight, Inbox as InboxIcon, Plus, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { NewIntakeDialog } from "@/components/phc/NewIntakeDialog";
@@ -166,13 +167,13 @@ function LeadTenderInbox() {
       </div> : null}
 
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <KpiRow columns={5}>
         <KpiCard label={t("ibx_title")} value={kpis.total} icon={<InboxIcon className="h-3.5 w-3.5" />} />
         <KpiCard label={t("ibxst_new")} value={kpis.newCount} />
         <KpiCard label={t("ibxst_in_review")} value={kpis.inReview} />
         <KpiCard label={t("ibxst_sent_to_missing_data")} value={kpis.missingData} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
         <KpiCard label={t("ibxst_converted")} value={kpis.converted} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
-      </div>
+      </KpiRow>
 
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full md:max-w-xs">
@@ -182,7 +183,7 @@ function LeadTenderInbox() {
             onChange={(e) => setQuery(e.target.value)}
             aria-label={lang === "ar" ? "بحث في الطلبات" : "Search requests"}
             placeholder={lang === "ar" ? "ابحث بالشركة أو المشروع أو جهة الاتصال" : "Search company, project, contact"}
-            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
+            className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
         <div className="flex rounded-md border border-border p-0.5">

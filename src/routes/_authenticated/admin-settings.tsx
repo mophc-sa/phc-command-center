@@ -30,6 +30,15 @@ import {
 } from "@/lib/team-actions";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   canApproveCommercialAction,
   canAssignOwner,
   canManageSalesPipeline,
@@ -335,39 +344,38 @@ function AdminSettingsPage() {
 
       {/* ── Capabilities Matrix ── */}
       <Panel title={t("admin_section_matrix")}>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead>
-              <tr className="text-xs tracking-[0.02em] text-muted-foreground">
-                <th className="py-2 pe-4 text-start font-medium">{t("admin_col_capability")}</th>
-                {ALL_ROLES.map((r) => (
-                  <th key={r} className="px-2 py-2 text-center font-medium">
-                    {t(`role_${r}` as never)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {CAPABILITIES.map((cap) => (
-                <tr key={cap.key} className="border-t border-border/60">
-                  <td className="py-2.5 pe-4 text-foreground">{t(cap.key)}</td>
-                  {ALL_ROLES.map((r) => {
-                    const allowed = cap.allowed(r);
-                    return (
-                      <td key={r} className="px-2 py-2.5 text-center">
-                        {allowed ? (
-                          <Check className="mx-auto h-4 w-4 text-won" aria-label="allowed" />
-                        ) : (
-                          <Minus className="mx-auto h-4 w-4 text-muted-foreground" aria-label="not allowed" />
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
+        <Table className="min-w-[640px]">
+          <TableCaption>{t("admin_section_matrix")}</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="pe-4">{t("admin_col_capability")}</TableHead>
+              {ALL_ROLES.map((r) => (
+                <TableHead key={r} className="text-center">
+                  {t(`role_${r}` as never)}
+                </TableHead>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {CAPABILITIES.map((cap) => (
+              <TableRow key={cap.key}>
+                <TableCell className="pe-4 text-foreground">{t(cap.key)}</TableCell>
+                {ALL_ROLES.map((r) => {
+                  const allowed = cap.allowed(r);
+                  return (
+                    <TableCell key={r} className="text-center">
+                      {allowed ? (
+                        <Check className="mx-auto h-4 w-4 text-won" aria-label="allowed" />
+                      ) : (
+                        <Minus className="mx-auto h-4 w-4 text-muted-foreground" aria-label="not allowed" />
+                      )}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </Panel>
 
       {/* ── Members by Role ── */}
@@ -424,27 +432,27 @@ function AdminSettingsPage() {
         ) : team.length === 0 ? (
           <EmptyState message={t("empty_team")} />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead>
-                <tr className="text-xs tracking-[0.02em] text-muted-foreground">
-                  <th className="py-2 pe-4 text-start font-medium">{t("team_col_member")}</th>
+            <Table className="min-w-[640px]">
+              <TableCaption>{t("admin_section_assign")}</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pe-4">{t("team_col_member")}</TableHead>
                   {ALL_ROLES.map((r) => (
-                    <th key={r} className="px-2 py-2 text-center font-medium">
+                    <TableHead key={r} className="text-center">
                       {t(`role_${r}` as never)}
-                    </th>
+                    </TableHead>
                   ))}
                   {canManage && (
-                    <th className="px-2 py-2 text-center font-medium">{t("admin_col_status")}</th>
+                    <TableHead className="text-center">{t("admin_col_status")}</TableHead>
                   )}
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {team.map((m) => {
                   const isSelf = m.id === user?.id;
                   return (
-                    <tr key={m.id} className="border-t border-border/60">
-                      <td className="py-2.5 pe-4">
+                    <TableRow key={m.id}>
+                      <TableCell className="pe-4">
                         <div className="truncate text-foreground">
                           {m.full_name || (lang === "ar" ? "بدون اسم" : "Unnamed")}
                           {isSelf ? (
@@ -454,7 +462,7 @@ function AdminSettingsPage() {
                           ) : null}
                         </div>
                         <div className="truncate text-xs text-muted-foreground">{m.email}</div>
-                      </td>
+                      </TableCell>
                       {ALL_ROLES.map((role) => {
                         const has = m.roles.includes(role);
                         // Only system_admin is self-revoke-guarded (genuine
@@ -475,7 +483,7 @@ function AdminSettingsPage() {
                         // deleted/suspended rows instead of hiding them.
                         const disabled = !canManage || guardSelf || m.status === "deleted";
                         return (
-                          <td key={role} className="px-2 py-2 text-center">
+                          <TableCell key={role} className="text-center">
                             <button
                               type="button"
                               disabled={disabled}
@@ -497,11 +505,11 @@ function AdminSettingsPage() {
                             >
                               {has ? "✓" : "+"}
                             </button>
-                          </td>
+                          </TableCell>
                         );
                       })}
                       {canManage && (
-                        <td className="px-2 py-2 text-center">
+                        <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             {isSelf ? (
                               <span className="text-xs text-muted-foreground">—</span>
@@ -542,14 +550,13 @@ function AdminSettingsPage() {
                               </>
                             )}
                           </div>
-                        </td>
+                        </TableCell>
                       )}
-                    </tr>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
         )}
       </Panel>
 

@@ -7,6 +7,15 @@ import { canManageSalesPipeline } from "@/lib/roles";
 import { Panel } from "./Panel";
 import { GroundedAiAnswer } from "./GroundedAiAnswer";
 import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -309,87 +318,86 @@ export function AiOperationsPanel() {
                 </span>
               ))}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-start text-sm">
-                <thead>
-                  <tr>
-                    {(ar
-                      ? [
-                          "النموذج والحالة",
-                          "اللغة",
-                          "اجتياز الاختبار",
-                          "دقة الأرقام",
-                          "المراجع",
-                          "المدة",
-                          "التكلفة USD",
-                          "الفائدة",
-                        ]
-                      : [
-                          "Model / case",
-                          "Language",
-                          "Overall check",
-                          "Numbers",
-                          "Citations",
-                          "Duration",
-                          "Cost USD",
-                          "Usefulness",
-                        ]
-                    ).map((h) => (
-                      <th key={h} className="p-2 text-start">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {state.data?.runs.map((r) => (
-                    <tr key={r.id} className="border-t">
-                      <td className="p-2">
-                        <button
-                          className="text-start underline"
-                          onClick={() => {
-                            setReviewRun(r);
-                            setScore(String(r.usefulness ?? 3));
-                            setNote(r.review_note ?? "");
-                          }}
-                        >
-                          {r.model}
-                          <span className="block text-xs">
-                            {r.case_key} · {r.status}
-                            {r.error_code ? ` · ${r.error_code}` : ""}
-                          </span>
-                        </button>
-                      </td>
-                      <td className="p-2">{r.language}</td>
-                      <td className="p-2">
-                        {r.checks?.passed === true ? (ar ? "اجتاز" : "Passed") : r.checks?.passed === false || r.status === "failed" ? (ar ? "لم يجتز" : "Failed") : "—"}
-                      </td>
-                      <td className="p-2">
-                        {typeof r.checks?.numerical_accuracy === "number" ? `${Math.round(r.checks.numerical_accuracy * 100)}%` : "—"}
-                      </td>
-                      <td className="p-2">
-                        {typeof r.checks?.citations_valid === "boolean" ? (r.checks.citations_valid ? "✓" : "✕") : "—"}
-                      </td>
-                      <td className="p-2">
-                        {r.duration_ms != null ? `${(r.duration_ms / 1000).toFixed(1)}s` : "—"}
-                      </td>
-                      <td className="p-2">
-                        {r.estimated_cost_usd != null
-                          ? Number(r.estimated_cost_usd).toFixed(6)
-                          : "—"}
-                      </td>
-                      <td className="p-2">
-                        {r.usefulness != null
-                          ? `${r.usefulness}/5`
-                          : ar
-                            ? "بانتظار التقييم"
-                            : "Unrated"}
-                      </td>
-                    </tr>
+            <Table>
+              <TableCaption>
+                {ar ? "نتائج مقارنة جودة النماذج" : "Model quality comparison runs"}
+              </TableCaption>
+              <TableHeader>
+                <TableRow>
+                  {(ar
+                    ? [
+                        "النموذج والحالة",
+                        "اللغة",
+                        "اجتياز الاختبار",
+                        "دقة الأرقام",
+                        "المراجع",
+                        "المدة",
+                        "التكلفة USD",
+                        "الفائدة",
+                      ]
+                    : [
+                        "Model / case",
+                        "Language",
+                        "Overall check",
+                        "Numbers",
+                        "Citations",
+                        "Duration",
+                        "Cost USD",
+                        "Usefulness",
+                      ]
+                  ).map((h) => (
+                    <TableHead key={h}>{h}</TableHead>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {state.data?.runs.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>
+                      <button
+                        className="text-start underline"
+                        onClick={() => {
+                          setReviewRun(r);
+                          setScore(String(r.usefulness ?? 3));
+                          setNote(r.review_note ?? "");
+                        }}
+                      >
+                        {r.model}
+                        <span className="block text-xs">
+                          {r.case_key} · {r.status}
+                          {r.error_code ? ` · ${r.error_code}` : ""}
+                        </span>
+                      </button>
+                    </TableCell>
+                    <TableCell>{r.language}</TableCell>
+                    <TableCell>
+                      {r.checks?.passed === true ? (ar ? "اجتاز" : "Passed") : r.checks?.passed === false || r.status === "failed" ? (ar ? "لم يجتز" : "Failed") : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {typeof r.checks?.numerical_accuracy === "number" ? `${Math.round(r.checks.numerical_accuracy * 100)}%` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {typeof r.checks?.citations_valid === "boolean" ? (r.checks.citations_valid ? "✓" : "✕") : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {r.duration_ms != null ? `${(r.duration_ms / 1000).toFixed(1)}s` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {r.estimated_cost_usd != null
+                        ? Number(r.estimated_cost_usd).toFixed(6)
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {r.usefulness != null
+                        ? `${r.usefulness}/5`
+                        : ar
+                          ? "بانتظار التقييم"
+                          : "Unrated"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </Panel>
       )}

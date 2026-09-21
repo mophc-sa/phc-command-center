@@ -1,5 +1,6 @@
 import { queryRows } from "@/lib/query-rows";
 import { QueryFailure } from "@/components/phc/QueryFailure";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { useWindowedList } from "@/lib/windowed-list";
 import { ListWindowFooter } from "@/components/phc/ListWindowFooter";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -17,6 +18,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { createCompany, type CompanyType, type AccountStatus } from "@/lib/crm-actions";
 import { ArchivedBadge } from "@/components/phc/RecordLifecycleMenu";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const Route = createFileRoute("/_authenticated/accounts/")({
   head: () => ({
@@ -109,12 +111,12 @@ function AccountsPage() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiRow>
         <KpiCard label={t("nav_accounts")} value={kpis.total} icon={<Building2 className="h-3.5 w-3.5" />} />
         <KpiCard label={t("account_status_active" as never) || "Active"} value={kpis.active} />
         <KpiCard label={t("crm_pending_review")} value={kpis.pending} />
         <KpiCard label={t("account_status_do_not_target" as never) || "Do not target"} value={kpis.dnt} />
-      </div>
+      </KpiRow>
 
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full md:max-w-xs">
@@ -175,18 +177,18 @@ function AccountsPage() {
         )
       ) : (
         <>
-        {view === "table" ? <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full min-w-[680px] text-sm">
-            <caption className="sr-only">{t("nav_accounts")}</caption>
-            <thead><tr>{[t("nav_accounts"), t("crm_filter_all_types"), lang === "ar" ? "الحالة" : "Status", t("crm_next_action"), t("crm_linked_contacts")].map(label => <th key={label} scope="col" className="px-4 py-3 text-start font-medium text-muted-foreground">{label}</th>)}</tr></thead>
-            <tbody>{win.visible.map((c: any) => <tr key={c.id} className="border-t align-top hover:bg-muted/40">
-              <th scope="row" className="max-w-xs px-4 py-3 text-start font-medium"><Link to="/accounts/$id" params={{ id: c.id }} className="hover:underline">{c.name}</Link></th>
-              <td className="px-4 py-3">{typeLabel(c.company_type)}</td>
-              <td className="px-4 py-3"><StatusPill tone={statusTone(c.account_status)}>{c.account_status === "pending_review" ? t("crm_pending_review") : t(`account_status_${c.account_status}` as never)}</StatusPill></td>
-              <td className="max-w-xs px-4 py-3">{c.next_action || "—"}</td>
-              <td className="num px-4 py-3">{c.contacts?.length ?? 0}</td>
-            </tr>)}</tbody>
-          </table>
+        {view === "table" ? <div className="rounded-lg border">
+          <Table className="min-w-[680px]">
+            <TableCaption>{t("nav_accounts")}</TableCaption>
+            <TableHeader><TableRow>{[t("nav_accounts"), t("crm_filter_all_types"), lang === "ar" ? "الحالة" : "Status", t("crm_next_action"), t("crm_linked_contacts")].map(label => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader>
+            <TableBody>{win.visible.map((c: any) => <TableRow key={c.id} className="align-top hover:bg-muted/40">
+              <TableHead scope="row" className="max-w-xs whitespace-normal text-sm font-medium text-foreground"><Link to="/accounts/$id" params={{ id: c.id }} className="hover:underline">{c.name}</Link></TableHead>
+              <TableCell>{typeLabel(c.company_type)}</TableCell>
+              <TableCell><StatusPill tone={statusTone(c.account_status)}>{c.account_status === "pending_review" ? t("crm_pending_review") : t(`account_status_${c.account_status}` as never)}</StatusPill></TableCell>
+              <TableCell className="max-w-xs">{c.next_action || "—"}</TableCell>
+              <TableCell className="num">{c.contacts?.length ?? 0}</TableCell>
+            </TableRow>)}</TableBody>
+          </Table>
         </div> : <div className="grid gap-3 md:grid-cols-2">
           {win.visible.map((c: any) => (
             <Link

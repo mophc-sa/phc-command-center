@@ -21,9 +21,19 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { KpiTile } from "@/components/phc/KpiTile";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { formatCurrency, formatNumber, useI18n } from "@/lib/i18n";
@@ -345,7 +355,7 @@ function TeamView(props: {
       <SectionTitle hint={lang === "ar" ? "حقائق معدودة، بلا تقييم" : "Counted facts, no scoring"}>
         {lang === "ar" ? "الفريق اليوم" : "Team today"}
       </SectionTitle>
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <KpiRow columns={5}>
         {[
           [lang === "ar" ? "إجراءات مكتملة" : "Actions completed", day.actionsCompleted],
           [lang === "ar" ? "متابعات" : "Follow-ups", day.followUpsCompleted],
@@ -360,7 +370,7 @@ function TeamView(props: {
             </div>
           </div>
         ))}
-      </div>
+      </KpiRow>
 
       <SectionTitle>{lang === "ar" ? "الأداء مقابل الهدف" : "Performance vs target"}</SectionTitle>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -398,10 +408,11 @@ function TeamView(props: {
       <SectionTitle hint={lang === "ar" ? "مرتب حسب قيمة خط الأنابيب — لا ترتيب حسب عدد المهام" : "Ordered by pipeline value — never by task count"}>
         {lang === "ar" ? "توزيع العمل" : "Team workload"}
       </SectionTitle>
-      <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
-        <table className="w-full min-w-[52rem] text-sm">
-          <thead className="text-2xs tracking-[0.02em] text-muted-foreground">
-            <tr className="border-b border-border/60">
+      <div className="rounded-xl border border-border/70 bg-surface/60">
+        <Table className="min-w-[52rem]">
+          <TableCaption>{lang === "ar" ? "توزيع العمل" : "Team workload"}</TableCaption>
+          <TableHeader>
+            <TableRow>
               {[
                 lang === "ar" ? "العضو" : "Member",
                 lang === "ar" ? "فرص" : "Opps",
@@ -412,29 +423,29 @@ function TeamView(props: {
                 lang === "ar" ? "بلا إجراء تالٍ" : "No next action",
                 lang === "ar" ? "اليوم" : "Today",
               ].map((h) => (
-                <th key={h} className="px-4 py-2 text-start font-medium">{h}</th>
+                <TableHead key={h}>{h}</TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {workload.map((r) => (
-              <tr key={r.userId} className="border-t border-border/60 hover:bg-surface-2/40">
-                <td className="px-4 py-2.5">
+              <TableRow key={r.userId} className="hover:bg-surface-2/40">
+                <TableCell>
                   <Link to={r.drilldown.to as never} search={r.drilldown.search as never} className="font-medium text-foreground hover:underline">
                     {nameOf(r.userId)}
                   </Link>
-                </td>
-                <td className="num px-4 py-2.5" data-tabular="true">{r.activeOpportunities}</td>
-                <td className="px-4 py-2.5"><Money n={r.openPipelineValue} lang={lang} /></td>
-                <td className="num px-4 py-2.5" data-tabular="true">{r.openActions}</td>
-                <td className={`num px-4 py-2.5 ${r.overdueActions > 0 ? "text-destructive" : ""}`} data-tabular="true">{r.overdueActions}</td>
-                <td className="num px-4 py-2.5" data-tabular="true">{r.highPriorityActions}</td>
-                <td className="num px-4 py-2.5" data-tabular="true">{r.opportunitiesWithNoNextAction}</td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">{summarySentence(r, lang)}</td>
-              </tr>
+                </TableCell>
+                <TableCell className="num" data-tabular="true">{r.activeOpportunities}</TableCell>
+                <TableCell><Money n={r.openPipelineValue} lang={lang} /></TableCell>
+                <TableCell className="num" data-tabular="true">{r.openActions}</TableCell>
+                <TableCell className={`num ${r.overdueActions > 0 ? "text-destructive" : ""}`} data-tabular="true">{r.overdueActions}</TableCell>
+                <TableCell className="num" data-tabular="true">{r.highPriorityActions}</TableCell>
+                <TableCell className="num" data-tabular="true">{r.opportunitiesWithNoNextAction}</TableCell>
+                <TableCell className="text-muted-foreground">{summarySentence(r, lang)}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         {workload.length === 0 ? <div className="px-5 py-8 text-center text-sm text-muted-foreground">{lang === "ar" ? "لا أعضاء بعمل مسجل." : "No members with recorded work."}</div> : null}
       </div>
 
@@ -536,17 +547,17 @@ function StrategicView(props: {
   return (
     <>
       <SectionTitle>{lang === "ar" ? "خط الأنابيب الاستراتيجي" : "Strategic pipeline"}</SectionTitle>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiRow>
         <KpiTile kpi={kpis.openPipeline} label={lang === "ar" ? "خط الأنابيب المفتوح" : "Open pipeline"} />
         <KpiTile kpi={kpis.weightedPipeline} label={lang === "ar" ? "المرجّح" : "Weighted"} />
         <KpiTile kpi={kpis.lateStageExposure} label={lang === "ar" ? "تعرض متأخر" : "Late-stage exposure"} />
         <KpiTile kpi={kpis.byStage.find((k) => k.key === "stage_jih_bafo")!} label="JIH BAFO" />
-      </div>
+      </KpiRow>
 
       <SectionTitle hint={lang === "ar" ? "من بيانات المناقصات الداخلية فقط" : "Internal tender data only"}>
         {lang === "ar" ? "المناقصات" : "Tenders"}
       </SectionTitle>
-      <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiRow>
         {[
           [lang === "ar" ? "مناقصات نشطة" : "Active tenders", formatNumber(active.length, lang)],
           [lang === "ar" ? "محوّلة إلى JIH" : "Converted to JIH", formatNumber(converted.length, lang)],
@@ -561,7 +572,7 @@ function StrategicView(props: {
             ) : null}
           </div>
         ))}
-      </div>
+      </KpiRow>
 
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
@@ -694,14 +705,14 @@ function ExecutiveView(props: {
       <SectionTitle hint={lang === "ar" ? "ليست إيرادًا — يمكن أن تُخسر" : "Not revenue — these can still be lost"}>
         {lang === "ar" ? "التعرض في المراحل المتأخرة" : "Late-stage exposure"}
       </SectionTitle>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <KpiRow>
         <KpiTile kpi={kpis.lateStageExposure} label={lang === "ar" ? "إجمالي التعرض" : "Total exposure"} />
         {kpis.byStage
           .filter((k) => ["stage_verbally_awarded", "stage_contract_received", "stage_contract_signed"].includes(k.key))
           .map((k) => (
             <KpiTile key={k.key} kpi={k} label={humanize(k.key.replace("stage_", ""))} />
           ))}
-      </div>
+      </KpiRow>
 
       <div className="grid gap-3 lg:grid-cols-2">
         <div>

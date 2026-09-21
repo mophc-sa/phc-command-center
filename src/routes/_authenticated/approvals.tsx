@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, Clock, CheckCircle2, AlertTriangle, Inbox, Percent } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
@@ -180,12 +181,12 @@ function ApprovalsPage() {
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiRow>
         <KpiCard label="Pending" value={kpis.pending} icon={<Clock className="h-3.5 w-3.5" />} />
         <KpiCard label="Oldest waiting" value={`${kpis.oldest}d`} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
         <KpiCard label="Intake reviews" value={kpis.intake} icon={<Inbox className="h-3.5 w-3.5" />} />
         <KpiCard label="Approved" value={kpis.approved} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
-      </div>
+      </KpiRow>
 
       {!canDecideAnything && !isLoading ? (
         <div className="mb-4 rounded-md border border-border bg-surface/60 px-4 py-3 text-xs text-muted-foreground">

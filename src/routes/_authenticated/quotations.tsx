@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useI18n } from "@/lib/i18n";
+import { PageHeader } from "@/components/phc/PageHeader";
 import { parsePipelineSearch, type PipelineTab } from "@/lib/pipeline-tabs";
 import { QuotationsPanel } from "@/components/phc/pipeline/QuotationsPanel";
 import { RfqJihPanel } from "@/components/phc/pipeline/RfqJihPanel";
@@ -21,13 +22,26 @@ export const Route = createFileRoute("/_authenticated/quotations")({
 });
 
 function QuotationsRoute() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const ar = lang === "ar";
   const { tab } = Route.useSearch();
   const navigate = Route.useNavigate();
   const setTab = (next: PipelineTab) => navigate({ search: { tab: next } });
 
   return (
     <div className="mx-auto max-w-7xl">
+      {/* This page opened straight into its tab bar, so it was the only screen
+          in the app with no heading: a reader arriving from a link had nothing
+          naming where they had landed. */}
+      <PageHeader
+        eyebrow={ar ? "التسعير" : "Pricing"}
+        title={ar ? "عروض الأسعار والطلبات" : "Quotations and requests"}
+        description={
+          ar
+            ? "عروض الأسعار وطلبات التسعير وجداول الكميات في مكان واحد."
+            : "Quotations, pricing requests and bills of quantities in one place."
+        }
+      />
       <div className="mb-6 flex gap-2 border-b border-border/60">
         {([
           ["quotations", t("nav_quotations")],

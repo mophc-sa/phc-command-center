@@ -1,4 +1,6 @@
 import { SavedOpportunityViews } from "@/components/phc/SavedOpportunityViews";
+import { KpiRow } from "@/components/phc/KpiRow";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { createFileRoute, useNavigate, type SearchSchemaInput } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useWindowedList } from "@/lib/windowed-list";
@@ -289,12 +291,12 @@ function OppList() {
           because nothing has closed in the system yet — half the width spent
           telling a manager nothing, twice. The figures below are the ones the
           team runs on. Each explains itself and links to its own records. */}
-      <section className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiRow className="mb-3">
         <KpiTile kpi={book.target} label={t("kpi_target_sales")} />
         <KpiTile kpi={book.achievement} label={t("kpi_sales_achievement")} />
         <KpiTile kpi={book.needToClose} label={t("kpi_need_to_close")} />
         <KpiTile kpi={book.pendingForSubmission} label={t("kpi_pending_submission")} />
-      </section>
+      </KpiRow>
 
       {/* The book by shape rather than by money: how much is verbally awarded,
           how it splits between JIH and Tender, and what has not gone out yet.
@@ -305,13 +307,13 @@ function OppList() {
         <h2 className="mb-2 text-xs font-medium tracking-[0.02em] text-muted-foreground">
           {t("kpi_sales_project_status")}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <KpiRow columns={5}>
           <KpiTile kpi={book.verballyAwarded} label={t("kpi_verbally_awarded")} />
           <KpiTile kpi={book.jih} label={t("kpi_jih")} />
           <KpiTile kpi={book.tenders} label={t("kpi_tenders")} />
           <KpiTile kpi={book.jihPending} label={t("kpi_jih_pending")} />
           <KpiTile kpi={book.tenderPending} label={t("kpi_tender_pending")} />
-        </div>
+        </KpiRow>
       </section>
 
         </div>
@@ -383,20 +385,24 @@ function OppList() {
             ))}
           </SelectContent>
         </Select>
-        <div className="ms-auto flex items-center gap-1 rounded-md border border-border/70 bg-background/40 p-0.5">
+        <div className="ms-auto flex items-center gap-1 rounded-md border border-border/70 bg-background/40 p-1" role="group" aria-label={lang === "ar" ? "طريقة العرض" : "View"}>
           <button
             onClick={() => setView("cards")}
-            className={`grid h-7 w-7 place-items-center rounded transition-colors ${view === "cards" ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            aria-label="Card view"
+            type="button"
+            aria-pressed={view === "cards"}
+            className={`grid h-9 w-9 place-items-center rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${view === "cards" ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            aria-label={lang === "ar" ? "عرض البطاقات" : "Card view"}
           >
-            <LayoutGrid className="h-3.5 w-3.5" />
+            <LayoutGrid className="h-4 w-4" />
           </button>
           <button
             onClick={() => setView("table")}
-            className={`grid h-7 w-7 place-items-center rounded transition-colors ${view === "table" ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            aria-label="Table view"
+            type="button"
+            aria-pressed={view === "table"}
+            className={`grid h-9 w-9 place-items-center rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${view === "table" ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            aria-label={lang === "ar" ? "عرض الجدول" : "Table view"}
           >
-            <Rows3 className="h-3.5 w-3.5" />
+            <Rows3 className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -457,10 +463,9 @@ function OppList() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
-          <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-sm">
-            <caption className="sr-only">{t("nav_opportunities")}</caption>
-            <thead><tr className="border-b text-start text-muted-foreground">
+          <Table className="min-w-[960px]">
+            <TableCaption>{t("nav_opportunities")}</TableCaption>
+            <TableHeader><TableRow>
               {([
                 ["project_name", lang === "ar" ? "المشروع / الإجراء القادم" : "Project / next action"],
                 ["client_company", lang === "ar" ? "العميل" : "Client"],
@@ -468,27 +473,28 @@ function OppList() {
                 ["amount", lang === "ar" ? "القيمة" : "Amount"],
                 ["quotation_status", lang === "ar" ? "حالة العرض" : "Quotation status"],
                 ["submission_date", lang === "ar" ? "تاريخ التقديم" : "Submission date"],
-              ] as const).map(([key, label]) => <th key={key} scope="col" className="px-4 py-3 text-start font-medium" aria-sort={sort?.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}><SortHeader label={label} active={sort?.key === key} dir={sort?.dir} onClick={() => toggleSort(key)} /></th>)}
-            </tr></thead>
-            <tbody>{win.visible.map((o: any) => {
+              ] as const).map(([key, label]) => <TableHead key={key} aria-sort={sort?.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}><SortHeader label={label} active={sort?.key === key} dir={sort?.dir} onClick={() => toggleSort(key)} /></TableHead>)}
+            </TableRow></TableHeader>
+            <TableBody>{win.visible.map((o: any) => {
               const rfq = latestRfq(o);
               const quote = latestQuotation(o);
               const amount = opportunityValue(o as never);
-              return <tr key={o.id} className="border-b border-border/50 align-top hover:bg-muted/40">
-                <th scope="row" className="max-w-sm px-4 py-3 text-start font-normal">
+              return <TableRow key={o.id} className="align-top">
+                {/* The project name is this row's header: it is what identifies
+                    the record a screen reader is reading cells from. */}
+                <TableHead scope="row" className="max-w-sm whitespace-normal text-sm font-normal text-foreground">
                   <Link to="/opportunities/$id" params={{ id: o.id }} className="font-semibold text-foreground hover:underline">{o.project_name}</Link>
                   <div className="mt-1 text-xs text-muted-foreground">{o.next_action || (lang === "ar" ? "الإجراء القادم غير مسجل" : "No next action recorded")}</div>
                   {rfq?.rfq_number ? <div className="num mt-1 text-xs text-muted-foreground">{rfq.rfq_number}</div> : null}
-                </th>
-                <td className="max-w-48 px-4 py-3">{o.company?.name ?? o.client ?? "—"}</td>
-                <td className="px-4 py-3">{rfq?.classification ? humanize(rfq.classification) : "—"}</td>
-                <td className="num whitespace-nowrap px-4 py-3">{amount === null ? (lang === "ar" ? "غير مسجل" : "Not recorded") : formatCurrency(amount, lang, o.currency)}</td>
-                <td className="px-4 py-3">{quote?.status ? <StatusPill tone={quote.status === "won" ? "positive" : "neutral"}>{humanize(quote.status)}</StatusPill> : "—"}</td>
-                <td className="num whitespace-nowrap px-4 py-3">{quote?.issued_date ? new Date(quote.issued_date).toLocaleDateString(localeFor(lang)) : "—"}</td>
-              </tr>;
-            })}</tbody>
-          </table>
-          </div>
+                </TableHead>
+                <TableCell className="max-w-48">{o.company?.name ?? o.client ?? "—"}</TableCell>
+                <TableCell>{rfq?.classification ? humanize(rfq.classification) : "—"}</TableCell>
+                <TableCell className="num whitespace-nowrap">{amount === null ? (lang === "ar" ? "غير مسجل" : "Not recorded") : formatCurrency(amount, lang, o.currency)}</TableCell>
+                <TableCell>{quote?.status ? <StatusPill tone={quote.status === "won" ? "positive" : "neutral"}>{humanize(quote.status)}</StatusPill> : "—"}</TableCell>
+                <TableCell className="num whitespace-nowrap">{quote?.issued_date ? new Date(quote.issued_date).toLocaleDateString(localeFor(lang)) : "—"}</TableCell>
+              </TableRow>;
+            })}</TableBody>
+          </Table>
 
         <ListWindowFooter win={win} />
         </div>

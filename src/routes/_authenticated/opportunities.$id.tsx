@@ -602,7 +602,7 @@ function OpportunityDetail() {
                 <span className="num text-foreground" data-tabular="true">{rfqQ.data.rfq_number}</span>
               ) : null}
             </div>
-            <h1 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground md:text-[30px]">
+            <h1 className="text-[30px] font-bold tracking-[-0.02em] text-foreground md:text-[34px]">
               {o.project ? (
                 <Link to="/projects/$id" params={{ id: o.project.id }} className="hover:underline">
                   {o.project_name}

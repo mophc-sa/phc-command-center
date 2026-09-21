@@ -17,6 +17,9 @@ import { canApproveCommercialAction } from "@/lib/roles";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
+  Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
@@ -1059,31 +1062,32 @@ function BatchDetailPage() {
             {rows.length === 0 ? (
               <EmptyState message="No rows yet." />
             ) : (
-              <div className="overflow-auto rounded border border-border">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/20">
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium w-12">#</th>
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Status</th>
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Preview</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <div className="rounded border border-border">
+                <Table>
+                  <TableCaption>Imported rows</TableCaption>
+                  <TableHeader>
+                    <TableRow className="bg-muted/20">
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Preview</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {rows.slice(0, 200).map((row) => (
-                      <tr key={row.id} className="border-b border-border/50 hover:bg-muted/10">
-                        <td className="px-3 py-1.5 text-muted-foreground">{row.row_number}</td>
-                        <td className="px-3 py-1.5">
+                      <TableRow key={row.id}>
+                        <TableCell className="text-muted-foreground">{row.row_number}</TableCell>
+                        <TableCell>
                           <span className={cn("rounded px-1.5 py-0.5 text-2xs font-medium", rowStatusClass(row.status))}>
                             {row.status}
                           </span>
-                        </td>
-                        <td className="px-3 py-1.5 text-muted-foreground truncate max-w-xs">
+                        </TableCell>
+                        <TableCell className="text-muted-foreground truncate max-w-xs">
                           {Object.values(row.raw_data ?? {}).slice(0, 3).join(" · ")}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
                 {rows.length > 200 && (
                   <p className="px-3 py-2 text-2xs text-muted-foreground">
                     Showing 200 of {rows.length} rows.
@@ -1098,31 +1102,32 @@ function BatchDetailPage() {
         {(errors as any[]).length > 0 && (
           <TabsContent value="errors">
             <Panel title="Validation errors">
-              <div className="overflow-auto rounded border border-border">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/20">
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Row</th>
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Column</th>
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Message</th>
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Severity</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <div className="rounded border border-border">
+                <Table>
+                  <TableCaption>Validation errors</TableCaption>
+                  <TableHeader>
+                    <TableRow className="bg-muted/20">
+                      <TableHead>Row</TableHead>
+                      <TableHead>Column</TableHead>
+                      <TableHead>Message</TableHead>
+                      <TableHead>Severity</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {(errors as any[]).map((e: any) => (
-                      <tr key={e.id} className="border-b border-border/50">
-                        <td className="px-3 py-1.5">{e.row_number}</td>
-                        <td className="px-3 py-1.5 font-mono">{e.column_name}</td>
-                        <td className="px-3 py-1.5 text-muted-foreground">{e.message}</td>
-                        <td className="px-3 py-1.5">
+                      <TableRow key={e.id}>
+                        <TableCell>{e.row_number}</TableCell>
+                        <TableCell className="font-mono">{e.column_name}</TableCell>
+                        <TableCell className="text-muted-foreground">{e.message}</TableCell>
+                        <TableCell>
                           <span className={e.severity === "error" ? "text-destructive" : "text-amber-light"}>
                             {e.severity}
                           </span>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </Panel>
           </TabsContent>
@@ -1203,27 +1208,28 @@ function BatchDetailPage() {
               <p className="text-xs text-muted-foreground mb-3">
                 These rows matched existing CRM records or other rows in the file.
               </p>
-              <div className="overflow-auto rounded border border-border">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/20">
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Source row</th>
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Scope</th>
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Type</th>
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Confidence</th>
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Suggested</th>
-                      <th className="px-3 py-2 text-left text-muted-foreground font-medium">Decision</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <div className="rounded border border-border">
+                <Table>
+                  <TableCaption>Duplicate candidates</TableCaption>
+                  <TableHeader>
+                    <TableRow className="bg-muted/20">
+                      <TableHead>Source row</TableHead>
+                      <TableHead>Scope</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Confidence</TableHead>
+                      <TableHead>Suggested</TableHead>
+                      <TableHead>Decision</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {(dupes as any[]).map((d: any) => (
-                      <tr key={d.id} className="border-b border-border/50">
-                        <td className="px-3 py-1.5">{rows.find((r) => r.id === d.row_id)?.row_number ?? d.row_id}</td>
-                        <td className="px-3 py-1.5">{d.match_scope}</td>
-                        <td className="px-3 py-1.5">{d.match_type}</td>
-                        <td className="px-3 py-1.5">{d.confidence}%</td>
-                        <td className="px-3 py-1.5 text-muted-foreground">{d.suggested_action}</td>
-                        <td className="px-3 py-1.5">
+                      <TableRow key={d.id}>
+                        <TableCell>{rows.find((r) => r.id === d.row_id)?.row_number ?? d.row_id}</TableCell>
+                        <TableCell>{d.match_scope}</TableCell>
+                        <TableCell>{d.match_type}</TableCell>
+                        <TableCell>{d.confidence}%</TableCell>
+                        <TableCell className="text-muted-foreground">{d.suggested_action}</TableCell>
+                        <TableCell>
                           <Select value={d.resolution ?? "pending"} disabled={!!busy || !canApprove}
                             onValueChange={(value) => runStep("Resolve duplicate", async () => {
                               await resolveDuplicate(d.id, value as "skip" | "merge" | "create_new");
@@ -1237,11 +1243,11 @@ function BatchDetailPage() {
                               {d.existing_table === batch.target_entity && <SelectItem value="merge">Update matched CRM record</SelectItem>}
                             </SelectContent>
                           </Select>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </Panel>
           </TabsContent>
@@ -1283,33 +1289,34 @@ function BatchDetailPage() {
                       {humanizeEntity(entityType)}
                       <span className="text-muted-foreground">({group.length})</span>
                     </div>
-                    <div className="overflow-auto rounded border border-border">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="border-b border-border bg-muted/20">
-                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Action</th>
-                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Preview</th>
-                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Reason</th>
-                            <th className="px-3 py-2 text-left text-muted-foreground font-medium">Status</th>
-                            <th className="px-3 py-2 text-right text-muted-foreground font-medium">Review</th>
-                          </tr>
-                        </thead>
-                        <tbody>
+                    <div className="rounded border border-border">
+                      <Table>
+                        <TableCaption>Commit candidates for {humanizeEntity(entityType)}</TableCaption>
+                        <TableHeader>
+                          <TableRow className="bg-muted/20">
+                            <TableHead>Action</TableHead>
+                            <TableHead>Preview</TableHead>
+                            <TableHead>Reason</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-end">Review</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                           {group.map((c) => (
-                            <tr key={c.id} className="border-b border-border/50">
-                              <td className="px-3 py-1.5">
+                            <TableRow key={c.id}>
+                              <TableCell>
                                 <span className={cn("rounded-full px-2 py-0.5 text-2xs font-medium", candidateActionClass(c.proposed_action))}>
                                   {c.proposed_action}
                                 </span>
-                              </td>
-                              <td className="px-3 py-1.5 text-foreground">{previewPayload(c.proposed_payload)}</td>
-                              <td className="px-3 py-1.5 text-muted-foreground">{c.reason ?? "—"}</td>
-                              <td className="px-3 py-1.5">
+                              </TableCell>
+                              <TableCell className="text-foreground">{previewPayload(c.proposed_payload)}</TableCell>
+                              <TableCell className="text-muted-foreground">{c.reason ?? "—"}</TableCell>
+                              <TableCell>
                                 <span className={cn("text-2xs", candidateStatusClass(c.review_status))}>
                                   {c.review_status}
                                 </span>
-                              </td>
-                              <td className="px-3 py-1.5 text-right">
+                              </TableCell>
+                              <TableCell className="text-end">
                                 {(c.review_status === "pending" || c.review_status === "needs_review") && (
                                   <div className="inline-flex gap-1">
                                     <Button
@@ -1352,11 +1359,11 @@ function BatchDetailPage() {
                                     </Button>
                                   </div>
                                 )}
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           ))}
-                        </tbody>
-                      </table>
+                        </TableBody>
+                      </Table>
                     </div>
                   </div>
                 ))}

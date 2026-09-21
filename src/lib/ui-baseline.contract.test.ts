@@ -95,3 +95,49 @@ describe("a page stylesheet never redefines a shared utility", () => {
     expect(css).not.toMatch(/\.(text|bg|border|p|m|gap)-[a-z0-9-]+\s*\{/);
   });
 });
+
+describe("one table, one density", () => {
+  const RAW_TABLE = /<table\b/;
+
+  it("no page hand-rolls its own table", () => {
+    // Seventeen did, and two lists of the same kind of record could differ by a
+    // third in row height. The primitive owns density, direction and semantics.
+    const offenders = SRC.filter(([p, s]) => p !== "src/components/ui/table.tsx" && RAW_TABLE.test(s)).map(
+      ([p]) => p,
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("the primitive defaults a column header to scope=col", () => {
+    const table = read("src/components/ui/table.tsx");
+    expect(table).toContain('scope={scope ?? "col"}');
+  });
+
+  it("the primitive aligns by direction, not by side", () => {
+    const table = read("src/components/ui/table.tsx").replace(/\/\/[^\n]*/g, "");
+    expect(table).not.toMatch(/text-(left|right)\b/);
+    expect(table).toContain("text-start");
+  });
+});
+
+describe("a page's metrics row is the same shape everywhere", () => {
+  it("no route hand-writes the KPI grid", () => {
+    // One page asked for four columns from 640px up, which put four metrics
+    // side by side on a phone.
+    const offenders = SRC.filter(
+      ([p, s]) => p.startsWith("src/routes") && /grid gap-3 sm:grid-cols-(?:2 (?:xl|lg):grid-cols-[45]|[34])/.test(s),
+    ).map(([p]) => p);
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("focus is always visible", () => {
+  it("never removes the outline without putting a ring back", () => {
+    const offenders = SRC.flatMap(([p, s]) =>
+      [...s.matchAll(/className=(?:"[^"]*"|\{`[^`]*`\})/g)]
+        .filter((m) => m[0].includes("focus:outline-none") && !m[0].includes("ring"))
+        .map(() => p),
+    );
+    expect(offenders).toEqual([]);
+  });
+});

@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -209,11 +210,11 @@ function CalendarPage() {
         }
       />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+      <KpiRow columns={3}>
         <KpiCard label={t("cal_overdue" as never)} value={summary.overdue} />
         <KpiCard label={t("cal_today" as never)} value={summary.today} />
         <KpiCard label={t("cal_upcoming" as never)} value={summary.upcoming} />
-      </div>
+      </KpiRow>
 
       {summary.overdue > 0 ? (
         <Callout tone="critical" className="mb-5" compact>

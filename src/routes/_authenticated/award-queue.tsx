@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Trophy, FileSignature, AlertTriangle, Timer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
@@ -11,6 +12,7 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { AWARD_QUEUE_STAGES } from "@/lib/dashboard-helpers";
 import { sumOpportunityValue, opportunityValue } from "@/lib/sales-kpis";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const Route = createFileRoute("/_authenticated/award-queue")({
   head: () => ({ meta: [{ title: "Award & Contract Queue — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -82,12 +84,12 @@ function AwardQueue() {
         description="Awarded, contracted, and pending-evidence deals — sorted by time in stage."
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiRow>
         <KpiCard label="Combined value" value={<span className="num" data-tabular="true">{formatCurrency(totalValue, lang, "SAR")}</span>} icon={<Trophy className="h-3.5 w-3.5" />} />
         <KpiCard label={t("aq_verbal_no_contract")} value={verbalNoContract.length} icon={<Timer className="h-3.5 w-3.5" />} hint={`${overdue.length} overdue`} />
         <KpiCard label={t("aq_contracts_received")} value={contractReceived.length} icon={<FileSignature className="h-3.5 w-3.5" />} />
         <KpiCard label={t("aq_high_value")} value={highValue.length} icon={<AlertTriangle className="h-3.5 w-3.5" />} hint={`≥ ${formatCurrency(HIGH_VALUE_THRESHOLD, lang, "SAR")}`} />
-      </div>
+      </KpiRow>
 
       <div className="mb-4 flex flex-wrap gap-1.5">
         {([
@@ -113,41 +115,42 @@ function AwardQueue() {
       ) : rows.length === 0 ? (
         <EmptyState message={t("wf_no_records")} />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface/60">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-border/70 text-2xs tracking-[0.02em] text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2.5">Opportunity</th>
-                <th className="px-4 py-2.5">Client</th>
-                <th className="px-4 py-2.5">Stage</th>
-                <th className="px-4 py-2.5">Handover</th>
-                <th className="px-4 py-2.5 text-right">Value</th>
-                <th className="px-4 py-2.5 text-right">Time in stage</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="rounded-xl border border-border/70 bg-surface/60">
+          <Table>
+            <TableCaption>{t("nav_award_queue")}</TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Opportunity</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead>Stage</TableHead>
+                <TableHead>Handover</TableHead>
+                <TableHead className="text-end">Value</TableHead>
+                <TableHead className="text-end">Time in stage</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((o: any) => {
                 const tis = daysSince(o.updated_at);
                 const isOverdue = o.sales_stage === "verbally_awarded" && o.expected_contract_date && o.expected_contract_date < today;
                 return (
-                  <tr key={o.id} className="border-t border-border/60">
-                    <td className="px-4 py-2.5">
+                  <TableRow key={o.id}>
+                    <TableCell>
                       <Link to="/opportunities/$id" params={{ id: o.id }} className="text-foreground hover:underline">
                         {o.project_name}
                       </Link>
-                    </td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{o.client ?? "—"}</td>
-                    <td className="px-4 py-2.5"><StatusPill tone={toneForStage(o.sales_stage)}>{o.sales_stage.replaceAll("_", " ")}</StatusPill></td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{o.handover_status ? o.handover_status.replaceAll("_", " ") : "—"}</td>
-                    <td className="px-4 py-2.5 text-right text-foreground num" data-tabular="true">{formatCurrency(opportunityValue(o as never), lang, o.currency)}</td>
-                    <td className={`px-4 py-2.5 text-right num ${isOverdue ? "text-destructive" : "text-muted-foreground"}`} data-tabular="true">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{o.client ?? "—"}</TableCell>
+                    <TableCell><StatusPill tone={toneForStage(o.sales_stage)}>{o.sales_stage.replaceAll("_", " ")}</StatusPill></TableCell>
+                    <TableCell className="text-muted-foreground">{o.handover_status ? o.handover_status.replaceAll("_", " ") : "—"}</TableCell>
+                    <TableCell className="text-end text-foreground num" data-tabular="true">{formatCurrency(opportunityValue(o as never), lang, o.currency)}</TableCell>
+                    <TableCell className={`text-end num ${isOverdue ? "text-destructive" : "text-muted-foreground"}`} data-tabular="true">
                       {tis == null ? "—" : `${tis}d`}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
