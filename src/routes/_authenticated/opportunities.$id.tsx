@@ -144,7 +144,7 @@ function AiOutputReviewBar({
             type="button"
             disabled={busy}
             onClick={() => onDecide(output, "accepted")}
-            className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-50"
+            className="rounded-md border border-won/40 bg-won/10 px-2.5 py-1 text-xs font-medium text-won transition-colors hover:bg-won/[0.16] disabled:opacity-60"
           >
             Accept
           </button>
@@ -152,7 +152,7 @@ function AiOutputReviewBar({
             type="button"
             disabled={busy}
             onClick={() => onDecide(output, "rejected")}
-            className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive/90 transition-colors hover:bg-destructive/[0.16] disabled:opacity-50"
+            className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/[0.16] disabled:opacity-60"
           >
             Reject
           </button>
@@ -708,7 +708,7 @@ function OpportunityDetail() {
               type="button"
               disabled={riskRunning}
               onClick={handleRiskAssessment}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${riskRunning ? "animate-spin" : ""}`} />
               {riskRunning ? "Assessing…" : "Risk Assessment"}
@@ -717,7 +717,7 @@ function OpportunityDetail() {
               type="button"
               disabled={evalRunning}
               onClick={handleOpportunityEvaluation}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${evalRunning ? "animate-spin" : ""}`} />
               {evalRunning ? "Evaluating…" : "Opportunity Evaluation"}
@@ -1307,7 +1307,7 @@ function OpportunityDetail() {
         subtitle={`${formatNumber(evidenceQ.data?.length ?? 0, lang)} · ${humanize(o.source_confidence)}`}
       >
         <div className="mb-3 flex items-center justify-between gap-2">
-          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 aria-disabled:cursor-not-allowed aria-disabled:opacity-50">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 aria-disabled:cursor-not-allowed aria-disabled:opacity-60">
             <Upload className="h-3.5 w-3.5" />
             {uploadingEvidence ? t("evidence_uploading") : t("evidence_upload_button")}
             <input
@@ -1553,7 +1553,7 @@ function OpportunityDetail() {
                   value={discussionMentionPurpose}
                   disabled={!discussionMentionUserId}
                   onChange={(e) => setDiscussionMentionPurpose(e.target.value as MentionPurpose | "")}
-                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60"
                 >
                   <option value="">{t("discussion_mention_purpose")}</option>
                   <option value="review">{t("discussion_mention_review")}</option>
@@ -1566,7 +1566,7 @@ function OpportunityDetail() {
                   type="button"
                   disabled={postingDiscussion || !discussionDraft.trim()}
                   onClick={handlePostDiscussion}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-3 py-1.5 text-xs font-medium text-amber-light transition-colors hover:bg-amber/20 disabled:opacity-60"
                 >
                   {t("discussion_post")}
                 </button>
@@ -1594,7 +1594,7 @@ function OpportunityDetail() {
                               type="button"
                               disabled={savingDiscussionEdit || !editingDiscussionDraft.trim()}
                               onClick={() => handleUpdateDiscussion(post.id)}
-                              className="rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber-light hover:bg-amber/20 disabled:opacity-50"
+                              className="rounded-md border border-amber/40 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber-light hover:bg-amber/20 disabled:opacity-60"
                             >
                               {t("action_save")}
                             </button>
@@ -1779,7 +1779,7 @@ function OpportunityDetail() {
                   }
                 }}
                 disabled={scoring}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
               >
                 <RefreshCw className={`h-3 w-3 ${scoring ? "animate-spin" : ""}`} />
                 {t("score_recalculate")}
@@ -1954,7 +1954,7 @@ function OpportunityDetail() {
                 </div>
               )}
 
-              <p className="text-xs text-muted-foreground/60 leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 This risk assessment is generated by AI and is intended as decision support only. Always validate with your own judgment and local context before taking action.
               </p>
 
@@ -2071,7 +2071,7 @@ function OpportunityDetail() {
                 <DataField label="Suggested Follow-up" value={fmtDate(evalDisplay.suggested_follow_up_date, lang)} />
               )}
 
-              <p className="text-xs text-muted-foreground/60 leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 {evalDisplay.disclaimer ?? "This evaluation is generated by AI and is intended as decision support only. Always validate with your own judgment before taking action."}
               </p>
 

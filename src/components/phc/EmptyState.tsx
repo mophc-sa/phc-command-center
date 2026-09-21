@@ -55,7 +55,7 @@ export function EmptyState({
     >
       {Icon ? (
         <Icon
-          className="mb-1 h-7 w-7 text-muted-foreground/50"
+          className="mb-1 h-7 w-7 text-muted-foreground"
           strokeWidth={1.5}
           aria-hidden="true"
         />

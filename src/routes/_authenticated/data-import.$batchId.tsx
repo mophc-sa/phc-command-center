@@ -1281,7 +1281,7 @@ function BatchDetailPage() {
                   <div key={entityType}>
                     <div className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-[0.02em] text-muted-foreground">
                       {humanizeEntity(entityType)}
-                      <span className="text-muted-foreground/60">({group.length})</span>
+                      <span className="text-muted-foreground">({group.length})</span>
                     </div>
                     <div className="overflow-auto rounded border border-border">
                       <table className="w-full text-xs">
@@ -1505,7 +1505,7 @@ function MappingPanel({
                 onValueChange={(v) => setLocalMappings((prev) => ({ ...prev, [srcCol]: v }))}
                 disabled={busy || saving}
               >
-                <SelectTrigger className="h-7 text-xs w-56">
+                <SelectTrigger aria-label={`Map column ${srcCol}`} className="h-7 text-xs w-56">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1675,7 +1675,7 @@ function ApprovalPanel({
                 const r = await rollbackBatch(batch.id);
                 setRollbackResult(r);
               })}
-              className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive/80 hover:bg-destructive/20 border"
+              className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 border"
             >
               <Undo2 className="h-3.5 w-3.5 mr-1.5" />
               Roll Back
@@ -1744,7 +1744,7 @@ function ApprovalPanel({
                   />
                   <span className="flex-1">{item.label}</span>
                   {!item.manual && (
-                    <span className="text-2xs text-muted-foreground/60 shrink-0">auto</span>
+                    <span className="text-2xs text-muted-foreground shrink-0">auto</span>
                   )}
                 </label>
               );
@@ -1903,7 +1903,7 @@ function ApprovalPanel({
                 const r = await commitBatch(batch.id);
                 setCommitResult(r);
               })}
-              className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive/80 hover:bg-destructive/20 border"
+              className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 border"
             >
               <Database className="h-3.5 w-3.5 mr-1.5" />
               Commit

@@ -336,6 +336,7 @@ function OppList() {
               }
             }}
             placeholder={t("filter_search")}
+            aria-label={t("filter_search")}
             className="h-9 w-full rounded-md bg-transparent pe-3 ps-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
@@ -347,7 +348,7 @@ function OppList() {
             no item matching the value. Four of the eight KPI drilldowns do
             exactly that. */}
         <Select value={stage} onValueChange={setStage}>
-          <SelectTrigger className="h-9 w-full sm:w-[180px] text-sm"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label={t("filter_all_stages")} className="h-9 w-full sm:w-[180px] text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("filter_all_stages")}</SelectItem>
             {stage.includes(",") ? <SelectItem value={stage}>{stageFilterLabel(stage, k => t(k as never))}</SelectItem> : null}
@@ -374,7 +375,7 @@ function OppList() {
           </SelectContent>
         </Select>
         <Select value={tier} onValueChange={setTier}>
-          <SelectTrigger className="h-9 w-full sm:w-[140px] text-sm"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label={t("filter_all_tiers")} className="h-9 w-full sm:w-[140px] text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("filter_all_tiers")}</SelectItem>
             {(["A", "B", "C"] as const).map((x) => (

@@ -13,14 +13,15 @@ export function Panel({
   subtitle?: string;
   action?: ReactNode;
   children: ReactNode;
-  tone?: "default" | "attention";
+  /** "attention" = needs a look; "critical" = something is overdue or failing. */
+  tone?: "default" | "attention" | "critical";
   className?: string;
 }) {
   return (
     <section
       className={cn(
         "rounded-xl border bg-surface shadow-card transition-shadow duration-200 hover:shadow-elevated",
-        tone === "attention" ? "border-amber/30" : "border-border",
+        tone === "critical" ? "border-destructive" : tone === "attention" ? "border-amber" : "border-border",
         className,
       )}
     >

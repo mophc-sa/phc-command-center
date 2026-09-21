@@ -743,6 +743,7 @@ function CommandCenter() {
             </div>
             <div className="executive-scorecard grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <KpiTile
+                size="lead"
                 kpi={forecast.target}
                 label={lang === "ar" ? "الهدف الإجمالي للفريق" : "Team Target"}
                 hint={targetPeriodLabel}
@@ -750,6 +751,7 @@ function CommandCenter() {
                 icon={<Target className="h-4 w-4" />}
               />
               <KpiTile
+                size="lead"
                 kpi={forecast.won}
                 label={lang === "ar" ? "قيمة الصفقات المحققة" : "Won deal value"}
                 hint={targetPeriodLabel}
@@ -757,6 +759,7 @@ function CommandCenter() {
                 icon={<Wallet className="h-4 w-4" />}
               />
               <KpiTile
+                size="lead"
                 kpi={forecast.achievement}
                 label={lang === "ar" ? "نسبة تحقيق المستهدف" : "Target achievement"}
                 hint={targetPeriodLabel}
@@ -764,6 +767,7 @@ function CommandCenter() {
                 icon={<Target className="h-4 w-4" />}
               />
               <KpiTile
+                size="lead"
                 kpi={forecast.forecast}
                 label={lang === "ar" ? "التوقع المرجّح" : "Weighted forecast"}
                 hint={
@@ -1172,7 +1176,7 @@ function CommandCenter() {
                     </div>
 
                     {/* The data gap, stated rather than approximated. */}
-                    <p className="text-2xs leading-relaxed text-muted-foreground/70">
+                    <p className="text-2xs leading-relaxed text-muted-foreground">
                       {lang === "ar"
                         ? "الحالات مشتقّة من حالة الطلب وسلسلة عروض الأسعار. «بانتظار توضيح» و«معلومات ناقصة» غير معروضتين لأن لا حقل يسجّلهما."
                         : "States are derived from RFQ status and the quotation chain. \u201CAwaiting clarification\u201D and \u201Cmissing information\u201D are absent because no field records them."}

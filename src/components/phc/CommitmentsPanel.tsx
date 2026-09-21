@@ -122,7 +122,7 @@ export function CommitmentsPanel({
             ? `${summary.weOwe} علينا · ${summary.theyOwe} عليهم${summary.overdue ? ` · ${summary.overdue} متأخر` : ""}`
             : `${summary.weOwe} ours · ${summary.theyOwe} theirs${summary.overdue ? ` · ${summary.overdue} overdue` : ""}`
       }
-      tone={summary.overdue > 0 ? "attention" : "default"}
+      tone={summary.overdue > 0 ? "critical" : "default"}
       action={
         <Button size="sm" variant="outline" onClick={() => setAdding((v) => !v)}>
           <Plus className="size-4" />

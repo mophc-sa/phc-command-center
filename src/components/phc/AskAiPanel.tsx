@@ -169,7 +169,7 @@ export function AskAiPanel({
 
               {/* The retrieval is named, not narrated. A reader can see which of
                   the closed set of filters ran. */}
-              <p className="mt-3 text-2xs text-muted-foreground/70">{t("ask_ai_bounded_note" as never)}</p>
+              <p className="mt-3 text-2xs text-muted-foreground">{t("ask_ai_bounded_note" as never)}</p>
             </>
           ) : (
             <div className="py-6 text-center">

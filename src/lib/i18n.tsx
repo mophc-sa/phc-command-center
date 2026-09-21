@@ -1931,6 +1931,7 @@ export const strings = {
   ac_urgency_overdue: { en: "Overdue", ar: "متأخر" },
   ac_urgency_due_today: { en: "Due today", ar: "مستحق اليوم" },
   ac_urgency_upcoming: { en: "Upcoming", ar: "قادم" },
+  ac_filter_type: { en: "Alert type", ar: "نوع التنبيه" },
   ac_filter_priority: { en: "Priority", ar: "الأولوية" },
   ac_filter_entity: { en: "Record type", ar: "نوع السجل" },
   ac_filter_owner: { en: "Owner", ar: "المسؤول" },

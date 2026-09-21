@@ -135,7 +135,7 @@ function RunButton({ icon, label, onClick, busy, muted }: { icon: React.ReactNod
       disabled={busy}
       onClick={onClick}
       className={
-        "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition-colors disabled:opacity-50 " +
+        "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition-colors disabled:opacity-60 " +
         (muted
           ? "border-border bg-surface text-muted-foreground hover:text-foreground"
           : "border-won/40 bg-won/10 text-won hover:bg-won/[0.16]")

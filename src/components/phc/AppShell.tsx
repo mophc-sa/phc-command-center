@@ -335,7 +335,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           className="group relative flex w-full items-center gap-3 rounded-lg px-3 py-[7px] text-base text-muted-foreground transition-all duration-150 hover:bg-sidebar-accent/40 hover:text-foreground"
         >
           <n.icon
-            className="h-[15px] w-[15px] shrink-0 text-muted-foreground/80 transition-colors group-hover:text-foreground"
+            className="h-[15px] w-[15px] shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
             strokeWidth={1.75}
           />
           <span className="truncate">{t(n.key as never)}</span>
@@ -374,7 +374,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             "h-[15px] w-[15px] shrink-0 transition-colors",
             active
               ? "text-sidebar-active-foreground"
-              : "text-muted-foreground/80 group-hover:text-foreground",
+              : "text-muted-foreground group-hover:text-foreground",
           )}
           strokeWidth={1.75}
         />
@@ -404,12 +404,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="px-3 pt-3 pb-1">
         <button
           onClick={() => { setPaletteOpen(true); setMobileOpen(false); }}
-          className="flex w-full items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-left text-sm text-muted-foreground/80 shadow-card transition-all duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex w-full items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-left text-sm text-muted-foreground shadow-card transition-all duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           aria-label={t("cmd_placeholder")}
         >
           <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span className="flex-1 truncate">{t("cmd_placeholder")}</span>
-          <kbd className="hidden select-none rounded bg-surface-2 px-1 py-0.5 font-mono text-2xs text-muted-foreground/60 sm:inline">
+          <kbd className="hidden select-none rounded bg-surface-2 px-1 py-0.5 font-mono text-2xs text-muted-foreground sm:inline">
             {typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"}
           </kbd>
         </button>
@@ -421,7 +421,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Pinned records */}
         {pinned.length > 0 && (
           <div className="mb-4">
-            <div className="px-3 pb-1.5 text-2xs font-semibold tracking-[0.02em] text-muted-foreground/60">
+            <div className="px-3 pb-1.5 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
               {t("cmd_pinned")}
             </div>
             <div className="flex flex-col gap-0.5">
@@ -434,7 +434,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     onClick={() => setMobileOpen(false)}
                     className="group flex items-center gap-3 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
                   >
-                    <Icon className="h-[14px] w-[14px] shrink-0 text-muted-foreground/50" strokeWidth={1.75} aria-hidden="true" />
+                    <Icon className="h-[14px] w-[14px] shrink-0 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
                     <span className="truncate">{r.label}</span>
                   </Link>
                 );
@@ -464,7 +464,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="mb-5 last:mb-0"
               >
                 <CollapsibleTrigger asChild>
-                  <button className="flex w-full items-center gap-1 px-3 pb-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground/80 hover:text-muted-foreground">
+                  <button className="flex w-full items-center gap-1 px-3 pb-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground hover:text-muted-foreground">
                     <span className="flex-1 text-left">{tSafe(g.key, g.fallback)}</span>
                     <ChevronDown
                       className={cn("h-3 w-3 transition-transform", adminOpen && "rotate-180")}
@@ -483,7 +483,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           return (
             <div key={g.key} className="mb-5 last:mb-0">
-              <div className="px-3 pb-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground/80">
+              <div className="px-3 pb-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
                 {tSafe(g.key, g.fallback)}
               </div>
               <div className="flex flex-col gap-0.5">
@@ -504,7 +504,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="truncate text-sm font-medium text-foreground leading-tight">
               {user?.email ?? ""}
             </div>
-            <div className="mt-0.5 text-2xs tracking-[0.02em] text-muted-foreground/70">
+            <div className="mt-0.5 text-2xs tracking-[0.02em] text-muted-foreground">
               {topRole ? t(`role_${topRole}` as never) : "—"}
             </div>
           </div>
@@ -514,7 +514,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               nav_({ to: "/auth", search: { next: "" } });
             }}
             aria-label={t("sign_out")}
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <LogOut className="h-3.5 w-3.5" />
           </button>
@@ -602,7 +602,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <StatusPill tone="positive">● {t("agent_status_running")}</StatusPill>
               <span className="text-xs tracking-[0.02em] text-muted-foreground">
                 {t("last_refreshed")}
-                <span className="ms-2 normal-case tracking-normal text-foreground/70">
+                <span className="ms-2 normal-case tracking-normal text-foreground">
                   {new Date().toLocaleTimeString(localeFor(lang),
                     { hour: "2-digit", minute: "2-digit" },
                   )}

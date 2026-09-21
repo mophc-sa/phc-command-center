@@ -77,6 +77,7 @@ export function KpiTile({
   icon,
   delta,
   onOpen,
+  size = "md",
 }: {
   kpi: Kpi;
   label: string;
@@ -99,8 +100,18 @@ export function KpiTile({
    * One interactive element per tile, chosen here.
    */
   onOpen?: () => void;
+  /**
+   * "lead" is the executive scorecard row: one step larger, so the four
+   * numbers a manager opens the day with read from across a desk.
+   *
+   * It is a prop rather than a page stylesheet because the previous version
+   * redefined the `text-xs` utility inside a page scope, which made the same
+   * class mean two different sizes depending on the route.
+   */
+  size?: "md" | "lead";
 }) {
   const { t, lang, dir } = useI18n();
+  const lead = size === "lead";
   const clickable = kpi.drilldown !== null && kpi.recordCount > 0;
 
   const body = (
@@ -115,7 +126,7 @@ export function KpiTile({
               {icon}
             </span>
           ) : null}
-          <span className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</span>
+          <span className={`${lead ? "text-sm" : "text-xs"} font-medium tracking-[0.02em] text-muted-foreground`}>{label}</span>
         </span>
         <TooltipProvider delayDuration={150}>
           <Tooltip>
@@ -126,7 +137,7 @@ export function KpiTile({
                 aria-label={lang === "ar" ? `كيف حُسب ${label}` : `How ${label} is calculated`}
                 // Sits above the tile's click layer (see `shell` below), so
                 // the explanation is reachable without also drilling down.
-                className="pointer-events-auto relative z-10 mt-0.5 shrink-0 text-muted-foreground/50 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
+                className="pointer-events-auto relative z-10 mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
                 onClick={(e) => e.preventDefault()}
               >
                 <Info className="h-3 w-3" />
@@ -149,7 +160,7 @@ export function KpiTile({
                   ))}
                 </ul>
               ) : null}
-              <p className="text-muted-foreground/70">
+              <p className="text-muted-foreground">
                 {lang === "ar" ? `${formatNumber(kpi.recordCount, lang)} سجل` : `${kpi.recordCount} record${kpi.recordCount === 1 ? "" : "s"}`}
               </p>
             </TooltipContent>
@@ -160,7 +171,7 @@ export function KpiTile({
       <div
         className={
           metricStateOf(kpi) === "ok"
-            ? "num mt-1.5 text-[22px] font-semibold leading-none text-foreground"
+            ? `num font-semibold text-foreground ${lead ? "my-3 text-[clamp(1.375rem,2vw,1.75rem)] leading-[1.35]" : "mt-1.5 text-[22px] leading-none"}`
             : "mt-1.5 text-md font-medium leading-tight text-muted-foreground"
         }
         data-tabular={metricStateOf(kpi) === "ok" ? "true" : undefined}
@@ -168,7 +179,7 @@ export function KpiTile({
         {renderValue(kpi, lang)}
       </div>
 
-      <div className="mt-1.5 flex items-center gap-1.5 text-2xs text-muted-foreground">
+      <div className={`mt-1.5 flex items-center gap-1.5 text-muted-foreground ${lead ? "text-xs" : "text-2xs"}`}>
         <span>
           {lang === "ar" ? `${formatNumber(kpi.recordCount, lang)} سجل` : `${kpi.recordCount} record${kpi.recordCount === 1 ? "" : "s"}`}
         </span>
@@ -185,7 +196,7 @@ export function KpiTile({
 
       {delta ? <div className="mt-1.5">{delta}</div> : null}
 
-      {hint ? <div className="mt-1 text-2xs text-muted-foreground/70">{hint}</div> : null}
+      {hint ? <div className={`mt-1 text-muted-foreground ${lead ? "text-xs" : "text-2xs"}`}>{hint}</div> : null}
 
       {/* A caveat is part of the number's meaning, so it is always visible —
           not tucked into the tooltip where it can be missed. */}
@@ -219,7 +230,8 @@ export function KpiTile({
   // that navigates away. An absolutely positioned layer keeps exactly one
   // interactive element per purpose and nests neither inside the other.
   const shell =
-    "relative overflow-hidden rounded-xl border border-border/70 bg-surface/60 px-4 py-3 transition-colors";
+    "relative overflow-hidden rounded-xl border border-border/70 bg-surface/60 transition-colors " +
+    (lead ? "min-h-[140px] bg-surface p-5 sm:min-h-[168px]" : "px-4 py-3");
   const layer =
     "absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
   const interactive = "hover:border-border-strong hover:bg-surface-2/40";

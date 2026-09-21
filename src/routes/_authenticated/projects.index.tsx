@@ -131,6 +131,7 @@ function ProjectsPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("crm_search_projects" as never) || "Search projects"}
+            aria-label={t("crm_search_projects" as never) || "Search projects"}
             className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
           />
         </div>
@@ -213,14 +214,14 @@ function ProjectsPage() {
                 <button
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 disabled:opacity-40 hover:text-foreground disabled:hover:text-muted-foreground"
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 disabled:opacity-60 hover:text-foreground disabled:hover:text-muted-foreground"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
-                  className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 disabled:opacity-40 hover:text-foreground disabled:hover:text-muted-foreground"
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 disabled:opacity-60 hover:text-foreground disabled:hover:text-muted-foreground"
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
                 </button>

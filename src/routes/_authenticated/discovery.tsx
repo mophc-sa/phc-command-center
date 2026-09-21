@@ -123,6 +123,7 @@ function LeadIntakePage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search leads"
+            aria-label="Search leads"
             className="w-full rounded-md border border-border bg-surface/60 py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none"
           />
         </div>
@@ -209,7 +210,7 @@ function LeadIntakePage() {
                       ) : null}
                       <button
                         onClick={() => setRejectFor(l.id)}
-                        className="rounded-md border border-destructive/30 px-2.5 py-1 text-xs text-destructive/80 hover:bg-destructive/10"
+                        className="rounded-md border border-destructive/30 px-2.5 py-1 text-xs text-destructive hover:bg-destructive/10"
                       >
                         {t("lead_reject")}
                       </button>

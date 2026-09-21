@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, localeFor } from "@/lib/i18n";
 import { canManageSalesPipeline } from "@/lib/roles";
 import { Panel } from "./Panel";
 import { GroundedAiAnswer } from "./GroundedAiAnswer";
@@ -27,7 +27,7 @@ import {
   type KnowledgeSource,
   type QualityRun,
 } from "@/lib/ai-operations-actions";
-const button = "rounded border px-3 py-1.5 text-sm disabled:opacity-50";
+const button = "rounded border px-3 py-1.5 text-sm disabled:opacity-60";
 export function AiOperationsPanel() {
   const { lang } = useI18n(),
     { user, roles } = useAuth(),
@@ -198,7 +198,7 @@ export function AiOperationsPanel() {
                               : "Source changed; refresh required"}{" "}
                           · {s.chunk_count} {ar ? "مقاطع" : "chunks"}
                           {s.approved_at
-                            ? ` · ${new Date(s.approved_at).toLocaleDateString(lang)}`
+                            ? ` · ${new Date(s.approved_at).toLocaleDateString(localeFor(lang))}`
                             : ""}
                         </p>
                       </div>

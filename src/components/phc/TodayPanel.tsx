@@ -117,7 +117,7 @@ export function TodayPanel({ uid }: { uid: string }) {
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-          <CheckCircle2 className="h-8 w-8 text-won/40" strokeWidth={1.5} aria-hidden="true" />
+          <CheckCircle2 className="h-8 w-8 text-won" strokeWidth={1.5} aria-hidden="true" />
           <p className="text-base font-medium text-foreground">{t("ws_today_empty")}</p>
         </div>
       ) : (

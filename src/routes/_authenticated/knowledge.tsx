@@ -54,7 +54,7 @@ function KnowledgePage() {
             <button
               onClick={() => reindex.mutate()}
               disabled={reindex.isPending}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
             >
               {reindex.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               {t("knowledge_reindex")}
@@ -80,7 +80,7 @@ function KnowledgePage() {
           <button
             type="submit"
             disabled={search.isPending || !query.trim()}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-5 py-2.5 text-sm font-medium text-amber-light hover:bg-amber/20 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-amber/40 bg-amber/10 px-5 py-2.5 text-sm font-medium text-amber-light hover:bg-amber/20 disabled:opacity-60"
           >
             {search.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             {t("knowledge_search_btn")}

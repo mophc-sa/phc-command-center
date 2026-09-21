@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, localeFor } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canCreateSalesRecords } from "@/lib/roles";
 import {
@@ -100,7 +100,7 @@ export function DailyAssistantPanel() {
         {daily.data && (
           <>
             <p className="text-xs text-muted-foreground">
-              {daily.data.scope} · {new Date(daily.data.as_of).toLocaleTimeString(lang)} ·{" "}
+              {daily.data.scope} · {new Date(daily.data.as_of).toLocaleTimeString(localeFor(lang))} ·{" "}
               {daily.data.total_suggestions} {ar ? "اقتراحًا" : "suggestions"}
             </p>
             {!daily.data.suggestions.length && (
@@ -130,7 +130,7 @@ export function DailyAssistantPanel() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       disabled={!!busy}
-                      className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+                      className="rounded border px-3 py-1 text-sm disabled:opacity-60"
                       onClick={() => review(s)}
                     >
                       {ar ? "مراجعة المهمة المقترحة" : "Review proposed task"}
@@ -138,7 +138,7 @@ export function DailyAssistantPanel() {
                     {s.opportunity_id && (
                       <button
                         disabled={!!busy}
-                        className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+                        className="rounded border px-3 py-1 text-sm disabled:opacity-60"
                         onClick={() => prepare(s)}
                       >
                         {busy === s.source_id
@@ -201,7 +201,7 @@ export function DailyAssistantPanel() {
           <button
             disabled={!!busy || !title.trim()}
             onClick={createTask}
-            className="rounded bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+            className="rounded bg-primary px-4 py-2 text-primary-foreground disabled:opacity-60"
           >
             {busy === "task"
               ? ar

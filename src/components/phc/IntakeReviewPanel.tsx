@@ -346,7 +346,7 @@ export function IntakeReviewPanel({ selectedId, items, loading, failed, retry, r
                           <button
                             disabled={disabled}
                             onClick={() => run(r.id, () => resubmitIntake(r.id), t("rev_resubmitted"))}
-                            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
+                            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-60"
                           >
                             <RotateCcw className="h-3 w-3" /> {t("rev_resubmit")}
                           </button>
@@ -356,28 +356,28 @@ export function IntakeReviewPanel({ selectedId, items, loading, failed, retry, r
                             <button
                               disabled={disabled}
                               onClick={() => approve(r)}
-                              className="inline-flex items-center gap-1 rounded border border-won/40 bg-won/10 px-2 py-1 text-xs text-won hover:bg-won/20 disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded border border-won/40 bg-won/10 px-2 py-1 text-xs text-won hover:bg-won/20 disabled:opacity-60"
                             >
                               <CheckCircle2 className="h-3 w-3" /> {t("rev_approve")}
                             </button>
                             <button
                               disabled={disabled}
                               onClick={() => setInfoFor(r)}
-                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-60"
                             >
                               <HelpCircle className="h-3 w-3" /> {t("rev_need_info")}
                             </button>
                             <button
                               disabled={disabled}
                               onClick={() => run(r.id, () => monitorIntake(r.id), t("rev_monitored_done"))}
-                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-60"
                             >
                               <Eye className="h-3 w-3" /> {t("rev_monitor")}
                             </button>
                             <button
                               disabled={disabled}
                               onClick={() => setRejectFor(r)}
-                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-danger hover:bg-muted disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-danger hover:bg-muted disabled:opacity-60"
                             >
                               <XCircle className="h-3 w-3" /> {t("rev_reject")}
                             </button>

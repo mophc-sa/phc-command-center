@@ -145,7 +145,7 @@ function MfaSetupPage() {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : prepError ? (
-            <div className="rounded-md border border-destructive/30 bg-destructive/[0.07] px-4 py-3 text-center text-sm text-destructive/90">
+            <div className="rounded-md border border-destructive/30 bg-destructive/[0.07] px-4 py-3 text-center text-sm text-destructive">
               {prepError}
             </div>
           ) : (

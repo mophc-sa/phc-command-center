@@ -49,7 +49,7 @@ export function SavedOpportunityViews({ search, onSelect }: {
     <form className="mt-3 flex flex-wrap gap-2" onSubmit={e => { e.preventDefault(); if (name.trim()) persist([...views.filter(v => v.name !== name.trim()), { name: name.trim(), search }].slice(-20)); }}>
       <label className="sr-only" htmlFor="view-name">{ar ? "اسم المشهد" : "View name"}</label>
       <input id="view-name" value={name} maxLength={60} onChange={e => setName(e.target.value)} placeholder={ar ? "اسم المشهد" : "View name"} className="min-h-11 rounded-md border bg-background px-3 text-sm" />
-      <button type="submit" disabled={!key || !name.trim()} className="min-h-11 rounded-md border px-3 text-sm disabled:opacity-50">{ar ? "حفظ المرشحات الحالية" : "Save current filters"}</button>
+      <button type="submit" disabled={!key || !name.trim()} className="min-h-11 rounded-md border px-3 text-sm disabled:opacity-60">{ar ? "حفظ المرشحات الحالية" : "Save current filters"}</button>
     </form>
     {error ? <p role="alert" className="mt-2 text-sm text-destructive">{ar ? "تعذر الحفظ أو النسخ في هذا المتصفح." : "This browser could not save or copy the view."}</p> : null}
   </details>;

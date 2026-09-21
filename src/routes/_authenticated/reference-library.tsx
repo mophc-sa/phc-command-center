@@ -89,6 +89,7 @@ function ReferenceLibraryPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={t("ref_search")}
+            aria-label={t("ref_search")}
             className="w-full rounded-md border border-border bg-surface ps-9 pe-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-amber/40"
           />
         </div>

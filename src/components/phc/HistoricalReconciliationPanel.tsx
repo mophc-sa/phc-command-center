@@ -68,7 +68,7 @@ export function HistoricalReconciliationPanel({ ar }: { ar: boolean }) {
         type="button"
         onClick={check}
         disabled={busy}
-        className="rounded border border-border px-2 py-1 text-xs disabled:opacity-50"
+        className="rounded border border-border px-2 py-1 text-xs disabled:opacity-60"
       >
         {ar ? "فحص المطابقة" : "Check reconciliation"}
       </button>
@@ -83,7 +83,7 @@ export function HistoricalReconciliationPanel({ ar }: { ar: boolean }) {
             type="button"
             onClick={run}
             disabled={busy}
-            className="rounded bg-primary px-2 py-1 text-primary-foreground disabled:opacity-50"
+            className="rounded bg-primary px-2 py-1 text-primary-foreground disabled:opacity-60"
           >
             {ar ? "تأكيد معالجة التكرار" : "Confirm reconciliation"}
           </button>

@@ -32,11 +32,6 @@
   opacity: 0.9;
   background: var(--color-foreground);
 }
-.executive-command .executive-scorecard > div {
-  min-height: 168px;
-  padding: 1.25rem;
-  background: var(--color-surface);
-}
 .executive-command .executive-scorecard .num {
   overflow-wrap: anywhere;
 }
@@ -61,11 +56,4 @@
 .executive-command .executive-disclosure:not([open]) > div {
   display: none;
 }
-@media (max-width: 639px) {
-  .executive-command .executive-scorecard > div {
-    min-height: 140px;
-  }
-}
 
-.executive-command .executive-scorecard [data-tabular="true"] { font-size: clamp(1.375rem, 2vw, 1.75rem); line-height: 1.35; margin-block: .75rem; }
-.executive-command .executive-scorecard .text-xs { font-size: .875rem; }
