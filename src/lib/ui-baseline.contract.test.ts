@@ -146,7 +146,13 @@ describe("the interface mirrors for Arabic", () => {
   it("never pins a side with a physical class", () => {
     // ms/me/ps/pe and start-/end- flip with the language; ml/mr/pl/pr and
     // left-/right- do not. Tables used to align half their headers each way.
-    const offenders = SRC.flatMap(([p, s]) =>
+    //
+    // The vendored primitives in components/ui are excluded on purpose: they
+    // position overlays physically and pair it with physical transforms and
+    // slide animations. Converting `left-[50%] translate-x-[-50%]` to
+    // `start-[50%]` put every dialog off-screen on an Arabic phone, which the
+    // readiness suite caught before merge.
+    const offenders = SRC.filter(([p]) => !p.startsWith("src/components/ui/")).flatMap(([p, s]) =>
       [...s.matchAll(/className=(?:"[^"]*"|\{`[^`]*`\})/g)]
         .filter((m) => !/\b(rtl|ltr):/.test(m[0]))
         .flatMap((m) => [
@@ -200,5 +206,24 @@ describe("the project board is operable without a mouse", () => {
     const kanban = read("src/components/phc/ProjectKanban.tsx");
     expect(kanban).toContain("useSensor(KeyboardSensor");
     expect(kanban).toContain("coordinateGetter: sortableKeyboardCoordinates");
+  });
+});
+
+describe("centred overlays stay centred in Arabic", () => {
+  it("never centres with a logical inset and a physical translate", () => {
+    // `start-[50%]` is `right: 50%` in RTL; with `translate-x-[-50%]` the box
+    // is pushed left by half its width from there — off the screen on a phone.
+    const offenders = SRC.flatMap(([p, s]) =>
+      [...s.matchAll(/["`][^"`]*["`]/g)]
+        .filter((m) => /(?:^|\s)(?:start|end)-(?:\[50%\]|1\/2)(?:\s|["`])/.test(m[0]) && /translate-x/.test(m[0]))
+        .map(() => p),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("the dialog is centred with physical insets", () => {
+    const dialog = read("src/components/ui/dialog.tsx");
+    expect(dialog).toContain("left-[50%]");
+    expect(dialog).toContain("translate-x-[-50%]");
   });
 });
