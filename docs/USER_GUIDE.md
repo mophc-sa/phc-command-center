@@ -324,6 +324,24 @@ Open the opportunity and use **Edit** on the **Submission** panel. You can chang
 The RFQ number, the company and the contact are not editable here. Those identify the
 record; changing them would make it a different record.
 
+### Interface pass (2026-09-20)
+
+Nothing moved and no screen changed what it does, but three things read
+differently:
+
+- **Lists share one density.** Every table in the system now uses the same row
+  height and type size, so a list you learn on one page reads the same on the
+  next. Wide tables scroll inside their own box instead of pushing the page.
+- **Faint text is gone.** Labels, hints and disabled buttons were being drawn
+  too pale to read against a bright screen; they are now at full strength.
+- **Arabic mirrors properly.** Table headers, spacing and icons that used to
+  stay pinned to the left now flip with the language.
+
+Also: the project board can be operated from the keyboard (space to pick a job
+up, arrows to move it, space to drop it), and dates and numbers in the daily
+assistant, AI panels and reports now use Western digits in Arabic, like the rest
+of the system.
+
 ### Your Project Code carries your code
 
 Codes look like **`FA-26-0001`** — your code, the year, the sequence. The code comes from
@@ -1178,3 +1196,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-09-13 · Outlook calendar subscription link · previous: send email from the system, same day -->
 
 <!-- last reviewed 2026-09-14 · Project Code follows the entering rep and carries to the RFQ · previous: Outlook calendar link, 2026-09-13 -->
+
+<!-- last reviewed 2026-09-20 · interface audit: one table density, legible text, Arabic mirroring · previous: Project Code, 2026-09-14 -->

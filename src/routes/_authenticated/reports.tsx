@@ -164,7 +164,7 @@ function ReportsPage() {
     background: "var(--color-surface)",
     border: "1px solid var(--color-border)",
     borderRadius: 8,
-    fontSize: 11,
+    fontSize: 12,
     color: "var(--color-foreground)",
   } as const;
 
@@ -228,8 +228,8 @@ function ReportsPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={stageRows} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
                       <CartesianGrid stroke={CHART.grid} strokeDasharray="2 4" vertical={false} />
-                      <XAxis dataKey="label" tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} />
-                      <YAxis tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} width={72} tickFormatter={(value: number) => new Intl.NumberFormat(localeFor(lang), { notation: "compact", maximumFractionDigits: 1 }).format(value)} />
+                      <XAxis dataKey="label" tick={{ fill: CHART.muted, fontSize: 12 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fill: CHART.muted, fontSize: 12 }} tickLine={false} axisLine={false} width={72} tickFormatter={(value: number) => new Intl.NumberFormat(localeFor(lang), { notation: "compact", maximumFractionDigits: 1 }).format(value)} />
                       <Tooltip
                         contentStyle={tooltipStyle}
                         cursor={{ fill: "var(--color-muted)" }}
@@ -267,8 +267,8 @@ function ReportsPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={quoteRows} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
                       <CartesianGrid stroke={CHART.grid} strokeDasharray="2 4" vertical={false} />
-                      <XAxis dataKey="label" tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} />
-                      <YAxis tick={{ fill: CHART.muted, fontSize: 10 }} tickLine={false} axisLine={false} width={36} />
+                      <XAxis dataKey="label" tick={{ fill: CHART.muted, fontSize: 12 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fill: CHART.muted, fontSize: 12 }} tickLine={false} axisLine={false} width={36} />
                       <Tooltip
                         contentStyle={tooltipStyle}
                         cursor={{ fill: "var(--color-muted)" }}

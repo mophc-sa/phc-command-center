@@ -24,6 +24,13 @@
 // aggregate payload, no rows) is recorded in docs/AI_HANDOFF.md and is not
 // built yet. Until it is, treat the screen as trusted-room-only.
 //
+// TYPE SIZE IS TIED TO THE SCREEN, WITH A FLOOR
+// This is a wall display, so the type scales with the viewport rather than with
+// the app's rem scale -- a 55" screen and a 24" one should both fill. What it
+// must not do is keep shrinking: below about 1100px the bare vw sizes fell
+// under 10px, which is unreadable at any distance. Every size is clamped
+// between what it would be on a 1280px window and on a 2560px one.
+//
 // EVERYTHING ON ONE PAGE
 // An earlier draft rotated three screens, on the reasoning that a reader takes
 // in four to six figures at three to five metres. The brief is one page, so
@@ -323,16 +330,16 @@ function Hero({
       />
       <div
         className={`num font-bold leading-none tracking-[-0.02em] ${TONE[tone].text}`}
-        style={{ fontSize: "3.9vw" }}
+        style={{ fontSize: "clamp(40px, 3.9vw, 100px)" }}
         data-tabular="true"
       >
         {value ?? "—"}
       </div>
-      <div className="mt-[0.9vh] font-semibold text-foreground" style={{ fontSize: "1.02vw" }}>
+      <div className="mt-[0.9vh] font-semibold text-foreground" style={{ fontSize: "clamp(12px, 1.02vw, 26px)" }}>
         {en}
       </div>
       {sub ? (
-        <div className="mt-[0.4vh] text-muted-foreground" style={{ fontSize: "0.72vw" }}>
+        <div className="mt-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.72vw, 18px)" }}>
           {sub}
         </div>
       ) : null}
@@ -367,16 +374,16 @@ function Tile({
       />
       <div
         className={`num font-bold leading-none tracking-[-0.02em] ${TONE[tone].text}`}
-        style={{ fontSize: "2.6vw" }}
+        style={{ fontSize: "clamp(27px, 2.6vw, 67px)" }}
         data-tabular="true"
       >
         {value ?? "—"}
       </div>
-      <div className="mt-[0.6vh] font-semibold text-foreground" style={{ fontSize: "0.86vw" }}>
+      <div className="mt-[0.6vh] font-semibold text-foreground" style={{ fontSize: "clamp(12px, 0.86vw, 22px)" }}>
         {en}
       </div>
       {sub ? (
-        <div className="text-muted-foreground" style={{ fontSize: "0.66vw" }}>
+        <div className="text-muted-foreground" style={{ fontSize: "clamp(12px, 0.66vw, 17px)" }}>
           {sub}
         </div>
       ) : null}
@@ -409,7 +416,7 @@ function Trend({
   return (
     <div className="flex h-full flex-col">
       <div className="mb-[0.6vh] flex items-baseline gap-[0.7vw]">
-        <span className="font-semibold text-foreground" style={{ fontSize: "0.92vw" }}>
+        <span className="font-semibold text-foreground" style={{ fontSize: "clamp(12px, 0.92vw, 24px)" }}>
           {lang === "ar" ? "المُرسّى — ستّة أشهر" : "Won — six months"}
         </span>
       </div>
@@ -419,7 +426,7 @@ function Trend({
           const last = i === points.length - 1;
           return (
             <div key={p.key} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-[0.4vh]">
-              <span className="num text-center text-muted-foreground" style={{ fontSize: "0.72vw" }}>
+              <span className="num text-center text-muted-foreground" style={{ fontSize: "clamp(12px, 0.72vw, 18px)" }}>
                 {p.value > 0 ? compactValue(p.value, lang) : "—"}
               </span>
               <div
@@ -434,7 +441,7 @@ function Trend({
                   opacity: last ? 1 : 0.55,
                 }}
               />
-              <span className="text-center text-muted-foreground" style={{ fontSize: "0.66vw" }}>
+              <span className="text-center text-muted-foreground" style={{ fontSize: "clamp(12px, 0.66vw, 17px)" }}>
                 {(lang === "ar" ? MONTH_AR : MONTH_EN)[p.month]}
               </span>
             </div>
@@ -466,7 +473,7 @@ function YearBar({
     <div className="flex flex-col gap-[1vh]">
       <div className="flex items-baseline justify-between gap-[1vw]">
         <div className="flex items-baseline gap-[0.8vw]">
-          <span className="font-semibold text-foreground" style={{ fontSize: "1.05vw" }}>
+          <span className="font-semibold text-foreground" style={{ fontSize: "clamp(12px, 1.05vw, 27px)" }}>
             {lang === "ar" ? "الهدف السنوي" : "Annual target"}
           </span>
         </div>
@@ -477,7 +484,7 @@ function YearBar({
         <div className="flex items-baseline gap-[1.6vw]">
           <span
             className={`num font-bold leading-none tracking-[-0.02em] ${ahead ? "text-won-on-tint" : "text-amber-on-tint"}`}
-            style={{ fontSize: "2.4vw" }}
+            style={{ fontSize: "clamp(25px, 2.4vw, 61px)" }}
             data-tabular="true"
           >
             {p.ratio === null ? "—" : `${formatNumber(Math.round(p.ratio * 100), lang)}%`}
@@ -497,7 +504,7 @@ function YearBar({
           <span className="flex items-baseline gap-[0.5vw]" data-tabular="true">
             <span
               className="num font-bold leading-none tracking-[-0.02em] text-foreground"
-              style={{ fontSize: "2.1vw" }}
+              style={{ fontSize: "clamp(22px, 2.1vw, 54px)" }}
             >
               {compactValue(p.won, lang)}
             </span>
@@ -505,13 +512,13 @@ function YearBar({
               <>
                 <span
                   className="num leading-none text-muted-foreground"
-                  style={{ fontSize: "1.5vw", opacity: 0.6 }}
+                  style={{ fontSize: "clamp(15px, 1.5vw, 38px)", opacity: 0.6 }}
                 >
                   /
                 </span>
                 <span
                   className="num font-semibold leading-none text-muted-foreground"
-                  style={{ fontSize: "1.5vw" }}
+                  style={{ fontSize: "clamp(15px, 1.5vw, 38px)" }}
                 >
                   {compactValue(p.target, lang)}
                 </span>
@@ -541,7 +548,7 @@ function YearBar({
         />
       </div>
 
-      <div className="flex justify-between text-muted-foreground" style={{ fontSize: "0.72vw" }}>
+      <div className="flex justify-between text-muted-foreground" style={{ fontSize: "clamp(12px, 0.72vw, 18px)" }}>
         <span>
           {p.ratio === null
             ? lang === "ar"
@@ -606,7 +613,7 @@ function Ladder({
           >
             <span
               className="shrink-0 truncate text-foreground"
-              style={{ fontSize: "0.8vw", width: "8vw" }}
+              style={{ fontSize: "clamp(12px, 0.8vw, 20px)", width: "8vw" }}
             >
               {STAGE_LABEL[c.stage]?.[lang === "ar" ? 0 : 1] ?? c.stage}
             </span>
@@ -628,14 +635,14 @@ function Ladder({
 
             <span
               className="num shrink-0 text-end font-semibold text-foreground"
-              style={{ fontSize: "0.85vw", width: "3.2vw" }}
+              style={{ fontSize: "clamp(12px, 0.85vw, 22px)", width: "3.2vw" }}
               data-tabular="true"
             >
               {formatNumber(c.count, lang)}
             </span>
             <span
               className="num shrink-0 text-end text-muted-foreground"
-              style={{ fontSize: "0.8vw", width: "6vw" }}
+              style={{ fontSize: "clamp(12px, 0.8vw, 20px)", width: "6vw" }}
               data-tabular="true"
             >
               {c.value > 0 ? compactValue(c.value, lang) : "—"}
@@ -686,7 +693,7 @@ function FigureValue({
         {head}
       </span>
       {(lang === "ar" ? f.reasonAr : f.reasonEn) ? (
-        <span className="text-muted-foreground" style={{ fontSize: "0.72vw" }}>
+        <span className="text-muted-foreground" style={{ fontSize: "clamp(12px, 0.72vw, 18px)" }}>
           {lang === "ar" ? f.reasonAr : f.reasonEn}
         </span>
       ) : null}
@@ -719,7 +726,7 @@ function HeroFigure({
         style={{ width: "0.22vw", background: TONE[f.state === "ok" ? "money" : "ink"].edge }}
       />
       <FigureValue f={f} lang={lang} format={(n) => money(n)} size="3.9vw" />
-      <div className="mt-[0.9vh] font-semibold text-foreground" style={{ fontSize: "1.02vw" }}>
+      <div className="mt-[0.9vh] font-semibold text-foreground" style={{ fontSize: "clamp(12px, 1.02vw, 26px)" }}>
         {lang === "ar" ? ar : en}
       </div>
     </div>
@@ -871,21 +878,21 @@ function BoardPage() {
           />
           <span className="h-[3.4vh] w-px bg-border" aria-hidden="true" />
           <div className="flex flex-col">
-            <span className="font-semibold leading-none text-foreground" style={{ fontSize: "1.5vw" }}>
+            <span className="font-semibold leading-none text-foreground" style={{ fontSize: "clamp(15px, 1.5vw, 38px)" }}>
               {lang === "ar" ? "مركز قيادة المبيعات" : "Sales Command Centre"}
             </span>
-            <span className="mt-[0.45vh] text-muted-foreground" style={{ fontSize: "0.75vw" }}>
+            <span className="mt-[0.45vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.75vw, 19px)" }}>
               {lang === "ar" ? "وضوحٌ يُصنَع ويُركَّب." : "Clarity, built into place."}
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-[1.3vw] text-muted-foreground" style={{ fontSize: "0.85vw" }}>
+        <div className="flex items-center gap-[1.3vw] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.85vw, 22px)" }}>
           <Dot f={fresh} lang={lang} />
           <span data-testid="board-last-updated">{dataUpdatedAt ? `Updated ${fmtTime(new Date(dataUpdatedAt))} · every 60s` : "Waiting for data"}</span>
           <span className="h-[2.4vh] w-px bg-border" aria-hidden="true" />
           <span className="num">{fmtDate(nowDate)}</span>
           <span className="h-[2.4vh] w-px bg-border" aria-hidden="true" />
-          <span className="num font-semibold text-foreground" style={{ fontSize: "1.05vw" }}>{fmtTime(nowDate)}</span>
+          <span className="num font-semibold text-foreground" style={{ fontSize: "clamp(12px, 1.05vw, 27px)" }}>{fmtTime(nowDate)}</span>
         </div>
       </header>
 
@@ -894,7 +901,7 @@ function BoardPage() {
           className={`shrink-0 px-[1.5vw] py-[0.6vh] text-center font-semibold ${
             fresh === "stale" ? "bg-destructive/12 text-destructive-on-tint" : "bg-amber/12 text-amber-on-tint"
           }`}
-          style={{ fontSize: "0.85vw" }}
+          style={{ fontSize: "clamp(12px, 0.85vw, 22px)" }}
         >
           {fresh === "stale"
             ? lang === "ar" ? "الاتصال منقطع — الأرقام أدناه قديمة ولا يُبنى عليها قرار" : "Update unavailable — showing the last complete data"
@@ -903,7 +910,7 @@ function BoardPage() {
       ) : null}
 
       {!model ? (
-        <div className="grid flex-1 place-items-center text-muted-foreground" style={{ fontSize: "1.2vw" }}>
+        <div className="grid flex-1 place-items-center text-muted-foreground" style={{ fontSize: "clamp(12px, 1.2vw, 31px)" }}>
           {isError ? (lang === "ar" ? "تعذّر تحميل البيانات — ستتم إعادة المحاولة تلقائيًا" : "Data unavailable — retrying automatically") : (lang === "ar" ? "يُحمّل…" : "Loading…")}
         </div>
       ) : (
@@ -1022,17 +1029,17 @@ function BoardPage() {
             <Panel band title={lang === "ar" ? "اليوم / الأيام السبعة القادمة" : "Today / next seven days"} icon={CalendarDays} tone="info" lang={lang}>
               {model.upcoming === null ? (
                 <div className="flex flex-1 flex-col justify-center gap-[0.4vh]">
-                  <span className="font-semibold text-amber-on-tint" style={{ fontSize: "1.15vw" }}>
+                  <span className="font-semibold text-amber-on-tint" style={{ fontSize: "clamp(12px, 1.15vw, 29px)" }}>
                     {lang === "ar" ? "لا شيء مجدوَل بعد اليوم" : "Nothing scheduled ahead"}
                   </span>
-                  <span className="text-muted-foreground" style={{ fontSize: "0.92vw" }}>
+                  <span className="text-muted-foreground" style={{ fontSize: "clamp(12px, 0.92vw, 24px)" }}>
                     {lang === "ar"
                       ? "كل المتابعات متأخّرة — الأجندة فارغة لا خالية"
                       : "Every follow-up is overdue — the calendar is empty, not clear"}
                   </span>
                 </div>
               ) : (
-                <div className="flex flex-1 flex-col justify-center gap-[0.25vh]" style={{ fontSize: "1.02vw" }}>
+                <div className="flex flex-1 flex-col justify-center gap-[0.25vh]" style={{ fontSize: "clamp(12px, 1.02vw, 26px)" }}>
                   {([
                     [lang === "ar" ? "اليوم" : "Today", model.upcoming.todayCount],
                     [lang === "ar" ? "غدًا" : "Tomorrow", model.upcoming.tomorrowCount],
@@ -1059,7 +1066,7 @@ function BoardPage() {
                   height and pushed the total 12px past the card edge. Flexed
                   rows share whatever the panel has. */}
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.8vw" }}>
+                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.8vw, 20px)" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "المشروع" : "Project"}</span>
                   <span className="shrink-0 text-end" style={{ width: "5.6vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
                   <span className="shrink-0 text-end" style={{ width: "5.2vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span>
@@ -1075,7 +1082,7 @@ function BoardPage() {
                       // The count is even, so the stripe pattern survives the
                       // seam where the marquee's second copy begins.
                       className={`flex min-h-0 flex-1 items-center gap-[0.5vw] px-[0.3vw] ${i % 2 === 1 ? "bg-muted" : ""}`}
-                      style={{ fontSize: "1.15vw" }}
+                      style={{ fontSize: "clamp(12px, 1.15vw, 29px)" }}
                     >
                       {/* The rank badge is gone. It cost 1.6vw of a column that
                           was already cramming project names against their
@@ -1097,7 +1104,7 @@ function BoardPage() {
                   ))}
                 </AutoScroll>
 
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "1.15vw" }}>
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "clamp(12px, 1.15vw, 29px)" }}>
                   <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-20 total"}</span>
                   <span className="num font-bold text-amber-on-tint" data-tabular="true">
                     {money(model.hot.reduce((a, h) => a + (h.value ?? 0), 0))}
@@ -1113,7 +1120,7 @@ function BoardPage() {
                   falls off the bottom is a stage nobody knows exists. Flexing
                   the rows makes the fit hold for any number of stages. */}
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.76vw" }}>
+                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.76vw, 19px)" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "المرحلة" : "Stage"}</span>
                   <span className="shrink-0 text-end" style={{ width: "2.6vw" }}>{lang === "ar" ? "العدد" : "Deals"}</span>
                   <span className="shrink-0 text-end" style={{ width: "5vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
@@ -1129,13 +1136,13 @@ function BoardPage() {
                       // must not compete with the stages holding the money.
                       style={{ opacity: c.count === 0 ? 0.5 : 1 }}
                     >
-                      <span className="min-w-0 flex-1 truncate text-foreground" style={{ fontSize: "0.88vw" }}>
+                      <span className="min-w-0 flex-1 truncate text-foreground" style={{ fontSize: "clamp(12px, 0.88vw, 23px)" }}>
                         {STAGE_LABEL[c.stage]?.[lang === "ar" ? 0 : 1] ?? c.stage}
                       </span>
-                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ fontSize: "0.9vw", width: "2.6vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ fontSize: "clamp(12px, 0.9vw, 23px)", width: "2.6vw" }} data-tabular="true">
                         {formatNumber(c.count, lang)}
                       </span>
-                      <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.88vw", width: "5vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "clamp(12px, 0.88vw, 23px)", width: "5vw" }} data-tabular="true">
                         {c.value > 0 ? compactValue(c.value, lang) : "—"}
                       </span>
                       <span className="flex shrink-0 items-center gap-[0.35vw]" style={{ width: "7.4vw" }}>
@@ -1150,7 +1157,7 @@ function BoardPage() {
                             <span className="absolute inset-y-0 start-0" style={{ width: "0.35vw", background: c.stage === "on_hold" ? "var(--muted-foreground)" : `var(--stage-${i + 1})`, opacity: 0.55 }} />
                           ) : null}
                         </span>
-                        <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "0.78vw", width: "2vw" }} data-tabular="true">
+                        <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "clamp(12px, 0.78vw, 20px)", width: "2vw" }} data-tabular="true">
                           {Math.round(c.share * 100)}%
                         </span>
                       </span>
@@ -1158,7 +1165,7 @@ function BoardPage() {
                   ))}
                 </div>
 
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.9vw" }}>
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "clamp(12px, 0.9vw, 23px)" }}>
                   <span className="font-semibold text-foreground">{lang === "ar" ? "الإجمالي" : "Total"}</span>
                   <span className="num font-bold text-foreground" data-tabular="true">
                     {formatNumber(model.standing.openCount, lang)} · {money(model.standing.openTotal)}
@@ -1174,7 +1181,7 @@ function BoardPage() {
                   the one thing a marquee cannot wrap: it would have to sit in
                   a <div>, and that is not valid inside a table. */}
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] px-[0.3vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "0.76vw" }}>
+                <div className="flex shrink-0 items-center gap-[0.5vw] px-[0.3vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.76vw, 19px)" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "العضو" : "Member"}</span>
                   <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "محقّق الشهر" : "Won MTD"}</span>
                   <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "المسار" : "Pipeline"}</span>
@@ -1193,7 +1200,7 @@ function BoardPage() {
                       <div
                         key={p.ownerId}
                         className={`flex min-h-0 flex-1 items-center gap-[0.5vw] px-[0.3vw] ${idx % 2 === 1 ? "bg-muted" : ""}`}
-                        style={{ fontSize: "0.88vw" }}
+                        style={{ fontSize: "clamp(12px, 0.88vw, 23px)" }}
                       >
                         <span className="min-w-0 flex-1 truncate text-foreground">{p.label}</span>
                         <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "4vw" }} data-tabular="true">
@@ -1214,7 +1221,7 @@ function BoardPage() {
                   })}
                 </AutoScroll>
 
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "0.9vw" }}>
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "clamp(12px, 0.9vw, 23px)" }}>
                   <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الإجمالي" : "Total"}</span>
                   <span className="num font-bold text-teal-on-tint" data-tabular="true">
                     {money(model.team.reduce((a, p) => a + p.won, 0))} · {money(model.team.reduce((a, p) => a + p.open, 0))}
@@ -1231,7 +1238,7 @@ function BoardPage() {
                 kicker={lang === "ar" ? "آخر 24 ساعة" : "Last 24 hours"}
                 cols={5}
                 footer={
-                  <span className="text-muted-foreground" style={{ fontSize: "0.62vw" }}>
+                  <span className="text-muted-foreground" style={{ fontSize: "clamp(12px, 0.62vw, 16px)" }}>
                     {lang === "ar" ? "الصفوف المستورَدة مستبعَدة من «جديدة»" : "Imported rows excluded from new"}
                   </span>
                 }
@@ -1281,13 +1288,13 @@ function BoardPage() {
           the text length, so it stays readable rather than racing. */}
       <footer className="flex shrink-0 items-center gap-[1vw] px-[1.2vw] py-[1.1vh]" style={{ background: "var(--ink, #13161b)" }}>
         <span className="shrink-0 rounded-[0.3vw] px-[0.8vw] py-[0.35vh] font-bold text-white"
-              style={{ fontSize: "1.15vw", background: "var(--destructive)" }}>
+              style={{ fontSize: "clamp(12px, 1.15vw, 29px)", background: "var(--destructive)" }}>
           {lang === "ar" ? "أخبار المبيعات" : "Sales wire"}
         </span>
         {/* Built from the same figures above -- a wire inventing its own items
             would be a second source of truth nobody could reconcile. */}
         <Wire lang={lang} items={model ? wireItems(model, lang, (n) => money(n) ?? "") : [lang === "ar" ? "جارٍ التحميل" : "Loading"]} />
-        <span className="num shrink-0 text-white/70" style={{ fontSize: "1.15vw" }}>{fmtTime(nowDate)}</span>
+        <span className="num shrink-0 text-white/70" style={{ fontSize: "clamp(12px, 1.15vw, 29px)" }}>{fmtTime(nowDate)}</span>
       </footer>
     </div>
   );
@@ -1326,7 +1333,7 @@ function Wire({ items, lang }: { items: string[]; lang: "ar" | "en" }) {
         key={text}
         className="wire-track flex w-max whitespace-nowrap text-white/85"
         style={{
-          fontSize: "1.35vw",
+          fontSize: "clamp(14px, 1.35vw, 35px)",
           animation: `${lang === "ar" ? "wire-rtl" : "wire-ltr"} ${seconds}s linear infinite`,
         }}
       >
@@ -1396,7 +1403,7 @@ function ChipRow({
     <div className="flex min-h-0 flex-1 flex-col">
       <span
         className="flex shrink-0 items-center font-semibold text-muted-foreground"
-        style={{ height: CHIP_KICKER_H, fontSize: "0.6vw" }}
+        style={{ height: CHIP_KICKER_H, fontSize: "clamp(12px, 0.6vw, 15px)" }}
       >
         {kicker}
       </span>
@@ -1572,17 +1579,17 @@ function Pulse({
 
   return (
     <div className="flex min-h-0 flex-1 items-start gap-[0.7vw] overflow-hidden">
-      <span aria-hidden="true" className="shrink-0 leading-none text-violet" style={{ fontSize: "1.6vw" }}>
+      <span aria-hidden="true" className="shrink-0 leading-none text-violet" style={{ fontSize: "clamp(16px, 1.6vw, 41px)" }}>
         &ldquo;
       </span>
       {/* A briefing, not an inventory: the chips beside this panel already carry
           the counts, and a paragraph can say what they mean together. Composed
           from measured figures -- see pulseSentences for the clauses it will
           not write. */}
-      <p className="min-w-0 flex-1 self-center text-foreground" style={{ fontSize: "0.86vw", lineHeight: 1.75 }}>
+      <p className="min-w-0 flex-1 self-center text-foreground" style={{ fontSize: "clamp(12px, 0.86vw, 22px)", lineHeight: 1.75 }}>
         {lines.join(" ")}
       </p>
-      <span aria-hidden="true" className="shrink-0 self-end leading-none text-violet" style={{ fontSize: "1.6vw" }}>
+      <span aria-hidden="true" className="shrink-0 self-end leading-none text-violet" style={{ fontSize: "clamp(16px, 1.6vw, 41px)" }}>
         &rdquo;
       </span>
     </div>
@@ -1677,8 +1684,8 @@ function Horizons({
       footer={
         shared ? (
           <span className="flex items-start gap-[0.35vw]">
-            <span aria-hidden="true" style={{ fontSize: "0.62vw" }}>ⓘ</span>
-            <span className="min-w-0 text-muted-foreground" style={{ fontSize: "0.62vw" }}>{shared}</span>
+            <span aria-hidden="true" style={{ fontSize: "clamp(12px, 0.62vw, 16px)" }}>ⓘ</span>
+            <span className="min-w-0 text-muted-foreground" style={{ fontSize: "clamp(12px, 0.62vw, 16px)" }}>{shared}</span>
           </span>
         ) : (
           // Only when the horizons fail for DIFFERENT reasons -- then one line
@@ -1687,7 +1694,7 @@ function Horizons({
             {cols
               .filter((c) => c.f.state !== "ok" && (lang === "ar" ? c.f.reasonAr : c.f.reasonEn))
               .map((c) => (
-                <span key={c.key} className="truncate text-muted-foreground" style={{ fontSize: "0.6vw" }}>
+                <span key={c.key} className="truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.6vw, 15px)" }}>
                   <span className={TONE[c.tone].text}>{lang === "ar" ? c.ar : c.en}</span>
                   {" · "}
                   {lang === "ar" ? c.f.reasonAr : c.f.reasonEn}
@@ -1710,24 +1717,24 @@ function Horizons({
           // one row on the board that is read as a series -- 30 to 60 to 90 --
           // and three bordered boxes read as three separate facts.
           <div key={c.key} className="flex min-w-0 flex-col items-center justify-center overflow-hidden text-center">
-            <span className={`font-semibold ${TONE[c.tone].text}`} style={{ fontSize: "0.7vw" }}>
+            <span className={`font-semibold ${TONE[c.tone].text}`} style={{ fontSize: "clamp(12px, 0.7vw, 18px)" }}>
               {lang === "ar" ? c.ar : c.en}
             </span>
             {ok ? (
               <span
                 className={`num mt-[0.3vh] w-full truncate font-bold leading-none tracking-[-0.02em] ${TONE[c.tone].text}`}
-                style={{ fontSize: "1.9vw" }}
+                style={{ fontSize: "clamp(19px, 1.9vw, 49px)" }}
                 data-tabular="true"
               >
                 {money(c.f.value)}
               </span>
             ) : (
               // An em dash, not a zero. Nothing was measured here.
-              <span className="num mt-[0.3vh] font-bold leading-none text-muted-foreground" style={{ fontSize: "1.9vw" }}>
+              <span className="num mt-[0.3vh] font-bold leading-none text-muted-foreground" style={{ fontSize: "clamp(19px, 1.9vw, 49px)" }}>
                 —
               </span>
             )}
-            <span className="mt-[0.2vh] w-full truncate text-muted-foreground" style={{ fontSize: "0.6vw" }}>
+            <span className="mt-[0.2vh] w-full truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.6vw, 15px)" }}>
               {ok ? (c.f.missing ? (lang === "ar" ? `جزئي · ${c.f.missing} غير محسوبة` : `Partial · ${c.f.missing} omitted`) : c.caption) : state}
             </span>
           </div>
@@ -1756,7 +1763,7 @@ function Kpi({
   return (
     <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
-        <span className="min-w-0 truncate font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
+        <span className="min-w-0 truncate font-semibold text-foreground" style={{ fontSize: "clamp(12px, 0.88vw, 23px)" }}>
           {lang === "ar" ? ar : en}
         </span>
         <Icon
@@ -1775,12 +1782,12 @@ function Kpi({
         <div className="flex min-w-0 flex-col items-center">
           <span
             className={`num font-bold leading-none tracking-[-0.02em] ${TONE[tone].text}`}
-            style={{ fontSize: "2.75vw" }}
+            style={{ fontSize: "clamp(28px, 2.75vw, 70px)" }}
           >
             {value ?? "\u2014"}
           </span>
           {unit ? (
-            <span className="mt-[0.7vh] w-full truncate text-center text-muted-foreground" style={{ fontSize: "0.78vw" }}>
+            <span className="mt-[0.7vh] w-full truncate text-center text-muted-foreground" style={{ fontSize: "clamp(12px, 0.78vw, 20px)" }}>
               {unit}
             </span>
           ) : null}
@@ -1793,7 +1800,7 @@ function Kpi({
         {gauge !== undefined && gauge !== null ? <Gauge value={gauge} tone={tone} /> : null}
       </div>
 
-      <span className="mt-[0.7vh] text-center text-muted-foreground" style={{ fontSize: "0.72vw" }}>
+      <span className="mt-[0.7vh] text-center text-muted-foreground" style={{ fontSize: "clamp(12px, 0.72vw, 18px)" }}>
         {foot ?? en}
       </span>
     </div>
@@ -1846,7 +1853,7 @@ function KpiFigure({
   return (
     <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
-        <span className="font-semibold text-foreground" style={{ fontSize: "0.88vw" }}>
+        <span className="font-semibold text-foreground" style={{ fontSize: "clamp(12px, 0.88vw, 23px)" }}>
           {lang === "ar" ? ar : en}
         </span>
         <Icon
@@ -1858,13 +1865,13 @@ function KpiFigure({
       </div>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <FigureValue f={f} lang={lang} format={(n) => money(n)} size="3.2vw" />
-        {f.state === "ok" && !!f.missing ? <span className="mt-[0.4vh] text-muted-foreground" style={{ fontSize: "0.65vw" }}>{lang === "ar" ? `جزئي · ${f.missing} فرصة بلا مدخلات كافية` : `Partial · ${f.missing} deals missing inputs`}</span> : null}
+        {f.state === "ok" && !!f.missing ? <span className="mt-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.65vw, 17px)" }}>{lang === "ar" ? `جزئي · ${f.missing} فرصة بلا مدخلات كافية` : `Partial · ${f.missing} deals missing inputs`}</span> : null}
       </div>
       {/* The other four cards carry a line saying what the number means next
           to. This one used to carry its own English title instead, which is
           the bilingual pair the board no longer prints. */}
       {foot ? (
-        <span className={`text-center ${TONE[tone].text}`} style={{ fontSize: "0.68vw" }}>{foot}</span>
+        <span className={`text-center ${TONE[tone].text}`} style={{ fontSize: "clamp(12px, 0.68vw, 17px)" }}>{foot}</span>
       ) : null}
     </div>
   );
@@ -1895,12 +1902,12 @@ function Panel({
             style={{ color: TONE[tone].edge }}
             aria-hidden="true"
           />
-          <span className={`font-semibold ${TONE[tone].text}`} style={{ fontSize: "0.92vw" }}>
+          <span className={`font-semibold ${TONE[tone].text}`} style={{ fontSize: "clamp(12px, 0.92vw, 24px)" }}>
             {title}
           </span>
         </span>
         {note ? (
-          <span className="text-muted-foreground" style={{ fontSize: "0.66vw" }}>{note}</span>
+          <span className="text-muted-foreground" style={{ fontSize: "clamp(12px, 0.66vw, 17px)" }}>{note}</span>
         ) : null}
       </div>
       {children}
@@ -1940,15 +1947,15 @@ function Need({
       />
       <span
         className={`num shrink-0 text-end font-bold leading-none ${n === null ? "text-muted-foreground" : TONE[tone].text}`}
-        style={{ fontSize: "2.5vw", minWidth: "2.4vw" }}
+        style={{ fontSize: "clamp(26px, 2.5vw, 64px)", minWidth: "2.4vw" }}
       >
         {n === null ? "\u2014" : formatNumber(n, lang)}
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="truncate font-semibold text-foreground" style={{ fontSize: "0.8vw" }}>
+        <span className="truncate font-semibold text-foreground" style={{ fontSize: "clamp(12px, 0.8vw, 20px)" }}>
           {lang === "ar" ? ar : en}
         </span>
-        <span className="truncate text-muted-foreground" style={{ fontSize: "0.65vw" }}>
+        <span className="truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.65vw, 17px)" }}>
           {sub}
         </span>
       </span>

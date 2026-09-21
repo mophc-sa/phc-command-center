@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
+import { useI18n } from "@/lib/i18n";
 
 export function MetricTile({
   label,
@@ -18,17 +19,21 @@ export function MetricTile({
   actionLabel?: string;
   tone?: "neutral" | "attention";
 }) {
+  const { lang } = useI18n();
   return (
     <div
       className={cn(
         "flex min-h-[136px] flex-col justify-between rounded-lg border bg-surface p-5",
-        tone === "attention" ? "border-amber/40" : "border-border",
+        tone === "attention" ? "border-amber" : "border-border",
       )}
     >
       <div className="flex items-start justify-between gap-4">
         <span className="text-xs tracking-[0.02em] text-muted-foreground">{label}</span>
         {tone === "attention" ? (
-          <span className="h-1.5 w-1.5 rounded-full bg-amber" aria-hidden />
+          <>
+            <span className="h-1.5 w-1.5 rounded-full bg-amber" aria-hidden />
+            <span className="sr-only">{lang === "ar" ? "يحتاج انتباهًا" : "Needs attention"}</span>
+          </>
         ) : null}
       </div>
       <div className="mt-4">

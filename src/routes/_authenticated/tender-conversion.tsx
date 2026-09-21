@@ -114,7 +114,7 @@ function TenderConversionReview() {
                       <div className="mt-1.5 text-md font-medium text-foreground">—</div>
                     )}
                   </div>
-                  <div className="text-right">
+                  <div className="text-end">
                     <div className="text-2xs tracking-[0.02em] text-muted-foreground">{t("crm_total_value")}</div>
                     <div className="text-lg font-semibold text-foreground num" data-tabular="true">
                       {formatCurrency(tender?.estimated_project_value, lang, "SAR")}

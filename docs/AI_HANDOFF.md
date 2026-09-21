@@ -1,5 +1,39 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-21 — Interface audit: three phases, merging in order (PRs 315–317)
+
+The user asked about adopting IBM Carbon; declined (clashes with Tailwind/Radix,
+rewrites 110 components, weaker Arabic support). Instead a four-axis audit
+(spacing, colour/contrast, accessibility, typography/RTL) and three fix phases.
+Presentation only; no business logic, no migrations.
+
+- **PR 315 (merged, `7372cc6`)** — 71 faded text tokens to full strength,
+  disabled opacity 50→60 (3.45→4.76:1), 5 bare-`lang` date/number formatters →
+  `localeFor`, 19 unnamed filters labelled, `aria-pressed` on pill groups, overdue
+  is red everywhere, `KpiTile size="lead"` replaces a page CSS that redefined
+  `.text-xs`.
+- **PR 316 (rebased onto main, auto-merging on green)** — `ui/table.tsx` (had zero
+  importers) now owns density/direction/scope/caption; all 17 hand-rolled tables
+  migrated; `KpiRow` replaces 26 KPI grids; focus rings on 8 inputs; `/quotations`
+  gets a PageHeader.
+- **PR 317 (next)** — logical direction classes (~120), keyboard drag-and-drop on
+  ProjectKanban, clamped wall-board type, 12px text floor, sr-only text for
+  colour-only dots. **Regression caught by isolated readiness and fixed before
+  merge:** the codemod turned the shadcn dialog's `left-[50%] translate-x-[-50%]`
+  into `start-[50%]`, which in RTL put dialogs off-screen on phones. Vendored
+  `components/ui` positioning is now excluded from the direction rule and a test
+  pins physical centring.
+
+Guard: `src/lib/ui-baseline.contract.test.ts` (18 rules). Merge order matters:
+branches were stacked, so each is rebased with `git rebase --onto origin/main
+<previous phase commit>` after the previous squash-merge.
+
+Next: merge 317, then a frontend release (canary → readiness → production, needs
+the user's Preview URLs and approvals). Still open: Postmark approval and the
+reply-capture test (last blocker was the inbound domain, fixed 2026-09-16 —
+Postmark now answers `250 Ok`; the re-test reply was not yet seen), SPF in
+Cloudflare, Dependabot PR 310, dead `StageTable` in my-workspace.
+
 ## 2026-09-15 — Project Code follows the entering rep (PR 314): released
 
 Production serves `421697f6fe973af2d9f81302d1818ac9dcb87989`, Worker version

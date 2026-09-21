@@ -391,7 +391,7 @@ function BatchDetailPage() {
               disabled={!!busy}
               className="border-won/40 bg-won/10 text-won hover:bg-won/20 border"
             >
-              <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+              <Sparkles className="h-3.5 w-3.5 me-1.5" />
               Run AI Pipeline
             </Button>
           )}
@@ -430,9 +430,9 @@ function BatchDetailPage() {
               }}
             >
               {extractorRunning ? (
-                <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Extracting…</>
+                <><Loader2 className="me-2 h-3 w-3 animate-spin" />Extracting…</>
               ) : (
-                <><Sparkles className="mr-2 h-3 w-3" />Extract Entities</>
+                <><Sparkles className="me-2 h-3 w-3" />Extract Entities</>
               )}
             </Button>
             <span className="text-xs text-muted-foreground">Find rows containing multiple entities (e.g. company + contact)</span>
@@ -523,9 +523,9 @@ function BatchDetailPage() {
               }}
             >
               {resolverRunning ? (
-                <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Resolving…</>
+                <><Loader2 className="me-2 h-3 w-3 animate-spin" />Resolving…</>
               ) : (
-                <><Sparkles className="mr-2 h-3 w-3" />Resolve Relationships</>
+                <><Sparkles className="me-2 h-3 w-3" />Resolve Relationships</>
               )}
             </Button>
             {acceptedSplits.length === 0 && (
@@ -546,13 +546,13 @@ function BatchDetailPage() {
                     <span className="font-mono">{link.from_entity_ref.slice(0, 8)}…</span>
                     {" "}→ <span className="text-primary">{link.relationship_type}</span> →{" "}
                     <span className="font-mono">{link.to_entity_ref.slice(0, 8)}…</span>
-                    <span className="ml-1 opacity-60">({Math.round(link.confidence * 100)}%)</span>
+                    <span className="ms-1 opacity-60">({Math.round(link.confidence * 100)}%)</span>
                     {!isAccepted && !isDismissed && (
                       <>
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-5 px-1.5 text-2xs text-won ml-auto"
+                          className="h-5 px-1.5 text-2xs text-won ms-auto"
                           onClick={async () => {
                             try {
                               const result = await acceptResolvedLink({
@@ -584,7 +584,7 @@ function BatchDetailPage() {
                     )}
                     {isAccepted && (
                       <span className={cn(
-                        "ml-auto px-1.5 py-0.5 rounded text-2xs font-medium",
+                        "ms-auto px-1.5 py-0.5 rounded text-2xs font-medium",
                         acceptedStructured ? "bg-won/20 text-won" : "bg-amber/20 text-amber-light",
                       )}>
                         {acceptedStructured ? "saved" : "note only"}
@@ -635,9 +635,9 @@ function BatchDetailPage() {
               }}
             >
               {cleanupRunning ? (
-                <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Analyzing…</>
+                <><Loader2 className="me-2 h-3 w-3 animate-spin" />Analyzing…</>
               ) : (
-                <><Sparkles className="mr-2 h-3 w-3" />Clean Up Data</>
+                <><Sparkles className="me-2 h-3 w-3" />Clean Up Data</>
               )}
             </Button>
           </div>
@@ -760,9 +760,9 @@ function BatchDetailPage() {
               }}
             >
               {mappingRunning ? (
-                <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Mapping…</>
+                <><Loader2 className="me-2 h-3 w-3 animate-spin" />Mapping…</>
               ) : (
-                <><Sparkles className="mr-2 h-3 w-3" />Map Contacts to Companies</>
+                <><Sparkles className="me-2 h-3 w-3" />Map Contacts to Companies</>
               )}
             </Button>
           </div>
@@ -925,9 +925,9 @@ function BatchDetailPage() {
                   }}
                 >
                   {aiRunning && aiStep === "workbook_classifier" ? (
-                    <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Classifying…</>
+                    <><Loader2 className="me-2 h-3 w-3 animate-spin" />Classifying…</>
                   ) : (
-                    <><Sparkles className="mr-2 h-3 w-3" />Classify with AI</>
+                    <><Sparkles className="me-2 h-3 w-3" />Classify with AI</>
                   )}
                 </Button>
                 <span className="text-xs text-muted-foreground">Auto-detect what entity type this file contains</span>
@@ -939,7 +939,7 @@ function BatchDetailPage() {
                   <div className="font-medium">
                     Detected: <span className="text-primary">{String(mappingAiOutput.detected_entity_type)}</span>
                     {" "}({String(mappingAiOutput.detected_source_kind)})
-                    <span className="ml-2 text-muted-foreground">
+                    <span className="ms-2 text-muted-foreground">
                       {Math.round(Number(mappingAiOutput.confidence) * 100)}% confidence
                     </span>
                   </div>
@@ -977,9 +977,9 @@ function BatchDetailPage() {
                     }}
                   >
                     {aiRunning && aiStep === "sheet_classifier" ? (
-                      <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Classifying Sheets…</>
+                      <><Loader2 className="me-2 h-3 w-3 animate-spin" />Classifying Sheets…</>
                     ) : (
-                      <><Sparkles className="mr-2 h-3 w-3" />Classify Sheets</>
+                      <><Sparkles className="me-2 h-3 w-3" />Classify Sheets</>
                     )}
                   </Button>
                   <span className="text-xs text-muted-foreground">Recommend which sheet(s) to import</span>
@@ -1034,9 +1034,9 @@ function BatchDetailPage() {
                   }}
                 >
                   {aiRunning && aiStep === "semantic_field_mapper" ? (
-                    <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Suggesting…</>
+                    <><Loader2 className="me-2 h-3 w-3 animate-spin" />Suggesting…</>
                   ) : (
-                    <><Sparkles className="mr-2 h-3 w-3" />Suggest Mappings</>
+                    <><Sparkles className="me-2 h-3 w-3" />Suggest Mappings</>
                   )}
                 </Button>
                 <span className="text-xs text-muted-foreground">AI proposes target fields for unmapped columns</span>
@@ -1165,9 +1165,9 @@ function BatchDetailPage() {
                       }}
                     >
                       {changeRunning ? (
-                        <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Interpreting…</>
+                        <><Loader2 className="me-2 h-3 w-3 animate-spin" />Interpreting…</>
                       ) : (
-                        <><Sparkles className="mr-2 h-3 w-3" />Interpret Changes</>
+                        <><Sparkles className="me-2 h-3 w-3" />Interpret Changes</>
                       )}
                     </Button>
                   </div>
@@ -1267,9 +1267,9 @@ function BatchDetailPage() {
                 onClick={() => runStep("Analyze & Distribute", () => generateCandidates(batchId))}
               >
                 {busy === "Analyze & Distribute" ? (
-                  <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Analyzing…</>
+                  <><Loader2 className="me-2 h-3 w-3 animate-spin" />Analyzing…</>
                 ) : (
-                  <><Sparkles className="mr-2 h-3 w-3" />Analyze & Distribute</>
+                  <><Sparkles className="me-2 h-3 w-3" />Analyze & Distribute</>
                 )}
               </Button>
             }
@@ -1535,7 +1535,7 @@ function MappingPanel({
               );
               if (!proposal) return null;
               return (
-                <div className="ml-52 flex items-center gap-1 text-xs">
+                <div className="ms-52 flex items-center gap-1 text-xs">
                   <Sparkles className="h-3 w-3 text-violet-400" />
                   <span className="text-muted-foreground">
                     AI suggests: <span className="text-violet-400 font-medium">{proposal.suggested_target}</span>
@@ -1587,7 +1587,7 @@ function MappingPanel({
       <div className="mt-4 flex justify-end">
         <Button size="sm" onClick={handleSave} disabled={saving || busy}>
           {saving ? (
-            <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Saving…</>
+            <><Loader2 className="h-3.5 w-3.5 animate-spin me-1.5" />Saving…</>
           ) : (
             "Save Mappings"
           )}
@@ -1684,7 +1684,7 @@ function ApprovalPanel({
               })}
               className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 border"
             >
-              <Undo2 className="h-3.5 w-3.5 mr-1.5" />
+              <Undo2 className="h-3.5 w-3.5 me-1.5" />
               Roll Back
             </Button>
           </div>
@@ -1795,9 +1795,9 @@ function ApprovalPanel({
                 }}
               >
                 {reviewerRunning ? (
-                  <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Reviewing…</>
+                  <><Loader2 className="me-2 h-3 w-3 animate-spin" />Reviewing…</>
                 ) : (
-                  <><ShieldCheck className="mr-2 h-3 w-3" />Run Final Review</>
+                  <><ShieldCheck className="me-2 h-3 w-3" />Run Final Review</>
                 )}
               </Button>
             </div>
@@ -1851,10 +1851,10 @@ function ApprovalPanel({
               onClick={() => onStep("Approve", () => approveBatch(batch.id))}
               className="shrink-0"
             >
-              <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
+              <ShieldCheck className="h-3.5 w-3.5 me-1.5" />
               Approve
               {hasCritical && (
-                <span className="ml-1.5 rounded bg-destructive/20 px-1.5 py-0.5 text-[9px] font-medium text-destructive">
+                <span className="ms-1.5 rounded bg-destructive/20 px-1.5 py-0.5 text-2xs font-medium text-destructive">
                   ⚠ Critical
                 </span>
               )}
@@ -1879,7 +1879,7 @@ function ApprovalPanel({
               })}
               className="shrink-0"
             >
-              <Eye className="h-3.5 w-3.5 mr-1.5" />
+              <Eye className="h-3.5 w-3.5 me-1.5" />
               Dry Run
             </Button>
           </div>
@@ -1912,7 +1912,7 @@ function ApprovalPanel({
               })}
               className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 border"
             >
-              <Database className="h-3.5 w-3.5 mr-1.5" />
+              <Database className="h-3.5 w-3.5 me-1.5" />
               Commit
             </Button>
           </div>

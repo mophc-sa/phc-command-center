@@ -141,3 +141,89 @@ describe("focus is always visible", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("the interface mirrors for Arabic", () => {
+  it("never pins a side with a physical class", () => {
+    // ms/me/ps/pe and start-/end- flip with the language; ml/mr/pl/pr and
+    // left-/right- do not. Tables used to align half their headers each way.
+    //
+    // The vendored primitives in components/ui are excluded on purpose: they
+    // position overlays physically and pair it with physical transforms and
+    // slide animations. Converting `left-[50%] translate-x-[-50%]` to
+    // `start-[50%]` put every dialog off-screen on an Arabic phone, which the
+    // readiness suite caught before merge.
+    const offenders = SRC.filter(([p]) => !p.startsWith("src/components/ui/")).flatMap(([p, s]) =>
+      [...s.matchAll(/className=(?:"[^"]*"|\{`[^`]*`\})/g)]
+        .filter((m) => !/\b(rtl|ltr):/.test(m[0]))
+        .flatMap((m) => [
+          ...(m[0].match(/(?<![\w:./-])(ml|mr|pl|pr)-(?:\d|px|auto|\[)/g) ?? []),
+          ...(m[0].match(/(?<![\w:./-])(left|right)-(?:\d|px|auto|full|\[)/g) ?? []),
+          ...(m[0].match(/(?<![\w:./-])text-(?:left|right)(?![\w-])/g) ?? []),
+        ])
+        .map((cls) => `${p}: ${cls}`),
+    );
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("nothing is said in colour alone", () => {
+  it("pairs every status dot with words", () => {
+    // Each of these is a 6px amber circle that was the only marker of unread,
+    // AI-derived, or needs-attention.
+    for (const file of [
+      "src/components/phc/ExecutiveBrief.tsx",
+      "src/components/phc/NotificationCenter.tsx",
+      "src/components/phc/MetricTile.tsx",
+    ]) {
+      const s = read(file);
+      const dots = (s.match(/rounded-full bg-amber\b/g) ?? []).length;
+      const labels = (s.match(/className="sr-only"/g) ?? []).length;
+      expect([file, labels >= dots]).toEqual([file, true]);
+    }
+  });
+});
+
+describe("text has a floor", () => {
+  it("never sets type below the 12px the scale starts at", () => {
+    const offenders = SRC.flatMap(([p, s]) =>
+      [...s.matchAll(/text-\[(\d+)px\]/g)]
+        .filter((m) => Number(m[1]) < 12)
+        .map((m) => `${p}: ${m[0]}`),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps the wall board readable on a small window", () => {
+    // Bare vw sizes fell under 10px below ~1100px wide.
+    const board = read("src/routes/_authenticated/board.tsx");
+    expect(board).not.toMatch(/fontSize: "[\d.]+vw"/);
+    expect(board).toMatch(/fontSize: "clamp\(\d+px, [\d.]+vw, \d+px\)"/);
+  });
+});
+
+describe("the project board is operable without a mouse", () => {
+  it("registers a keyboard sensor for drag and drop", () => {
+    const kanban = read("src/components/phc/ProjectKanban.tsx");
+    expect(kanban).toContain("useSensor(KeyboardSensor");
+    expect(kanban).toContain("coordinateGetter: sortableKeyboardCoordinates");
+  });
+});
+
+describe("centred overlays stay centred in Arabic", () => {
+  it("never centres with a logical inset and a physical translate", () => {
+    // `start-[50%]` is `right: 50%` in RTL; with `translate-x-[-50%]` the box
+    // is pushed left by half its width from there — off the screen on a phone.
+    const offenders = SRC.flatMap(([p, s]) =>
+      [...s.matchAll(/["`][^"`]*["`]/g)]
+        .filter((m) => /(?:^|\s)(?:start|end)-(?:\[50%\]|1\/2)(?:\s|["`])/.test(m[0]) && /translate-x/.test(m[0]))
+        .map(() => p),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("the dialog is centred with physical insets", () => {
+    const dialog = read("src/components/ui/dialog.tsx");
+    expect(dialog).toContain("left-[50%]");
+    expect(dialog).toContain("translate-x-[-50%]");
+  });
+});

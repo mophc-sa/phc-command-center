@@ -1339,7 +1339,7 @@ function TargetDonut({
         <span className="num text-[24px] font-bold leading-none text-foreground">
           {achievementPct !== null ? `${achievementPct}%` : "—"}
         </span>
-        <span className="mt-1 text-[9px] tracking-[0.02em] text-muted-foreground">
+        <span className="mt-1 text-2xs tracking-[0.02em] text-muted-foreground">
           {lang === "ar" ? "تم الإنجاز" : "achieved"}
         </span>
       </div>
@@ -1450,7 +1450,7 @@ function PipelineStageBox({
         style={{ width: STAGE_BOX_W, minHeight: 52 }}
       >
         {stage.isGoal && (
-          <span className="mb-0.5 text-[8px] font-bold tracking-[0.02em] text-amber-light">
+          <span className="mb-0.5 text-2xs font-bold tracking-[0.02em] text-amber-light">
             ★ FINAL GOAL
           </span>
         )}

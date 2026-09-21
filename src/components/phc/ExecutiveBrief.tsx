@@ -120,7 +120,12 @@ function Section({ heading, lines, id }: { heading: string; lines: BriefLine[]; 
                     overwhelming majority here, so the panel repeated its
                     loudest element on almost every row in order to say
                     "ordinary". */}
-                {ai ? <span className="h-1.5 w-1.5 rounded-full bg-amber" /> : null}
+                {ai ? (
+                  <>
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber" aria-hidden="true" />
+                    <span className="sr-only">{t("brf_ai_key" as never)}</span>
+                  </>
+                ) : null}
               </span>
               {/* `bdi` isolates this run from the surrounding direction.
                   Without it a deal name like "Wayfinding & Signage Works —

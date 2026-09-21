@@ -257,7 +257,7 @@ export function KpiTile({
 
   // A 3px edge, INSIDE the card. The reference dashboards carry their colour on
   // the cards; this app's warm-neutral canvas is its identity and stays put.
-  // `start-0` rather than `left-0`, so it flips with the Arabic layout.
+  // `start-0` rather than `start-0`, so it flips with the Arabic layout.
   const edge = accent ? (
     <span className={`absolute inset-y-0 start-0 w-[3px] ${ACCENT[accent].bar}`} aria-hidden="true" />
   ) : null;

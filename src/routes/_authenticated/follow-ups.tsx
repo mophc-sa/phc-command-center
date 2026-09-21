@@ -126,7 +126,7 @@ function FollowUpsPage() {
                     ) : null}
                   </div>
                   <div className="flex items-center gap-2 pe-4">
-                    <div className="num text-right text-xs text-muted-foreground tabular-nums" data-tabular="true">
+                    <div className="num text-end text-xs text-muted-foreground tabular-nums" data-tabular="true">
                       {dd ?? "—"}
                     </div>
                     <EmailComposeButton

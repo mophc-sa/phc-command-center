@@ -97,7 +97,7 @@ function PendingApprovalPage() {
             </p>
           </div>
 
-          <div className="rounded-md border border-border bg-surface px-4 py-3 text-left text-xs text-muted-foreground">
+          <div className="rounded-md border border-border bg-surface px-4 py-3 text-start text-xs text-muted-foreground">
             <span className="font-medium text-foreground">
               {lang === "ar" ? "البريد الإلكتروني: " : "Signed in as: "}
             </span>
