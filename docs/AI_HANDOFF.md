@@ -1,6 +1,15 @@
 # AI Handoff ⭐ — PHC Command Center
 
-## 2026-09-21 — Interface audit: three phases, merging in order (PRs 315–317)
+## 2026-09-21 — Interface audit released (PRs 315–317)
+
+Production serves `9a547d63b2c592bbd705037db256088bd6e0cf52`, Worker version
+`8c20a1a3-4b80-4b7b-b3f4-1e3a378c5c90` (run 35567378979). Canary `55125a48`
+(run 35566824284), canary readiness 35566954552 and post-production readiness
+35573103639 passed; the live bundle carries the `9a547d6` stamp (169 chunks
+crawled). Frontend only — no migrations or Edge Function changes. The user
+disables Cloudflare Preview URLs again after the release.
+
+### How it was built
 
 The user asked about adopting IBM Carbon; declined (clashes with Tailwind/Radix,
 rewrites 110 components, weaker Arabic support). Instead a four-axis audit
@@ -28,8 +37,7 @@ Guard: `src/lib/ui-baseline.contract.test.ts` (18 rules). Merge order matters:
 branches were stacked, so each is rebased with `git rebase --onto origin/main
 <previous phase commit>` after the previous squash-merge.
 
-Next: merge 317, then a frontend release (canary → readiness → production, needs
-the user's Preview URLs and approvals). Still open: Postmark approval and the
+Still open: Postmark approval and the
 reply-capture test (last blocker was the inbound domain, fixed 2026-09-16 —
 Postmark now answers `250 Ok`; the re-test reply was not yet seen), SPF in
 Cloudflare, Dependabot PR 310, dead `StageTable` in my-workspace.
