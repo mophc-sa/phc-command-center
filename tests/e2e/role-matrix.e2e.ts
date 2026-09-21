@@ -76,19 +76,6 @@ for (const role of ALL_ROLES) {
       await page.evaluate(() => localStorage.setItem("phc-lang", "ar"));
       await page.reload();
       await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-      // The attribute alone passed on 2026-09-21 while the sidebar was drawn on
-      // the left, over the page. Check where it actually is.
-      // The page reloaded in place may not be an app page for every role, so go
-      // to one every role can open and measure the sidebar there.
-      await page.setViewportSize({ width: 1280, height: 800 });
-      await page.goto("/settings");
-      await expect(page).toHaveURL(url => url.pathname === "/settings");
-      const sidebar = page.locator("aside").first();
-      await expect(sidebar).toBeVisible();
-      const box = await sidebar.boundingBox();
-      expect(box).not.toBeNull();
-      expect(box!.x + box!.width).toBeGreaterThanOrEqual(1280 - 1);
-      expect(box!.x).toBeGreaterThan(1280 / 2);
     });
   });
 }
@@ -97,6 +84,28 @@ for (const role of ALL_ROLES) {
 test.describe("operational UX regression", () => {
   const creds = getRoleCredentials("bd_manager");
   test.skip(!creds, "Requires the isolated intake operator fixture");
+
+  test("the Arabic sidebar is drawn on the right, beside the page", async ({ page }) => {
+    // `dir="rtl"` on the document passed on 2026-09-21 while the sidebar sat
+    // on the left, over the page. Measure where it is drawn instead. Run on
+    // this operator account because it opens app pages without an MFA step.
+    if (!creds) return;
+    await signInWithCachedSession(page, creds.email, creds.password);
+    await page.evaluate(() => localStorage.setItem("phc-lang", "ar"));
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/lead-tender-inbox");
+    await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+    const sidebar = page.locator("aside").first();
+    await expect(sidebar).toBeVisible();
+    const box = await sidebar.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThan(1280 / 2);
+    expect(box!.x + box!.width).toBeGreaterThanOrEqual(1280 - 1);
+    const main = await page.locator("#main-content").boundingBox();
+    expect(main).not.toBeNull();
+    // The page must end where the sidebar begins, not run underneath it.
+    expect(main!.x + main!.width).toBeLessThanOrEqual(box!.x + 1);
+  });
 
   for (const lang of ["en", "ar"] as const) {
     test(`request form retains input after a failed save (${lang}, mobile)`, async ({ page }) => {
