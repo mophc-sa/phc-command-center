@@ -227,3 +227,29 @@ describe("centred overlays stay centred in Arabic", () => {
     expect(dialog).toContain("translate-x-[-50%]");
   });
 });
+
+describe("code that already chooses a side by direction names it physically", () => {
+  it("never uses start-/end- inside a dir === \"rtl\" branch", () => {
+    // A branch on `dir` has already flipped the side once. A logical class
+    // inside it flips it again: `end-0` in Arabic is `left: 0`. That is how
+    // the sidebar landed on the left, over the page, in the 2026-09-21 release.
+    const offenders = SRC.flatMap(([p, s]) =>
+      [...s.matchAll(/dir === "rtl"\s*\?\s*("[^"]*")\s*:\s*("[^"]*")/g)]
+        .filter((m) => /(?:^|[\s"])(?:start|end|ms|me|ps|pe)-/.test(m[1] + m[2]))
+        .map((m) => `${p}: ${m[0].replace(/\s+/g, " ")}`),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("puts the Arabic sidebar on the right", () => {
+    const shell = read("src/components/phc/AppShell.tsx");
+    const branches = [...shell.matchAll(/dir === "rtl"\s*\?\s*"([^"]*)"\s*:\s*"([^"]*)"/g)].filter((m) =>
+      m[1].includes("border-sidebar-border"),
+    );
+    expect(branches.length).toBe(2);
+    for (const [, rtl, ltr] of branches) {
+      expect(rtl).toContain("right-0");
+      expect(ltr).toContain("left-0");
+    }
+  });
+});
