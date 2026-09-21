@@ -78,7 +78,11 @@ for (const role of ALL_ROLES) {
       await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
       // The attribute alone passed on 2026-09-21 while the sidebar was drawn on
       // the left, over the page. Check where it actually is.
+      // The page reloaded in place may not be an app page for every role, so go
+      // to one every role can open and measure the sidebar there.
       await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto("/settings");
+      await expect(page).toHaveURL(url => url.pathname === "/settings");
       const sidebar = page.locator("aside").first();
       await expect(sidebar).toBeVisible();
       const box = await sidebar.boundingBox();
