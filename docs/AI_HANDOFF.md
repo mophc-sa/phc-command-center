@@ -1,6 +1,16 @@
 # AI Handoff ⭐ — PHC Command Center
 
-## 2026-09-28 — Meetings from Fireflies (branch `feat/fireflies-meetings`, not deployed)
+## 2026-09-28 — Meetings from Fireflies (branch `feat/fireflies-meetings`, backend deployed, UI not merged)
+
+Deployed 2026-09-28: migration `20261001100000` (from `3f80c35`, verified: list local==remote,
+tables/RPCs deny anon with 42501); `meetings-inbound` v1 (verify_jwt=false; 503 until secrets
+are set) and `sales-os-api` v66→v67 from `181a867`. Rollback: redeploy `sales-os-api` from
+`main`; leave `meetings-inbound` without secrets. Remaining: secrets, Fireflies webhook,
+end-to-end test, then merge PR 322 (the Worker ships the /meetings pages on merge).
+Two bugs caught only by CI pgTAP: CASE…THEN inside a PL/pgSQL IF condition, and an
+11-argument call to the 10-argument emit_notification. The supabase guard must be
+loaded (`zsh -c 'source ~/.supabase-guard.zsh && supabase …'`); `supabase login` was
+needed again (403).
 
 The user moved meeting recording to Fireflies.ai, so the 2026-09-24 in-app recording
 design (pyannoteAI, voiceprints) is superseded — see the spec
