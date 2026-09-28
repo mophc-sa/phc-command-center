@@ -49,10 +49,12 @@ import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } fr
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects.index'
 import { Route as AuthenticatedOpportunitiesIndexRouteImport } from './routes/_authenticated/opportunities.index'
+import { Route as AuthenticatedMeetingsIndexRouteImport } from './routes/_authenticated/meetings.index'
 import { Route as AuthenticatedDataImportIndexRouteImport } from './routes/_authenticated/data-import.index'
 import { Route as AuthenticatedAccountsIndexRouteImport } from './routes/_authenticated/accounts.index'
 import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects.$id'
 import { Route as AuthenticatedOpportunitiesIdRouteImport } from './routes/_authenticated/opportunities.$id'
+import { Route as AuthenticatedMeetingsIdRouteImport } from './routes/_authenticated/meetings.$id'
 import { Route as AuthenticatedDataImportBatchIdRouteImport } from './routes/_authenticated/data-import.$batchId'
 import { Route as AuthenticatedContactsRepairRouteImport } from './routes/_authenticated/contacts_.repair'
 import { Route as AuthenticatedAccountsIdRouteImport } from './routes/_authenticated/accounts.$id'
@@ -271,6 +273,12 @@ const AuthenticatedOpportunitiesIndexRoute =
     path: '/opportunities/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMeetingsIndexRoute =
+  AuthenticatedMeetingsIndexRouteImport.update({
+    id: '/meetings/',
+    path: '/meetings/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDataImportIndexRoute =
   AuthenticatedDataImportIndexRouteImport.update({
     id: '/',
@@ -294,6 +302,11 @@ const AuthenticatedOpportunitiesIdRoute =
     path: '/opportunities/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMeetingsIdRoute = AuthenticatedMeetingsIdRouteImport.update({
+  id: '/meetings/$id',
+  path: '/meetings/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDataImportBatchIdRoute =
   AuthenticatedDataImportBatchIdRouteImport.update({
     id: '/$batchId',
@@ -366,10 +379,12 @@ export interface FileRoutesByFullPath {
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/contacts/repair': typeof AuthenticatedContactsRepairRoute
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
+  '/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/data-import/': typeof AuthenticatedDataImportIndexRoute
+  '/meetings/': typeof AuthenticatedMeetingsIndexRoute
   '/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
 }
@@ -414,10 +429,12 @@ export interface FileRoutesByTo {
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/contacts/repair': typeof AuthenticatedContactsRepairRoute
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
+  '/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts': typeof AuthenticatedAccountsIndexRoute
   '/data-import': typeof AuthenticatedDataImportIndexRoute
+  '/meetings': typeof AuthenticatedMeetingsIndexRoute
   '/opportunities': typeof AuthenticatedOpportunitiesIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
 }
@@ -466,10 +483,12 @@ export interface FileRoutesById {
   '/_authenticated/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/_authenticated/contacts_/repair': typeof AuthenticatedContactsRepairRoute
   '/_authenticated/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
+  '/_authenticated/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/_authenticated/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/_authenticated/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/_authenticated/data-import/': typeof AuthenticatedDataImportIndexRoute
+  '/_authenticated/meetings/': typeof AuthenticatedMeetingsIndexRoute
   '/_authenticated/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
 }
@@ -518,10 +537,12 @@ export interface FileRouteTypes {
     | '/accounts/$id'
     | '/contacts/repair'
     | '/data-import/$batchId'
+    | '/meetings/$id'
     | '/opportunities/$id'
     | '/projects/$id'
     | '/accounts/'
     | '/data-import/'
+    | '/meetings/'
     | '/opportunities/'
     | '/projects/'
   fileRoutesByTo: FileRoutesByTo
@@ -566,10 +587,12 @@ export interface FileRouteTypes {
     | '/accounts/$id'
     | '/contacts/repair'
     | '/data-import/$batchId'
+    | '/meetings/$id'
     | '/opportunities/$id'
     | '/projects/$id'
     | '/accounts'
     | '/data-import'
+    | '/meetings'
     | '/opportunities'
     | '/projects'
   id:
@@ -617,10 +640,12 @@ export interface FileRouteTypes {
     | '/_authenticated/accounts/$id'
     | '/_authenticated/contacts_/repair'
     | '/_authenticated/data-import/$batchId'
+    | '/_authenticated/meetings/$id'
     | '/_authenticated/opportunities/$id'
     | '/_authenticated/projects/$id'
     | '/_authenticated/accounts/'
     | '/_authenticated/data-import/'
+    | '/_authenticated/meetings/'
     | '/_authenticated/opportunities/'
     | '/_authenticated/projects/'
   fileRoutesById: FileRoutesById
@@ -922,6 +947,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOpportunitiesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/meetings/': {
+      id: '/_authenticated/meetings/'
+      path: '/meetings'
+      fullPath: '/meetings/'
+      preLoaderRoute: typeof AuthenticatedMeetingsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/data-import/': {
       id: '/_authenticated/data-import/'
       path: '/'
@@ -948,6 +980,13 @@ declare module '@tanstack/react-router' {
       path: '/opportunities/$id'
       fullPath: '/opportunities/$id'
       preLoaderRoute: typeof AuthenticatedOpportunitiesIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/meetings/$id': {
+      id: '/_authenticated/meetings/$id'
+      path: '/meetings/$id'
+      fullPath: '/meetings/$id'
+      preLoaderRoute: typeof AuthenticatedMeetingsIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/data-import/$batchId': {
@@ -1049,8 +1088,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTendersRoute: typeof AuthenticatedTendersRoute
   AuthenticatedVendorsRoute: typeof AuthenticatedVendorsRoute
   AuthenticatedContactsRepairRoute: typeof AuthenticatedContactsRepairRoute
+  AuthenticatedMeetingsIdRoute: typeof AuthenticatedMeetingsIdRoute
   AuthenticatedOpportunitiesIdRoute: typeof AuthenticatedOpportunitiesIdRoute
   AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
+  AuthenticatedMeetingsIndexRoute: typeof AuthenticatedMeetingsIndexRoute
   AuthenticatedOpportunitiesIndexRoute: typeof AuthenticatedOpportunitiesIndexRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
@@ -1085,8 +1126,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTendersRoute: AuthenticatedTendersRoute,
   AuthenticatedVendorsRoute: AuthenticatedVendorsRoute,
   AuthenticatedContactsRepairRoute: AuthenticatedContactsRepairRoute,
+  AuthenticatedMeetingsIdRoute: AuthenticatedMeetingsIdRoute,
   AuthenticatedOpportunitiesIdRoute: AuthenticatedOpportunitiesIdRoute,
   AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
+  AuthenticatedMeetingsIndexRoute: AuthenticatedMeetingsIndexRoute,
   AuthenticatedOpportunitiesIndexRoute: AuthenticatedOpportunitiesIndexRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }

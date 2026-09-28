@@ -4247,6 +4247,153 @@ export type Database = {
         }
         Relationships: []
       }
+      meeting_action_items: {
+        Row: {
+          at_seconds: number | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          due_date: string | null
+          id: string
+          meeting_id: string
+          owner_id: string | null
+          position: number
+          related_opportunity_id: string | null
+          speaker_label: string | null
+          status: string
+          suggested_owner_id: string | null
+          task_id: string | null
+          title: string
+        }
+        Insert: {
+          at_seconds?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          due_date?: string | null
+          id?: string
+          meeting_id: string
+          owner_id?: string | null
+          position: number
+          related_opportunity_id?: string | null
+          speaker_label?: string | null
+          status?: string
+          suggested_owner_id?: string | null
+          task_id?: string | null
+          title: string
+        }
+        Update: {
+          at_seconds?: number | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          due_date?: string | null
+          id?: string
+          meeting_id?: string
+          owner_id?: string | null
+          position?: number
+          related_opportunity_id?: string | null
+          speaker_label?: string | null
+          status?: string
+          suggested_owner_id?: string | null
+          task_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_action_items_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_action_items_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_action_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          action_items_raw: string | null
+          created_at: string
+          duration_minutes: number | null
+          id: string
+          keywords: string[]
+          occurred_at: string | null
+          organizer_email: string | null
+          participants: string[]
+          provider: string
+          provider_meeting_id: string
+          related_opportunity_id: string | null
+          status: string
+          summary_overview: string | null
+          summary_short: string | null
+          title: string
+          transcript_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          action_items_raw?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          keywords?: string[]
+          occurred_at?: string | null
+          organizer_email?: string | null
+          participants?: string[]
+          provider?: string
+          provider_meeting_id: string
+          related_opportunity_id?: string | null
+          status?: string
+          summary_overview?: string | null
+          summary_short?: string | null
+          title: string
+          transcript_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action_items_raw?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          keywords?: string[]
+          occurred_at?: string | null
+          organizer_email?: string | null
+          participants?: string[]
+          provider?: string
+          provider_meeting_id?: string
+          related_opportunity_id?: string | null
+          status?: string
+          summary_overview?: string | null
+          summary_short?: string | null
+          title?: string
+          transcript_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_related_opportunity_id_fkey"
+            columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null

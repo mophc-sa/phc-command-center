@@ -1967,6 +1967,37 @@ export const strings = {
   // Pinned records
   pin_add: { en: "Pin to sidebar", ar: "تثبيت في الشريط" },
   pin_remove: { en: "Unpin", ar: "إلغاء التثبيت" },
+
+  // Meetings (Fireflies)
+  nav_meetings: { en: "Meetings", ar: "الاجتماعات" },
+  meetings_eyebrow: { en: "Fireflies", ar: "Fireflies" },
+  meetings_title: { en: "Meetings", ar: "الاجتماعات" },
+  meetings_desc: { en: "Action items from recorded meetings wait here until a reviewer names the owner and approves them into tasks.", ar: "مهام الاجتماعات المسجلة تنتظر هنا حتى يحدد المراجع المسؤول ويعتمدها كمهام." },
+  meetings_empty: { en: "No meetings yet", ar: "لا توجد اجتماعات بعد" },
+  meetings_empty_hint: { en: "Meetings appear here automatically when Fireflies finishes processing them.", ar: "تظهر الاجتماعات هنا تلقائياً عندما ينتهي Fireflies من معالجتها." },
+  meetings_pending_items: { en: "pending", ar: "بانتظار المراجعة" },
+  meetings_status_pending_review: { en: "Needs review", ar: "بانتظار المراجعة" },
+  meetings_status_reviewed: { en: "Reviewed", ar: "تمت المراجعة" },
+  meetings_open_fireflies: { en: "Open in Fireflies", ar: "فتح في Fireflies" },
+  meetings_summary: { en: "Summary", ar: "الملخص" },
+  meetings_action_items: { en: "Action items", ar: "المهام المستخرجة" },
+  meetings_no_items: { en: "Fireflies listed no action items for this meeting.", ar: "لم يستخرج Fireflies مهام من هذا الاجتماع." },
+  meetings_said_by: { en: "Said by", ar: "قالها" },
+  meetings_task_title: { en: "Task", ar: "المهمة" },
+  meetings_owner: { en: "Owner", ar: "المسؤول" },
+  meetings_owner_pick: { en: "Choose owner…", ar: "اختر المسؤول…" },
+  meetings_due: { en: "Due date", ar: "الموعد" },
+  meetings_opportunity: { en: "Opportunity", ar: "الفرصة" },
+  meetings_opportunity_search: { en: "Search opportunities…", ar: "ابحث عن فرصة…" },
+  meetings_opportunity_none: { en: "No opportunity", ar: "بدون فرصة" },
+  meetings_approve: { en: "Approve → task", ar: "اعتماد كمهمة" },
+  meetings_dismiss: { en: "Dismiss", ar: "استبعاد" },
+  meetings_dismiss_reason: { en: "Why is this not a task?", ar: "لماذا لا تُعتمد كمهمة؟" },
+  meetings_item_approved: { en: "Task created", ar: "أُنشئت المهمة" },
+  meetings_item_dismissed: { en: "Dismissed", ar: "مستبعدة" },
+  meetings_owner_required: { en: "Choose an owner first", ar: "اختر المسؤول أولاً" },
+  meetings_unmatched: { en: "Speaker not matched — choose the owner", ar: "لم يُعرف المتحدث — اختر المسؤول" },
+  meetings_back: { en: "All meetings", ar: "كل الاجتماعات" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;

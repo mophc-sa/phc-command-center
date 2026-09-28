@@ -1,5 +1,9 @@
 # Current Task — PHC Command Center
 
+## بند فعّال — الاجتماعات من Fireflies (2026-09-28)
+
+الفرع: `feat/fireflies-meetings`. webhook موقّع ← `meetings-inbound` ← جدولا `meetings`/`meeting_action_items` ← صفحة `/meetings` للاعتماد ← `tasks`. الكود والاختبارات المحلية مكتملة (verify + Deno). المتبقي: CI (pgTAP)، ثم موافقة المستخدم على `db push` ونشر `meetings-inbound` و`sales-os-api`، وضبط `FIREFLIES_API_KEY` و`FIREFLIES_WEBHOOK_SECRET`، وإدخال رابط الـwebhook في Fireflies، ثم اختبار باجتماع حقيقي.
+
 ## بند مكتمل — كود المشروع يتبع المندوب (PR 314)، منشور 2026-09-15
 
 منشور ومتحقق منه على الإنتاج (`421697f`). المتبقي: التحقق من أول تحويل فعلي لأحد الطلبات الثلاثة أن رقم الـRFQ يساوي كود الطلب، وإطفاء Preview URLs.

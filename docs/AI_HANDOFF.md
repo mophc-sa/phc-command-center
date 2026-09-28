@@ -1,5 +1,30 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-28 — Meetings from Fireflies (branch `feat/fireflies-meetings`, not deployed)
+
+The user moved meeting recording to Fireflies.ai, so the 2026-09-24 in-app recording
+design (pyannoteAI, voiceprints) is superseded — see the spec
+`docs/superpowers/specs/2026-09-28-fireflies-meetings-design.md` and DECISIONS.
+
+Built: `meetings-inbound` (verify_jwt=false, HMAC `x-hub-signature`, fetches the
+transcript over the Fireflies GraphQL API, stores via service-only `ingest_meeting`);
+pure rules in `_shared/fireflies.ts` (Deno-tested on the real 2026-09-28 samples);
+migration `20261001100000_fireflies_meetings.sql` (tables, RLS for
+`can_review_meetings`, `decide_meeting_action_item` → `tasks` with
+`source='meeting_action:<id>'` + notification, entity_type `task` allowed);
+sales-os-api action `meeting_action_decision`; pages `/meetings`, `/meetings/$id`.
+`bun run verify` and `test:deno` pass locally. pgTAP `fireflies_meetings.test.sql` runs in CI only
+(the local Supabase container belongs to another project).
+
+To go live (each step needs the user's approval): CI green → `db push` → deploy
+`meetings-inbound` and `sales-os-api` → `supabase secrets set FIREFLIES_API_KEY`
+and `FIREFLIES_WEBHOOK_SECRET` (16–32 chars, same value in Fireflies → Developer
+Settings) → webhook URL `<SUPABASE_URL>/functions/v1/meetings-inbound` → test with one meeting.
+Webhooks only fire for meetings owned by the account that set them (moalagab@phc-sa.com).
+
+Note: `~/Documents/Work Station/Work/PHC/phc-command-center` is a stale July checkout;
+the live one is `~/dev/phc-command-center`.
+
 ## 2026-09-21 — RTL sidebar hotfix released (PR 319)
 
 The interface release (`9a547d6`) drew the Arabic sidebar on the left, over every

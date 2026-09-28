@@ -43,3 +43,9 @@ verify_jwt = false
 # every subscription fetch would be refused.
 [functions.calendar-feed]
 verify_jwt = false
+
+# Called by Fireflies.ai when a meeting is processed, never by a browser: there is
+# no user JWT. The function verifies the x-hub-signature HMAC over the raw body
+# itself; with the gateway default every webhook would be refused unread.
+[functions.meetings-inbound]
+verify_jwt = false
