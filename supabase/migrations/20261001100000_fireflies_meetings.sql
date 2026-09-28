@@ -209,7 +209,7 @@ BEGIN
     SELECT title INTO m_title FROM public.meetings WHERE id=it.meeting_id;
     PERFORM public.emit_notification(_owner_id, 'meeting_task_assigned', 'task', t_id,
       left(t_title, 200), 'From meeting: '||left(coalesce(m_title,''),200), 'info',
-      'meeting_action_approved', it.id, 'meeting_action:'||it.id,
+      'meeting_action_approved', 'meeting_action:'||it.id,
       jsonb_build_object('meeting_id', it.meeting_id, 'opportunity_id', _opportunity_id));
   END IF;
 
