@@ -173,7 +173,7 @@ BEGIN
 
   IF it.status <> 'pending' THEN
     -- A double click or a retried request returns the first answer.
-    IF it.decided_by = u AND it.status = CASE _action WHEN 'approve' THEN 'approved' ELSE 'dismissed' END THEN
+    IF it.decided_by = u AND it.status = (CASE _action WHEN 'approve' THEN 'approved' ELSE 'dismissed' END) THEN
       RETURN jsonb_build_object('ok',true,'status',it.status,'task_id',it.task_id,'replayed',true);
     END IF;
     RAISE EXCEPTION 'Action item already decided / تم البت في هذا البند مسبقاً' USING ERRCODE='23514';
