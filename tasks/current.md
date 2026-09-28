@@ -2,7 +2,7 @@
 
 ## بند فعّال — الاجتماعات من Fireflies (2026-09-28)
 
-الفرع: `feat/fireflies-meetings`. webhook موقّع ← `meetings-inbound` ← جدولا `meetings`/`meeting_action_items` ← صفحة `/meetings` للاعتماد ← `tasks`. الكود والاختبارات المحلية مكتملة (verify + Deno). المتبقي: CI (pgTAP)، ثم موافقة المستخدم على `db push` ونشر `meetings-inbound` و`sales-os-api`، وضبط `FIREFLIES_API_KEY` و`FIREFLIES_WEBHOOK_SECRET`، وإدخال رابط الـwebhook في Fireflies، ثم اختبار باجتماع حقيقي.
+الفرع: `feat/fireflies-meetings`. webhook موقّع ← `meetings-inbound` ← جدولا `meetings`/`meeting_action_items` ← صفحة `/meetings` للاعتماد ← `tasks`. الكود والاختبارات مكتملة وCI أخضر لاختبارات قاعدة البيانات. **Migration `20261001100000` مطبَّقة على الإنتاج 2026-09-28** (من commit `3f80c35`، متحقَّق منها: migration list متطابقة، الجداول والدوال موجودة وترفض anon بـ42501). المتبقي: موافقة المستخدم على نشر `meetings-inbound` و`sales-os-api`، وضبط `FIREFLIES_API_KEY` و`FIREFLIES_WEBHOOK_SECRET`، وإدخال رابط الـwebhook في Fireflies، ثم اختبار باجتماع حقيقي.
 
 ## بند مكتمل — كود المشروع يتبع المندوب (PR 314)، منشور 2026-09-15
 
