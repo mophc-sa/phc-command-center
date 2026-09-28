@@ -531,6 +531,7 @@ Old tenders are not allowed to sit active forever.
 | **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
 | **Approvals** `/approvals` | One decision desk for all three approval workflows: **intake review**, the **BAFO chain** (showing which of the four steps is waiting and on which role), and record approvals — verbal award, contract, won, deletion, sure-win. |
 | **Calendar** `/calendar` | Everything that carries a date, on one month grid — **sixteen kinds**: follow-ups due, RFQ response deadlines, next actions, expected contract and hold-review dates, enquiry deadlines and their follow-ups and information-due dates, flags, commitments, tasks, quotation expiry, expected BOQ and signage dates, and tender award and follow-up dates. If a form let you record a date, this page shows it. Each day shows a dot per item — red for overdue, amber for today — and opens a panel listing them. **New follow-up** creates one through the same path the rest of the app uses, so it also appears in Action Required and Follow-ups; there is no second task list to reconcile. Undated work does not appear at all: the calendar arranges dates, it never invents one. Closed deals and completed follow-ups drop off rather than sitting greyed out, so nothing on the grid is safe to skim past. **Add to Outlook** puts your own dated work into your Outlook calendar through a private link — see *Your work in your Outlook calendar* in section 10. |
+| **Meetings** `/meetings` | Meetings recorded by **Fireflies.ai**, for managers, BD / Sales Ops and system admins only. Each meeting arrives on its own once Fireflies has processed it, with its summary and the action items Fireflies listed per speaker. **Nothing becomes a task until you approve it.** For each item: fix the wording, choose the **owner** (Fireflies often only knows "Speaker 3" — the owner is pre-filled only when the speaker's name matches exactly one person), optionally set a due date and link an opportunity, then **Approve → task**. The task lands in the owner's My Workspace, Action Required and calendar, and they get a notification. **Dismiss** needs a reason. The timestamp next to each item opens the recording at that moment. |
 | **Notifications** (bell) | Opens the drawer, not a page. Shows **what happened**: unread count on the bell, mark-one/mark-all read, dismiss, and a deep link to the record. Distinct from actions — see Section 7b. |
 
 ### 7a. What counts as a sale
@@ -731,6 +732,7 @@ opportunity page with the follow-up already scheduled. Don't go looking for the 
 3. Resolve duplicates.
 4. Keep Accounts and Contacts clean; verify contact authority.
 5. Handle the commercial-review step on BAFO requests.
+6. Review new **Meetings**: name the owner of each action item and approve it into a task, or dismiss it with a reason.
 
 ### Estimation Manager / Finance Manager
 
@@ -779,6 +781,13 @@ These are guardrails, not suggestions. They will stop you.
 ---
 
 ## 10. Current limitations
+
+### Meetings from Fireflies (2026-09-28, not yet live)
+
+- Built and tested, not deployed. Going live needs: the database migration applied, the `meetings-inbound` and `sales-os-api` functions deployed, the Fireflies API key and webhook secret set, and the webhook URL entered in Fireflies → Settings → Developer Settings.
+- Fireflies sends a webhook only for meetings **owned by the account whose settings hold it**. Team-wide webhooks need a Fireflies Enterprise plan.
+- Action items are taken as Fireflies wrote them. No AI re-reads the transcript yet; that is a later phase if Fireflies' items prove too thin.
+- Project names in Fireflies' text are transcribed by ear ("Myth", "Gen Adria") — check them before approving.
 
 ### Sending email from the system (2026-09-13)
 
@@ -1198,3 +1207,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-09-14 · Project Code follows the entering rep and carries to the RFQ · previous: Outlook calendar link, 2026-09-13 -->
 
 <!-- last reviewed 2026-09-20 · interface audit: one table density, legible text, Arabic mirroring · previous: Project Code, 2026-09-14 -->
+
+<!-- last reviewed 2026-09-28 · Meetings from Fireflies: review action items into tasks · previous: interface audit, 2026-09-20 -->

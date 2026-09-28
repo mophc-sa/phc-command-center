@@ -14,6 +14,7 @@ import { knowledgeModule } from "./handlers/knowledge.ts";
 import { intelligenceModule } from "./handlers/intelligence.ts";
 import { lifecycleModule } from "./handlers/lifecycle.ts";
 import { mailModule } from "./handlers/mail.ts";
+import { meetingsModule } from "./handlers/meetings.ts";
 import { calendarFeedModule } from "./handlers/calendar-feed.ts";
 import { pipelineModule } from "./handlers/pipeline.ts";
 import { createSalesOsRequestHandler } from "./router.ts";
@@ -32,6 +33,7 @@ const registry = createHandlerRegistry([
   historicalPromotionModule,
   mailModule,
   calendarFeedModule,
+  meetingsModule,
 ]);
 
 export const salesOsActions = registry.actions;

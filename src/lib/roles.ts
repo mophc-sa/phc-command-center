@@ -147,6 +147,12 @@ export const canReviewAiOutput = (r: RoleInput) =>
 // BD / Sales Ops and above — not system_admin, not viewers.
 export const canManageSalesPipeline = (r: RoleInput) => inGroup(r, PIPELINE_OPERATORS);
 
+// Reviewing Fireflies meeting action items into tasks. Mirrors
+// can_review_meetings() in 20261001100000_fireflies_meetings.sql: the people
+// who may write any task, plus system administrators.
+export const canReviewMeetings = (r: RoleInput) =>
+  inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.systemAdmin]);
+
 // Record creation (leads, contacts, companies, opportunities, RFQs, tenders,
 // follow-ups, ...) — pipeline operators plus salesperson. Mirrors the DB
 // helper public.is_sales_contributor(uuid) used in RLS INSERT policies.

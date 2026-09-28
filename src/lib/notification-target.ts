@@ -64,6 +64,8 @@ export function targetFor(n: NotificationLike, opportunityId: string | null): st
     case "tender": return `/tenders${focus}`;
     case "rfq":
     case "quotation": return `/quotations${focus}`;
+    // A task assigned from a meeting (or anywhere) lands on the owner's day.
+    case "task": return "/my-workspace";
     default: return "/action-center";
   }
 }
