@@ -5,6 +5,14 @@
 // docs/implementation/outlook-integration.md for why this is Postmark rather
 // than Microsoft Graph.
 //
+// TWO PROVIDERS, ONE PATH
+//
+// A salesperson who connected their Outlook (see ./outlook.ts) sends through
+// Microsoft Graph from their own mailbox, so the email sits in their Sent
+// folder. Anyone else sends through Postmark. Both go through every step below;
+// only step 5 differs. A connection that has expired is refused with 409 and
+// never silently rerouted: the sender must know which mailbox the email left.
+//
 // ORDER IS THE WHOLE DESIGN OF send_email
 //
 // Sending cannot be undone. Everything that can refuse therefore runs BEFORE the
@@ -32,6 +40,8 @@ import {
   readMailConfig,
   type ComposeRefusal,
 } from "../../_shared/mail.ts";
+import { readGraphConfig, toGraphMessage } from "../../_shared/graph.ts";
+import { refreshAccess, sendAsMe } from "../../_shared/graph-client.ts";
 
 const POSTMARK_URL = "https://api.postmarkapp.com/email";
 
@@ -50,17 +60,50 @@ const REFUSAL_MESSAGE: Record<ComposeRefusal, string> = {
 
 const env = (k: string) => Deno.env.get(k);
 
-/** What the UI needs to decide whether to offer Send. Never the token. */
-async function mail_status(_payload: Record<string, unknown>, _ctx: SalesOsContext) {
+const RECONNECT = "Your Outlook connection has expired. Reconnect it in Settings, then send again.";
+
+type Connection = { email: string; status: "active" | "needs_reconnect" };
+
+async function readConnection(ctx: SalesOsContext): Promise<Connection | null> {
+  if (!readGraphConfig(env).configured) return null;
+  const { data } = await ctx.svc
+    .from("mail_connections")
+    .select("email, status")
+    .eq("user_id", ctx.caller.userId)
+    .maybeSingle();
+  return (data as Connection | null) ?? null;
+}
+
+/** What the UI needs to decide whether to offer Send. Never a token. */
+async function mail_status(_payload: Record<string, unknown>, ctx: SalesOsContext) {
   const cfg = readMailConfig(env);
-  return json({ ok: true, sending: cfg.sending, capture: cfg.capture });
+  const graphReady = readGraphConfig(env).configured;
+  let contributor = false;
+  if (graphReady) {
+    const { data } = await ctx.asCaller.rpc("is_sales_contributor", { _user_id: ctx.caller.userId });
+    contributor = data === true;
+  }
+  const conn = graphReady ? await readConnection(ctx) : null;
+  return json({
+    ok: true,
+    sending: cfg.sending,
+    capture: cfg.capture,
+    outlook: {
+      available: graphReady && contributor,
+      connected: conn?.status === "active",
+      status: conn?.status ?? null,
+      email: conn?.email ?? null,
+    },
+  });
 }
 
 async function send_email(payload: Record<string, unknown>, ctx: SalesOsContext) {
-  // 1 ─ configured
+  // 1 ─ configured: the caller's Outlook, or Postmark
   const cfg = readMailConfig(env);
   const token = (env("POSTMARK_SERVER_TOKEN") ?? "").trim();
-  if (!cfg.sending || !token) return err(REFUSAL_MESSAGE.not_configured, 503);
+  const conn = await readConnection(ctx);
+  const viaOutlook = conn !== null;
+  if (!viaOutlook && (!cfg.sending || !token)) return err(REFUSAL_MESSAGE.not_configured, 503);
 
   // 2 ─ the same test the activities INSERT policy applies, asked as the caller
   const { data: contributor, error: roleErr } = await ctx.asCaller.rpc("is_sales_contributor", {
@@ -103,8 +146,11 @@ async function send_email(payload: Record<string, unknown>, ctx: SalesOsContext)
     .eq("id", ctx.caller.userId)
     .maybeSingle();
 
-  // 4 ─ compose and validate
-  const threadToken = cfg.capture ? newThreadToken() : null;
+  // 4 ─ compose and validate. Through Outlook the mailbox is the sender, so
+  // no Reply-To token: a reply binds by Graph conversation id instead.
+  const profileEmail = String(profile?.email ?? "").trim().toLowerCase();
+  if (viaOutlook && (conn.status !== "active" || conn.email !== profileEmail)) return err(RECONNECT, 409);
+  const threadToken = !viaOutlook && cfg.capture ? newThreadToken() : null;
   const composed = composeOutbound(
     {
       callerEmail: profile?.email,
@@ -114,14 +160,35 @@ async function send_email(payload: Record<string, unknown>, ctx: SalesOsContext)
       subject: payload.subject,
       body: payload.body,
     },
-    cfg,
+    viaOutlook
+      ? { sending: true, capture: false, fromDomain: profileEmail.split("@")[1] ?? null, captureDomain: null }
+      : cfg,
     threadToken,
   );
   if (!composed.ok) return err(REFUSAL_MESSAGE[composed.reason], 400, { reason: composed.reason });
 
-  // 5 ─ SEND. The only network call to the provider anywhere in the system.
+  // 5 ─ SEND. The only network call to a provider anywhere in the system.
   let messageId: string | null;
-  try {
+  let conversationId: string | null = null;
+  if (viaOutlook) {
+    const graph = readGraphConfig(env);
+    const { data: refresh } = await ctx.svc.rpc("mail_refresh_token", { _user: ctx.caller.userId });
+    if (typeof refresh !== "string" || !refresh) return err(RECONNECT, 409);
+    const tok = await refreshAccess(graph, refresh);
+    if (!tok.ok) {
+      if (tok.reason === "invalid_grant") {
+        await ctx.svc.rpc("mark_mail_connection", { _user: ctx.caller.userId, _status: "needs_reconnect", _error: "refresh token rejected" });
+        return err(RECONNECT, 409);
+      }
+      return err("Outlook could not be reached", 502);
+    }
+    if (tok.refresh) await ctx.svc.rpc("rotate_mail_refresh_token", { _user: ctx.caller.userId, _refresh_token: tok.refresh });
+    else await ctx.svc.rpc("mark_mail_connection", { _user: ctx.caller.userId, _status: "active", _error: null });
+    const sent = await sendAsMe(tok.access, toGraphMessage(composed));
+    if (!sent.ok) return err(`The email could not be sent: ${sent.error}`, 502);
+    messageId = sent.messageId;
+    conversationId = sent.conversationId;
+  } else try {
     const res = await fetch(POSTMARK_URL, {
       method: "POST",
       headers: {
@@ -169,6 +236,17 @@ async function send_email(payload: Record<string, unknown>, ctx: SalesOsContext)
     .select("id")
     .single();
 
+  if (viaOutlook && conversationId && activity?.id) {
+    await ctx.svc.from("email_threads").insert({
+      graph_conversation_id: conversationId,
+      opportunity_id: opportunityId,
+      company_id: companyId,
+      contact_id: contactId,
+      activity_id: activity.id,
+      owner_id: ctx.caller.userId,
+    });
+  }
+
   if (threadToken && activity?.id) {
     await ctx.svc.from("email_threads").insert({
       token_hash: await hashThreadToken(threadToken),
@@ -187,15 +265,15 @@ async function send_email(payload: Record<string, unknown>, ctx: SalesOsContext)
     opportunityId ? "opportunity" : "activity",
     opportunityId ?? activity?.id ?? null,
     // Who and where, never what: the body stays on the activity row.
-    { to_count: composed.to.length, cc_count: composed.cc.length, provider_message_id: messageId, logged: !actErr },
+    { to_count: composed.to.length, cc_count: composed.cc.length, provider_message_id: messageId, logged: !actErr, via: viaOutlook ? "outlook" : "postmark" },
     ctx.caller.roles,
   );
 
   // The email left even if the log write failed; say so rather than pretend.
   if (actErr) {
-    return json({ ok: true, sent: true, logged: false, message_id: messageId });
+    return json({ ok: true, sent: true, logged: false, message_id: messageId, via: viaOutlook ? "outlook" : "postmark" });
   }
-  return json({ ok: true, sent: true, logged: true, activity_id: activity.id, message_id: messageId });
+  return json({ ok: true, sent: true, logged: true, activity_id: activity.id, message_id: messageId, via: viaOutlook ? "outlook" : "postmark" });
 }
 
 export const mailModule: HandlerModule = {
