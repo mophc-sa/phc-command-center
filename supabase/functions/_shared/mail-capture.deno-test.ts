@@ -25,8 +25,11 @@ Deno.test("only outside, non-free-mail participants count", () => {
 
 Deno.test("private, drafts and removals are skipped before anything is read", () => {
   assertEquals(shouldSkip(MAIL), null);
-  assertEquals(shouldSkip({ ...MAIL, sensitivity: "private" }), "private");
-  assertEquals(shouldSkip({ ...MAIL, sensitivity: "Personal" }), "private");
+  const sens = (v: string) => ({ ...MAIL, singleValueExtendedProperties: [{ id: "Integer 0x36", value: v }] });
+  assertEquals(shouldSkip(sens("2")), "private");
+  assertEquals(shouldSkip(sens("1")), "private");
+  assertEquals(shouldSkip(sens("0")), null);
+  assertEquals(shouldSkip(sens("3")), null, "confidential is business mail, not personal");
   assertEquals(shouldSkip({ ...MAIL, categories: ["Private"] }), "private");
   assertEquals(shouldSkip({ ...MAIL, isDraft: true }), "draft");
   assertEquals(shouldSkip({ ...MAIL, "@removed": { reason: "deleted" } }), "removed");

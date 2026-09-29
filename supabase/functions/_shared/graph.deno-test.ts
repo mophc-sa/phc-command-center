@@ -162,6 +162,8 @@ Deno.test("capture starts from a date and asks only for new messages' headers", 
   assertEquals(u.searchParams.get("changeType"), "created");
   assertEquals(u.searchParams.get("$filter"), "receivedDateTime ge 2026-08-30T00:00:00Z");
   assertFalse((u.searchParams.get("$select") ?? "").includes("body"), "bodies are fetched only for matched mail");
+  assertFalse((u.searchParams.get("$select") ?? "").includes("sensitivity"), "not a v1.0 message property");
+  assertEquals(u.searchParams.get("$expand"), "singleValueExtendedProperties($filter=id eq 'Integer 0x0036')");
 });
 
 Deno.test("delta pages follow Graph's links only, and report an expired token", async () => {

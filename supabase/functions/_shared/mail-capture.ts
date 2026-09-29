@@ -40,7 +40,8 @@ export type GraphMail = {
   receivedDateTime?: string | null;
   sentDateTime?: string | null;
   isDraft?: boolean | null;
-  sensitivity?: string | null;
+  /** PR_SENSITIVITY (0x0036): 0 normal, 1 personal, 2 private, 3 confidential. */
+  singleValueExtendedProperties?: Array<{ id?: string; value?: string }> | null;
   categories?: string[] | null;
   bodyPreview?: string | null;
   "@removed"?: unknown;
@@ -52,8 +53,9 @@ export const domainOf = (email: string) => email.split("@")[1] ?? "";
 export function shouldSkip(m: GraphMail): string | null {
   if (m["@removed"]) return "removed";
   if (m.isDraft) return "draft";
-  const s = (m.sensitivity ?? "").toLowerCase();
-  if (s === "private" || s === "personal") return "private";
+  const sensitivity = (m.singleValueExtendedProperties ?? [])
+    .find((p) => /0x0*36$/i.test(p.id ?? ""))?.value;
+  if (sensitivity === "1" || sensitivity === "2") return "private";
   if ((m.categories ?? []).some((c) => c.trim().toLowerCase() === "private")) return "private";
   if (!m.internetMessageId) return "no_message_id";
   return null;

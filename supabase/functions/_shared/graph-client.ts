@@ -110,7 +110,11 @@ export async function sendAsMe(
 // ---- Capture: delta sync and message text --------------------------------
 
 const DELTA_SELECT = "id,internetMessageId,conversationId,subject,from,toRecipients,ccRecipients," +
-  "receivedDateTime,sentDateTime,isDraft,sensitivity,categories";
+  "receivedDateTime,sentDateTime,isDraft,categories";
+// Sensitivity (Normal/Personal/Private/Confidential) is not a v1.0 message
+// property; it is the MAPI property PR_SENSITIVITY (0x0036), read as an
+// extended property. Graph rejected the whole request when it was selected.
+export const SENSITIVITY_EXPAND = "singleValueExtendedProperties($filter=id%20eq%20'Integer%200x0036')";
 
 /** The first delta request for a folder: new messages since a date, headers only. */
 export function initialDeltaUrl(folder: "inbox" | "sentitems", sinceIso: string): string {
@@ -118,7 +122,7 @@ export function initialDeltaUrl(folder: "inbox" | "sentitems", sinceIso: string)
   // of the OData option names. The date is validated, so nothing else needs escaping.
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(sinceIso)) throw new Error("bad since date");
   return `${GRAPH}/me/mailFolders/${folder}/messages/delta` +
-    `?$select=${DELTA_SELECT}&$filter=receivedDateTime+ge+${sinceIso}&changeType=created`;
+    `?$select=${DELTA_SELECT}&$expand=${SENSITIVITY_EXPAND}&$filter=receivedDateTime+ge+${sinceIso}&changeType=created`;
 }
 
 export type DeltaPage =
