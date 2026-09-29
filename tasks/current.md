@@ -1,6 +1,6 @@
 # Current Task — PHC Command Center
 
-## بند فعّال — ربط Outlook والإرسال من بريد المندوب (المرحلة 1 من تصميم Graph)، 2026-09-29
+## بند فعّال — ربط Outlook والإرسال من بريد المندوب (المرحلة 1 من تصميم Graph)، 2026-09-29 — الخلفية منشورة ومختبرة (إرسال حقيقي عبر Outlook نجح)؛ المتبقي نشر الواجهة
 
 الفرع `feat/outlook-connect-send`. التصميم `docs/superpowers/specs/2026-09-29-outlook-graph-design.md`، الخطة `docs/superpowers/plans/2026-09-29-outlook-connect-and-send.md`. الكود والاختبارات المحلية مكتملة (verify، Deno 72). المتبقي: إعداد المستخدم (DNS SPF/DKIM، تسجيل التطبيق في Entra، `MS_TENANT_ID`/`MS_CLIENT_ID`/`MS_CLIENT_SECRET`)، ثم CI، ثم `db push` ونشر `outlook-connector` و`sales-os-api` بموافقة، ثم تجربة ربط وإرسال حقيقية. التالي: المرحلة 2 (الالتقاط والربط بالمشروع) ثم 3 (لوحة المراسلات والملخص) ثم 4 (الملخص اليومي).
 
