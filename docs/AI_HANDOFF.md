@@ -1,5 +1,33 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-29 — Outlook via Graph, phase 1 deployed and tested (PR 325)
+
+Backend live: migration `20261002100000` (verified; Vault round-trip probed in a rolled-back
+transaction), `outlook-connector` v1, `sales-os-api` v71 (from `719aa65`). Mo connected
+`moalagab@phc-sa.com` (via the GoDaddy-federated sign-in) and sent a test email through Graph:
+recorded on the deal with `via: outlook`, Graph message id and conversation id stored.
+First attempt failed "Access is denied": draft+send needs `Mail.ReadWrite`; switched to
+`/me/sendMail` + Sent Items lookup (`Mail.Read`). Function versions also rise by one each time
+a secret is set — a jump is not by itself a foreign deploy. Test ran from the live site's
+console because production CORS allows only agent.phc-sa.com (deliberately not widened).
+DKIM records are published in Cloudflare and resolve; Microsoft's Enable was still pending.
+
+### Phase 1 build notes
+
+The 2026-09-13 "Graph refused" decision is reversed (Mo holds tenant admin via GoDaddy
+Admin Access). Design: `docs/superpowers/specs/2026-09-29-outlook-graph-design.md` (a
+parallel session wrote it uncommitted; this session added the project-code binding rule,
+the Correspondence panel + on-demand AI summary, and the daily digest, per the user).
+Phase 1: `sales-os-api` `send_email` sends through Graph when the caller has an active
+`mail_connections` row, else Postmark; expired → 409, never rerouted. Sign-in: actions
+`outlook_connect_start`/`outlook_disconnect`; callback function `outlook-connector`
+(verify_jwt=false, one-time state hashed in `mail_oauth_pending` with the PKCE verifier,
+mailbox must equal `profiles.email`). Refresh tokens in Vault behind service-only SQL
+functions (`20261002100000`). Graph URLs only in `_shared/graph-client.ts`.
+Blocked on the user: SPF/DKIM, Entra app (redirect
+`…/functions/v1/outlook-connector/callback`, delegated scopes, Assignment required +
+`PHC-Sales-Mail`), secrets `MS_TENANT_ID MS_CLIENT_ID MS_CLIENT_SECRET`.
+
 ## 2026-09-29 — Meetings from Fireflies released (PR 322)
 
 Production serves `b48c942`, Worker version `c0399944-f5a9-4bcd-9ea4-13ea6e043482`

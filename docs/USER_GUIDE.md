@@ -649,7 +649,7 @@ project does **not** create a duplicate.
 | **Agent Activity** `/agent-activity` | Every AI run and output, with accept/reject review. |
 | **Data Import** `/data-import` | *(admin only)* Spreadsheet import: map columns → preview → validate → error report → commit. |
 | **Admin Settings** `/admin-settings` | *(admin only)* Users, roles, status. |
-| **Settings** `/settings` | Your own profile, language, MFA. |
+| **Settings** `/settings` | Your own profile, language, MFA — and, for sales roles, **Connect Outlook** (see *Sending from your own Outlook* in section 10). |
 
 ### Finding anything fast — ⌘K
 
@@ -788,6 +788,16 @@ These are guardrails, not suggestions. They will stop you.
 - Fireflies sends a webhook only for meetings **owned by the account whose settings hold it**. Team-wide webhooks need a Fireflies Enterprise plan.
 - Action items are taken as Fireflies wrote them. No AI re-reads the transcript yet; that is a later phase if Fireflies' items prove too thin.
 - Project names in Fireflies' text are transcribed by ear ("Myth", "Gen Adria") — check them before approving.
+
+### Sending from your own Outlook (2026-09-29, not yet live)
+
+- In **Settings → Outlook**, press **Connect Outlook** and sign in with your own company mailbox — the address on your PHC profile. Any other mailbox is refused.
+- After that, **Send** in the email window sends from your Outlook: the email appears in your **Sent** folder, and the window says which mailbox it is leaving from.
+- Only your click sends. Nothing is sent by AI, automation or on a schedule.
+- If the connection expires (a password change, or an admin revoking it), sending stops with a message to reconnect — it never switches to another way of sending without telling you. **Reconnect** is in the same place.
+- **Disconnect** removes the connection completely; email goes back to sending through PHC's mail service.
+- Only sales roles can connect, and only mailboxes the company has allowed for this app.
+- Capturing client replies from Outlook, the Correspondence panel with its summary, and the calendar come in later phases.
 
 ### Sending email from the system (2026-09-13)
 
@@ -1209,3 +1219,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-09-20 · interface audit: one table density, legible text, Arabic mirroring · previous: Project Code, 2026-09-14 -->
 
 <!-- last reviewed 2026-09-28 · Meetings from Fireflies: review action items into tasks · previous: interface audit, 2026-09-20 -->
+
+<!-- last reviewed 2026-09-29 · Connect Outlook and send from your own mailbox (phase 1) · previous: Meetings from Fireflies, 2026-09-29 -->

@@ -49,3 +49,9 @@ verify_jwt = false
 # itself; with the gateway default every webhook would be refused unread.
 [functions.meetings-inbound]
 verify_jwt = false
+
+# Microsoft redirects the browser here after a salesperson signs in to connect
+# Outlook: there is no user JWT on that request. The function authenticates it
+# by the one-time state stored (hashed) by sales-os-api's outlook_connect_start.
+[functions.outlook-connector]
+verify_jwt = false
