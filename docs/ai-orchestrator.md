@@ -155,6 +155,7 @@ original 3. The remaining 15, quick reference only (see
 | `project_job_notes` | Drafts an operational note + risk flags + next steps for a single Job Pipeline card (2026-08-04) | Yes — sparkle button on each `ProjectKanban.tsx` card; "Apply as note" copies `suggested_notes` into `project_jobs.ai_notes` as an explicit human-triggered write (never automatic). |
 | `project_budget_variance` | Planned-vs-actual narrative analysis across a project's budget line items (2026-08-04) | Yes — `BudgetVariancePanel`, `ProjectBudget.tsx`. |
 | `sales_report_insights` | Narrative summary of the Reports dashboard's own aggregates (win rate, pipeline by stage, quotation funnel, lost reasons) — mirrors reports.tsx's client-side math exactly, including the same win-rate formula as `computeQuotationWinRatePct` (2026-08-04) | Yes — `SalesReportInsightsPanel`, `reports.tsx`. |
+| `deal_correspondence_summary` | Summary of one deal's email (current status, what the client asked, what PHC owes, next step), each point citing the email activity it came from; context is the deal's last ≤15 sent/received emails, excerpts trimmed to fit `MAX_CONTEXT_CHARS`; access by `can_read_boq`, and its outputs are readable by everyone who can read the deal (20261004100000). Not in `REVIEWABLE_AGENT_KEYS`: it is a read aid, not a proposal to accept (2026-09-29) | Yes — `DealCorrespondencePanel`, `opportunities.$id.tsx`. |
 
 **Page coverage as of 2026-08-04**: every core sales/production page now has
 at least one AI touchpoint. `data-import.$batchId.tsx` alone carries 9 of
@@ -603,11 +604,11 @@ as every other `sales-os-api` action — never a direct client-side `UPDATE`
 `canReviewAiOutput` and an `agent_key IN (...)` allowlist
 (`REVIEWABLE_AGENT_KEYS`, mirrored — unimportable — on the frontend in
 `src/lib/ai-review-actions.ts`). As of 2026-08-04 that allowlist covers 8 of
-the 18 agents: `opportunity_evaluation`, `smart_followup_draft`,
+the 19 agents: `opportunity_evaluation`, `smart_followup_draft`,
 `project_radar`, `risk_finance`, `commercial_risk_assessment`,
 `project_job_notes`, `project_budget_variance`, `sales_report_insights` —
-the other 10 (import-pipeline agents) are deliberately excluded from this
-allowlist; they have their own dedicated commit/review flow against
+the import-pipeline agents are deliberately excluded from this
+allowlist, and so is `deal_correspondence_summary` (a read aid, not a proposal); they have their own dedicated commit/review flow against
 separate tables in `data-import.$batchId.tsx` instead.
 
 `agent-activity.tsx`'s "AI Outputs" tab is the global review surface (list +

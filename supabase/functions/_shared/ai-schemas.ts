@@ -40,6 +40,8 @@ export const AGENT_KEYS = [
   "project_job_notes",
   "project_budget_variance",
   "sales_report_insights",
+  // 2026-09-29 Outlook phase 3 — what a deal's email says, for its people.
+  "deal_correspondence_summary",
 ] as const;
 export type AgentKey = (typeof AGENT_KEYS)[number];
 
@@ -663,6 +665,26 @@ export const ImportRoutingReviewerOutputSchema = z
   });
 export type ImportRoutingReviewerOutput = z.infer<typeof ImportRoutingReviewerOutputSchema>;
 
+// deal_correspondence_summary — every point cites the email activity it came
+// from, so a reader can open the source instead of trusting the summary.
+const CitedPoint = z
+  .object({
+    text: z.string().min(1).max(400),
+    source_ids: z.array(z.string().uuid()).min(1).max(5),
+  })
+  .strict();
+export const DealCorrespondenceSummaryOutputSchema = z
+  .object({
+    current_status: z.string().min(1).max(800),
+    client_asked: z.array(CitedPoint).max(8),
+    we_owe: z.array(CitedPoint).max(8),
+    next_step: CitedPoint.nullable(),
+    missing_information: z.array(z.string().min(1).max(300)).max(10),
+    confidence: z.number().min(0).max(1),
+  })
+  .strict();
+export type DealCorrespondenceSummaryOutput = z.infer<typeof DealCorrespondenceSummaryOutputSchema>;
+
 // Lookup used by the orchestrator to validate whichever agent ran, without a
 // switch statement scattered through the request-handling code.
 export const AGENT_OUTPUT_SCHEMAS = {
@@ -684,6 +706,7 @@ export const AGENT_OUTPUT_SCHEMAS = {
   project_job_notes: ProjectJobNotesOutputSchema,
   project_budget_variance: BudgetVarianceOutputSchema,
   sales_report_insights: SalesReportInsightsOutputSchema,
+  deal_correspondence_summary: DealCorrespondenceSummaryOutputSchema,
 } as const satisfies Record<AgentKey, z.ZodType>;
 
 export const AGENT_OUTPUT_TYPES = {
@@ -705,6 +728,7 @@ export const AGENT_OUTPUT_TYPES = {
   project_job_notes: "recommendation",
   project_budget_variance: "recommendation",
   sales_report_insights: "recommendation",
+  deal_correspondence_summary: "recommendation",
 } as const satisfies Record<AgentKey, OutputType>;
 
 // ---------------------------------------------------------------------------

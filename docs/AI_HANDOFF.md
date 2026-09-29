@@ -1,5 +1,14 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-29 — Outlook phase 3 built: Correspondence panel + summary (branch `feat/correspondence-summary`)
+
+Agent `deal_correspondence_summary` in the orchestrator (schema with cited points, prompt forbidding
+first-person quotes because `scanForGuardrailViolations` rejects "I sent", loader trims to 11 000 chars,
+checkAccess = `can_read_boq`, role = `canCreateSalesRecords`). `DealCorrespondencePanel` on
+opportunities.$id.tsx lists the deal's emails and shows the latest summary with "N newer" staleness.
+Migration `20261004100000`: permissive SELECT on ai_agent_outputs for this agent by `can_read_boq`
+(other agents stay requester-only). Deploy: db push + `ai-orchestrator`, then UI release.
+
 ## 2026-09-29 — Outlook phase 2 released (PR 327)
 
 Production serves `8012af0`, Worker `39e8f2b4-9ada-4d40-ad85-3fde90a70a70` (run 36567438990).

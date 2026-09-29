@@ -801,7 +801,8 @@ These are guardrails, not suggestions. They will stop you.
 - Each kept email is put on its deal: first by the conversation (a reply to an email already on a deal), then by a **project code** in the subject or text (e.g. `FA-26-0015`), then by the company's only open deal. If none of these decides, it stays on the account, marked **Not linked to a deal**: choose the deal once on the account page and the rest of that conversation follows.
 - An email not yet on a deal is seen by you and the pipeline managers; once on a deal, by everyone who can see that deal.
 - **Adding a new client catches up.** When a contact is saved with a company email (not Gmail/Hotmail), the company learns its domain, so mail from anyone at that company is recognised. And any new contact email or company domain makes every connected mailbox re-read the last 30 days — the client's earlier emails are picked up, and nothing already stored is duplicated.
-- The Correspondence panel with its summary, the daily digest and the calendar come in later phases.
+- **Correspondence on the deal page.** Every opportunity has a **Correspondence** panel: the deal's emails, newest first — click one to read it. **Summarise** asks the AI for where the deal stands, what the client asked, what PHC owes and a suggested next step; each point shows the date of the email it came from, and clicking it opens that email. The summary is advice only and changes nothing. It is made only when someone presses the button; when newer email arrives the panel says "N new emails since — refresh". Everyone who can see the deal sees its emails and its latest summary; salespeople and pipeline roles can make one.
+- The daily digest and the calendar come in later phases.
 
 ### Sending email from the system (2026-09-13)
 

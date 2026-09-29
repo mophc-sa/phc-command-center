@@ -107,6 +107,82 @@ async function checkOwnershipAccess(
 }
 
 // ---------------------------------------------------------------------------
+// deal_correspondence_summary — the deal's recent email, for whoever may read
+// the deal (can_read_boq: owner, pipeline operators, estimation, finance).
+// ---------------------------------------------------------------------------
+
+export const CORRESPONDENCE_MAX_EMAILS = 15;
+const CORRESPONDENCE_BUDGET = 11_000; // under MAX_CONTEXT_CHARS (12 000)
+
+async function checkDealReaderAccess(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+  userId: string,
+): Promise<AgentAccessResult> {
+  const { data } = await svc.rpc("can_read_boq", { _opportunity_id: entityId, _user_id: userId });
+  return data === true
+    ? { ok: true }
+    : { ok: false, code: "AI_RECORD_ACCESS_DENIED", message: "You do not have access to this record." };
+}
+
+const squash = (v: unknown, n: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+
+export async function loadDealCorrespondenceContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+  input: Record<string, unknown>,
+): Promise<AgentContextResult> {
+  const { data: opp } = await svc.from("opportunities")
+    .select("id, project_name, client, sales_stage, stage").eq("id", entityId).maybeSingle().throwOnError();
+  if (!opp) return { ok: false, code: "AI_INPUT_INVALID", message: "Opportunity not found." };
+
+  const { data: rows } = await svc.from("activities")
+    .select("id, activity_type, status, occurred_at, summary, draft_content, email_from")
+    .eq("related_opportunity_id", entityId)
+    .in("activity_type", ["email_received", "email_draft"])
+    .order("occurred_at", { ascending: false })
+    .limit(CORRESPONDENCE_MAX_EMAILS * 2)
+    .throwOnError();
+  // Unsent drafts are not correspondence.
+  const sent = (rows ?? []).filter((r) => r.activity_type === "email_received" || r.status === "sent")
+    .slice(0, CORRESPONDENCE_MAX_EMAILS).reverse();
+  if (sent.length === 0) return { ok: false, code: "AI_INPUT_INVALID", message: "There are no emails on this deal yet." };
+
+  const language = input.language === "ar" ? "ar" : "en";
+  const build = (perEmail: number, emails: typeof sent) => JSON.stringify({
+    language,
+    deal: { project_name: squash(opp.project_name, 200), client: squash(opp.client, 200), stage: resolveCanonicalStage(opp).stage },
+    emails: emails.map((r) => ({
+      id: r.id,
+      direction: r.activity_type === "email_received" ? "client_to_phc" : "phc_to_client",
+      date: String(r.occurred_at ?? "").slice(0, 10),
+      from: squash(r.email_from, 120) || null,
+      subject: squash(r.summary, 200),
+      text: squash(r.draft_content, perEmail),
+    })),
+  });
+  // Fit the budget: shorter excerpts first, then drop the oldest emails.
+  let emails = sent;
+  let contextText = build(600, emails);
+  for (const n of [450, 300, 200]) if (contextText.length > CORRESPONDENCE_BUDGET) contextText = build(n, emails);
+  while (contextText.length > CORRESPONDENCE_BUDGET && emails.length > 1) {
+    emails = emails.slice(1);
+    contextText = build(200, emails);
+  }
+
+  const manifest: ContextManifest = {
+    fields_loaded: ["opportunities.project_name", "opportunities.client", "opportunities.stage",
+      "activities.summary", "activities.draft_content", "activities.email_from", "activities.occurred_at"],
+    record_counts: { opportunities: 1, activities: emails.length },
+    source_entity_types: ["opportunities", "activities"],
+    redacted_identifiers: { opportunity_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount: 1 + emails.length };
+}
+
+// ---------------------------------------------------------------------------
 // Agent 1 — opportunity_evaluation
 // ---------------------------------------------------------------------------
 
@@ -1593,6 +1669,18 @@ export const AGENT_REGISTRY: Record<AgentKey, AgentDefinition> = {
     outputSchema: AGENT_OUTPUT_SCHEMAS.project_budget_variance,
     outputType: AGENT_OUTPUT_TYPES.project_budget_variance,
     maxContextRecords: 20,
+    allowProviderFallback: true,
+  },
+  deal_correspondence_summary: {
+    key: "deal_correspondence_summary",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.deal_correspondence_summary,
+    hasRole: AGENT_ROLE_CHECK.deal_correspondence_summary,
+    checkAccess: checkDealReaderAccess,
+    loadContext: loadDealCorrespondenceContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.deal_correspondence_summary,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.deal_correspondence_summary,
+    outputType: AGENT_OUTPUT_TYPES.deal_correspondence_summary,
+    maxContextRecords: 25,
     allowProviderFallback: true,
   },
   sales_report_insights: {

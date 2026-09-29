@@ -2019,6 +2019,25 @@ export const strings = {
   email_link_to_deal: { en: "Link to deal…", ar: "ربط بصفقة…" },
   email_linked_ok: { en: "Email linked to the deal", ar: "رُبط البريد بالصفقة" },
   email_unlinked: { en: "Not linked to a deal", ar: "غير مربوط بصفقة" },
+
+  // Correspondence panel (Outlook phase 3)
+  corr_title: { en: "Correspondence", ar: "المراسلات" },
+  corr_subtitle: { en: "Email on this deal, and a summary of where it stands.", ar: "بريد هذه الصفقة، وملخص لما وصلت إليه." },
+  corr_empty: { en: "No email on this deal yet. Email with the client appears here once sent from PHC or captured from a connected Outlook.", ar: "لا يوجد بريد على هذه الصفقة بعد. يظهر هنا بريد العميل عند إرساله من النظام أو التقاطه من Outlook مربوط." },
+  corr_summarise: { en: "Summarise", ar: "لخّص" },
+  corr_refresh: { en: "Refresh summary", ar: "حدّث الملخص" },
+  corr_running: { en: "Summarising…", ar: "جارٍ التلخيص…" },
+  corr_ai_label: { en: "AI summary", ar: "ملخص بالذكاء الاصطناعي" },
+  corr_made: { en: "made", ar: "بتاريخ" },
+  corr_newer: { en: "new emails since — refresh", ar: "رسائل جديدة بعده — حدّثه" },
+  corr_client_asked: { en: "The client asked", ar: "طلبات العميل" },
+  corr_we_owe: { en: "PHC owes", ar: "ما علينا" },
+  corr_next_step: { en: "Suggested next step", ar: "الخطوة التالية المقترحة" },
+  corr_unclear: { en: "Unclear from the email", ar: "غير واضح من البريد" },
+  corr_disclaimer: { en: "Advice only — check the source emails before acting. The dates open the email each point came from.", ar: "للاسترشاد فقط — راجع الرسائل قبل التصرف. التواريخ تفتح الرسالة التي أُخذت منها كل نقطة." },
+  corr_from_client: { en: "From the client", ar: "من العميل" },
+  corr_from_phc: { en: "From PHC", ar: "من PHC" },
+  corr_no_text: { en: "(no text captured)", ar: "(لم يُلتقط نص)" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;

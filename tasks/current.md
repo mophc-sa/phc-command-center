@@ -1,5 +1,9 @@
 # Current Task — PHC Command Center
 
+## بند فعّال — لوحة المراسلات وملخص الذكاء الاصطناعي (المرحلة 3)، 2026-09-29
+
+الفرع `feat/correspondence-summary`. وكيل `deal_correspondence_summary` + لوحة على صفحة الفرصة + سياسة قراءة لقارئي الصفقة. المتبقي: CI، `db push`، نشر `ai-orchestrator`، ثم نشر الواجهة.
+
 ## بند فعّال — التقاط بريد العملاء من Outlook (المرحلة 2)، **منشور 2026-09-29** (`8012af0`، Worker `39e8f2b4`)؛ المتبقي: أول مندوب يربط بريده للتحقق الحقيقي، ثم المرحلة 3
 
 الفرع `feat/outlook-capture`، الخطة `docs/superpowers/plans/2026-09-29-outlook-capture.md`. الكود والاختبارات المحلية مكتملة. المتبقي: CI، ثم `db push` ونشر `outlook-sync` و`sales-os-api` بموافقة، ثم مراقبة أول دورة مزامنة على بريد Mo، ثم دمج ونشر الواجهة.

@@ -56,6 +56,7 @@ export const AGENT_ENTITY_ALLOWLIST: Record<AgentKey, readonly EntityType[]> = {
   // Reports dashboard-wide summary — sentinel "reports" entity type, like
   // project_radar's "pipeline".
   sales_report_insights: ["reports"],
+  deal_correspondence_summary: ["opportunities"],
 };
 
 export function isEntityAllowedForAgent(agent: AgentKey, entityType: string | null | undefined): boolean {
@@ -109,6 +110,9 @@ export const AGENT_ROLE_CHECK: Record<AgentKey, (roles: AppRole[]) => boolean> =
   // Same pipeline-wide gate as project_radar — a dashboard-level summary,
   // not a single record.
   sales_report_insights: (roles) => canManageSalesPipeline(roles),
+  // Salespeople summarise their own deals' email; who may read a given deal
+  // is decided per record by can_read_boq in the registry's checkAccess.
+  deal_correspondence_summary: (roles) => canCreateSalesRecords(roles),
 };
 
 export function hasAgentRole(agent: AgentKey, roles: AppRole[]): boolean {

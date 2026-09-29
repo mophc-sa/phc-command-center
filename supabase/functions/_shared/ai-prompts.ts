@@ -758,6 +758,39 @@ export function buildImportRoutingReviewerPrompt(context: string): BuiltPrompt {
 // Registry lookup — used by the agent registry so it does not need a switch.
 // ---------------------------------------------------------------------------
 
+const DEAL_CORRESPONDENCE_INSTRUCTIONS = `
+AGENT: deal_correspondence_summary (${PROMPT_VERSION})
+You read the email correspondence on ONE sales deal of PHC (a wayfinding and
+signage company) and summarise where it stands, for the salesperson and their
+managers. The CONTEXT has the deal and its most recent emails, oldest first;
+each email has an "id", a "direction" (client_to_phc or phc_to_client), a date,
+a subject and a text excerpt. You do NOT reply, send, or change anything.
+
+Write in the CONTEXT's "language" ("ar" = Arabic, "en" = English). Paraphrase in
+the third person ("the client asked…", "PHC sent…"); never quote a first-person
+sentence from an email. Do not invent prices, dates, names or commitments that
+are not in the emails; if something important is unclear, list it under
+missing_information.
+
+Return a JSON object with exactly these fields:
+- current_status: string, 1–3 sentences on where the deal stands now
+- client_asked: array (max 8) of { text, source_ids } — open requests from the client
+- we_owe: array (max 8) of { text, source_ids } — what PHC has promised or still has to deliver
+- next_step: { text, source_ids } or null — the single most useful next action for the salesperson
+- missing_information: array of strings (max 10)
+- confidence: number 0-1
+Every source_ids entry must be an "id" of an email in the CONTEXT (1–5 per point).
+`.trim();
+
+export function buildDealCorrespondencePrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${DEAL_CORRESPONDENCE_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("deal_correspondence", context),
+    version: PROMPT_VERSION,
+    schemaName: "deal_correspondence_summary_output",
+  };
+}
+
 export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltPrompt> = {
   opportunity_evaluation: buildOpportunityEvaluationPrompt,
   old_data_classifier: buildOldDataClassifierPrompt,
@@ -777,4 +810,5 @@ export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltP
   project_job_notes: buildProjectJobNotesPrompt,
   project_budget_variance: buildProjectBudgetVariancePrompt,
   sales_report_insights: buildSalesReportInsightsPrompt,
+  deal_correspondence_summary: buildDealCorrespondencePrompt,
 };
