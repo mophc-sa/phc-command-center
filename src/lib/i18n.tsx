@@ -1998,6 +1998,22 @@ export const strings = {
   meetings_owner_required: { en: "Choose an owner first", ar: "اختر المسؤول أولاً" },
   meetings_unmatched: { en: "Speaker not matched — choose the owner", ar: "لم يُعرف المتحدث — اختر المسؤول" },
   meetings_back: { en: "All meetings", ar: "كل الاجتماعات" },
+
+  // Outlook connection
+  email_sends_from_outlook: { en: "Sends from your Outlook:", ar: "يُرسل من بريدك في Outlook:" },
+  outlook_title: { en: "Outlook", ar: "بريد Outlook" },
+  outlook_desc: { en: "Connect your company mailbox so email you send from PHC leaves from it and appears in your Sent folder.", ar: "اربط بريد الشركة الخاص بك ليُرسل البريد من النظام عبره ويظهر في مجلد المرسل لديك." },
+  outlook_connect: { en: "Connect Outlook", ar: "ربط Outlook" },
+  outlook_reconnect: { en: "Reconnect", ar: "إعادة الربط" },
+  outlook_disconnect: { en: "Disconnect", ar: "فصل" },
+  outlook_disconnect_confirm: { en: "Disconnect Outlook? Email will go back to sending through PHC's mail service.", ar: "فصل Outlook؟ سيعود الإرسال عبر خدمة بريد النظام." },
+  outlook_connected_as: { en: "Connected as", ar: "مربوط بالبريد" },
+  outlook_needs_reconnect: { en: "The connection has expired. Reconnect to keep sending from your mailbox.", ar: "انتهت صلاحية الربط. أعد الربط لتستمر في الإرسال من بريدك." },
+  outlook_result_connected: { en: "Outlook connected", ar: "تم ربط Outlook" },
+  outlook_result_denied: { en: "Outlook sign-in was cancelled", ar: "أُلغي تسجيل الدخول إلى Outlook" },
+  outlook_result_expired: { en: "The sign-in took too long. Try again.", ar: "انتهت مهلة تسجيل الدخول. حاول مرة أخرى." },
+  outlook_result_wrong_mailbox: { en: "Sign in with your own company mailbox — the one on your PHC profile.", ar: "سجّل الدخول ببريد الشركة الخاص بك، نفس البريد في ملفك بالنظام." },
+  outlook_result_failed: { en: "Outlook could not be connected. Try again.", ar: "تعذّر ربط Outlook. حاول مرة أخرى." },
 } satisfies Dict;
 
 type Key = keyof typeof strings;

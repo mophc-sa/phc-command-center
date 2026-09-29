@@ -110,3 +110,24 @@ describe("the database keeps tokens to the service role", () => {
     expect(read("supabase/functions/sales-os-api/index.ts")).toContain("outlookModule,");
   });
 });
+
+describe("the interface offers only what the backend allows", () => {
+  it("the Settings card renders only when Outlook is available to this person", () => {
+    const card = read("src/components/phc/OutlookConnectionCard.tsx");
+    expect(card).toContain("if (!o?.available) return null;");
+    expect(read("src/routes/_authenticated/settings.tsx")).toContain("<OutlookConnectionCard />");
+  });
+
+  it("the compose window names the mailbox the email will leave from", () => {
+    const modal = read("src/components/phc/EmailComposeModal.tsx");
+    expect(modal).toContain("mailStatus.data?.outlook.connected === true");
+    expect(modal).toContain('t("email_sends_from_outlook")');
+  });
+
+  it("the browser only starts the sign-in; it never builds the Microsoft URL", () => {
+    const actions = read("src/lib/mail-actions.ts");
+    expect(actions).toContain('callBackend<{ url?: string }>("outlook_connect_start"');
+    expect(actions).not.toMatch(/login\.microsoftonline\.com/);
+  });
+});
+

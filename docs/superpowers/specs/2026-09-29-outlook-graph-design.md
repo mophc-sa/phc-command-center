@@ -68,11 +68,14 @@ Tokens never reach the browser; Graph is not an AI provider, so `ai-orchestrator
 - `calendar_links` — `record_type` ('follow_up' | 'task'), `record_id`, `user_id`,
   `graph_event_id`, `last_pushed_change_key`, `detached_at`. Unique `(record_type, record_id, user_id)`.
 - `activities.activity_type` + `email_sent_outlook` (sent from Outlook, not from the system).
-- Disconnect deletes the connection row, its subscriptions and the Vault secret, then
-  revokes sign-in sessions for the app. It is not a flag.
+- Disconnect deletes the connection row, its subscriptions and the Vault secret. It is not
+  a flag. (Revoking the user's sign-in sessions would need `User.RevokeSessions.All`, which
+  is outside the delegated scope list; with the refresh token deleted the system holds
+  nothing that can act for the user. Decided while implementing phase 1.)
 
 ## 5. Send (phase 1)
 
+Implemented inside the existing `send_email` action (one send path, not a new one):
 `POST /me/messages` (draft) → `POST /me/messages/{id}/send`. Creating the draft first returns
 `conversationId`, stored on `email_threads`. The activity is `email_draft` / `status: 'sent'`,
 so `last_verified_client_contact` counts it with no change. The existing rule holds: **only a

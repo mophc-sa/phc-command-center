@@ -103,7 +103,9 @@ export function EmailComposeModal({
   // showing a button that would refuse.
   const qc = useQueryClient();
   const mailStatus = useQuery({ queryKey: ["mail-status"], queryFn: getMailStatus, staleTime: 5 * 60_000, enabled: open });
-  const canSendHere = mailStatus.data?.sending === true;
+  // Connected to Outlook: the email leaves from the person's own mailbox.
+  const outlookMailbox = mailStatus.data?.outlook.connected === true ? mailStatus.data.outlook.email : null;
+  const canSendHere = mailStatus.data?.sending === true || outlookMailbox !== null;
   const [sending, setSending] = useState(false);
 
   async function handleSend() {
@@ -253,6 +255,12 @@ export function EmailComposeModal({
             <span className="opacity-60">({body.length}/{MAILTO_MAX_LENGTH})</span>
           </p>
         </div>
+
+        {outlookMailbox ? (
+          <p className="text-xs text-muted-foreground">
+            {t("email_sends_from_outlook")} <span dir="ltr" className="font-medium text-foreground">{outlookMailbox}</span>
+          </p>
+        ) : null}
 
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
