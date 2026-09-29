@@ -114,29 +114,33 @@ const DELTA_SELECT = "id,internetMessageId,conversationId,subject,from,toRecipie
 
 /** The first delta request for a folder: new messages since a date, headers only. */
 export function initialDeltaUrl(folder: "inbox" | "sentitems", sinceIso: string): string {
-  const q = new URLSearchParams({
-    changeType: "created",
-    $select: DELTA_SELECT,
-    $filter: `receivedDateTime ge ${sinceIso}`,
-  });
-  return `${GRAPH}/me/mailFolders/${folder}/messages/delta?${q.toString()}`;
+  // Written the way Graph's own examples are: literal $ and + , no percent-encoding
+  // of the OData option names. The date is validated, so nothing else needs escaping.
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(sinceIso)) throw new Error("bad since date");
+  return `${GRAPH}/me/mailFolders/${folder}/messages/delta` +
+    `?$select=${DELTA_SELECT}&$filter=receivedDateTime+ge+${sinceIso}&changeType=created`;
 }
 
 export type DeltaPage =
   | { ok: true; messages: Array<Record<string, unknown>>; next: string | null; deltaLink: string | null }
-  | { ok: false; status: number; gone: boolean };
+  | { ok: false; status: number; gone: boolean; error: string | null };
 
 /** One page of a delta round. Only Graph's own links are ever followed. */
 export async function deltaPage(access: string, url: string, f: typeof fetch = fetch): Promise<DeltaPage> {
-  if (!url.startsWith(`${GRAPH}/`)) return { ok: false, status: 400, gone: false };
+  if (!url.startsWith(`${GRAPH}/`)) return { ok: false, status: 400, gone: false, error: "not a Graph link" };
   try {
     const res = await f(url, { headers: { Authorization: `Bearer ${access}`, Prefer: "odata.maxpagesize=50" } });
     // 410: the delta token expired — start the round again from a date.
-    if (!res.ok) return { ok: false, status: res.status, gone: res.status === 410 };
+    if (!res.ok) {
+      // Graph's own code and message — about the request, never about mail content.
+      const j = await res.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
+      const error = j?.error ? `${j.error.code ?? ""}: ${j.error.message ?? ""}`.slice(0, 300) : null;
+      return { ok: false, status: res.status, gone: res.status === 410, error };
+    }
     const j = await res.json() as { value?: Array<Record<string, unknown>>; "@odata.nextLink"?: string; "@odata.deltaLink"?: string };
     return { ok: true, messages: j.value ?? [], next: j["@odata.nextLink"] ?? null, deltaLink: j["@odata.deltaLink"] ?? null };
   } catch {
-    return { ok: false, status: 502, gone: false };
+    return { ok: false, status: 502, gone: false, error: null };
   }
 }
 

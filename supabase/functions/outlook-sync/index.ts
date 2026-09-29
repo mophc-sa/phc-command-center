@@ -85,7 +85,7 @@ async function syncMailbox(svc: Svc, cfg: ReturnType<typeof readGraphConfig>, us
     for (let page = 0; page < MAX_PAGES; page++) {
       const r = await deltaPage(tok.access, url);
       if (!r.ok) {
-        error = r.gone ? "delta expired; restarting" : `graph ${r.status}`;
+        error = r.gone ? "delta expired; restarting" : `graph ${r.status}${r.error ? ` ${r.error}` : ""}`;
         resume = r.gone ? null : state?.delta_link ?? null;
         break;
       }
