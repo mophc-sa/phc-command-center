@@ -14,7 +14,7 @@ import {
   sameMailbox,
   toGraphMessage,
 } from "./graph.ts";
-import { exchangeCode, getMe, refreshAccess, sendAsMe } from "./graph-client.ts";
+import { deltaPage, exchangeCode, getMe, getMessageDetail, initialDeltaUrl, refreshAccess, sendAsMe } from "./graph-client.ts";
 import { composeOutbound } from "./mail.ts";
 
 const ENV: Record<string, string> = {
@@ -152,4 +152,39 @@ Deno.test("a refused send is reported and nothing is looked up", async () => {
   const r = await sendAsMe("tok", toGraphMessage(COMPOSED), fakeFetch([[403, { error: { message: "Access is denied." } }]], calls), noWait);
   assertEquals(r, { ok: false, status: 403, error: "Access is denied." });
   assertEquals(calls.length, 1);
+});
+
+Deno.test("capture starts from a date and asks only for new messages' headers", () => {
+  const raw = initialDeltaUrl("inbox", "2026-08-30T00:00:00Z");
+  assert(raw.includes("?$select=") && raw.includes("&$filter=receivedDateTime+ge+2026-08-30T00:00:00Z"), "literal OData, as Graph documents it");
+  const u = new URL(raw);
+  assertEquals(u.pathname, "/v1.0/me/mailFolders/inbox/messages/delta");
+  assertEquals(u.searchParams.get("changeType"), "created");
+  assertEquals(u.searchParams.get("$filter"), "receivedDateTime ge 2026-08-30T00:00:00Z");
+  assertFalse((u.searchParams.get("$select") ?? "").includes("body"), "bodies are fetched only for matched mail");
+  assertFalse((u.searchParams.get("$select") ?? "").includes("sensitivity"), "not a v1.0 message property");
+  assertEquals(u.searchParams.get("$expand"), null, "delta rejects $expand");
+});
+
+Deno.test("delta pages follow Graph's links only, and report an expired token", async () => {
+  assertEquals(await deltaPage("t", "https://evil.example/next", fakeFetch([], [])), { ok: false, status: 400, gone: false, error: "not a Graph link" });
+  const page = await deltaPage("t", "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta?x=1",
+    fakeFetch([[200, { value: [{ id: "m1" }], "@odata.deltaLink": "https://graph.microsoft.com/v1.0/d" }]], []));
+  assertEquals(page, { ok: true, messages: [{ id: "m1" }], next: null, deltaLink: "https://graph.microsoft.com/v1.0/d" });
+  const gone = await deltaPage("t", "https://graph.microsoft.com/v1.0/x", fakeFetch([[410, {}]], []));
+  assertEquals(gone, { ok: false, status: 410, gone: true, error: null });
+  const bad = await deltaPage("t", "https://graph.microsoft.com/v1.0/x", fakeFetch([[400, { error: { code: "BadRequest", message: "Invalid filter clause" } }]], []));
+  assertEquals(bad, { ok: false, status: 400, gone: false, error: "BadRequest: Invalid filter clause" });
+});
+
+Deno.test("a matched message's text and sensitivity are read together", async () => {
+  const calls: Call[] = [];
+  const d = await getMessageDetail("t", "m1", fakeFetch([[200, {
+    uniqueBody: { content: "  Approved.  " },
+    singleValueExtendedProperties: [{ id: "Integer 0x36", value: "2" }],
+  }]], calls));
+  assertEquals(d, { body: "Approved.", sensitivity: "2" });
+  assert(calls[0].url.includes("$expand=singleValueExtendedProperties"));
+  assertEquals((calls[0].init?.headers as Record<string, string>).Prefer, 'outlook.body-content-type="text"');
+  assertEquals(await getMessageDetail("t", "m1", fakeFetch([[404, {}]], [])), null);
 });

@@ -76,3 +76,9 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   const via = r?.via === "outlook" || r?.via === "postmark" ? r.via : null;
   return { sent: r?.sent === true, logged: r?.logged === true, activityId: r?.activity_id ?? null, via };
 }
+
+/** Link a captured email's whole conversation to a deal. */
+export async function bindEmailToDeal(activityId: string, opportunityId: string): Promise<number> {
+  const r = await callBackend<{ bound?: number }>("bind_email_to_deal", { activityId, opportunityId });
+  return r?.bound ?? 0;
+}

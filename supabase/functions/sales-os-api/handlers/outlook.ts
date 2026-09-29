@@ -58,7 +58,22 @@ async function outlook_disconnect(_payload: Record<string, unknown>, ctx: SalesO
   return json({ ok: true, disconnected: data === true });
 }
 
+/**
+ * Link a captured email — and the rest of its conversation in the same mailbox
+ * — to a deal. The rules (owner or pipeline operator, a deal the caller can
+ * read, not already on another deal) are in bind_email_conversation, called
+ * as the caller.
+ */
+async function bind_email_to_deal(payload: Record<string, unknown>, ctx: SalesOsContext) {
+  const { data, error } = await ctx.asCaller.rpc("bind_email_conversation", {
+    _activity_id: String(payload.activityId ?? ""),
+    _opportunity_id: String(payload.opportunityId ?? ""),
+  });
+  if (error) return err(error.message, error.code === "42501" ? 403 : 409);
+  return json(data);
+}
+
 export const outlookModule: HandlerModule = {
   name: "outlook",
-  handlers: { outlook_connect_start, outlook_disconnect },
+  handlers: { outlook_connect_start, outlook_disconnect, bind_email_to_deal },
 };

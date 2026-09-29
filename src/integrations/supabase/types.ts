@@ -133,6 +133,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           draft_content: string | null
+          email_conversation_id: string | null
+          email_from: string | null
+          email_to: string | null
           id: string
           occurred_at: string
           owner_id: string | null
@@ -152,6 +155,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           draft_content?: string | null
+          email_conversation_id?: string | null
+          email_from?: string | null
+          email_to?: string | null
           id?: string
           occurred_at?: string
           owner_id?: string | null
@@ -171,6 +177,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           draft_content?: string | null
+          email_conversation_id?: string | null
+          email_from?: string | null
+          email_to?: string | null
           id?: string
           occurred_at?: string
           owner_id?: string | null
@@ -8797,6 +8806,7 @@ export type Database = {
         | "email_draft"
         | "whatsapp_draft"
         | "note"
+        | "email_received"
       agent_run_status:
         | "running"
         | "completed"
@@ -9285,6 +9295,7 @@ export const Constants = {
         "email_draft",
         "whatsapp_draft",
         "note",
+        "email_received",
       ],
       agent_run_status: [
         "running",

@@ -87,6 +87,13 @@ user's JWT and MFA, same as today). Postmark stays as the path for anyone not co
 
 ## 6. Capture (phase 2)
 
+**As built (2026-09-29), deviations from the text below:** polling with Graph delta every 5 min
+(pg_cron → `outlook-sync`, key in Vault) instead of change notifications + subscriptions — no public
+webhook, no renewals, ≤5 min latency; first sync reads 30 days back; mail sent from Outlook is stored
+as `email_draft`/`sent` (counts as client contact) instead of a new `email_sent_outlook` type;
+dedupe key `imid:<internetMessageId>`; body is Graph `uniqueBody` as text. Plan:
+`docs/superpowers/plans/2026-09-29-outlook-capture.md`.
+
 Subscriptions on `me/mailFolders('inbox')/messages` and `('sentitems')` (`created`, basic
 notifications, no resource data). On a notification:
 

@@ -106,3 +106,72 @@ export async function sendAsMe(
   }
   return { ok: true, messageId: null, conversationId: null };
 }
+
+// ---- Capture: delta sync and message text --------------------------------
+
+const DELTA_SELECT = "id,internetMessageId,conversationId,subject,from,toRecipients,ccRecipients," +
+  "receivedDateTime,sentDateTime,isDraft,categories";
+// Sensitivity (Normal/Personal/Private/Confidential) is not a v1.0 message
+// property; it is the MAPI property PR_SENSITIVITY (0x0036), an extended
+// property. Delta rejects $expand ("Parsing OData Select and Expand failed"),
+// so it is read with the body, per matched message, in getMessageDetail.
+export const SENSITIVITY_EXPAND = "singleValueExtendedProperties($filter=id%20eq%20'Integer%200x0036')";
+
+/** The first delta request for a folder: new messages since a date, headers only. */
+export function initialDeltaUrl(folder: "inbox" | "sentitems", sinceIso: string): string {
+  // Written the way Graph's own examples are: literal $ and + , no percent-encoding
+  // of the OData option names. The date is validated, so nothing else needs escaping.
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(sinceIso)) throw new Error("bad since date");
+  return `${GRAPH}/me/mailFolders/${folder}/messages/delta` +
+    `?$select=${DELTA_SELECT}&$filter=receivedDateTime+ge+${sinceIso}&changeType=created`;
+}
+
+export type DeltaPage =
+  | { ok: true; messages: Array<Record<string, unknown>>; next: string | null; deltaLink: string | null }
+  | { ok: false; status: number; gone: boolean; error: string | null };
+
+/** One page of a delta round. Only Graph's own links are ever followed. */
+export async function deltaPage(access: string, url: string, f: typeof fetch = fetch): Promise<DeltaPage> {
+  if (!url.startsWith(`${GRAPH}/`)) return { ok: false, status: 400, gone: false, error: "not a Graph link" };
+  try {
+    const res = await f(url, { headers: { Authorization: `Bearer ${access}`, Prefer: "odata.maxpagesize=50" } });
+    // 410: the delta token expired — start the round again from a date.
+    if (!res.ok) {
+      // Graph's own code and message — about the request, never about mail content.
+      const j = await res.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
+      const error = j?.error ? `${j.error.code ?? ""}: ${j.error.message ?? ""}`.slice(0, 300) : null;
+      return { ok: false, status: res.status, gone: res.status === 410, error };
+    }
+    const j = await res.json() as { value?: Array<Record<string, unknown>>; "@odata.nextLink"?: string; "@odata.deltaLink"?: string };
+    return { ok: true, messages: j.value ?? [], next: j["@odata.nextLink"] ?? null, deltaLink: j["@odata.deltaLink"] ?? null };
+  } catch {
+    return { ok: false, status: 502, gone: false, error: null };
+  }
+}
+
+/**
+ * For one matched message: the new part of its text (no quoted history) and
+ * its sensitivity. Read together so a private message is known before anything
+ * about it is stored.
+ */
+export async function getMessageDetail(
+  access: string,
+  messageId: string,
+  f: typeof fetch = fetch,
+): Promise<{ body: string | null; sensitivity: string | null } | null> {
+  try {
+    const res = await f(
+      `${GRAPH}/me/messages/${encodeURIComponent(messageId)}?$select=uniqueBody&$expand=${SENSITIVITY_EXPAND}`,
+      { headers: { Authorization: `Bearer ${access}`, Prefer: 'outlook.body-content-type="text"' } },
+    );
+    if (!res.ok) return null;
+    const j = await res.json() as {
+      uniqueBody?: { content?: string };
+      singleValueExtendedProperties?: Array<{ id?: string; value?: string }>;
+    };
+    const sensitivity = (j.singleValueExtendedProperties ?? []).find((p) => /0x0*36$/i.test(p.id ?? ""))?.value ?? null;
+    return { body: (j.uniqueBody?.content ?? "").trim() || null, sensitivity };
+  } catch {
+    return null;
+  }
+}
