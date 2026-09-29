@@ -76,8 +76,11 @@ Tokens never reach the browser; Graph is not an AI provider, so `ai-orchestrator
 ## 5. Send (phase 1)
 
 Implemented inside the existing `send_email` action (one send path, not a new one):
-`POST /me/messages` (draft) → `POST /me/messages/{id}/send`. Creating the draft first returns
-`conversationId`, stored on `email_threads`. The activity is `email_draft` / `status: 'sent'`,
+`POST /me/sendMail` with `saveToSentItems: true` — `Mail.Send` only. (The first build drafted with
+`POST /me/messages` then sent; that needs `Mail.ReadWrite`, which we do not request, and Graph
+answered "Access is denied" in the 2026-09-29 test. Nothing was sent.) The sent copy is then found
+in Sent Items (`Mail.Read`) by subject, first recipient and time, and its `conversationId` is stored
+on `email_threads`; if it cannot be found the send still stands, only the binding is missing. The activity is `email_draft` / `status: 'sent'`,
 so `last_verified_client_contact` counts it with no change. The existing rule holds: **only a
 user's click sends**; no AI output or automation can call the send route (it requires the
 user's JWT and MFA, same as today). Postmark stays as the path for anyone not connected.

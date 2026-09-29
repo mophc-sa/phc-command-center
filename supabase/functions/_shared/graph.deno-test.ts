@@ -123,21 +123,33 @@ Deno.test("the signed-in mailbox is read from /me", async () => {
   assertEquals(await getMe("a", fakeFetch([[401, {}]], [])), null);
 });
 
-Deno.test("send drafts first, then sends, and returns the conversation id", async () => {
-  if (!COMPOSED.ok) return;
-  const calls: Call[] = [];
-  const r = await sendAsMe("tok", toGraphMessage(COMPOSED), fakeFetch([[201, { id: "m1", conversationId: "c1" }], [202, {}]], calls));
-  assertEquals(r, { ok: true, messageId: "m1", conversationId: "c1" });
-  assertEquals(calls.map((c) => c.url), [
-    "https://graph.microsoft.com/v1.0/me/messages",
-    "https://graph.microsoft.com/v1.0/me/messages/m1/send",
-  ]);
+const noWait = () => Promise.resolve();
+const SENT_ITEM = (subject: string, to: string) => ({
+  value: [{ id: "s1", conversationId: "c1", subject, sentDateTime: new Date().toISOString(), toRecipients: [{ emailAddress: { address: to } }] }],
 });
 
-Deno.test("a failed draft is never sent", async () => {
+Deno.test("send uses sendMail (Mail.Send only), then finds the sent copy for its conversation id", async () => {
   if (!COMPOSED.ok) return;
   const calls: Call[] = [];
-  const r = await sendAsMe("tok", toGraphMessage(COMPOSED), fakeFetch([[403, { error: { message: "Access denied" } }]], calls));
-  assertEquals(r, { ok: false, status: 403, error: "Access denied" });
+  const r = await sendAsMe("tok", toGraphMessage(COMPOSED), fakeFetch([[202, {}], [200, SENT_ITEM("Quote", "client@example.com")]], calls), noWait);
+  assertEquals(r, { ok: true, messageId: "s1", conversationId: "c1" });
+  assertEquals(calls[0].url, "https://graph.microsoft.com/v1.0/me/sendMail");
+  assertEquals(JSON.parse(String(calls[0].init?.body)).saveToSentItems, true);
+  assert(calls[1].url.startsWith("https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages"));
+  assertFalse(calls.some((c) => c.url.endsWith("/me/messages")), "never creates a draft (that needs Mail.ReadWrite)");
+});
+
+Deno.test("a sent email whose copy cannot be found is still reported as sent", async () => {
+  if (!COMPOSED.ok) return;
+  const r = await sendAsMe("tok", toGraphMessage(COMPOSED),
+    fakeFetch([[202, {}], [200, SENT_ITEM("Other", "x@y.com")], [200, { value: [] }], [200, { value: [] }]], []), noWait);
+  assertEquals(r, { ok: true, messageId: null, conversationId: null });
+});
+
+Deno.test("a refused send is reported and nothing is looked up", async () => {
+  if (!COMPOSED.ok) return;
+  const calls: Call[] = [];
+  const r = await sendAsMe("tok", toGraphMessage(COMPOSED), fakeFetch([[403, { error: { message: "Access is denied." } }]], calls), noWait);
+  assertEquals(r, { ok: false, status: 403, error: "Access is denied." });
   assertEquals(calls.length, 1);
 });

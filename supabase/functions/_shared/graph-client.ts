@@ -46,7 +46,7 @@ export async function getMe(access: string, f: typeof fetch = fetch): Promise<{ 
 }
 
 export type SendResult =
-  | { ok: true; messageId: string; conversationId: string | null }
+  | { ok: true; messageId: string | null; conversationId: string | null }
   | { ok: false; status: number; error: string };
 
 const graphError = async (res: Response) => {
@@ -55,21 +55,54 @@ const graphError = async (res: Response) => {
 };
 
 /**
- * Draft, then send. Creating the draft first returns the conversation id,
- * which is how a later reply is bound back to the deal. A failed draft is
- * never followed by a send.
+ * Send with /me/sendMail, which needs only Mail.Send, and keep a copy in Sent
+ * Items. Creating a draft first would need Mail.ReadWrite — permission to change
+ * and delete mail — which this app deliberately does not hold.
+ *
+ * sendMail returns no id, so the sent copy is then looked up in Sent Items
+ * (Mail.Read) by subject, first recipient and time, to learn the conversation id
+ * a later reply binds by. If it cannot be found the email has still been sent;
+ * only the binding is lost, and ids come back null.
  */
-export async function sendAsMe(access: string, message: GraphMessage, f: typeof fetch = fetch): Promise<SendResult> {
+export async function sendAsMe(
+  access: string,
+  message: GraphMessage,
+  f: typeof fetch = fetch,
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<SendResult> {
   const headers = { Authorization: `Bearer ${access}`, "Content-Type": "application/json" };
+  const startedAt = Date.now() - 60_000;
   try {
-    const draft = await f(`${GRAPH}/me/messages`, { method: "POST", headers, body: JSON.stringify(message) });
-    if (!draft.ok) return { ok: false, status: draft.status, error: await graphError(draft) };
-    const d = await draft.json() as { id?: string; conversationId?: string };
-    if (!d.id) return { ok: false, status: 502, error: "Outlook did not return a draft" };
-    const sent = await f(`${GRAPH}/me/messages/${encodeURIComponent(d.id)}/send`, { method: "POST", headers });
+    const sent = await f(`${GRAPH}/me/sendMail`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ message, saveToSentItems: true }),
+    });
     if (!sent.ok) return { ok: false, status: sent.status, error: await graphError(sent) };
-    return { ok: true, messageId: d.id, conversationId: d.conversationId ?? null };
   } catch {
     return { ok: false, status: 502, error: "Outlook could not be reached" };
   }
+
+  const firstTo = message.toRecipients[0]?.emailAddress.address.toLowerCase() ?? "";
+  const query = `${GRAPH}/me/mailFolders/sentitems/messages?$top=10&$orderby=sentDateTime desc` +
+    `&$select=id,conversationId,subject,sentDateTime,toRecipients`;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await wait(1500);
+    try {
+      const res = await f(query, { headers: { Authorization: `Bearer ${access}` } });
+      if (!res.ok) break;
+      const { value = [] } = await res.json() as {
+        value?: Array<{ id: string; conversationId?: string; subject?: string; sentDateTime?: string; toRecipients?: Array<{ emailAddress?: { address?: string } }> }>;
+      };
+      const hit = value.find((m) =>
+        m.subject === message.subject &&
+        Date.parse(m.sentDateTime ?? "") >= startedAt &&
+        (m.toRecipients ?? []).some((r) => (r.emailAddress?.address ?? "").toLowerCase() === firstTo)
+      );
+      if (hit) return { ok: true, messageId: hit.id, conversationId: hit.conversationId ?? null };
+    } catch {
+      break;
+    }
+  }
+  return { ok: true, messageId: null, conversationId: null };
 }
