@@ -46,12 +46,15 @@ describe("only mail about a known client is kept", () => {
   it("unmatched mail is skipped before a body is fetched or a row written", () => {
     const skip = SYNC.indexOf("if (!contactHit && !companyId) continue;");
     expect(skip).toBeGreaterThan(-1);
-    expect(skip).toBeLessThan(SYNC.indexOf("await getUniqueBody("));
+    expect(skip).toBeLessThan(SYNC.indexOf("await getMessageDetail("));
     expect(skip).toBeLessThan(SYNC.indexOf('from("activities").insert('));
   });
 
-  it("private mail and drafts are filtered first", () => {
+  it("private mail and drafts are filtered, and personal/private sensitivity is checked before storing", () => {
     expect(SYNC).toContain("batch.filter((m) => shouldSkip(m) === null)");
+    const sens = SYNC.indexOf('detail.sensitivity === "1" || detail.sensitivity === "2"');
+    expect(sens).toBeGreaterThan(-1);
+    expect(sens).toBeLessThan(SYNC.indexOf('from("activities").insert('));
   });
 });
 

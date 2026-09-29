@@ -14,7 +14,7 @@ import {
   sameMailbox,
   toGraphMessage,
 } from "./graph.ts";
-import { deltaPage, exchangeCode, getMe, getUniqueBody, initialDeltaUrl, refreshAccess, sendAsMe } from "./graph-client.ts";
+import { deltaPage, exchangeCode, getMe, getMessageDetail, initialDeltaUrl, refreshAccess, sendAsMe } from "./graph-client.ts";
 import { composeOutbound } from "./mail.ts";
 
 const ENV: Record<string, string> = {
@@ -163,7 +163,7 @@ Deno.test("capture starts from a date and asks only for new messages' headers", 
   assertEquals(u.searchParams.get("$filter"), "receivedDateTime ge 2026-08-30T00:00:00Z");
   assertFalse((u.searchParams.get("$select") ?? "").includes("body"), "bodies are fetched only for matched mail");
   assertFalse((u.searchParams.get("$select") ?? "").includes("sensitivity"), "not a v1.0 message property");
-  assertEquals(u.searchParams.get("$expand"), "singleValueExtendedProperties($filter=id eq 'Integer 0x0036')");
+  assertEquals(u.searchParams.get("$expand"), null, "delta rejects $expand");
 });
 
 Deno.test("delta pages follow Graph's links only, and report an expired token", async () => {
@@ -177,9 +177,14 @@ Deno.test("delta pages follow Graph's links only, and report an expired token", 
   assertEquals(bad, { ok: false, status: 400, gone: false, error: "BadRequest: Invalid filter clause" });
 });
 
-Deno.test("the message text is the new part only", async () => {
+Deno.test("a matched message's text and sensitivity are read together", async () => {
   const calls: Call[] = [];
-  const body = await getUniqueBody("t", "m1", fakeFetch([[200, { uniqueBody: { content: "  Approved.  " } }]], calls));
-  assertEquals(body, "Approved.");
+  const d = await getMessageDetail("t", "m1", fakeFetch([[200, {
+    uniqueBody: { content: "  Approved.  " },
+    singleValueExtendedProperties: [{ id: "Integer 0x36", value: "2" }],
+  }]], calls));
+  assertEquals(d, { body: "Approved.", sensitivity: "2" });
+  assert(calls[0].url.includes("$expand=singleValueExtendedProperties"));
   assertEquals((calls[0].init?.headers as Record<string, string>).Prefer, 'outlook.body-content-type="text"');
+  assertEquals(await getMessageDetail("t", "m1", fakeFetch([[404, {}]], [])), null);
 });

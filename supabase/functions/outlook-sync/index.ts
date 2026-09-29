@@ -17,7 +17,7 @@
 
 import { serviceClient } from "../_shared/supabase.ts";
 import { readGraphConfig } from "../_shared/graph.ts";
-import { deltaPage, getUniqueBody, initialDeltaUrl, refreshAccess } from "../_shared/graph-client.ts";
+import { deltaPage, getMessageDetail, initialDeltaUrl, refreshAccess } from "../_shared/graph-client.ts";
 import {
   domainOf,
   externalAddresses,
@@ -158,7 +158,12 @@ async function storeBatch(
       pickOne(ext.flatMap((e) => companiesByDomain.get(domainOf(e)) ?? []));
     if (!contactHit && !companyId) continue; // not about a known client: never stored
 
-    const body = await getUniqueBody(access, m.id);
+    const detail = await getMessageDetail(access, m.id);
+    // Could not read it (throttled, transient): stop here without moving the
+    // position, so the next run retries it — never store without the privacy check.
+    if (!detail) return { stored, complete: false };
+    if (detail.sensitivity === "1" || detail.sensitivity === "2") continue; // personal / private: never stored
+    const body = detail.body;
     const binding = await bindDeal(svc, userId, m, companyId, body);
     const row = toActivityRow(m, folder, userId, { contactId: contactHit?.id ?? null, companyId }, binding, body);
     const { error } = await svc.from("activities").insert(row);

@@ -112,8 +112,9 @@ export async function sendAsMe(
 const DELTA_SELECT = "id,internetMessageId,conversationId,subject,from,toRecipients,ccRecipients," +
   "receivedDateTime,sentDateTime,isDraft,categories";
 // Sensitivity (Normal/Personal/Private/Confidential) is not a v1.0 message
-// property; it is the MAPI property PR_SENSITIVITY (0x0036), read as an
-// extended property. Graph rejected the whole request when it was selected.
+// property; it is the MAPI property PR_SENSITIVITY (0x0036), an extended
+// property. Delta rejects $expand ("Parsing OData Select and Expand failed"),
+// so it is read with the body, per matched message, in getMessageDetail.
 export const SENSITIVITY_EXPAND = "singleValueExtendedProperties($filter=id%20eq%20'Integer%200x0036')";
 
 /** The first delta request for a folder: new messages since a date, headers only. */
@@ -122,7 +123,7 @@ export function initialDeltaUrl(folder: "inbox" | "sentitems", sinceIso: string)
   // of the OData option names. The date is validated, so nothing else needs escaping.
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(sinceIso)) throw new Error("bad since date");
   return `${GRAPH}/me/mailFolders/${folder}/messages/delta` +
-    `?$select=${DELTA_SELECT}&$expand=${SENSITIVITY_EXPAND}&$filter=receivedDateTime+ge+${sinceIso}&changeType=created`;
+    `?$select=${DELTA_SELECT}&$filter=receivedDateTime+ge+${sinceIso}&changeType=created`;
 }
 
 export type DeltaPage =
@@ -148,15 +149,28 @@ export async function deltaPage(access: string, url: string, f: typeof fetch = f
   }
 }
 
-/** The new part of a message only (no quoted history), as plain text. */
-export async function getUniqueBody(access: string, messageId: string, f: typeof fetch = fetch): Promise<string | null> {
+/**
+ * For one matched message: the new part of its text (no quoted history) and
+ * its sensitivity. Read together so a private message is known before anything
+ * about it is stored.
+ */
+export async function getMessageDetail(
+  access: string,
+  messageId: string,
+  f: typeof fetch = fetch,
+): Promise<{ body: string | null; sensitivity: string | null } | null> {
   try {
-    const res = await f(`${GRAPH}/me/messages/${encodeURIComponent(messageId)}?$select=uniqueBody`, {
-      headers: { Authorization: `Bearer ${access}`, Prefer: 'outlook.body-content-type="text"' },
-    });
+    const res = await f(
+      `${GRAPH}/me/messages/${encodeURIComponent(messageId)}?$select=uniqueBody&$expand=${SENSITIVITY_EXPAND}`,
+      { headers: { Authorization: `Bearer ${access}`, Prefer: 'outlook.body-content-type="text"' } },
+    );
     if (!res.ok) return null;
-    const j = await res.json() as { uniqueBody?: { content?: string } };
-    return (j.uniqueBody?.content ?? "").trim() || null;
+    const j = await res.json() as {
+      uniqueBody?: { content?: string };
+      singleValueExtendedProperties?: Array<{ id?: string; value?: string }>;
+    };
+    const sensitivity = (j.singleValueExtendedProperties ?? []).find((p) => /0x0*36$/i.test(p.id ?? ""))?.value ?? null;
+    return { body: (j.uniqueBody?.content ?? "").trim() || null, sensitivity };
   } catch {
     return null;
   }
