@@ -800,6 +800,7 @@ These are guardrails, not suggestions. They will stop you.
 - **Client email comes in by itself (not yet live).** Every five minutes the system reads the Inbox and Sent Items of each connected mailbox and keeps **only** email with a known client — a contact's address, or a company's website domain. Colleagues, Gmail/Hotmail senders and newsletters are never stored, and neither is anything you mark **Private** in Outlook. On first connection it looks back 30 days.
 - Each kept email is put on its deal: first by the conversation (a reply to an email already on a deal), then by a **project code** in the subject or text (e.g. `FA-26-0015`), then by the company's only open deal. If none of these decides, it stays on the account, marked **Not linked to a deal**: choose the deal once on the account page and the rest of that conversation follows.
 - An email not yet on a deal is seen by you and the pipeline managers; once on a deal, by everyone who can see that deal.
+- **Adding a new client catches up.** When a contact is saved with a company email (not Gmail/Hotmail), the company learns its domain, so mail from anyone at that company is recognised. And any new contact email or company domain makes every connected mailbox re-read the last 30 days — the client's earlier emails are picked up, and nothing already stored is duplicated.
 - The Correspondence panel with its summary, the daily digest and the calendar come in later phases.
 
 ### Sending email from the system (2026-09-13)

@@ -6,6 +6,10 @@
   Sent Items via Graph delta; keeps only mail with a known contact or company domain; binds by
   conversation → project code → single open deal; unbound mail is linked from the account page
   (`bind_email_to_deal` → `bind_email_conversation`). Migration `20261003100000_outlook_capture.sql`.
+- New clients: a contact's company email fills the company's `website_domain` (not free-mail, not
+  already held), and a new contact email / company domain restarts every mailbox's 30-day round
+  (`20261003110000_outlook_capture_new_clients.sql`). 43 company domains were filled from existing
+  contacts' emails with the user's approval (audited as `company.website_domain_derived`).
 
 ## 2026-09-29 — Connect Outlook and send from your own mailbox (phase 1, released)
 

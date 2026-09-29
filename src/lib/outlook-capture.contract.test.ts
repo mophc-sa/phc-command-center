@@ -74,3 +74,25 @@ describe("linking a conversation to a deal goes through the database", () => {
     expect(SQL).toContain("REVOKE ALL ON public.mail_sync_state FROM PUBLIC, anon, authenticated;");
   });
 });
+
+describe("new clients are not missed", () => {
+  const NEW = read("supabase/migrations/20261003110000_outlook_capture_new_clients.sql");
+  const TS = read("supabase/functions/_shared/mail-capture.ts");
+
+  it("SQL and TypeScript exclude the same free-mail domains", () => {
+    const sql = [...NEW.matchAll(/'([a-z0-9.-]+\.[a-z]{2,})'/g)].map((m) => m[1]).filter((d) => d !== "phc-sa.com");
+    const ts = [...TS.slice(TS.indexOf("FREE_MAIL_DOMAINS"), TS.indexOf("]);")).matchAll(/"([a-z0-9.-]+)"/g)].map((m) => m[1]);
+    expect(new Set(sql)).toEqual(new Set(ts));
+  });
+
+  it("a new contact email or company domain restarts the sync rounds", () => {
+    expect(NEW).toContain("UPDATE public.mail_sync_state SET delta_link = NULL");
+    expect(NEW).toMatch(/AFTER INSERT OR UPDATE OF email ON public\.contacts/);
+    expect(NEW).toMatch(/AFTER INSERT OR UPDATE OF website_domain ON public\.companies/);
+  });
+
+  it("a fresh round looks back from now, so a re-read covers the last 30 days", () => {
+    expect(SYNC).toContain("new Date(Date.now() - BACKFILL_DAYS * 86_400_000)");
+  });
+});
+

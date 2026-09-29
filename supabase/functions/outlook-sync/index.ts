@@ -50,17 +50,17 @@ export async function handleSync(req: Request): Promise<Response> {
   if (!cfg.configured) return text(503, "not configured");
 
   const started = Date.now();
-  const { data: conns } = await svc.from("mail_connections").select("user_id, connected_at").eq("status", "active");
+  const { data: conns } = await svc.from("mail_connections").select("user_id").eq("status", "active");
   let stored = 0;
   for (const c of conns ?? []) {
     if (Date.now() - started > TIME_BUDGET_MS) break;
-    stored += await syncMailbox(svc, cfg, c.user_id, c.connected_at, started);
+    stored += await syncMailbox(svc, cfg, c.user_id, started);
   }
   log({ outcome: "done", mailboxes: (conns ?? []).length, stored });
   return text(200, "ok");
 }
 
-async function syncMailbox(svc: Svc, cfg: ReturnType<typeof readGraphConfig>, userId: string, connectedAt: string, started: number) {
+async function syncMailbox(svc: Svc, cfg: ReturnType<typeof readGraphConfig>, userId: string, started: number) {
   const { data: refresh } = await svc.rpc("mail_refresh_token", { _user: userId });
   if (typeof refresh !== "string" || !refresh) return 0;
   const tok = await refreshAccess(cfg, refresh);
@@ -73,7 +73,10 @@ async function syncMailbox(svc: Svc, cfg: ReturnType<typeof readGraphConfig>, us
   }
   if (tok.refresh) await svc.rpc("rotate_mail_refresh_token", { _user: userId, _refresh_token: tok.refresh });
 
-  const since = new Date(Date.parse(connectedAt) - BACKFILL_DAYS * 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z");
+  // A fresh round (first connection, an expired token, or a new client added —
+  // see 20261003110000) always looks back 30 days from now. Already-stored mail
+  // is skipped by its message id, so a re-read never duplicates.
+  const since = new Date(Date.now() - BACKFILL_DAYS * 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z");
   let stored = 0;
   for (const folder of FOLDERS) {
     if (Date.now() - started > TIME_BUDGET_MS) break;
