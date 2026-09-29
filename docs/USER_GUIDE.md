@@ -789,7 +789,7 @@ These are guardrails, not suggestions. They will stop you.
 - Action items are taken as Fireflies wrote them. No AI re-reads the transcript yet; that is a later phase if Fireflies' items prove too thin.
 - Project names in Fireflies' text are transcribed by ear ("Myth", "Gen Adria") — check them before approving.
 
-### Sending from your own Outlook (2026-09-29, not yet live)
+### Sending from your own Outlook (live 2026-09-29)
 
 - In **Settings → Outlook**, press **Connect Outlook** and sign in with your own company mailbox — the address on your PHC profile. Any other mailbox is refused.
 - After that, **Send** in the email window sends from your Outlook: the email appears in your **Sent** folder, and the window says which mailbox it is leaving from.

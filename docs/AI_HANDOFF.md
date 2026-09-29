@@ -1,5 +1,13 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-29 — Outlook phase 1 released (PR 325)
+
+Production serves `6a4fb60`, Worker `89261543-ac77-453b-95d1-d2f3edcc90a6` (run 36558973315).
+Canary `562e1484` (36558148749), canary readiness 36558400449, post-production readiness
+36559185378 (79 + 11 passed). Previous production `b48c942` (Worker `c0399944`) is the rollback
+target. Settings → Outlook and the compose label are live. User turns Preview URLs off again.
+Next: phase 2 (capture + binding by conversation / project code / single open deal).
+
 ## 2026-09-29 — Outlook via Graph, phase 1 deployed and tested (PR 325)
 
 Backend live: migration `20261002100000` (verified; Vault round-trip probed in a rolled-back
