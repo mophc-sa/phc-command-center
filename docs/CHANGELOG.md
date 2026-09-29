@@ -1,13 +1,14 @@
 # CHANGELOG — PHC Command Center
 
-## 2026-09-29 — Connect Outlook and send from your own mailbox (phase 1, not deployed)
+## 2026-09-29 — Connect Outlook and send from your own mailbox (phase 1, released)
 
 - Settings → Outlook connects a salesperson's own company mailbox (delegated Microsoft Graph,
   PKCE, refresh token in Supabase Vault). `send_email` then sends through Graph so the email is
   in the Sent folder; anyone not connected still sends through Postmark. Expired connections
   are refused with "reconnect", never rerouted.
 - New `outlook-connector` function (sign-in callback), actions `outlook_connect_start`,
-  `outlook_disconnect`, migration `20261002100000_outlook_connect.sql`.
+  `outlook_disconnect`, migration `20261002100000_outlook_connect.sql`. Released to production
+  `6a4fb60` (Worker `89261543`); `sales-os-api` v71. Sends via `/me/sendMail` (Mail.Send only).
 
 ## 2026-09-29 — Meetings from Fireflies (released)
 
