@@ -1,5 +1,13 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-09-29 — Correspondence panel and AI summary on the deal page (phase 3, not deployed)
+
+- New orchestrator agent `deal_correspondence_summary` (no new function): last ≤15 emails on the deal,
+  cited points (client asked / PHC owes / next step), third-person paraphrase so the output guardrail
+  never sees "I sent". Run on demand from the new **Correspondence** panel, which lists the deal's
+  email and flags newer mail since the summary. Migration `20261004100000` lets everyone who can read
+  the deal read its summary (other agents unchanged).
+
 ## 2026-09-29 — Client email captured from Outlook and bound to deals (phase 2, released `8012af0`)
 
 - `outlook-sync` (pg_cron every 5 min, key in Vault) reads each connected mailbox's Inbox and
