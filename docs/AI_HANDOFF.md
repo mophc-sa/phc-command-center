@@ -1,5 +1,14 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-29 — Outlook phase 2 released (PR 327)
+
+Production serves `8012af0`, Worker `39e8f2b4-9ada-4d40-ad85-3fde90a70a70` (run 36567438990).
+Canary `2ee481ba` (36566423812), canary readiness 36566657592, post-production readiness
+36567691335 (79 + 11). Rollback UI: previous production `6a4fb60` (Worker `89261543`).
+Backend: migrations `20261003100000` + `20261003110000`, `outlook-sync` v5, `sales-os-api` v72.
+Mo's mailbox holds no client mail (checked: 164 inbox messages in 30 days, all services) —
+the real test is a salesperson connecting. User turns Preview URLs off again.
+
 ## 2026-09-29 — Outlook phase 2: capture live (backend), UI pending
 
 Deployed: migration `20261003100000`, `outlook-sync` v4, `sales-os-api` v72. The first three

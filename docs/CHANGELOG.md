@@ -1,6 +1,6 @@
 # CHANGELOG — PHC Command Center
 
-## 2026-09-29 — Client email captured from Outlook and bound to deals (phase 2, not deployed)
+## 2026-09-29 — Client email captured from Outlook and bound to deals (phase 2, released `8012af0`)
 
 - `outlook-sync` (pg_cron every 5 min, key in Vault) reads each connected mailbox's Inbox and
   Sent Items via Graph delta; keeps only mail with a known contact or company domain; binds by
