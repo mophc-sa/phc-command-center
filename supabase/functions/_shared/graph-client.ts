@@ -106,3 +106,50 @@ export async function sendAsMe(
   }
   return { ok: true, messageId: null, conversationId: null };
 }
+
+// ---- Capture: delta sync and message text --------------------------------
+
+const DELTA_SELECT = "id,internetMessageId,conversationId,subject,from,toRecipients,ccRecipients," +
+  "receivedDateTime,sentDateTime,isDraft,sensitivity,categories";
+
+/** The first delta request for a folder: new messages since a date, headers only. */
+export function initialDeltaUrl(folder: "inbox" | "sentitems", sinceIso: string): string {
+  const q = new URLSearchParams({
+    changeType: "created",
+    $select: DELTA_SELECT,
+    $filter: `receivedDateTime ge ${sinceIso}`,
+  });
+  return `${GRAPH}/me/mailFolders/${folder}/messages/delta?${q.toString()}`;
+}
+
+export type DeltaPage =
+  | { ok: true; messages: Array<Record<string, unknown>>; next: string | null; deltaLink: string | null }
+  | { ok: false; status: number; gone: boolean };
+
+/** One page of a delta round. Only Graph's own links are ever followed. */
+export async function deltaPage(access: string, url: string, f: typeof fetch = fetch): Promise<DeltaPage> {
+  if (!url.startsWith(`${GRAPH}/`)) return { ok: false, status: 400, gone: false };
+  try {
+    const res = await f(url, { headers: { Authorization: `Bearer ${access}`, Prefer: "odata.maxpagesize=50" } });
+    // 410: the delta token expired — start the round again from a date.
+    if (!res.ok) return { ok: false, status: res.status, gone: res.status === 410 };
+    const j = await res.json() as { value?: Array<Record<string, unknown>>; "@odata.nextLink"?: string; "@odata.deltaLink"?: string };
+    return { ok: true, messages: j.value ?? [], next: j["@odata.nextLink"] ?? null, deltaLink: j["@odata.deltaLink"] ?? null };
+  } catch {
+    return { ok: false, status: 502, gone: false };
+  }
+}
+
+/** The new part of a message only (no quoted history), as plain text. */
+export async function getUniqueBody(access: string, messageId: string, f: typeof fetch = fetch): Promise<string | null> {
+  try {
+    const res = await f(`${GRAPH}/me/messages/${encodeURIComponent(messageId)}?$select=uniqueBody`, {
+      headers: { Authorization: `Bearer ${access}`, Prefer: 'outlook.body-content-type="text"' },
+    });
+    if (!res.ok) return null;
+    const j = await res.json() as { uniqueBody?: { content?: string } };
+    return (j.uniqueBody?.content ?? "").trim() || null;
+  } catch {
+    return null;
+  }
+}

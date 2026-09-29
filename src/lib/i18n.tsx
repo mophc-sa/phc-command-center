@@ -2014,6 +2014,11 @@ export const strings = {
   outlook_result_expired: { en: "The sign-in took too long. Try again.", ar: "انتهت مهلة تسجيل الدخول. حاول مرة أخرى." },
   outlook_result_wrong_mailbox: { en: "Sign in with your own company mailbox — the one on your PHC profile.", ar: "سجّل الدخول ببريد الشركة الخاص بك، نفس البريد في ملفك بالنظام." },
   outlook_result_failed: { en: "Outlook could not be connected. Try again.", ar: "تعذّر ربط Outlook. حاول مرة أخرى." },
+  activity_type_email_received: { en: "Email received", ar: "بريد وارد" },
+  email_from_label: { en: "From", ar: "من" },
+  email_link_to_deal: { en: "Link to deal…", ar: "ربط بصفقة…" },
+  email_linked_ok: { en: "Email linked to the deal", ar: "رُبط البريد بالصفقة" },
+  email_unlinked: { en: "Not linked to a deal", ar: "غير مربوط بصفقة" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;

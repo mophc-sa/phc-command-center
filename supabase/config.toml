@@ -55,3 +55,9 @@ verify_jwt = false
 # by the one-time state stored (hashed) by sales-os-api's outlook_connect_start.
 [functions.outlook-connector]
 verify_jwt = false
+
+# Called by pg_cron every five minutes, never by a browser: there is no user JWT.
+# The function authenticates the call by a key kept only in Vault (see
+# 20261003100000_outlook_capture.sql), which the cron job reads when it runs.
+[functions.outlook-sync]
+verify_jwt = false

@@ -1,5 +1,12 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-09-29 — Client email captured from Outlook and bound to deals (phase 2, not deployed)
+
+- `outlook-sync` (pg_cron every 5 min, key in Vault) reads each connected mailbox's Inbox and
+  Sent Items via Graph delta; keeps only mail with a known contact or company domain; binds by
+  conversation → project code → single open deal; unbound mail is linked from the account page
+  (`bind_email_to_deal` → `bind_email_conversation`). Migration `20261003100000_outlook_capture.sql`.
+
 ## 2026-09-29 — Connect Outlook and send from your own mailbox (phase 1, released)
 
 - Settings → Outlook connects a salesperson's own company mailbox (delegated Microsoft Graph,

@@ -4,11 +4,15 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Phone, Users, CalendarDays, StickyNote, Mail, MessageCircle, Check } from "lucide-react";
+import { Phone, Users, CalendarDays, StickyNote, Mail, MailOpen, MessageCircle, Check } from "lucide-react";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { listActivities, markActivitySent, type ActivityTimelineFilter, type Activity } from "@/lib/activity-actions";
+import { bindEmailToDeal } from "@/lib/mail-actions";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canManageSalesPipeline } from "@/lib/roles";
+import { supabase } from "@/integrations/supabase/client";
 
 const TYPE_ICON: Record<string, typeof Phone> = {
   call: Phone,
@@ -16,6 +20,7 @@ const TYPE_ICON: Record<string, typeof Phone> = {
   meeting: CalendarDays,
   note: StickyNote,
   email_draft: Mail,
+  email_received: MailOpen,
   whatsapp_draft: MessageCircle,
 };
 
@@ -39,6 +44,37 @@ export function CommunicationTimeline({ filter, limit }: { filter: ActivityTimel
     queryKey,
     queryFn: () => listActivities(filter, limit),
   });
+
+  // On an account page, a captured email not yet on a deal can be linked to one
+  // of the account's deals — by the mailbox owner or a pipeline operator. The
+  // database decides; this only hides a control that would be refused.
+  const { user, roles } = useAuth();
+  const companyId = "companyId" in filter ? filter.companyId : null;
+  const hasUnbound = activities.some((a) => a.email_conversation_id && !a.related_opportunity_id);
+  const dealsQ = useQuery({
+    queryKey: ["company-deals", companyId],
+    enabled: Boolean(companyId && hasUnbound),
+    queryFn: async () => {
+      const { data, error } = await supabase.from("opportunities").select("id, project_name")
+        .eq("company_id", companyId as string).order("updated_at", { ascending: false }).limit(50);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const canLink = (a: Activity) =>
+    Boolean(companyId && a.email_conversation_id && !a.related_opportunity_id &&
+      (a.owner_id === user?.id || canManageSalesPipeline(roles)));
+
+  async function handleLink(activityId: string, opportunityId: string) {
+    if (!opportunityId) return;
+    try {
+      await bindEmailToDeal(activityId, opportunityId);
+      qc.invalidateQueries({ queryKey });
+      toast.success(t("email_linked_ok"));
+    } catch (e) {
+      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+    }
+  }
 
   async function handleMarkSent(id: string) {
     try {
@@ -80,7 +116,28 @@ export function CommunicationTimeline({ filter, limit }: { filter: ActivityTimel
                 </button>
               ) : null}
             </div>
-            {a.summary ? <div className="mt-1.5 text-sm text-foreground">{a.summary}</div> : null}
+            {a.summary ? <div dir="auto" className="mt-1.5 text-sm text-foreground">{a.summary}</div> : null}
+            {a.activity_type === "email_received" && a.email_from ? (
+              <div className="mt-0.5 text-xs text-muted-foreground">
+                {t("email_from_label")}: <span dir="ltr">{a.email_from}</span>
+              </div>
+            ) : null}
+            {canLink(a) ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <StatusPill tone="attention">{t("email_unlinked")}</StatusPill>
+                <select
+                  defaultValue=""
+                  onChange={(e) => handleLink(a.id, e.target.value)}
+                  aria-label={t("email_link_to_deal")}
+                  className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="">{t("email_link_to_deal")}</option>
+                  {(dealsQ.data ?? []).map((o) => (
+                    <option key={o.id} value={o.id}>{o.project_name ?? o.id}</option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
           </li>
         );
       })}
