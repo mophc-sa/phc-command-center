@@ -1,6 +1,6 @@
 # Current Task — PHC Command Center
 
-## بند فعّال — الاجتماعات من Fireflies (2026-09-28)
+## بند مكتمل — الاجتماعات من Fireflies، منشور 2026-09-29 (`b48c942`، Worker `c0399944`)
 
 الفرع: `feat/fireflies-meetings`. webhook موقّع ← `meetings-inbound` ← جدولا `meetings`/`meeting_action_items` ← صفحة `/meetings` للاعتماد ← `tasks`. الكود والاختبارات مكتملة وCI أخضر لاختبارات قاعدة البيانات. **Migration `20261001100000` مطبَّقة على الإنتاج 2026-09-28** (من commit `3f80c35`، متحقَّق منها: migration list متطابقة، الجداول والدوال موجودة وترفض anon بـ42501). **الدوال منشورة 2026-09-28** من `181a867` (كود مطابق لـ`3f80c35`): `meetings-inbound` v1 (verify_jwt=false، يرد 503 حتى تُضبط المفاتيح) و`sales-os-api` v66→v67 (action `meeting_action_decision` موجود: 401 بلا جلسة مقابل 404 لـaction مجهول). الرجوع: إعادة نشر `sales-os-api` من `main`. المتبقي (كان: موافقة المستخدم على نشر `meetings-inbound` و`sales-os-api`، وضبط `FIREFLIES_API_KEY` و`FIREFLIES_WEBHOOK_SECRET`، وإدخال رابط الـwebhook في Fireflies، ثم اختبار باجتماع حقيقي.
 

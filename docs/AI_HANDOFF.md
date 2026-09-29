@@ -1,5 +1,20 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-09-29 — Meetings from Fireflies released (PR 322)
+
+Production serves `b48c942`, Worker version `c0399944-f5a9-4bcd-9ea4-13ea6e043482`
+(run 36543159897). Canary `06c8ccb4` (36540424342), canary readiness 36542473590,
+post-production readiness 36543457791 (79 + 11 passed); `agent.phc-sa.com/meetings` → 200.
+Previous production: `274fca6` (Worker `8bcb1288`) — the rollback target.
+The first real meeting (the 2026-09-28 review, recorded in two parts) was stored as one
+meeting with 28 items through `toIngestPayload` + `ingest_meeting`, because Fireflies does not
+resend webhooks for meetings already processed.
+
+Release lesson: the production gate (`scripts/verify-release-evidence.ts`) needs readiness
+evidence newer than the LATEST canary. An accidental second canary made the first production
+run fail; re-running readiness against the canary fixed it. Production dispatch is run by the
+user (the agent's classifier blocks it). User turns Preview URLs off again.
+
 ## 2026-09-28 — Meetings from Fireflies (branch `feat/fireflies-meetings`, backend deployed, UI not merged)
 
 Deployed 2026-09-28: migration `20261001100000` (from `3f80c35`, verified: list local==remote,

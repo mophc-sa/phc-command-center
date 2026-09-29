@@ -782,9 +782,9 @@ These are guardrails, not suggestions. They will stop you.
 
 ## 10. Current limitations
 
-### Meetings from Fireflies (2026-09-28, not yet live)
+### Meetings from Fireflies (live 2026-09-29)
 
-- Built and tested, not deployed. Going live needs: the database migration applied, the `meetings-inbound` and `sales-os-api` functions deployed, the Fireflies API key and webhook secret set, and the webhook URL entered in Fireflies → Settings → Developer Settings.
+- Live. New meetings arrive on their own a few minutes after Fireflies finishes processing them.
 - Fireflies sends a webhook only for meetings **owned by the account whose settings hold it**. Team-wide webhooks need a Fireflies Enterprise plan.
 - Action items are taken as Fireflies wrote them. No AI re-reads the transcript yet; that is a later phase if Fireflies' items prove too thin.
 - Project names in Fireflies' text are transcribed by ear ("Myth", "Gen Adria") — check them before approving.

@@ -1,12 +1,13 @@
 # CHANGELOG — PHC Command Center
 
-## 2026-09-28 — Meetings from Fireflies (built, not deployed)
+## 2026-09-29 — Meetings from Fireflies (released)
 
 - New `meetings-inbound` Edge Function receives the signed Fireflies webhook, fetches the
   transcript, and stores the meeting and its action items (`meetings`, `meeting_action_items`).
 - New **Meetings** page: reviewers name the owner of each item and approve it into a task
   (`decide_meeting_action_item`) or dismiss it with a reason. Owner is notified.
-- Migration `20261001100000_fireflies_meetings.sql`; not applied to production.
+- Migration `20261001100000_fireflies_meetings.sql` applied; `meetings-inbound` v1 and
+  `sales-os-api` v67 deployed; UI released to production `b48c942` (Worker `c0399944`).
 
 ## 2026-09-21 — Arabic sidebar back on the right (PR 319)
 
