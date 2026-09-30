@@ -2051,6 +2051,7 @@ export const strings = {
   brief_priority_info: { en: "For info", ar: "للعلم" },
   brief_deal: { en: "Deal", ar: "الصفقة" },
   brief_no_deal: { en: "Not linked to a deal", ar: "غير مربوط بصفقة" },
+  brief_open_deal: { en: "Open deal", ar: "فتح الصفقة" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;

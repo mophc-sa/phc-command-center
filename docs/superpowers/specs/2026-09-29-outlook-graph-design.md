@@ -133,7 +133,8 @@ Once Graph capture has run two weeks clean, Postmark reply capture is switched o
 
 ## 6b. Today's email (phase 4) — revised by the user 2026-09-30
 
-Replaces the query-only digest. A card at the top of My Workspace shows up to 10 of the person's client
+Replaces the query-only digest. (Moved 2026-09-30, by the user, from its own card at the top of My
+Workspace into the first section of **My daily assistant**, styled like its suggestion cards.) It shows up to 10 of the person's client
 emails since their last brief (their mailbox + their deals), ranked by importance and by being on an
 open deal, each as a priority badge plus two lines (what it is about; what is needed). Agent
 `daily_email_brief` in the orchestrator; made on the first visit of the day with the person's own

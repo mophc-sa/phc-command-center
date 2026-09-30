@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Panel } from "./Panel";
 import { GroundedAiAnswer } from "./GroundedAiAnswer";
+import { DailyEmailBriefSection } from "./DailyEmailBrief";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -82,6 +84,9 @@ export function DailyAssistantPanel() {
   return (
     <Panel title={ar ? "مساعدي اليومي" : "My daily assistant"}>
       <div className="space-y-4">
+        {/* Today's email first: the day's client mail, then the follow-ups. */}
+        <DailyEmailBriefSection />
+        <div className="border-t border-border" role="presentation" />
         <p className="text-sm text-muted-foreground">
           {ar
             ? "ترتيب المتابعات وفحص نواقص RFQ وBOQ من سجلاتك. تتحدث القائمة كل دقيقة؛ إنشاء المهام وإعداد المسودات يتم بطلبك."
@@ -92,9 +97,9 @@ export function DailyAssistantPanel() {
         ) : daily.error ? (
           <p role="alert" className="text-destructive">
             {daily.error.message}
-            <button onClick={() => daily.refetch()} className="ms-3 underline">
+            <Button variant="link" size="sm" onClick={() => daily.refetch()} className="ms-2 h-auto px-1">
               {ar ? "إعادة المحاولة" : "Retry"}
-            </button>
+            </Button>
           </p>
         ) : null}
         {daily.data && (
@@ -128,19 +133,11 @@ export function DailyAssistantPanel() {
                     </ul>
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      disabled={!!busy}
-                      className="rounded border px-3 py-1 text-sm disabled:opacity-60"
-                      onClick={() => review(s)}
-                    >
+                    <Button size="sm" variant="outline" disabled={!!busy} onClick={() => review(s)}>
                       {ar ? "مراجعة المهمة المقترحة" : "Review proposed task"}
-                    </button>
+                    </Button>
                     {s.opportunity_id && (
-                      <button
-                        disabled={!!busy}
-                        className="rounded border px-3 py-1 text-sm disabled:opacity-60"
-                        onClick={() => prepare(s)}
-                      >
+                      <Button size="sm" variant="outline" disabled={!!busy} onClick={() => prepare(s)}>
                         {busy === s.source_id
                           ? ar
                             ? "جارٍ تجهيز الاجتماع…"
@@ -148,7 +145,7 @@ export function DailyAssistantPanel() {
                           : ar
                             ? "تجهيز اجتماع ومسودة متابعة"
                             : "Prepare meeting and follow-up draft"}
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </article>
@@ -198,11 +195,7 @@ export function DailyAssistantPanel() {
               onChange={(e) => setDue(e.target.value)}
             />
           </label>
-          <button
-            disabled={!!busy || !title.trim()}
-            onClick={createTask}
-            className="rounded bg-primary px-4 py-2 text-primary-foreground disabled:opacity-60"
-          >
+          <Button disabled={!!busy || !title.trim()} onClick={createTask}>
             {busy === "task"
               ? ar
                 ? "جارٍ الحفظ…"
@@ -210,7 +203,7 @@ export function DailyAssistantPanel() {
               : ar
                 ? "اعتماد وإنشاء المهمة"
                 : "Approve and create task"}
-          </button>
+          </Button>
         </DialogContent>
       </Dialog>
     </Panel>

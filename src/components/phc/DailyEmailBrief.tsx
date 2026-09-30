@@ -1,6 +1,8 @@
 // =============================================================================
-// My Workspace → Today's email: up to 10 of the person's client emails, most
-// important first, each in two lines, linked to its deal.
+// My daily assistant → Today's email: up to 10 of the person's client emails,
+// most important first, each in two lines, linked to its deal. A section inside
+// DailyAssistantPanel (user, 2026-09-30), styled like the assistant's own
+// suggestion cards.
 //
 // Made by the daily_email_brief agent the first time the person opens the page
 // on a given day (with their own session — no background AI), then kept: every
@@ -14,8 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Mail, RefreshCw } from "lucide-react";
-import { Panel } from "@/components/phc/Panel";
+import { ArrowUpRight, Mail, RefreshCw } from "lucide-react";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -65,7 +66,7 @@ export function isFromToday(iso: string | null | undefined, now = new Date()): b
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
 }
 
-export function DailyEmailBrief() {
+export function DailyEmailBriefSection() {
   const { t, lang } = useI18n();
   const { user, roles } = useAuth();
   const qc = useQueryClient();
@@ -138,29 +139,41 @@ export function DailyEmailBrief() {
   const newer = newerQ.data ?? 0;
   const items = today && brief ? brief.items : [];
 
+  const madeAt = today && outputQ.data
+    ? new Date(outputQ.data.created_at).toLocaleTimeString(localeFor(lang), { timeStyle: "short" })
+    : null;
+
   return (
-    <Panel
-      title={t("brief_title")}
-      subtitle={today && outputQ.data ? `${t("brief_made")} ${new Date(outputQ.data.created_at).toLocaleTimeString(localeFor(lang), { timeStyle: "short" })}` : t("brief_subtitle")}
-      action={
-        today && newer > 0 ? (
+    <section aria-labelledby="daily-email-brief-title" className="space-y-3">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h4 id="daily-email-brief-title" className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            {t("brief_title")}
+            {items.length > 0 ? <StatusPill tone="muted">{items.length}</StatusPill> : null}
+          </h4>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {madeAt ? `${t("brief_made")} ${madeAt}` : t("brief_subtitle")}
+          </p>
+        </div>
+        {today && newer > 0 ? (
           <Button size="sm" variant="outline" onClick={make} disabled={running}>
-            <RefreshCw className={`me-1.5 h-3.5 w-3.5 ${running ? "animate-spin" : ""}`} />
+            <RefreshCw className={`me-1.5 h-3.5 w-3.5 ${running ? "animate-spin" : ""}`} aria-hidden="true" />
             {newer} {t("brief_newer")}
           </Button>
-        ) : null
-      }
-    >
+        ) : null}
+      </header>
+
       {running && !today ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <RefreshCw className="h-3.5 w-3.5 animate-spin" /> {t("brief_preparing")}
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> {t("brief_preparing")}
         </p>
       ) : items.length === 0 ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Mail className="h-3.5 w-3.5" /> {empty || today ? t("brief_empty") : t("brief_preparing")}
+        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground" role="status">
+          {empty || today ? t("brief_empty") : t("brief_preparing")}
         </p>
       ) : (
-        <ol className="divide-y divide-border">
+        <ol className="space-y-2">
           {items.map((it) => {
             const a = linksQ.data?.get(it.activity_id) as
               | { related_opportunity_id: string | null; opportunities: { project_name: string | null } | null }
@@ -168,24 +181,32 @@ export function DailyEmailBrief() {
             const oppId = a?.related_opportunity_id ?? null;
             const name = a?.opportunities?.project_name ?? null;
             return (
-              <li key={it.activity_id} className="flex gap-3 py-2.5">
-                <StatusPill tone={TONE[it.priority]} className="h-fit shrink-0">{t(LABEL[it.priority])}</StatusPill>
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  {oppId ? (
-                    <Link to="/opportunities/$id" params={{ id: oppId }} className="text-xs font-semibold text-foreground hover:underline" dir="auto">
-                      {name ?? t("brief_deal")}
-                    </Link>
-                  ) : (
-                    <span className="text-xs font-semibold text-muted-foreground">{t("brief_no_deal")}</span>
-                  )}
-                  <p dir="auto" className="text-sm text-foreground">{it.line1}</p>
+              <li key={it.activity_id}>
+                <article className="rounded-lg border border-border p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <h5 dir="auto" className="min-w-0 flex-1 truncate font-medium text-foreground">
+                      {name ?? t("brief_no_deal")}
+                    </h5>
+                    <StatusPill tone={TONE[it.priority]}>{t(LABEL[it.priority])}</StatusPill>
+                  </div>
+                  <p dir="auto" className="mt-1 text-sm text-foreground">{it.line1}</p>
                   <p dir="auto" className="text-sm text-muted-foreground">{it.line2}</p>
-                </div>
+                  {oppId ? (
+                    <div className="mt-2">
+                      <Button asChild size="sm" variant="outline">
+                        <Link to="/opportunities/$id" params={{ id: oppId }}>
+                          {t("brief_open_deal")}
+                          <ArrowUpRight className="ms-1 h-3.5 w-3.5 rtl:-scale-x-100" aria-hidden="true" />
+                        </Link>
+                      </Button>
+                    </div>
+                  ) : null}
+                </article>
               </li>
             );
           })}
         </ol>
       )}
-    </Panel>
+    </section>
   );
 }
