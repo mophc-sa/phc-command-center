@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Panel } from "./Panel";
 import { GroundedAiAnswer } from "./GroundedAiAnswer";
+import { DailyEmailBriefSection } from "./DailyEmailBrief";
 import {
   Dialog,
   DialogContent,
@@ -82,6 +83,9 @@ export function DailyAssistantPanel() {
   return (
     <Panel title={ar ? "مساعدي اليومي" : "My daily assistant"}>
       <div className="space-y-4">
+        {/* Today's email first: the day's client mail, then the follow-ups. */}
+        <DailyEmailBriefSection />
+        <div className="border-t border-border" role="presentation" />
         <p className="text-sm text-muted-foreground">
           {ar
             ? "ترتيب المتابعات وفحص نواقص RFQ وBOQ من سجلاتك. تتحدث القائمة كل دقيقة؛ إنشاء المهام وإعداد المسودات يتم بطلبك."
