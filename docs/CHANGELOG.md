@@ -1,5 +1,13 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-09-30 — Today's email on My Workspace (phase 4, released `4a48b2a`)
+
+- New orchestrator agent `daily_email_brief` (sentinel entity `my_email`, id = the caller): up to 10 of
+  the person's client emails since their last brief, ranked (open-deal email first), two lines each.
+  Made on the first My Workspace visit of the day with the person's own session; the card first checks
+  (no AI) that there is new email, so nothing new means no call at all. Private to the person.
+  Released as `4a48b2a` (Worker `02b76702`); `ai-orchestrator` v43. brace-expansion override → 5.0.12.
+
 ## 2026-09-30 — Correspondence panel and AI summary on the deal page (phase 3, released `f731de7`)
 
 - New orchestrator agent `deal_correspondence_summary` (no new function): last ≤15 emails on the deal,
