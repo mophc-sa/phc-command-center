@@ -42,6 +42,7 @@ export const AGENT_KEYS = [
   "sales_report_insights",
   // 2026-09-29 Outlook phase 3 — what a deal's email says, for its people.
   "deal_correspondence_summary",
+  "daily_email_brief",
 ] as const;
 export type AgentKey = (typeof AGENT_KEYS)[number];
 
@@ -65,6 +66,9 @@ export const ENTITY_TYPES = [
   // Sentinel, like "pipeline" — sales_report_insights has no single record,
   // it summarizes the Reports dashboard's aggregate view.
   "reports",
+  // A person's own email of the day — daily_email_brief. The entity id is the
+  // caller's own user id; the registry refuses any other.
+  "my_email",
 ] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
 
@@ -685,6 +689,28 @@ export const DealCorrespondenceSummaryOutputSchema = z
   .strict();
 export type DealCorrespondenceSummaryOutput = z.infer<typeof DealCorrespondenceSummaryOutputSchema>;
 
+// daily_email_brief — up to 10 of the person's client emails, most important
+// first, each in two short lines and pointing at its email activity.
+export const BRIEF_PRIORITIES = ["action", "important", "info"] as const;
+export const DailyEmailBriefOutputSchema = z
+  .object({
+    items: z
+      .array(
+        z
+          .object({
+            activity_id: z.string().uuid(),
+            priority: z.enum(BRIEF_PRIORITIES),
+            line1: z.string().min(1).max(180),
+            line2: z.string().min(1).max(180),
+          })
+          .strict(),
+      )
+      .max(10),
+    missing_information: z.array(z.string().min(1).max(300)).max(5),
+  })
+  .strict();
+export type DailyEmailBriefOutput = z.infer<typeof DailyEmailBriefOutputSchema>;
+
 // Lookup used by the orchestrator to validate whichever agent ran, without a
 // switch statement scattered through the request-handling code.
 export const AGENT_OUTPUT_SCHEMAS = {
@@ -707,6 +733,7 @@ export const AGENT_OUTPUT_SCHEMAS = {
   project_budget_variance: BudgetVarianceOutputSchema,
   sales_report_insights: SalesReportInsightsOutputSchema,
   deal_correspondence_summary: DealCorrespondenceSummaryOutputSchema,
+  daily_email_brief: DailyEmailBriefOutputSchema,
 } as const satisfies Record<AgentKey, z.ZodType>;
 
 export const AGENT_OUTPUT_TYPES = {
@@ -729,6 +756,7 @@ export const AGENT_OUTPUT_TYPES = {
   project_budget_variance: "recommendation",
   sales_report_insights: "recommendation",
   deal_correspondence_summary: "recommendation",
+  daily_email_brief: "recommendation",
 } as const satisfies Record<AgentKey, OutputType>;
 
 // ---------------------------------------------------------------------------

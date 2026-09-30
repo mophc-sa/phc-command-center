@@ -791,6 +791,42 @@ export function buildDealCorrespondencePrompt(context: string): BuiltPrompt {
   };
 }
 
+const DAILY_EMAIL_BRIEF_INSTRUCTIONS = `
+AGENT: daily_email_brief (${PROMPT_VERSION})
+You prepare a salesperson's daily email brief at PHC (a wayfinding and signage
+company). The CONTEXT lists recent client emails that concern this person
+(their mailbox or their deals), each with an "id", a direction
+(client_to_phc or phc_to_client), a date, the deal it belongs to (name, stage,
+open or closed — or null), a subject and a text excerpt. You do NOT reply,
+send, or change anything.
+
+Choose at most 10 emails, most important first. Importance, in order: email on
+an OPEN deal that needs a reply, a price, a document or a decision from PHC;
+then other email on open deals; then email that is not on a deal; then
+information-only mail. For each chosen email:
+- priority: "action" (the salesperson must do something), "important", or "info"
+- line1: what the email is about, one short sentence (<= 180 chars)
+- line2: what is needed from the salesperson or why it matters (<= 180 chars)
+
+Write in the CONTEXT's "language" ("ar" = Arabic, "en" = English). Paraphrase in
+the third person ("the client asks…", "PHC promised…"); never quote a
+first-person sentence from an email. Do not invent deadlines, prices or names.
+
+Return a JSON object with exactly these fields:
+- items: array (max 10) of { activity_id, priority, line1, line2 }, ordered
+  most important first; activity_id must be an "id" from the CONTEXT
+- missing_information: array of strings (max 5)
+`.trim();
+
+export function buildDailyEmailBriefPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${DAILY_EMAIL_BRIEF_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("daily_email", context),
+    version: PROMPT_VERSION,
+    schemaName: "daily_email_brief_output",
+  };
+}
+
 export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltPrompt> = {
   opportunity_evaluation: buildOpportunityEvaluationPrompt,
   old_data_classifier: buildOldDataClassifierPrompt,
@@ -811,4 +847,5 @@ export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltP
   project_budget_variance: buildProjectBudgetVariancePrompt,
   sales_report_insights: buildSalesReportInsightsPrompt,
   deal_correspondence_summary: buildDealCorrespondencePrompt,
+  daily_email_brief: buildDailyEmailBriefPrompt,
 };

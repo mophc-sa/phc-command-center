@@ -57,6 +57,7 @@ export const AGENT_ENTITY_ALLOWLIST: Record<AgentKey, readonly EntityType[]> = {
   // project_radar's "pipeline".
   sales_report_insights: ["reports"],
   deal_correspondence_summary: ["opportunities"],
+  daily_email_brief: ["my_email"],
 };
 
 export function isEntityAllowedForAgent(agent: AgentKey, entityType: string | null | undefined): boolean {
@@ -113,6 +114,7 @@ export const AGENT_ROLE_CHECK: Record<AgentKey, (roles: AppRole[]) => boolean> =
   // Salespeople summarise their own deals' email; who may read a given deal
   // is decided per record by can_read_boq in the registry's checkAccess.
   deal_correspondence_summary: (roles) => canCreateSalesRecords(roles),
+  daily_email_brief: (roles) => canCreateSalesRecords(roles),
 };
 
 export function hasAgentRole(agent: AgentKey, roles: AppRole[]): boolean {

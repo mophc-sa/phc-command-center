@@ -14,6 +14,7 @@ import { listTeamMembers } from "@/lib/opportunity-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { DailyAssistantPanel } from "@/components/phc/DailyAssistantPanel";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { DailyEmailBrief } from "@/components/phc/DailyEmailBrief";
 import { TodayPanel } from "@/components/phc/TodayPanel";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { KpiCard } from "@/components/phc/KpiCard";
@@ -164,8 +165,11 @@ function WorkspacePage() {
   // back up to it. Reading the figures first and ending on the list of things
   // to do is the order the people using it asked for, and it is also the one
   // that leaves them looking at the actions when they stop reading.
+  // Today's email sits first: approved 2026-09-30 by the user as the morning
+  // read, above the figures. (The day's task list stays at the bottom.)
   return (
     <>
+      <DailyEmailBrief />
       {isSalesperson(roles) ? (
         <SalespersonDashboard uid={uid} user={user} />
       ) : (
