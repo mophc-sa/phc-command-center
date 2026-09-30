@@ -2038,6 +2038,19 @@ export const strings = {
   corr_from_client: { en: "From the client", ar: "من العميل" },
   corr_from_phc: { en: "From PHC", ar: "من PHC" },
   corr_no_text: { en: "(no text captured)", ar: "(لم يُلتقط نص)" },
+
+  // Today's email (daily brief)
+  brief_title: { en: "Today's email", ar: "بريد اليوم" },
+  brief_subtitle: { en: "Your client email since yesterday, most important first.", ar: "بريد عملائك منذ أمس، الأهم أولاً." },
+  brief_made: { en: "Prepared at", ar: "جُهّز الساعة" },
+  brief_preparing: { en: "Preparing today's brief…", ar: "جارٍ تجهيز ملخص اليوم…" },
+  brief_empty: { en: "No new client email since your last brief.", ar: "لا يوجد بريد عملاء جديد منذ آخر ملخص." },
+  brief_newer: { en: "new — refresh", ar: "جديدة — حدّث" },
+  brief_priority_action: { en: "Action", ar: "يحتاج إجراء" },
+  brief_priority_important: { en: "Important", ar: "مهم" },
+  brief_priority_info: { en: "For info", ar: "للعلم" },
+  brief_deal: { en: "Deal", ar: "الصفقة" },
+  brief_no_deal: { en: "Not linked to a deal", ar: "غير مربوط بصفقة" },
 } satisfies Dict;
 
 type Key = keyof typeof strings;

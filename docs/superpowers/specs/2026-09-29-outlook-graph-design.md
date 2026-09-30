@@ -131,11 +131,14 @@ Once Graph capture has run two weeks clean, Postmark reply capture is switched o
   compares the summary's `created_at` with the newest email activity and shows
   "N new emails since the last summary — refresh". No background AI path.
 
-## 6b. Daily digest (phase 4)
+## 6b. Today's email (phase 4) — revised by the user 2026-09-30
 
-My Workspace gets "Your projects' email since yesterday": the caller's own opportunities with
-email activity in the last 24 h — count, latest subject, and whether the summary is stale —
-each linking to the deal. A query, not an AI call; summaries are made on the deal page.
+Replaces the query-only digest. A card at the top of My Workspace shows up to 10 of the person's client
+emails since their last brief (their mailbox + their deals), ranked by importance and by being on an
+open deal, each as a priority badge plus two lines (what it is about; what is needed). Agent
+`daily_email_brief` in the orchestrator; made on the first visit of the day with the person's own
+session (user's choice A — no background AI) and saved; later visits show it free; a button refreshes
+when newer client email arrives; no new email → no AI call. Private to its owner.
 
 ## 7. Calendar, two-way (phases 5–6)
 

@@ -183,6 +183,115 @@ export async function loadDealCorrespondenceContext(
 }
 
 // ---------------------------------------------------------------------------
+// daily_email_brief — a person's own client email since their last brief.
+// The "entity" is the person: entityId must be the caller's own user id.
+// ---------------------------------------------------------------------------
+
+export const BRIEF_MAX_CANDIDATES = 25;
+const BRIEF_BUDGET = 11_000;
+const OPEN = (stage: string | null) => stage !== "won" && stage !== "lost";
+
+async function checkOwnBriefAccess(
+  _svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+  userId: string,
+): Promise<AgentAccessResult> {
+  return entityId === userId
+    ? { ok: true }
+    : { ok: false, code: "AI_RECORD_ACCESS_DENIED", message: "A daily brief is only for your own email." };
+}
+
+type BriefEmail = {
+  id: string; activity_type: string; status: string; created_at: string; occurred_at: string;
+  summary: string | null; draft_content: string | null; email_from: string | null;
+  related_opportunity_id: string | null;
+};
+
+export async function loadDailyEmailBriefContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  userId: string,
+  input: Record<string, unknown>,
+): Promise<AgentContextResult> {
+  // Since the last brief, or the last 24 hours; never more than 7 days back.
+  const { data: last } = await svc.from("ai_agent_outputs").select("created_at")
+    .eq("agent_key", "daily_email_brief").eq("requested_by", userId)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle().throwOnError();
+  const floor = Date.now() - 7 * 86_400_000;
+  const lastAt = last ? Date.parse(String(last.created_at)) : NaN;
+  const since = new Date(Math.max(floor, Number.isFinite(lastAt) ? lastAt : Date.now() - 86_400_000)).toISOString();
+
+  const { data: deals } = await svc.from("opportunities").select("id, project_name, sales_stage, stage")
+    .eq("owner_id", userId).limit(500).throwOnError();
+  const dealById = new Map((deals ?? []).map((d) => [d.id as string, d]));
+
+  const cols = "id, activity_type, status, created_at, occurred_at, summary, draft_content, email_from, related_opportunity_id";
+  const { data: mine } = await svc.from("activities").select(cols)
+    .eq("owner_id", userId).in("activity_type", ["email_received", "email_draft"])
+    .gte("created_at", since).order("created_at", { ascending: false }).limit(100).throwOnError();
+  const onDeals: BriefEmail[] = [];
+  const ids = [...dealById.keys()];
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data } = await svc.from("activities").select(cols)
+      .in("related_opportunity_id", ids.slice(i, i + 100)).in("activity_type", ["email_received", "email_draft"])
+      .gte("created_at", since).order("created_at", { ascending: false }).limit(100).throwOnError();
+    onDeals.push(...((data ?? []) as BriefEmail[]));
+  }
+
+  // Unsent drafts are not email; the same email reached by both routes once.
+  const all = new Map<string, BriefEmail>();
+  for (const e of [...((mine ?? []) as BriefEmail[]), ...onDeals]) {
+    if (e.activity_type === "email_received" || e.status === "sent") all.set(e.id, e);
+  }
+  if (all.size === 0) return { ok: false, code: "AI_INPUT_INVALID", message: "No new client email since your last brief." };
+
+  // Open-deal email first, then received before sent, then newest.
+  const dealOf = (e: BriefEmail) => (e.related_opportunity_id ? dealById.get(e.related_opportunity_id) ?? null : null);
+  const rank = (e: BriefEmail) => {
+    const d = dealOf(e);
+    const stage = d ? resolveCanonicalStage(d).stage : null;
+    return (d && OPEN(stage) ? 0 : d ? 2 : 1) * 2 + (e.activity_type === "email_received" ? 0 : 1);
+  };
+  let picked = [...all.values()]
+    .sort((a, b) => rank(a) - rank(b) || Date.parse(b.occurred_at) - Date.parse(a.occurred_at))
+    .slice(0, BRIEF_MAX_CANDIDATES);
+
+  const language = input.language === "ar" ? "ar" : "en";
+  const build = (n: number) => JSON.stringify({
+    language,
+    emails: picked.map((e) => {
+      const d = dealOf(e);
+      const stage = d ? resolveCanonicalStage(d).stage : null;
+      return {
+        id: e.id,
+        direction: e.activity_type === "email_received" ? "client_to_phc" : "phc_to_client",
+        date: String(e.occurred_at ?? "").slice(0, 10),
+        deal: d ? { name: squash(d.project_name, 120), stage, open: OPEN(stage) } : null,
+        from: squash(e.email_from, 100) || null,
+        subject: squash(e.summary, 160),
+        text: squash(e.draft_content, n),
+      };
+    }),
+  });
+  let contextText = build(350);
+  for (const n of [250, 160, 100]) if (contextText.length > BRIEF_BUDGET) contextText = build(n);
+  while (contextText.length > BRIEF_BUDGET && picked.length > 1) {
+    picked = picked.slice(0, -1); // drop the least important
+    contextText = build(100);
+  }
+
+  const manifest: ContextManifest = {
+    fields_loaded: ["activities.summary", "activities.draft_content", "activities.email_from",
+      "activities.occurred_at", "opportunities.project_name", "opportunities.stage"],
+    record_counts: { activities: picked.length, opportunities: new Set(picked.map((e) => e.related_opportunity_id).filter(Boolean)).size },
+    source_entity_types: ["activities", "opportunities"],
+    redacted_identifiers: { user_id: redactId(userId) },
+  };
+  return { ok: true, contextText, manifest, recordCount: picked.length };
+}
+
+// ---------------------------------------------------------------------------
 // Agent 1 — opportunity_evaluation
 // ---------------------------------------------------------------------------
 
@@ -1669,6 +1778,18 @@ export const AGENT_REGISTRY: Record<AgentKey, AgentDefinition> = {
     outputSchema: AGENT_OUTPUT_SCHEMAS.project_budget_variance,
     outputType: AGENT_OUTPUT_TYPES.project_budget_variance,
     maxContextRecords: 20,
+    allowProviderFallback: true,
+  },
+  daily_email_brief: {
+    key: "daily_email_brief",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.daily_email_brief,
+    hasRole: AGENT_ROLE_CHECK.daily_email_brief,
+    checkAccess: checkOwnBriefAccess,
+    loadContext: loadDailyEmailBriefContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.daily_email_brief,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.daily_email_brief,
+    outputType: AGENT_OUTPUT_TYPES.daily_email_brief,
+    maxContextRecords: 30,
     allowProviderFallback: true,
   },
   deal_correspondence_summary: {
