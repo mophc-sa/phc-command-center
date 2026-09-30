@@ -5,6 +5,8 @@
 - At the user's request the brief is now the first section of **My daily assistant** instead of its
   own card at the top of My Workspace, in the assistant's card style (bordered card per email, deal
   name as the title, priority badge, two lines, an "Open deal" button). No behaviour change.
+- The assistant's own buttons (Review proposed task, Prepare meeting, Approve and create task, Retry)
+  now use the shared `Button` component instead of hand-styled `<button>`s, so the panel is one style.
 
 ## 2026-09-30 — Today's email on My Workspace (phase 4, released `4a48b2a`)
 
