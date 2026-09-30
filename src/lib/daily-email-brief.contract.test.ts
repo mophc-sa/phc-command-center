@@ -6,7 +6,7 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { isFromToday } from "@/components/phc/DailyEmailBrief";
+import { briefSince, isFromToday } from "@/components/phc/DailyEmailBrief";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
@@ -33,6 +33,18 @@ describe("once a day, on the person's own visit", () => {
 });
 
 describe("no new email, no AI", () => {
+  it("the card checks for new email before calling the orchestrator", () => {
+    expect(CARD.indexOf("hasNewClientEmail(uid, briefSince(")).toBeGreaterThan(-1);
+    expect(CARD.indexOf("hasNewClientEmail(uid, briefSince(")).toBeLessThan(CARD.indexOf("await runAiAgent("));
+  });
+
+  it("the card and the agent use the same window", () => {
+    const now = Date.parse("2026-09-30T08:00:00Z");
+    expect(briefSince(null, now)).toBe("2026-09-29T08:00:00.000Z");
+    expect(briefSince("2026-09-29T20:00:00Z", now)).toBe("2026-09-29T20:00:00.000Z");
+    expect(briefSince("2026-09-01T00:00:00Z", now)).toBe("2026-09-23T08:00:00.000Z");
+  });
+
   it("the loader stops before the provider when nothing is new", () => {
     expect(REG).toContain('message: "No new client email since your last brief."');
   });

@@ -4,9 +4,10 @@
 //
 // Made by the daily_email_brief agent the first time the person opens the page
 // on a given day (with their own session — no background AI), then kept: every
-// later visit that day shows the saved brief at no cost. When there is no new
-// client email the agent stops before any AI call. The brief is private to its
-// owner (ai_agent_outputs is readable by its requester).
+// later visit that day shows the saved brief at no cost. Before asking, the card
+// checks — without AI — whether any client email is new since the last brief
+// (the same window the agent uses); if none, it says so and calls nothing. The
+// brief is private to its owner (ai_agent_outputs is readable by its requester).
 // =============================================================================
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -34,6 +35,28 @@ const LABEL: Record<Item["priority"], StringKey> = {
   important: "brief_priority_important",
   info: "brief_priority_info",
 };
+
+/** Same window as loadDailyEmailBriefContext: since the last brief, else 24 h, never beyond 7 days. */
+export function briefSince(lastBriefAt: string | null | undefined, now = Date.now()): string {
+  const last = lastBriefAt ? Date.parse(lastBriefAt) : NaN;
+  return new Date(Math.max(now - 7 * 86_400_000, Number.isFinite(last) ? last : now - 86_400_000)).toISOString();
+}
+
+/** Is there any client email new since `since` in the person's mailbox or on their deals? */
+async function hasNewClientEmail(uid: string, since: string): Promise<boolean> {
+  const types = ["email_received", "email_draft"] as const;
+  const { count } = await supabase.from("activities").select("id", { count: "exact", head: true })
+    .eq("owner_id", uid).in("activity_type", types).gte("created_at", since);
+  if ((count ?? 0) > 0) return true;
+  const { data: deals } = await supabase.from("opportunities").select("id").eq("owner_id", uid).limit(500);
+  const ids = (deals ?? []).map((d) => d.id);
+  for (let i = 0; i < ids.length; i += 100) {
+    const { count: c } = await supabase.from("activities").select("id", { count: "exact", head: true })
+      .in("related_opportunity_id", ids.slice(i, i + 100)).in("activity_type", types).gte("created_at", since);
+    if ((c ?? 0) > 0) return true;
+  }
+  return false;
+}
 
 /** The brief was made on the viewer's current calendar day. */
 export function isFromToday(iso: string | null | undefined, now = new Date()): boolean {
@@ -82,6 +105,11 @@ export function DailyEmailBrief() {
   async function make() {
     setRunning(true);
     try {
+      // Nothing new: no orchestrator call at all (it would answer 400 by design).
+      if (!(await hasNewClientEmail(uid, briefSince(outputQ.data?.created_at)))) {
+        setEmpty(true);
+        return;
+      }
       const r = await runAiAgent({ agent: AGENT, entityType: "my_email", entityId: uid, input: { language: lang } });
       if (!r.ok) {
         if (r.code === "AI_INPUT_INVALID") setEmpty(true);
