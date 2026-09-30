@@ -1,6 +1,6 @@
 # CHANGELOG — PHC Command Center
 
-## 2026-09-29 — Correspondence panel and AI summary on the deal page (phase 3, not deployed)
+## 2026-09-30 — Correspondence panel and AI summary on the deal page (phase 3, released `f731de7`)
 
 - New orchestrator agent `deal_correspondence_summary` (no new function): last ≤15 emails on the deal,
   cited points (client asked / PHC owes / next step), third-person paraphrase so the output guardrail
