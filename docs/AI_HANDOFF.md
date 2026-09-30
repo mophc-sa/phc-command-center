@@ -1,6 +1,27 @@
 # AI Handoff ⭐ — PHC Command Center
 
-## 2026-09-29 — Outlook phase 3 built: Correspondence panel + summary (branch `feat/correspondence-summary`)
+## 2026-09-30 — Today's email released (PR 331)
+
+Production serves `4a48b2a`, Worker `02b76702-75dd-4f92-92bf-051e6f54894c` (run 36689924606).
+Canary `1dcd99b4` (36689083050), canary readiness 36689279222, post-production readiness 36690140496
+(79 + 11). `ai-orchestrator` v43 (agent `daily_email_brief`, sentinel entity `my_email`). No migration.
+Rollback UI: previous production `f731de7` (Worker `e101e81a`).
+Caught by the isolated role checks before release: with no new email the card called the
+orchestrator, which answers 400 → console error on My Workspace. The card now checks (no AI) first.
+Also: brace-expansion override → 5.0.12 (GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p).
+The whole Outlook plan (phases 1–4) is live; the two-way calendar (phases 5–6) is what remains.
+Lesson: a doc edit that anchors on text from an unmerged PR silently does nothing — assert anchors.
+
+## 2026-09-30 — Outlook phase 3 released (PR 329)
+
+Production serves `f731de7`, Worker `e101e81a-34c9-4863-83b7-e37c72631b42` (run 36677471172).
+Canary `73db7fb4` (36571706322), canary readiness 36572034706, post-production readiness 36678145661
+(79 + 11). Backend: migration `20261004100000`, `ai-orchestrator` v42. Rollback UI: previous
+production `8012af0` (Worker `39e8f2b4`). User turns Preview URLs off again.
+State: 1 connected mailbox (Mo), 0 captured client emails (none in his mailbox), 44 company domains,
+1 meeting with 28 pending action items. Next: salespeople connect Outlook; phase 4 (daily digest).
+
+### Phase 3 build notes
 
 Agent `deal_correspondence_summary` in the orchestrator (schema with cited points, prompt forbidding
 first-person quotes because `scanForGuardrailViolations` rejects "I sent", loader trims to 11 000 chars,
