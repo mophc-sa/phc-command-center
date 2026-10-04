@@ -1,6 +1,6 @@
 # CHANGELOG — PHC Command Center
 
-## 2026-10-04 — Attendees see their meetings (not deployed)
+## 2026-10-04 — Attendees see their meetings (released `59fb1d3`)
 
 - **Meetings** is now in everyone's menu. Reviewers see every meeting as before; anyone else sees, read
   only, the meetings they attended — organizer or invitee by sign-in email, or owner of an approved task
