@@ -1,6 +1,6 @@
 # CHANGELOG — PHC Command Center
 
-## 2026-10-04 — Deal page email drafted from the latest update (not deployed)
+## 2026-10-04 — Deal page email drafted from the latest update (released `bab3f4e`)
 
 - On a deal page, opening **Send email** runs `smart_followup_draft` with `recent_updates: true`:
   the deal's last activities, stage changes, latest quotation and open commitments
