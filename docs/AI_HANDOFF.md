@@ -1,5 +1,16 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-04 — Today's email inside My daily assistant released (PR 333)
+
+Production serves `1a1e2e7`, Worker `42d6bcf3-a63d-4a19-ae77-35926775ed99` (run 37188656561).
+Canary `2e24feed` (37187996884), canary readiness 37188110919, post-production readiness 37188751427
+(79 + 11). UI only. Rollback: `4a48b2a` (Worker `02b76702`).
+Live data on this date: 3 connected mailboxes (Mo, Faisal, Abdelrahman), 99 captured client emails,
+but 97 unbound — 75 because the client company has no deal linked by company_id (690 of 821
+opportunities carry the client only as free text), 22 because the company has several open deals,
+0 with a project code. Next proposed: link opportunities to company records (reviewed list), and
+a one-click "suggested deal" from the project name in the subject.
+
 ## 2026-09-30 — Today's email released (PR 331)
 
 Production serves `4a48b2a`, Worker `02b76702-75dd-4f92-92bf-051e6f54894c` (run 36689924606).
