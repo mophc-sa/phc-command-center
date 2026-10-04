@@ -1,6 +1,11 @@
 # AI Handoff ⭐ — PHC Command Center
 
-## 2026-10-04 — Meetings readable by attendees (branch `feat/meetings-attendee-read`)
+## 2026-10-04 — Meetings readable by attendees released (PR 337)
+
+Production serves `59fb1d3`, Worker `0b97fff3-a6cb-4336-9cb5-1a7b367416ce` (run 37196326496).
+Canary `95b834a9` (37195450208), canary readiness 37195955278, post-production readiness 37196428187
+(79 + 11). Migration `20261005100000` applied before the UI. Rollback UI: `bab3f4e` (Worker `98404ec6`).
+
 
 Mo: reps don't see Meetings. By design (v1: reviewers only). Chosen: A — attendees read their
 meetings. Migration `20261005100000` (`can_read_meeting`: reviewer, or sign-in email = organizer /
