@@ -38,6 +38,7 @@ export function CommunicationActions({
   emailContext,
   size = "sm",
   iconOnly = false,
+  aiEmailDraft = false,
 }: {
   linked: CommunicationLinked;
   recipientEmail?: string | null;
@@ -55,6 +56,8 @@ export function CommunicationActions({
    * default: every existing caller keeps its labels.
    */
   iconOnly?: boolean;
+  /** On a deal: the email window drafts from the deal's latest updates. */
+  aiEmailDraft?: boolean;
 }) {
   const { t, lang } = useI18n();
   const [logOpen, setLogOpen] = useState(false);
@@ -99,6 +102,7 @@ export function CommunicationActions({
           ...linkedIds,
         }}
         size={size}
+        aiDraftForOpportunity={aiEmailDraft ? linkedIds.opportunityId : null}
       /> : <span className="text-xs text-muted-foreground">{lang === "ar" ? "البريد غير مسجل" : "No email recorded"}</span>}
 
       <button

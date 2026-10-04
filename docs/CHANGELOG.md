@@ -1,5 +1,15 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-04 — Deal page email drafted from the latest update (not deployed)
+
+- On a deal page, opening **Send email** runs `smart_followup_draft` with `recent_updates: true`:
+  the deal's last activities, stage changes, latest quotation and open commitments
+  (`loadDealRecentUpdates`). The subject and body are filled with the draft; a line says what it
+  was based on; **Use the standard template** restores the template, which is also the fallback.
+- On deals the agent is readable by the deal's people (`can_read_boq`), like the correspondence
+  summary, not only the owner. Prompt `phc-ai.v5`.
+- Sending is unchanged: only the Send click sends (contract test).
+
 ## 2026-10-04 — Today's email moved into My daily assistant (released `1a1e2e7`)
 
 - At the user's request the brief is now the first section of **My daily assistant** instead of its

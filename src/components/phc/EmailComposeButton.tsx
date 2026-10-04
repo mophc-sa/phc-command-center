@@ -16,6 +16,7 @@ export function EmailComposeButton({
   variant = "default",
   label,
   className,
+  aiDraftForOpportunity,
 }: {
   template: EmailTemplateKind;
   context: EmailContext;
@@ -24,6 +25,8 @@ export function EmailComposeButton({
   variant?: "default" | "ghost";
   label?: string;
   className?: string;
+  /** Draft from this deal's latest updates when the window opens. */
+  aiDraftForOpportunity?: string | null;
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -52,6 +55,7 @@ export function EmailComposeButton({
         template={currentTpl}
         context={context}
         linked={linked ?? null}
+        aiDraftForOpportunity={aiDraftForOpportunity ?? null}
       />
     </>
   );

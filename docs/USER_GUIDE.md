@@ -826,6 +826,19 @@ system appears on that deal's timeline automatically, and counts as client conta
 It still arrives in your Outlook too. Only replies to emails sent from the system are
 captured — an email a client starts fresh to your Outlook is not.
 
+### The deal page email is written from the latest update (2026-10-04)
+
+On a deal page, **Send email** no longer opens a fixed template. The window opens at once
+with "Drafting the email from the project's latest updates…", and within a few seconds the
+subject and text are written for this deal — answering the most recent thing that happened
+(the client's last email, the quotation sent, a stage change, a promise still open).
+
+- A small line under the text says what the draft was **based on**.
+- **Use the standard template** puts the old fixed text back.
+- If drafting fails or the deal has no updates, the standard template appears by itself.
+- Read and edit before sending. It is still only your click on **Send** that sends.
+- Other pages (RFQs, quotations, companies) keep their templates.
+
 ### Your work in your Outlook calendar (2026-09-13)
 
 On **Calendar**, **Add to Outlook** gives you a private link. In Outlook choose

@@ -1,5 +1,15 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-04 — Deal page email from the latest update (branch `feat/email-from-latest-updates`)
+
+Request: the deal page "Send email" should be written from the project's latest update, not
+the standard template. Chosen: A — draft automatically when the window opens; template link
+stays; template is the fallback. Backend: `loadDealRecentUpdates` in `ai-agent-registry.ts`,
+`smart_followup_draft` takes `input.recent_updates`, deal access via `checkDealReaderAccess`,
+prompt `phc-ai.v5`. UI: `EmailComposeModal` prop `aiDraftForOpportunity`, passed from
+`CommunicationActions aiEmailDraft` on `opportunities.$id.tsx` only. No migration. Needs
+`ai-orchestrator` v44 deployed 2026-10-04 (before the UI release).
+
 ## 2026-10-04 — Today's email inside My daily assistant released (PR 333)
 
 Production serves `1a1e2e7`, Worker `42d6bcf3-a63d-4a19-ae77-35926775ed99` (run 37188656561).

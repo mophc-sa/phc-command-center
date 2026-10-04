@@ -532,6 +532,53 @@ const FOLLOWUP_ENTITY_TABLES: Record<string, { select: string; toSummary: (r: Re
   },
 };
 
+export const RECENT_UPDATES_MAX = 10;
+
+/**
+ * A deal's latest events, newest first: client email (received and sent),
+ * calls, visits, meetings, notes, and stage changes — plus its latest
+ * quotation and the commitments still open. Excerpts are short so the whole
+ * context stays far below MAX_CONTEXT_CHARS.
+ */
+export async function loadDealRecentUpdates(svc: SupabaseClient, opportunityId: string) {
+  const [acts, stages, quotes, comms] = await Promise.all([
+    svc.from("activities").select("activity_type, status, occurred_at, summary, draft_content")
+      .eq("related_opportunity_id", opportunityId).order("occurred_at", { ascending: false }).limit(20).throwOnError(),
+    svc.from("stage_transition_history").select("from_stage, to_stage, notes, created_at")
+      .eq("record_id", opportunityId).order("created_at", { ascending: false }).limit(5).throwOnError(),
+    svc.from("quotations").select("quote_number, status, value, currency, issued_date, valid_until, created_at")
+      .eq("related_opportunity_id", opportunityId).order("created_at", { ascending: false }).limit(1).throwOnError(),
+    svc.from("commitments").select("description, direction, due_date")
+      .eq("opportunity_id", opportunityId).eq("status", "open").order("due_date", { ascending: true }).limit(5).throwOnError(),
+  ]);
+  const kindOf = (t: string) => t === "email_received" ? "email_from_client" : t === "email_draft" ? "email_to_client" : t;
+  const events = [
+    ...((acts.data ?? []) as Array<Record<string, unknown>>)
+      // Unsent drafts are not something that happened.
+      .filter((a) => !(String(a.activity_type).endsWith("_draft") && a.status !== "sent"))
+      .map((a) => ({
+        date: String(a.occurred_at ?? "").slice(0, 10),
+        kind: kindOf(String(a.activity_type)),
+        text: squash(`${a.summary ?? ""}${a.draft_content ? ` — ${a.draft_content}` : ""}`, 350),
+      })),
+    ...((stages.data ?? []) as Array<Record<string, unknown>>).map((s) => ({
+      date: String(s.created_at ?? "").slice(0, 10),
+      kind: "stage_change",
+      text: squash(`${s.from_stage ?? "?"} → ${s.to_stage}${s.notes ? ` (${s.notes})` : ""}`, 200),
+    })),
+  ].sort((x, y) => y.date.localeCompare(x.date)).slice(0, RECENT_UPDATES_MAX);
+  const q = (quotes.data ?? [])[0] as Record<string, unknown> | undefined;
+  return {
+    events,
+    quotation: q ? { number: q.quote_number, status: q.status, value: q.value, currency: q.currency,
+      issued: q.issued_date ?? String(q.created_at ?? "").slice(0, 10), valid_until: q.valid_until } : null,
+    commitments: ((comms.data ?? []) as Array<Record<string, unknown>>).map((c) => ({
+      who: c.direction === "we_owe_client" ? "PHC owes the client" : "the client owes PHC",
+      what: squash(c.description, 200), due: c.due_date,
+    })),
+  };
+}
+
 async function loadSmartFollowupDraftContext(
   svc: SupabaseClient,
   entityType: EntityType,
@@ -558,14 +605,23 @@ async function loadSmartFollowupDraftContext(
     if (!data) return { ok: false, code: "AI_INPUT_INVALID", message: "Follow-up is not linked to this opportunity." };
     followUp = data;
   }
-  const contextText = JSON.stringify({ current_date: new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Riyadh", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date()), requested_channel: requestedChannel, language, linked_record: summary, follow_up: followUp }, null, 2);
+  // The deal page asks for the deal's latest updates, so the draft answers what
+  // actually happened rather than a generic follow-up (user, 2026-10-04).
+  const updates = entityType === "opportunities" && input.recent_updates === true
+    ? await loadDealRecentUpdates(svc, entityId)
+    : null;
+  const contextText = JSON.stringify({
+    current_date: new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Riyadh", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date()),
+    requested_channel: requestedChannel, language, linked_record: summary, follow_up: followUp,
+    ...(updates ? { recent_updates: updates.events, latest_quotation: updates.quotation, open_commitments: updates.commitments } : {}),
+  }, null, 2);
   const manifest: ContextManifest = {
-    fields_loaded: Object.keys(summary),
-    record_counts: { [entityType]: 1 },
-    source_entity_types: [entityType],
+    fields_loaded: [...Object.keys(summary), ...(updates ? ["activities", "stage_transition_history", "quotations", "commitments"] : [])],
+    record_counts: { [entityType]: 1, ...(updates ? { recent_updates: updates.events.length, commitments: updates.commitments.length } : {}) },
+    source_entity_types: [entityType, ...(updates ? ["activities", "stage_transition_history", "quotations", "commitments"] : [])],
     redacted_identifiers: { entity_id: redactId(entityId) },
   };
-  return { ok: true, contextText, manifest, recordCount: 1 };
+  return { ok: true, contextText, manifest, recordCount: 1 + (updates ? updates.events.length + (updates.quotation ? 1 : 0) + updates.commitments.length : 0) };
 }
 
 // ---------------------------------------------------------------------------
@@ -1604,7 +1660,12 @@ export const AGENT_REGISTRY: Record<AgentKey, AgentDefinition> = {
     key: "smart_followup_draft",
     allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.smart_followup_draft,
     hasRole: AGENT_ROLE_CHECK.smart_followup_draft,
-    checkAccess: checkOwnershipAccess,
+    // On a deal: whoever may read the deal (can_read_boq), so the person who
+    // presses Send email on it gets a draft. Elsewhere: the record's owner.
+    checkAccess: (svc, entityType, entityId, userId, roles) =>
+      entityType === "opportunities"
+        ? checkDealReaderAccess(svc, entityType, entityId, userId)
+        : checkOwnershipAccess(svc, entityType, entityId, userId, roles),
     loadContext: loadSmartFollowupDraftContext,
     buildPrompt: AGENT_PROMPT_BUILDERS.smart_followup_draft,
     outputSchema: AGENT_OUTPUT_SCHEMAS.smart_followup_draft,

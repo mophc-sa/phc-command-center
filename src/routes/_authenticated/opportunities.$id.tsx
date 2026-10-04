@@ -741,6 +741,7 @@ function OpportunityDetail() {
                   recipientEmail={primary?.email ?? null}
                   recipientPhone={primary?.phone ?? null}
                   emailTemplate="opportunity_follow_up"
+                  aiEmailDraft
                   emailContext={{
                     companyName: o.company?.name ?? o.client ?? null,
                     projectName: o.project_name,

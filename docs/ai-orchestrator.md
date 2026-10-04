@@ -211,7 +211,11 @@ for every agent, not just this one.
 **`smart_followup_draft`**: the requested channel and language from the
 caller's `input`; a compact summary of the linked record (reference, status,
 next action / due date — shape varies by entity type, see
-`FOLLOWUP_ENTITY_TABLES` in `ai-agent-registry.ts`).
+`FOLLOWUP_ENTITY_TABLES` in `ai-agent-registry.ts`). With
+`input.recent_updates: true` on an opportunity (the deal page email window, 2026-10-04) it
+also loads `recent_updates` (up to 10 activities and stage changes, newest first, unsent
+drafts dropped), `latest_quotation` and `open_commitments` (`loadDealRecentUpdates`), and on
+opportunities access is the deal's readers (`can_read_boq`) rather than owner-only.
 
 Every loader also returns a `manifest` (field names loaded, record counts,
 source entity types, **redacted** identifiers) — this is what gets persisted
