@@ -1,6 +1,12 @@
 # AI Handoff ⭐ — PHC Command Center
 
-## 2026-10-04 — Deal page email from the latest update (branch `feat/email-from-latest-updates`)
+## 2026-10-04 — Deal page email from the latest update released (PR 335)
+
+Production serves `bab3f4e`, Worker `98404ec6-12f8-453f-ae4d-ac68bdcea545` (run 37191154734).
+Canary `0348b00a` (37190625517), canary readiness 37190788442, post-production readiness 37191309445
+(79 + 11). `ai-orchestrator` v44. No migration. Rollback UI: `1a1e2e7` (Worker `42d6bcf3`).
+Not yet tried by hand with a signed-in user: the first real use of the deal page email window.
+
 
 Request: the deal page "Send email" should be written from the project's latest update, not
 the standard template. Chosen: A — draft automatically when the window opens; template link
