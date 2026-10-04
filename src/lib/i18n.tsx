@@ -2052,6 +2052,14 @@ export const strings = {
   brief_deal: { en: "Deal", ar: "الصفقة" },
   brief_no_deal: { en: "Not linked to a deal", ar: "غير مربوط بصفقة" },
   brief_open_deal: { en: "Open deal", ar: "فتح الصفقة" },
+
+  // Email from the deal's latest updates
+  email_ai_drafting: { en: "Drafting the email from the project's latest updates…", ar: "جارٍ صياغة الرسالة من آخر تحديثات المشروع…" },
+  email_ai_based_on: { en: "Based on", ar: "مبنية على" },
+  email_ai_latest_updates: { en: "the project's latest updates", ar: "آخر تحديثات المشروع" },
+  email_ai_use_template: { en: "Use the standard template", ar: "استخدم القالب العادي" },
+  email_ai_template_chosen: { en: "Standard template", ar: "القالب العادي" },
+  email_ai_fallback: { en: "Couldn't draft from the latest updates — showing the standard template.", ar: "تعذّرت الصياغة من آخر التحديثات — يظهر القالب العادي." },
 } satisfies Dict;
 
 type Key = keyof typeof strings;

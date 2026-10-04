@@ -13,7 +13,7 @@
 //   - If a recipient email is missing, disable both send actions but keep "Copy
 //     email text" enabled so the user can still use the draft.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -27,7 +27,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, ExternalLink, Loader2, Mail, Send } from "lucide-react";
+import { Copy, ExternalLink, Loader2, Mail, Send, Sparkles } from "lucide-react";
+import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMailStatus, sendEmail } from "@/lib/mail-actions";
 import { useI18n } from "@/lib/i18n";
@@ -65,12 +66,20 @@ export function EmailComposeModal({
   template,
   context,
   linked,
+  aiDraftForOpportunity,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   template: EmailTemplateKind;
   context: EmailContext;
   linked?: EmailLinkedRecord | null;
+  /**
+   * On a deal page: draft the email with smart_followup_draft from the deal's
+   * latest updates when the window opens. The template below stays as the
+   * fallback, and as a one-click choice. A draft only — sending is still the
+   * person's click on Send.
+   */
+  aiDraftForOpportunity?: string | null;
 }) {
   const { t, lang, dir } = useI18n();
   const draft = useMemo(() => buildEmailDraft(template, { ...context, lang }), [template, context, lang]);
@@ -88,6 +97,48 @@ export function EmailComposeModal({
     setBody(draft.body);
     // reset when template / context changes while opening
   }, [open, draft.subject, draft.body, context.recipientEmail, context.ccEmails]);
+
+  // AI draft from the deal's latest updates. "template" = the person chose the
+  // standard text; "fallback" = the AI could not draft, so the template stands.
+  const [ai, setAi] = useState<{ state: "idle" | "loading" | "done" | "template" | "fallback"; basis?: string }>({ state: "idle" });
+  const request = useRef(0);
+  useEffect(() => {
+    if (!open || !aiDraftForOpportunity) {
+      setAi({ state: "idle" });
+      return;
+    }
+    const mine = ++request.current;
+    setAi({ state: "loading" });
+    void runAiAgent({
+      agent: "smart_followup_draft",
+      entityType: "opportunities",
+      entityId: aiDraftForOpportunity,
+      input: { channel: "email", language: lang, recent_updates: true },
+    })
+      .then((r) => {
+        if (mine !== request.current) return; // closed or reopened meanwhile
+        const out = r.ok ? (r.result as { subject?: string | null; message?: string; purpose?: string }) : null;
+        if (out?.message) {
+          setSubject(out.subject || draft.subject);
+          setBody(out.message);
+          setAi({ state: "done", basis: out.purpose });
+        } else {
+          setAi({ state: "fallback" });
+        }
+      })
+      .catch(() => {
+        if (mine === request.current) setAi({ state: "fallback" });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one draft per opening
+  }, [open, aiDraftForOpportunity]);
+
+  function applyStandardTemplate() {
+    request.current++; // a late AI answer must not overwrite the choice
+    setSubject(draft.subject);
+    setBody(draft.body);
+    setAi({ state: "template" });
+  }
+  const drafting = ai.state === "loading";
 
   const validation = validateEmailDraft({
     to,
@@ -231,7 +282,7 @@ export function EmailComposeModal({
             <Label htmlFor="email-subject" className="text-xs tracking-[0.02em] text-muted-foreground">
               {t("email_subject")}
             </Label>
-            <Input id="email-subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+            <Input id="email-subject" value={subject} onChange={(e) => setSubject(e.target.value)} disabled={drafting} />
           </div>
 
           <div className="grid gap-1.5">
@@ -244,7 +295,34 @@ export function EmailComposeModal({
               onChange={(e) => setBody(e.target.value)}
               rows={12}
               className="font-[inherit]"
+              disabled={drafting}
+              aria-busy={drafting}
             />
+            {aiDraftForOpportunity && ai.state !== "idle" ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground" role="status">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  {drafting ? (
+                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  )}
+                  <span dir="auto" className="min-w-0">
+                    {drafting
+                      ? t("email_ai_drafting")
+                      : ai.state === "done"
+                        ? `${t("email_ai_based_on")}: ${ai.basis ?? t("email_ai_latest_updates")}`
+                        : ai.state === "fallback"
+                          ? t("email_ai_fallback")
+                          : t("email_ai_template_chosen")}
+                  </span>
+                </span>
+                {ai.state === "done" ? (
+                  <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={applyStandardTemplate}>
+                    {t("email_ai_use_template")}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
             {oversize ? (
               <p className="text-xs text-amber-light">{t("email_mailto_truncated_hint")}</p>
             ) : null}
@@ -269,11 +347,11 @@ export function EmailComposeModal({
           <Button variant="outline" onClick={handleCopy}>
             <Copy className="me-1.5 h-3.5 w-3.5" /> {t("email_copy_text")}
           </Button>
-          <Button variant={canSendHere ? "outline" : "default"} onClick={handleOpenInOutlook} disabled={!canOpen || sending}>
+          <Button variant={canSendHere ? "outline" : "default"} onClick={handleOpenInOutlook} disabled={!canOpen || sending || drafting}>
             <ExternalLink className="me-1.5 h-3.5 w-3.5" /> {t("email_open_in_outlook")}
           </Button>
           {canSendHere ? (
-            <Button onClick={handleSend} disabled={!canOpen || sending}>
+            <Button onClick={handleSend} disabled={!canOpen || sending || drafting}>
               {sending ? (
                 <Loader2 className="me-1.5 h-3.5 w-3.5 animate-spin" />
               ) : (

@@ -16,7 +16,7 @@ import type { AgentKey } from "./ai-schemas.ts";
 // Bump this whenever ANY prompt's wording changes, even for one agent — it is
 // recorded in ai_agent_trace_events.metadata so a bad prompt revision can be
 // correlated with a spike in AI_OUTPUT_VALIDATION_FAILED / AI_GUARDRAIL_REJECTED.
-export const PROMPT_VERSION = "phc-ai.v4";
+export const PROMPT_VERSION = "phc-ai.v5";
 
 // Shared preamble every agent prompt starts with. States, in order: (1) the
 // agent never acts, only recommends: (2) untrusted-content handling; (3)
@@ -148,6 +148,16 @@ Keep linked_record.next_action_due, follow_up.due_date and any submission date i
 notes distinct; never rename one as another. Compare dates with current_date: a
 past follow-up or submission date is overdue, not an upcoming commitment. Do not
 invent missing dates, recipient names or approvals. Match the requested language.
+
+When the CONTEXT has recent_updates (newest first), write about THE LATEST
+client-facing update: answer the client's latest request, follow up on what
+PHC last sent, or confirm the next step that the updates point to — not a
+generic check-in. You may refer to latest_quotation by its number and date, and
+to open_commitments (what PHC owes, or what the client owes). Paraphrase; never
+quote a first-person sentence from an email. In "purpose", name the update the
+message is based on, with its date (e.g. "Client's 28 Sep request for a revised
+price"). If there are no recent_updates, write a short, specific follow-up from
+linked_record.
 
 Return a JSON object with exactly these fields:
 - channel: "email" | "whatsapp" | "internal_note" (must match the channel

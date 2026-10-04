@@ -152,3 +152,23 @@ describe("storage", () => {
     expect(sql).toContain("CREATE UNIQUE INDEX IF NOT EXISTS activities_provider_message_id_key");
   });
 });
+
+describe("the AI email draft on a deal page", () => {
+  const modal = read("src/components/phc/EmailComposeModal.tsx");
+
+  it("only fills the fields — sending stays the Send click", () => {
+    // The draft arrives into subject/body; sendEmail is reached from handleSend
+    // alone, which only the Send button calls.
+    expect(modal).toContain(`agent: "smart_followup_draft"`);
+    expect(modal).toContain("recent_updates: true");
+    expect(modal.match(/sendEmail\(/g)?.length).toBe(1);
+    const aiBlock = modal.slice(modal.indexOf("void runAiAgent("), modal.indexOf("function applyStandardTemplate"));
+    expect(aiBlock).not.toContain("sendEmail");
+    expect(aiBlock).not.toContain("handleSend");
+  });
+
+  it("is switched on for the deal page only", () => {
+    const hits = SRC.filter((f) => /\baiEmailDraft\b(?!\?|\s*=|:)/.test(read(f)) && !f.endsWith("CommunicationActions.tsx"));
+    expect(hits).toEqual(["src/routes/_authenticated/opportunities.$id.tsx"]);
+  });
+});
