@@ -7,6 +7,8 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { listMeetings } from "@/lib/meetings-actions";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canReviewMeetings } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/meetings/")({
   head: () => ({ meta: [{ title: "Meetings — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -15,18 +17,21 @@ export const Route = createFileRoute("/_authenticated/meetings/")({
 
 function MeetingsPage() {
   const { t, lang } = useI18n();
+  const { roles } = useAuth();
+  // Reviewers see every meeting; everyone else, the meetings they attended (can_read_meeting).
+  const reviewer = canReviewMeetings(roles);
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["meetings"], queryFn: listMeetings });
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow={t("meetings_eyebrow")} title={t("meetings_title")} description={t("meetings_desc")} />
+      <PageHeader eyebrow={t("meetings_eyebrow")} title={t("meetings_title")} description={t(reviewer ? "meetings_desc" : "meetings_desc_attendee")} />
 
       {isLoading ? (
         <SkeletonTable />
       ) : isError ? (
         <EmptyState variant="error" title={lang === "ar" ? "تعذر تحميل الاجتماعات" : "Could not load meetings"} primaryAction={{ label: lang === "ar" ? "إعادة المحاولة" : "Try again", onClick: () => void refetch() }} />
       ) : !data?.length ? (
-        <EmptyState icon={Mic} title={t("meetings_empty")} description={t("meetings_empty_hint")} />
+        <EmptyState icon={Mic} title={t("meetings_empty")} description={t(reviewer ? "meetings_empty_hint" : "meetings_empty_hint_attendee")} />
       ) : (
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">
           {data.map((m) => {

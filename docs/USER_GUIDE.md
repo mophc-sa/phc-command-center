@@ -787,6 +787,7 @@ These are guardrails, not suggestions. They will stop you.
 - Live. New meetings arrive on their own a few minutes after Fireflies finishes processing them.
 - Fireflies sends a webhook only for meetings **owned by the account whose settings hold it**. Team-wide webhooks need a Fireflies Enterprise plan.
 - Action items are taken as Fireflies wrote them. No AI re-reads the transcript yet; that is a later phase if Fireflies' items prove too thin.
+- **Who sees a meeting (2026-10-04).** The reviewers (management, sales and BD managers, sales ops, system admin) see every meeting and approve its tasks. Everyone else sees, read only, the meetings **they attended**: you were the organizer or on the invite (by your sign-in email), or a reviewer approved one of its tasks to you. A meeting held without a calendar invite shows only to reviewers and to whoever gets a task from it.
 - Project names in Fireflies' text are transcribed by ear ("Myth", "Gen Adria") — check them before approving.
 
 ### Sending from your own Outlook (live 2026-09-29)

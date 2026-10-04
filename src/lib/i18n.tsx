@@ -1973,6 +1973,8 @@ export const strings = {
   meetings_eyebrow: { en: "Fireflies", ar: "Fireflies" },
   meetings_title: { en: "Meetings", ar: "الاجتماعات" },
   meetings_desc: { en: "Action items from recorded meetings wait here until a reviewer names the owner and approves them into tasks.", ar: "مهام الاجتماعات المسجلة تنتظر هنا حتى يحدد المراجع المسؤول ويعتمدها كمهام." },
+  meetings_desc_attendee: { en: "Meetings you attended — their summary and the tasks taken from them.", ar: "الاجتماعات التي حضرتها — ملخصها والمهام المستخرجة منها." },
+  meetings_empty_hint_attendee: { en: "A meeting appears here when you were invited to it, or when a task from it is assigned to you.", ar: "يظهر الاجتماع هنا إذا كنت مدعواً له، أو إذا أُسندت إليك مهمة منه." },
   meetings_empty: { en: "No meetings yet", ar: "لا توجد اجتماعات بعد" },
   meetings_empty_hint: { en: "Meetings appear here automatically when Fireflies finishes processing them.", ar: "تظهر الاجتماعات هنا تلقائياً عندما ينتهي Fireflies من معالجتها." },
   meetings_pending_items: { en: "pending", ar: "بانتظار المراجعة" },
