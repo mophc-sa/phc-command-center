@@ -1,6 +1,6 @@
 # CHANGELOG — PHC Command Center
 
-## 2026-09-30 — Today's email moved into My daily assistant (not deployed)
+## 2026-10-04 — Today's email moved into My daily assistant (released `1a1e2e7`)
 
 - At the user's request the brief is now the first section of **My daily assistant** instead of its
   own card at the top of My Workspace, in the assistant's card style (bordered card per email, deal
