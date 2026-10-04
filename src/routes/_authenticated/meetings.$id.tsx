@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { isAssignableTeamMember } from "@/lib/team-members";
 import { listTeamMembers } from "@/lib/opportunity-actions";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canReviewMeetings } from "@/lib/roles";
 import {
   decideMeetingAction,
   firefliesLink,
@@ -33,6 +35,9 @@ type Member = { id: string; full_name: string | null; email: string | null; stat
 function MeetingPage() {
   const { id } = Route.useParams();
   const { t, lang } = useI18n();
+  const { roles } = useAuth();
+  // Attendees read the meeting; only reviewers approve or dismiss its items.
+  const reviewer = canReviewMeetings(roles);
   const q = useQuery({ queryKey: ["meeting", id], queryFn: () => getMeeting(id) });
   const teamQ = useQuery({ queryKey: ["team"], queryFn: listTeamMembers });
   const members = ((teamQ.data ?? []) as Member[]).filter(isAssignableTeamMember);
@@ -94,7 +99,7 @@ function MeetingPage() {
           <p className="text-sm text-muted-foreground">{t("meetings_no_items")}</p>
         ) : (
           items.map((it) => (
-            <ItemCard key={it.id} item={it} meetingId={id} providerMeetingId={meeting.provider_meeting_id} members={members} />
+            <ItemCard key={it.id} item={it} meetingId={id} providerMeetingId={meeting.provider_meeting_id} members={members} reviewer={reviewer} />
           ))
         )}
       </section>
@@ -107,11 +112,13 @@ function ItemCard({
   meetingId,
   providerMeetingId,
   members,
+  reviewer,
 }: {
   item: MeetingItem;
   meetingId: string;
   providerMeetingId: string;
   members: Member[];
+  reviewer: boolean;
 }) {
   const { t } = useI18n();
   const qc = useQueryClient();
@@ -184,6 +191,21 @@ function ItemCard({
           <span className="text-xs text-muted-foreground">{ownerName(item.owner_id)}</span>
         ) : item.decision_note ? (
           <span dir="auto" className="text-xs text-muted-foreground">{item.decision_note}</span>
+        ) : null}
+        {stamp}
+      </article>
+    );
+  }
+
+  if (!reviewer) {
+    return (
+      <article className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border px-4 py-3">
+        <StatusPill tone="attention">{t("meetings_status_pending_review")}</StatusPill>
+        <span dir="auto" className="min-w-0 flex-1 text-sm text-foreground">{item.title}</span>
+        {item.speaker_label ? (
+          <span className="text-xs text-muted-foreground">
+            {t("meetings_said_by")}: <span dir="auto">{item.speaker_label}</span>
+          </span>
         ) : null}
         {stamp}
       </article>

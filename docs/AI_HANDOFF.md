@@ -1,5 +1,13 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-04 — Meetings readable by attendees (branch `feat/meetings-attendee-read`)
+
+Mo: reps don't see Meetings. By design (v1: reviewers only). Chosen: A — attendees read their
+meetings. Migration `20261005100000` (`can_read_meeting`: reviewer, or sign-in email = organizer /
+in participants — entries split on commas —, or owner of an APPROVED item). Nav link for everyone;
+non-reviewers get read-only item cards. pgTAP extended (19). Note: the only stored meeting lists just
+Mo as participant, so in-person meetings without invites reach reps only through approved tasks.
+
 ## 2026-10-04 — Deal page email from the latest update released (PR 335)
 
 Production serves `bab3f4e`, Worker `98404ec6-12f8-453f-ae4d-ac68bdcea545` (run 37191154734).

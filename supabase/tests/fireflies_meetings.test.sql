@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(19);
 
 insert into auth.users (
   instance_id, id, aud, role, email, email_confirmed_at,
@@ -18,13 +18,18 @@ insert into auth.users (
    '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('00000000-0000-0000-0000-000000000000', '2a000000-0000-0000-0000-000000000002',
    'authenticated', 'authenticated', 'meet-rep+test@phc-sa.com', now(),
+   '{"provider":"email","providers":["email"]}', '{}', now(), now()),
+  ('00000000-0000-0000-0000-000000000000', '2a000000-0000-0000-0000-000000000003',
+   'authenticated', 'authenticated', 'meet-guest+test@phc-sa.com', now(),
    '{"provider":"email","providers":["email"]}', '{}', now(), now());
 
 update public.profiles set status = 'active'
- where id in ('2a000000-0000-0000-0000-000000000001', '2a000000-0000-0000-0000-000000000002');
+ where id in ('2a000000-0000-0000-0000-000000000001', '2a000000-0000-0000-0000-000000000002',
+              '2a000000-0000-0000-0000-000000000003');
 insert into public.user_roles (user_id, role) values
   ('2a000000-0000-0000-0000-000000000001', 'bd_manager'),
-  ('2a000000-0000-0000-0000-000000000002', 'salesperson');
+  ('2a000000-0000-0000-0000-000000000002', 'salesperson'),
+  ('2a000000-0000-0000-0000-000000000003', 'salesperson');
 
 insert into public.opportunities (id, project_name, owner_id, created_by)
 values ('f2a00000-0000-0000-0000-000000000001', 'meeting-fixture-opp',
@@ -55,7 +60,8 @@ set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"2a000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
 
-select is((select count(*)::int from public.meetings), 0, 'A salesperson cannot read meetings');
+select is((select count(*)::int from public.meetings), 0,
+  'A salesperson who was not in the meeting cannot read it (a pre-filled owner guess does not count)');
 
 select throws_ok(
   $$select public.decide_meeting_action_item((select id from public.meeting_action_items limit 1), 'approve')$$,
@@ -109,6 +115,40 @@ select ok(exists(
    where recipient_user_id = '2a000000-0000-0000-0000-000000000002'
      and notification_type = 'meeting_task_assigned' and entity_type = 'task'),
   'The owner is notified');
+
+-- ── Attendees read the meetings they were in (2026-10-04, option A) ─────────
+select set_config('request.jwt.claims',
+  '{"sub":"2a000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+set local role authenticated;
+
+select is((select count(*)::int from public.meetings where provider_meeting_id = 'FF-TEST-1'), 1,
+  'The owner of an approved action item reads that meeting');
+
+select is((select count(*)::int from public.meeting_action_items i join public.meetings m on m.id = i.meeting_id
+            where m.provider_meeting_id = 'FF-TEST-1'), 2,
+  '... and all of its action items');
+
+select throws_ok(
+  format($$select public.decide_meeting_action_item(%L, 'dismiss', null, null, null, null, 'x')$$,
+    (select id from public.meeting_action_items where title = 'Push vendor')),
+  '42501', null, 'Reading a meeting does not let an attendee decide its items');
+
+reset role;
+select public.ingest_meeting(
+  '{"provider_meeting_id":"FF-TEST-2","title":"Site visit","organizer_email":"someone@client.com","participants":["x@client.com, MEET-GUEST+test@phc-sa.com"]}', '[]');
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"2a000000-0000-0000-0000-000000000003","role":"authenticated"}', true);
+
+select is((select array_agg(provider_meeting_id)::text from public.meetings), '{FF-TEST-2}',
+  'A participant (by sign-in email, any case, even inside a joined entry) reads only that meeting');
+
+select set_config('request.jwt.claims',
+  '{"sub":"2a000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+select is((select count(*)::int from public.meetings where provider_meeting_id = 'FF-TEST-2'), 0,
+  'Someone not invited does not read it');
+
+reset role;
 
 select * from finish();
 rollback;

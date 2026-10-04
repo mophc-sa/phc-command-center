@@ -1,5 +1,11 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-04 — Attendees see their meetings (not deployed)
+
+- **Meetings** is now in everyone's menu. Reviewers see every meeting as before; anyone else sees, read
+  only, the meetings they attended — organizer or invitee by sign-in email, or owner of an approved task
+  from it (`can_read_meeting`, migration `20261005100000`). Approve/dismiss stays with reviewers.
+
 ## 2026-10-04 — Deal page email drafted from the latest update (released `bab3f4e`)
 
 - On a deal page, opening **Send email** runs `smart_followup_draft` with `recent_updates: true`:

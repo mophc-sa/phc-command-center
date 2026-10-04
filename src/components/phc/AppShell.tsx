@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canViewSalesAdmin, canCreateSalesRecords, canReviewMeetings, ALL_ROLES, type AppRole } from "@/lib/roles";
+import { canViewSalesAdmin, canCreateSalesRecords, ALL_ROLES, type AppRole } from "@/lib/roles";
 import { usePinnedRecords, type PinnedRecord } from "@/hooks/usePinnedRecords";
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -84,8 +84,6 @@ type NavLink = {
   key: string;
   icon: LucideIcon;
   requireAdmin?: boolean;
-  /** Shown only to meeting reviewers (can_review_meetings). */
-  requireMeetingReviewer?: boolean;
 };
 
 type NavButton = {
@@ -130,7 +128,7 @@ const NAV_GROUPS: NavGroup[] = [
       // starting, not after.
       { kind: "link",   to: "/calendar",         key: "nav_calendar",          icon: CalendarDays },
       { kind: "link",   to: "/approvals",        key: "nav_approvals",         icon: ShieldCheck },
-      { kind: "link",   to: "/meetings",         key: "nav_meetings",          icon: Mic, requireMeetingReviewer: true },
+      { kind: "link",   to: "/meetings",         key: "nav_meetings",          icon: Mic },
       { kind: "button", action: "notifications", key: "nav_notifications",     icon: Bell },
     ],
   },
@@ -456,8 +454,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {NAV_GROUPS.map((g) => {
           const visibleItems = g.items.filter(
             (n) =>
-              (!(n.kind === "link" && n.requireAdmin) || canAdmin) &&
-              (!(n.kind === "link" && n.requireMeetingReviewer) || canReviewMeetings(roles)),
+              !(n.kind === "link" && n.requireAdmin) || canAdmin,
           );
           if (visibleItems.length === 0) return null;
 
