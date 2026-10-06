@@ -201,6 +201,19 @@ function useNow(tickMs: number) {
   return now;
 }
 
+/** The sales team: salespeople with no management role (board_sales_reps). */
+async function fetchSalesReps(): Promise<{ user_id: string; full_name: string | null }[]> {
+  const { data, error } = await supabase.rpc("board_sales_reps" as never);
+  if (error) throw error;
+  return (data ?? []) as { user_id: string; full_name: string | null }[];
+}
+
+/** "abdelrahman jarrah" → "Abdelrahman". A wall reads a first name faster than initials. */
+function firstName(full: string | null): string {
+  const f = (full ?? "").trim().split(/\s+/)[0] ?? "";
+  return f ? f[0].toUpperCase() + f.slice(1) : "—";
+}
+
 function useBoardData() {
   const { user } = useAuth();
   return useQuery({
@@ -237,8 +250,8 @@ function useBoardData() {
         ]);
       // Daily completion: counts only, never titles (wall display).
       const day = riyadhDay();
-      const doneToday = await teamDay(day);
-      return { opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves, doneToday };
+      const [doneToday, salesReps] = await Promise.all([teamDay(day), fetchSalesReps()]);
+      return { opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves, doneToday, salesReps };
     },
   });
 }
@@ -859,6 +872,26 @@ function BoardPage() {
     };
   }, [data, nowDate]);
 
+  // Team performance: the sales team only, each with today's completion.
+  const salesTeam = useMemo<SalesCardRow[]>(() => {
+    if (!model || !data) return [];
+    return data.salesReps.map((r) => {
+      const row = model.team.find((p) => p.ownerId === r.user_id);
+      const day = data.doneToday.find((d) => d.user_id === r.user_id);
+      return {
+        ownerId: r.user_id,
+        name: firstName(r.full_name),
+        initials: displayLabel(r.full_name),
+        won: row?.won ?? 0,
+        open: row?.open ?? 0,
+        openCount: row?.openCount ?? 0,
+        late: model.attention.filter((x) => x.ownerId === r.user_id && x.reasons.includes("followups_overdue")).length,
+        done: day?.done ?? 0,
+        openDue: day?.open_due ?? 0,
+      };
+    });
+  }, [model, data]);
+
   const fmtTime = (d: Date) =>
     new Intl.DateTimeFormat(localeFor(lang), { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }).format(d);
   const fmtDate = (d: Date) =>
@@ -1179,75 +1212,24 @@ function BoardPage() {
             </Panel>
 
             <Panel title={lang === "ar" ? "أداء فريق المبيعات" : "Team performance"} icon={Users} tone="teal" lang={lang}
-                   note={lang === "ar" ? `${formatNumber(model.team.length, lang)} مندوبًا` : `${model.team.filter((p) => p.ownerId !== "unassigned").length} reps`}>
-              {/* Rows, not a table -- the same shape as Top opportunities, so
-                  the two panels stripe and scroll the same way. A <tbody> is
-                  the one thing a marquee cannot wrap: it would have to sit in
-                  a <div>, and that is not valid inside a table. */}
-              <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] px-[0.3vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.76vw, 19px)" }}>
-                  <span className="min-w-0 flex-1">{lang === "ar" ? "العضو" : "Member"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "محقّق الشهر" : "Won MTD"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "المسار" : "Pipeline"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "3.4vw" }}>{lang === "ar" ? "متأخّرة" : "Overdue"}</span>
-                </div>
-
-                <AutoScroll className="flex min-h-0 flex-1 flex-col">
-                  {/* Everyone, not the first five. A wall that shows half a team
-                      teaches the other half that the board is not about them,
-                      and the panel scrolls -- there is no reason to choose. */}
-                  {model.team.map((p, idx) => {
-                    const late = model.attention.filter(
-                      (a) => (a.ownerId ?? "unassigned") === p.ownerId && a.reasons.includes("followups_overdue"),
-                    ).length;
-                    const day = data?.doneToday.find((r) => r.user_id === p.ownerId);
-                    const dayRate = day ? rate(day.done, day.open_due) : null;
-                    return (
-                      <div
-                        key={p.ownerId}
-                        className={`flex min-h-0 flex-1 items-center gap-[0.5vw] px-[0.3vw] ${idx % 2 === 1 ? "bg-muted" : ""}`}
-                        style={{ fontSize: "clamp(12px, 0.88vw, 23px)" }}
-                      >
-                        {/* Today's completion sits under the name, not in a column:
-                            the panel is a fifth of the wall and one more column
-                            left no room for names. Done/total, the split by
-                            source and yesterday are in My Workspace → Team today. */}
-                        <span className="flex min-w-0 flex-1 flex-col">
-                          <span className="truncate text-foreground">{p.label}</span>
-                          <span className="flex items-center gap-[0.3vw]">
-                            <span className="h-[0.35vh] min-w-0 flex-1 overflow-hidden rounded-full bg-muted-foreground/20" aria-hidden="true">
-                              <span className="block h-full rounded-full" style={{ width: `${dayRate ?? 0}%`, background: "var(--teal)" }} />
-                            </span>
-                            <span className="num shrink-0 text-muted-foreground" style={{ fontSize: "clamp(12px, 0.62vw, 16px)" }} data-tabular="true">
-                              {formatRate(dayRate, lang)}
-                            </span>
-                          </span>
-                        </span>
-                        <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "4vw" }} data-tabular="true">
-                          {money(p.won)}
-                        </span>
-                        <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "4vw" }} data-tabular="true">
-                          {money(p.open)}
-                        </span>
-                        <span
-                          className={`num shrink-0 text-end ${late > 0 ? "font-semibold text-destructive-on-tint" : "text-muted-foreground"}`}
-                          style={{ width: "3.4vw" }}
-                          data-tabular="true"
-                        >
-                          {formatNumber(late, lang)}
-                        </span>
-                      </div>
-                    );
-                  })}
+                   note={lang === "ar" ? `${formatNumber(salesTeam.length, lang)} مندوب` : `${salesTeam.length} reps`}>
+              {/* The sales team only (user, 2026-10-06): one card per salesperson,
+                  roomy rather than a dense table. Today's completion is a ring,
+                  read from across the room; the month and the pipeline sit
+                  under it. Managers are not on it -- their work is the team's. */}
+              <div className="flex min-h-0 flex-1 flex-col gap-[0.7vh]">
+                <AutoScroll className="flex min-h-0 flex-1 flex-col gap-[0.7vh]">
+                  {salesTeam.map((p) => (
+                    <RepCard key={p.ownerId} p={p} lang={lang} />
+                  ))}
                 </AutoScroll>
-
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "clamp(12px, 0.9vw, 23px)" }}>
-                  <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الإجمالي" : "Total"}</span>
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.5vh]" style={{ fontSize: "clamp(12px, 0.82vw, 21px)" }}>
+                  <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الفريق" : "Team"}</span>
                   <span className="num font-bold text-teal-on-tint" data-tabular="true">
-                    {money(model.team.reduce((a, p) => a + p.won, 0))} · {money(model.team.reduce((a, p) => a + p.open, 0))}
+                    {money(salesTeam.reduce((a, p) => a + p.won, 0))} · {money(salesTeam.reduce((a, p) => a + p.open, 0))}
                     {" · "}{formatRate(rate(
-                      (data?.doneToday ?? []).reduce((a, r) => a + r.done, 0),
-                      (data?.doneToday ?? []).reduce((a, r) => a + r.open_due, 0)), lang)}
+                      salesTeam.reduce((a, p) => a + p.done, 0),
+                      salesTeam.reduce((a, p) => a + p.openDue, 0)), lang)}
                   </span>
                 </div>
               </div>
@@ -1897,6 +1879,74 @@ function KpiFigure({
         <span className={`text-center ${TONE[tone].text}`} style={{ fontSize: "clamp(12px, 0.68vw, 17px)" }}>{foot}</span>
       ) : null}
     </div>
+  );
+}
+
+type SalesCardRow = {
+  ownerId: string;
+  name: string;
+  initials: string;
+  won: number;
+  open: number;
+  openCount: number;
+  late: number;
+  done: number;
+  openDue: number;
+};
+
+/** One salesperson: who, today's completion as a ring, then month · pipeline · overdue. */
+function RepCard({ p, lang }: { p: SalesCardRow; lang: "ar" | "en" }) {
+  const r = rate(p.done, p.openDue);
+  const total = p.done + p.openDue;
+  // Ring geometry in viewBox units; the SVG scales with the wall.
+  const R = 15.9;
+  const C = 2 * Math.PI * R;
+  const stat = (label: string, value: string, warn = false) => (
+    <div className="flex min-w-0 flex-col items-center">
+      <span className={`num font-semibold ${warn ? "text-destructive-on-tint" : "text-foreground"}`} style={{ fontSize: "clamp(12px, 0.95vw, 24px)" }} data-tabular="true">{value}</span>
+      <span className="truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.6vw, 15px)" }}>{label}</span>
+    </div>
+  );
+  return (
+    <article
+      className="flex min-h-0 flex-1 flex-col justify-center gap-[0.8vh] rounded-[0.6vw] border border-border/70 px-[0.8vw] py-[0.9vh]"
+      style={{ background: TONE.teal.wash }}
+    >
+      <div className="flex items-center gap-[0.7vw]">
+        <span
+          className="flex shrink-0 items-center justify-center rounded-full font-bold text-teal-on-tint"
+          style={{ width: "2.6vw", height: "2.6vw", fontSize: "clamp(12px, 0.85vw, 22px)", border: "2px solid var(--teal)" }}
+          aria-hidden="true"
+        >
+          {p.initials}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-semibold text-foreground" style={{ fontSize: "clamp(13px, 1.05vw, 27px)" }}>{p.name}</div>
+          <div className="text-muted-foreground" style={{ fontSize: "clamp(12px, 0.62vw, 16px)" }}>
+            {lang === "ar" ? "إنجاز اليوم" : "Done today"}{" "}
+            <span className="num" data-tabular="true">{total > 0 ? `${formatNumber(p.done, lang)}/${formatNumber(total, lang)}` : "—"}</span>
+          </div>
+        </div>
+        <div className="relative shrink-0" style={{ width: "3.6vw", height: "3.6vw" }}>
+          <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90" aria-hidden="true">
+            <circle cx="18" cy="18" r={R} fill="none" stroke="var(--border)" strokeWidth="3.2" />
+            {r != null ? (
+              <circle cx="18" cy="18" r={R} fill="none" stroke="var(--teal)" strokeWidth="3.2" strokeLinecap="round"
+                      strokeDasharray={`${(C * r) / 100} ${C}`} />
+            ) : null}
+          </svg>
+          <span className="num absolute inset-0 flex items-center justify-center font-bold text-foreground"
+                style={{ fontSize: "clamp(12px, 0.8vw, 20px)" }} data-tabular="true">
+            {formatRate(r, lang)}
+          </span>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-[0.4vw] border-t border-border/70 pt-[0.6vh]">
+        {stat(lang === "ar" ? "محقّق الشهر" : "Won MTD", compactValue(p.won, lang) ?? "—")}
+        {stat(lang === "ar" ? "المسار" : "Pipeline", compactValue(p.open, lang) ?? "—")}
+        {stat(lang === "ar" ? "متابعات متأخّرة" : "Overdue", formatNumber(p.late, lang), p.late > 0)}
+      </div>
+    </article>
   );
 }
 

@@ -788,7 +788,7 @@ These are guardrails, not suggestions. They will stop you.
 - **Add task**: a title and a date (today by default). Press ✓ when it is done; ✓ again undoes it. You can cancel your own tasks with a reason; a manager's task only a manager can cancel. Follow-ups and commitments close on their deal, where you record the outcome.
 - **Done today** = what you finished today ÷ (finished + still due). A day with nothing on it shows "—", not 0 %.
 - **Managers** see **Team today**: each rep's rate, done/total, overdue, the split by source and yesterday's rate, and can **Assign task** to a rep (the rep is notified).
-- **The board** shows, under each name in Team performance, a thin bar with today's rate, and the team rate in the total line. It shows numbers only, never task titles.
+- **The board's Team performance** shows the sales team only (salespeople without a management role): one card per person with today's completion as a ring (done/total under the name), then won this month, pipeline and overdue follow-ups; the team line sums them. Numbers only, never task titles.
 - Days are Riyadh days. AI still only suggests: nothing becomes a task without someone approving it.
 
 ### Meetings from Fireflies (live 2026-09-29)
