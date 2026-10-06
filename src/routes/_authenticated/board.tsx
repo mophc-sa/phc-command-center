@@ -71,6 +71,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { dueForRefresh, keepAlive } from "@/lib/session-keepalive";
 import { useI18n, formatNumber, localeFor } from "@/lib/i18n";
 import { requiresConversionReview } from "@/lib/dashboard-helpers";
+import { addDays, formatRate, rate, riyadhDay, teamDay } from "@/lib/daily-tasks";
 import {
   attentionItems,
   pulseSentences,
@@ -234,7 +235,10 @@ function useBoardData() {
           fetchRequiredRows(() => supabase.from("stage_transition_history").select("changed_at:created_at, to_stage")
             .eq("record_type", "opportunity").gte("created_at", new Date(Date.now() - 7 * 86_400_000).toISOString()).order("id")),
         ]);
-      return { opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves };
+      // Daily completion: counts only, never titles (wall display).
+      const day = riyadhDay();
+      const [doneToday, doneYesterday] = await Promise.all([teamDay(day), teamDay(addDays(day, -1))]);
+      return { opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves, doneToday, doneYesterday };
     },
   });
 }
@@ -1186,6 +1190,7 @@ function BoardPage() {
                   <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "محقّق الشهر" : "Won MTD"}</span>
                   <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "المسار" : "Pipeline"}</span>
                   <span className="shrink-0 text-end" style={{ width: "3.4vw" }}>{lang === "ar" ? "متأخّرة" : "Overdue"}</span>
+                  <span className="shrink-0 text-end" style={{ width: "5.2vw" }}>{lang === "ar" ? "إنجاز اليوم" : "Today"}</span>
                 </div>
 
                 <AutoScroll className="flex min-h-0 flex-1 flex-col">
@@ -1196,6 +1201,9 @@ function BoardPage() {
                     const late = model.attention.filter(
                       (a) => (a.ownerId ?? "unassigned") === p.ownerId && a.reasons.includes("followups_overdue"),
                     ).length;
+                    const day = data?.doneToday.find((r) => r.user_id === p.ownerId);
+                    const yday = data?.doneYesterday.find((r) => r.user_id === p.ownerId);
+                    const dayRate = day ? rate(day.done, day.open_due) : null;
                     return (
                       <div
                         key={p.ownerId}
@@ -1216,6 +1224,15 @@ function BoardPage() {
                         >
                           {formatNumber(late, lang)}
                         </span>
+                        <span className="num shrink-0 text-end" style={{ width: "5.2vw" }} data-tabular="true">
+                          <span className="font-semibold text-foreground">{formatRate(dayRate, lang)}</span>
+                          {day && day.done + day.open_due > 0 ? (
+                            <span className="text-muted-foreground"> {formatNumber(day.done, lang)}/{formatNumber(day.done + day.open_due, lang)}</span>
+                          ) : null}
+                          <span className="block text-muted-foreground" style={{ fontSize: "clamp(12px, 0.6vw, 15px)" }}>
+                            {lang === "ar" ? "أمس" : "Yday"} {formatRate(yday ? rate(yday.done, yday.open_due) : null, lang)}
+                          </span>
+                        </span>
                       </div>
                     );
                   })}
@@ -1225,6 +1242,9 @@ function BoardPage() {
                   <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الإجمالي" : "Total"}</span>
                   <span className="num font-bold text-teal-on-tint" data-tabular="true">
                     {money(model.team.reduce((a, p) => a + p.won, 0))} · {money(model.team.reduce((a, p) => a + p.open, 0))}
+                    {" · "}{formatRate(rate(
+                      (data?.doneToday ?? []).reduce((a, r) => a + r.done, 0),
+                      (data?.doneToday ?? []).reduce((a, r) => a + r.open_due, 0)), lang)}
                   </span>
                 </div>
               </div>

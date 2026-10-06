@@ -1,5 +1,15 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-06 — Daily task completion (branch `feat/daily-task-completion`)
+
+Spec `docs/superpowers/specs/2026-10-06-daily-task-completion-design.md`, plan
+`docs/superpowers/plans/2026-10-06-daily-task-completion.md`. Phase 1 of a three-phase
+sales-engineer playbook (user's role document, 2026-10-06). Migration `20261006100000`
+(`day_items`, `my_day`, `daily_completion`, `create_task`, `set_task_status`, task status CHECK,
+`follow_ups.completed_at`). UI: `MyDayPanel`, `TeamDayPanel`, board Today column. Before release:
+Mo runs `supabase login` (CLI 403 on 2026-10-06), then decide what to do with existing open tasks
+(nothing ever closed them before).
+
 ## 2026-10-04 — Meetings readable by attendees released (PR 337)
 
 Production serves `59fb1d3`, Worker `0b97fff3-a6cb-4336-9cb5-1a7b367416ce` (run 37196326496).

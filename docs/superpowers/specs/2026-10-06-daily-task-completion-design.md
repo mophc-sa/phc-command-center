@@ -83,6 +83,13 @@ What exists today (2026-10-06):
   `daily_completion(today)` and the snapshot for yesterday; same 60 s poll. Typography
   follows the board's viewport-clamped scale.
 
+## Changes made while planning
+
+- No snapshot table or cron: `daily_completion(day)` recomputes any past day from `completed_at` /
+  `closed_at`, so "yesterday" is live.
+- The per-source split lives in the managers' "Team today" table; the wall board gets a compact "Today"
+  column in Team performance (rate, done/total, yesterday) so the tuned board grid is unchanged.
+
 ## Errors and edge cases
 
 - Day boundaries use Asia/Riyadh everywhere (SQL and UI).

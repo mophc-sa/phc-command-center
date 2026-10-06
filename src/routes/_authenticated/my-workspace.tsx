@@ -13,6 +13,8 @@ import { resolveCanonicalStage, CANONICAL_ACTIVE_STAGES } from "@/lib/stage-cano
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { DailyAssistantPanel } from "@/components/phc/DailyAssistantPanel";
+import { MyDayPanel } from "@/components/phc/MyDayPanel";
+import { TeamDayPanel } from "@/components/phc/TeamDayPanel";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { TodayPanel } from "@/components/phc/TodayPanel";
 import { ChartFrame } from "@/components/phc/ChartFrame";
@@ -171,6 +173,8 @@ function WorkspacePage() {
       ) : (
         <ExistingWorkspaceContent uid={uid} user={user} />
       )}
+      <MyDayPanel />
+      <TeamDayPanel />
       <DailyAssistantPanel />
       <TodayPanel uid={uid} />
     </>
