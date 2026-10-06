@@ -1,6 +1,14 @@
 # AI Handoff ⭐ — PHC Command Center
 
-## 2026-10-06 — Daily task completion (branch `feat/daily-task-completion`)
+## 2026-10-06 — Daily task completion + sales-team cards released (PRs 339, 340, 341)
+
+Production serves `9d3ff89`, Worker `4602164a-15c2-41c0-9bda-f4cf0bc3fe51` (run 37448371530).
+Canary `8a1323aa` (37446614941), canary readiness 37447398575, post-production readiness 37448615824
+(79 + 11). Migrations `20261006100000` (daily completion) and `20261006110000` (`board_sales_reps`)
+applied before the UI. Rollback UI: `59fb1d3` (Worker `0b97fff3`). Caught on the canary: a fifth
+column in Team performance left rep names 1px wide at wall size (#340); the user then asked for the
+sales team only, as cards (#341). Also: overrides for seroval/proxy-addr/source-map-js advisories.
+
 
 Spec `docs/superpowers/specs/2026-10-06-daily-task-completion-design.md`, plan
 `docs/superpowers/plans/2026-10-06-daily-task-completion.md`. Phase 1 of a three-phase
