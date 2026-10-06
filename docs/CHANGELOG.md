@@ -1,5 +1,11 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-06 — Board: Team performance shows the sales team as cards (not deployed)
+
+- At the user's request Team performance lists only salespeople with no management role
+  (`board_sales_reps()`, migration `20261006110000`; the wall account cannot read roles), one roomy card
+  each: initials, first name, today's completion ring and done/total, then won MTD · pipeline · overdue.
+
 ## 2026-10-06 — Daily task completion (not deployed)
 
 - Reps add, close and cancel tasks (`create_task`, `set_task_status`); managers assign tasks (notification
