@@ -1,5 +1,14 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-06 — Daily task completion (not deployed)
+
+- Reps add, close and cancel tasks (`create_task`, `set_task_status`); managers assign tasks (notification
+  `task_assigned`). A day's list = tasks + follow-ups + commitments due by the Riyadh day (overdue carried)
+  plus what was finished that day (`day_items`). `my_day` returns the caller's list; `daily_completion`
+  returns per-rep counts for managers and the display account only. Task status is now `open|done|cancelled`
+  (the next-action view used `completed`); follow-ups gained `completed_at`. Migration `20261006100000`.
+- My Workspace: "My tasks today" and, for managers, "Team today". Board: a "Today" column in Team performance.
+
 ## 2026-10-04 — Attendees see their meetings (released `59fb1d3`)
 
 - **Meetings** is now in everyone's menu. Reviewers see every meeting as before; anyone else sees, read

@@ -782,6 +782,15 @@ These are guardrails, not suggestions. They will stop you.
 
 ## 10. Current limitations
 
+### My tasks today and the team's completion (2026-10-06)
+
+- **My tasks today** (top of My Workspace) lists everything on your plate for the day: your tasks, the follow-ups and client commitments due today, anything overdue (it stays until done), and what you finished today. Each item shows where it came from: **Required** (follow-ups, commitments), **From manager**, **Mine**, **AI** (a daily-assistant suggestion you approved) or **Meeting**.
+- **Add task**: a title and a date (today by default). Press ✓ when it is done; ✓ again undoes it. You can cancel your own tasks with a reason; a manager's task only a manager can cancel. Follow-ups and commitments close on their deal, where you record the outcome.
+- **Done today** = what you finished today ÷ (finished + still due). A day with nothing on it shows "—", not 0 %.
+- **Managers** see **Team today**: each rep's rate, done/total, overdue, the split by source and yesterday's rate, and can **Assign task** to a rep (the rep is notified).
+- **The board** shows a **Today** column in Team performance (rate, done/total, yesterday) and the team rate in the total line. It shows numbers only, never task titles.
+- Days are Riyadh days. AI still only suggests: nothing becomes a task without someone approving it.
+
 ### Meetings from Fireflies (live 2026-09-29)
 
 - Live. New meetings arrive on their own a few minutes after Fireflies finishes processing them.
