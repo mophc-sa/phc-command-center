@@ -71,7 +71,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { dueForRefresh, keepAlive } from "@/lib/session-keepalive";
 import { useI18n, formatNumber, localeFor } from "@/lib/i18n";
 import { requiresConversionReview } from "@/lib/dashboard-helpers";
-import { addDays, formatRate, rate, riyadhDay, teamDay } from "@/lib/daily-tasks";
+import { formatRate, rate, riyadhDay, teamDay } from "@/lib/daily-tasks";
 import {
   attentionItems,
   pulseSentences,
@@ -237,8 +237,8 @@ function useBoardData() {
         ]);
       // Daily completion: counts only, never titles (wall display).
       const day = riyadhDay();
-      const [doneToday, doneYesterday] = await Promise.all([teamDay(day), teamDay(addDays(day, -1))]);
-      return { opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves, doneToday, doneYesterday };
+      const doneToday = await teamDay(day);
+      return { opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves, doneToday };
     },
   });
 }
@@ -1190,7 +1190,6 @@ function BoardPage() {
                   <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "محقّق الشهر" : "Won MTD"}</span>
                   <span className="shrink-0 text-end" style={{ width: "4vw" }}>{lang === "ar" ? "المسار" : "Pipeline"}</span>
                   <span className="shrink-0 text-end" style={{ width: "3.4vw" }}>{lang === "ar" ? "متأخّرة" : "Overdue"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "5.2vw" }}>{lang === "ar" ? "إنجاز اليوم" : "Today"}</span>
                 </div>
 
                 <AutoScroll className="flex min-h-0 flex-1 flex-col">
@@ -1202,7 +1201,6 @@ function BoardPage() {
                       (a) => (a.ownerId ?? "unassigned") === p.ownerId && a.reasons.includes("followups_overdue"),
                     ).length;
                     const day = data?.doneToday.find((r) => r.user_id === p.ownerId);
-                    const yday = data?.doneYesterday.find((r) => r.user_id === p.ownerId);
                     const dayRate = day ? rate(day.done, day.open_due) : null;
                     return (
                       <div
@@ -1210,7 +1208,21 @@ function BoardPage() {
                         className={`flex min-h-0 flex-1 items-center gap-[0.5vw] px-[0.3vw] ${idx % 2 === 1 ? "bg-muted" : ""}`}
                         style={{ fontSize: "clamp(12px, 0.88vw, 23px)" }}
                       >
-                        <span className="min-w-0 flex-1 truncate text-foreground">{p.label}</span>
+                        {/* Today's completion sits under the name, not in a column:
+                            the panel is a fifth of the wall and one more column
+                            left no room for names. Done/total, the split by
+                            source and yesterday are in My Workspace → Team today. */}
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate text-foreground">{p.label}</span>
+                          <span className="flex items-center gap-[0.3vw]">
+                            <span className="h-[0.35vh] min-w-0 flex-1 overflow-hidden rounded-full bg-muted-foreground/20" aria-hidden="true">
+                              <span className="block h-full rounded-full" style={{ width: `${dayRate ?? 0}%`, background: "var(--teal)" }} />
+                            </span>
+                            <span className="num shrink-0 text-muted-foreground" style={{ fontSize: "clamp(12px, 0.62vw, 16px)" }} data-tabular="true">
+                              {formatRate(dayRate, lang)}
+                            </span>
+                          </span>
+                        </span>
                         <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "4vw" }} data-tabular="true">
                           {money(p.won)}
                         </span>
@@ -1223,15 +1235,6 @@ function BoardPage() {
                           data-tabular="true"
                         >
                           {formatNumber(late, lang)}
-                        </span>
-                        <span className="num shrink-0 text-end" style={{ width: "5.2vw" }} data-tabular="true">
-                          <span className="font-semibold text-foreground">{formatRate(dayRate, lang)}</span>
-                          {day && day.done + day.open_due > 0 ? (
-                            <span className="text-muted-foreground"> {formatNumber(day.done, lang)}/{formatNumber(day.done + day.open_due, lang)}</span>
-                          ) : null}
-                          <span className="block text-muted-foreground" style={{ fontSize: "clamp(12px, 0.6vw, 15px)" }}>
-                            {lang === "ar" ? "أمس" : "Yday"} {formatRate(yday ? rate(yday.done, yday.open_due) : null, lang)}
-                          </span>
                         </span>
                       </div>
                     );
