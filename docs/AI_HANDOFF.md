@@ -1,5 +1,15 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-07 — Fireflies webhook 403 and "Fetch from Fireflies" (branch `feat/meetings-fireflies-sync`)
+
+Mo: yesterday's two meetings did not arrive. Fireflies' delivery log showed HTTP 403 from
+meetings-inbound = signature mismatch. Mo set a new Signing secret in Fireflies and the same value as
+`FIREFLIES_WEBHOOK_SECRET` (all functions bumped: sales-os-api v73, ai-orchestrator v45, meetings-inbound v4).
+The first real webhook is still unproven — the next processed meeting is the test. Added a reviewer
+button that pulls recent meetings straight from the Fireflies API (needs `sales-os-api` deployed).
+Phase 2 brainstorm is paused on one question: how a checklist item counts as done (recommended: auto from
+data where possible, manual for the rest).
+
 ## 2026-10-06 — Daily task completion + sales-team cards released (PRs 339, 340, 341)
 
 Production serves `9d3ff89`, Worker `4602164a-15c2-41c0-9bda-f4cf0bc3fe51` (run 37448371530).

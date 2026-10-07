@@ -91,6 +91,11 @@ export function decideMeetingAction(d: MeetingDecision) {
   return callBackend<{ ok: boolean; status: string; task_id: string | null }>("meeting_action_decision", d);
 }
 
+/** Pull the last two weeks of processed Fireflies meetings and store the ones we lack. */
+export function syncMeetings() {
+  return callBackend<{ ok: boolean; found: number; added: number; already: number }>("meetings_sync", {});
+}
+
 /** The Fireflies page for a meeting, optionally at a moment in the recording. */
 export function firefliesLink(providerMeetingId: string, atSeconds?: number | null): string {
   const base = `https://app.fireflies.ai/view/${encodeURIComponent(providerMeetingId)}`;

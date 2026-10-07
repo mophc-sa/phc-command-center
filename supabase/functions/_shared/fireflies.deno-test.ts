@@ -4,7 +4,7 @@
 // =============================================================================
 
 import { assert, assertEquals, assertFalse } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { matchSpeaker, parseActionItems, readWebhook, toIngestPayload, verifySignature } from "./fireflies.ts";
+import { ingestableTranscripts, matchSpeaker, parseActionItems, readWebhook, toIngestPayload, verifySignature } from "./fireflies.ts";
 
 const SECRET = "f".repeat(24);
 
@@ -101,4 +101,18 @@ Deno.test("a transcript becomes one meeting and its items", () => {
   assertEquals(items.length, 5);
   assertEquals(items[0].suggested_owner_id, "mo");
   assertEquals(items[2].suggested_owner_id, null);
+});
+
+Deno.test("only summarised meetings with a sane id are fetched in", () => {
+  const kept = ingestableTranscripts([
+    { id: "A1", title: "Real", summary: { short_summary: "We met." } },
+    { id: "B2", title: "Only items", summary: { action_items: "**Mo**\nCall (00:10)" } },
+    { id: "C3", title: "WhatsApp", summary: null },
+    { id: "D4", title: "Blank", summary: { short_summary: "  ", overview: "", action_items: "" } },
+    { id: "bad id!", title: "x", summary: { short_summary: "y" } },
+    null,
+    "junk",
+  ]);
+  assertEquals(kept.map((t) => t.id), ["A1", "B2"]);
+  assertEquals(ingestableTranscripts(undefined), []);
 });

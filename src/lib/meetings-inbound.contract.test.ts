@@ -60,6 +60,19 @@ describe("the database is the gate", () => {
     expect(SQL).toMatch(/_owner_id IS NULL OR NOT EXISTS/);
   });
 
+  it("fetching from Fireflies is reviewer-only and stores only through ingest_meeting", () => {
+    const h = read("supabase/functions/sales-os-api/handlers/meetings-sync.ts");
+    const gate = h.indexOf('ctx.asCaller.rpc("can_review_meetings"');
+    expect(gate).toBeGreaterThan(-1);
+    expect(gate).toBeLessThan(h.indexOf("fetch(FIREFLIES_GRAPHQL_URL"));
+    // First real use of the service role, past the comment block at the top.
+    expect(gate).toBeLessThan(h.indexOf("ctx.svc", h.indexOf("async function meetings_sync")));
+    expect(h).toContain('ctx.svc.rpc("ingest_meeting"');
+    expect(h).not.toMatch(/\.from\("(meetings|meeting_action_items|tasks)"\)/);
+    // The button is shown to reviewers only.
+    expect(read("src/routes/_authenticated/meetings.index.tsx")).toMatch(/reviewer \?[\s\S]{0,200}fetchFromFireflies/);
+  });
+
   it("decisions go through sales-os-api as the caller, not the service role", () => {
     const h = read("supabase/functions/sales-os-api/handlers/meetings.ts");
     expect(h).toContain('ctx.asCaller.rpc("decide_meeting_action_item"');

@@ -29,6 +29,30 @@ export const TRANSCRIPT_QUERY = `query Transcript($id: String!) {
   }
 }`;
 
+/** Recent processed meetings in one call, with what toIngestPayload needs. */
+export const RECENT_TRANSCRIPTS_QUERY = `query Recent($from: DateTime, $limit: Int) {
+  transcripts(fromDate: $from, limit: $limit) {
+    id title dateString duration organizer_email participants transcript_url
+    summary { action_items overview short_summary keywords }
+  }
+}`;
+
+/**
+ * Which listed transcripts are worth storing: a real id and something Fireflies
+ * actually summarised. Recordings it skipped (a few seconds of audio) have no
+ * summary and would only clutter the list.
+ */
+export function ingestableTranscripts(list: unknown): FirefliesTranscript[] {
+  if (!Array.isArray(list)) return [];
+  return list.filter((t): t is FirefliesTranscript => {
+    if (!t || typeof t !== "object") return false;
+    const x = t as FirefliesTranscript;
+    if (typeof x.id !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(x.id)) return false;
+    const s = x.summary;
+    return Boolean(s && (s.short_summary?.trim() || s.overview?.trim() || s.action_items?.trim()));
+  });
+}
+
 /** Verify Fireflies' x-hub-signature over the raw request body. */
 export async function verifySignature(
   rawBody: string,

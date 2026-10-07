@@ -1,12 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { Mic } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Mic, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, localeFor } from "@/lib/i18n";
-import { listMeetings } from "@/lib/meetings-actions";
+import { listMeetings, syncMeetings } from "@/lib/meetings-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canReviewMeetings } from "@/lib/roles";
 
@@ -21,10 +24,37 @@ function MeetingsPage() {
   // Reviewers see every meeting; everyone else, the meetings they attended (can_read_meeting).
   const reviewer = canReviewMeetings(roles);
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["meetings"], queryFn: listMeetings });
+  const qc = useQueryClient();
+  const [syncing, setSyncing] = useState(false);
+
+  async function fetchFromFireflies() {
+    setSyncing(true);
+    try {
+      const r = await syncMeetings();
+      toast.success(r.added > 0 ? `${r.added} ${t("meetings_sync_added")}` : t("meetings_sync_none"));
+      await qc.invalidateQueries({ queryKey: ["meetings"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow={t("meetings_eyebrow")} title={t("meetings_title")} description={t(reviewer ? "meetings_desc" : "meetings_desc_attendee")} />
+      <PageHeader
+        eyebrow={t("meetings_eyebrow")}
+        title={t("meetings_title")}
+        description={t(reviewer ? "meetings_desc" : "meetings_desc_attendee")}
+        actions={
+          reviewer ? (
+            <Button type="button" size="sm" variant="outline" onClick={() => void fetchFromFireflies()} disabled={syncing}>
+              <RefreshCw className={`me-1.5 h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} aria-hidden="true" />
+              {t("meetings_sync")}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {isLoading ? (
         <SkeletonTable />
