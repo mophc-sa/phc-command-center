@@ -1649,6 +1649,9 @@ export type Database = {
           next_action: string | null
           next_action_due: string | null
           regions: string | null
+          prequalification_note: string | null
+          prequalification_status: string
+          prequalification_updated_at: string | null
           relationship_level: string | null
           source: string | null
           updated_at: string
@@ -1674,6 +1677,9 @@ export type Database = {
           next_action?: string | null
           next_action_due?: string | null
           regions?: string | null
+          prequalification_note?: string | null
+          prequalification_status?: string
+          prequalification_updated_at?: string | null
           relationship_level?: string | null
           source?: string | null
           updated_at?: string
@@ -1699,6 +1705,9 @@ export type Database = {
           next_action?: string | null
           next_action_due?: string | null
           regions?: string | null
+          prequalification_note?: string | null
+          prequalification_status?: string
+          prequalification_updated_at?: string | null
           relationship_level?: string | null
           source?: string | null
           updated_at?: string
@@ -4522,6 +4531,7 @@ export type Database = {
           agent_recommendation:
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
+          buyer_type: string | null
           client: string | null
           commercial_handoff_at: string | null
           commercial_handoff_by: string | null
@@ -4619,6 +4629,7 @@ export type Database = {
           agent_recommendation?:
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
+          buyer_type?: string | null
           client?: string | null
           commercial_handoff_at?: string | null
           commercial_handoff_by?: string | null
@@ -4718,6 +4729,7 @@ export type Database = {
           agent_recommendation?:
             | Database["public"]["Enums"]["approval_recommendation"]
             | null
+          buyer_type?: string | null
           client?: string | null
           commercial_handoff_at?: string | null
           commercial_handoff_by?: string | null

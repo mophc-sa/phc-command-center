@@ -1,5 +1,13 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-07 — Stage playbook phase 2 (branch `feat/stage-playbook`)
+
+Spec `docs/superpowers/specs/2026-10-07-stage-playbook-design.md` (user pre-approved "do what you
+recommend"). Shared rules in `_shared/stage-checklist.ts`; migration `20261007100000`; panel
+`StageChecklistPanel`; account prequalification on `accounts.$id.tsx`; daily assistant `checklist`
+suggestions. Needs `db push` + `sales-os-api` deploy before the UI release. Generated types patched by
+hand for the new columns. Not yet tried in a browser (needs a signed-in canary). Phase 3 remains.
+
 ## 2026-10-07 — Security audit (branch `fix/untrack-crm-import-pii`)
 
 Mo asked for a full security check. gstack `/cso` daily run `1791359279225-bd724fb34588f1a3`

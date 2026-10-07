@@ -29,7 +29,7 @@ export async function loadDaily(ctx: SalesOsContext, language: "ar" | "en") {
     readAll((from, to) =>
       db
         .from("opportunities")
-        .select("id,updated_at,project_name,stage,sales_stage,next_action,next_action_due")
+        .select("id,updated_at,project_name,stage,sales_stage,next_action,next_action_due,buyer_type,company_id,expected_contract_date,contract_value,loss_reason")
         .eq("owner_id", u)
         .neq("stage", "archived")
         .order("id")
@@ -69,7 +69,7 @@ export async function loadDaily(ctx: SalesOsContext, language: "ar" | "en") {
     const linked = await readAll((from, to) =>
       db
         .from("opportunities")
-        .select("id,updated_at,project_name,stage,sales_stage,next_action,next_action_due")
+        .select("id,updated_at,project_name,stage,sales_stage,next_action,next_action_due,buyer_type,company_id,expected_contract_date,contract_value,loss_reason")
         .in("id", assignedIds.slice(i, i + 100))
         .neq("stage", "archived")
         .order("id")
@@ -130,13 +130,31 @@ export async function loadDaily(ctx: SalesOsContext, language: "ar" | "en") {
       })),
     );
   }
+  // Stage-checklist facts for the deals above, through the caller's RLS.
+  const checklist = { stakeholders: [], quotations: [], companies: [], checklistRows: [] } as Parameters<typeof buildDailyAssistant>[0]["checklist"] & object;
+  const companyIds = [...new Set(opportunities.map((o) => o.company_id).filter((x): x is string => !!x))];
+  for (let i = 0; i < opportunities.length; i += 100) {
+    const ids = opportunities.slice(i, i + 100).map((o) => o.id);
+    const [st, qu, ch] = await Promise.all([
+      readAll((from, to) => db.from("stakeholders").select("opportunity_id,role_code").in("opportunity_id", ids).order("id").range(from, to)),
+      readAll((from, to) => db.from("quotations").select("related_opportunity_id").in("related_opportunity_id", ids).order("id").range(from, to)),
+      readAll((from, to) => db.from("opportunity_checklist" as never).select("opportunity_id,item_key,done").in("opportunity_id", ids).order("item_key").range(from, to)),
+    ]);
+    checklist.stakeholders.push(...(st as typeof checklist.stakeholders));
+    checklist.quotations.push(...(qu as typeof checklist.quotations));
+    checklist.checklistRows.push(...(ch as unknown as typeof checklist.checklistRows));
+  }
+  for (let i = 0; i < companyIds.length; i += 100) {
+    const co = await readAll((from, to) => db.from("companies").select("id,prequalification_status" as never).in("id", companyIds.slice(i, i + 100)).order("id").range(from, to));
+    checklist.companies.push(...(co as unknown as typeof checklist.companies));
+  }
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Riyadh",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
-  return buildDailyAssistant({ opportunities, followups, rfqs, boqs, boqItems }, language, today);
+  return buildDailyAssistant({ opportunities, followups, rfqs, boqs, boqItems, checklist }, language, today);
 }
 async function daily_assistant(payload: Record<string, unknown>, ctx: SalesOsContext) {
   if (!canCreateSalesRecords(ctx.caller.roles)) return err("Employee sales access required", 403);

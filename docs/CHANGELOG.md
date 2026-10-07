@@ -1,5 +1,18 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-07 — Stage playbook (phase 2): checklist per stage, buyer type, account prequalification (not deployed)
+
+- `supabase/functions/_shared/stage-checklist.ts` (re-exported to the UI): per-canonical-stage "evidence
+  of done" items; auto items from data (buyer type, stakeholder roles, prequalification, BOQ items,
+  quotation, expected contract date, contract value, loss reason), manual items from
+  `opportunity_checklist` via `set_checklist_item` (sales contributor who can read the deal; direct writes
+  revoked; readable via `can_read_boq`). Migration `20261007100000`: `opportunities.buyer_type`,
+  `companies.prequalification_status/_note/_updated_at`, the table, the RPC, and a `checklist` branch in
+  `approve_ai_daily_task`.
+- Deal page: **Stage checklist** panel with buyer-type select. Account page: prequalification in details
+  and the edit dialog. Daily assistant: `checklist` suggestion (priority 55) listing the missing items.
+- Stage moves are not blocked by the checklist (design decision; the gates stay the hard rules).
+
 ## 2026-10-07 — Security audit: client PII removed from the repository (not deployed)
 
 - A static security audit (gstack `/cso`, run `1791359279225-bd724fb34588f1a3`, daily scope, partial
