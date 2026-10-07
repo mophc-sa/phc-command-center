@@ -8,6 +8,9 @@ updates:
       time: "05:00"
       timezone: Asia/Riyadh
     open-pull-requests-limit: 5
+    # Supply-chain cooldown: wait a week before proposing a newly published version.
+    cooldown:
+      default-days: 7
     groups:
       production-dependencies:
         dependency-type: production
@@ -21,3 +24,6 @@ updates:
       time: "05:30"
       timezone: Asia/Riyadh
     open-pull-requests-limit: 5
+    # Supply-chain cooldown: wait a week before proposing a newly published version.
+    cooldown:
+      default-days: 7

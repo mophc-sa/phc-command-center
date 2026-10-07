@@ -1,5 +1,13 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-07 — Scanners via Docker (branch `chore/deps-and-ci-hardening`)
+
+gstack `/cso` cannot use Docker on macOS (Bun realpathSync EOPNOTSUPP on sockets — report upstream /
+check `/gstack-upgrade`). Ran the five scanners directly (outputs in /tmp/cso/scan, not kept). No
+secrets in history; no supported code findings. Hardening applied in this branch: checkout
+`persist-credentials: false`, Dependabot cooldown 7d, Bun minimumReleaseAge 3d, overrides hono/
+ip-address/qs. Stale worktree `.claude/worktrees/intelligent-noyce-906323` (462 MB) still on disk.
+
 ## 2026-10-07 — Stage playbook phase 2 (branch `feat/stage-playbook`)
 
 Spec `docs/superpowers/specs/2026-10-07-stage-playbook-design.md` (user pre-approved "do what you
