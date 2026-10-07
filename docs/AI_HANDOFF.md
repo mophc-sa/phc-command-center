@@ -1,6 +1,13 @@
 # AI Handoff ⭐ — PHC Command Center
 
-## 2026-10-07 — Stage playbook phase 2 (branch `feat/stage-playbook`)
+## 2026-10-07 — Stage playbook phase 2 released (PR 345)
+
+Production serves `4aeee4c`, Worker `dc0dc31d-40b3-4c4b-884c-2dfac7c30ede` (run 37596749105, approved
+via the pending_deployments API because the browser session was on another GitHub account). Canary
+`eb838b89` (37593253180), canary readiness 37594805071, post-production readiness 37602950922 (79 + 11).
+Migration `20261007100000` applied first; `sales-os-api` v75. Rollback UI: `9d3ff89` (Worker `4602164a`).
+Not yet tried by hand: the Stage checklist panel with a signed-in user.
+
 
 Spec `docs/superpowers/specs/2026-10-07-stage-playbook-design.md` (user pre-approved "do what you
 recommend"). Shared rules in `_shared/stage-checklist.ts`; migration `20261007100000`; panel

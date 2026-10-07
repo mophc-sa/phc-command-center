@@ -1,6 +1,6 @@
 # CHANGELOG — PHC Command Center
 
-## 2026-10-07 — Stage playbook (phase 2): checklist per stage, buyer type, account prequalification (not deployed)
+## 2026-10-07 — Stage playbook (phase 2): checklist per stage, buyer type, account prequalification (released `4aeee4c`)
 
 - `supabase/functions/_shared/stage-checklist.ts` (re-exported to the UI): per-canonical-stage "evidence
   of done" items; auto items from data (buyer type, stakeholder roles, prequalification, BOQ items,
