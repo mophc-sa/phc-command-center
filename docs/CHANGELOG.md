@@ -1,5 +1,20 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-07 — Security scanners run (Gitleaks, zizmor, OSV, Trivy, Semgrep) and hardening (not deployed)
+
+- Scanners ran via Docker against a read-only mount (the gstack CSO helper cannot admit Docker on macOS:
+  Bun's `realpathSync` fails on Unix sockets with EOPNOTSUPP — upstream bug). Results:
+  - Gitleaks over the full git history: **no leaks**.
+  - OSV: 16 advisories in `bun.lock` (none high after the week's overrides); hono, ip-address and qs
+    overridden to patched versions here. The 34 others were in the stale `.claude/worktrees/` copy.
+  - zizmor: 10× `artipacked` (checkout credentials persisted) → `persist-credentials: false` on every
+    checkout that does not push; 1× `bot-conditions` on the dependabot lockfile job (requires push access
+    already; left as is); 1× `self-repository` (style).
+  - Semgrep (504 rules): Dependabot cooldown missing → `cooldown: 7 days`; Bun `minimumReleaseAge` raised
+    from 1 to 3 days; remaining hits are false positives (constant-list RegExp in sales-ai.ts, RFC 6238
+    public TOTP vector in a test, console.log formatting) and the dev-only Dockerfile running as root.
+  - Trivy: no secrets; Dockerfile root user (dev container only, not deployed).
+
 ## 2026-10-07 — Stage playbook (phase 2): checklist per stage, buyer type, account prequalification (not deployed)
 
 - `supabase/functions/_shared/stage-checklist.ts` (re-exported to the UI): per-canonical-stage "evidence
