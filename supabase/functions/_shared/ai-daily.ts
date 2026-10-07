@@ -1,4 +1,5 @@
 import { resolveCanonicalStage } from "./stage-canonical.ts";
+import { EMPTY_FACTS, evaluateChecklist } from "./stage-checklist.ts";
 
 type Base = { id: string; updated_at: string };
 export type DailyOpportunity = Base & {
@@ -7,6 +8,18 @@ export type DailyOpportunity = Base & {
   sales_stage: string | null;
   next_action: string | null;
   next_action_due: string | null;
+  buyer_type?: string | null;
+  company_id?: string | null;
+  expected_contract_date?: string | null;
+  contract_value?: number | null;
+  loss_reason?: string | null;
+};
+/** Stage-checklist facts the handler loads per deal (stage-checklist.ts). */
+export type DailyChecklistFacts = {
+  stakeholders: { opportunity_id: string; role_code: string | null }[];
+  quotations: { related_opportunity_id: string | null }[];
+  companies: { id: string; prequalification_status: string | null }[];
+  checklistRows: { opportunity_id: string; item_key: string; done: boolean }[];
 };
 export type DailyFollowup = Base & {
   opportunity_id: string | null;
@@ -39,7 +52,7 @@ export type DailyBoqItem = {
   unit_rate?: number | null;
 };
 export type DailySuggestion = {
-  source_type: "opportunity" | "follow_up" | "rfq" | "boq";
+  source_type: "opportunity" | "follow_up" | "rfq" | "boq" | "checklist";
   source_id: string;
   source_updated_at: string;
   opportunity_id: string | null;
@@ -57,6 +70,7 @@ export function buildDailyAssistant(
     rfqs: DailyRfq[];
     boqs: DailyBoq[];
     boqItems: DailyBoqItem[];
+    checklist?: DailyChecklistFacts;
   },
   language: "ar" | "en",
   today: string,
@@ -182,6 +196,46 @@ export function buildDailyAssistant(
       reasons: [say("فحص اكتمال البيانات قبل التسعير", "Data completeness check before pricing")],
       gaps,
     });
+  }
+  // Stage checklist: the missing "evidence of done" of each open deal's current
+  // stage, as one proposed task per deal (playbook phase 2, 2026-10-07).
+  if (input.checklist) {
+    const c = input.checklist;
+    const prequal = new Map(c.companies.map((x) => [x.id, x.prequalification_status]));
+    for (const o of input.opportunities) {
+      const stage = resolveCanonicalStage(o).stage;
+      if (!stage || stage === "won" || stage === "lost" || stage === "on_hold") continue;
+      const boqIds = input.boqs.filter((b) => b.related_opportunity_id === o.id).map((b) => b.id);
+      const items = evaluateChecklist(stage, {
+        ...EMPTY_FACTS,
+        buyer_type: o.buyer_type ?? null,
+        roles: c.stakeholders.filter((s) => s.opportunity_id === o.id).map((s) => s.role_code ?? "").filter(Boolean),
+        prequalification_status: o.company_id ? prequal.get(o.company_id) ?? null : null,
+        boq_item_count: input.boqItems.filter((i) => boqIds.includes(i.boq_id)).length,
+        quotation_count: c.quotations.filter((q) => q.related_opportunity_id === o.id).length,
+        expected_contract_date: o.expected_contract_date ?? null,
+        contract_value: o.contract_value ?? null,
+        loss_reason: o.loss_reason ?? null,
+        manual: Object.fromEntries(c.checklistRows.filter((r) => r.opportunity_id === o.id).map((r) => [r.item_key, r.done])),
+      });
+      const missing = items.filter((i) => !i.done);
+      if (!missing.length) continue;
+      suggestions.push({
+        source_type: "checklist",
+        source_id: o.id,
+        source_updated_at: o.updated_at,
+        opportunity_id: o.id,
+        title: o.project_name,
+        proposed_task: say(
+          `استكمال دليل مرحلة «${stage}» لـ ${o.project_name}: ${missing.map((m) => m.ar).join("؛ ")}`,
+          `Complete the ${stage} stage evidence for ${o.project_name}: ${missing.map((m) => m.en).join("; ")}`,
+        ),
+        due: null,
+        priority: 55,
+        reasons: [say(`${missing.length} بنود ناقصة في دليل المرحلة الحالية`, `${missing.length} items missing in the current stage's evidence`)],
+        gaps: missing.map((m) => (language === "ar" ? m.ar : m.en)),
+      });
+    }
   }
   suggestions.sort(
     (a, b) =>

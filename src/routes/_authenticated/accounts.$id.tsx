@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
 import { DataField } from "@/components/phc/DataField";
+import { PREQUAL_STATUSES } from "@/lib/stage-checklist";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonForm } from "@/components/phc/Skeleton";
@@ -175,6 +176,7 @@ function AccountDetail() {
           <DataField label={t("crm_regions")} value={c.regions} />
           <DataField label={t("crm_relationship")} value={c.relationship_level} />
           <DataField label={t("crm_next_action")} value={c.next_action} />
+          <DataField label={t("label_prequal")} value={t(`prequal_${(c as { prequalification_status?: string }).prequalification_status ?? "not_started"}` as never)} />
         </div>
         {c.internal_notes && !/^\s*[[{]/.test(c.internal_notes) ? (
           <div className="mt-4">
@@ -324,6 +326,8 @@ function AccountDetail() {
           { key: "companyType", type: "select", label: t("crm_filter_all_types"), defaultValue: c.company_type, options: COMPANY_TYPES.map((ct) => ({ value: ct, label: typeLabel(ct) })) },
           { key: "regions", type: "text", label: t("crm_regions"), defaultValue: c.regions ?? "" },
           { key: "relationshipLevel", type: "text", label: t("crm_relationship"), defaultValue: c.relationship_level ?? "" },
+          { key: "prequalificationStatus", type: "select", label: t("label_prequal"), defaultValue: (c as { prequalification_status?: string }).prequalification_status ?? "not_started", options: PREQUAL_STATUSES.map((p) => ({ value: p, label: t(`prequal_${p}` as never) })) },
+          { key: "prequalificationNote", type: "text", label: t("prequal_note"), defaultValue: (c as { prequalification_note?: string | null }).prequalification_note ?? "" },
           { key: "nextAction", type: "text", label: t("crm_next_action"), defaultValue: c.next_action ?? "" },
           { key: "internalNotes", type: "textarea", label: t("crm_internal_notes"), defaultValue: c.internal_notes ?? "" },
         ]}
@@ -334,6 +338,8 @@ function AccountDetail() {
               company_type: v.companyType as CompanyType,
               regions: v.regions || null,
               relationship_level: v.relationshipLevel || null,
+              prequalification_status: v.prequalificationStatus,
+              prequalification_note: v.prequalificationNote || null,
               next_action: v.nextAction || null,
               internal_notes: v.internalNotes || null,
             });

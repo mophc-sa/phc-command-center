@@ -11,6 +11,7 @@ import { useI18n, formatCurrency, formatNumber, type Lang, localeFor } from "@/l
 import { LegacyOpportunityContext } from "@/components/phc/LegacyOpportunityContext";
 import { Panel } from "@/components/phc/Panel";
 import { DealCorrespondencePanel } from "@/components/phc/DealCorrespondencePanel";
+import { StageChecklistPanel } from "@/components/phc/StageChecklistPanel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -1285,6 +1286,13 @@ function OpportunityDetail() {
           })}
         </div>
       </Panel>
+      )}
+
+      {/* 3.6. STAGE CHECKLIST — playbook phase 2 (2026-10-07): the current
+          stage's "evidence of done". Auto items come from data, manual ones
+          from the rep. It informs; the stage gates still decide moves. */}
+      {show("evidence") && (
+        <StageChecklistPanel opportunity={o as never} stakeholders={(stakeholdersQ.data ?? []) as never} />
       )}
 
       {/* 4b. FILES — the Phase 6 registry. Sits beside Evidence rather than

@@ -782,6 +782,21 @@ These are guardrails, not suggestions. They will stop you.
 
 ## 10. Current limitations
 
+### Stage checklist, buyer type and prequalification (2026-10-07)
+
+- Every deal page has a **Stage checklist**: the "evidence of done" for the deal's current stage, from
+  the sales-engineer playbook. Items marked **From data** tick themselves when the system can see the
+  evidence (a decision maker among the stakeholders, a quotation, a contract value…). Items marked
+  **Ticked by you** are yours: tick them and add a short note (a site visit, a scope review). The
+  checklist informs; it never blocks a stage move.
+- **Buyer** (in the checklist header): who buys the signage package — main contractor, developer/owner,
+  consultant, hotel/brand operator, or an existing client. It decides which people you must reach.
+- **Prequalification** now lives on the **account** (Accounts → edit): not started, submitted, under
+  review, approved, needs completion, with a note. Every deal of that client sees it; the "Account
+  prequalification approved" item ticks itself when it is approved.
+- **My daily assistant** proposes, per deal, the missing items of its current stage as one task. As
+  always, nothing becomes a task until you approve it.
+
 ### My tasks today and the team's completion (2026-10-06)
 
 - **My tasks today** (top of My Workspace) lists everything on your plate for the day: your tasks, the follow-ups and client commitments due today, anything overdue (it stays until done), and what you finished today. Each item shows where it came from: **Required** (follow-ups, commitments), **From manager**, **Mine**, **AI** (a daily-assistant suggestion you approved) or **Meeting**.
