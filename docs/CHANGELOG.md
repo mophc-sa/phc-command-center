@@ -1,5 +1,14 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-07 — Meetings: "Fetch from Fireflies" (not deployed)
+
+- Found on 2026-10-07: Fireflies delivered the webhook for two 2026-10-06 meetings and got 403 (signing
+  secret in Fireflies differed from `FIREFLIES_WEBHOOK_SECRET`); the secret was reset by the user. The
+  Sep 28 meeting had been ingested by hand, so the webhook had never worked end to end.
+- New reviewer-only action `meetings_sync` (sales-os-api, `handlers/meetings-sync.ts`) and a button on
+  Meetings: lists the last 14 days (max 25) of the Fireflies account, keeps summarised ones, stores them
+  through `ingest_meeting` (duplicates are no-ops), audit `meetings.synced`. A safety net for missed webhooks.
+
 ## 2026-10-06 — Board: Team performance shows the sales team as cards (released `9d3ff89`)
 
 - At the user's request Team performance lists only salespeople with no management role
