@@ -1,5 +1,15 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-07 — Security audit (branch `fix/untrack-crm-import-pii`)
+
+Mo asked for a full security check. gstack `/cso` daily run `1791359279225-bd724fb34588f1a3`
+(helper report at `~/.gstack/security/cso/a81a7c91193bd4bda05a867e/<run>/report.md` says
+**partial, no findings persisted** — my submission was refused after the run closed, so the
+assessment lives in this entry and the CHANGELOG, not in the helper artifact). One supported
+finding (client PII in `scripts/crm-import`), fixed here. Six dependency advisories were already
+patched 2026-10-06/07 via overrides. Not assessed: git history, scanners (Gitleaks/OSV/Semgrep/
+zizmor/Trivy), MCP tool handlers, injection sinks (A05). An orphan `start` run also exists (ID lost).
+
 ## 2026-10-07 — Fireflies webhook 403 and "Fetch from Fireflies" (branch `feat/meetings-fireflies-sync`)
 
 Mo: yesterday's two meetings did not arrive. Fireflies' delivery log showed HTTP 403 from

@@ -65,3 +65,9 @@ test-results/
 .claude/launch.json
 supabase/functions/.env
 .backups/
+
+# CRM import payloads hold real client contact details (phones, emails). They
+# are one-off inputs the scripts read from a local path, never from the repo;
+# keep them out of source control (security audit 2026-10-07).
+scripts/crm-import/*.json
+scripts/crm-import/*.sql
