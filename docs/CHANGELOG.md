@@ -1,5 +1,19 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-07 — Security audit: client PII removed from the repository (not deployed)
+
+- A static security audit (gstack `/cso`, run `1791359279225-bd724fb34588f1a3`, daily scope, partial
+  coverage) found one supported issue: the March-2026 CRM import payloads
+  (`scripts/crm-import/phc_cleaned_batch_mar2026.json`, `phc_import_mar2026.sql`) carried ~40 real client
+  phone numbers and emails in source control, outside the database's RLS and audit boundaries. The scripts
+  never read them from the repo (they use a local temp path). Both files are untracked, the pattern is
+  gitignored, and a contract test keeps data files out of `scripts/crm-import`. They remain in git history;
+  rewriting it is a separate decision.
+- Reviewed and found sound in the same audit: CI permissions (read-only, no `pull_request_target`), CORS
+  allowlist, Worker security headers, the authentication of every `verify_jwt=false` function, and the
+  grants on the recent SECURITY DEFINER RPCs. Leads left for later: CSP `script-src 'unsafe-inline'`;
+  `error-ingest`'s best-effort rate limit resets on cold start.
+
 ## 2026-10-07 — Meetings: "Fetch from Fireflies" (not deployed)
 
 - Found on 2026-10-07: Fireflies delivered the webhook for two 2026-10-06 meetings and got 403 (signing
