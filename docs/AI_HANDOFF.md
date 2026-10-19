@@ -1,5 +1,17 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-19 — Manager feedback groups 1–2 (branch `fix/manager-feedback-oct20`)
+
+Mo pasted a six-group list (deadlines 20 Oct → 3 Nov). Chosen: groups 1–2 here, groups 3–6 each in its own
+session. Done here: notification click routing + migration `20261020100000` (overdue type), won drilldown
+period/owner + target tiles' record count, approvals split into Manager decisions / Other requests with
+plain names, annual targets in the Set target dialog. Not done: deleting test data and entering the 40M
+targets in production (both wait on Mo's explicit OK; a candidate list was given in chat), the 660M pipeline
+review (needs the sales team), and renaming projects imported from Abdelrahman's file (needs the file).
+Not tried in a browser (needs a signed-in canary). Local `test:db:behaviour` fails at the pre-existing
+`20261003100000` migration (`gen_random_bytes`), so the overdue check is also in `supabase/tests` for CI.
+Noticed, not changed: `computeSalespersonMetrics` (Targets page) dates "won" by `updated_at`, not `won_at`.
+
 ## 2026-10-07 — Stage playbook phase 2 (branch `feat/stage-playbook`)
 
 Spec `docs/superpowers/specs/2026-10-07-stage-playbook-design.md` (user pre-approved "do what you

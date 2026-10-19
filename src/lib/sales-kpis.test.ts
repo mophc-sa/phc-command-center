@@ -624,3 +624,35 @@ describe("Win rate with undated closures", () => {
     expect(k.caveat).toBeUndefined();
   });
 });
+
+describe("a KPI opens the list it counted (reported 2026-10-19)", () => {
+  const today = "2026-10-19";
+  const rows = [
+    { id: "w26", sales_stage: "won", won_at: "2026-03-01T00:00:00Z", contract_value: 5_000_000, owner_id: "u1" },
+    { id: "w25", sales_stage: "won", won_at: "2025-06-01T00:00:00Z", contract_value: 9_000_000, owner_id: "u1" },
+  ] as unknown as Parameters<typeof wonValue>[0];
+
+  it("carries the period and owner into the Won drilldown", () => {
+    const k = wonValue(rows, { today, period: yearToDate(today), ownerId: "u1" });
+    expect(k.recordIds).toEqual(["w26"]);
+    expect(k.drilldown!.search).toEqual({ stage: "won", owner: "u1", from: "2026-01-01", to: "2027-01-01" });
+  });
+
+  it("stays unfiltered for a lifetime KPI", () => {
+    expect(wonValue(rows, { today, period: null }).drilldown!.search).toEqual({ stage: "won" });
+  });
+
+  it("gives target, achievement and gap the won deals' count, not 0", () => {
+    const t = targetKpis(rows, { today, period: yearToDate(today) }, 40_000_000);
+    for (const k of [t.target, t.achievement, t.gap]) {
+      expect(k.recordCount).toBe(1);
+      expect(k.drilldown).toEqual(t.actual.drilldown);
+    }
+  });
+
+  it("shows a set target even before anything is won", () => {
+    const t = targetKpis([], { today, period: yearToDate(today) }, 40_000_000);
+    expect(t.target.state).toBe("ok");
+    expect(t.gap.state).toBe("ok");
+  });
+});

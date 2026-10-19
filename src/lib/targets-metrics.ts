@@ -198,6 +198,9 @@ export function normalizePeriodStart(periodType: PeriodType, rawDate: string): N
   if (m < 1 || m > 12) {
     return { ok: false, error: "Period start must be a valid date (YYYY-MM-DD)." };
   }
+  if (periodType === "annual") {
+    return { ok: true, value: `${y}-01-01` };
+  }
   if (periodType === "quarterly") {
     const quarterStartMonth = Math.floor((m - 1) / 3) * 3 + 1;
     return { ok: true, value: `${y}-${String(quarterStartMonth).padStart(2, "0")}-01` };

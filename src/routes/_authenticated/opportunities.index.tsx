@@ -28,7 +28,7 @@ import { useI18n, formatCurrency, localeFor } from "@/lib/i18n";
 import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiTile } from "@/components/phc/KpiTile";
-import { commercialBookKpis, type ClassifiedRow ,
+import { commercialBookKpis, thisMonth, yearToDate, type ClassifiedRow ,
   opportunityValue
 } from "@/lib/sales-kpis";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -245,21 +245,30 @@ function OppList() {
       const annualSum = sum(annual.data);
       // 0 is not "a target of zero" — it is "no rows", which must render as a
       // dash. Returning null here is what makes KpiTile say so.
-      return annualSum > 0 ? annualSum : sum(monthly.data) || null;
+      if (annualSum > 0) return { amount: annualSum, period: "annual" as const };
+      const monthlySum = sum(monthly.data);
+      return monthlySum > 0 ? { amount: monthlySum, period: "monthly" as const } : null;
     },
   });
 
   // Every figure in the strip comes from the shared engine, so "open" here
   // means exactly what "open" means in the number that linked here, and this
   // page computes no metric of its own.
+  const todayIso = new Date().toISOString().slice(0, 10);
   const book = useMemo(
     () =>
       commercialBookKpis(
         data as unknown as ClassifiedRow[],
-        { today: new Date().toISOString().slice(0, 10), period: null },
-        teamTarget,
+        {
+          today: todayIso,
+          // Achievement is won value against the target, so it counts the
+          // target's own period. With period null it set every deal ever won
+          // (48 on 2026-10-19) against the 2026 target.
+          period: teamTarget?.period === "annual" ? yearToDate(todayIso) : teamTarget ? thisMonth(todayIso) : null,
+        },
+        teamTarget?.amount ?? null,
       ),
-    [data, teamTarget],
+    [data, teamTarget, todayIso],
   );
 
   return (

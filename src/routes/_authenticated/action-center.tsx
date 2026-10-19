@@ -30,6 +30,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatNumber } from "@/lib/i18n";
+import { approvalTypeLabel } from "@/lib/approval-labels";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import {
   startAction,
@@ -467,7 +468,7 @@ function ActionRow({
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill tone={a.blocking ? "danger" : "attention"}>
               {a.blocking ? <ShieldAlert className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-              {TYPE_KEY[a.type] ? t(TYPE_KEY[a.type] as never) : humanize(a.type)}
+              {TYPE_KEY[a.type] ? t(TYPE_KEY[a.type] as never) : a.source === "approval" ? approvalTypeLabel(a.type, lang) : humanize(a.type)}
             </StatusPill>
             <StatusPill tone="muted">{t(SOURCE_KEY[a.source] as never)}</StatusPill>
             <StatusPill tone={high ? "attention" : "muted"}>
@@ -491,7 +492,7 @@ function ActionRow({
           </div>
 
           <Link to={a.href as never} className="mt-1.5 block whitespace-normal text-base font-medium text-foreground hover:underline">
-            {a.title}
+            {a.source === "approval" ? approvalTypeLabel(a.type, lang) : a.title}
           </Link>
 
           {/* Why this is on the list — required by PRD §2. */}

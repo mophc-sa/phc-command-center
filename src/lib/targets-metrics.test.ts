@@ -341,3 +341,8 @@ test("a legacy won row with no sales_stage still counts as won", () => {
 
   expect(computeSalespersonMetrics(target, { opportunities: opps, rfqs: [], tenders: [], quotations: [], followUps: [] }).wonValue).toBe(700);
 });
+
+test("normalizePeriodStart: annual snaps any date to 1 January", () => {
+  expect(normalizePeriodStart("annual", "2026-10-19")).toEqual({ ok: true, value: "2026-01-01" });
+  expect(normalizePeriodStart("annual", "2026-01-01")).toEqual({ ok: true, value: "2026-01-01" });
+});
