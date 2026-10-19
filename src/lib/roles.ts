@@ -147,6 +147,16 @@ export const canReviewAiOutput = (r: RoleInput) =>
 // BD / Sales Ops and above — not system_admin, not viewers.
 export const canManageSalesPipeline = (r: RoleInput) => inGroup(r, PIPELINE_OPERATORS);
 
+// Editing a deal's inputs (client details, contact person, relationships, key
+// facts other than money). The manager, 2026-10-19: "everyone edits inputs".
+// Deals are private to their owner (20260727170000), so "everyone" is everyone
+// who can see the deal: its owner, plus the pipeline operators -- the same set
+// the opportunities UPDATE policy already admits. Money keeps its own gate
+// (canEditTotalValue).
+export const canEditOpportunityInputs = (r: RoleInput, ctx: { isOwner: boolean }) =>
+  (ctx.isOwner && inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.salesperson])) ||
+  inGroup(r, PIPELINE_OPERATORS);
+
 // Reviewing Fireflies meeting action items into tasks. Mirrors
 // can_review_meetings() in 20261001100000_fireflies_meetings.sql: the people
 // who may write any task, plus system administrators.
