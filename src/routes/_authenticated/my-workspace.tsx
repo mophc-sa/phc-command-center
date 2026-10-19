@@ -243,7 +243,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   const { data: jihPipeline = [] } = useQuery({
     queryKey: ["ws-jih-pipeline", uid], enabled: !!uid,
-    queryFn: async () => (await supabase.from("opportunities").select("id, project_name, stage, sales_stage, estimated_value_max, quotation_value, contract_value, currency, win_confidence, last_activity_at").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("opportunities").select("id, project_name, main_contractor, stage, sales_stage, estimated_value_max, quotation_value, contract_value, currency, win_confidence, last_activity_at").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [],
   });
 
   const { data: activeTenders = [] } = useQuery({
@@ -617,6 +617,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                     <TableRow key={o.id} className="border-won-border/40 hover:bg-won-surface">
                       <TableCell>
                         <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
+                        {o.main_contractor ? <span className="block max-w-[120px] truncate text-2xs text-muted-foreground">{o.main_contractor}</span> : null}
                       </TableCell>
                       <TableCell className="text-end num text-won">{formatCurrency(opportunityValue(o as never), lang, o.currency || "SAR")}</TableCell>
                       <TableCell><StatusPill tone="positive">{lang === "ar" ? "رسمي" : "Won"}</StatusPill></TableCell>
@@ -653,6 +654,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                     <TableRow key={o.id} className="border-amber/10 hover:bg-amber/5">
                       <TableCell>
                         <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
+                        {o.main_contractor ? <span className="block max-w-[120px] truncate text-2xs text-muted-foreground">{o.main_contractor}</span> : null}
                       </TableCell>
                       <TableCell className="text-end num">{formatCurrency(opportunityValue(o as never), lang, o.currency || "SAR")}</TableCell>
                       <TableCell><StatusPill tone="attention">{t(`sstage_${o.sales_stage}` as never)}</StatusPill></TableCell>
@@ -691,6 +693,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                       <TableRow key={o.id}>
                         <TableCell>
                           <Link to="/opportunities/$id" params={{ id: o.id }} className="block max-w-[120px] truncate font-medium text-foreground hover:underline">{o.project_name}</Link>
+                        {o.main_contractor ? <span className="block max-w-[120px] truncate text-2xs text-muted-foreground">{o.main_contractor}</span> : null}
                         </TableCell>
                         <TableCell className="text-end num">{formatCurrency(o.estimated_value_max, lang, o.currency || "SAR")}</TableCell>
                         <TableCell>

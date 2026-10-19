@@ -33,6 +33,7 @@ import { ChartFrame } from "@/components/phc/ChartFrame";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { NeedsAttentionPanel } from "@/components/phc/NeedsAttentionPanel";
+import { ProjectProgressPanel } from "@/components/phc/ProjectProgressPanel";
 import { buildAttention, dataQuality, summarize, type AttentionOpp } from "@/lib/attention";
 import {
   buildManagementBrief,
@@ -881,6 +882,10 @@ function CommandCenter() {
               )}
             </ChartFrame>
           </section>
+
+          {/* Where each live project stands: stage, construction %, latest
+              update (manager feedback 2026-10-19, group 4). */}
+          <ProjectProgressPanel />
 
           {inferredCount > 0 && (
             <p className="text-sm text-muted-foreground">

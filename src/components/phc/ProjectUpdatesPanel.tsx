@@ -18,7 +18,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { CompletionBar } from "@/components/phc/CompletionBar";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { personLabel } from "@/lib/person-label";
-import { UPDATE_KINDS, UPDATE_KIND_LABEL, isUpdateKind, validateUpdate } from "@/lib/project-tracking";
+import { UPDATE_KINDS, UPDATE_KIND_LABEL, isUpdateKind, updateKindLabel, validateUpdate } from "@/lib/project-tracking";
 import { deleteProjectUpdate, listProjectUpdates, postProjectUpdate } from "@/lib/project-update-actions";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -108,7 +108,7 @@ export function ProjectUpdatesPanel({
                   <div className="grid min-w-0 flex-1 gap-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusPill tone={KIND_TONE[u.kind] ?? "neutral"}>
-                        {isUpdateKind(u.kind) ? UPDATE_KIND_LABEL[u.kind][lang] : u.kind}
+                        {updateKindLabel(u.kind, lang)}
                       </StatusPill>
                       {u.completion_pct !== null ? (
                         <span className="num text-xs font-medium text-foreground" data-tabular="true">
