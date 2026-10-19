@@ -83,6 +83,8 @@ export type InboxItemInput = {
   sourceName?: string;
   companyName?: string;
   contactName?: string;
+  /** The contact person's job title. */
+  contactTitle?: string;
   phone?: string;
   email?: string;
   clientType?: InboxClientType;
@@ -167,6 +169,7 @@ export async function createInboxItem(input: InboxItemInput) {
       source_name: input.sourceName ?? null,
       company_name: input.companyName ?? null,
       contact_name: input.contactName ?? null,
+      contact_title: input.contactTitle ?? null,
       phone: input.phone ?? null,
       email: input.email ?? null,
       client_type: input.clientType ?? null,
@@ -538,6 +541,7 @@ export async function convertInboxToRfq(id: Uuid, input: {
   const result = await createRfqWithOpportunity({
     companyName: item.company_name ?? "",
     contactName: item.contact_name ?? "",
+    contactTitle: item.contact_title ?? null,
     contactPhone: item.phone ?? "",
     existingCompanyId: input.companyId ?? null,
     existingContactId: input.contactId ?? null,

@@ -71,6 +71,9 @@ export function newIntakeFields(
         return n === 0 ? null : t("ibx_company_references").replace("{n}", String(n));
       } },
     { key: "contactName", type: "text", label: t("ibx_contact_name"), required: true },
+    // Who the contact is, not just their name (manager feedback 2026-10-19):
+    // a procurement manager and a site engineer are different calls.
+    { key: "contactTitle", type: "text", label: t("ibx_contact_title") },
     { key: "phone", type: "phone", label: t("label_phone"), required: true },
     { key: "email", type: "text", label: t("email") },
     { key: "clientType", type: "select", label: t("ibx_client_type"), options: [{ value: "", label: "—" }, ...INBOX_CLIENT_TYPES.map((c) => ({ value: c, label: t(`ibx_client_type_${c}`) }))] },
@@ -180,7 +183,7 @@ export function NewIntakeDialog({
       submitLabel={t("crm_add")}
       progressive
       sections={[
-        { title: t("ibx_new_item"), keys: ["sourceType", "requestType", "projectName", "companyName", "contactName", "phone", "assignedOwnerId"] },
+        { title: t("ibx_new_item"), keys: ["sourceType", "requestType", "projectName", "companyName", "contactName", "contactTitle", "phone", "assignedOwnerId"] },
         { title: t("intake_section_contact"), keys: ["dateReceived", "clientType", "clientTypeOther", "email", "rfqFrom", "rfqFromOther", "clientRfqReference", "internalRfqReference"] },
         { title: t("intake_section_project"), keys: ["clientOwner", "mainContractor", "consultant", "ownerEntity", "scopeType", "scopeTypeOther", "locationCity", "locationOther", "completionPct", "deadline"] },
         { title: t("intake_section_followup"), keys: ["followUpDate", "nextAction", "saabPortal", "hasBoq", "hasDrawings", "hasSpecs", "notes", "evidenceUrl"] },
@@ -200,6 +203,7 @@ export function NewIntakeDialog({
             dateReceived: v.dateReceived || undefined,
             companyName: v.companyName || undefined,
             contactName: v.contactName || undefined,
+            contactTitle: v.contactTitle || undefined,
             phone: v.phone || undefined,
             email: v.email || undefined,
             clientType: v.clientType ? (v.clientType as never) : undefined,

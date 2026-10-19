@@ -940,6 +940,7 @@ function OpportunityDetail() {
           >
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <DataField label={t("label_contact_person")} value={clientContact?.name ?? null} />
+              <DataField label={t("ibx_contact_title")} value={clientContact?.title ?? null} />
               <DataField label={t("label_contact_number")} value={clientContact?.phone ?? null} />
               <DataField label={t("email")} value={clientContact?.email ?? null} />
               <DataField label={t("label_company_name")} value={companyName} />
@@ -965,6 +966,7 @@ function OpportunityDetail() {
               submitLabel={t("action_save")}
               fields={[
                 { key: "contactName", type: "text", label: t("label_contact_person"), defaultValue: clientContact?.name ?? "" },
+                { key: "contactTitle", type: "text", label: t("ibx_contact_title"), defaultValue: clientContact?.title ?? "" },
                 { key: "contactPhone", type: "text", label: t("label_contact_number"), defaultValue: clientContact?.phone ?? "" },
                 { key: "contactEmail", type: "text", label: t("email"), defaultValue: clientContact?.email ?? "" },
                 { key: "companyName", type: "text", label: t("label_company_name"), defaultValue: companyName ?? "" },
@@ -991,6 +993,7 @@ function OpportunityDetail() {
                     opportunityId: id,
                     existingStakeholderId: clientContact?.id ?? null,
                     contactName: v.contactName,
+                    contactTitle: v.contactTitle,
                     contactPhone: v.contactPhone,
                     contactEmail: v.contactEmail,
                     companyName: v.companyName,

@@ -143,6 +143,7 @@ export function IntakeDetail({ r }: { r: any }) {
         <Field label={t("ibx_main_contractor")} value={r.main_contractor} />
         <Field label={t("ibx_consultant")} value={r.consultant} />
         <Field label={t("ibx_contact_name")} value={r.contact_name} />
+        <Field label={t("ibx_contact_title")} value={r.contact_title} />
         <Field label={t("ibx_email")} value={r.email} />
         <Field label={t("ibx_phone")} value={r.phone} />
         <Field label={t("ibx_location_city")} value={r.location_city || r.location} />
@@ -207,7 +208,7 @@ export function IntakeReviewPanel({ selectedId, items, loading, failed, retry, r
             "id, project_name, company_name, request_type, review_state, deadline, " +
             "has_boq, has_drawings, has_specs, info_required_items, info_comment, " +
             "info_due_date, resubmit_count, created_at, " +
-            "scope, scope_type, estimated_value, contact_name, email, phone, " +
+            "scope, scope_type, estimated_value, contact_name, contact_title, email, phone, " +
             "main_contractor, consultant, client_type, location, location_city, " +
             "notes, evidence_url, client_rfq_reference, internal_rfq_reference, " +
             "project_number, date_received, source_name, project_type",

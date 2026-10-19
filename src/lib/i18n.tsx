@@ -230,6 +230,7 @@ export const strings = {
   ibx_source_name: { en: "Source Name", ar: "اسم المصدر" },
   ibx_company_name: { en: "Company Name", ar: "اسم الشركة" },
   ibx_contact_name: { en: "Contact Name", ar: "اسم جهة الاتصال" },
+  ibx_contact_title: { en: "Job Title", ar: "المسمى الوظيفي" },
   ibx_client_owner: { en: "Client / Owner", ar: "العميل / المالك" },
   ibx_consultant: { en: "Consultant", ar: "الاستشاري" },
   ibx_scope: { en: "Scope notes", ar: "وصف النطاق" },
