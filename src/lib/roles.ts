@@ -182,12 +182,12 @@ export const canExecuteDelete = (r: RoleInput) => inGroup(r, ["system_admin", "b
 export const canEditTotalValue = (r: RoleInput) =>
   inGroup(r, ["finance_manager", "bd_manager"]);
 
-// Manual RFQ-number entry/edit authority — per client spec (2026-07-27):
-// "Account Manager" (this codebase's existing term for the role is
-// sales_manager — see account_owner_id/changeAccountOwner), BD Manager,
-// System Admin. Mirrors the DB helper public.can_edit_rfq_number(uuid).
+// Manual RFQ-number entry/edit authority. Client spec 2026-07-27 named the
+// Account Manager (sales_manager), BD Manager and System Admin; the manager
+// narrowed it on 2026-10-19 to "only the sales manager" (system_admin kept for
+// repairs). Mirrors the DB helper public.can_edit_rfq_number(uuid).
 export const canEditRfqNumber = (r: RoleInput) =>
-  inGroup(r, ["sales_manager", "bd_manager", "system_admin"]);
+  inGroup(r, ["sales_manager", "system_admin"]);
 
 // Sees every rep's sales pipeline data (opportunities/RFQs/tenders/
 // quotations/follow-ups), not just their own — mirrors the DB helper
