@@ -15,7 +15,7 @@
 
 - Work in `~/dev/phc-g3`, branch `feat/manager-actions` (Task 0 sets it up). Push via the `mophc-sa` gh account, then switch back to `moalagab`.
 - Bilingual UI: every string has an Arabic and an English form, chosen with `lang === "ar" ? … : …` as `command-center.tsx` does.
-- **No Arabic-Indic digits (٠–٩) anywhere in source**, and never a bare `"ar"`/`"ar-SA"` locale. Use `formatNumber(n, lang)` and `localeFor(lang)` from `@/lib/i18n`. `src/lib/arabic-digits.test.ts` enforces this.
+- **No Arabic-Indic digits (U+0660–U+0669) anywhere in source**, and never a bare `"ar"`/`"ar-SA"` locale. Use `formatNumber(n, lang)` and `localeFor(lang)` from `@/lib/i18n`. `src/lib/arabic-digits.test.ts` enforces this.
 - Only `supabase/functions/_shared/graph-client.ts` may contain `graph.microsoft.com` (`src/lib/outlook-connect.contract.test.ts`).
 - No browser code may mention `mail_refresh_token`, `mail_connections`, `MS_CLIENT_SECRET` or `code_verifier`.
 - No migration in this part. Nothing auto-deploys on merge (`docs/deployment-governance.md`). `sales-os-api` is deployed only with Mo's approval.
