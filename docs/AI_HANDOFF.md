@@ -1,5 +1,19 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-19 — Manager feedback group 4: project tracking (branch `feat/project-tracking-group4`)
+
+Spec `docs/superpowers/specs/2026-10-19-project-tracking-design.md`, plan
+`docs/superpowers/plans/2026-10-19-project-tracking.md` (Mo approved the design). Migration
+`20261022100000` + pgTAP `project_tracking` (14); full local `supabase test db` 215 green (19 files) on a local
+`supabase db start`. Two findings changed the design while building: deals are private to their owner,
+so "everyone edits inputs" became owner + pipeline operators in the UI with no RLS change; and project
+numbers are BOQ-gated (20260820100000), so the deal's code is applied when the number is issued, not at
+win. `canEditRfqNumber` also changed in `supabase/functions/_shared/roles.ts` (unused by handlers; no
+function deploy needed for it). Not tried in a browser (needs a signed-in canary). Before the UI
+release: `db push` (approval-gated). The home panel sits in `command-center.tsx` after Needs attention;
+group 3 (manager home page) may move it. Not done: a DB guard on money columns (pre-existing gap), codes
+for deals without an RFQ, a finance module.
+
 ## 2026-10-07 — Stage playbook phase 2 (branch `feat/stage-playbook`)
 
 Spec `docs/superpowers/specs/2026-10-07-stage-playbook-design.md` (user pre-approved "do what you

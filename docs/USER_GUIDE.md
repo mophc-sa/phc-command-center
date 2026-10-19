@@ -87,7 +87,9 @@ There are 11 roles. **A user can hold more than one** — permissions are additi
 | **See other people's deals** | Everyone **except `salesperson`** — a salesperson sees only their own |
 | Move an opportunity to Verbally Awarded / Contract Received / Won | `sales_manager` + executives. Others may only **request** it |
 | Edit **Total Value** | `finance_manager`, `bd_manager` **only** |
-| Edit the **RFQ number** | `sales_manager`, `bd_manager`, `system_admin` **only** |
+| Edit the **RFQ / project number** | `sales_manager` **only** (`system_admin` for repairs). `bd_manager` lost this on **2026-10-19** at the manager's request |
+| Edit a deal's **inputs** — client details, contact person and job title, relationships, next action, win probability | The deal's **owner** + `sales_manager`, `bd_manager`, `sales_ops` and executives (since **2026-10-19**; before, the owner could not) |
+| Post a **project update** | Same people as above |
 | Use **Discussion** on an opportunity | `general_manager`, `sales_manager`, `bd_manager`, `system_admin` |
 | Assign an owner to a deal **that already has one** | `sales_manager` + executives |
 | Assign an owner to a deal **with no owner** | `sales_manager` + executives + `bd_manager` + `sales_ops` |
@@ -248,7 +250,15 @@ Everything else is optional and can be filled in later.
 > **Tender**.
 
 **Other useful fields at intake:** Source · Client type · RFQ from · Scope · Location ·
-Deadline · **Evidence** (paste the email link, or attach a file — both work) · Assigned owner.
+Deadline · **Evidence** (paste the email link, or attach a file — both work) · Assigned owner ·
+**Job title** of the contact person (since 2026-10-19 — it follows the contact onto the deal page).
+
+**Autofill in blue (2026-10-19).** Type a company the system already knows and the empty
+contact fields fill themselves from that company's last request: contact name, job title,
+phone, email, client type, main contractor and consultant. Those fields show **in blue with a
+Confirm button**. Press **Confirm** if the value is still right, or just change it. The form
+will not save while a blue field is unconfirmed, so nothing old slips in unnoticed. Fields you
+already typed are never overwritten.
 
 ### Step 2 — Save. It goes for review.
 
@@ -353,6 +363,12 @@ the RFQ it becomes after approval **keeps the same code** — it no longer gets 
 number. Requests entered before this date kept `INT-2026-…`; the three still awaiting review
 on that day were given their creator's code. An RFQ created directly, not from a request,
 is numbered with its owner's code as before.
+
+**One number all the way to Production and Finance (2026-10-19).** When a won deal's Production
+project is issued its number (still only after a verified BOQ), it gets **the deal's own code**,
+not a separate `PRJ-2026-…`. `PRJ-` numbers remain only for projects whose deal has no code. On
+the deal page, the code at the top is a link to that project file, where the budget lives.
+Only the **sales manager** can change a code.
 
 ### Step 3 — Manual classify and convert (only for what didn't route)
 
@@ -526,7 +542,7 @@ Old tenders are not allowed to sit active forever.
 
 | Page | Use it for |
 |---|---|
-| **Command Center** `/command-center` | Org-wide executive view. Opens with **Open pipeline** — the total, and a single bar showing which stages it sits in. Slate segments are deals being worked; amber segments are committed — verbally awarded, contract received or signed — and can still be lost. The legend under the bar gives every stage its own figure, share and count, and the total says how many records carry no value and are therefore not in it. Below that, **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. **A metric that cannot be calculated yet does not get a card**: those collapse into one line saying how many there are, and open to name each one, why it is unavailable — a setting nobody has entered, no records in the period, or an input the formula needs — and the link that fixes it. Every figure is computed over **the whole book you are permitted to see**; if the dataset were ever too large to read in one go, a warning appears above the figures. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention. |
+| **Command Center** `/command-center` | Org-wide executive view. Opens with **Open pipeline** — the total, and a single bar showing which stages it sits in. Slate segments are deals being worked; amber segments are committed — verbally awarded, contract received or signed — and can still be lost. The legend under the bar gives every stage its own figure, share and count, and the total says how many records carry no value and are therefore not in it. Below that, **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. **A metric that cannot be calculated yet does not get a card**: those collapse into one line saying how many there are, and open to name each one, why it is unavailable — a setting nobody has entered, no records in the period, or an input the formula needs — and the link that fixes it. Every figure is computed over **the whole book you are permitted to see**; if the dataset were ever too large to read in one go, a warning appears above the figures. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention, and **Projects in progress** (since 2026-10-19): the ten live projects that moved most recently, each with its contractor, current stage, construction progress bar and latest update. **View all** opens the Opportunities table, which now has the same Stage, Construction and Last update columns. |
 | **My Workspace** `/my-workspace` | Your personal command centre. Opens with **What needs you today** — one ranked list of your highest-priority work drawn from every queue. Below it, the dashboard your role already had: target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups and submissions. **A salesperson's home base.** |
 | **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
 | **Approvals** `/approvals` | One decision desk for all three approval workflows: **intake review**, the **BAFO chain** (showing which of the four steps is waiting and on which role), and record approvals — verbal award, contract, won, deletion, sure-win. |
@@ -668,6 +684,30 @@ it says so.
 The opportunity page is one long timeline you can filter by facet:
 **All · Alert · Evidence · Decision · Assignment · Follow-up · Outcome.**
 
+**Project updates and construction progress (2026-10-19).** Under the key facts, **Project
+updates** is the dated log of what happened: *Offer sent · Revised offer sent · PO received ·
+Contract signed · Awaiting payment · Payment received · Awaiting client reply · Site visit ·
+Progress update · Other*. Press **Post update**, pick what happened, add a note, and if you know
+it, the **new construction %** of the site. That % is the bar at the top of the panel and on the
+home page. It changes only through an update, so every figure has a date and a name behind it.
+A blank % means nobody reported it, which is shown as "—", never as 0%. You can delete your own
+update the same day; managers can delete any.
+
+**Three values, kept apart (2026-10-19).** Key facts now shows **Estimated value** (the
+from–to range), **Quotation value** (what we quoted) and **Awarded value** (the contract value,
+or the quotation once the deal is won; "—" before award). The "Quotation" figure used to show
+whichever of contract, quotation or estimate existed, so an estimate could read as a price.
+
+**Win probability on closed deals.** A won deal is **100%**, a lost deal **0%** — set
+automatically when the stage changes. Closed deals were corrected on 2026-10-19.
+
+**The stage at the top** is the sales stage (RFQ received → JIH → … → Won), the same one the
+checklist, the lists and the home page use. The **code** next to it opens the Production
+project file once the deal is won.
+
+**Contact job title.** Client Details shows and edits the contact person's job title; the
+Relationships panel shows it under each person's name.
+
 **Client Details is editable, JIH-or-Tender included.** Until **2026-08-25** the
 card displayed **JIH or Tender** but the Edit dialog did not offer it, so a
 record that plainly is a JIH stayed on "—" with no way to say otherwise. The
@@ -781,6 +821,20 @@ These are guardrails, not suggestions. They will stop you.
 ---
 
 ## 10. Current limitations
+
+### Project tracking (2026-10-19)
+
+- **Not live until the database change is applied.** The update log, job title and closed-deal
+  probability need migration `20261022100000` in production first (approval-gated).
+- **Construction % changes only through a project update.** There is no separate field to type it in.
+  The intake form still asks for it once, at the start.
+- **Autofill works on the intake form only**, and only from requests you can already see.
+- **A deal with no RFQ has no code**, so its Production project gets a `PRJ-` number.
+- **The code links to the Production project, not to a finance system.** There is no invoice,
+  PO or payment module yet; the project's budget tab is the finance link today.
+- **Money fields are still guarded by the screen only.** Estimated, quotation and contract values
+  are editable by Finance and the BD Manager in the interface. The database does not yet refuse
+  the same edit from anyone else.
 
 ### Stage checklist, buyer type and prequalification (2026-10-07)
 
@@ -1266,3 +1320,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-09-28 · Meetings from Fireflies: review action items into tasks · previous: interface audit, 2026-09-20 -->
 
 <!-- last reviewed 2026-09-29 · Connect Outlook and send from your own mailbox (phase 1) · previous: Meetings from Fireflies, 2026-09-29 -->
+
+<!-- last reviewed 2026-10-19 · Project tracking: update log, construction %, three values, job title, autofill, one number to Production · previous: Outlook phase 1, 2026-09-29 -->
