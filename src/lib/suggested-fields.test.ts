@@ -35,6 +35,11 @@ describe("applySuggestions", () => {
     expect(r.suggested).toBe(suggested);
   });
 
+  test("replaces an unconfirmed suggestion when the proposal changes", () => {
+    const r = applySuggestions({ contactName: "Omar" }, new Set(["contactName"]), new Set(), { contactName: "Sara" });
+    expect(r.values.contactName).toBe("Sara");
+  });
+
   test("keeps earlier suggestions", () => {
     const r = applySuggestions({ a: "1", b: "" }, new Set(["a"]), new Set(), { b: "2" });
     expect([...r.suggested].sort()).toEqual(["a", "b"]);

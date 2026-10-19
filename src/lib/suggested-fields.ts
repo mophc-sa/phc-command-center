@@ -2,8 +2,9 @@
 // (manager feedback group 4, 2026-10-19).
 //
 // A suggestion is never silently accepted: it fills only an empty field the
-// user has not touched, it stays marked until confirmed (✓) or edited, and the
-// form will not submit while a visible field is still only a suggestion.
+// user has not touched (or replaces an earlier, still-unconfirmed suggestion),
+// it stays marked until confirmed (✓) or edited, and the form will not submit
+// while a visible field is still only a suggestion.
 
 export function applySuggestions(
   values: Record<string, string>,
@@ -15,7 +16,11 @@ export function applySuggestions(
   let nextSuggested = suggested;
   for (const [key, raw] of Object.entries(proposal)) {
     const v = raw?.trim() ?? "";
-    if (!v || touched.has(key) || (values[key] ?? "") !== "") continue;
+    // An untouched suggestion may be replaced (the company changed); anything
+    // the person typed, or a field already holding a value of theirs, may not.
+    const current = values[key] ?? "";
+    if (!v || touched.has(key) || current === v) continue;
+    if (current !== "" && !suggested.has(key)) continue;
     if (nextValues === values) nextValues = { ...values };
     if (nextSuggested === suggested) nextSuggested = new Set(suggested);
     nextValues[key] = v;
