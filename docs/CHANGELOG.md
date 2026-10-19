@@ -1,5 +1,14 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-19 — Deal values guarded in the database (not deployed)
+
+- Migration `20261023100000`: `protect_opportunity_money()` + BEFORE UPDATE trigger on `opportunities`.
+  A signed-in caller without `can_edit_total_value` (finance_manager, bd_manager) who changes
+  `quotation_value`, `estimated_value_min`, `estimated_value_max` or `contract_value` gets a bilingual
+  42501. Unchanged values pass; service-role writes (sales-os-api stage advance, import) pass; INSERT
+  is not guarded. Closes the UI-only gap noted in the project-tracking release. pgTAP
+  `opportunity_money_guard` (11).
+
 ## 2026-10-19 — Project tracking (manager feedback group 4) (not deployed)
 
 - Migration `20261022100000`: `opportunity_updates` (dated update log per deal; an update with a %

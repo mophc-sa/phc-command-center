@@ -817,6 +817,9 @@ These are guardrails, not suggestions. They will stop you.
 10. **Human-in-the-loop AI.** Agents propose. People apply.
 11. **Only `won` is awarded.** Nothing earlier counts toward the target.
 12. **Dry-run imports.** Preview and error report before any data is committed.
+13. **Deal values belong to Finance and the BD Manager.** Only they can change the estimate,
+    quotation or contract value on a deal. The database refuses the change from anyone else;
+    it is not only hidden on the screen.
 
 ---
 
@@ -832,9 +835,6 @@ These are guardrails, not suggestions. They will stop you.
 - **A deal with no RFQ has no code**, so its Production project gets a `PRJ-` number.
 - **The code links to the Production project, not to a finance system.** There is no invoice,
   PO or payment module yet; the project's budget tab is the finance link today.
-- **Money fields are still guarded by the screen only.** Estimated, quotation and contract values
-  are editable by Finance and the BD Manager in the interface. The database does not yet refuse
-  the same edit from anyone else.
 
 ### Stage checklist, buyer type and prequalification (2026-10-07)
 
