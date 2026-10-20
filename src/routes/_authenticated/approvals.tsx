@@ -71,7 +71,8 @@ function ApprovalsPage() {
           .select("*, opportunities(id, project_name, client)")
           .order("created_at", { ascending: filter !== "recent" })
           .limit(200),
-        fetchBafoApprovals(),
+        // The decision desk keeps working when the BAFO table can't be read, as before.
+        fetchBafoApprovals().catch(() => ({ rows: [], list: [] })),
         supabase
           .from("inbox_items")
           .select(
