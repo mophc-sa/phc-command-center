@@ -1,5 +1,20 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-19 — Deal money columns guarded in the database (branch `fix/opportunity-money-guard`)
+
+Stacked on `feat/project-tracking-group4` (PR 351). Migration `20261023100000` adds
+`protect_opportunity_money()`, modelled on `protect_rfq_estimated_value`: signed-in callers without
+`can_edit_total_value` cannot change the four money columns (42501, bilingual). The brief said the
+SQL helper still includes system_admin; it does not (removed 20260812100000), so SQL and the TS
+`canEditTotalValue` already agree. Write paths checked: only `updateOpportunityFigures` writes these
+columns from the browser; `updateContract` writes the `contracts` table; stage advance sets
+`contract_value` through the sales-os-api service client; RFQ/tender/lead/historical paths are
+INSERTs. Local `supabase test db` 226 green (20 files); the new test fails 6/11 without the trigger.
+Release: `db push` (approval-gated); no function deploy. Found, not fixed: `finance_manager` is not
+in either opportunities UPDATE policy, so a Finance user's value edit on someone else's deal matches
+0 rows and saves nothing silently; only the BD Manager can actually save values today.
+`contracts.contract_value` has no equivalent guard.
+
 ## 2026-10-19 — Manager feedback group 4: project tracking (branch `feat/project-tracking-group4`)
 
 Spec `docs/superpowers/specs/2026-10-19-project-tracking-design.md`, plan
