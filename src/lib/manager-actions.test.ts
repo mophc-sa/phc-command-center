@@ -178,4 +178,9 @@ describe("meetingDay", () => {
     expect(meetingDay("2026-10-22T09:30", TODAY)).toBe("later");
     expect(meetingDay("2026-10-31T23:00", "2026-10-30")).toBe("tomorrow");
   });
+
+  it("treats an event that started before today as still running today", () => {
+    expect(meetingDay("2026-10-19T00:00", TODAY)).toBe("today");
+    expect(meetingDay("2026-09-30T00:00", TODAY)).toBe("today");
+  });
 });

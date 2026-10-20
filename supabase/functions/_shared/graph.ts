@@ -145,6 +145,8 @@ export type CalendarEvent = {
   /** Riyadh local time, "YYYY-MM-DDTHH:mm" (asked for with Prefer: outlook.timezone). */
   start: string;
   end: string;
+  /** All-day (or multi-day) event: the start time is midnight and means nothing. */
+  allDay: boolean;
   location: string | null;
   webLink: string | null;
 };
@@ -163,6 +165,7 @@ export function toCalendarEvents(value: unknown): CalendarEvent[] {
       end?: { dateTime?: unknown };
       location?: { displayName?: unknown };
       webLink?: unknown;
+      isAllDay?: unknown;
       isCancelled?: unknown;
       sensitivity?: unknown;
     };
@@ -177,6 +180,7 @@ export function toCalendarEvents(value: unknown): CalendarEvent[] {
       subject: typeof e.subject === "string" ? e.subject.trim() : "",
       start,
       end,
+      allDay: e.isAllDay === true,
       location: location || null,
       webLink: typeof e.webLink === "string" && OUTLOOK_LINK.test(e.webLink) ? e.webLink : null,
     });

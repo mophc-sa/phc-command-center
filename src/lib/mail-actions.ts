@@ -88,6 +88,7 @@ export type UpcomingMeeting = {
   subject: string;
   start: string;
   end: string;
+  allDay: boolean;
   location: string | null;
   webLink: string | null;
 };

@@ -86,10 +86,14 @@ export function approveItems(list: UnifiedApproval[]): UnifiedApproval[] {
     .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt));
 }
 
-/** `startLocal` is Outlook's Riyadh-time "YYYY-MM-DDTHH:mm"; `today` is the Riyadh date. */
+/**
+ * `startLocal` is Outlook's Riyadh-time "YYYY-MM-DDTHH:mm"; `today` is the Riyadh date.
+ * An event that started before today is still running (a multi-day or all-day one
+ * the calendar window returned), so it counts as today.
+ */
 export function meetingDay(startLocal: string, today: string): "today" | "tomorrow" | "later" {
   const day = startLocal.slice(0, 10);
-  if (day === today) return "today";
+  if (day <= today) return "today";
   const next = new Date(`${today}T12:00:00Z`);
   next.setUTCDate(next.getUTCDate() + 1);
   return day === next.toISOString().slice(0, 10) ? "tomorrow" : "later";

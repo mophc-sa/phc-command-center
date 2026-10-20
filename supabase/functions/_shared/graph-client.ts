@@ -186,7 +186,7 @@ export async function calendarView(
   const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
   if (!iso.test(startIso) || !iso.test(endIso)) return { ok: false, status: 400 };
   const url = `${GRAPH}/me/calendarView?startDateTime=${startIso}&endDateTime=${endIso}` +
-    `&$select=subject,start,end,location,webLink,isCancelled,sensitivity&$orderby=start/dateTime&$top=20`;
+    `&$select=subject,start,end,isAllDay,location,webLink,isCancelled,sensitivity&$orderby=start/dateTime&$top=20`;
   try {
     const res = await f(url, {
       headers: { Authorization: `Bearer ${access}`, Prefer: 'outlook.timezone="Arab Standard Time"' },

@@ -210,17 +210,20 @@ Deno.test("calendar events drop cancelled and private ones and keep Riyadh local
       end: { dateTime: "2026-10-20T11:00:00.0000000" },
       location: { displayName: "HQ" },
       webLink: "https://outlook.office365.com/owa/?itemid=1",
+      isAllDay: false,
       isCancelled: false,
       sensitivity: "normal",
     },
     { id: "e2", subject: "x", start: { dateTime: "2026-10-20T12:00:00" }, end: { dateTime: "2026-10-20T13:00:00" }, isCancelled: true },
     { id: "e3", subject: "x", start: { dateTime: "2026-10-20T12:00:00" }, end: { dateTime: "2026-10-20T13:00:00" }, sensitivity: "private" },
     { id: "e4", subject: "", start: { dateTime: "2026-10-21T09:30:00" }, end: { dateTime: "2026-10-21T10:00:00" }, webLink: "https://evil.example/x" },
+    { id: "e5", subject: "Site visit", start: { dateTime: "2026-10-19T00:00:00.0000000" }, end: { dateTime: "2026-10-22T00:00:00.0000000" }, isAllDay: true },
     { subject: "no id", start: { dateTime: "2026-10-21T09:30:00" } },
   ]);
   assertEquals(out, [
-    { id: "e1", subject: "NEOM review", start: "2026-10-20T10:00", end: "2026-10-20T11:00", location: "HQ", webLink: "https://outlook.office365.com/owa/?itemid=1" },
-    { id: "e4", subject: "", start: "2026-10-21T09:30", end: "2026-10-21T10:00", location: null, webLink: null },
+    { id: "e1", subject: "NEOM review", start: "2026-10-20T10:00", end: "2026-10-20T11:00", allDay: false, location: "HQ", webLink: "https://outlook.office365.com/owa/?itemid=1" },
+    { id: "e4", subject: "", start: "2026-10-21T09:30", end: "2026-10-21T10:00", allDay: false, location: null, webLink: null },
+    { id: "e5", subject: "Site visit", start: "2026-10-19T00:00", end: "2026-10-22T00:00", allDay: true, location: null, webLink: null },
   ]);
   assertEquals(toCalendarEvents(null), []);
 });
@@ -236,7 +239,7 @@ Deno.test("calendarView asks Graph for the window in Riyadh time and reads only 
   const r = await calendarView("tok", "2026-10-20T08:15:30Z", "2026-10-21T21:00:00Z", fake);
   assertEquals(r, { ok: true, value: [{ id: "e1" }] });
   assert(seenUrl.startsWith("https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=2026-10-20T08:15:30Z&endDateTime=2026-10-21T21:00:00Z"));
-  assert(seenUrl.includes("$select=subject,start,end,location,webLink,isCancelled,sensitivity"));
+  assert(seenUrl.includes("$select=subject,start,end,isAllDay,location,webLink,isCancelled,sensitivity"));
   assertEquals(seenHeaders.Authorization, "Bearer tok");
   assertEquals(seenHeaders.Prefer, 'outlook.timezone="Arab Standard Time"');
   assertEquals(await calendarView("tok", "bad", "2026-10-21T21:00:00Z", fake), { ok: false, status: 400 });

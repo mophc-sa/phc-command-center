@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { ArrowRight, CalendarDays, CheckSquare, ExternalLink, Mail, Phone, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { useI18n, formatNumber, type Lang } from "@/lib/i18n";
+import { useI18n, formatNumber, localeFor, type Lang } from "@/lib/i18n";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { isFromToday } from "@/components/phc/DailyEmailBrief";
 import type { AttentionItem } from "@/lib/attention";
@@ -23,6 +23,7 @@ import { createTask, riyadhDay, teamDay } from "@/lib/daily-tasks";
 import { ageDays, fromRecordApproval, type RecordApprovalRowIn } from "@/lib/approvals-center";
 import { fetchBafoApprovals } from "@/lib/approvals-loader";
 import { approvalTypeLabel } from "@/lib/approval-labels";
+import { canManageSalesPipeline } from "@/lib/roles";
 import { getLatestAgentOutput } from "@/lib/ai-review-actions";
 import { upcomingMeetings } from "@/lib/mail-actions";
 import {
@@ -97,11 +98,20 @@ function ActionCard({
 }
 
 // Typed routes: a plain `string` is rejected by TanStack Router's Link.
-function ViewAll({ to, label }: { to: "/action-center" | "/my-workspace" | "/approvals"; label: string }) {
+function ViewAll({ to, label }: { to: "/my-workspace" | "/approvals"; label: string }) {
   return (
     <Link to={to} className="inline-flex items-center gap-1 hover:text-foreground">
       {label} <ArrowRight className="h-3 w-3 rtl:rotate-180" aria-hidden="true" />
     </Link>
+  );
+}
+
+// The Call card's list is the Priorities section of this same page.
+function SeePriorities({ label }: { label: string }) {
+  return (
+    <a href="#executive-decisions" className="inline-flex items-center gap-1 hover:text-foreground">
+      {label} <ArrowRight className="h-3 w-3 rtl:rotate-180" aria-hidden="true" />
+    </a>
   );
 }
 
@@ -115,7 +125,11 @@ export function ManagerActions({
   loading: boolean;
 }) {
   const { lang } = useI18n();
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
+  // The route also admits finance, estimation, viewer and admin accounts; the
+  // actions here (assign tasks, decide approvals) belong to the sales managers.
+  // Hooks all run, then this decides what to draw; queries stay disabled.
+  const allowed = canManageSalesPipeline(roles);
   const qc = useQueryClient();
   const uid = user?.id ?? "";
   const today = riyadhDay();
@@ -129,13 +143,13 @@ export function ManagerActions({
   const calls = callItems(attention, stakeholdersByOpp, today);
 
   // ── Meetings: the manager's Outlook calendar ─────────────────────────────
-  const meetingsQ = useQuery({ queryKey: ["manager-meetings", uid], enabled: !!uid, staleTime: 5 * 60_000, queryFn: upcomingMeetings });
+  const meetingsQ = useQuery({ queryKey: ["manager-meetings", uid], enabled: allowed && !!uid, staleTime: 5 * 60_000, queryFn: upcomingMeetings });
   const connected = meetingsQ.data?.connected ?? true;
 
   // ── Email: today's stored brief; never runs the AI from here ─────────────
   const briefQ = useQuery({
     queryKey: ["ai-output", "my_email", uid, "daily_email_brief"],
-    enabled: !!uid,
+    enabled: allowed && !!uid,
     queryFn: () => getLatestAgentOutput("my_email", uid, "daily_email_brief"),
   });
   const briefToday = isFromToday(briefQ.data?.created_at);
@@ -144,12 +158,13 @@ export function ManagerActions({
     : [];
 
   // ── Team: counts only, as the team panel shows them ──────────────────────
-  const teamQ = useQuery({ queryKey: ["manager-team", today], staleTime: 60_000, queryFn: () => teamDay(today) });
+  const teamQ = useQuery({ queryKey: ["manager-team", today], enabled: allowed, staleTime: 60_000, queryFn: () => teamDay(today) });
   const team = teamItems(teamQ.data ?? []);
 
   // ── Approve: pending manager decisions ───────────────────────────────────
   const approveQ = useQuery({
     queryKey: ["manager-decisions-pending"],
+    enabled: allowed,
     staleTime: 60_000,
     queryFn: async () => {
       const [recs, bafo] = await Promise.all([
@@ -178,6 +193,8 @@ export function ManagerActions({
     </Link>
   );
 
+  if (!allowed) return null;
+
   return (
     <section aria-labelledby="manager-actions-title" className="space-y-3">
       <h2 id="manager-actions-title" className="text-xl font-semibold">
@@ -191,7 +208,7 @@ export function ManagerActions({
           count={calls.length}
           state={loading ? "loading" : "ready"}
           empty={ar ? "لا مشاريع مهمة بلا تواصل" : "No quiet priority deals"}
-          footer={<ViewAll to="/action-center" label={viewAll} />}
+          footer={<SeePriorities label={ar ? "عرض الأولويات" : "See priorities"} />}
         >
           {calls.slice(0, SHOWN).map((c) => (
             <div key={c.opportunityId} className="space-y-1">
@@ -243,7 +260,13 @@ export function ManagerActions({
           {connected ? (
             (meetingsQ.data?.events ?? []).slice(0, SHOWN).map((e) => {
               const day = meetingDay(e.start, today);
-              const when = `${day === "today" ? (ar ? "اليوم" : "Today") : ar ? "غدًا" : "Tomorrow"} ${e.start.slice(11, 16)}`;
+              const dayLabel =
+                day === "today"
+                  ? ar ? "اليوم" : "Today"
+                  : day === "tomorrow"
+                    ? ar ? "غدًا" : "Tomorrow"
+                    : new Date(e.start).toLocaleDateString(localeFor(lang), { weekday: "short", day: "numeric", month: "short" });
+              const when = `${dayLabel} ${e.allDay ? (ar ? "طوال اليوم" : "All day") : e.start.slice(11, 16)}`;
               const subject = e.subject || (ar ? "(بلا عنوان)" : "(no subject)");
               return (
                 <div key={e.id} className="min-w-0">
