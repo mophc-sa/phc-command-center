@@ -265,7 +265,7 @@ export async function addBoqItem(input: {
 
 export async function upsertSalesTarget(input: {
   userId: Uuid;
-  periodType: "monthly" | "quarterly";
+  periodType: "monthly" | "quarterly" | "annual";
   periodStart: string; // YYYY-MM-DD (first day of period)
   salesTarget: number;
   pipelineTarget: number;

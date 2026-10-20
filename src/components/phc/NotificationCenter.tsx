@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { useNotifications, useNotificationActions } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
-import { lookupFor, targetFor } from "@/lib/notification-target";
+import { resolveTarget } from "@/lib/notification-target";
 import {
   isUnread,
   notificationTypeKey,
@@ -45,21 +45,18 @@ export function NotificationCenter({
     if (isUnread(n)) markRead.mutate([n.id]);
     onOpenChange(false);
 
-    // An approval, a quotation and an RFQ are all ABOUT an opportunity, and
-    // that is the page the reader wants -- not a list of approvals they then
-    // have to search through for the one they were just told about. One read,
-    // and only for the types that need it.
-    let oppId: string | null = null;
-    const lookup = lookupFor(n);
-    if (lookup && n.entity_id) {
+    // An approval, a task, a quotation and an RFQ are all ABOUT an
+    // opportunity, and that is the page the reader wants -- not a list they
+    // then have to search through for the one they were just told about.
+    const target = await resolveTarget(n, async (table, columns, id) => {
       const { data } = await supabase
-        .from(lookup.table)
-        .select(lookup.column)
-        .eq("id", n.entity_id)
+        .from(table as never)
+        .select(columns)
+        .eq("id", id)
         .maybeSingle();
-      oppId = (data as Record<string, string | null> | null)?.[lookup.column] ?? null;
-    }
-    void navigate({ to: targetFor(n, oppId) as never });
+      return (data as Record<string, unknown> | null) ?? null;
+    });
+    void navigate({ to: target.to, search: target.search } as never);
   }
 
   return (

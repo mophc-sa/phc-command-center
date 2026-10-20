@@ -29,6 +29,22 @@ release: `db push` (approval-gated). The home panel sits in `command-center.tsx`
 group 3 (manager home page) may move it. Not done: a DB guard on money columns (pre-existing gap), codes
 for deals without an RFQ, a finance module.
 
+## 2026-10-19 — Manager feedback groups 1–2 (branch `fix/manager-feedback-oct20`)
+
+Mo pasted a six-group list (deadlines 20 Oct → 3 Nov). Chosen: groups 1–2 here, groups 3–6 each in its own
+session. Done here: notification click routing + migration `20261020100000` (overdue type), won drilldown
+period/owner + target tiles' record count, approvals split into Manager decisions / Other requests with
+plain names, annual targets in the Set target dialog. **Production data, 2026-10-19 (Mo: "do what you
+recommend"):** annual 2026 targets set to 10M each for Omar (was 25M), Marie, Faisal, Abdelrahman (40M total),
+4 audit_log rows `sales_target.upsert`. Not done: archiving the test records — the agent's permission
+classifier blocked the write; candidates are intake "evvv" (5747ef26…), its RFQ-2026-0004 (dc1ace14…) and
+opportunity "o" (82f9e1a1…); left alone: "mzt" ×2, CENOMI mock-up, Fireflies Demo Meeting (reviewed, no
+pending items), Mo's July 120k monthly target. Also not done: the 660M pipeline
+review (needs the sales team), and renaming projects imported from Abdelrahman's file (needs the file).
+Not tried in a browser (needs a signed-in canary). Local `test:db:behaviour` fails at the pre-existing
+`20261003100000` migration (`gen_random_bytes`), so the overdue check is also in `supabase/tests` for CI.
+Noticed, not changed: `computeSalespersonMetrics` (Targets page) dates "won" by `updated_at`, not `won_at`.
+
 ## 2026-10-07 — Stage playbook phase 2 (branch `feat/stage-playbook`)
 
 Spec `docs/superpowers/specs/2026-10-07-stage-playbook-design.md` (user pre-approved "do what you

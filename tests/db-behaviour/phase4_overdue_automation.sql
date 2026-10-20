@@ -167,5 +167,24 @@ BEGIN
   RAISE NOTICE '% 11. every run completed (finished_at set on % runs)',
     CASE WHEN n >= 8 THEN 'PASS' ELSE 'FAIL' END, n;
 
+  -- ===== 12. AN RFQ FLAG IS NOTIFIED AS AN RFQ (reported 2026-10-19) =====
+  -- Typed 'opportunity', the click opened /opportunities/<rfq id>: not found.
+  INSERT INTO public.opportunity_flags
+    (linked_record_type, linked_record_id, flag_kind, action_owner_id, due_date, priority, status, reason, queue_action_type, condition_key)
+  VALUES ('rfq', gen_random_uuid(), 'action_required', u_own, CURRENT_DATE - 1, 'A', 'open', 'Submission due', NULL, 'rfqdue')
+  RETURNING id INTO f_admin;
+
+  PERFORM public.run_sales_automations('test');
+  SELECT count(*) INTO n FROM public.notifications
+   WHERE notification_type='item_overdue' AND dedupe_key LIKE 'overdue:'||f_admin::text||'%' AND entity_type='rfq';
+  RAISE NOTICE '% 12. an RFQ flag notifies with entity_type rfq (expect 1, got %)',
+    CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
+
+  SELECT count(*) INTO n FROM public.notifications
+   WHERE notification_type='item_overdue' AND dedupe_key = 'overdue:'||f_new::text||':'||(CURRENT_DATE-1)::text
+     AND metadata->>'opportunity_id' = o_id::text;
+  RAISE NOTICE '% 12b. an opportunity flag carries the deal in metadata (expect 1, got %)',
+    CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
+
   RAISE NOTICE '--- overdue wiring checks done ---';
 END $$;

@@ -25,6 +25,34 @@
 - Intake: Job title field; **autofill in blue with Confirm** from the company's last request
   (`ActionDialog` `suggest`).
 
+## 2026-10-19 — Manager feedback, group 1 and 2: notifications, 2026 won count, approvals, annual targets (not deployed)
+
+- **Notification click** (`notification-target.ts`, `NotificationCenter.tsx`): the click uses
+  `metadata.opportunity_id` when the trigger put it there, follows a converted intake item to its deal,
+  sends meeting tasks to `/meetings/$id`, and passes `focus` as a search param rather than inside `to`.
+  Migration `20261020100000`: `notify_overdue_items` types each notification by the flag's
+  `linked_record_type` (an RFQ or tender flag was typed `opportunity`, so the click opened a not-found
+  deal), adds `metadata.opportunity_id` for deal flags, and corrects the already-delivered rows.
+- **"48 instead of 3" on the 2026 won tile** (`sales-kpis.ts`): Won/Lost/Win-rate/Loss-rate drilldowns
+  now carry the KPI's period and owner (`from`/`to`/`owner`). Target, Achievement and Gap count and open
+  the won deals instead of reading "0 records"; a set target stays visible with no deals won yet. The
+  opportunities overview strip measures achievement over the target's own period (year or month)
+  instead of lifetime.
+- **Approvals** (`approval-labels.ts`, `approvals.tsx`): the page opens on **Manager decisions**
+  (BAFO, discount, under-300k exception, tender→JIH, verbal award / contract / won); routine requests
+  move to **Other requests**. Plain Arabic/English names for every type and role on the approvals page,
+  Action Center, today panel, workspace and deal page. Deal header buttons renamed to what they do:
+  "Request management review" and "Approve to quote".
+- **Annual targets**: Targets → Set target offers a full year (2026, 2027) before the months; the page
+  prefers a rep's annual row over a monthly one; `normalizePeriodStart('annual')` → `YYYY-01-01`.
+## 2026-10-19 — TanStack Start XSS advisory patched (not deployed)
+
+- **GHSA-qx66-fv34-fjm8** (critical, reflected XSS in server-function responses) failed the Security
+  workflow's Dependency audit on every PR. Upgraded `@tanstack/react-start` 1.168.26 → 1.169.3 (pulls
+  `@tanstack/start-server-core` 1.169.44, patched from 1.169.39), with `@tanstack/react-router` 1.170.45
+  and `@tanstack/router-plugin` 1.168.47 to match. No override needed. The new router types
+  `errorComponent`'s `error` as `unknown`, so `__root.tsx` now takes `ErrorComponentProps`.
+
 ## 2026-10-07 — Stage playbook (phase 2): checklist per stage, buyer type, account prequalification (not deployed)
 
 - `supabase/functions/_shared/stage-checklist.ts` (re-exported to the UI): per-canonical-stage "evidence
