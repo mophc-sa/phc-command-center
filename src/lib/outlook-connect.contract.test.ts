@@ -131,3 +131,18 @@ describe("the interface offers only what the backend allows", () => {
   });
 });
 
+
+describe("the Meetings card reads the caller's calendar, never anyone else's", () => {
+  it("the action is keyed to the caller and only reads", () => {
+    expect(START).toContain("outlook_calendar_upcoming");
+    const body = START.slice(START.indexOf("async function outlook_calendar_upcoming"));
+    const fn = body.slice(0, body.indexOf("\n}\n"));
+    expect(fn).toContain("ctx.caller.userId");
+    expect(fn).not.toMatch(/payload\.(userId|user|mailbox)/);
+    expect(fn).not.toMatch(/\.insert\(|\.update\(|\.upsert\(/);
+  });
+
+  it("the browser asks the backend; it never calls Graph itself", () => {
+    expect(read("src/lib/mail-actions.ts")).toContain('callBackend<UpcomingMeetings>("outlook_calendar_upcoming"');
+  });
+});

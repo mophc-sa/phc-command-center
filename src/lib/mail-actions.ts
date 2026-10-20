@@ -82,3 +82,18 @@ export async function bindEmailToDeal(activityId: string, opportunityId: string)
   const r = await callBackend<{ bound?: number }>("bind_email_to_deal", { activityId, opportunityId });
   return r?.bound ?? 0;
 }
+
+export type UpcomingMeeting = {
+  id: string;
+  subject: string;
+  start: string;
+  end: string;
+  location: string | null;
+  webLink: string | null;
+};
+export type UpcomingMeetings = { connected: boolean; reconnect?: boolean; events: UpcomingMeeting[] };
+
+/** The caller's own Outlook meetings, now to the end of tomorrow (read-only). */
+export async function upcomingMeetings(): Promise<UpcomingMeetings> {
+  return await callBackend<UpcomingMeetings>("outlook_calendar_upcoming", {});
+}
