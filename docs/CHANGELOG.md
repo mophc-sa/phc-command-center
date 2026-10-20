@@ -20,6 +20,13 @@
   "Request management review" and "Approve to quote".
 - **Annual targets**: Targets → Set target offers a full year (2026, 2027) before the months; the page
   prefers a rep's annual row over a monthly one; `normalizePeriodStart('annual')` → `YYYY-01-01`.
+## 2026-10-19 — TanStack Start XSS advisory patched (not deployed)
+
+- **GHSA-qx66-fv34-fjm8** (critical, reflected XSS in server-function responses) failed the Security
+  workflow's Dependency audit on every PR. Upgraded `@tanstack/react-start` 1.168.26 → 1.169.3 (pulls
+  `@tanstack/start-server-core` 1.169.44, patched from 1.169.39), with `@tanstack/react-router` 1.170.45
+  and `@tanstack/router-plugin` 1.168.47 to match. No override needed. The new router types
+  `errorComponent`'s `error` as `unknown`, so `__root.tsx` now takes `ErrorComponentProps`.
 
 ## 2026-10-07 — Stage playbook (phase 2): checklist per stage, buyer type, account prequalification (not deployed)
 
