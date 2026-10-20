@@ -215,7 +215,8 @@ function CommandCenter() {
               .select("id, related_opportunity_id, activity_type, status, occurred_at")
               .gte("occurred_at", sinceIso)
               .not("related_opportunity_id", "is", null)
-              .order("occurred_at", { ascending: false }),
+              .order("occurred_at", { ascending: false })
+              .order("id", { ascending: true }),
           ),
           fetchAllRows(() =>
             supabase
