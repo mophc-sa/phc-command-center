@@ -14,13 +14,14 @@ import { toast } from "sonner";
 import { ArrowRight, CalendarDays, CheckSquare, ExternalLink, Mail, Phone, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { useI18n, formatNumber } from "@/lib/i18n";
+import { useI18n, formatNumber, type Lang } from "@/lib/i18n";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { isFromToday } from "@/components/phc/DailyEmailBrief";
 import type { AttentionItem } from "@/lib/attention";
 import { logActivity } from "@/lib/activity-actions";
 import { createTask, riyadhDay, teamDay } from "@/lib/daily-tasks";
-import { ageDays, fromBafo, fromRecordApproval, type BafoRowIn, type RecordApprovalRowIn } from "@/lib/approvals-center";
+import { ageDays, fromRecordApproval, type RecordApprovalRowIn } from "@/lib/approvals-center";
+import { fetchBafoApprovals } from "@/lib/approvals-loader";
 import { approvalTypeLabel } from "@/lib/approval-labels";
 import { getLatestAgentOutput } from "@/lib/ai-review-actions";
 import { upcomingMeetings } from "@/lib/mail-actions";
@@ -36,6 +37,13 @@ import {
 
 const SHOWN = 3;
 const OUTLOOK_CALENDAR = "https://outlook.office.com/calendar/";
+
+// Arabic day count with the right noun form: 1, 2, 3-10, then the singular accusative.
+function arDays(n: number, lang: Lang): string {
+  if (n === 1) return "يوم واحد";
+  if (n === 2) return "يومين";
+  return n >= 3 && n <= 10 ? `${formatNumber(n, lang)} أيام` : `${formatNumber(n, lang)} يومًا`;
+}
 
 type BriefItem = { activity_id: string; priority: "action" | "important" | "info"; line1: string; line2: string };
 
@@ -144,27 +152,19 @@ export function ManagerActions({
     queryKey: ["manager-decisions-pending"],
     staleTime: 60_000,
     queryFn: async () => {
-      const [recs, bafos] = await Promise.all([
+      const [recs, bafo] = await Promise.all([
         supabase
           .from("approvals")
           .select("*, opportunities(id, project_name, client)")
           .eq("status", "pending")
           .order("created_at", { ascending: true })
           .limit(200),
-        supabase.from("bafo_requests").select("*").order("created_at", { ascending: false }).limit(200),
+        fetchBafoApprovals({ pendingOnly: true }),
       ]);
       if (recs.error) throw recs.error;
-      if (bafos.error) throw bafos.error;
-      const bafoRows = (bafos.data ?? []) as unknown as BafoRowIn[];
-      const oppIds = [...new Set(bafoRows.map((b) => b.opportunity_id).filter(Boolean) as string[])];
-      const names = new Map<string, string | null>();
-      if (oppIds.length) {
-        const { data: opps } = await supabase.from("opportunities").select("id, project_name").in("id", oppIds);
-        for (const o of opps ?? []) names.set(o.id, o.project_name);
-      }
       return approveItems([
         ...((recs.data ?? []) as unknown as RecordApprovalRowIn[]).map(fromRecordApproval),
-        ...bafoRows.map((b) => fromBafo(b, b.opportunity_id ? names.get(b.opportunity_id) : null)),
+        ...bafo.list,
       ]);
     },
   });
@@ -202,10 +202,10 @@ export function ManagerActions({
                 {c.contactName ?? (ar ? "لا جهة اتصال مسجلة" : "No contact recorded")} ·{" "}
                 {c.quietDays === null
                   ? ar
-                    ? `بلا تواصل منذ ${formatNumber(ACTIVITY_WINDOW_DAYS, lang)}+ يومًا`
+                    ? `بلا تواصل منذ أكثر من ${arDays(ACTIVITY_WINDOW_DAYS, lang)}`
                     : `quiet ${formatNumber(ACTIVITY_WINDOW_DAYS, lang)}+ days`
                   : ar
-                    ? `بلا تواصل منذ ${formatNumber(c.quietDays, lang)} يومًا`
+                    ? `بلا تواصل منذ ${arDays(c.quietDays, lang)}`
                     : `quiet ${formatNumber(c.quietDays, lang)} days`}
               </p>
               <div className="flex items-center gap-2 text-xs">
@@ -338,7 +338,7 @@ export function ManagerActions({
                 <p className="truncate font-medium">{approvalTypeLabel(a.approvalType, lang)}</p>
                 <p className="truncate text-xs text-muted-foreground">
                   {a.entityLabel ?? "—"}
-                  {days !== null ? ` · ${ar ? `منذ ${formatNumber(days, lang)} يوم` : `${formatNumber(days, lang)}d waiting`}` : ""}
+                  {days !== null ? ` · ${ar ? `منذ ${arDays(days, lang)}` : `${formatNumber(days, lang)}d waiting`}` : ""}
                 </p>
               </Link>
             );
@@ -354,14 +354,10 @@ export function ManagerActions({
         fields={[{ key: "summary", type: "text", label: ar ? "ما الذي اتُّفق عليه؟" : "What was agreed?" }] satisfies DialogField[]}
         onSubmit={async (v) => {
           if (!callFor) return;
-          try {
-            await logActivity({ type: "call", summary: v.summary || undefined, opportunityId: callFor.opportunityId });
-            toast.success(ar ? "سُجّلت المكالمة" : "Call logged");
-            await qc.invalidateQueries({ queryKey: ["cc-core"] });
-          } catch (e) {
-            toast.error(e instanceof Error ? e.message : String(e));
-            throw e;
-          }
+          // ActionDialog shows a thrown error inline, so no toast here.
+          await logActivity({ type: "call", summary: v.summary || undefined, opportunityId: callFor.opportunityId });
+          toast.success(ar ? "سُجّلت المكالمة" : "Call logged");
+          await qc.invalidateQueries({ queryKey: ["cc-core"] });
         }}
       />
 
@@ -378,14 +374,9 @@ export function ManagerActions({
         }
         onSubmit={async (v) => {
           if (!taskFor) return;
-          try {
-            await createTask({ title: v.title, dueDate: v.dueDate || null, ownerId: taskFor.id });
-            toast.success(ar ? "أُسندت المهمة" : "Task assigned");
-            await qc.invalidateQueries({ queryKey: ["manager-team", today] });
-          } catch (e) {
-            toast.error(e instanceof Error ? e.message : String(e));
-            throw e;
-          }
+          await createTask({ title: v.title, dueDate: v.dueDate || null, ownerId: taskFor.id });
+          toast.success(ar ? "أُسندت المهمة" : "Task assigned");
+          await qc.invalidateQueries({ queryKey: ["manager-team", today] });
         }}
       />
     </section>

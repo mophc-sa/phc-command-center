@@ -23,15 +23,14 @@ import {
   ageDays,
   canDecide,
   currentBafoStep,
-  fromBafo,
   fromIntakeApproval,
   fromRecordApproval,
   sortApprovals,
-  type BafoRowIn,
   type IntakeApprovalRowIn,
   type RecordApprovalRowIn,
   type UnifiedApproval,
 } from "@/lib/approvals-center";
+import { fetchBafoApprovals } from "@/lib/approvals-loader";
 import { approvalRoleLabel, approvalTypeLabel, isManagerDecision } from "@/lib/approval-labels";
 
 export const Route = createFileRoute("/_authenticated/approvals")({
@@ -66,13 +65,13 @@ function ApprovalsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["approvals-unified", filter],
     queryFn: async () => {
-      const [recs, bafos, intake] = await Promise.all([
+      const [recs, bafo, intake] = await Promise.all([
         supabase
           .from("approvals")
           .select("*, opportunities(id, project_name, client)")
           .order("created_at", { ascending: filter !== "recent" })
           .limit(200),
-        supabase.from("bafo_requests").select("*").order("created_at", { ascending: false }).limit(200),
+        fetchBafoApprovals(),
         supabase
           .from("inbox_items")
           .select(
@@ -84,23 +83,14 @@ function ApprovalsPage() {
       ]);
       if (recs.error) throw recs.error;
 
-      const bafoRows = (bafos.data ?? []) as unknown as BafoRowIn[];
-      // One lookup for the project names the BAFO rows point at.
-      const oppIds = [...new Set(bafoRows.map((b) => b.opportunity_id).filter(Boolean) as string[])];
-      const names = new Map<string, string | null>();
-      if (oppIds.length) {
-        const { data: opps } = await supabase.from("opportunities").select("id, project_name").in("id", oppIds);
-        for (const o of opps ?? []) names.set(o.id, o.project_name);
-      }
-
       return {
         list: sortApprovals([
           ...((recs.data ?? []) as unknown as RecordApprovalRowIn[]).map(fromRecordApproval),
-          ...bafoRows.map((b) => fromBafo(b, b.opportunity_id ? names.get(b.opportunity_id) : null)),
+          ...bafo.list,
           ...((intake.data ?? []) as unknown as IntakeApprovalRowIn[]).map(fromIntakeApproval),
         ]),
         // kept so canDecide can resolve which BAFO step is live
-        bafoById: new Map(bafoRows.map((b) => [b.id, b])),
+        bafoById: new Map(bafo.rows.map((b) => [b.id, b])),
         rawRecords: new Map(((recs.data ?? []) as unknown as RecordApprovalRowIn[]).map((r) => [r.id, r])),
       };
     },
