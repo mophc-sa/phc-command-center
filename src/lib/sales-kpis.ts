@@ -426,6 +426,22 @@ function filterLabels(ctx: KpiContext, extra: string[] = []): string[] {
   return f;
 }
 
+/**
+ * The list a KPI opens, filtered the way the KPI counted. Reported 2026-10-19:
+ * the 2026 Won tile read 3 deals / ~8M, its click opened all 48 won deals
+ * ever, because the link carried the stage and dropped the period and owner.
+ * (Inlined rather than drilldown.ts#buildDrilldown, which imports this file.)
+ */
+function drillTo(stage: string, ctx: KpiContext): { to: string; search: Record<string, string> } {
+  const search: Record<string, string> = { stage };
+  if (ctx.ownerId) search.owner = ctx.ownerId;
+  if (ctx.period) {
+    search.from = ctx.period.from;
+    search.to = ctx.period.to;
+  }
+  return { to: OPP_LIST, search };
+}
+
 /** Official Won. Only sales_stage = won. Nothing earlier counts. */
 export function wonValue(opps: OppRow[], ctx: KpiContext): Kpi {
   const allWon = ownerFiltered(opps, ctx).filter(isWon);
@@ -445,7 +461,7 @@ export function wonValue(opps: OppRow[], ctx: KpiContext): Kpi {
     dateField: ctx.period ? DATE_FIELD.won : null,
     filters: filterLabels(ctx, ["Stage: won only — verbal award / contract received / contract signed excluded"]),
     recordIds: rows.map((o) => o.id),
-    drilldown: { to: OPP_LIST, search: { stage: "won" } },
+    drilldown: drillTo("won", ctx),
     caveat:
       undated.length > 0
         ? ctx.period
@@ -493,7 +509,7 @@ export function lostValue(opps: OppRow[], ctx: KpiContext): Kpi {
     dateField: ctx.period ? DATE_FIELD.lost : null,
     filters: filterLabels(ctx),
     recordIds: rows.map((o) => o.id),
-    drilldown: { to: OPP_LIST, search: { stage: "lost" } },
+    drilldown: drillTo("lost", ctx),
     caveat: undated.length > 0 ? msg("cav_lost_undated", { count: undated.length }) : undefined,
   });
 }
@@ -607,7 +623,7 @@ export function winRate(opps: OppRow[], ctx: KpiContext): Kpi {
     dateField: ctx.period ? DATE_FIELD.won : null,
     filters: filterLabels(ctx, ["Not derived from quotations"]),
     recordIds: [...won, ...lost].map((o) => o.id),
-    drilldown: { to: OPP_LIST, search: { stage: "closed" } },
+    drilldown: drillTo("closed", ctx),
     caveat:
       closed === 0
         ? msg("cav_nothing_closed")
@@ -629,7 +645,7 @@ export function lossRate(opps: OppRow[], ctx: KpiContext): Kpi {
     dateField: w.dateField,
     filters: w.filters,
     recordIds: w.recordIds,
-    drilldown: { to: OPP_LIST, search: { stage: "lost" } },
+    drilldown: drillTo("lost", ctx),
     caveat: w.caveat,
   });
 }
@@ -674,8 +690,10 @@ export function targetKpis(opps: OppRow[], ctx: KpiContext, targetAmount: number
     source: "sales_targets",
     dateField: ctx.period ? DATE_FIELD.won : null,
     filters: filterLabels(ctx),
-    recordIds: [] as string[],
-    drilldown: null,
+    // Target, achievement and gap are all read against the won deals, so they
+    // count and open those — "0 records" beside "X% achieved" said otherwise.
+    recordIds: actual.recordIds,
+    drilldown: actual.drilldown,
   };
 
   return {
@@ -685,6 +703,8 @@ export function targetKpis(opps: OppRow[], ctx: KpiContext, targetAmount: number
       value: hasTarget ? targetAmount : null,
       formula: "Sales target for the selected period and owner",
       caveat: hasTarget ? undefined : msg("cav_no_target"),
+      // A set target is a real number even before the first deal is won.
+      ...(hasTarget ? { state: "ok" as const } : {}),
     }),
     actual: { ...actual, key: "target_actual" },
     achievement: kpi({
@@ -701,6 +721,8 @@ export function targetKpis(opps: OppRow[], ctx: KpiContext, targetAmount: number
       value: hasTarget ? Math.max(0, targetAmount - actualValue) : null,
       formula: "max(0, target − won value)",
       caveat: hasTarget ? undefined : msg("cav_no_target_gap"),
+      // A set target is a real number even before the first deal is won.
+      ...(hasTarget ? { state: "ok" as const } : {}),
     }),
   };
 }

@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { updateRfqDetails } from "@/lib/rfq-actions";
 import { invalidateSalesData } from "@/lib/invalidate-sales";
 import { useI18n, formatCurrency, formatNumber, type Lang, localeFor } from "@/lib/i18n";
+import { approvalTypeLabel } from "@/lib/approval-labels";
 import { LegacyOpportunityContext } from "@/components/phc/LegacyOpportunityContext";
 import { Panel } from "@/components/phc/Panel";
 import { DealCorrespondencePanel } from "@/components/phc/DealCorrespondencePanel";
@@ -729,8 +730,8 @@ function OpportunityDetail() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <ActionButton primary onClick={() => setAction("review")}>{t("action_review")}</ActionButton>
-            <ActionButton onClick={() => setAction("approve")}>{t("action_approve")}</ActionButton>
+            <ActionButton primary onClick={() => setAction("review")}>{t("action_request_review")}</ActionButton>
+            <ActionButton onClick={() => setAction("approve")}>{t("action_approve_to_quote")}</ActionButton>
             <ActionButton onClick={() => setAction("schedule")}>{t("action_schedule")}</ActionButton>
             {canAssignOwner(roles) || (!o.owner_id && canAssignUnownedOpportunity(roles)) ? (
               <ActionButton onClick={() => setAction("assign")}>{t("action_assign")}</ActionButton>
@@ -1501,7 +1502,7 @@ function OpportunityDetail() {
             {approvalsQ.data.map((a: any) => (
               <li key={a.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 py-3">
                 <div className="min-w-0">
-                  <div className="truncate text-sm text-foreground">{humanize(a.approval_type)}</div>
+                  <div className="truncate text-sm text-foreground">{approvalTypeLabel(a.approval_type, lang)}</div>
                   {a.decision_notes ? (
                     <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                       {a.decision_notes}
@@ -2203,7 +2204,7 @@ function OpportunityDetail() {
               onOpenChange={(v) => !v && setAction(null)}
               title={t("dialog_review_title")}
               description={t("dialog_review_desc")}
-              submitLabel={t("action_review")}
+              submitLabel={t("action_request_review")}
               fields={[{ ...notesField, required: true }]}
               onSubmit={(v) =>
                 runSafe(
@@ -2223,7 +2224,7 @@ function OpportunityDetail() {
               onOpenChange={(v) => !v && setAction(null)}
               title={t("dialog_approve_title")}
               description={t("dialog_approve_desc")}
-              submitLabel={t("action_approve")}
+              submitLabel={t("action_approve_to_quote")}
               fields={[notesField]}
               onSubmit={(v) =>
                 runSafe(

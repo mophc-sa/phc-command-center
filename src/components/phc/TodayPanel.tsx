@@ -18,6 +18,7 @@ import { AlertTriangle, ArrowRight, CheckCircle2, ShieldAlert } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { useI18n } from "@/lib/i18n";
+import { approvalTypeLabel } from "@/lib/approval-labels";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { canApproveCommercialAction, canReviewIntake } from "@/lib/roles";
 import {
@@ -143,7 +144,7 @@ export function TodayPanel({ uid }: { uid: string }) {
                     ) : urgency === "due_today" ? (
                       <StatusPill tone="attention">{t("ac_urgency_due_today")}</StatusPill>
                     ) : null}
-                    <span className="truncate text-base font-medium text-foreground">{a.title}</span>
+                    <span className="truncate text-base font-medium text-foreground">{a.source === "approval" ? approvalTypeLabel(a.type, lang) : a.title}</span>
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                     {/* Why it is here — the PRD requires every row to justify itself. */}

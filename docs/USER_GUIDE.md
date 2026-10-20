@@ -545,7 +545,7 @@ Old tenders are not allowed to sit active forever.
 | **Command Center** `/command-center` | Org-wide executive view. Opens with **Open pipeline** — the total, and a single bar showing which stages it sits in. Slate segments are deals being worked; amber segments are committed — verbally awarded, contract received or signed — and can still be lost. The legend under the bar gives every stage its own figure, share and count, and the total says how many records carry no value and are therefore not in it. Below that, **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. **A metric that cannot be calculated yet does not get a card**: those collapse into one line saying how many there are, and open to name each one, why it is unavailable — a setting nobody has entered, no records in the period, or an input the formula needs — and the link that fixes it. Every figure is computed over **the whole book you are permitted to see**; if the dataset were ever too large to read in one go, a warning appears above the figures. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention, and **Projects in progress** (since 2026-10-19): the ten live projects that moved most recently, each with its contractor, current stage, construction progress bar and latest update. **View all** opens the Opportunities table, which now has the same Stage, Construction and Last update columns. |
 | **My Workspace** `/my-workspace` | Your personal command centre. Opens with **What needs you today** — one ranked list of your highest-priority work drawn from every queue. Below it, the dashboard your role already had: target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups and submissions. **A salesperson's home base.** |
 | **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
-| **Approvals** `/approvals` | One decision desk for all three approval workflows: **intake review**, the **BAFO chain** (showing which of the four steps is waiting and on which role), and record approvals — verbal award, contract, won, deletion, sure-win. |
+| **Approvals** `/approvals` | Opens on **Manager decisions**: only what genuinely needs the commercial manager — the **BAFO / discount chain** (which of the four steps is waiting and on which role), the **under-300k exception**, **tender → JIH**, and **verbal award / contract / won confirmations**. Everything routine — intake review, AI recommendations, management-review requests, discussion mentions, deletion and sure-win requests — is one tab over under **Other requests** (طلبات أخرى). Every type has a plain Arabic/English name; no raw codes. *(2026-10-19)* |
 | **Calendar** `/calendar` | Everything that carries a date, on one month grid — **sixteen kinds**: follow-ups due, RFQ response deadlines, next actions, expected contract and hold-review dates, enquiry deadlines and their follow-ups and information-due dates, flags, commitments, tasks, quotation expiry, expected BOQ and signage dates, and tender award and follow-up dates. If a form let you record a date, this page shows it. Each day shows a dot per item — red for overdue, amber for today — and opens a panel listing them. **New follow-up** creates one through the same path the rest of the app uses, so it also appears in Action Required and Follow-ups; there is no second task list to reconcile. Undated work does not appear at all: the calendar arranges dates, it never invents one. Closed deals and completed follow-ups drop off rather than sitting greyed out, so nothing on the grid is safe to skim past. **Add to Outlook** puts your own dated work into your Outlook calendar through a private link — see *Your work in your Outlook calendar* in section 10. |
 | **Meetings** `/meetings` | Meetings recorded by **Fireflies.ai**, for managers, BD / Sales Ops and system admins only. Each meeting arrives on its own once Fireflies has processed it, with its summary and the action items Fireflies listed per speaker. **Nothing becomes a task until you approve it.** For each item: fix the wording, choose the **owner** (Fireflies often only knows "Speaker 3" — the owner is pre-filled only when the speaker's name matches exactly one person), optionally set a due date and link an opportunity, then **Approve → task**. The task lands in the owner's My Workspace, Action Required and calendar, and they get a notification. **Dismiss** needs a reason. The timestamp next to each item opens the recording at that moment. |
 | **Notifications** (bell) | Opens the drawer, not a page. Shows **what happened**: unread count on the bell, mark-one/mark-all read, dismiss, and a deep link to the record. Distinct from actions — see Section 7b. |
@@ -588,6 +588,11 @@ resubmission, or a due date that moved and then passed again.
 
 You are also never notified about your own action — moving your own opportunity
 to the next stage does not ping you about it.
+
+**Clicking a notification opens what it is about** *(fixed 2026-10-19)*. An approval, a
+task or a quotation opens its deal; an intake item that has since been converted opens
+the deal it became; an overdue RFQ or tender opens that RFQ or tender (it used to open
+an empty "not found" deal page); a meeting task with no deal opens its meeting.
 
 **Overdue alerts** arrive from the nightly automation run (07:00 Riyadh), the same
 job that fills the Action Center. Only tier A and B items raise one — tier C would
@@ -759,7 +764,7 @@ opportunity page with the follow-up already scheduled. Don't go looking for the 
 ### Sales Manager — مدير المبيعات
 
 1. Open **Command Center** for the org-wide position.
-2. Clear **Approvals** first — your team is blocked behind them.
+2. Clear **Approvals → Manager decisions** first — your team is blocked behind them. Routine requests wait under **Other requests**.
 3. Work **Award & Contract Queue**: verbal awards with no contract, contracts with no reference.
 4. Check **Tender Conversion** for anything past 90 days.
 5. Run **Automations** from Action Center *(until it is scheduled — see Limitations)*.
@@ -1050,6 +1055,12 @@ There is no annual target row, no current-month target, and no awarded opportuni
 achievement and remaining all display as zero or blank. **This is missing data, not a broken
 calculation** — the arithmetic has been verified. Someone needs to enter an annual target.
 
+Since **2026-10-19** **Targets → Set target** offers **Full year** as well as single months, and
+an annual target takes precedence over a monthly one on the Targets page, as it already did on
+Command Center. The won tile on Command Center now opens only the deals it counted (e.g. won in
+2026, not every deal ever won), and Target / Achievement / Gap show the number of those deals
+instead of "0 records".
+
 Since **2026-08-25** this also drives the top of the Opportunities page. **Target sales** and
 **Need to close** show a dash there, not a zero, and the tile says why — "no target has been
 set for this period". A dash and a zero are different facts and must not look the same.
@@ -1322,3 +1333,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-09-29 · Connect Outlook and send from your own mailbox (phase 1) · previous: Meetings from Fireflies, 2026-09-29 -->
 
 <!-- last reviewed 2026-10-19 · Project tracking: update log, construction %, three values, job title, autofill, one number to Production · previous: Outlook phase 1, 2026-09-29 -->
+
+<!-- last reviewed 2026-10-19 · manager feedback: notification clicks, won drilldown period, approvals limited to manager decisions, annual targets · previous: Outlook phase 1, 2026-09-29 -->

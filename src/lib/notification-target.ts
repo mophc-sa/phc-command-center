@@ -25,13 +25,36 @@
 export type NotificationLike = {
   entity_type: string | null;
   entity_id: string | null;
+  /** What the emitting trigger already knows, e.g. `opportunity_id`, `meeting_id`. */
+  metadata?: unknown;
 };
+
+/** A router destination. Search params travel separately, never inside `to`. */
+export type Target = { to: string; search?: Record<string, string> };
 
 /** Which table, if any, has to be read before the destination is known. */
 export type Lookup =
   | { table: "approvals"; column: "related_opportunity_id" }
   | { table: "rfqs"; column: "opportunity_id" }
   | { table: "quotations"; column: "related_opportunity_id" };
+
+function metaString(n: NotificationLike, key: string): string | null {
+  const m = n.metadata;
+  if (!m || typeof m !== "object") return null;
+  const v = (m as Record<string, unknown>)[key];
+  return typeof v === "string" && v ? v : null;
+}
+
+/**
+ * The deal the emitting trigger already named. Reported 2026-10-19: "clicking
+ * the notification does not open the project page." Approval, task and meeting
+ * notifications carry `metadata.opportunity_id`, but the click ignored it and
+ * read the row instead — and a row the reader cannot see (RLS) or one with no
+ * link sent them to a list, or to their own workspace.
+ */
+export function metadataOpportunityId(n: NotificationLike): string | null {
+  return metaString(n, "opportunity_id");
+}
 
 export function lookupFor(n: NotificationLike): Lookup | null {
   if (!n.entity_id) return null;
@@ -49,23 +72,54 @@ export function lookupFor(n: NotificationLike): Lookup | null {
  * `opportunityId` is what the lookup returned: a string when the record names a
  * deal, null when it does not or when there was nothing to look up.
  *
- * The fallback carries `?focus=<id>` rather than dropping the id on the floor.
+ * The fallback carries `focus=<id>` rather than dropping the id on the floor.
  * A list that knows which row was meant can at least mark it; one that ignores
  * the parameter is no worse off than before.
  */
-export function targetFor(n: NotificationLike, opportunityId: string | null): string {
-  if (opportunityId) return `/opportunities/${opportunityId}`;
-  if (!n.entity_id) return "/action-center";
-  const focus = `?focus=${encodeURIComponent(n.entity_id)}`;
+export function targetFor(n: NotificationLike, opportunityId: string | null): Target {
+  const opp = opportunityId ?? metadataOpportunityId(n);
+  if (opp) return { to: `/opportunities/${opp}` };
+  if (!n.entity_id) return { to: "/action-center" };
+  const focus = { focus: n.entity_id };
   switch (n.entity_type) {
-    case "opportunity": return `/opportunities/${n.entity_id}`;
-    case "inbox_item": return `/lead-tender-inbox${focus}`;
-    case "approval": return `/approvals${focus}`;
-    case "tender": return `/tenders${focus}`;
+    case "opportunity": return { to: `/opportunities/${n.entity_id}` };
+    case "inbox_item": return { to: "/lead-tender-inbox", search: focus };
+    case "approval": return { to: "/approvals", search: focus };
+    case "tender": return { to: "/tenders", search: focus };
     case "rfq":
-    case "quotation": return `/quotations${focus}`;
-    // A task assigned from a meeting (or anywhere) lands on the owner's day.
-    case "task": return "/my-workspace";
-    default: return "/action-center";
+    case "quotation": return { to: "/quotations", search: focus };
+    case "task": {
+      // A task from a meeting opens the meeting it came out of; any other
+      // task without a deal lands on the owner's day.
+      const meeting = metaString(n, "meeting_id");
+      return meeting ? { to: `/meetings/${meeting}` } : { to: "/my-workspace" };
+    }
+    default: return { to: "/action-center" };
   }
+}
+
+/** Reads one row by id; null when it is missing or hidden. */
+export type ReadRow = (table: string, columns: string, id: string) => Promise<Record<string, unknown> | null>;
+
+/**
+ * Everything a click needs, reads included. An intake item that has since been
+ * converted is followed to what it became — the manager was told about a
+ * request, and by the time they click it is a deal.
+ */
+export async function resolveTarget(n: NotificationLike, read: ReadRow): Promise<Target> {
+  if (metadataOpportunityId(n) || !n.entity_id) return targetFor(n, null);
+
+  if (n.entity_type === "inbox_item") {
+    const row = await read("inbox_items", "converted_record_type, converted_record_id", n.entity_id);
+    const type = typeof row?.converted_record_type === "string" ? row.converted_record_type : null;
+    const id = typeof row?.converted_record_id === "string" ? row.converted_record_id : null;
+    if (type && id && type !== "inbox_item") return resolveTarget({ entity_type: type, entity_id: id }, read);
+    return targetFor(n, null);
+  }
+
+  const lookup = lookupFor(n);
+  if (!lookup) return targetFor(n, null);
+  const row = await read(lookup.table, lookup.column, n.entity_id);
+  const opp = row?.[lookup.column];
+  return targetFor(n, typeof opp === "string" ? opp : null);
 }
