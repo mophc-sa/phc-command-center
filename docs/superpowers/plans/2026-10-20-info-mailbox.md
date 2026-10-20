@@ -22,7 +22,7 @@
 ## Global Constraints
 
 - Work in a new worktree `~/dev/phc-g3b` on branch `feat/info-mailbox`, cut from `feat/manager-actions` (Part A). Push via `mophc-sa`, then switch back to `moalagab`.
-- **Migrations:** `20261023090000_inbox_source_info_mailbox.sql` (enum value only) and `20261023100000_info_mailbox.sql`. Group 4 took `20261022100000`. Both must sort after every migration on `main` at PR time; rename them if needed. `db push` happens only with Mo's approval, never on merge.
+- **Migrations:** `20261024090000_inbox_source_info_mailbox.sql` (enum value only) and `20261024100000_info_mailbox.sql`. Group 4 took `20261022100000`, #352 took `20261023100000`. Both must sort after every migration on `main` at PR time; rename them if needed. `db push` happens only with Mo's approval, never on merge.
 - Only `supabase/functions/_shared/graph-client.ts` may contain `graph.microsoft.com`. No browser code may mention `mail_refresh_token`, `mail_connections`, `MS_CLIENT_SECRET`, `code_verifier` or `x-phc-sync-key`.
 - Privacy: `info_mail.body_text` is kept only for `unclassified` (until triage), `rfq`, `quotation_request` and `client_reply`. It is cleared after 3 failed triage attempts. Logs carry counts and outcomes, never an address, subject or body.
 - Nothing is forwarded automatically. Only a router's click forwards, and only to an active `@phc-sa.com` colleague.
@@ -36,8 +36,8 @@
 
 | File | Responsibility |
 |---|---|
-| `supabase/migrations/20261023090000_inbox_source_info_mailbox.sql` (new) | `inbox_source_type` + `info_mailbox` |
-| `supabase/migrations/20261023100000_info_mailbox.sql` (new) | `info_mail`, `info_mailbox_state`, usage kind, owner rule, triage/reply/forward/promote/dismiss/link/mention functions, cron job |
+| `supabase/migrations/20261024090000_inbox_source_info_mailbox.sql` (new) | `inbox_source_type` + `info_mailbox` |
+| `supabase/migrations/20261024100000_info_mailbox.sql` (new) | `info_mail`, `info_mailbox_state`, usage kind, owner rule, triage/reply/forward/promote/dismiss/link/mention functions, cron job |
 | `supabase/tests/info_mailbox.test.sql` (new) | pgTAP for the above |
 | `src/integrations/supabase/types.ts` | Hand patch: table, enum value, RPCs |
 | `supabase/functions/_shared/info-mail.ts` (new) | Pure rules: message shape, internal sender, auto-reply, body cap |
@@ -70,14 +70,14 @@ git worktree add -b feat/info-mailbox ~/dev/phc-g3b feat/manager-actions
 cd ~/dev/phc-g3b && bun install --frozen-lockfile && bun run test 2>&1 | tail -2 && bun run test:deno 2>&1 | tail -2
 ls supabase/migrations | tail -3
 ```
-Expected: the tests are green. The newest migration sorts before `20261023090000`. If it doesn't, bump both new timestamps past it and use the new names everywhere below.
+Expected: the tests are green. The newest migration sorts before `20261024090000`. If it doesn't, bump both new timestamps past it and use the new names everywhere below.
 
 ---
 
 ### Task 1: Database (migrations, pgTAP, generated types)
 
 **Files:**
-- Create: `supabase/migrations/20261023090000_inbox_source_info_mailbox.sql`, `supabase/migrations/20261023100000_info_mailbox.sql`, `supabase/tests/info_mailbox.test.sql`
+- Create: `supabase/migrations/20261024090000_inbox_source_info_mailbox.sql`, `supabase/migrations/20261024100000_info_mailbox.sql`, `supabase/tests/info_mailbox.test.sql`
 - Modify: `src/integrations/supabase/types.ts`
 
 **Interfaces (Produces; later tasks call these by these exact names):**
@@ -90,7 +90,7 @@ Expected: the tests are green. The newest migration sorts before `20261023090000
 - [ ] **Step 1: Enum migration**
 
 ```sql
--- supabase/migrations/20261023090000_inbox_source_info_mailbox.sql
+-- supabase/migrations/20261024090000_inbox_source_info_mailbox.sql
 -- Intake items read from the info@phc-sa.com mailbox (manager feedback
 -- 2026-10-19, group 3 part B). Its own migration: a new enum value cannot be
 -- used in the same transaction that adds it (see 20260922100000).
@@ -226,7 +226,7 @@ Expected: FAIL. `info_mail` does not exist.
 - [ ] **Step 4: Write the main migration**
 
 ```sql
--- supabase/migrations/20261023100000_info_mailbox.sql
+-- supabase/migrations/20261024100000_info_mailbox.sql
 -- =============================================================================
 -- The info@phc-sa.com mailbox (manager feedback 2026-10-19, group 3 part B).
 -- Spec: docs/superpowers/specs/2026-10-19-manager-actions-info-mail-design.md §B2–B3
@@ -629,7 +629,7 @@ Run the same command as Step 3. Expected: `ok 1..18`, all pass. If the local run
 - [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations/20261023090000_inbox_source_info_mailbox.sql supabase/migrations/20261023100000_info_mailbox.sql \
+git add supabase/migrations/20261024090000_inbox_source_info_mailbox.sql supabase/migrations/20261024100000_info_mailbox.sql \
   supabase/tests/info_mailbox.test.sql src/integrations/supabase/types.ts
 git commit -m "feat(info@): mail table, routing functions and five-minute job
 
@@ -790,7 +790,7 @@ Run: `bun run test:deno 2>&1 | tail -5`. Expected: FAIL (module/exports missing)
 // =============================================================================
 // The info@phc-sa.com mailbox — the pure rules the five-minute pass applies to
 // each message before anything is stored. (Graph calls: graph-client.ts.
-// Decisions about owners, items and replies: the SQL in 20261023100000.)
+// Decisions about owners, items and replies: the SQL in 20261024100000.)
 // =============================================================================
 
 import { INTERNAL_DOMAIN } from "./mail-capture.ts";
