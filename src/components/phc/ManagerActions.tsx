@@ -22,7 +22,7 @@ import { logActivity } from "@/lib/activity-actions";
 import { createTask, riyadhDay, teamDay } from "@/lib/daily-tasks";
 import { ageDays, fromRecordApproval, type RecordApprovalRowIn } from "@/lib/approvals-center";
 import { fetchBafoApprovals } from "@/lib/approvals-loader";
-import { approvalTypeLabel } from "@/lib/approval-labels";
+import { approvalRoleLabel, approvalTypeLabel } from "@/lib/approval-labels";
 import { canManageSalesPipeline } from "@/lib/roles";
 import { getLatestAgentOutput } from "@/lib/ai-review-actions";
 import { upcomingMeetings } from "@/lib/mail-actions";
@@ -246,7 +246,7 @@ export function ManagerActions({
           count={connected ? (meetingsQ.data?.events.length ?? 0) : null}
           state={stateOf(meetingsQ)}
           onRetry={() => void meetingsQ.refetch()}
-          empty={ar ? "لا اجتماعات اليوم أو غدًا" : "No meetings today or tomorrow"}
+          empty={ar ? "لا اجتماعات أخرى اليوم أو غدًا" : "No more meetings today or tomorrow"}
           footer={
             connected ? (
               <a href={OUTLOOK_CALENDAR} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-foreground">
@@ -308,7 +308,9 @@ export function ManagerActions({
             ))
           ) : (
             <p className="text-muted-foreground">
-              {ar ? "افتح مساحتي لتجهيز بريد اليوم." : "Open My Workspace to prepare today's email."}
+              {ar
+                ? "لا ملخص بعد اليوم — يُعدّ عند وصول بريد جديد من العملاء."
+                : "No brief yet today — it is made when new client email arrives."}
             </p>
           )}
         </ActionCard>
@@ -338,7 +340,7 @@ export function ManagerActions({
                 onClick={() => setTaskFor({ id: r.user_id, name: r.full_name ?? "" })}
                 className="shrink-0 rounded-md border border-border px-2 py-0.5 text-xs hover:text-foreground"
               >
-                {ar ? "أعطه مهمة" : "Give a task"}
+                {ar ? "أسند مهمة" : "Give a task"}
               </button>
             </div>
           ))}
@@ -361,7 +363,10 @@ export function ManagerActions({
                 <p className="truncate font-medium">{approvalTypeLabel(a.approvalType, lang)}</p>
                 <p className="truncate text-xs text-muted-foreground">
                   {a.entityLabel ?? "—"}
-                  {days !== null ? ` · ${ar ? `منذ ${arDays(days, lang)}` : `${formatNumber(days, lang)}d waiting`}` : ""}
+                  {days !== null
+                    ? ` · ${ar ? (days === 0 ? "اليوم" : `منذ ${arDays(days, lang)}`) : days === 0 ? "today" : `${formatNumber(days, lang)}d waiting`}`
+                    : ""}
+                  {` · ${approvalRoleLabel(a.requiredRole, lang)}`}
                 </p>
               </Link>
             );
@@ -380,7 +385,7 @@ export function ManagerActions({
           // ActionDialog shows a thrown error inline, so no toast here.
           await logActivity({ type: "call", summary: v.summary || undefined, opportunityId: callFor.opportunityId });
           toast.success(ar ? "سُجّلت المكالمة" : "Call logged");
-          await qc.invalidateQueries({ queryKey: ["cc-core"] });
+          void qc.invalidateQueries({ queryKey: ["cc-core"] });
         }}
       />
 
@@ -392,14 +397,14 @@ export function ManagerActions({
         fields={
           [
             { key: "title", type: "text", label: ar ? "المهمة" : "Task", required: true },
-            { key: "dueDate", type: "date", label: ar ? "تاريخ الاستحقاق" : "Due date" },
+            { key: "dueDate", type: "date", label: ar ? "تاريخ الاستحقاق" : "Due date", defaultValue: today },
           ] satisfies DialogField[]
         }
         onSubmit={async (v) => {
           if (!taskFor) return;
           await createTask({ title: v.title, dueDate: v.dueDate || null, ownerId: taskFor.id });
           toast.success(ar ? "أُسندت المهمة" : "Task assigned");
-          await qc.invalidateQueries({ queryKey: ["manager-team", today] });
+          void qc.invalidateQueries({ queryKey: ["manager-team", today] });
         }}
       />
     </section>

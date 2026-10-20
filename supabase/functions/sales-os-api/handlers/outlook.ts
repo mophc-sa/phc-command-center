@@ -106,6 +106,8 @@ async function outlook_calendar_upcoming(_payload: Record<string, unknown>, ctx:
   }
   if (tok.refresh) {
     await ctx.svc.rpc("rotate_mail_refresh_token", { _user: ctx.caller.userId, _refresh_token: tok.refresh });
+  } else {
+    await ctx.svc.rpc("mark_mail_connection", { _user: ctx.caller.userId, _status: "active", _error: null });
   }
   const { start, end } = calendarWindow(new Date());
   const r = await calendarView(tok.access, start, end);

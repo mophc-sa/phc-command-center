@@ -33,9 +33,10 @@ export async function fetchBafoApprovals(
   const oppIds = [...new Set(rows.map((b) => b.opportunity_id).filter(Boolean) as string[])];
   const names = new Map<string, string | null>();
   if (oppIds.length) {
+    // Names are a label, not the data: if this lookup fails the rows still show,
+    // with the label falling back. Only the bafo_requests read above is fatal.
     const { data: opps, error: oppError } = await supabase.from("opportunities").select("id, project_name").in("id", oppIds);
-    if (oppError) throw oppError;
-    for (const o of opps ?? []) names.set(o.id, o.project_name);
+    if (!oppError) for (const o of opps ?? []) names.set(o.id, o.project_name);
   }
 
   return { rows, list: rows.map((b) => fromBafo(b, b.opportunity_id ? names.get(b.opportunity_id) : null)) };
