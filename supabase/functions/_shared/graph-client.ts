@@ -198,3 +198,84 @@ export async function calendarView(
     return { ok: false, status: 502 };
   }
 }
+
+// ---- The info@ mailbox: app-only, and Exchange lets this app reach info@ alone
+// (RBAC for Applications; docs/info-mailbox-setup.md). --------------------------
+
+/** Client-credentials token. No Mail permission is consented in Entra; Exchange grants it for info@ only. */
+export function appAccess(cfg: GraphConfig, f: typeof fetch = fetch) {
+  return postToken(cfg, { grant_type: "client_credentials", scope: "https://graph.microsoft.com/.default" }, f);
+}
+
+const INFO_DELTA_SELECT = "id,internetMessageId,conversationId,subject,from,receivedDateTime,isDraft,webLink,hasAttachments";
+const MAILBOX = /^[^@\s/?#]+@[^@\s/?#]+$/;
+const mailboxPath = (mailbox: string) => {
+  if (!MAILBOX.test(mailbox)) throw new Error("bad mailbox");
+  return `${GRAPH}/users/${encodeURIComponent(mailbox)}`;
+};
+
+/** The first delta request for info@'s inbox: new messages since a date. */
+export function mailboxDeltaUrl(mailbox: string, sinceIso: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(sinceIso)) throw new Error("bad since date");
+  return `${mailboxPath(mailbox)}/mailFolders/inbox/messages/delta` +
+    `?$select=${INFO_DELTA_SELECT}&$filter=receivedDateTime+ge+${sinceIso}&changeType=created`;
+}
+
+/** One info@ message: its own text (no quoted history), headers, sensitivity, and attachment names (never the files). */
+export async function getMailboxMessage(
+  access: string,
+  mailbox: string,
+  messageId: string,
+  withAttachments: boolean,
+  f: typeof fetch = fetch,
+): Promise<{ body: string | null; sensitivity: string | null; headers: Array<{ name?: string; value?: string }>; attachmentNames: string[] } | null> {
+  const base = `${mailboxPath(mailbox)}/messages/${encodeURIComponent(messageId)}`;
+  const auth = { Authorization: `Bearer ${access}` };
+  try {
+    const res = await f(`${base}?$select=uniqueBody,internetMessageHeaders&$expand=${SENSITIVITY_EXPAND}`, {
+      headers: { ...auth, Prefer: 'outlook.body-content-type="text"' },
+    });
+    if (!res.ok) return null;
+    const j = await res.json() as {
+      uniqueBody?: { content?: string };
+      internetMessageHeaders?: Array<{ name?: string; value?: string }>;
+      singleValueExtendedProperties?: Array<{ id?: string; value?: string }>;
+    };
+    let attachmentNames: string[] = [];
+    if (withAttachments) {
+      const a = await f(`${base}/attachments?$select=name`, { headers: auth });
+      if (!a.ok) return null;
+      const aj = await a.json() as { value?: Array<{ name?: unknown }> };
+      attachmentNames = (aj.value ?? []).map((x) => (typeof x.name === "string" ? x.name.slice(0, 200) : "")).filter(Boolean).slice(0, 20);
+    }
+    return {
+      body: (j.uniqueBody?.content ?? "").trim() || null,
+      sensitivity: (j.singleValueExtendedProperties ?? []).find((p) => /0x0*36$/i.test(p.id ?? ""))?.value ?? null,
+      headers: j.internetMessageHeaders ?? [],
+      attachmentNames,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Forward an info@ message to one colleague. Only a router's click reaches this. */
+export async function forwardMailboxMessage(
+  access: string,
+  mailbox: string,
+  messageId: string,
+  to: string,
+  comment: string,
+  f: typeof fetch = fetch,
+): Promise<{ ok: true } | { ok: false; status: number }> {
+  try {
+    const res = await f(`${mailboxPath(mailbox)}/messages/${encodeURIComponent(messageId)}/forward`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ comment, toRecipients: [{ emailAddress: { address: to } }] }),
+    });
+    return res.ok ? { ok: true } : { ok: false, status: res.status };
+  } catch {
+    return { ok: false, status: 502 };
+  }
+}
