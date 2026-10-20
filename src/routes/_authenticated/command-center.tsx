@@ -206,10 +206,17 @@ function CommandCenter() {
           ),
           // activity_type + status decide whether a row counts as client contact:
           // a note is internal and an unsent draft never reached anyone.
-          supabase
-            .from("activities")
-            .select("id, related_opportunity_id, activity_type, status, occurred_at")
-            .gte("occurred_at", sinceIso),
+          // Paged like the rest: a plain select stops at PostgREST's 1,000-row
+          // cap, and the Call card would then call deals "quiet" that were not.
+          // Rows without an opportunity feed nothing here, so they are not read.
+          fetchAllRows(() =>
+            supabase
+              .from("activities")
+              .select("id, related_opportunity_id, activity_type, status, occurred_at")
+              .gte("occurred_at", sinceIso)
+              .not("related_opportunity_id", "is", null)
+              .order("occurred_at", { ascending: false }),
+          ),
           fetchAllRows(() =>
             supabase
               .from("rfqs")
@@ -237,16 +244,15 @@ function CommandCenter() {
           // than by a single denormalised column.
           fetchStakeholders(),
         ]);
-      if (activities.error) throw activities.error;
       return {
         opportunities: opps.rows as unknown as OpportunityRow[],
         followUps: followUps.rows,
         stakeholders: stakeholders.rows,
         // One truncated source makes every derived metric unreliable, so
         // completeness is an AND across the set that feeds the KPIs.
-        complete: allComplete(opps, followUps, rfqs, quotations, stakeholders, transitions),
+        complete: allComplete(opps, followUps, activities, rfqs, quotations, stakeholders, transitions),
         transitions: transitions.rows,
-        activities: activities.data ?? [],
+        activities: activities.rows,
         rfqs: rfqs.rows,
         quotations: quotations.rows,
       };
