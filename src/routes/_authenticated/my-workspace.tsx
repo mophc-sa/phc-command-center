@@ -31,6 +31,7 @@ import { RecommendationCard } from "@/components/phc/RecommendationCard";
 import { TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useI18n, formatCurrency, formatNumber, type Lang, localeFor } from "@/lib/i18n";
+import { approvalTypeLabel } from "@/lib/approval-labels";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { isSalesperson } from "@/lib/roles";
 import { logActivity, type ActivityType } from "@/lib/activity-actions";
@@ -1143,7 +1144,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
                           ? <Link to="/opportunities/$id" params={{ id: a.related_opportunity_id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{oppName(a.related_opportunity_id)}</Link>
                           : <span className="text-muted-foreground">—</span>}
                       </TableCell>
-                      <TableCell><StatusPill tone="attention">{humanize(a.approval_type)}</StatusPill></TableCell>
+                      <TableCell><StatusPill tone="attention">{approvalTypeLabel(a.approval_type, lang)}</StatusPill></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

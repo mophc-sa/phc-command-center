@@ -32,7 +32,7 @@ import {
   type RecordApprovalRowIn,
   type UnifiedApproval,
 } from "@/lib/approvals-center";
-import { humanize } from "@/lib/utils";
+import { approvalRoleLabel, approvalTypeLabel, isManagerDecision } from "@/lib/approval-labels";
 
 export const Route = createFileRoute("/_authenticated/approvals")({
   head: () => ({ meta: [{ title: "Approvals — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -48,12 +48,17 @@ type DecideTarget =
 
 const KIND_ICON = { record: ShieldCheck, bafo: Percent, intake: Inbox } as const;
 
+// The manager's own decisions come first and alone; routine requests (intake
+// triage, AI suggestions, mentions, delete requests) sit one tab over so they
+// never bury a discount. Reported 2026-10-19.
+const isDecision = (a: UnifiedApproval) => isManagerDecision(a.kind, a.approvalType);
+
 function ApprovalsPage() {
   const { t, lang } = useI18n();
   const { roles } = useAuth();
   const canExecute = canExecuteDelete(roles);
   const qc = useQueryClient();
-  const [filter, setFilter] = useState<"pending" | "recent">("pending");
+  const [filter, setFilter] = useState<"decisions" | "other" | "recent">("decisions");
   const [decideFor, setDecideFor] = useState<DecideTarget | null>(null);
   const [executeFor, setExecuteFor] = useState<{ id: string } | null>(null);
 
@@ -65,7 +70,7 @@ function ApprovalsPage() {
         supabase
           .from("approvals")
           .select("*, opportunities(id, project_name, client)")
-          .order("created_at", { ascending: filter === "pending" })
+          .order("created_at", { ascending: filter !== "recent" })
           .limit(200),
         supabase.from("bafo_requests").select("*").order("created_at", { ascending: false }).limit(200),
         supabase
@@ -103,7 +108,12 @@ function ApprovalsPage() {
 
   const list = data?.list ?? [];
   const shown = useMemo(
-    () => (filter === "pending" ? list.filter((a) => a.state === "pending") : list.slice(0, 60)),
+    () =>
+      filter === "decisions"
+        ? list.filter((a) => a.state === "pending" && isDecision(a))
+        : filter === "other"
+          ? list.filter((a) => a.state === "pending" && !isDecision(a))
+          : list.slice(0, 60),
     [list, filter],
   );
 
@@ -114,10 +124,10 @@ function ApprovalsPage() {
       return d != null && d > m ? d : m;
     }, 0);
     return {
-      pending: pending.length,
+      pending: pending.filter(isDecision).length,
       oldest,
       approved: list.filter((a) => a.state === "approved").length,
-      intake: pending.filter((a) => a.kind === "intake").length,
+      other: pending.filter((a) => !isDecision(a)).length,
     };
   }, [list]);
 
@@ -176,16 +186,16 @@ function ApprovalsPage() {
         title={t("nav_approvals")}
         description={
           lang === "ar"
-            ? "قائمة قرارات موحدة: مراجعة الطلبات الواردة، سلسلة BAFO، واعتمادات السجلات."
-            : "One decision queue: intake review, the BAFO chain, and record approvals."
+            ? "ما يحتاج قرارك فعلاً: الخصومات والعروض النهائية والاستثناءات وتأكيد الترسية. الطلبات الروتينية في تبويب «طلبات أخرى»."
+            : "What actually needs your decision: discounts, final offers, exceptions and award confirmations. Routine requests are under Other requests."
         }
       />
 
       <KpiRow>
-        <KpiCard label="Pending" value={kpis.pending} icon={<Clock className="h-3.5 w-3.5" />} />
-        <KpiCard label="Oldest waiting" value={`${kpis.oldest}d`} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
-        <KpiCard label="Intake reviews" value={kpis.intake} icon={<Inbox className="h-3.5 w-3.5" />} />
-        <KpiCard label="Approved" value={kpis.approved} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
+        <KpiCard label={lang === "ar" ? "قرارات بانتظارك" : "Decisions waiting"} value={kpis.pending} icon={<Clock className="h-3.5 w-3.5" />} />
+        <KpiCard label={lang === "ar" ? "أقدم انتظار" : "Oldest waiting"} value={lang === "ar" ? `${kpis.oldest} يوم` : `${kpis.oldest}d`} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
+        <KpiCard label={lang === "ar" ? "طلبات أخرى" : "Other requests"} value={kpis.other} icon={<Inbox className="h-3.5 w-3.5" />} />
+        <KpiCard label={lang === "ar" ? "معتمد" : "Approved"} value={kpis.approved} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
       </KpiRow>
 
       {!canDecideAnything && !isLoading ? (
@@ -195,7 +205,7 @@ function ApprovalsPage() {
       ) : null}
 
       <div className="mb-4 flex gap-1.5 text-xs">
-        {(["pending", "recent"] as const).map((f) => (
+        {(["decisions", "other", "recent"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -205,7 +215,11 @@ function ApprovalsPage() {
                 : "border-border text-muted-foreground hover:text-foreground"
             }`}
           >
-            {f === "pending" ? (lang === "ar" ? "قيد الانتظار" : "Pending") : lang === "ar" ? "الأحدث" : "Recent"}
+            {f === "decisions"
+              ? lang === "ar" ? `قرارات المدير (${kpis.pending})` : `Manager decisions (${kpis.pending})`
+              : f === "other"
+                ? lang === "ar" ? `طلبات أخرى (${kpis.other})` : `Other requests (${kpis.other})`
+                : lang === "ar" ? "الأحدث" : "Recent"}
           </button>
         ))}
       </div>
@@ -240,13 +254,17 @@ function ApprovalsPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusPill tone={a.state === "approved" ? "positive" : a.state === "rejected" ? "danger" : "attention"}>
                       <Icon className="h-3 w-3" />
-                      {humanize(a.approvalType)}
+                      {approvalTypeLabel(a.kind === "intake" ? "intake_review" : a.approvalType, lang)}
                     </StatusPill>
-                    {a.step ? <StatusPill tone="neutral">{a.step}</StatusPill> : null}
-                    <StatusPill tone="muted">{a.requiredRole}</StatusPill>
+                    {a.step ? (
+                      <StatusPill tone="neutral">
+                        {raw && currentBafoStep(raw) ? t(`bafo_step_${currentBafoStep(raw)}` as never) : a.step}
+                      </StatusPill>
+                    ) : null}
+                    <StatusPill tone="muted">{approvalRoleLabel(a.requiredRole, lang)}</StatusPill>
                     {a.state === "pending" && age != null ? (
                       <span className={`num text-xs ${urgent ? "text-destructive" : "text-muted-foreground"}`} data-tabular="true">
-                        {age}d waiting
+                        {lang === "ar" ? `بانتظار القرار منذ ${age} يوم` : `${age}d waiting`}
                       </span>
                     ) : null}
                   </div>
@@ -270,7 +288,7 @@ function ApprovalsPage() {
                   {a.clientContext ? <div className="mt-0.5 text-xs text-muted-foreground">{a.clientContext}</div> : null}
                   {a.evidence ? (
                     <div className="mt-1 text-xs text-muted-foreground">
-                      <span className="text-amber-light">Evidence:</span> {a.evidence}
+                      <span className="text-amber-light">{lang === "ar" ? "المرفقات:" : "Evidence:"}</span> {a.evidence}
                     </div>
                   ) : null}
                   {a.notes ? <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{a.notes}</div> : null}

@@ -671,6 +671,11 @@ export const strings = {
   // Actions (fixed vocabulary)
   action_review: { en: "Review", ar: "مراجعة" },
   action_approve: { en: "Approve", ar: "اعتماد" },
+  // The deal header's buttons say what they do: one asks management to look,
+  // the other moves the deal to quotation. A bare "Approve" read as a decision
+  // the manager had to take (reported 2026-10-19).
+  action_request_review: { en: "Request management review", ar: "طلب مراجعة الإدارة" },
+  action_approve_to_quote: { en: "Approve to quote", ar: "اعتماد إصدار العرض" },
   action_accept: { en: "Accept", ar: "قبول" },
   action_reject: { en: "Reject", ar: "رفض" },
   action_return: { en: "Return for Revision", ar: "إعادة للتعديل" },

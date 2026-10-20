@@ -47,14 +47,21 @@ function todayIso(d = new Date()) {
 // curated dropdown of already-normalized YYYY-MM-01 values, so a manager can
 // never pick a mid-month date that would create a target row no query ever
 // looks up again. Covers 2 months back (catch-up) through 11 months forward.
+//
+// A whole year comes first: the 2026 target (40M, 10M per rep) is annual, and
+// Command Center and the opportunities list already read annual rows first.
+// The value carries the period type: "annual|2026-01-01", "monthly|2026-10-01".
 function monthOptions(lang: "en" | "ar") {
   const now = new Date();
   const opts: { value: string; label: string }[] = [];
+  for (const y of [now.getFullYear(), now.getFullYear() + 1]) {
+    opts.push({ value: `annual|${y}-01-01`, label: lang === "ar" ? `سنة ${y} كاملة` : `Full year ${y}` });
+  }
   for (let i = -2; i <= 11; i++) {
     const d = new Date(Date.UTC(now.getFullYear(), now.getMonth() + i, 1));
     const value = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
     const label = d.toLocaleDateString(localeFor(lang, "en"), { month: "long", year: "numeric", timeZone: "UTC" });
-    opts.push({ value, label });
+    opts.push({ value: `monthly|${value}`, label });
   }
   return opts;
 }
@@ -115,13 +122,20 @@ function TargetsPage() {
   const period = monthStart();
   const today = todayIso();
 
+  const yearStart = `${period.slice(0, 4)}-01-01`;
   const { data: targets = [], isLoading } = useQuery({
     queryKey: ["targets", period],
-    queryFn: async () =>
-      (
-        (await supabase.from("sales_targets").select("*").eq("period_type", "monthly").eq("period_start", period))
-          .data ?? []
-      ) as SalesTargetRow[],
+    queryFn: async () => {
+      const [annual, monthly] = await Promise.all([
+        supabase.from("sales_targets").select("*").eq("period_type", "annual").eq("period_start", yearStart),
+        supabase.from("sales_targets").select("*").eq("period_type", "monthly").eq("period_start", period),
+      ]);
+      // A rep's annual target wins over a monthly one, the same rule Command
+      // Center uses, so both pages measure against the same number.
+      const rows = (annual.data ?? []) as SalesTargetRow[];
+      const withAnnual = new Set(rows.map((r) => r.user_id));
+      return [...rows, ...((monthly.data ?? []) as SalesTargetRow[]).filter((r) => !withAnnual.has(r.user_id))];
+    },
   });
 
   const { data: members = [] } = useQuery({
@@ -422,7 +436,7 @@ function TargetsPage() {
             type: "select",
             label: t("field_period_start"),
             required: true,
-            defaultValue: period,
+            defaultValue: `annual|${yearStart}`,
             options: monthOptions(lang),
           },
           { key: "salesTarget", type: "text", label: t("field_sales_target"), required: true },
@@ -443,7 +457,8 @@ function TargetsPage() {
             toast.error(conversionCheck.error);
             return;
           }
-          const normalizedPeriod = normalizePeriodStart("monthly", v.periodStart);
+          const [periodType, periodStart] = (v.periodStart ?? "").split("|") as ["annual" | "monthly", string];
+          const normalizedPeriod = normalizePeriodStart(periodType === "annual" ? "annual" : "monthly", periodStart ?? "");
           if (!normalizedPeriod.ok) {
             toast.error(normalizedPeriod.error);
             return;
@@ -451,7 +466,7 @@ function TargetsPage() {
           try {
             await upsertSalesTarget({
               userId: v.userId,
-              periodType: "monthly",
+              periodType: periodType === "annual" ? "annual" : "monthly",
               periodStart: normalizedPeriod.value,
               salesTarget: Number(v.salesTarget) || 0,
               pipelineTarget: Number(v.pipelineTarget) || 0,
