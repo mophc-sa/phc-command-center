@@ -3720,6 +3720,7 @@ export type Database = {
           client_type: Database["public"]["Enums"]["inbox_client_type"] | null
           company_name: string | null
           consultant: string | null
+          contact_title: string | null
           contact_name: string | null
           converted_record_id: string | null
           converted_record_type: string | null
@@ -3786,6 +3787,7 @@ export type Database = {
           client_type?: Database["public"]["Enums"]["inbox_client_type"] | null
           company_name?: string | null
           consultant?: string | null
+          contact_title?: string | null
           contact_name?: string | null
           converted_record_id?: string | null
           converted_record_type?: string | null
@@ -3854,6 +3856,7 @@ export type Database = {
           client_type?: Database["public"]["Enums"]["inbox_client_type"] | null
           company_name?: string | null
           consultant?: string | null
+          contact_title?: string | null
           contact_name?: string | null
           converted_record_id?: string | null
           converted_record_type?: string | null
@@ -5017,6 +5020,51 @@ export type Database = {
           },
           {
             foreignKeyName: "opportunity_milestones_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_updates: {
+        Row: {
+          completion_pct: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          note: string | null
+          opportunity_id: string
+        }
+        Insert: {
+          completion_pct?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          opportunity_id: string
+        }
+        Update: {
+          completion_pct?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          opportunity_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_updates_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_updates_opportunity_id_fkey"
             columns: ["opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
@@ -6413,6 +6461,7 @@ export type Database = {
           phone: string | null
           role: string | null
           role_code: string | null
+          title: string | null
           updated_at: string
         }
         Insert: {
@@ -6429,6 +6478,7 @@ export type Database = {
           phone?: string | null
           role?: string | null
           role_code?: string | null
+          title?: string | null
           updated_at?: string
         }
         Update: {
@@ -6445,6 +6495,7 @@ export type Database = {
           phone?: string | null
           role?: string | null
           role_code?: string | null
+          title?: string | null
           updated_at?: string
         }
         Relationships: [

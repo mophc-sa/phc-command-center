@@ -22,6 +22,7 @@
 //                                        (the drill-down)
 // =============================================================================
 
+import { projectWithContractor } from "./project-tracking";
 import {
   DEFAULT_HEALTH,
   canonicalStageOf,
@@ -688,7 +689,8 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
 
     items.push({
       opportunityId: o.id,
-      label: o.project_name ?? o.id.slice(0, 8),
+      // "Project — Contractor" (manager feedback 2026-10-19).
+      label: projectWithContractor(o.project_name, o.main_contractor) || o.id.slice(0, 8),
       ownerId: o.owner_id ?? null,
       stage,
       value,

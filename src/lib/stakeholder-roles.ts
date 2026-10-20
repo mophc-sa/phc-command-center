@@ -65,6 +65,8 @@ export type StakeholderRow = {
   id: string;
   opportunity_id?: string | null;
   name?: string | null;
+  /** Job title (e.g. Procurement Manager), not the role on this deal. */
+  title?: string | null;
   role?: string | null;
   role_code?: string | null;
   organization?: string | null;

@@ -49,7 +49,7 @@ import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { setHumanWinProbability } from "@/lib/workflow-actions";
-import { canAssignOwner, canAssignUnownedOpportunity, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
+import { canAssignOwner, canAssignUnownedOpportunity, canEditOpportunityInputs, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
 import { personLabel } from "@/lib/person-label";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
 import {
@@ -72,7 +72,9 @@ import {
 } from "@/lib/opportunity-collab-actions";
 import { Upload, Paperclip } from "lucide-react";
 import { AttachmentLink } from "@/components/phc/AttachmentLink";
-import { opportunityValue } from "@/lib/sales-kpis";
+import { awardedValue } from "@/lib/project-tracking";
+import { resolveCanonicalStage, canonicalStageLabelKey } from "@/lib/stage-canonical";
+import { ProjectUpdatesPanel } from "@/components/phc/ProjectUpdatesPanel";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
@@ -193,7 +195,6 @@ function OpportunityDetail() {
   const canScore = canManageSalesPipeline(roles);
   const canReview = canReviewAiOutput(roles);
   const canDiscuss = canUseDiscussion(roles);
-  const canEditClientDetails = canManageSalesPipeline(roles);
   // Two authorities, not one. Total Value is the number the whole pipeline is
   // judged on; the next step is the rep's own note about what they are doing
   // next. Gating the second behind Finance is how it stays null on all 739
@@ -575,7 +576,12 @@ function OpportunityDetail() {
     );
   }
 
-  const val = opportunityValue(o as never) ?? o.estimated_value_min;
+  // Manager feedback 2026-10-19: the deal's own people edit its inputs -- the
+  // owner as well as the pipeline operators. Deals are private to their owner,
+  // so this is everyone who can see the page. Money keeps canEditValues.
+  const canEditClientDetails = canEditOpportunityInputs(roles, { isOwner: !!user?.id && o.owner_id === user.id });
+  const canonicalStage = resolveCanonicalStage(o).stage;
+  const awarded = awardedValue(o);
   const BackIcon = dir === "rtl" ? ArrowRight : ArrowLeft;
   const recTone = recToTone(o.agent_recommendation);
   const canActOnScore = canScore || o.owner_id === user?.id;
@@ -602,7 +608,22 @@ function OpportunityDetail() {
             <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
               <span>{t("nav_opportunities")}</span>
               {rfqQ.data?.rfq_number ? (
-                <span className="num text-foreground" data-tabular="true">{rfqQ.data.rfq_number}</span>
+                // The number is the deal's thread to Production and Finance: once
+                // the Production project exists (on award), it opens that file,
+                // where the budget lives.
+                o.project ? (
+                  <Link
+                    to="/projects/$id"
+                    params={{ id: o.project.id }}
+                    className="num text-foreground underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                    data-tabular="true"
+                    title={lang === "ar" ? "ملف المشروع (الميزانية)" : "Project file (budget)"}
+                  >
+                    {rfqQ.data.rfq_number}
+                  </Link>
+                ) : (
+                  <span className="num text-foreground" data-tabular="true">{rfqQ.data.rfq_number}</span>
+                )
               ) : null}
             </div>
             <h1 className="text-[30px] font-bold tracking-[-0.02em] text-foreground md:text-[34px]">
@@ -641,7 +662,11 @@ function OpportunityDetail() {
             <StatusPill tone={o.tier === "A" ? "attention" : "neutral"}>
               {t("label_tier")} {o.tier}
             </StatusPill>
-            <StatusPill tone="muted">{humanize(o.stage)}</StatusPill>
+            {/* The canonical sales stage -- the same one the checklist, lists and
+                home page use. This pill used to show the legacy `stage`. */}
+            <StatusPill tone="muted">
+              {canonicalStage ? t(canonicalStageLabelKey(canonicalStage)) : humanize(o.stage)}
+            </StatusPill>
             {o.agent_recommendation ? (
               <StatusPill tone={recTone}>{humanize(o.agent_recommendation)}</StatusPill>
             ) : null}
@@ -676,7 +701,10 @@ function OpportunityDetail() {
       >
         <div className="grid gap-6">
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <DataField label={t("label_quotation")} value={formatCurrency(val, lang, o.currency)} mono />
+            {/* Three figures, kept apart (manager feedback 2026-10-19). This
+                cell used to print opportunityValue() -- contract, else quotation,
+                else the top of the estimate -- under the label "Quotation", so
+                an estimate could pass for an awarded price. */}
             <DataField
               label={t("label_value_range")}
               value={
@@ -686,6 +714,8 @@ function OpportunityDetail() {
               }
               mono
             />
+            <DataField label={t("label_quotation")} value={o.quotation_value == null ? null : formatCurrency(o.quotation_value, lang, o.currency)} mono />
+            <DataField label={lang === "ar" ? "القيمة المرساة" : "Awarded value"} value={awarded == null ? null : formatCurrency(awarded, lang, o.currency)} mono />
             {/* The board's weighted forecast and its whole 30/60/90 outlook are
                 this number times a value. It was null on all 739 rows because
                 `setHumanWinProbability` existed and nothing called it. */}
@@ -758,6 +788,18 @@ function OpportunityDetail() {
           </div>
         </div>
       </Panel>
+      )}
+
+      {/* Project updates + construction progress (manager feedback 2026-10-19). */}
+      {show("alert") && (
+        <ProjectUpdatesPanel
+          opportunityId={o.id}
+          completionPct={o.completion_pct ?? null}
+          canPost={canEditClientDetails}
+          canModerate={canManageSalesPipeline(roles)}
+          currentUserId={user?.id ?? null}
+          onChanged={invalidate}
+        />
       )}
 
       <LegacyOpportunityContext extraData={o.extra_data} ar={lang === "ar"} />
@@ -899,6 +941,7 @@ function OpportunityDetail() {
           >
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <DataField label={t("label_contact_person")} value={clientContact?.name ?? null} />
+              <DataField label={t("ibx_contact_title")} value={clientContact?.title ?? null} />
               <DataField label={t("label_contact_number")} value={clientContact?.phone ?? null} />
               <DataField label={t("email")} value={clientContact?.email ?? null} />
               <DataField label={t("label_company_name")} value={companyName} />
@@ -924,6 +967,7 @@ function OpportunityDetail() {
               submitLabel={t("action_save")}
               fields={[
                 { key: "contactName", type: "text", label: t("label_contact_person"), defaultValue: clientContact?.name ?? "" },
+                { key: "contactTitle", type: "text", label: t("ibx_contact_title"), defaultValue: clientContact?.title ?? "" },
                 { key: "contactPhone", type: "text", label: t("label_contact_number"), defaultValue: clientContact?.phone ?? "" },
                 { key: "contactEmail", type: "text", label: t("email"), defaultValue: clientContact?.email ?? "" },
                 { key: "companyName", type: "text", label: t("label_company_name"), defaultValue: companyName ?? "" },
@@ -950,6 +994,7 @@ function OpportunityDetail() {
                     opportunityId: id,
                     existingStakeholderId: clientContact?.id ?? null,
                     contactName: v.contactName,
+                    contactTitle: v.contactTitle,
                     contactPhone: v.contactPhone,
                     contactEmail: v.contactEmail,
                     companyName: v.companyName,

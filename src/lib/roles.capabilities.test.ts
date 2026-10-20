@@ -29,6 +29,8 @@ import {
   canExecuteDelete,
   canUseDiscussion,
   type AppRole,
+  canEditOpportunityInputs,
+  canEditRfqNumber,
 } from "./roles";
 
 test("group predicates partition every role into exactly one group", () => {
@@ -219,4 +221,21 @@ test("system_admin is not a commercial decision-maker here either", () => {
   // Consistent with canApproveCommercialAction: an operator is not a manager.
   expect(canAssignOwner("system_admin")).toBe(false);
   expect(canAssignUnownedOpportunity("system_admin")).toBe(false);
+});
+
+// Manager feedback 2026-10-19 (group 4): owners edit their deal's inputs, and
+// only the sales manager (plus system_admin for repairs) changes a number.
+test("canEditOpportunityInputs: the owning salesperson and pipeline operators", () => {
+  expect(canEditOpportunityInputs("salesperson", { isOwner: true })).toBe(true);
+  expect(canEditOpportunityInputs("salesperson", { isOwner: false })).toBe(false);
+  expect(canEditOpportunityInputs("sales_manager", { isOwner: false })).toBe(true);
+  expect(canEditOpportunityInputs("viewer", { isOwner: true })).toBe(false);
+  expect(canEditOpportunityInputs("finance_manager", { isOwner: false })).toBe(false);
+});
+
+test("canEditRfqNumber: sales_manager and system_admin only", () => {
+  expect(canEditRfqNumber("sales_manager")).toBe(true);
+  expect(canEditRfqNumber("system_admin")).toBe(true);
+  expect(canEditRfqNumber("bd_manager")).toBe(false);
+  expect(canEditRfqNumber("salesperson")).toBe(false);
 });

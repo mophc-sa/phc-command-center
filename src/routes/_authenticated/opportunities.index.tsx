@@ -15,7 +15,9 @@ import { ListWindowFooter } from "@/components/phc/ListWindowFooter";
 import { useQuery } from "@tanstack/react-query";
 import { Search, LayoutGrid, Rows3, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { CANONICAL_STAGES, canonicalStageLabelKey } from "@/lib/stage-canonical";
+import { CANONICAL_STAGES, canonicalStageLabelKey, resolveCanonicalStage } from "@/lib/stage-canonical";
+import { CompletionBar } from "@/components/phc/CompletionBar";
+import { updateKindLabel } from "@/lib/project-tracking";
 import type { OpportunitySearch } from "@/lib/drilldown";
 import {
   DEFAULT_SEARCH,
@@ -140,7 +142,7 @@ function OppList() {
       const { data, error } = await supabase
         .from("opportunities")
         .select(
-          "*, company:companies!opportunities_company_id_fkey(id, name), rfqs(classification, rfq_number, created_at), quotations(status, value, issued_date, created_at)",
+          "*, company:companies!opportunities_company_id_fkey(id, name), contractor_company:companies!opportunities_main_contractor_id_fkey(name), rfqs(classification, rfq_number, created_at), quotations(status, value, issued_date, created_at), opportunity_updates(kind, created_at)",
         )
         .order("last_activity_at", { ascending: false, nullsFirst: false });
       if (error) throw error;
@@ -148,7 +150,7 @@ function OppList() {
     },
   });
 
-  type SortKey = "classification" | "sales_code" | "project_name" | "amount" | "quotation_status" | "submission_date" | "client_company";
+  type SortKey = "classification" | "sales_code" | "project_name" | "amount" | "quotation_status" | "submission_date" | "client_company" | "stage" | "completion" | "last_update";
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
   const toggleSort = (key: SortKey) =>
     setSort((prev) => (prev?.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
@@ -174,12 +176,13 @@ function OppList() {
       }
       return best;
     };
-    const m = new Map<string, { rfq: any; quote: any }>();
+    const m = new Map<string, { rfq: any; quote: any; update: any }>();
     for (const o of data as any[]) {
-      m.set(o.id, { rfq: pick(o.rfqs), quote: pick(o.quotations) });
+      m.set(o.id, { rfq: pick(o.rfqs), quote: pick(o.quotations), update: pick(o.opportunity_updates) });
     }
     return m;
   }, [data]);
+  const latestUpdate = (o: any) => latest.get(o.id)?.update ?? null;
 
   const latestRfq = (o: any) => latest.get(o.id)?.rfq ?? null;
   const latestQuotation = (o: any) => latest.get(o.id)?.quote ?? null;
@@ -201,6 +204,10 @@ function OppList() {
         case "quotation_status": return quote?.status ?? "";
         case "submission_date": return quote?.issued_date ?? "";
         case "client_company": return o.company?.name ?? o.client ?? "";
+        case "stage": return CANONICAL_STAGES.indexOf(resolveCanonicalStage(o).stage as never);
+        // Unknown progress sorts below 0%: nobody has reported it.
+        case "completion": return o.completion_pct ?? -1;
+        case "last_update": return latestUpdate(o)?.created_at ?? "";
       }
     };
     const sorted = [...rows].sort((a, b) => {
@@ -478,6 +485,9 @@ function OppList() {
               {([
                 ["project_name", lang === "ar" ? "المشروع / الإجراء القادم" : "Project / next action"],
                 ["client_company", lang === "ar" ? "العميل" : "Client"],
+                ["stage", lang === "ar" ? "المرحلة" : "Stage"],
+                ["completion", lang === "ar" ? "إنجاز الموقع" : "Construction"],
+                ["last_update", lang === "ar" ? "آخر تحديث" : "Last update"],
                 ["classification", lang === "ar" ? "التصنيف" : "Classification"],
                 ["amount", lang === "ar" ? "القيمة" : "Amount"],
                 ["quotation_status", lang === "ar" ? "حالة العرض" : "Quotation status"],
@@ -493,10 +503,23 @@ function OppList() {
                     the record a screen reader is reading cells from. */}
                 <TableHead scope="row" className="max-w-sm whitespace-normal text-sm font-normal text-foreground">
                   <Link to="/opportunities/$id" params={{ id: o.id }} className="font-semibold text-foreground hover:underline">{o.project_name}</Link>
+                  {/* Project with contractor (manager feedback 2026-10-19): two
+                      deals on one project for different contractors are not
+                      duplicates, and the name alone made them look like one. */}
+                  {(o.contractor_company?.name ?? o.main_contractor) ? (
+                    <div className="mt-0.5 text-xs text-muted-foreground">{o.contractor_company?.name ?? o.main_contractor}</div>
+                  ) : null}
                   <div className="mt-1 text-xs text-muted-foreground">{o.next_action || (lang === "ar" ? "الإجراء القادم غير مسجل" : "No next action recorded")}</div>
-                  {rfq?.rfq_number ? <div className="num mt-1 text-xs text-muted-foreground">{rfq.rfq_number}</div> : null}
+                  {rfq?.rfq_number ? (
+                    <Link to="/opportunities/$id" params={{ id: o.id }} className="num mt-1 block text-xs text-muted-foreground hover:text-foreground hover:underline" data-tabular="true">
+                      {rfq.rfq_number}
+                    </Link>
+                  ) : null}
                 </TableHead>
                 <TableCell className="max-w-48">{o.company?.name ?? o.client ?? "—"}</TableCell>
+                <TableCell>{(() => { const st = resolveCanonicalStage(o).stage; return st ? <StatusPill tone="neutral">{t(canonicalStageLabelKey(st))}</StatusPill> : "—"; })()}</TableCell>
+                <TableCell className="min-w-28"><CompletionBar pct={o.completion_pct} compact /></TableCell>
+                <TableCell className="whitespace-nowrap text-xs">{(() => { const u = latestUpdate(o); return u ? <><span className="text-foreground">{updateKindLabel(u.kind, lang)}</span><span className="num block text-muted-foreground" data-tabular="true">{new Date(u.created_at).toLocaleDateString(localeFor(lang))}</span></> : "—"; })()}</TableCell>
                 <TableCell>{rfq?.classification ? humanize(rfq.classification) : "—"}</TableCell>
                 <TableCell className="num whitespace-nowrap">{amount === null ? (lang === "ar" ? "غير مسجل" : "Not recorded") : formatCurrency(amount, lang, o.currency)}</TableCell>
                 <TableCell>{quote?.status ? <StatusPill tone={quote.status === "won" ? "positive" : "neutral"}>{humanize(quote.status)}</StatusPill> : "—"}</TableCell>

@@ -102,6 +102,8 @@ export async function convertRfqToJih(
 export async function createRfqWithOpportunity(input: {
   companyName: string;
   contactName: string;
+  /** Job title, carried from intake onto the contact and the deal's stakeholder. */
+  contactTitle?: string | null;
   contactPhone: string;
   existingContactId?: string | null;
   existingCompanyId?: string | null;
@@ -158,7 +160,7 @@ export async function createRfqWithOpportunity(input: {
   if (!contactId) {
     const { data: newContact, error: ctErr } = await supabase
       .from("contacts")
-      .insert({ name: input.contactName.trim(), phone: input.contactPhone.trim() || null, company_id: companyId })
+      .insert({ name: input.contactName.trim(), title: input.contactTitle?.trim() || null, phone: input.contactPhone.trim() || null, company_id: companyId })
       .select("id").single();
     if (ctErr) throw ctErr;
     contactId = newContact.id;
@@ -222,6 +224,7 @@ export async function createRfqWithOpportunity(input: {
       opportunity_id: opp.id,
       name: input.contactName?.trim() || input.companyName.trim(),
       phone: input.contactPhone?.trim() || null,
+      title: input.contactTitle?.trim() || null,
       organization: input.companyName?.trim() || null,
       contact_order: 1,
     });

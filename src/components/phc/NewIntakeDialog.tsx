@@ -1,3 +1,4 @@
+import { rankKey } from "@/lib/name-suggest";
 import { isAssignableTeamMember } from "@/lib/team-members";
 // PHC Sales OS — the single entry form.
 //
@@ -71,6 +72,9 @@ export function newIntakeFields(
         return n === 0 ? null : t("ibx_company_references").replace("{n}", String(n));
       } },
     { key: "contactName", type: "text", label: t("ibx_contact_name"), required: true },
+    // Who the contact is, not just their name (manager feedback 2026-10-19):
+    // a procurement manager and a site engineer are different calls.
+    { key: "contactTitle", type: "text", label: t("ibx_contact_title") },
     { key: "phone", type: "phone", label: t("label_phone"), required: true },
     { key: "email", type: "text", label: t("email") },
     { key: "clientType", type: "select", label: t("ibx_client_type"), options: [{ value: "", label: "—" }, ...INBOX_CLIENT_TYPES.map((c) => ({ value: c, label: t(`ibx_client_type_${c}`) }))] },
@@ -145,16 +149,40 @@ export function NewIntakeDialog({
   // 249 companies and 741 projects: fetched once and matched in memory, so
   // there is no request per keystroke and no reason to make anyone guess.
   // `enabled: open` keeps the two reads off every page that mounts the header.
-  const { data: known = { companies: [], projects: [], references: [] } } = useQuery({
+  const { data: known = { companies: [], projects: [], references: [], lastByCompany: new Map<string, Record<string, string>>() } } = useQuery({
     queryKey: ["intake-known-names"],
     enabled: open,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const [c, o, r] = await Promise.all([
+      const [c, o, r, last] = await Promise.all([
         supabase.from("companies").select("name").order("name"),
         supabase.from("opportunities").select("project_name").order("project_name"),
         supabase.from("reference_projects").select("client_or_contractor"),
+        // What was entered the last time this company sent a request -- the
+        // source of the blue autofill (manager feedback 2026-10-19). Only rows
+        // the person can already read, so nothing new is exposed.
+        supabase
+          .from("inbox_items")
+          .select("company_name, contact_name, contact_title, phone, email, client_type, main_contractor, consultant, created_at")
+          .not("company_name", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(2000),
       ]);
+      // Newest first, so the first row seen per company is its latest.
+      const lastByCompany = new Map<string, Record<string, string>>();
+      for (const row of last.data ?? []) {
+        const key = rankKey(row.company_name ?? "");
+        if (!key || lastByCompany.has(key)) continue;
+        lastByCompany.set(key, {
+          contactName: row.contact_name ?? "",
+          contactTitle: row.contact_title ?? "",
+          phone: row.phone ?? "",
+          email: row.email ?? "",
+          clientType: row.client_type ?? "",
+          mainContractor: row.main_contractor ?? "",
+          consultant: row.consultant ?? "",
+        });
+      }
       const uniq = (xs: (string | null)[]) =>
         [...new Set(xs.filter((x): x is string => !!x && x.trim() !== ""))];
       return {
@@ -165,6 +193,7 @@ export function NewIntakeDialog({
         references: (r.data ?? [])
           .map((x: { client_or_contractor: string | null }) => x.client_or_contractor)
           .filter((x): x is string => !!x && x.trim() !== ""),
+        lastByCompany,
       };
     },
   });
@@ -180,12 +209,13 @@ export function NewIntakeDialog({
       submitLabel={t("crm_add")}
       progressive
       sections={[
-        { title: t("ibx_new_item"), keys: ["sourceType", "requestType", "projectName", "companyName", "contactName", "phone", "assignedOwnerId"] },
+        { title: t("ibx_new_item"), keys: ["sourceType", "requestType", "projectName", "companyName", "contactName", "contactTitle", "phone", "assignedOwnerId"] },
         { title: t("intake_section_contact"), keys: ["dateReceived", "clientType", "clientTypeOther", "email", "rfqFrom", "rfqFromOther", "clientRfqReference", "internalRfqReference"] },
         { title: t("intake_section_project"), keys: ["clientOwner", "mainContractor", "consultant", "ownerEntity", "scopeType", "scopeTypeOther", "locationCity", "locationOther", "completionPct", "deadline"] },
         { title: t("intake_section_followup"), keys: ["followUpDate", "nextAction", "saabPortal", "hasBoq", "hasDrawings", "hasSpecs", "notes", "evidenceUrl"] },
       ]}
       fields={newIntakeFields((k) => t(k as never), teamMembers, known)}
+      suggest={(v) => known.lastByCompany.get(rankKey(v.companyName ?? "")) ?? null}
       onSubmit={async (v) => {
         if (!v.sourceType) throw new Error(t("ibx_no_source"));
         // A percentage or nothing. The database rejects anything else anyway;
@@ -200,6 +230,7 @@ export function NewIntakeDialog({
             dateReceived: v.dateReceived || undefined,
             companyName: v.companyName || undefined,
             contactName: v.contactName || undefined,
+            contactTitle: v.contactTitle || undefined,
             phone: v.phone || undefined,
             email: v.email || undefined,
             clientType: v.clientType ? (v.clientType as never) : undefined,

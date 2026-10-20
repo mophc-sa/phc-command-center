@@ -147,6 +147,16 @@ export const canReviewAiOutput = (r: RoleInput) =>
 // BD / Sales Ops and above — not system_admin, not viewers.
 export const canManageSalesPipeline = (r: RoleInput) => inGroup(r, PIPELINE_OPERATORS);
 
+// Editing a deal's inputs (client details, contact person, relationships, key
+// facts other than money). The manager, 2026-10-19: "everyone edits inputs".
+// Deals are private to their owner (20260727170000), so "everyone" is everyone
+// who can see the deal: its owner, plus the pipeline operators -- the same set
+// the opportunities UPDATE policy already admits. Money keeps its own gate
+// (canEditTotalValue).
+export const canEditOpportunityInputs = (r: RoleInput, ctx: { isOwner: boolean }) =>
+  (ctx.isOwner && inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.salesperson])) ||
+  inGroup(r, PIPELINE_OPERATORS);
+
 // Reviewing Fireflies meeting action items into tasks. Mirrors
 // can_review_meetings() in 20261001100000_fireflies_meetings.sql: the people
 // who may write any task, plus system administrators.
@@ -182,12 +192,12 @@ export const canExecuteDelete = (r: RoleInput) => inGroup(r, ["system_admin", "b
 export const canEditTotalValue = (r: RoleInput) =>
   inGroup(r, ["finance_manager", "bd_manager"]);
 
-// Manual RFQ-number entry/edit authority — per client spec (2026-07-27):
-// "Account Manager" (this codebase's existing term for the role is
-// sales_manager — see account_owner_id/changeAccountOwner), BD Manager,
-// System Admin. Mirrors the DB helper public.can_edit_rfq_number(uuid).
+// Manual RFQ-number entry/edit authority. Client spec 2026-07-27 named the
+// Account Manager (sales_manager), BD Manager and System Admin; the manager
+// narrowed it on 2026-10-19 to "only the sales manager" (system_admin kept for
+// repairs). Mirrors the DB helper public.can_edit_rfq_number(uuid).
 export const canEditRfqNumber = (r: RoleInput) =>
-  inGroup(r, ["sales_manager", "bd_manager", "system_admin"]);
+  inGroup(r, ["sales_manager", "system_admin"]);
 
 // Sees every rep's sales pipeline data (opportunities/RFQs/tenders/
 // quotations/follow-ups), not just their own — mirrors the DB helper

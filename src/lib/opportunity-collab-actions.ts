@@ -349,6 +349,7 @@ export async function upsertClientDetails(input: {
   opportunityId: Uuid;
   existingStakeholderId?: string | null;
   contactName?: string | null;
+  contactTitle?: string | null;
   contactPhone?: string | null;
   contactEmail?: string | null;
   companyName?: string | null;
@@ -365,6 +366,7 @@ export async function upsertClientDetails(input: {
       name: input.contactName.trim(),
       phone: input.contactPhone?.trim() || null,
       email: input.contactEmail?.trim() || null,
+      ...(input.contactTitle !== undefined ? { title: input.contactTitle?.trim() || null } : {}),
     };
     if (input.existingStakeholderId) {
       const { error } = await supabase

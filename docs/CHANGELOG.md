@@ -1,5 +1,21 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-19 — Project tracking (manager feedback group 4) (not deployed)
+
+- Migration `20261022100000`: `opportunity_updates` (dated update log per deal; an update with a %
+  sets `completion_pct`; RLS = the deal's readers, posting by sales contributors who can see the deal,
+  same-day delete by the author or any pipeline operator), `inbox_items.contact_title`,
+  `stakeholders.title`, `set_probability_on_close` (won = 100, lost = 0, closed deals backfilled and
+  audited), `can_edit_rfq_number` = sales_manager + system_admin, `next_project_number` (a project is
+  issued its deal's RFQ number after a verified BOQ; PRJ- fallback). pgTAP `project_tracking` (14).
+- Deal page: **Project updates** panel with construction % bar; header shows the canonical stage and the
+  code links to the Production project file; key facts show Estimated, Quotation and Awarded separately;
+  Client details and Relationships show and edit the contact's job title; the owner can edit inputs.
+- Home (`/command-center`): **Projects in progress** panel. Opportunities table: contractor line, Stage,
+  Construction and Last update columns. My Workspace and Needs attention show the contractor.
+- Intake: Job title field; **autofill in blue with Confirm** from the company's last request
+  (`ActionDialog` `suggest`).
+
 ## 2026-10-19 — Manager feedback, group 1 and 2: notifications, 2026 won count, approvals, annual targets (not deployed)
 
 - **Notification click** (`notification-target.ts`, `NotificationCenter.tsx`): the click uses

@@ -148,7 +148,7 @@ export const canEditTotalValue = (r: RoleInput) =>
 
 // Mirrors public.can_edit_rfq_number(uuid).
 export const canEditRfqNumber = (r: RoleInput) =>
-  inGroup(r, ["sales_manager", "bd_manager", "system_admin"]);
+  inGroup(r, ["sales_manager", "system_admin"]);
 
 // Sees every rep's sales pipeline data, not just their own — mirrors
 // public.can_view_all_sales_data(uuid) used in RLS SELECT policies.
