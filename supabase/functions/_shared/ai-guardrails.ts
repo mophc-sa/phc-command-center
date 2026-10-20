@@ -58,6 +58,7 @@ export const AGENT_ENTITY_ALLOWLIST: Record<AgentKey, readonly EntityType[]> = {
   sales_report_insights: ["reports"],
   deal_correspondence_summary: ["opportunities"],
   daily_email_brief: ["my_email"],
+  info_mail_triage: ["info_mail"],
 };
 
 export function isEntityAllowedForAgent(agent: AgentKey, entityType: string | null | undefined): boolean {
@@ -115,6 +116,8 @@ export const AGENT_ROLE_CHECK: Record<AgentKey, (roles: AppRole[]) => boolean> =
   // is decided per record by can_read_boq in the registry's checkAccess.
   deal_correspondence_summary: (roles) => canCreateSalesRecords(roles),
   daily_email_brief: (roles) => canCreateSalesRecords(roles),
+  // No person runs it: the info@ pass calls it as a service (orchestrator, serviceCallable).
+  info_mail_triage: () => false,
 };
 
 export function hasAgentRole(agent: AgentKey, roles: AppRole[]): boolean {

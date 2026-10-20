@@ -43,6 +43,8 @@ export const AGENT_KEYS = [
   // 2026-09-29 Outlook phase 3 — what a deal's email says, for its people.
   "deal_correspondence_summary",
   "daily_email_brief",
+  // 2026-10-20 info@ mailbox — sorts one message; service calls only.
+  "info_mail_triage",
 ] as const;
 export type AgentKey = (typeof AGENT_KEYS)[number];
 
@@ -69,6 +71,8 @@ export const ENTITY_TYPES = [
   // A person's own email of the day — daily_email_brief. The entity id is the
   // caller's own user id; the registry refuses any other.
   "my_email",
+  // One message in the info@ mailbox — info_mail_triage, service calls only.
+  "info_mail",
 ] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
 
@@ -711,6 +715,36 @@ export const DailyEmailBriefOutputSchema = z
   .strict();
 export type DailyEmailBriefOutput = z.infer<typeof DailyEmailBriefOutputSchema>;
 
+// info_mail_triage — one info@ message: its category, a line in each language,
+// and, for a request to price work, only what the email itself states.
+export const INFO_MAIL_CATEGORIES = ["rfq", "quotation_request", "supplier", "finance", "hr", "general", "spam"] as const;
+const nullableText = (max: number) => z.string().trim().min(1).max(max).nullable();
+export const InfoMailTriageOutputSchema = z
+  .object({
+    category: z.enum(INFO_MAIL_CATEGORIES),
+    confidence: z.number().min(0).max(1),
+    summary_en: z.string().min(1).max(200),
+    summary_ar: z.string().min(1).max(200),
+    request: z
+      .object({
+        company: nullableText(200),
+        contact_name: nullableText(200),
+        phone: nullableText(40),
+        email: nullableText(200),
+        project_name: nullableText(300),
+        location: nullableText(200),
+        client_rfq_ref: nullableText(100),
+        estimated_value: z.number().nonnegative().max(1e13).nullable(),
+        currency: nullableText(10),
+        scope: nullableText(1000),
+        deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+export type InfoMailTriageOutput = z.infer<typeof InfoMailTriageOutputSchema>;
+
 // Lookup used by the orchestrator to validate whichever agent ran, without a
 // switch statement scattered through the request-handling code.
 export const AGENT_OUTPUT_SCHEMAS = {
@@ -734,6 +768,7 @@ export const AGENT_OUTPUT_SCHEMAS = {
   sales_report_insights: SalesReportInsightsOutputSchema,
   deal_correspondence_summary: DealCorrespondenceSummaryOutputSchema,
   daily_email_brief: DailyEmailBriefOutputSchema,
+  info_mail_triage: InfoMailTriageOutputSchema,
 } as const satisfies Record<AgentKey, z.ZodType>;
 
 export const AGENT_OUTPUT_TYPES = {
@@ -757,6 +792,7 @@ export const AGENT_OUTPUT_TYPES = {
   sales_report_insights: "recommendation",
   deal_correspondence_summary: "recommendation",
   daily_email_brief: "recommendation",
+  info_mail_triage: "staged_classification",
 } as const satisfies Record<AgentKey, OutputType>;
 
 // ---------------------------------------------------------------------------

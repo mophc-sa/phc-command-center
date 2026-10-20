@@ -157,10 +157,31 @@ original 3. The remaining 15, quick reference only (see
 | `sales_report_insights` | Narrative summary of the Reports dashboard's own aggregates (win rate, pipeline by stage, quotation funnel, lost reasons) — mirrors reports.tsx's client-side math exactly, including the same win-rate formula as `computeQuotationWinRatePct` (2026-08-04) | Yes — `SalesReportInsightsPanel`, `reports.tsx`. |
 | `deal_correspondence_summary` | Summary of one deal's email (current status, what the client asked, what PHC owes, next step), each point citing the email activity it came from; context is the deal's last ≤15 sent/received emails, excerpts trimmed to fit `MAX_CONTEXT_CHARS`; access by `can_read_boq`, and its outputs are readable by everyone who can read the deal (20261004100000). Not in `REVIEWABLE_AGENT_KEYS`: it is a read aid, not a proposal to accept (2026-09-29) | Yes — `DealCorrespondencePanel`, `opportunities.$id.tsx`. |
 | `daily_email_brief` | A person's daily email brief: up to 10 of their client emails since the last brief (their mailbox + their deals, open-deal email first, ≤25 candidates trimmed to the context budget), each as priority + two lines. Sentinel entity `my_email` whose id must be the caller's own user id (checkAccess). Private by the existing requester-only RLS (`ai_output_entity_still_owned` → ELSE true). Made on the first My Workspace visit of the day; no email → the loader stops before any provider call (2026-09-30) | Yes — `DailyEmailBrief`, `my-workspace.tsx`. |
+| `info_mail_triage` | Sorts one message in the info@ mailbox into a category (`rfq`, `quotation_request`, `supplier`, `finance`, `hr`, `general`, `spam`) with a confidence, one line in English and one in Arabic, and, for a request to price work, only the request fields the email states (else null). Entity `info_mail`; context is that one message (sender, subject, date, ≤20 attachment names, text ≤6000 chars, shortened to fit the context budget); a message that is not `unclassified` stops in the loader before any provider call. `hasRole` is always false: no person can run it, only the service caller below (2026-10-20) | No UI calls it — `outlook-sync`'s info@ pass does. |
 
 **Page coverage as of 2026-08-04**: every core sales/production page now has
 at least one AI touchpoint. `data-import.$batchId.tsx` alone carries 9 of
 the 18 agents.
+
+### Service caller (info@ mailbox)
+
+Every other request comes from a person's JWT. One server-side caller does not:
+`outlook-sync`'s info@ pass, which classifies mail with no person present
+(2026-10-20).
+
+- It sends the header `x-phc-service-key`. When that header is present the
+  request is a service call and never falls back to the JWT path.
+- The key is checked with `outlook_sync_key_matches` — the same Vault key
+  (`outlook_sync_key`) pg_cron already sends to `outlook-sync`.
+- The caller runs as the profile whose email is the `INFO_MAILBOX` env value,
+  and that profile must be `active`. It is the `requested_by` on trace events,
+  claims and outputs, and the user `reserve_ai_usage` bills.
+- Usage kind is `mailbox` (`ai_usage_limits`: 300 a day).
+- It may run only agents marked `serviceCallable: true` in `AGENT_REGISTRY`
+  (today only `info_mail_triage`); any other agent is `AI_AGENT_NOT_ALLOWED`.
+  Its roles are empty and it never gets the system_admin provider override.
+- A bad key, an unset `INFO_MAILBOX`, or a missing or inactive profile all get
+  the same generic `AI_UNAUTHENTICATED` 401 as a bad JWT.
 
 ### Sentinel entity IDs (pipeline-wide / no-single-record agents)
 

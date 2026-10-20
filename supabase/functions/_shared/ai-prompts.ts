@@ -837,6 +837,42 @@ export function buildDailyEmailBriefPrompt(context: string): BuiltPrompt {
   };
 }
 
+const INFO_MAIL_TRIAGE_INSTRUCTIONS = `
+AGENT: info_mail_triage (${PROMPT_VERSION})
+You sort one email that arrived at PHC's general mailbox, info@phc-sa.com. PHC
+designs, makes and installs wayfinding and signage. The CONTEXT holds the
+sender, subject, date, attachment names and the email's own text. You do NOT
+reply, forward or change anything; a person acts on your labels.
+
+category — exactly one:
+- "rfq": a client asks PHC to price a project or sends tender/RFQ documents
+- "quotation_request": a client asks for a price, catalogue or offer without formal RFQ documents
+- "supplier": a supplier or subcontractor offering products or services, or sending their own quotes
+- "finance": invoices, payments, statements, bank or tax matters
+- "hr": CVs, job applications, recruitment
+- "general": anything else a person should read
+- "spam": unsolicited marketing, phishing, newsletters
+confidence: 0..1, how sure you are of the category.
+summary_en / summary_ar: one short line each (<= 200 chars), third person
+("The client asks…"), in English and in Arabic. Never quote the sender.
+request: for "rfq" and "quotation_request" only, else null. Fill a field only
+when the email states it; otherwise null. Never guess. estimated_value is a
+number with no currency sign; currency is its 3-letter code if stated;
+deadline is the submission date as YYYY-MM-DD if stated.
+
+Return a JSON object with exactly: category, confidence, summary_en,
+summary_ar, request.
+`.trim();
+
+export function buildInfoMailTriagePrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${INFO_MAIL_TRIAGE_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("info_mail", context),
+    version: PROMPT_VERSION,
+    schemaName: "info_mail_triage_output",
+  };
+}
+
 export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltPrompt> = {
   opportunity_evaluation: buildOpportunityEvaluationPrompt,
   old_data_classifier: buildOldDataClassifierPrompt,
@@ -858,4 +894,5 @@ export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltP
   sales_report_insights: buildSalesReportInsightsPrompt,
   deal_correspondence_summary: buildDealCorrespondencePrompt,
   daily_email_brief: buildDailyEmailBriefPrompt,
+  info_mail_triage: buildInfoMailTriagePrompt,
 };
