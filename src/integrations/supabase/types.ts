@@ -3918,6 +3918,103 @@ export type Database = {
         }
         Relationships: []
       }
+      info_mail: {
+        Row: {
+          attachment_names: string[]
+          body_text: string | null
+          category: string
+          confidence: number | null
+          conversation_id: string | null
+          created_at: string
+          forwarded_to: string | null
+          from_email: string | null
+          from_name: string | null
+          graph_message_id: string
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          inbox_item_id: string | null
+          internet_message_id: string | null
+          opportunity_id: string | null
+          received_at: string
+          status: string
+          subject: string | null
+          summary: string | null
+          triage_attempts: number
+          web_link: string | null
+        }
+        Insert: {
+          attachment_names?: string[]
+          body_text?: string | null
+          category?: string
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          forwarded_to?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          graph_message_id: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          inbox_item_id?: string | null
+          internet_message_id?: string | null
+          opportunity_id?: string | null
+          received_at: string
+          status?: string
+          subject?: string | null
+          summary?: string | null
+          triage_attempts?: number
+          web_link?: string | null
+        }
+        Update: {
+          attachment_names?: string[]
+          body_text?: string | null
+          category?: string
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          forwarded_to?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          graph_message_id?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          inbox_item_id?: string | null
+          internet_message_id?: string | null
+          opportunity_id?: string | null
+          received_at?: string
+          status?: string
+          subject?: string | null
+          summary?: string | null
+          triage_attempts?: number
+          web_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_mail_inbox_item_id_fkey"
+            columns: ["inbox_item_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "info_mail_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "info_mail_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       internal_prices: {
         Row: {
           below_floor_justification: string | null
@@ -8734,6 +8831,11 @@ export type Database = {
         Args: { _pattern: string; _raw: Json }
         Returns: string
       }
+      info_mail_dismiss: { Args: { _id: string }; Returns: undefined }
+      info_mail_link_conversion: {
+        Args: { _inbox_item_id: string }
+        Returns: number
+      }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
       is_commercial_manager: { Args: { _user_id: string }; Returns: boolean }
       is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
@@ -8771,6 +8873,10 @@ export type Database = {
         Returns: string
       }
       normalize_vendor_name: { Args: { _name: string }; Returns: string }
+      notify_mentions: {
+        Args: { _activity_id: string; _users: string[] }
+        Returns: number
+      }
       notify_overdue_items: { Args: never; Returns: number }
       opportunity_value: {
         Args: {
@@ -9044,6 +9150,7 @@ export type Database = {
         | "email_placeholder"
         | "whatsapp_placeholder"
         | "phone_call"
+        | "info_mailbox"
       inbox_status:
         | "new"
         | "in_review"
@@ -9551,6 +9658,7 @@ export const Constants = {
         "email_placeholder",
         "whatsapp_placeholder",
         "phone_call",
+        "info_mailbox",
       ],
       inbox_status: [
         "new",
