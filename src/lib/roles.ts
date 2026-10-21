@@ -169,6 +169,29 @@ export const canReviewMeetings = (r: RoleInput) =>
 export const canCreateSalesRecords = (r: RoleInput) =>
   inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.salesperson]);
 
+// Editing a project and its jobs. Mirrors public.can_edit_project(uuid, uuid)
+// in 20261024100000_project_owner.sql — a contract test fails if the two drift.
+//
+// While a project has no owner it stays open to the sales team, which is what
+// it was before owners existed; the first salesperson to edit one becomes its
+// owner (the database claims it), and from then on their colleagues are out.
+export const canEditProject = (
+  r: RoleInput,
+  ctx: { ownerId: string | null; userId: string | null },
+) =>
+  inGroup(r, [...PIPELINE_OPERATORS, ...ROLE_GROUPS.systemAdmin]) ||
+  (canCreateSalesRecords(r) && (ctx.ownerId === null || (ctx.userId !== null && ctx.ownerId === ctx.userId)));
+
+// Editing a project's budget. Mirrors public.can_edit_project_budget(uuid, uuid).
+// Narrower than the project itself on purpose: these are cost figures, so an
+// unassigned project's budget stays closed until someone owns it.
+export const canEditProjectBudget = (
+  r: RoleInput,
+  ctx: { ownerId: string | null; userId: string | null },
+) =>
+  canEditTotalValue(r) ||
+  (ctx.ownerId !== null && ctx.userId !== null && ctx.ownerId === ctx.userId);
+
 // Final delete execution — system_admin and bd_manager (Development
 // Manager), and only after a commercial manager has approved the
 // underlying delete request via decide_approval. bd_manager mirrors

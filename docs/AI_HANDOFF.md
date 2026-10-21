@@ -1,5 +1,39 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-21 — Release of PRs 349–352, and the project-owner spec (branch `feat/project-owner`)
+
+**Released.** Production serves `f5a7af11a27d166cf7ac069bb534a9e44d628963`, Worker version
+`19a718a5-a101-4af2-af7d-bd585063249f` (run 39603761198). Canary `ed006245`
+(39600169636), canary readiness 39602643937, post-production readiness 39604533237 —
+all passed; the live bundle carries the `f5a7af1` stamp (178 chunks crawled). The three
+migrations (`20261020100000`, `20261022100000`, `20261023100000`) were already applied.
+`sales-os-api` v75 → v76, deployed by the user with Docker — it carries #351's tightening
+of `canEditRfqNumber` (bd_manager removed). Release notes: the `gh` account had reverted
+to `moalagab` (cannot dispatch workflows); a production run approved before readiness
+finished failed safely at the evidence gate — approve production only after readiness is
+green. The classifier now blocks agent-dispatched production deploys, so the user runs
+that command.
+
+**In progress.** `feat/project-owner` (commit `e86606a`) holds the approved spec
+`docs/superpowers/specs/2026-10-21-project-owner-design.md`: `projects.owner_id`, owner
+set on creation / on auto-create from a won deal / by a manager; project data editable by
+owner **or while unowned** (today's behaviour, narrows as projects are assigned); the
+**budget is the assigned owner only** (user's choice) plus finance/BD; the 40 existing
+projects stay unowned; owner changes guarded by a trigger and audited.
+
+Measured before designing: `projects` had no owner column, 0 projects link to any
+opportunity, `created_by` is set on 2 of 40, 0 budget items exist, and a salesperson
+could already edit projects and jobs — only the budget was closed.
+
+**Next task.** User reviews the spec, then the writing-plans skill produces the
+implementation plan (migration `20261024100000`, pgTAP `project_owner_access`, a TS↔SQL
+drift test, project page assign action, user guide + DECISIONS).
+
+Also open: Postmark account approval (submitted 2026-09-14, no reply — chase support);
+the reply-capture test; Cloudflare Preview URLs are ON and should be disabled again; and
+the salespeople's daily tasks feature (PR 339) is live but has one task in it — nobody is
+using it yet.
+
 ## 2026-10-19 — Deal money columns guarded in the database (branch `fix/opportunity-money-guard`)
 
 Stacked on `feat/project-tracking-group4` (PR 351). Migration `20261023100000` adds

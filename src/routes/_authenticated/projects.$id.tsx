@@ -12,11 +12,13 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog } from "@/components/phc/ActionDialog";
+import { listTeamMembers } from "@/lib/opportunity-actions";
+import { isAssignableTeamMember } from "@/lib/team-members";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { updateProject, verifyProject, type ProjectStage, type ProjectRow, type SourceConfidence } from "@/lib/crm-actions";
-import { canApproveCommercialAction, canCreateSalesRecords, canEditTotalValue, isSystemAdmin } from "@/lib/roles";
+import { assignProjectOwner, updateProject, verifyProject, type ProjectStage, type ProjectRow, type SourceConfidence } from "@/lib/crm-actions";
+import { canApproveCommercialAction, canEditProject, canEditProjectBudget } from "@/lib/roles";
 import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 import { getProjectCoverUrl, uploadProjectCover, validateProjectCoverFile } from "@/lib/project-cover-actions";
 import { ProjectKanban } from "@/components/phc/ProjectKanban";
@@ -64,13 +66,12 @@ function humanize(s: string | null | undefined) {
 function ProjectDetail() {
   const { id } = Route.useParams();
   const { t, lang } = useI18n();
-  const { roles } = useAuth();
+  const { roles, user } = useAuth();
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
   const [tab, setTab] = useState<"overview" | "pipeline" | "budget" | "opportunities">("overview");
   const isManager = canApproveCommercialAction(roles);
-  const canEditProject = canCreateSalesRecords(roles) || isSystemAdmin(roles);
-  const canEditBudget = canEditTotalValue(roles);
 
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", id],
@@ -85,6 +86,21 @@ function ProjectDetail() {
           .single()
       ).data as ProjectDetailRow | null,
   });
+
+  // Permissions depend on who owns the project, so they are derived from the
+  // row rather than from roles alone. The rules live in roles.ts and mirror
+  // can_edit_project / can_edit_project_budget in the database.
+  const ownerCtx = { ownerId: (project?.owner_id as string | null) ?? null, userId: user?.id ?? null };
+  const mayEditProject = canEditProject(roles, ownerCtx);
+  const mayEditBudget = canEditProjectBudget(roles, ownerCtx);
+
+  const ownerQ = useQuery({
+    queryKey: ["project-owner", project?.owner_id],
+    enabled: !!project?.owner_id,
+    queryFn: async () =>
+      (await supabase.from("profiles").select("full_name, email").eq("id", project!.owner_id!).maybeSingle()).data,
+  });
+  const teamQ = useQuery({ queryKey: ["team"], queryFn: listTeamMembers, enabled: isManager });
 
   // Who entered this project, to sit beside its number. A separate read rather
   // than a PostgREST embed: `projects.created_by` carries no foreign key to
@@ -155,7 +171,7 @@ function ProjectDetail() {
         ) : (
           null
         )}
-        {canEditProject ? (
+        {mayEditProject ? (
           <>
             <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleCoverSelected} />
             <button
@@ -184,6 +200,15 @@ function ProjectDetail() {
                 {numberWithEnterer(p.project_number, entererQ.data)}
               </span>
             ) : null}
+            {p.owner_id ? (
+              <span className="text-xs text-muted-foreground">
+                {(lang === "ar" ? "المسؤول: " : "Owner: ") + (ownerQ.data?.full_name ?? ownerQ.data?.email ?? "—")}
+              </span>
+            ) : (
+              /* Unassigned is a state a manager acts on, so it is said plainly
+                 rather than left as an empty space. */
+              <StatusPill tone="muted">{lang === "ar" ? "غير مُسنَد" : "Unassigned"}</StatusPill>
+            )}
             {p.location ? <span className="text-xs text-muted-foreground">{p.location}</span> : null}
           </span>
         }
@@ -192,6 +217,11 @@ function ProjectDetail() {
             <button onClick={() => setEditOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
               {t("crm_edit")}
             </button>
+            {isManager ? (
+              <button onClick={() => setAssignOpen(true)} className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+                {lang === "ar" ? "إسناد المشروع" : "Assign project"}
+              </button>
+            ) : null}
             {isManager && p.verification_status !== "verified" ? (
               <button
                 onClick={async () => {
@@ -286,13 +316,13 @@ function ProjectDetail() {
 
         <TabsContent value="pipeline">
           <Panel title={lang === "ar" ? "خط سير العمل" : "Job Pipeline"} subtitle={lang === "ar" ? "لوحة مرنة — أضف/عدّل/احذف المراحل والبطاقات كما تحتاج." : "A flexible board — add/edit/delete stages and cards as needed."}>
-            <ProjectKanban projectId={p.id} canEdit={canEditProject} />
+            <ProjectKanban projectId={p.id} canEdit={mayEditProject} />
           </Panel>
         </TabsContent>
 
         <TabsContent value="budget">
           <Panel title={lang === "ar" ? "الميزانية" : "Budget"}>
-            <ProjectBudget projectId={p.id} canEdit={canEditBudget} />
+            <ProjectBudget projectId={p.id} canEdit={mayEditBudget} />
           </Panel>
         </TabsContent>
 
@@ -348,6 +378,37 @@ function ProjectDetail() {
           </Panel>
         </TabsContent>
       </Tabs>
+
+      <ActionDialog
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        title={lang === "ar" ? "إسناد المشروع" : "Assign project"}
+        submitLabel={t("crm_saved")}
+        fields={[
+          {
+            key: "ownerId",
+            type: "select",
+            label: lang === "ar" ? "المسؤول" : "Owner",
+            defaultValue: p.owner_id ?? "",
+            options: [
+              { value: "", label: lang === "ar" ? "بدون مسؤول" : "Unassigned" },
+              ...((teamQ.data ?? []) as { id: string; full_name: string | null; email: string | null; status?: string | null; is_display_account?: boolean | null }[])
+                .filter(isAssignableTeamMember)
+                .map((m) => ({ value: m.id, label: m.full_name ?? m.email ?? m.id })),
+            ],
+          },
+        ]}
+        onSubmit={async (v) => {
+          try {
+            await assignProjectOwner(p.id, (v.ownerId as string) || null);
+            toast.success(t("crm_saved"));
+            qc.invalidateQueries({ queryKey: ["project", id] });
+            setAssignOpen(false);
+          } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+          }
+        }}
+      />
 
       <ActionDialog
         open={editOpen}

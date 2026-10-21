@@ -1,5 +1,12 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-21 — Project tracking, manager feedback and money guards released
+
+- Released `f5a7af1` (Worker `19a718a5`): PR 351 project tracking, PR 349 manager
+  feedback, PR 352 money-column guards, PR 350 TanStack security patch.
+- `sales-os-api` v76; the three pending migrations were already applied.
+- Spec written for project ownership (`feat/project-owner`), not yet implemented.
+
 ## 2026-10-19 — Deal values guarded in the database (not deployed)
 
 - Migration `20261023100000`: `protect_opportunity_money()` + BEFORE UPDATE trigger on `opportunities`.

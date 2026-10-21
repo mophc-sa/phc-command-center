@@ -828,6 +828,21 @@ These are guardrails, not suggestions. They will stop you.
 
 ---
 
+### Projects have an owner (2026-10-21)
+
+A project now has a responsible salesperson, shown at the top of the project page.
+
+- **Creating one makes it yours.** So does winning the deal behind it: the project the
+  system opens for a won deal goes to whoever owned that deal.
+- **A project nobody owns is open to the sales team, and editing it claims it.** Most
+  projects imported into the system have no owner yet; the first person to edit one
+  becomes its owner, and it then closes to their colleagues. Managers can reassign at any
+  time from **Assign project**.
+- **The budget is tighter: the owner only**, plus Finance and the Development Manager. An
+  unassigned project's budget stays closed until someone owns it — cost figures are not
+  open to whoever happens to be looking.
+- Every claim and reassignment is recorded with who did it and when.
+
 ## 10. Current limitations
 
 ### Project tracking (2026-10-19)
@@ -1335,3 +1350,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-10-19 · Project tracking: update log, construction %, three values, job title, autofill, one number to Production · previous: Outlook phase 1, 2026-09-29 -->
 
 <!-- last reviewed 2026-10-19 · manager feedback: notification clicks, won drilldown period, approvals limited to manager decisions, annual targets · previous: Outlook phase 1, 2026-09-29 -->
+
+<!-- last reviewed 2026-10-21 · projects have an owner; the owner edits the budget · previous: interface audit, 2026-09-20 -->
