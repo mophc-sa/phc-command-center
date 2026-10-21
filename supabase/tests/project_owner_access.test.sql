@@ -40,11 +40,15 @@ select is(
   '4b000000-0000-0000-0000-000000000002'::uuid,
   'Editing an unassigned project makes the editor its owner');
 
+-- audit_log is readable only by platform admins, so this one assertion steps
+-- out of the salesperson's session to look at the row the trigger wrote.
+reset role;
 select is(
   (select count(*)::int from public.audit_log
     where action = 'project.owner_claimed' and entity_id = '4b100000-0000-0000-0000-000000000001'),
   1,
   'The claim is recorded');
+set local role authenticated;
 
 -- Now that it is owned, the other salesperson is out.
 select set_config('request.jwt.claims','{"sub":"4b000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
@@ -56,10 +60,15 @@ select is(
   0,
   'A salesperson may not edit a project someone else owns');
 
-select throws_ok(
-  $$update public.projects set owner_id = '4b000000-0000-0000-0000-000000000001'
-     where id = '4b100000-0000-0000-0000-000000000001'$$,
-  '42501', null,
+-- The row is invisible to this salesperson for writing, so the statement
+-- matches nothing: no error, and nothing changes. Checking the owner is what
+-- proves it, not the absence of an exception.
+update public.projects set owner_id = '4b000000-0000-0000-0000-000000000001'
+ where id = '4b100000-0000-0000-0000-000000000001';
+
+select is(
+  (select owner_id from public.projects where id = '4b100000-0000-0000-0000-000000000001'),
+  '4b000000-0000-0000-0000-000000000002'::uuid,
   'A salesperson cannot take a project that already has an owner');
 
 -- Their own project is theirs to edit.
@@ -105,14 +114,14 @@ select is(
   'An unassigned project''s budget is closed, even to the sales team');
 
 -- ── Managers ───────────────────────────────────────────────────────────────
-select set_config('request.jwt.claims','{"sub":"4b000000-0000-0000-0000-000000000003","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"4b000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
 
 select lives_ok(
   $$update public.projects set owner_id = '4b000000-0000-0000-0000-000000000002'
      where id = '4b100000-0000-0000-0000-000000000002'$$,
   'A sales manager reassigns a project that already has an owner');
 
-select set_config('request.jwt.claims','{"sub":"4b000000-0000-0000-0000-000000000004","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"4b000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
 
 select is(
   (select count(*)::int from public.projects
