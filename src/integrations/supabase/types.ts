@@ -5311,6 +5311,7 @@ export type Database = {
           main_contractor_id: string | null
           name: string
           notes: string | null
+          owner_id: string | null
           owner_company_id: string | null
           project_number: string | null
           project_stage: Database["public"]["Enums"]["project_stage"]
@@ -5340,6 +5341,7 @@ export type Database = {
           main_contractor_id?: string | null
           name: string
           notes?: string | null
+          owner_id?: string | null
           owner_company_id?: string | null
           project_number?: string | null
           project_stage?: Database["public"]["Enums"]["project_stage"]
@@ -5369,6 +5371,7 @@ export type Database = {
           main_contractor_id?: string | null
           name?: string
           notes?: string | null
+          owner_id?: string | null
           owner_company_id?: string | null
           project_number?: string | null
           project_stage?: Database["public"]["Enums"]["project_stage"]

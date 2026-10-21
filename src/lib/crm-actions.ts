@@ -253,6 +253,20 @@ export async function verifyProject(id: Uuid) {
   return data;
 }
 
+/**
+ * Hands a project to a salesperson.
+ *
+ * Straight to the table rather than through the backend: the database decides
+ * who may do this (project_owner_guard in 20261024100000). A salesperson may
+ * claim a project nobody owns — simply editing one does that — and only a
+ * pipeline operator may move one that already has an owner. Either way the
+ * change is written to audit_log by the trigger.
+ */
+export async function assignProjectOwner(id: Uuid, ownerId: Uuid | null) {
+  const { error } = await supabase.from("projects").update({ owner_id: ownerId }).eq("id", id);
+  if (error) throw error;
+}
+
 export async function updateProject(
   id: Uuid,
   patch: Partial<Database["public"]["Tables"]["projects"]["Update"]>,
