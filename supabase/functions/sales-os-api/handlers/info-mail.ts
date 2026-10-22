@@ -52,10 +52,13 @@ async function info_mail_forward(payload: Record<string, unknown>, ctx: SalesOsC
   // eslint-disable-next-line no-control-regex -- strip control characters from a display name
   const who = String(me?.full_name || me?.email || "a colleague").replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").trim().slice(0, 100) || "a colleague";
 
-  // Claim the row before Graph, so two clicks at once cannot both send.
+  // Claim the row before Graph, so two clicks at once cannot both send. A claim
+  // older than five minutes is stale (a crashed attempt) and may be taken again.
+  const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
   const { data: claimed } = await ctx.svc.from("info_mail")
     .update({ handled_by: ctx.caller.userId, handled_at: new Date().toISOString() })
-    .eq("id", id).eq("status", "new").is("inbox_item_id", null).is("handled_at", null).select("id");
+    .eq("id", id).eq("status", "new").is("inbox_item_id", null)
+    .or(`handled_at.is.null,handled_at.lt.${staleBefore}`).select("id");
   if (!claimed || claimed.length === 0) return err("This message was already handled", 409);
   const release = () => ctx.svc.from("info_mail").update({ handled_by: null, handled_at: null })
     .eq("id", id).eq("status", "new").eq("handled_by", ctx.caller.userId);

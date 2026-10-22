@@ -267,7 +267,10 @@ states them. It carries the **Email to info@** chip, and is assigned to the clie
 owner, or waits for the sales manager to assign it. Everything else waits in **info@ mail — to
 route** at the top of the Lead & Tender Inbox page, where a sales manager, BD or sales ops
 forwards it to a colleague's Outlook, turns it into a request (**This is an RFQ**), or dismisses
-it. Forwarding asks you to confirm first.
+it. Forwarding and dismissing ask you to confirm first. Newsletters and spam are not listed one by
+one: a **Newsletters & spam** line with a count and **Dismiss all** (it confirms) clears them. Mail
+that arrived before the system was switched on is listed under **Not sorted — route by hand**
+(the AI does not sort old mail).
 
 ### Step 2 — Save. It goes for review.
 
@@ -875,8 +878,13 @@ A project now has a responsible salesperson, shown at the top of the project pag
 - A reply from your own Outlook starts a new email "RE: ...". It does not continue the info@ thread in the client's inbox.
 - CVs, invoices and other non-request mail keep only the sender, subject, label and one line; the text stays in Outlook.
 - Attachments are listed by name, not stored.
-- The AI sorts. A request it is unsure of (below 70%) waits in the **info@ mail — to route** list for a person. If the AI is down, sorting pauses and resumes by itself; nothing is lost.
+- The AI sorts. A request it is unsure of (below 70%) waits in the **info@ mail — to route** list for a person. If the AI is down, sorting backs off (30 minutes, then 60, then 120) and resumes by itself; nothing is lost. The mailbox has a daily AI limit of 300; at the limit, sorting resumes after 03:00 Riyadh time.
+- Only new mail is sorted. Mail from before go-live, and mail the AI could not sort after three tries, shows as **Not sorted — route by hand**. Newsletters go to **Newsletters & spam** without the AI.
+- The list shows the newest 200 messages. Only the Inbox folder is read: mail moved by an Outlook rule, or in Junk, is not seen.
 - A message a person has dismissed or forwarded is never turned into a request afterwards by the AI.
+- Do not CC `info@` when you reply from the system: the reply would start a separate thread instead of joining the client's.
+- **Mention** only offers colleagues who can open that deal, and only they are notified. If some of the people you picked cannot be reached, the confirmation says "n of m notified".
+- For a rep to open the original email, the Reviewer permission on the info@ Inbox must be in place (see the setup guide); without it **Open in Outlook** is refused.
 
 ### Today's actions on the Command Center (2026-10-20)
 
@@ -1401,4 +1409,4 @@ Update this file when the workflow changes.*
 
 <!-- last reviewed 2026-10-20 · Today's actions: five cards on the Command Center · previous: manager feedback (approvals, targets), 2026-10-19 -->
 
-<!-- last reviewed 2026-10-23 · info@ mailbox: requests from email, router list, Source email panel, Mention · branch feat/info-mailbox, not deployed · previous: Today's actions, 2026-10-20 -->
+<!-- last reviewed 2026-10-23 · info@ mailbox: requests from email, router list, Newsletters & spam, Not sorted, Source email panel, Mention (deal readers only) · branch feat/info-mailbox, not deployed · previous: Today's actions, 2026-10-20 -->

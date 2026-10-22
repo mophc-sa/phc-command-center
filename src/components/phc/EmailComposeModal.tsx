@@ -32,7 +32,7 @@ import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMailStatus, sendEmail } from "@/lib/mail-actions";
 import { formatNumber, useI18n } from "@/lib/i18n";
-import { listColleagues } from "@/lib/info-mail-actions";
+import { mentionableColleagues } from "@/lib/info-mail-actions";
 import {
   buildEmailDraft,
   MAILTO_MAX_LENGTH,
@@ -94,9 +94,9 @@ export function EmailComposeModal({
   const ar = lang === "ar";
   const dealLinked = Boolean(linked?.opportunityId);
   const colleagues = useQuery({
-    queryKey: ["info-mail-colleagues"],
-    queryFn: listColleagues,
-    staleTime: 10 * 60_000,
+    queryKey: ["mentionable-colleagues", linked?.opportunityId ?? null],
+    queryFn: () => mentionableColleagues(String(linked?.opportunityId)),
+    staleTime: 5 * 60_000,
     enabled: open && dealLinked,
   });
 
@@ -187,9 +187,12 @@ export function EmailComposeModal({
         tenderId: linked?.tenderId ?? null,
         mentions: dealLinked ? mentions : [],
       });
-      const notified = r.mentioned > 0
-        ? ar ? ` · نُبّه ${formatNumber(r.mentioned, lang)}` : ` · ${formatNumber(r.mentioned, lang)} notified`
-        : "";
+      const picked = dealLinked ? mentions.length : 0;
+      const notified = picked > 0 && r.mentioned < picked
+        ? ar ? ` · نُبّه ${formatNumber(r.mentioned, lang)} من ${formatNumber(picked, lang)}` : ` · ${formatNumber(r.mentioned, lang)} of ${formatNumber(picked, lang)} notified`
+        : r.mentioned > 0
+          ? ar ? ` · نُبّه ${formatNumber(r.mentioned, lang)}` : ` · ${formatNumber(r.mentioned, lang)} notified`
+          : "";
       if (r.logged) toast.success(`${t("email_sent_ok")}${notified}`);
       else toast.warning(t("email_sent_unlogged"));
       void qc.invalidateQueries();

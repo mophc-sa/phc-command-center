@@ -93,7 +93,7 @@ describe("routing info@ mail", () => {
 
   it("claims the row before it forwards", () => {
     const body = H.slice(H.indexOf("async function info_mail_forward"), H.indexOf("async function info_mail_mark_rfq"));
-    const claim = body.indexOf('.is("handled_at", null)');
+    const claim = body.indexOf("handled_at.is.null,handled_at.lt.");
     expect(claim).toBeGreaterThan(-1);
     expect(body.indexOf("forwardMailboxMessage(")).toBeGreaterThan(claim);
   });
@@ -118,5 +118,46 @@ describe("@mentions on a sent email", () => {
     const insert = fn.indexOf('from("activities").insert(');
     expect(insert).toBeGreaterThan(-1);
     expect(fn.indexOf("payload.mentions")).toBeGreaterThan(insert);
+  });
+});
+
+describe("the router list and its helpers", () => {
+  const H = read("supabase/functions/sales-os-api/handlers/info-mail.ts");
+  const A = read("src/lib/info-mail-actions.ts");
+  const PANEL = read("src/components/phc/InfoMailPanel.tsx");
+  const MODAL = read("src/components/phc/EmailComposeModal.tsx");
+  const ACTIVITY = read("src/routes/_authenticated/agent-activity.tsx");
+
+  it("lists the newest 200 without spam, and clears spam through one RPC", () => {
+    const list = A.slice(A.indexOf("export async function listOpenInfoMail"), A.indexOf("export async function countOpenInfoSpam"));
+    expect(list).toContain('.neq("category", "spam")');
+    expect(list).toContain(".limit(200)");
+    expect(A).toContain('"info_mail_dismiss_spam"');
+    expect(A).toContain("triage_attempts");
+  });
+
+  it("asks before Dismiss and before Dismiss all, and labels unsorted mail", () => {
+    expect(PANEL.match(/window\.confirm\(/g)?.length).toBeGreaterThanOrEqual(3); // forward, dismiss, dismiss all
+    expect(PANEL).toContain("dismissOpenInfoSpam");
+    expect(PANEL).toContain("Not sorted — route by hand");
+    expect(PANEL).toContain("لم يُفرز — وجّهه يدويًا");
+    expect(PANEL).toContain("triage_attempts >= 3");
+  });
+
+  it("offers only people who can open the deal, and reports n of m", () => {
+    expect(A).toContain('"mentionable_colleagues"');
+    expect(MODAL).toContain("mentionableColleagues(");
+    expect(MODAL).not.toContain("listColleagues");
+    expect(MODAL).toMatch(/of \$\{formatNumber\(picked, lang\)\} notified/);
+  });
+
+  it("the forward claim may take a claim older than five minutes", () => {
+    const body = H.slice(H.indexOf("async function info_mail_forward"), H.indexOf("async function info_mail_mark_rfq"));
+    expect(body).toContain("5 * 60_000");
+    expect(body).toContain(".or(`handled_at.is.null,handled_at.lt.${staleBefore}`)");
+  });
+
+  it("keeps the info@ sorter out of Agent Activity", () => {
+    expect(ACTIVITY.match(/\.neq\("agent_key", "info_mail_triage"\)/g)?.length).toBe(2);
   });
 });

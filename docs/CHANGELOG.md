@@ -17,9 +17,14 @@
   executives): forward (confirm; claims the message first so two clicks cannot send twice), This is an RFQ
   (fetches the full text from Outlook again), dismiss. "Email to info@" chip on intake. "Source email" panel
   on the deal page. "Mention" in the send window (in-system notice only; CC unchanged).
-- Docs: `docs/info-mailbox-setup.md`, USER_GUIDE (Step 1, Step 3, deal page, send window, section 10).
-- Not deployed. Needs `db push` (two migrations), deploys of `ai-orchestrator`, `outlook-sync` and
-  `sales-os-api`, Mo's Exchange setup, then `supabase secrets set INFO_MAILBOX=info@phc-sa.com`. Not tried
+- Final review: mail from before go-live is listed "Not sorted — route by hand" without AI; newsletters/bulk
+  mail go to a "Newsletters & spam" line with Dismiss all; Dismiss asks to confirm; newest 200 shown; AI
+  backs off on outages (30 min doubling to 120) and is newest-first; a handled-less-than-5-minutes row is
+  claimed (the forward handler takes a stale claim); Mention lists only people who can open the deal and the
+  toast reads "n of m notified"; Agent Activity hides `info_mail_triage`.
+- Docs: `docs/info-mailbox-setup.md` (pre-checks, release order, first run), USER_GUIDE (Step 1, Step 3, deal page, send window, section 10).
+- Not deployed. Needs deploys of `ai-orchestrator`, `outlook-sync` and `sales-os-api` first, then `db push`
+  (two migrations), Mo's Exchange setup, then `supabase secrets set INFO_MAILBOX=info@phc-sa.com`. Not tried
   against the real mailbox.
 
 ## 2026-10-22 — Back button and full intake notes (manager feedback group 6, not deployed)

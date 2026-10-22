@@ -10,7 +10,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ExternalLink, Mail } from "lucide-react";
 import { useI18n, formatNumber, localeFor } from "@/lib/i18n";
-import { dismissInfoMail, forwardInfoMail, listColleagues, listOpenInfoMail, markInfoMailRfq, type InfoMailRow } from "@/lib/info-mail-actions";
+import {
+  countOpenInfoSpam, dismissInfoMail, dismissOpenInfoSpam, forwardInfoMail, listColleagues, listOpenInfoMail, markInfoMailRfq,
+  type InfoMailRow,
+} from "@/lib/info-mail-actions";
 
 const LABEL: Record<string, { en: string; ar: string }> = {
   unclassified: { en: "Being sorted", ar: "قيد الفرز" },
@@ -20,9 +23,11 @@ const LABEL: Record<string, { en: string; ar: string }> = {
   finance: { en: "Finance", ar: "مالية" },
   hr: { en: "HR", ar: "موارد بشرية" },
   general: { en: "General", ar: "عام" },
-  spam: { en: "Spam", ar: "رسائل مزعجة" },
+  // unclassified after three failed attempts, or mail from before go-live
+  unsorted: { en: "Not sorted — route by hand", ar: "لم يُفرز — وجّهه يدويًا" },
 };
-const ORDER = ["rfq", "quotation_request", "general", "supplier", "finance", "hr", "unclassified", "spam"];
+const ORDER = ["rfq", "quotation_request", "general", "supplier", "finance", "hr", "unclassified", "unsorted"];
+const groupOf = (r: InfoMailRow) => (r.category === "unclassified" && r.triage_attempts >= 3 ? "unsorted" : r.category);
 
 export function InfoMailPanel() {
   const { lang } = useI18n();
@@ -34,9 +39,11 @@ export function InfoMailPanel() {
     staleTime: 10 * 60_000,
     queryFn: listColleagues,
   });
+  const spam = useQuery({ queryKey: ["info-mail-spam"], queryFn: countOpenInfoSpam, staleTime: 60_000 });
   const [busy, setBusy] = useState<string | null>(null);
   const rows = q.data ?? [];
-  if (!q.isLoading && !q.isError && rows.length === 0) return null;
+  const spamCount = spam.data ?? 0;
+  if (!q.isLoading && !q.isError && rows.length === 0 && spamCount === 0) return null;
 
   async function act(id: string, run: () => Promise<unknown>, done: string) {
     setBusy(id);
@@ -44,6 +51,7 @@ export function InfoMailPanel() {
       await run();
       toast.success(done);
       await qc.invalidateQueries({ queryKey: ["info-mail-open"] });
+      await qc.invalidateQueries({ queryKey: ["info-mail-spam"] });
       await qc.invalidateQueries({ queryKey: ["inbox-items"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -52,7 +60,7 @@ export function InfoMailPanel() {
     }
   }
 
-  const groups = ORDER.map((c) => [c, rows.filter((r) => r.category === c)] as const).filter(([, list]) => list.length);
+  const groups = ORDER.map((c) => [c, rows.filter((r) => groupOf(r) === c)] as const).filter(([, list]) => list.length);
   const summaryLine = (r: InfoMailRow) => {
     const [en, arLine] = (r.summary ?? "").split("\n");
     return (ar ? arLine || en : en) || r.subject || "";
@@ -69,6 +77,24 @@ export function InfoMailPanel() {
         <button type="button" onClick={() => void q.refetch()} className="mt-2 text-sm text-destructive underline">
           {ar ? "تعذّر التحميل — أعد المحاولة" : "Could not load — try again"}
         </button>
+      ) : null}
+      {spamCount > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/70 px-3 py-2 text-sm">
+          <span>
+            {ar ? "نشرات ورسائل مزعجة" : "Newsletters & spam"}{" "}
+            <span className="num text-muted-foreground" data-tabular="true">({formatNumber(spamCount, lang)})</span>
+          </span>
+          <button type="button" disabled={busy === "spam"}
+            onClick={() => {
+              const ask = ar
+                ? `تجاهل ${formatNumber(spamCount, lang)} رسالة من النشرات والرسائل المزعجة؟`
+                : `Dismiss ${formatNumber(spamCount, lang)} newsletter and spam messages?`;
+              if (window.confirm(ask)) void act("spam", dismissOpenInfoSpam, ar ? "أُغلقت النشرات والرسائل المزعجة" : "Newsletters and spam dismissed");
+            }}
+            className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
+            {ar ? "تجاهل الكل" : "Dismiss all"}
+          </button>
+        </div>
       ) : null}
       {groups.map(([cat, list]) => (
         <div key={cat} className="mt-3">
@@ -113,7 +139,10 @@ export function InfoMailPanel() {
                     {ar ? "هذا طلب تسعير" : "This is an RFQ"}
                   </button>
                   <button type="button" disabled={busy === r.id}
-                    onClick={() => void act(r.id, () => dismissInfoMail(r.id), ar ? "أُغلق" : "Dismissed")}
+                    onClick={() => {
+                      const ask = ar ? "تجاهل هذا البريد؟ لن يظهر هنا مرة أخرى." : "Dismiss this email? It will not be listed again.";
+                      if (window.confirm(ask)) void act(r.id, () => dismissInfoMail(r.id), ar ? "أُغلق" : "Dismissed");
+                    }}
                     className="rounded-md border border-border px-2 py-1 text-muted-foreground">
                     {ar ? "تجاهل" : "Dismiss"}
                   </button>

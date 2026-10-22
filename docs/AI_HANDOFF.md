@@ -25,8 +25,15 @@ Rules that are easy to break:
   login: it sees summaries of mail that already sits in its own mailbox.
 - Non-request mail never stores its text. A conversation binds to its deal through `info_mail`, not `email_threads`.
 
-Release order: (1) `db push`, approval-gated; (2) deploy `ai-orchestrator`, `outlook-sync`, `sales-os-api`;
-(3) Mo's Exchange setup (30 minutes to 2 hours to apply); (4) `supabase secrets set INFO_MAILBOX=info@phc-sa.com`,
+Final-review fixes (2026-10-22, same branch): pre-go-live mail is stored header-only and shown as "Not sorted -
+route by hand" (`started_at`, `triage_attempts = 3`); bulk mail (List-Unsubscribe / Precedence) is stored as
+spam without the AI and cleared with `info_mail_dismiss_spam()`; triage is newest-first and backs off 30 min
+doubling to 120 on an outage (`triage_retry_at`, `triage_backoff_minutes`); a row handled less than 5 minutes
+ago is "claimed" (a stale claim can be taken again by the forward handler); Mention uses
+`mentionable_colleagues(opportunity)`; Agent Activity hides `info_mail_triage`.
+
+Release order: (1) deploy `ai-orchestrator`, `outlook-sync`, `sales-os-api` first (they answer "off" until
+`INFO_MAILBOX`); (2) `db push`, approval-gated (creates the cron job); (3) Mo's Exchange setup (30 minutes to 2 hours to apply); (4) `supabase secrets set INFO_MAILBOX=info@phc-sa.com`,
 only after (3) and the AI provider key; (5) watch the first pass (`select last_run_at, last_error from
 info_mailbox_state`); (6) canary, then production. Nothing deploys on merge. Production serves `f5a7af1`;
 newer main also carries #353 (part A), still pending.
