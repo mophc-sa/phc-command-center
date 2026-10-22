@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { ExternalLink, Mail } from "lucide-react";
 import { useI18n, formatNumber, localeFor } from "@/lib/i18n";
 import {
-  countOpenInfoSpam, dismissInfoMail, dismissOpenInfoSpam, forwardInfoMail, listColleagues, listOpenInfoMail, markInfoMailRfq,
+  countOpenInfoSpam, dismissInfoMail, dismissOpenInfoSpam, forwardInfoMail, listColleagues, listOpenInfoMail, listOpenInfoSpam, markInfoMailRfq,
   type InfoMailRow,
 } from "@/lib/info-mail-actions";
 
@@ -41,17 +41,20 @@ export function InfoMailPanel() {
   });
   const spam = useQuery({ queryKey: ["info-mail-spam"], queryFn: countOpenInfoSpam, staleTime: 60_000 });
   const [busy, setBusy] = useState<string | null>(null);
+  const [spamOpen, setSpamOpen] = useState(false);
+  const spamRows = useQuery({ queryKey: ["info-mail-spam-rows"], queryFn: listOpenInfoSpam, staleTime: 60_000, enabled: spamOpen });
   const rows = q.data ?? [];
   const spamCount = spam.data ?? 0;
   if (!q.isLoading && !q.isError && rows.length === 0 && spamCount === 0) return null;
 
-  async function act(id: string, run: () => Promise<unknown>, done: string) {
+  async function act(id: string, run: () => Promise<unknown>, done: string | ((result: unknown) => string)) {
     setBusy(id);
     try {
-      await run();
-      toast.success(done);
+      const result = await run();
+      toast.success(typeof done === "function" ? done(result) : done);
       await qc.invalidateQueries({ queryKey: ["info-mail-open"] });
       await qc.invalidateQueries({ queryKey: ["info-mail-spam"] });
+      await qc.invalidateQueries({ queryKey: ["info-mail-spam-rows"] });
       await qc.invalidateQueries({ queryKey: ["inbox-items"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -65,6 +68,60 @@ export function InfoMailPanel() {
     const [en, arLine] = (r.summary ?? "").split("\n");
     return (ar ? arLine || en : en) || r.subject || "";
   };
+
+  // `routing` rows are the open list (forward + summary); spam rows get the
+  // sender, subject, time, Outlook link, "This is an RFQ" and Dismiss only.
+  const renderRow = (r: InfoMailRow, routing: boolean) => (
+    <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-2 text-sm">
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium" dir="auto">{r.subject || (ar ? "(بلا عنوان)" : "(no subject)")}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {r.from_name || r.from_email} · {new Date(r.received_at).toLocaleString(localeFor(lang), { dateStyle: "medium", timeStyle: "short" })}
+        </p>
+        {routing ? <p className="truncate text-xs text-muted-foreground" dir="auto">{summaryLine(r)}</p> : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        {r.web_link ? (
+          <a href={r.web_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1">
+            Outlook <ExternalLink className="h-3 w-3" aria-hidden="true" />
+          </a>
+        ) : null}
+        {routing ? (
+          <select
+            aria-label={ar ? "حوّل إلى" : "Forward to"}
+            disabled={busy === r.id || !people.data}
+            defaultValue=""
+            onChange={(e) => {
+              const to = e.target.value;
+              const name = (people.data ?? []).find((p) => p.id === to);
+              e.target.value = "";
+              const ask = ar ? `تحويل هذا البريد إلى ${name?.full_name || name?.email}؟` : `Forward this email to ${name?.full_name || name?.email}?`;
+              if (to && window.confirm(ask)) void act(r.id, () => forwardInfoMail(r.id, to), ar ? "حُوِّل البريد" : "Forwarded");
+            }}
+            className="rounded-md border border-border bg-background px-2 py-1"
+          >
+            <option value="">{ar ? "حوّل إلى…" : "Forward to…"}</option>
+            {(people.data ?? []).map((p) => (
+              <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+            ))}
+          </select>
+        ) : null}
+        <button type="button" disabled={busy === r.id}
+          onClick={() => void act(r.id, () => markInfoMailRfq(r.id), ar ? "أُنشئ طلب في الوارد" : "Request created in the inbox")}
+          className="rounded-md border border-border px-2 py-1">
+          {ar ? "هذا طلب تسعير" : "This is an RFQ"}
+        </button>
+        <button type="button" disabled={busy === r.id}
+          onClick={() => {
+            const ask = ar ? "تجاهل هذا البريد؟ لن يظهر هنا مرة أخرى." : "Dismiss this email? It will not be listed again.";
+            if (window.confirm(ask)) void act(r.id, () => dismissInfoMail(r.id), ar ? "أُغلق" : "Dismissed");
+          }}
+          className="rounded-md border border-border px-2 py-1 text-muted-foreground">
+          {ar ? "تجاهل" : "Dismiss"}
+        </button>
+      </div>
+    </li>
+  );
 
   return (
     <section aria-labelledby="info-mail-title" className="rounded-xl border border-border bg-surface p-4">
@@ -89,66 +146,41 @@ export function InfoMailPanel() {
               const ask = ar
                 ? `تجاهل ${formatNumber(spamCount, lang)} رسالة من النشرات والرسائل المزعجة؟`
                 : `Dismiss ${formatNumber(spamCount, lang)} newsletter and spam messages?`;
-              if (window.confirm(ask)) void act("spam", dismissOpenInfoSpam, ar ? "أُغلقت النشرات والرسائل المزعجة" : "Newsletters and spam dismissed");
+              if (window.confirm(ask)) void act("spam", dismissOpenInfoSpam, (n) => {
+                const count = formatNumber(Number(n) || 0, lang);
+                return ar ? `أُغلق ${count}` : `${count} dismissed`;
+              });
             }}
             className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
             {ar ? "تجاهل الكل" : "Dismiss all"}
           </button>
+          <button type="button" aria-expanded={spamOpen} aria-controls="info-mail-spam-list"
+            onClick={() => setSpamOpen((v) => !v)}
+            className="w-full text-start text-xs text-muted-foreground underline">
+            {spamOpen ? (ar ? "إخفاء الرسائل" : "Hide messages") : (ar ? "عرض الرسائل" : "Show messages")}
+          </button>
+          {spamOpen ? (
+            <div id="info-mail-spam-list" className="w-full">
+              {spamRows.isLoading ? (
+                <p className="text-xs text-muted-foreground">{ar ? "جارٍ التحميل…" : "Loading…"}</p>
+              ) : spamRows.isError ? (
+                <button type="button" onClick={() => void spamRows.refetch()} className="text-xs text-destructive underline">
+                  {ar ? "تعذّر التحميل — أعد المحاولة" : "Could not load — try again"}
+                </button>
+              ) : (
+                <ul className="divide-y divide-border/70">
+                  {(spamRows.data ?? []).map((r) => renderRow(r, false))}
+                </ul>
+              )}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {groups.map(([cat, list]) => (
         <div key={cat} className="mt-3">
           <h3 className="text-xs font-medium text-muted-foreground">{LABEL[cat]?.[ar ? "ar" : "en"] ?? cat}</h3>
           <ul className="mt-1 divide-y divide-border/70">
-            {list.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-2 text-sm">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium" dir="auto">{r.subject || (ar ? "(بلا عنوان)" : "(no subject)")}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {r.from_name || r.from_email} · {new Date(r.received_at).toLocaleString(localeFor(lang), { dateStyle: "medium", timeStyle: "short" })}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground" dir="auto">{summaryLine(r)}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                  {r.web_link ? (
-                    <a href={r.web_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1">
-                      Outlook <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                    </a>
-                  ) : null}
-                  <select
-                    aria-label={ar ? "حوّل إلى" : "Forward to"}
-                    disabled={busy === r.id || !people.data}
-                    defaultValue=""
-                    onChange={(e) => {
-                      const to = e.target.value;
-                      const name = (people.data ?? []).find((p) => p.id === to);
-                      e.target.value = "";
-                      const ask = ar ? `تحويل هذا البريد إلى ${name?.full_name || name?.email}؟` : `Forward this email to ${name?.full_name || name?.email}?`;
-                      if (to && window.confirm(ask)) void act(r.id, () => forwardInfoMail(r.id, to), ar ? "حُوِّل البريد" : "Forwarded");
-                    }}
-                    className="rounded-md border border-border bg-background px-2 py-1"
-                  >
-                    <option value="">{ar ? "حوّل إلى…" : "Forward to…"}</option>
-                    {(people.data ?? []).map((p) => (
-                      <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
-                    ))}
-                  </select>
-                  <button type="button" disabled={busy === r.id}
-                    onClick={() => void act(r.id, () => markInfoMailRfq(r.id), ar ? "أُنشئ طلب في الوارد" : "Request created in the inbox")}
-                    className="rounded-md border border-border px-2 py-1">
-                    {ar ? "هذا طلب تسعير" : "This is an RFQ"}
-                  </button>
-                  <button type="button" disabled={busy === r.id}
-                    onClick={() => {
-                      const ask = ar ? "تجاهل هذا البريد؟ لن يظهر هنا مرة أخرى." : "Dismiss this email? It will not be listed again.";
-                      if (window.confirm(ask)) void act(r.id, () => dismissInfoMail(r.id), ar ? "أُغلق" : "Dismissed");
-                    }}
-                    className="rounded-md border border-border px-2 py-1 text-muted-foreground">
-                    {ar ? "تجاهل" : "Dismiss"}
-                  </button>
-                </div>
-              </li>
-            ))}
+            {list.map((r) => renderRow(r, true))}
           </ul>
         </div>
       ))}

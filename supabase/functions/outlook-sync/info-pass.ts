@@ -63,23 +63,37 @@ async function runPass(svc: Svc, cfg: Cfg, opts: PassOpts): Promise<PassResult> 
   }
 
   // 1. Read new mail.
-  const { data: state } = await svc.from("info_mailbox_state")
+  const { data: state, error: stateErr } = await svc.from("info_mailbox_state")
     .select("delta_link, started_at, triage_retry_at, triage_backoff_minutes").eq("id", true).maybeSingle();
-  // The first pass marks go-live. Mail received before it is stored header
-  // only and never sent to the AI (a router routes it by hand).
-  let startedAt = (state?.started_at as string | null) ?? null;
-  if (!startedAt) {
-    startedAt = new Date().toISOString();
-    await svc.from("info_mailbox_state").update({ started_at: startedAt }).eq("id", true).is("started_at", null);
+  if (stateErr) {
+    // Without the saved link and go-live time the pass cannot tell new mail
+    // from old, so it stores and sorts nothing this round.
+    try { await saveState(svc, null, "state unavailable", true); } catch { /* best effort */ }
+    log({ outcome: "state_unavailable" });
+    return { stored: 0, triaged: 0, error: "state" };
   }
-  const startedMs = Date.parse(startedAt);
+  // The first pass marks go-live. Mail received before it is stored header
+  // only and never sent to the AI (a router routes it by hand). Mail counts as
+  // old only when a go-live time is confirmed, from the read or from the write;
+  // if the write is not confirmed, this run's mail is stored as new.
+  let startedAt = (state?.started_at as string | null) ?? null;
+  let startNote: string | null = null;
+  if (!startedAt) {
+    const now = new Date().toISOString();
+    const { data: written, error: writeErr } = await svc.from("info_mailbox_state")
+      .update({ started_at: now }).eq("id", true).is("started_at", null).select("started_at");
+    const saved = !writeErr ? (written?.[0]?.started_at as string | undefined) ?? null : null;
+    if (saved) startedAt = saved;
+    else startNote = "start time not saved";
+  }
+  const startedMs = startedAt ? Date.parse(startedAt) : null;
   const retryAt = state?.triage_retry_at ? Date.parse(state.triage_retry_at as string) : null;
   const backoffMin = Number(state?.triage_backoff_minutes ?? 0);
   const backingOff = retryAt !== null && Date.now() < retryAt;
   const since = new Date(Date.now() - FIRST_READ_DAYS * 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z");
   let url = (state?.delta_link as string | null) ?? mailboxDeltaUrl(opts.mailbox, since);
   let resume: string | null = (state?.delta_link as string | null) ?? null;
-  let error: string | null = null;
+  let error: string | null = startNote;
   const batch: Array<Record<string, unknown>> = [];
   for (let i = 0; i < MAX_PAGES && inBudget(); i++) {
     const r = await deltaPage(tok.access, url);
@@ -112,7 +126,7 @@ async function runPass(svc: Svc, cfg: Cfg, opts: PassOpts): Promise<PassResult> 
     // Newsletters are spam without asking the AI; old mail waits for a router.
     // Neither keeps its text.
     const isBulk = isBulkMail(detail.headers);
-    const isOld = !isBulk && Date.parse(m.receivedAt) < startedMs;
+    const isOld = !isBulk && startedMs !== null && Date.parse(m.receivedAt) < startedMs;
 
     const { data: row, error: insErr } = await svc.from("info_mail").insert({
       graph_message_id: m.graphId,

@@ -306,6 +306,13 @@ test("ordinary words before a colon are not dangerous protocols", () => {
   }
 });
 
+test("a data: URL is blocked even with spaces before the MIME type", () => {
+  for (const text of ["data: text/html,<script>", "data:text/html,<script>", "data:   application/json,{}"]) {
+    expect(scanForGuardrailViolations({ summary_en: text }).length).toBeGreaterThan(0);
+  }
+  expect(scanForGuardrailViolations({ summary_en: "Project data: 40 villas" })).toEqual([]);
+});
+
 test("URL-like dangerous protocols are still rejected", () => {
   for (const text of [
     "javascript:alert(1)",

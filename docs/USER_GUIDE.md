@@ -268,7 +268,7 @@ owner, or waits for the sales manager to assign it. Everything else waits in **i
 route** at the top of the Lead & Tender Inbox page, where a sales manager, BD or sales ops
 forwards it to a colleague's Outlook, turns it into a request (**This is an RFQ**), or dismisses
 it. Forwarding and dismissing ask you to confirm first. Newsletters and spam are not listed one by
-one: a **Newsletters & spam** line with a count and **Dismiss all** (it confirms) clears them. Glance at them first: a client who writes through a mailing tool can land there. Mail
+one: a **Newsletters & spam** line with a count and **Dismiss all** (it confirms) clears them. Open the group and glance at it before **Dismiss all**: a client who writes through a mailing tool can land there. Mail
 that arrived before the system was switched on is listed under **Not sorted — route by hand**
 (the AI does not sort old mail).
 

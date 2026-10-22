@@ -285,8 +285,8 @@ export type GuardrailFinding =
 //    where the word is used as a URL (final review D7): "Tender file:
 //    drawings attached" or "Project data: 40 villas" is ordinary prose.
 //    javascript:/vbscript: are blocked wherever they appear (a space after
-//    the colon is still a working script URL); data: when a MIME type, "," or
-//    ";" follows; file:/about:/blob: when anything but a space follows.
+//    the colon is still a working script URL); data: when a MIME type (optionally after
+//    spaces), "," or ";" follows; file:/about:/blob: when anything but a space follows.
 // 2. An http(s) URL appearing alongside webhook/action-triggering language
 //    ("call this webhook", "post this to", "trigger this endpoint" ...) —
 //    i.e. the URL is being framed as something to be ACTED ON, not cited as
@@ -295,7 +295,7 @@ export type GuardrailFinding =
 //    is defense in depth against a human reviewer being misled into
 //    manually visiting/triggering something, not a technical RCE vector.
 const DANGEROUS_URL_PROTOCOLS =
-  /\b(?:javascript|vbscript):|\bdata:(?:[a-z]+\/[a-z0-9.+-]+|[,;])|\b(?:file|about|blob):\S/i;
+  /\b(?:javascript|vbscript):|\bdata:(?:\s*[a-z]+\/[a-z0-9.+-]+|[,;])|\b(?:file|about|blob):\S/i;
 const ACTION_URL_CONTEXT = /\b(webhook|call(?:ing)? this (?:webhook|endpoint|api|url|link)|post (?:this|it) to|trigger this|execute this (?:url|link|webhook))\b/i;
 
 // Recursively scans a parsed structured output for any prohibited-action

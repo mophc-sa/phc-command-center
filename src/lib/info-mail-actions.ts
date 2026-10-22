@@ -28,6 +28,15 @@ export async function listOpenInfoMail(): Promise<InfoMailRow[]> {
   return (data ?? []) as InfoMailRow[];
 }
 
+/** The open newsletters and spam, newest 200: what "Dismiss all" would clear, so a router can look first. */
+export async function listOpenInfoSpam(): Promise<InfoMailRow[]> {
+  const { data, error } = await supabase.from("info_mail").select(COLS)
+    .eq("status", "new").eq("category", "spam").is("inbox_item_id", null).is("handled_at", null)
+    .order("received_at", { ascending: false }).limit(200);
+  if (error) throw error;
+  return (data ?? []) as InfoMailRow[];
+}
+
 /** How many newsletters and spam are waiting to be dismissed (same rows as dismissOpenSpam). */
 export async function countOpenInfoSpam(): Promise<number> {
   const { count, error } = await supabase.from("info_mail").select("id", { count: "exact", head: true })

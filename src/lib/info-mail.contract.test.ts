@@ -168,10 +168,17 @@ describe("the info@ pass after the final review (F2)", () => {
   const fn = (name: string) => GRAPH_CLIENT.slice(GRAPH_CLIENT.indexOf(`export async function ${name}`)).split("\n}\n")[0];
 
   it("stores mail from before the first pass header only, never sent to the AI", () => {
-    const first = PASS.indexOf("started_at: startedAt");
+    const first = PASS.indexOf("update({ started_at: now })");
     expect(first).toBeGreaterThan(-1);
     expect(first).toBeLessThan(PASS.indexOf('from("info_mail").insert('));
-    expect(PASS).toContain("Date.parse(m.receivedAt) < startedMs");
+    // old only when a start time is confirmed (read or write)
+    expect(PASS).toContain('.select("started_at")');
+    expect(PASS).toContain('"start time not saved"');
+    expect(PASS).toContain("startedMs !== null && Date.parse(m.receivedAt) < startedMs");
+    // a failed state read ends the pass before anything is stored
+    const stateErr = PASS.slice(PASS.indexOf("if (stateErr) {"), PASS.indexOf("// The first pass marks go-live"));
+    expect(stateErr).toContain('"state unavailable"');
+    expect(stateErr).toContain("return {");
     expect(PASS).toContain("body_text: isBulk || isOld ? null : capBody(detail.body)");
     expect(PASS).toContain("triage_attempts: NO_MORE_ATTEMPTS");
     expect(PASS).toContain('.lt("triage_attempts", NO_MORE_ATTEMPTS)');

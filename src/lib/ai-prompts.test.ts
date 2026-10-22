@@ -83,7 +83,7 @@ test("info_mail_triage prompt lists every request key with its type", async () =
   const keys = Object.keys(request.shape);
   expect(keys.length).toBe(11);
   const prompt = AGENT_PROMPT_BUILDERS.info_mail_triage("context").systemPrompt;
-  for (const key of keys) expect(prompt).toContain(key);
+  for (const key of keys) expect(prompt).toContain(`- ${key}:`);
   expect(prompt).toMatch(/estimated_value[^\n]*number/);
   expect(prompt).toMatch(/deadline[^\n]*YYYY-MM-DD/);
   expect(prompt.toLowerCase()).toContain("every key");

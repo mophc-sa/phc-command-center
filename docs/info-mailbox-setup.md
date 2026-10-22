@@ -65,10 +65,16 @@ The order matters. Nothing deploys on merge; each step is approval-gated. Run th
 1. Deploy the three functions **first**. Until `INFO_MAILBOX` is set they answer "off" and do nothing, so this is safe:
 
 ```
-supabase functions deploy ai-orchestrator --project-ref lrfdtoexyeghrzynapyn --import-map supabase/functions/import_map.json
-supabase functions deploy outlook-sync --project-ref lrfdtoexyeghrzynapyn
-supabase functions deploy sales-os-api --project-ref lrfdtoexyeghrzynapyn
+supabase functions deploy ai-orchestrator \
+  --project-ref lrfdtoexyeghrzynapyn \
+  --import-map supabase/functions/import_map.json
+supabase functions deploy outlook-sync \
+  --project-ref lrfdtoexyeghrzynapyn
+supabase functions deploy sales-os-api \
+  --project-ref lrfdtoexyeghrzynapyn
 ```
+
+Name each function, never "deploy all". Only `ai-orchestrator` takes `--import-map` (its bare `zod` import needs it). `sales-os-api` is bundled with Docker running; do not add `--use-api`, which cannot bundle it.
 
 2. Then `supabase db push --linked` for the two migrations: `20261025090000_inbox_source_info_mailbox.sql` and `20261025100000_info_mailbox.sql`. This also creates the 5-minute job `info-mailbox-sync`. Check it:
 
@@ -90,12 +96,12 @@ What the first run does:
 
 - Mail that arrived **before** go-live is not sorted by the AI. Routers see it in **info@ mail — to route** under "Not sorted — route by hand" (Arabic: "لم يُفرز — وجّهه يدويًا"). For one of those, **This is an RFQ** fetches the text from Outlook and creates the request.
 - Only new mail is sorted by the AI.
-- Newsletters and bulk mail (messages with an unsubscribe header) go straight to the **Newsletters & spam** group without the AI. A router clears the group with **Dismiss all** (asks to confirm). Glance at the group first: a client who writes through a mailing tool can land there too.
+- Newsletters and bulk mail (messages with an unsubscribe header) go straight to the **Newsletters & spam** group without the AI. A router clears the group with **Dismiss all** (asks to confirm). Open the group and glance at it before **Dismiss all**: a client who writes through a mailing tool can land there.
 - Only the **Inbox** folder is read. Mail moved by an Outlook rule, or sitting in Junk, is not seen.
 
 Things to know:
 
-- The info@ profile in the system must stay **active**. It is the requester the AI usage is counted against. The mailbox has a daily AI cap of 300; at the cap, sorting stops and resumes by itself after 03:00 Riyadh time.
+- The info@ profile in the system must stay **active**. It is the requester the AI usage is counted against. The mailbox has a daily AI cap of 300; at the daily cap, sorting resumes after 03:00 Riyadh (within the backoff, up to 2 hours later).
 - An AI outage pauses sorting; it does not use up a message's three tries. Sorting backs off, trying again after 30 minutes, then 60, then 120 (the longest wait), and resumes on its own as soon as the AI answers. `info_mailbox_state.last_error` shows `triage paused: <code>`. Storing new mail continues meanwhile.
 - The orchestrator gateway still needs a JWT, so the pass sends the anon key. Nothing to do about that.
 - Triage never overrides a router: a message someone dismissed or forwarded never becomes a request afterwards.
