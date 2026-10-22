@@ -175,3 +175,26 @@ export async function getMessageDetail(
     return null;
   }
 }
+
+/** The caller's own calendar between two instants, times returned in Riyadh time. Read-only. */
+export async function calendarView(
+  access: string,
+  startIso: string,
+  endIso: string,
+  f: typeof fetch = fetch,
+): Promise<{ ok: true; value: unknown } | { ok: false; status: number }> {
+  const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+  if (!iso.test(startIso) || !iso.test(endIso)) return { ok: false, status: 400 };
+  const url = `${GRAPH}/me/calendarView?startDateTime=${startIso}&endDateTime=${endIso}` +
+    `&$select=subject,start,end,isAllDay,location,webLink,isCancelled,sensitivity&$orderby=start/dateTime&$top=20`;
+  try {
+    const res = await f(url, {
+      headers: { Authorization: `Bearer ${access}`, Prefer: 'outlook.timezone="Arab Standard Time"' },
+    });
+    if (!res.ok) return { ok: false, status: res.status };
+    const j = await res.json() as { value?: unknown };
+    return { ok: true, value: j.value ?? [] };
+  } catch {
+    return { ok: false, status: 502 };
+  }
+}

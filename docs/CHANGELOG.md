@@ -13,6 +13,20 @@
 - `sales-os-api` v76; the three pending migrations were already applied.
 - Spec written for project ownership (`feat/project-owner`), not yet implemented.
 
+## 2026-10-20 — Today's actions on the Command Center (group 3, part A; not deployed)
+
+- `src/lib/manager-actions.ts` (+ tests): Call (at risk / stalled / closing soon, quiet ≥ 14 days, ranked by attention score;
+  contact = decision maker with a phone, else anyone with a phone), Team (overdue, or due and none done), Approve
+  (`isManagerDecision`, oldest first), meeting day label.
+- `sales-os-api` action `outlook_calendar_upcoming`: the caller's own calendarView, now → end of tomorrow (Riyadh),
+  cancelled/private dropped, read-only (`calendarWindow`, `toCalendarEvents`, `calendarView`).
+- `ManagerActions` strip at the top of `/command-center`; replaces the "Decisions awaiting approval" strip and its query.
+  The stakeholder read now includes `phone, contact_order`.
+- `src/lib/approvals-loader.ts`: one BAFO loader shared by the Approve card (pending only) and /approvals (unchanged behaviour; the page still works when the BAFO read fails).
+- No migration. Release: deploy `sales-os-api`, then the UI.
+
+Not yet tried in a browser with a signed-in manager.
+
 ## 2026-10-19 — Deal values guarded in the database (not deployed)
 
 - Migration `20261023100000`: `protect_opportunity_money()` + BEFORE UPDATE trigger on `opportunities`.

@@ -12,7 +12,16 @@
 
 import type { HandlerModule, SalesOsContext } from "../contracts.ts";
 import { json, err } from "../shared.ts";
-import { authorizeUrl, hashState, newOAuthState, newPkce, readGraphConfig } from "../../_shared/graph.ts";
+import {
+  authorizeUrl,
+  calendarWindow,
+  hashState,
+  newOAuthState,
+  newPkce,
+  readGraphConfig,
+  toCalendarEvents,
+} from "../../_shared/graph.ts";
+import { calendarView, refreshAccess } from "../../_shared/graph-client.ts";
 
 const env = (k: string) => Deno.env.get(k);
 const PENDING_MINUTES = 10;
@@ -73,7 +82,40 @@ async function bind_email_to_deal(payload: Record<string, unknown>, ctx: SalesOs
   return json(data);
 }
 
+/**
+ * The caller's own meetings, now to the end of tomorrow, for the Meetings card
+ * on the manager's home page. Read-only: nothing is stored or written back.
+ * Not connected (or the sign-in expired) is an answer, not an error.
+ */
+async function outlook_calendar_upcoming(_payload: Record<string, unknown>, ctx: SalesOsContext) {
+  const cfg = readGraphConfig(env);
+  if (!cfg.configured) return json({ connected: false, events: [] });
+  const { data: refresh } = await ctx.svc.rpc("mail_refresh_token", { _user: ctx.caller.userId });
+  if (typeof refresh !== "string" || !refresh) return json({ connected: false, events: [] });
+  const tok = await refreshAccess(cfg, refresh);
+  if (!tok.ok) {
+    if (tok.reason === "invalid_grant") {
+      await ctx.svc.rpc("mark_mail_connection", {
+        _user: ctx.caller.userId,
+        _status: "needs_reconnect",
+        _error: "refresh token rejected",
+      });
+      return json({ connected: false, reconnect: true, events: [] });
+    }
+    return err("Outlook could not be reached", 502);
+  }
+  if (tok.refresh) {
+    await ctx.svc.rpc("rotate_mail_refresh_token", { _user: ctx.caller.userId, _refresh_token: tok.refresh });
+  } else {
+    await ctx.svc.rpc("mark_mail_connection", { _user: ctx.caller.userId, _status: "active", _error: null });
+  }
+  const { start, end } = calendarWindow(new Date());
+  const r = await calendarView(tok.access, start, end);
+  if (!r.ok) return err("Your Outlook calendar could not be read", 502);
+  return json({ connected: true, events: toCalendarEvents(r.value) });
+}
+
 export const outlookModule: HandlerModule = {
   name: "outlook",
-  handlers: { outlook_connect_start, outlook_disconnect, bind_email_to_deal },
+  handlers: { outlook_connect_start, outlook_disconnect, bind_email_to_deal, outlook_calendar_upcoming },
 };
