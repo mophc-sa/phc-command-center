@@ -672,6 +672,14 @@ project does **not** create a duplicate.
 | **Admin Settings** `/admin-settings` | *(admin only)* Users, roles, status. |
 | **Settings** `/settings` | Your own profile, language, MFA — and, for sales roles, **Connect Outlook** (see *Sending from your own Outlook* in section 10). |
 
+### Going back — رجوع *(2026-10-19)*
+Every page has a **Back** button at the start of the top bar. It returns to the page you were on
+before, inside the system. If you opened the page from a link or a new tab, there is nowhere earlier
+to return to, so it takes you **Home**.
+
+Intake notifications (information requested, rejection reason, resubmission) show their note in full
+in the bell drawer, not cut to two lines.
+
 ### Finding anything fast — ⌘K
 
 Press **⌘K** (or **Ctrl+K**) anywhere in the app to open search. Type two characters or more
@@ -1352,3 +1360,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-10-19 · manager feedback: notification clicks, won drilldown period, approvals limited to manager decisions, annual targets · previous: Outlook phase 1, 2026-09-29 -->
 
 <!-- last reviewed 2026-10-21 · projects have an owner; the owner edits the budget · previous: interface audit, 2026-09-20 -->
+
+<!-- last reviewed 2026-10-22 · Back button on every page, full intake notes in the bell · previous: project tracking, 2026-10-19 -->

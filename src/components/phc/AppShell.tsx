@@ -14,6 +14,7 @@ import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalet
 import { NotificationCenter } from "@/components/phc/NotificationCenter";
 import { NewIntakeDialog } from "@/components/phc/NewIntakeDialog";
 import { FontSizeControl } from "@/components/phc/FontSizeControl";
+import { BackButton } from "@/components/phc/BackButton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import {
   Collapsible,
@@ -601,6 +602,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <Menu className="h-4 w-4" />
             </button>
+
+            <BackButton />
 
             {/* Desktop status */}
             <div className="hidden items-center gap-3 md:flex">
