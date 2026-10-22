@@ -30,6 +30,18 @@ describe("the info@ pass", () => {
     expect(PASS).not.toMatch(/generateStructured|OPENAI_API_KEY|ANTHROPIC_API_KEY|api\.openai\.com|api\.anthropic\.com/);
   });
 
+  it("spends a triage attempt only when the message itself failed", () => {
+    expect(PASS.match(/info_mail_triage_failed/g)?.length).toBe(2); // message fault, apply error
+    const outage = PASS.slice(PASS.indexOf('r.kind === "outage"'), PASS.indexOf('r.kind === "message"'));
+    expect(outage).not.toContain("info_mail_triage_failed");
+    expect(outage).toContain("break");
+  });
+
+  it("gives the orchestrator call a deadline", () => {
+    const call = PASS.slice(PASS.indexOf("await fetch("), PASS.indexOf("const j = await res.json"));
+    expect(call).toContain("signal: AbortSignal.timeout(");
+  });
+
   it("never forwards or sends from the pass", () => {
     expect(PASS).not.toMatch(/forwardMailboxMessage|sendAsMe|sendMail/);
   });
@@ -60,6 +72,13 @@ describe("routing info@ mail", () => {
   it("forwards only to an active colleague on the company domain", () => {
     expect(H).toMatch(/status !== "active"/);
     expect(H).toMatch(/@phc-sa\.com/);
+  });
+
+  it("claims the row before it forwards", () => {
+    const body = H.slice(H.indexOf("async function info_mail_forward"), H.indexOf("async function info_mail_mark_rfq"));
+    const claim = body.indexOf('.is("handled_at", null)');
+    expect(claim).toBeGreaterThan(-1);
+    expect(body.indexOf("forwardMailboxMessage(")).toBeGreaterThan(claim);
   });
 
   it("the browser never calls Graph and never sees the cron key", () => {

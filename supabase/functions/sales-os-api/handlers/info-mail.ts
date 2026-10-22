@@ -49,16 +49,38 @@ async function info_mail_forward(payload: Record<string, unknown>, ctx: SalesOsC
     return err("You can forward only to an active colleague", 400);
   }
   const { data: me } = await ctx.svc.from("profiles").select("full_name, email").eq("id", ctx.caller.userId).maybeSingle();
-  const who = String(me?.full_name || me?.email || "a colleague");
+  // deno-lint-ignore no-control-regex
+  const who = String(me?.full_name || me?.email || "a colleague").replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").trim().slice(0, 100) || "a colleague";
+
+  // Claim the row before Graph, so two clicks at once cannot both send.
+  const { data: claimed } = await ctx.svc.from("info_mail")
+    .update({ handled_by: ctx.caller.userId, handled_at: new Date().toISOString() })
+    .eq("id", id).eq("status", "new").is("inbox_item_id", null).is("handled_at", null).select("id");
+  if (!claimed || claimed.length === 0) return err("This message was already handled", 409);
+  const release = () => ctx.svc.from("info_mail").update({ handled_by: null, handled_at: null })
+    .eq("id", id).eq("status", "new").eq("handled_by", ctx.caller.userId);
 
   const tok = await appAccess(cfg);
-  if (!tok.ok) return err("The info@ mailbox could not be reached", 502);
+  if (!tok.ok) {
+    await release();
+    return err("The info@ mailbox could not be reached", 502);
+  }
   const sent = await forwardMailboxMessage(tok.access, box, m.graph_message_id, address,
     `Routed to you by ${who} from info@ via PHC Command Center.`);
-  if (!sent.ok) return err("Outlook refused the forward", 502);
+  if (!sent.ok) {
+    await release();
+    return err("Outlook refused the forward", 502);
+  }
 
-  const { error } = await ctx.svc.rpc("info_mail_record_forward", { _id: id, _to: toUserId, _by: ctx.caller.userId });
-  if (error) return err("Forwarded, but it could not be recorded", 500);
+  // Graph accepted: from here a failure must never invite a second send.
+  const record = () => ctx.svc.rpc("info_mail_record_forward", { _id: id, _to: toUserId, _by: ctx.caller.userId });
+  let { error } = await record();
+  if (error) {
+    const again = await openMessage(ctx, id);
+    if (again?.status === "forwarded") return json({ ok: true });
+    ({ error } = await record());
+  }
+  if (error) return err("Forwarded, but not recorded. Do not forward it again.", 500);
   await ctx.audit(ctx.svc, ctx.caller.userId, "info_mail.forwarded", "info_mail", id, { to: toUserId }, ctx.caller.roles);
   return json({ ok: true });
 }
@@ -84,7 +106,11 @@ async function info_mail_mark_rfq(payload: Record<string, unknown>, ctx: SalesOs
   const { data: item, error } = await ctx.svc.rpc("info_mail_promote", {
     _id: id, _by: ctx.caller.userId, _body: capBody(detail.body) ?? "",
   });
-  if (error) return err("The request could not be created", 409);
+  if (error) {
+    return error.code === "P0002"
+      ? err("The request could not be created", 409)
+      : err("The request could not be created", 500);
+  }
   await ctx.audit(ctx.svc, ctx.caller.userId, "info_mail.marked_rfq", "info_mail", id, { inbox_item_id: item }, ctx.caller.roles);
   return json({ ok: true, inboxItemId: item });
 }
