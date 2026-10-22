@@ -1,55 +1,35 @@
 // =============================================================================
-// "Fetch from Fireflies": the safety net for the webhook.
+// "Fetch from Fireflies": the safety net for the webhook and the 30-minute pull.
 //
 // meetings-inbound receives a meeting the moment Fireflies finishes it, but a
 // webhook can be missed (it was, for a day, when the signing secret differed).
-// A reviewer presses a button and this pulls the last two weeks of processed
-// meetings from the Fireflies API and stores the ones we do not have, through
-// the same ingest_meeting as the webhook. Nothing becomes a task here either:
-// every action item still waits for a reviewer.
+// The button pulls the last two weeks of processed meetings and stores the
+// ones we do not have, through the same ingest_meeting as the webhook.
+// Nothing becomes a task here either: every action item still waits for a
+// decision.
 //
-// Reviewer-only (can_review_meetings, tested with the caller's own session).
-// ingest_meeting is service-role only, so the write uses ctx.svc — after that
-// check, never before it.
+// Two sources, either or both:
+//   - a reviewer (can_review_meetings, tested with the caller's own session)
+//     pulls the company account (FIREFLIES_API_KEY);
+//   - anyone who connected their own Fireflies account in Settings pulls it.
+// ingest_meeting is service-role only, so the writes use ctx.svc — after those
+// checks, never before them.
 // =============================================================================
 
 import type { HandlerModule, SalesOsContext } from "../contracts.ts";
 import { err, json } from "../shared.ts";
-import {
-  FIREFLIES_GRAPHQL_URL,
-  type FirefliesTranscript,
-  ingestableTranscripts,
-  RECENT_TRANSCRIPTS_QUERY,
-  type TeamMember,
-  toIngestPayload,
-} from "../../_shared/fireflies.ts";
-
-const WINDOW_DAYS = 14;
-const LIMIT = 25;
+import type { TeamMember } from "../../_shared/fireflies.ts";
+import { pullAccount, pullSince, type PullCounts } from "../../_shared/fireflies-pull.ts";
 
 async function meetings_sync(_payload: Record<string, unknown>, ctx: SalesOsContext) {
   const { data: allowed } = await ctx.asCaller.rpc("can_review_meetings", { _user_id: ctx.caller.userId });
-  if (allowed !== true) return err("Only meeting reviewers can fetch from Fireflies.", 403);
+  const reviewer = allowed === true;
+  const companyKey = reviewer ? Deno.env.get("FIREFLIES_API_KEY") : undefined;
+  const { data: ownKey } = await ctx.svc.rpc("fireflies_api_key", { _user: ctx.caller.userId });
+  const own = typeof ownKey === "string" && ownKey ? ownKey : null;
 
-  const apiKey = Deno.env.get("FIREFLIES_API_KEY");
-  if (!apiKey) return err("Fireflies is not configured.", 503);
-
-  let listed: FirefliesTranscript[];
-  try {
-    const res = await fetch(FIREFLIES_GRAPHQL_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        query: RECENT_TRANSCRIPTS_QUERY,
-        variables: { from: new Date(Date.now() - WINDOW_DAYS * 86_400_000).toISOString(), limit: LIMIT },
-      }),
-    });
-    if (!res.ok) return err("Fireflies did not answer. Try again in a minute.", 502);
-    const body = await res.json() as { data?: { transcripts?: unknown } };
-    listed = ingestableTranscripts(body?.data?.transcripts);
-  } catch {
-    return err("Fireflies did not answer. Try again in a minute.", 502);
-  }
+  if (!reviewer && !own) return err("Connect your Fireflies account in Settings first.", 403);
+  if (!companyKey && !own) return err("Fireflies is not configured.", 503);
 
   const { data: members, error: memErr } = await ctx.svc
     .from("profiles")
@@ -58,18 +38,30 @@ async function meetings_sync(_payload: Record<string, unknown>, ctx: SalesOsCont
     .eq("is_display_account", false);
   if (memErr) return err("Could not load the team.", 500);
 
-  let added = 0;
-  let already = 0;
-  for (const t of listed) {
-    const { meeting, items } = toIngestPayload(t, (members ?? []) as TeamMember[]);
-    const { data, error } = await ctx.svc.rpc("ingest_meeting", { _meeting: meeting, _items: items });
-    if (error) return err("Could not store a meeting.", 500);
-    if ((data as { duplicate?: boolean } | null)?.duplicate) already++;
-    else added++;
+  const since = pullSince(null, Date.now());
+  const total: PullCounts = { found: 0, added: 0, already: 0 };
+  const sources: Array<[string, string | null]> = [];
+  if (companyKey) sources.push([companyKey, null]);
+  if (own) sources.push([own, ctx.caller.userId]);
+
+  for (const [key, connectedUserId] of sources) {
+    const r = await pullAccount(ctx.svc, key, since, (members ?? []) as TeamMember[], connectedUserId);
+    if (!r.ok) {
+      if (r.reason === "store") return err("Could not store a meeting.", 500);
+      if (connectedUserId && r.reason === "unauthorized") {
+        await ctx.svc.rpc("mark_fireflies_connection", { _user: connectedUserId, _status: "needs_reconnect", _error: "Fireflies refused the API key" });
+        return err("Fireflies refused your API key. Reconnect it in Settings.", 400);
+      }
+      return err("Fireflies did not answer. Try again in a minute.", 502);
+    }
+    total.found += r.value.found;
+    total.added += r.value.added;
+    total.already += r.value.already;
+    if (connectedUserId) await ctx.svc.rpc("mark_fireflies_connection", { _user: connectedUserId, _status: "active", _error: null });
   }
 
-  await ctx.audit(ctx.svc, ctx.caller.userId, "meetings.synced", "meeting", null, { found: listed.length, added }, ctx.caller.roles);
-  return json({ ok: true, found: listed.length, added, already });
+  await ctx.audit(ctx.svc, ctx.caller.userId, "meetings.synced", "meeting", null, { found: total.found, added: total.added }, ctx.caller.roles);
+  return json({ ok: true, ...total });
 }
 
 export const meetingsSyncModule: HandlerModule = {

@@ -1,4 +1,4 @@
-import { AlertTriangle, BellOff, CheckCheck, ShieldCheck, X, Inbox, ArrowRightLeft } from "lucide-react";
+import { AlertTriangle, BellOff, CheckCheck, ShieldCheck, X, Inbox, ArrowRightLeft, Mic } from "lucide-react";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -24,6 +24,7 @@ function iconFor(type: string) {
   if (type.startsWith("approval")) return ShieldCheck;
   if (type.startsWith("intake")) return Inbox;
   if (type === "stage_changed" || type === "handoff_changed") return ArrowRightLeft;
+  if (type.startsWith("meeting")) return Mic;
   return AlertTriangle;
 }
 

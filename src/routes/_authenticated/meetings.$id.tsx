@@ -12,14 +12,18 @@ import { useI18n, localeFor } from "@/lib/i18n";
 import { isAssignableTeamMember } from "@/lib/team-members";
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canReviewMeetings } from "@/lib/roles";
+import { riyadhDay } from "@/lib/daily-tasks";
+import { addBusinessDays } from "@/lib/meetings-metrics";
 import {
+  confirmMeetingDeal,
   decideMeetingAction,
   firefliesLink,
   formatStamp,
   getMeeting,
   searchOpportunities,
+  type MeetingDetail,
   type MeetingItem,
+  type ReviewRights,
 } from "@/lib/meetings-actions";
 
 export const Route = createFileRoute("/_authenticated/meetings/$id")({
@@ -31,16 +35,18 @@ const FIELD =
   "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60";
 
 type Member = { id: string; full_name: string | null; email: string | null; status?: string | null; is_display_account?: boolean | null };
+type Deal = { id: string; project_name: string | null };
 
 function MeetingPage() {
   const { id } = Route.useParams();
   const { t, lang } = useI18n();
-  const { roles } = useAuth();
-  // Attendees read the meeting; only reviewers approve or dismiss its items.
-  const reviewer = canReviewMeetings(roles);
+  const { user } = useAuth();
+  const qc = useQueryClient();
   const q = useQuery({ queryKey: ["meeting", id], queryFn: () => getMeeting(id) });
   const teamQ = useQuery({ queryKey: ["team"], queryFn: listTeamMembers });
   const members = ((teamQ.data ?? []) as Member[]).filter(isAssignableTeamMember);
+  const [bulk, setBulk] = useState<"idle" | "dismissing" | "busy">("idle");
+  const [bulkReason, setBulkReason] = useState("");
 
   if (q.isLoading) return <SkeletonTable />;
   if (q.isError || !q.data) {
@@ -53,10 +59,57 @@ function MeetingPage() {
     );
   }
 
-  const { meeting, items } = q.data;
+  const { meeting, items, rights } = q.data;
+  const me = user?.id ?? "";
+  // Someone in the meeting takes their own items; a manager or the organiser assigns anyone.
+  const selfOnly = !rights.manager && !rights.organizer;
+  const defaultDue = addBusinessDays(riyadhDay(), 3);
+  const mine = items.filter((i) => i.status === "pending" && rights.decidable.includes(i.id));
+  const ownerOf = (i: MeetingItem) => i.owner_id ?? (selfOnly ? me : null);
+  const ready = mine.filter((i) => ownerOf(i));
   const when = meeting.occurred_at
     ? new Date(meeting.occurred_at).toLocaleString(localeFor(lang), { dateStyle: "full", timeStyle: "short" })
     : "—";
+
+  async function refresh() {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["meeting", id] }),
+      qc.invalidateQueries({ queryKey: ["meetings"] }),
+      qc.invalidateQueries({ queryKey: ["meeting-review-queue"] }),
+    ]);
+  }
+
+  async function runBulk(list: MeetingItem[], decide: (i: MeetingItem) => Promise<unknown>) {
+    setBulk("busy");
+    let done = 0;
+    try {
+      for (const i of list) {
+        await decide(i);
+        done++;
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (done) toast.success(`${done} ${t("meetings_bulk_done")}`);
+      setBulk("idle");
+      setBulkReason("");
+      await refresh();
+    }
+  }
+
+  function approveAllReady() {
+    if (!window.confirm(t("meetings_approve_all_confirm"))) return;
+    void runBulk(ready, (i) =>
+      decideMeetingAction({
+        itemId: i.id,
+        action: "approve",
+        title: i.title,
+        ownerId: ownerOf(i) as string,
+        dueDate: i.due_date ?? defaultDue,
+        opportunityId: i.related_opportunity_id ?? meeting.related_opportunity_id,
+      }),
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -93,13 +146,65 @@ function MeetingPage() {
         ) : null}
       </section>
 
+      <DealPanel meeting={meeting} rights={rights} onChanged={refresh} />
+
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-foreground">{t("meetings_action_items")}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-foreground">{t("meetings_action_items")}</h2>
+          {mine.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {ready.length > 1 ? (
+                <Button type="button" size="sm" disabled={bulk !== "idle"} onClick={approveAllReady}>
+                  {t("meetings_approve_all")} ({ready.length})
+                </Button>
+              ) : null}
+              {bulk === "dismissing" ? (
+                <>
+                  <input
+                    dir="auto"
+                    className={`${FIELD} w-64`}
+                    placeholder={t("meetings_dismiss_rest_reason")}
+                    aria-label={t("meetings_dismiss_rest_reason")}
+                    value={bulkReason}
+                    maxLength={2000}
+                    onChange={(e) => setBulkReason(e.target.value)}
+                    autoFocus
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    disabled={!bulkReason.trim()}
+                    onClick={() => void runBulk(mine, (i) => decideMeetingAction({ itemId: i.id, action: "dismiss", note: bulkReason }))}
+                  >
+                    {t("meetings_dismiss")} ({mine.length})
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setBulk("idle")}>×</Button>
+                </>
+              ) : (
+                <Button type="button" size="sm" variant="outline" disabled={bulk !== "idle"} onClick={() => setBulk("dismissing")}>
+                  {t("meetings_dismiss_rest")}
+                </Button>
+              )}
+            </div>
+          ) : null}
+        </div>
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("meetings_no_items")}</p>
         ) : (
           items.map((it) => (
-            <ItemCard key={it.id} item={it} meetingId={id} providerMeetingId={meeting.provider_meeting_id} members={members} reviewer={reviewer} />
+            <ItemCard
+              key={`${it.id}:${it.related_opportunity_id ?? ""}`}
+              item={it}
+              providerMeetingId={meeting.provider_meeting_id}
+              members={selfOnly ? members.filter((m) => m.id === me) : members}
+              canDecide={rights.decidable.includes(it.id)}
+              defaultOwner={ownerOf(it) ?? ""}
+              defaultDue={defaultDue}
+              defaultDeal={it.opportunities ?? meeting.related}
+              locked={bulk === "busy"}
+              onDecided={refresh}
+            />
           ))
         )}
       </section>
@@ -107,35 +212,138 @@ function MeetingPage() {
   );
 }
 
+/** The deal the meeting is about: confirmed, suggested from the summary, or none yet. */
+function DealPanel({ meeting, rights, onChanged }: { meeting: MeetingDetail; rights: ReviewRights; onChanged: () => Promise<void> }) {
+  const { t } = useI18n();
+  const [changing, setChanging] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const canLink = rights.manager || rights.attendee;
+  const deal = meeting.related;
+  const suggestion = !deal ? meeting.suggested : null;
+
+  async function link(d: Deal | null) {
+    setBusy(true);
+    try {
+      await confirmMeetingDeal(meeting.id, d?.id ?? null);
+      if (d) toast.success(t("meetings_deal_linked"));
+      setChanging(false);
+      await onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border bg-card px-4 py-3">
+      <h2 className="text-sm font-semibold text-foreground">{t("meetings_deal_title")}</h2>
+      {changing ? (
+        <div className="min-w-0 flex-1">
+          <DealSearch disabled={busy} onPick={(d) => void link(d)} />
+        </div>
+      ) : deal ? (
+        <Link to="/opportunities/$id" params={{ id: deal.id }} dir="auto" className="min-w-0 flex-1 truncate text-sm text-foreground underline-offset-2 hover:underline">
+          {deal.project_name ?? deal.id}
+        </Link>
+      ) : suggestion ? (
+        <span className="min-w-0 flex-1 text-sm">
+          <span dir="auto" className="text-foreground">{suggestion.project_name ?? suggestion.id}</span>{" "}
+          <StatusPill tone="attention">{t("meetings_deal_suggested")}</StatusPill>
+        </span>
+      ) : (
+        <span className="min-w-0 flex-1 text-sm text-muted-foreground">{t("meetings_deal_none")}</span>
+      )}
+      {canLink && !changing ? (
+        <div className="flex gap-2">
+          {suggestion ? (
+            <Button type="button" size="sm" disabled={busy} onClick={() => void link(suggestion)}>
+              {t("meetings_deal_confirm")}
+            </Button>
+          ) : null}
+          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setChanging(true)}>
+            {t("meetings_deal_change")}
+          </Button>
+        </div>
+      ) : changing ? (
+        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setChanging(false)}>×</Button>
+      ) : null}
+    </section>
+  );
+}
+
+function DealSearch({ disabled, onPick }: { disabled: boolean; onPick: (d: Deal) => void }) {
+  const { t } = useI18n();
+  const [query, setQuery] = useState("");
+  const results = useQuery({
+    queryKey: ["meeting-opp-search", query],
+    queryFn: () => searchOpportunities(query),
+    enabled: query.trim().length >= 2,
+  });
+  return (
+    <div className="relative">
+      <input
+        dir="auto"
+        className={FIELD}
+        placeholder={t("meetings_opportunity_search")}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        disabled={disabled}
+        aria-label={t("meetings_opportunity")}
+      />
+      {results.data && results.data.length > 0 ? (
+        <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-popover shadow-md">
+          {results.data.map((o) => (
+            <li key={o.id}>
+              <button
+                type="button"
+                dir="auto"
+                className="w-full px-2.5 py-1.5 text-start text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+                onClick={() => {
+                  onPick(o);
+                  setQuery("");
+                }}
+              >
+                {o.project_name ?? o.id}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function ItemCard({
   item,
-  meetingId,
   providerMeetingId,
   members,
-  reviewer,
+  canDecide,
+  defaultOwner,
+  defaultDue,
+  defaultDeal,
+  locked,
+  onDecided,
 }: {
   item: MeetingItem;
-  meetingId: string;
   providerMeetingId: string;
   members: Member[];
-  reviewer: boolean;
+  canDecide: boolean;
+  defaultOwner: string;
+  defaultDue: string;
+  defaultDeal: Deal | null;
+  locked: boolean;
+  onDecided: () => Promise<void>;
 }) {
-  const { t } = useI18n();
-  const qc = useQueryClient();
+  const { t, lang } = useI18n();
   const [title, setTitle] = useState(item.title);
-  const [ownerId, setOwnerId] = useState(item.owner_id ?? "");
-  const [dueDate, setDueDate] = useState(item.due_date ?? "");
-  const [opp, setOpp] = useState<{ id: string; project_name: string | null } | null>(item.opportunities);
-  const [oppQuery, setOppQuery] = useState("");
+  const [ownerId, setOwnerId] = useState(defaultOwner);
+  const [dueDate, setDueDate] = useState(item.due_date ?? defaultDue);
+  const [opp, setOpp] = useState<Deal | null>(defaultDeal);
   const [dismissing, setDismissing] = useState(false);
   const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const oppQ = useQuery({
-    queryKey: ["meeting-opp-search", oppQuery],
-    queryFn: () => searchOpportunities(oppQuery),
-    enabled: oppQuery.trim().length >= 2,
-  });
+  const [working, setWorking] = useState(false);
+  const busy = working || locked;
 
   const decided = item.status !== "pending";
   const ownerName = (uid: string | null) => {
@@ -148,7 +356,7 @@ function ItemCard({
       toast.error(t("meetings_owner_required"));
       return;
     }
-    setBusy(true);
+    setWorking(true);
     try {
       await decideMeetingAction(
         action === "approve"
@@ -156,14 +364,11 @@ function ItemCard({
           : { itemId: item.id, action, note: reason },
       );
       toast.success(action === "approve" ? t("meetings_item_approved") : t("meetings_item_dismissed"));
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["meeting", meetingId] }),
-        qc.invalidateQueries({ queryKey: ["meetings"] }),
-      ]);
+      await onDecided();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      setWorking(false);
     }
   }
 
@@ -197,7 +402,7 @@ function ItemCard({
     );
   }
 
-  if (!reviewer) {
+  if (!canDecide) {
     return (
       <article className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border px-4 py-3">
         <StatusPill tone="attention">{t("meetings_status_pending_review")}</StatusPill>
@@ -207,6 +412,7 @@ function ItemCard({
             {t("meetings_said_by")}: <span dir="auto">{item.speaker_label}</span>
           </span>
         ) : null}
+        <span className="text-xs text-muted-foreground">{t("meetings_waiting_owner")}</span>
         {stamp}
       </article>
     );
@@ -222,6 +428,10 @@ function ItemCard({
         </span>
         {stamp}
         {unmatched ? <StatusPill tone="attention">{t("meetings_unmatched")}</StatusPill> : null}
+        <span className="ms-auto">
+          {t("meetings_expires")}{" "}
+          <span className="tabular-nums">{new Date(item.expires_at).toLocaleDateString(localeFor(lang), { dateStyle: "medium" })}</span>
+        </span>
       </div>
 
       <label className="block space-y-1">
@@ -243,6 +453,7 @@ function ItemCard({
         <label className="block space-y-1">
           <span className="text-xs font-medium text-muted-foreground">{t("meetings_due")}</span>
           <input type="date" className={FIELD} value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={busy} />
+          <span className="block text-xs text-muted-foreground">{t("meetings_due_default")}</span>
         </label>
 
         <div className="space-y-1">
@@ -255,36 +466,7 @@ function ItemCard({
               </Button>
             </div>
           ) : (
-            <div className="relative">
-              <input
-                dir="auto"
-                className={FIELD}
-                placeholder={t("meetings_opportunity_search")}
-                value={oppQuery}
-                onChange={(e) => setOppQuery(e.target.value)}
-                disabled={busy}
-                aria-label={t("meetings_opportunity")}
-              />
-              {oppQ.data && oppQ.data.length > 0 ? (
-                <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-popover shadow-md">
-                  {oppQ.data.map((o) => (
-                    <li key={o.id}>
-                      <button
-                        type="button"
-                        dir="auto"
-                        className="w-full px-2.5 py-1.5 text-start text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-                        onClick={() => {
-                          setOpp(o);
-                          setOppQuery("");
-                        }}
-                      >
-                        {o.project_name ?? o.id}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
+            <DealSearch disabled={busy} onPick={setOpp} />
           )}
         </div>
       </div>

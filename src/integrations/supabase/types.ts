@@ -4276,6 +4276,7 @@ export type Database = {
           decided_by: string | null
           decision_note: string | null
           due_date: string | null
+          expires_at: string
           id: string
           meeting_id: string
           owner_id: string | null
@@ -4294,6 +4295,7 @@ export type Database = {
           decided_by?: string | null
           decision_note?: string | null
           due_date?: string | null
+          expires_at?: string
           id?: string
           meeting_id: string
           owner_id?: string | null
@@ -4312,6 +4314,7 @@ export type Database = {
           decided_by?: string | null
           decision_note?: string | null
           due_date?: string | null
+          expires_at?: string
           id?: string
           meeting_id?: string
           owner_id?: string | null
@@ -4350,6 +4353,7 @@ export type Database = {
       meetings: {
         Row: {
           action_items_raw: string | null
+          connected_user_id: string | null
           created_at: string
           duration_minutes: number | null
           id: string
@@ -4363,12 +4367,14 @@ export type Database = {
           status: string
           summary_overview: string | null
           summary_short: string | null
+          suggested_opportunity_id: string | null
           title: string
           transcript_url: string | null
           updated_at: string
         }
         Insert: {
           action_items_raw?: string | null
+          connected_user_id?: string | null
           created_at?: string
           duration_minutes?: number | null
           id?: string
@@ -4382,12 +4388,14 @@ export type Database = {
           status?: string
           summary_overview?: string | null
           summary_short?: string | null
+          suggested_opportunity_id?: string | null
           title: string
           transcript_url?: string | null
           updated_at?: string
         }
         Update: {
           action_items_raw?: string | null
+          connected_user_id?: string | null
           created_at?: string
           duration_minutes?: number | null
           id?: string
@@ -4401,6 +4409,7 @@ export type Database = {
           status?: string
           summary_overview?: string | null
           summary_short?: string | null
+          suggested_opportunity_id?: string | null
           title?: string
           transcript_url?: string | null
           updated_at?: string
@@ -4409,6 +4418,13 @@ export type Database = {
           {
             foreignKeyName: "meetings_related_opportunity_id_fkey"
             columns: ["related_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_suggested_opportunity_id_fkey"
+            columns: ["suggested_opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["id"]
@@ -5034,6 +5050,7 @@ export type Database = {
           created_by: string | null
           id: string
           kind: string
+          meeting_id: string | null
           note: string | null
           opportunity_id: string
         }
@@ -5043,6 +5060,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           kind: string
+          meeting_id?: string | null
           note?: string | null
           opportunity_id: string
         }
@@ -5052,6 +5070,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           kind?: string
+          meeting_id?: string | null
           note?: string | null
           opportunity_id?: string
         }
@@ -8545,6 +8564,14 @@ export type Database = {
       }
     }
     Functions: {
+      add_business_days: { Args: { _from: string; _n: number }; Returns: string }
+      confirm_meeting_opportunity: {
+        Args: { _meeting_id: string; _opportunity_id: string }
+        Returns: Json
+      }
+      meeting_review_queue: { Args: never; Returns: Json }
+      meeting_review_rights: { Args: { _meeting_id: string }; Returns: Json }
+      my_fireflies_connection: { Args: never; Returns: Json }
       ai_output_entity_still_owned: {
         Args: { _entity_id: string; _entity_type: string; _user_id: string }
         Returns: boolean
