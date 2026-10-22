@@ -119,8 +119,9 @@ BEGIN
   RETURN NULL;
 END $$;
 
--- 5. A message → an intake item (once). Unassigned items reach the reviewers
---    through trg_notify_inbox_intake_events; the owner, through the
+-- 5. A message → an intake item (once). Every item starts in pending_review, so
+--    trg_notify_inbox_intake_events tells the reviewers (intake_review_requested)
+--    whether or not it has an owner; an owner is also told, through the
 --    assigned_owner_id update below (intake_assigned). ------------------------
 CREATE OR REPLACE FUNCTION public.info_mail_create_intake(_mail_id uuid, _fields jsonb)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -175,11 +176,16 @@ BEGIN
   RETURN item;
 END $$;
 
--- 6. The orchestrator's verdict. 0.7 is the one place the threshold lives. ----
+-- 6. The orchestrator's verdict. 0.7 is the one place the threshold lives.
+--    A router may dismiss or forward a message before the AI answers; the
+--    verdict is still recorded (and a non-request still loses its text), but it
+--    never creates an item over a person's decision. ------------------------
 CREATE OR REPLACE FUNCTION public.info_mail_apply_triage(
   _mail_id uuid, _category text, _confidence numeric, _summary text, _fields jsonb)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE is_request boolean := _category IN ('rfq', 'quotation_request');
+DECLARE
+  is_request boolean := _category IN ('rfq', 'quotation_request');
+  st text;
 BEGIN
   IF _category IS NULL OR _category NOT IN ('rfq','quotation_request','supplier','finance','hr','general','spam') THEN
     RAISE EXCEPTION 'unknown category' USING ERRCODE = '22023';
@@ -190,9 +196,10 @@ BEGIN
          summary = left(_summary, 400),
          body_text = CASE WHEN is_request THEN body_text END,
          triage_attempts = triage_attempts + 1
-   WHERE id = _mail_id AND category = 'unclassified';
+   WHERE id = _mail_id AND category = 'unclassified'
+  RETURNING status INTO st;
   IF NOT FOUND THEN RETURN 'skipped'; END IF;
-  IF is_request AND coalesce(_confidence, 0) >= 0.7 THEN
+  IF st = 'new' AND is_request AND coalesce(_confidence, 0) >= 0.7 THEN
     PERFORM public.info_mail_create_intake(_mail_id, _fields);
     RETURN 'intake_created';
   END IF;
@@ -244,7 +251,10 @@ BEGIN
     END;
   END IF;
 
-  FOR r IN SELECT DISTINCT x FROM unnest(ARRAY[opp.owner_id, item.assigned_owner_id, item.created_by]) AS x WHERE x IS NOT NULL LOOP
+  -- Only active people count as told: emit_notification skips the others, and
+  -- a reply nobody hears about falls through to the sales managers.
+  FOR r IN SELECT DISTINCT x FROM unnest(ARRAY[opp.owner_id, item.assigned_owner_id, item.created_by]) AS x
+            WHERE x IS NOT NULL AND public.is_active_user(x) LOOP
     PERFORM public.emit_notification(
       r, 'client_reply',
       CASE WHEN opp.id IS NOT NULL THEN 'opportunity' ELSE 'inbox_item' END,
