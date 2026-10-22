@@ -7,12 +7,17 @@
 // known conversation on its deal, and ask the orchestrator to classify the rest.
 // What a classification does — an intake item, an owner, a notification — is
 // decided in SQL (info_mail_apply_triage), not here.
+//
+// No AI and no text for: mail from before the first pass (header only, left
+// for a router to route by hand) and newsletters/bulk mail (stored as spam).
+// When the AI is out, sorting backs off (30 min, doubling, at most 2 h) and
+// then tries one message before it carries on.
 // =============================================================================
 
 import type { serviceClient } from "../_shared/supabase.ts";
 import type { readGraphConfig } from "../_shared/graph.ts";
 import { appAccess, deltaPage, getMailboxMessage, mailboxDeltaUrl } from "../_shared/graph-client.ts";
-import { capBody, isAutoReply, isInternalSender, toInfoMessage } from "../_shared/info-mail.ts";
+import { capBody, isAutoReply, isBulkMail, isInternalSender, toInfoMessage } from "../_shared/info-mail.ts";
 
 type Svc = ReturnType<typeof serviceClient>;
 type Cfg = ReturnType<typeof readGraphConfig>;
@@ -23,6 +28,9 @@ const TRIAGE_PER_RUN = 8;
 const MIN_CALL_MS = 5_000;
 const CALL_MAX_MS = 25_000;
 const PRIVATE = new Set(["1", "2"]); // PR_SENSITIVITY: personal, private
+const BACKOFF_FIRST_MIN = 30;
+const BACKOFF_MAX_MIN = 120;
+const NO_MORE_ATTEMPTS = 3; // the SQL's attempt limit: past it a row waits for a router
 
 const log = (o: Record<string, unknown>) => console.log(JSON.stringify({ fn: "outlook-sync", pass: "info", ...o }));
 
@@ -55,7 +63,19 @@ async function runPass(svc: Svc, cfg: Cfg, opts: PassOpts): Promise<PassResult> 
   }
 
   // 1. Read new mail.
-  const { data: state } = await svc.from("info_mailbox_state").select("delta_link").eq("id", true).maybeSingle();
+  const { data: state } = await svc.from("info_mailbox_state")
+    .select("delta_link, started_at, triage_retry_at, triage_backoff_minutes").eq("id", true).maybeSingle();
+  // The first pass marks go-live. Mail received before it is stored header
+  // only and never sent to the AI (a router routes it by hand).
+  let startedAt = (state?.started_at as string | null) ?? null;
+  if (!startedAt) {
+    startedAt = new Date().toISOString();
+    await svc.from("info_mailbox_state").update({ started_at: startedAt }).eq("id", true).is("started_at", null);
+  }
+  const startedMs = Date.parse(startedAt);
+  const retryAt = state?.triage_retry_at ? Date.parse(state.triage_retry_at as string) : null;
+  const backoffMin = Number(state?.triage_backoff_minutes ?? 0);
+  const backingOff = retryAt !== null && Date.now() < retryAt;
   const since = new Date(Date.now() - FIRST_READ_DAYS * 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z");
   let url = (state?.delta_link as string | null) ?? mailboxDeltaUrl(opts.mailbox, since);
   let resume: string | null = (state?.delta_link as string | null) ?? null;
@@ -77,6 +97,8 @@ async function runPass(svc: Svc, cfg: Cfg, opts: PassOpts): Promise<PassResult> 
 
   // 2. Store them.
   let stored = 0;
+  let backfilled = 0;
+  let bulk = 0;
   let complete = true;
   for (const raw of batch) {
     if (!inBudget()) { complete = false; break; }
@@ -87,6 +109,10 @@ async function runPass(svc: Svc, cfg: Cfg, opts: PassOpts): Promise<PassResult> 
     const detail = await getMailboxMessage(tok.access, opts.mailbox, m.graphId, m.hasAttachments);
     if (!detail) { complete = false; error = "message detail unavailable"; break; } // try the whole round again next time
     if (PRIVATE.has(detail.sensitivity ?? "") || isAutoReply(detail.headers)) continue;
+    // Newsletters are spam without asking the AI; old mail waits for a router.
+    // Neither keeps its text.
+    const isBulk = isBulkMail(detail.headers);
+    const isOld = !isBulk && Date.parse(m.receivedAt) < startedMs;
 
     const { data: row, error: insErr } = await svc.from("info_mail").insert({
       graph_message_id: m.graphId,
@@ -96,9 +122,11 @@ async function runPass(svc: Svc, cfg: Cfg, opts: PassOpts): Promise<PassResult> 
       from_name: m.fromName,
       subject: m.subject,
       received_at: m.receivedAt,
-      body_text: capBody(detail.body),
+      body_text: isBulk || isOld ? null : capBody(detail.body),
       attachment_names: detail.attachmentNames,
       web_link: m.webLink,
+      ...(isBulk ? { category: "spam" } : {}),
+      ...(isOld ? { triage_attempts: NO_MORE_ATTEMPTS } : {}),
     }).select("id").single();
     if (insErr) {
       if (insErr.code === "23505") continue;
@@ -107,19 +135,31 @@ async function runPass(svc: Svc, cfg: Cfg, opts: PassOpts): Promise<PassResult> 
       break;
     }
     stored++;
+    if (isBulk) bulk++;
+    if (isOld) backfilled++;
 
     // A later message in a conversation that already became an item or a deal.
-    // If that fails the row stays unclassified and the triage step tries again.
+    // If that fails new mail stays unclassified and the triage step tries
+    // again; old and bulk mail are not retried (a router sees them).
     await recordReplyIfKnown(svc, row.id as string, m.conversationId);
   }
+  if (backingOff) error = error ?? "triage backing off after an AI outage";
   await saveState(svc, complete ? resume : (state?.delta_link as string | null) ?? null, error, false);
+  if (backingOff) {
+    log({ outcome: "backing_off", stored, backfilled, bulk, read: batch.length });
+    return { stored, triaged: 0, error };
+  }
 
-  // 3. Classify what is waiting, oldest first, while there is time.
+  // 3. Classify what is waiting, newest first, while there is time. After a
+  // backoff the first call is a probe: carry on only if it gets an answer.
+  const probe = retryAt !== null;
   let triaged = 0;
+  let answered = 0; // classify calls the AI answered: it is up
+  let calls = 0;
   let paused: string | null = null;
   const { data: waiting } = await svc.from("info_mail").select("id, triage_attempts, conversation_id")
-    .eq("category", "unclassified").lt("triage_attempts", 3)
-    .order("received_at", { ascending: true }).limit(TRIAGE_PER_RUN);
+    .eq("category", "unclassified").lt("triage_attempts", NO_MORE_ATTEMPTS)
+    .order("received_at", { ascending: false }).limit(TRIAGE_PER_RUN);
   // One row the provider rejects must not block the queue. An outage on row A
   // is held back: if the next row works (or fails on its own), A was the
   // problem and is charged; if the next row also hits an outage, it is real.
@@ -142,18 +182,24 @@ async function runPass(svc: Svc, cfg: Cfg, opts: PassOpts): Promise<PassResult> 
 
     const left = opts.budgetMs - (Date.now() - opts.started);
     if (left < MIN_CALL_MS) break; // not enough time to start a call
-    const r = await classify(id, Number(w.triage_attempts), opts.syncKey, Math.min(CALL_MAX_MS, left - 2000));
+    const timeoutMs = Math.min(CALL_MAX_MS, left - 2000);
+    const r = await classify(id, Number(w.triage_attempts), opts.syncKey, timeoutMs);
+    const probing = probe && ++calls === 1;
     if (r.kind === "outage") {
-      if (!pendingOutage) { pendingOutage = { id, code: r.code }; continue; }
-      paused = r.code; // two rows in a row: a real outage, charge neither
+      // Cut short by this run's own clock: out of time, not an outage.
+      if (r.code === "TIMEOUT" && timeoutMs < CALL_MAX_MS) break;
+      if (!probing && !pendingOutage) { pendingOutage = { id, code: r.code }; continue; }
+      paused = r.code; // the probe failed, or two rows in a row: a real outage, charge neither
       break;
     }
+    if (r.kind === "ok") answered++;
     if (pendingOutage) { // this row got an answer, so the earlier failure was its own
       await svc.rpc("info_mail_triage_failed", { _mail_id: pendingOutage.id });
       pendingOutage = null;
     }
     if (r.kind === "message") {
       await svc.rpc("info_mail_triage_failed", { _mail_id: id });
+      if (probing) break; // no answer from the probe: wait for the next run
       continue;
     }
     const { error: applyErr } = await svc.rpc("info_mail_apply_triage", {
@@ -169,11 +215,28 @@ async function runPass(svc: Svc, cfg: Cfg, opts: PassOpts): Promise<PassResult> 
     }
     triaged++;
   }
-  if (paused) {
-    error = error ?? `triage paused: ${paused}`;
-    await svc.from("info_mailbox_state").update({ last_error: error.slice(0, 500) }).eq("id", true);
+  // A held-back row at the end of a run in which the AI answered others failed
+  // on its own: charge it, so one poison message cannot hold the queue.
+  if (pendingOutage && !paused && answered > 0) {
+    await svc.rpc("info_mail_triage_failed", { _mail_id: pendingOutage.id });
+    pendingOutage = null;
   }
-  log({ outcome: error ? "partial" : "done", stored, triaged, read: batch.length });
+  // Still out (a real outage, or a lone row nothing else could vouch for):
+  // back off. Any answer resets the backoff.
+  const outage = paused ?? pendingOutage?.code ?? null;
+  let backoff: number | null = null;
+  if (outage) {
+    backoff = backoffMin > 0 ? Math.min(backoffMin * 2, BACKOFF_MAX_MIN) : BACKOFF_FIRST_MIN;
+    error = error ?? `triage paused: ${outage}`;
+    await svc.from("info_mailbox_state").update({
+      last_error: error.slice(0, 500),
+      triage_retry_at: new Date(Date.now() + backoff * 60_000).toISOString(),
+      triage_backoff_minutes: backoff,
+    }).eq("id", true);
+  } else if (answered > 0 && (retryAt !== null || backoffMin > 0)) {
+    await svc.from("info_mailbox_state").update({ triage_retry_at: null, triage_backoff_minutes: 0 }).eq("id", true);
+  }
+  log({ outcome: error ? "partial" : "done", stored, backfilled, bulk, triaged, read: batch.length, backoff });
   return { stored, triaged, error };
 }
 

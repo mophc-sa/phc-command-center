@@ -855,10 +855,20 @@ category — exactly one:
 confidence: 0..1, how sure you are of the category.
 summary_en / summary_ar: one short line each (<= 200 chars), third person
 ("The client asks…"), in English and in Arabic. Never quote the sender.
-request: for "rfq" and "quotation_request" only, else null. Fill a field only
-when the email states it; otherwise null. Never guess. estimated_value is a
-number with no currency sign; currency is its 3-letter code if stated;
-deadline is the submission date as YYYY-MM-DD if stated.
+request: for "rfq" and "quotation_request" only, else null. When it is an
+object it has every key below, each present; a key the email does not state
+is null. Never guess. No other keys.
+- company: string | null (the client's company)
+- contact_name: string | null
+- phone: string | null
+- email: string | null
+- project_name: string | null
+- location: string | null
+- client_rfq_ref: string | null (the client's own RFQ or tender reference)
+- estimated_value: number | null (a plain number, no currency sign or commas)
+- currency: string | null (its 3-letter code, e.g. "SAR")
+- scope: string | null (what is to be priced, one or two sentences)
+- deadline: string "YYYY-MM-DD" | null (the submission date)
 
 Return a JSON object with exactly: category, confidence, summary_en,
 summary_ar, request.

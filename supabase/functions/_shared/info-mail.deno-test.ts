@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertFalse } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { capBody, isAutoReply, isInternalSender, MAX_INFO_BODY, toInfoMessage } from "./info-mail.ts";
+import { capBody, isAutoReply, isBulkMail, isInternalSender, MAX_INFO_BODY, toInfoMessage } from "./info-mail.ts";
 
 const RAW = {
   id: "AAMk1",
@@ -56,4 +56,16 @@ Deno.test("the stored text is capped and blank text is nothing", () => {
   assertEquals(capBody("  "), null);
   assertEquals(capBody(null), null);
   assertEquals(capBody("x".repeat(MAX_INFO_BODY + 50))?.length, MAX_INFO_BODY);
+});
+
+Deno.test("newsletters and bulk mail are recognised by their headers", () => {
+  assert(isBulkMail([{ name: "List-Unsubscribe", value: "<mailto:u@news.example>" }]));
+  assert(isBulkMail([{ name: "list-unsubscribe", value: "" }]));
+  assert(isBulkMail([{ name: "Precedence", value: "bulk" }]));
+  assert(isBulkMail([{ name: "Precedence", value: " List " }]));
+  assert(isBulkMail([{ name: "precedence", value: "junk" }]));
+  assertFalse(isBulkMail([{ name: "Precedence", value: "auto_reply" }]));
+  assertFalse(isBulkMail([{ name: "Precedence", value: "first-class" }]));
+  assertFalse(isBulkMail([{ name: "List-Id", value: "<x.example>" }]));
+  assertFalse(isBulkMail([]));
 });

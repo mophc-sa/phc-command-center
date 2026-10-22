@@ -31,8 +31,9 @@ describe("the info@ pass", () => {
   });
 
   it("spends a triage attempt only when the message itself failed", () => {
-    // reply binding failed, pending outage row, message fault, apply error
-    expect(PASS.match(/info_mail_triage_failed/g)?.length).toBe(4);
+    // reply binding failed, pending outage row, message fault, apply error,
+    // a lone held-back row at the end of a run in which the AI answered
+    expect(PASS.match(/info_mail_triage_failed/g)?.length).toBe(5);
     const outage = PASS.slice(PASS.indexOf('r.kind === "outage"'), PASS.indexOf("if (pendingOutage) {"));
     expect(outage).not.toContain("info_mail_triage_failed");
     expect(outage).toContain("break");
@@ -159,5 +160,54 @@ describe("the router list and its helpers", () => {
 
   it("keeps the info@ sorter out of Agent Activity", () => {
     expect(ACTIVITY.match(/\.neq\("agent_key", "info_mail_triage"\)/g)?.length).toBe(2);
+  });
+});
+
+describe("the info@ pass after the final review (F2)", () => {
+  const GRAPH_CLIENT = read("supabase/functions/_shared/graph-client.ts");
+  const fn = (name: string) => GRAPH_CLIENT.slice(GRAPH_CLIENT.indexOf(`export async function ${name}`)).split("\n}\n")[0];
+
+  it("stores mail from before the first pass header only, never sent to the AI", () => {
+    const first = PASS.indexOf("started_at: startedAt");
+    expect(first).toBeGreaterThan(-1);
+    expect(first).toBeLessThan(PASS.indexOf('from("info_mail").insert('));
+    expect(PASS).toContain("Date.parse(m.receivedAt) < startedMs");
+    expect(PASS).toContain("body_text: isBulk || isOld ? null : capBody(detail.body)");
+    expect(PASS).toContain("triage_attempts: NO_MORE_ATTEMPTS");
+    expect(PASS).toContain('.lt("triage_attempts", NO_MORE_ATTEMPTS)');
+  });
+
+  it("files newsletters as spam without the AI and without their text", () => {
+    expect(PASS).toContain("isBulkMail(detail.headers)");
+    expect(PASS).toContain('...(isBulk ? { category: "spam" } : {})');
+  });
+
+  it("sorts newest first", () => {
+    expect(PASS).toContain('.order("received_at", { ascending: false }).limit(TRIAGE_PER_RUN)');
+  });
+
+  it("backs off after an outage, skips sorting until then, and probes one row", () => {
+    const skip = PASS.indexOf("if (backingOff) {");
+    expect(skip).toBeGreaterThan(PASS.indexOf("await saveState(")); // storing still runs
+    expect(skip).toBeLessThan(PASS.indexOf("await classify("));
+    expect(PASS).toContain("BACKOFF_FIRST_MIN = 30");
+    expect(PASS).toContain("BACKOFF_MAX_MIN = 120");
+    expect(PASS).toContain("Math.min(backoffMin * 2, BACKOFF_MAX_MIN)");
+    expect(PASS).toContain("triage_retry_at: null, triage_backoff_minutes: 0");
+    expect(PASS).toContain("if (probing) break;");
+    expect(PASS).toMatch(/if \(!probing && !pendingOutage\)/);
+  });
+
+  it("gives every info@ Graph call a deadline", () => {
+    for (const name of ["deltaPage", "getMailboxMessage", "forwardMailboxMessage"]) {
+      expect(fn(name)).toContain("signal: AbortSignal.timeout(");
+    }
+    expect(fn("getMailboxMessage").match(/AbortSignal\.timeout\(/g)?.length).toBe(2);
+    expect(GRAPH_CLIENT).toMatch(/export function appAccess[\s\S]*?GRAPH_TIMEOUT_MS\);/);
+  });
+
+  it("only graph-client.ts names Microsoft Graph", () => {
+    expect(PASS).not.toContain("graph.microsoft.com");
+    expect(read("supabase/functions/_shared/info-mail.ts")).not.toContain("graph.microsoft.com");
   });
 });

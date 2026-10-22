@@ -63,6 +63,15 @@ export function isAutoReply(headers: Array<{ name?: string; value?: string }>): 
   });
 }
 
+/** Newsletters and mass mail: a List-Unsubscribe header, or Precedence bulk/list/junk. Sorted as spam without the AI. */
+export function isBulkMail(headers: Array<{ name?: string; value?: string }>): boolean {
+  return headers.some((h) => {
+    const name = (h.name ?? "").trim().toLowerCase();
+    const value = (h.value ?? "").trim().toLowerCase();
+    return name === "list-unsubscribe" || (name === "precedence" && ["bulk", "list", "junk"].includes(value));
+  });
+}
+
 export function capBody(text: string | null): string | null {
   const t = (text ?? "").trim();
   return t ? t.slice(0, MAX_INFO_BODY) : null;

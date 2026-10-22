@@ -9,15 +9,24 @@
 import { type GraphConfig, type GraphMessage, parseTokenResponse, type TokenResult, GRAPH_SCOPES } from "./graph.ts";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
+// A hung Microsoft call must not eat a sync pass's whole time budget.
+const GRAPH_TIMEOUT_MS = 15_000;
+const FORWARD_TIMEOUT_MS = 20_000;
 const tokenUrl = (cfg: GraphConfig) =>
   `https://login.microsoftonline.com/${encodeURIComponent(cfg.tenantId)}/oauth2/v2.0/token`;
 
-async function postToken(cfg: GraphConfig, params: Record<string, string>, f: typeof fetch): Promise<TokenResult> {
+async function postToken(
+  cfg: GraphConfig,
+  params: Record<string, string>,
+  f: typeof fetch,
+  timeoutMs?: number,
+): Promise<TokenResult> {
   try {
     const res = await f(tokenUrl(cfg), {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ client_id: cfg.clientId, client_secret: cfg.clientSecret, scope: GRAPH_SCOPES, ...params }),
+      ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
     });
     return parseTokenResponse(await res.json().catch(() => null));
   } catch {
@@ -134,7 +143,10 @@ export type DeltaPage =
 export async function deltaPage(access: string, url: string, f: typeof fetch = fetch): Promise<DeltaPage> {
   if (!url.startsWith(`${GRAPH}/`)) return { ok: false, status: 400, gone: false, error: "not a Graph link" };
   try {
-    const res = await f(url, { headers: { Authorization: `Bearer ${access}`, Prefer: "odata.maxpagesize=50" } });
+    const res = await f(url, {
+      headers: { Authorization: `Bearer ${access}`, Prefer: "odata.maxpagesize=50" },
+      signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS),
+    });
     // 410: the delta token expired — start the round again from a date.
     if (!res.ok) {
       // Graph's own code and message — about the request, never about mail content.
@@ -204,7 +216,7 @@ export async function calendarView(
 
 /** Client-credentials token. No Mail permission is consented in Entra; Exchange grants it for info@ only. */
 export function appAccess(cfg: GraphConfig, f: typeof fetch = fetch) {
-  return postToken(cfg, { grant_type: "client_credentials", scope: "https://graph.microsoft.com/.default" }, f);
+  return postToken(cfg, { grant_type: "client_credentials", scope: "https://graph.microsoft.com/.default" }, f, GRAPH_TIMEOUT_MS);
 }
 
 const INFO_DELTA_SELECT = "id,internetMessageId,conversationId,subject,from,receivedDateTime,isDraft,webLink,hasAttachments";
@@ -234,6 +246,7 @@ export async function getMailboxMessage(
   try {
     const res = await f(`${base}?$select=uniqueBody,internetMessageHeaders&$expand=${SENSITIVITY_EXPAND}`, {
       headers: { ...auth, Prefer: 'outlook.body-content-type="text"' },
+      signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const j = await res.json() as {
@@ -243,7 +256,7 @@ export async function getMailboxMessage(
     };
     let attachmentNames: string[] = [];
     if (withAttachments) {
-      const a = await f(`${base}/attachments?$select=name`, { headers: auth });
+      const a = await f(`${base}/attachments?$select=name`, { headers: auth, signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS) });
       if (!a.ok) return null;
       const aj = await a.json() as { value?: Array<{ name?: unknown }> };
       attachmentNames = (aj.value ?? []).map((x) => (typeof x.name === "string" ? x.name.slice(0, 200) : "")).filter(Boolean).slice(0, 20);
@@ -273,6 +286,7 @@ export async function forwardMailboxMessage(
       method: "POST",
       headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
       body: JSON.stringify({ comment, toRecipients: [{ emailAddress: { address: to } }] }),
+      signal: AbortSignal.timeout(FORWARD_TIMEOUT_MS),
     });
     return res.ok ? { ok: true } : { ok: false, status: res.status };
   } catch {
