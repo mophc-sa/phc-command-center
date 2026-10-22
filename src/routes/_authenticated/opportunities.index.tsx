@@ -198,7 +198,7 @@ function OppList() {
       const quote = latestQuotation(o);
       switch (sort.key) {
         case "classification": return rfq?.classification ?? "";
-        case "sales_code": return rfq?.rfq_number ?? "";
+        case "sales_code": return rfq?.rfq_number ?? o.project_code ?? "";
         case "project_name": return o.project_name ?? "";
         case "amount": return opportunityValue(o as never) ?? 0;
         case "quotation_status": return quote?.status ?? "";
@@ -510,9 +510,10 @@ function OppList() {
                     <div className="mt-0.5 text-xs text-muted-foreground">{o.contractor_company?.name ?? o.main_contractor}</div>
                   ) : null}
                   <div className="mt-1 text-xs text-muted-foreground">{o.next_action || (lang === "ar" ? "الإجراء القادم غير مسجل" : "No next action recorded")}</div>
-                  {rfq?.rfq_number ? (
+                  {/* The deal's code: its RFQ's number, or its own for a deal with no RFQ. */}
+                  {(rfq?.rfq_number ?? o.project_code) ? (
                     <Link to="/opportunities/$id" params={{ id: o.id }} className="num mt-1 block text-xs text-muted-foreground hover:text-foreground hover:underline" data-tabular="true">
-                      {rfq.rfq_number}
+                      {rfq?.rfq_number ?? o.project_code}
                     </Link>
                   ) : null}
                 </TableHead>

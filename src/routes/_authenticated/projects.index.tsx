@@ -11,16 +11,14 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import type { ProjectStage, ProjectRow } from "@/lib/crm-actions";
+import { CONSTRUCTION_STAGES, SITE_STAGES, siteStageLabel } from "@/lib/project-tracking";
 
 export const Route = createFileRoute("/_authenticated/projects/")({
   head: () => ({ meta: [{ title: "Projects — PHC" }, { name: "robots", content: "noindex" }] }),
   component: ProjectsPage,
 });
 
-const PROJECT_STAGES: ProjectStage[] = [
-  "early_planning", "design_development", "tender", "awarded",
-  "under_construction", "near_handover", "completed", "unknown",
-];
+const PROJECT_STAGES: ProjectStage[] = [...SITE_STAGES, "unknown"];
 
 const PAGE_SIZE = 20;
 
@@ -96,7 +94,8 @@ function ProjectsPage() {
   });
 
   const kpis = useMemo(() => {
-    const uc = kpiRows.filter((p) => p.project_stage === "under_construction").length;
+    // Every phase inside construction counts, not only the bare "under construction".
+    const uc = kpiRows.filter((p) => CONSTRUCTION_STAGES.includes(p.project_stage)).length;
     const near = kpiRows.filter((p) => p.project_stage === "near_handover").length;
     const totalValue = kpiRows.reduce((s, p) => s + (p.total_value ?? 0), 0);
     return { total: kpiRows.length, uc, near, totalValue };
@@ -120,8 +119,8 @@ function ProjectsPage() {
 
       <KpiRow>
         <KpiCard label={t("nav_projects")} value={kpis.total} icon={<Layers className="h-3.5 w-3.5" />} />
-        <KpiCard label={humanize("under_construction")} value={kpis.uc} />
-        <KpiCard label={humanize("near_handover")} value={kpis.near} hint={t("crm_signage_package" as never) || undefined} />
+        <KpiCard label={lang === "ar" ? "قيد التنفيذ" : "Under construction"} value={kpis.uc} />
+        <KpiCard label={siteStageLabel("near_handover", lang)} value={kpis.near} hint={t("crm_signage_package" as never) || undefined} />
         <KpiCard label={t("crm_total_value")} value={formatCurrency(kpis.totalValue, lang)} />
       </KpiRow>
 
@@ -149,7 +148,7 @@ function ProjectsPage() {
               onClick={() => setStageFilter(s)}
               className={`rounded-full border px-3 py-1.5 text-xs ${stageFilter === s ? "border-amber/40 bg-amber/10 text-amber-light" : "border-border text-muted-foreground hover:text-foreground"}`}
             >
-              {humanize(s)}
+              {siteStageLabel(s, lang)}
             </button>
           ))}
         </div>
@@ -177,7 +176,7 @@ function ProjectsPage() {
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <StatusPill tone={stageTone(p.completion_pct)}>{humanize(p.project_stage)}</StatusPill>
+                    <StatusPill tone={stageTone(p.completion_pct)}>{siteStageLabel(p.project_stage, lang)}</StatusPill>
                     <StatusPill tone={p.verification_status === "verified" ? "positive" : "attention"}>
                       {p.verification_status === "verified" ? t("crm_verified") : t("crm_pending_verification")}
                     </StatusPill>

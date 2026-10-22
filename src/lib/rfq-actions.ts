@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { callBackend } from "@/lib/backend";
+import type { ProjectStage } from "@/lib/crm-actions";
 
 type Uuid = string;
 
@@ -128,6 +129,8 @@ export async function createRfqWithOpportunity(input: {
    */
   saabPortal?: boolean | null;
   completionPct?: number | null;
+  /** The site's stage from the intake; null leaves the deal's default (`unknown`). */
+  projectStage?: ProjectStage | null;
   /** The intake being converted; its Project Code becomes the RFQ number. */
   sourceInboxId?: string | null;
 }) {
@@ -184,6 +187,7 @@ export async function createRfqWithOpportunity(input: {
       // that has not started.
       saab_portal: input.saabPortal ?? false,
       completion_pct: input.completionPct ?? null,
+      ...(input.projectStage ? { project_stage: input.projectStage } : {}),
     })
     .select("id").single();
   if (oppErr) throw oppErr;

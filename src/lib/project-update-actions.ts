@@ -1,9 +1,10 @@
 // The update log inside each project (manager feedback group 4).
 // Table: opportunity_updates (20261022100000). RLS lets the deal's people read
-// and post; posting a % also moves the deal's construction progress, which the
-// database does in a trigger so the two can never disagree.
+// and post; posting a % or a site stage also moves the deal's construction
+// progress or stage, which the database does in a trigger so the two can never
+// disagree.
 import { supabase } from "@/integrations/supabase/client";
-import type { UpdateKind } from "@/lib/project-tracking";
+import type { SiteStage, UpdateKind } from "@/lib/project-tracking";
 
 export type ProjectUpdate = {
   id: string;
@@ -11,6 +12,7 @@ export type ProjectUpdate = {
   kind: UpdateKind;
   note: string | null;
   completion_pct: number | null;
+  project_stage: SiteStage | null;
   created_by: string | null;
   created_at: string;
   author: { full_name: string | null; email: string | null; sales_code: string | null } | null;
@@ -19,7 +21,7 @@ export type ProjectUpdate = {
 export async function listProjectUpdates(opportunityId: string): Promise<ProjectUpdate[]> {
   const { data, error } = await supabase
     .from("opportunity_updates")
-    .select("id, opportunity_id, kind, note, completion_pct, created_by, created_at")
+    .select("id, opportunity_id, kind, note, completion_pct, project_stage, created_by, created_at")
     .eq("opportunity_id", opportunityId)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -45,6 +47,7 @@ export async function postProjectUpdate(input: {
   kind: UpdateKind;
   note: string;
   pct: number | null;
+  stage: SiteStage | null;
 }) {
   const { data: auth } = await supabase.auth.getUser();
   const { error } = await supabase.from("opportunity_updates").insert({
@@ -52,6 +55,7 @@ export async function postProjectUpdate(input: {
     kind: input.kind,
     note: input.note.trim() || null,
     completion_pct: input.pct,
+    project_stage: input.stage,
     created_by: auth.user?.id ?? null,
   });
   if (error) throw error;

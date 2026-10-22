@@ -3755,6 +3755,7 @@ export type Database = {
           phone: string | null
           project_name: string | null
           project_number: string | null
+          project_stage: Database["public"]["Enums"]["project_stage"] | null
           project_type: Database["public"]["Enums"]["inbox_project_type"] | null
           reject_reason: string | null
           request_type: string | null
@@ -3822,6 +3823,7 @@ export type Database = {
           phone?: string | null
           project_name?: string | null
           project_number?: string | null
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
           project_type?:
             | Database["public"]["Enums"]["inbox_project_type"]
             | null
@@ -3891,6 +3893,7 @@ export type Database = {
           phone?: string | null
           project_name?: string | null
           project_number?: string | null
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
           project_type?:
             | Database["public"]["Enums"]["inbox_project_type"]
             | null
@@ -4586,6 +4589,7 @@ export type Database = {
           pipeline_step: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status: string | null
           project_id: string | null
+          project_code: string | null
           project_name: string
           project_stage: Database["public"]["Enums"]["project_stage"]
           quotation_value: number | null
@@ -4686,6 +4690,7 @@ export type Database = {
           pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status?: string | null
           project_id?: string | null
+          project_code?: string | null
           project_name: string
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
@@ -4786,6 +4791,7 @@ export type Database = {
           pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status?: string | null
           project_id?: string | null
+          project_code?: string | null
           project_name?: string
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
@@ -5036,6 +5042,7 @@ export type Database = {
           kind: string
           note: string | null
           opportunity_id: string
+          project_stage: Database["public"]["Enums"]["project_stage"] | null
         }
         Insert: {
           completion_pct?: number | null
@@ -5045,6 +5052,7 @@ export type Database = {
           kind: string
           note?: string | null
           opportunity_id: string
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
         }
         Update: {
           completion_pct?: number | null
@@ -5054,6 +5062,7 @@ export type Database = {
           kind?: string
           note?: string | null
           opportunity_id?: string
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
         }
         Relationships: [
           {
@@ -9116,6 +9125,9 @@ export type Database = {
         | "tender"
         | "awarded"
         | "under_construction"
+        | "excavation"
+        | "structure"
+        | "mep_finishing"
         | "near_handover"
         | "completed"
         | "unknown"
@@ -9630,6 +9642,9 @@ export const Constants = {
         "tender",
         "awarded",
         "under_construction",
+        "excavation",
+        "structure",
+        "mep_finishing",
         "near_handover",
         "completed",
         "unknown",
