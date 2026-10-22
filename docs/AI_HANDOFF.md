@@ -1,5 +1,36 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-23 — The info@ mailbox, group 3 part B (branch `feat/info-mailbox`)
+
+**Built, not deployed, never run against the real mailbox.** Setup for Mo: `docs/info-mailbox-setup.md`
+(Exchange PowerShell, RBAC for Applications only, no Entra Mail permission).
+
+What it is: `outlook-sync` reads info@ every 5 minutes (`supabase/functions/outlook-sync/info-pass.ts`),
+stores each message in `info_mail`, binds replies to their deal, and has `ai-orchestrator` agent
+`info_mail_triage` sort it. A request becomes an inbox item (account owner, else waits for the sales
+manager); anything else keeps sender, subject, label and one line and is shown in the router panel at the
+top of Lead & Tender Inbox. Migrations: `20261025090000_inbox_source_info_mailbox.sql`,
+`20261025100000_info_mailbox.sql`.
+
+Rules that are easy to break:
+- Triage never overrides a router: a dismissed or forwarded message never becomes a request.
+- A client reply reaches the active people on the deal or item, else the sales managers.
+- An AI outage pauses sorting without spending the message's three tries; `info_mailbox_state.last_error`
+  reads `triage paused: <code>`.
+- Forwarding claims the message first (no double send). "This is an RFQ" re-fetches the full text from Outlook.
+- The orchestrator's service caller is authenticated by the outlook-sync Vault key and runs as the info@
+  profile (counted against its 300 a day; that profile must stay active). The gateway still needs a JWT, so
+  the pass sends the anon key.
+- The triage summaries are readable by the info@ account in the system, which is also the board screen's
+  login: it sees summaries of mail that already sits in its own mailbox.
+- Non-request mail never stores its text. A conversation binds to its deal through `info_mail`, not `email_threads`.
+
+Release order: (1) `db push`, approval-gated; (2) deploy `ai-orchestrator`, `outlook-sync`, `sales-os-api`;
+(3) Mo's Exchange setup (30 minutes to 2 hours to apply); (4) `supabase secrets set INFO_MAILBOX=info@phc-sa.com`,
+only after (3) and the AI provider key; (5) watch the first pass (`select last_run_at, last_error from
+info_mailbox_state`); (6) canary, then production. Nothing deploys on merge. Production serves `f5a7af1`;
+newer main also carries #353 (part A), still pending.
+
 ## 2026-10-21 — Release of PRs 349–352, and the project-owner spec (branch `feat/project-owner`)
 
 **Released.** Production serves `f5a7af11a27d166cf7ac069bb534a9e44d628963`, Worker version

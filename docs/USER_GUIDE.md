@@ -260,6 +260,15 @@ Confirm button**. Press **Confirm** if the value is still right, or just change 
 will not save while a blue field is unconfirmed, so nothing old slips in unnoticed. Fields you
 already typed are never overwritten.
 
+**Requests that arrive at info@ (2026-10-23).** Not every request is typed in. The system reads
+`info@` every 5 minutes. A quotation request or RFQ becomes a request in the inbox, with the
+location, the client's RFQ number, the estimated value and the scope filled in where the email
+states them. It carries the **Email to info@** chip, and is assigned to the client's account
+owner, or waits for the sales manager to assign it. Everything else waits in **info@ mail — to
+route** at the top of the Lead & Tender Inbox page, where a sales manager, BD or sales ops
+forwards it to a colleague's Outlook, turns it into a request (**This is an RFQ**), or dismisses
+it. Forwarding asks you to confirm first.
+
 ### Step 2 — Save. It goes for review.
 
 **Changed 2026-08-18.** Saving no longer creates the opportunity or the tender
@@ -374,7 +383,8 @@ Only the **sales manager** can change a code.
 
 **Page:** Lead & Tender Inbox — صندوق العملاء والمناقصات (`/lead-tender-inbox`)
 
-Entries that couldn't route themselves sit here. Open one and classify it:
+Entries that couldn't route themselves sit here. (Mail from info@ that the AI did not turn into a
+request sits in its own panel at the top of this page — see Step 1.) Open one and classify it:
 
 | Classification | What happens on Convert |
 |---|---|
@@ -706,6 +716,12 @@ home page. It changes only through an update, so every figure has a date and a n
 A blank % means nobody reported it, which is shown as "—", never as 0%. You can delete your own
 update the same day; managers can delete any.
 
+**Source email (2026-10-23).** A deal that began as an email to info@ has a **Source email** panel:
+who wrote, the subject, the AI's one-line summary, and **Open in Outlook** for the original thread
+(it opens only for people who were given read access to the info@ inbox). Later client replies to
+that conversation appear under **Correspondence** and notify the people active on the deal; if
+nobody is, the sales managers.
+
 **Three values, kept apart (2026-10-19).** Key facts now shows **Estimated value** (the
 from–to range), **Quotation value** (what we quoted) and **Awarded value** (the contract value,
 or the quotation once the deal is won; "—" before award). The "Quotation" figure used to show
@@ -853,6 +869,15 @@ A project now has a responsible salesperson, shown at the top of the project pag
 
 ## 10. Current limitations
 
+### The info@ mailbox (2026-10-23)
+
+- It needs the Exchange setup in `docs/info-mailbox-setup.md`. Until that is done and switched on, nothing from info@ reaches the system.
+- A reply from your own Outlook starts a new email "RE: ...". It does not continue the info@ thread in the client's inbox.
+- CVs, invoices and other non-request mail keep only the sender, subject, label and one line; the text stays in Outlook.
+- Attachments are listed by name, not stored.
+- The AI sorts. A request it is unsure of (below 70%) waits in the **info@ mail — to route** list for a person. If the AI is down, sorting pauses and resumes by itself; nothing is lost.
+- A message a person has dismissed or forwarded is never turned into a request afterwards by the AI.
+
 ### Today's actions on the Command Center (2026-10-20)
 
 - **Call** counts client contact from the last 30 days only; a deal with older contact shows "quiet 30+ days".
@@ -937,6 +962,8 @@ When Send is available:
 - The email is recorded on the deal as sent, and counts as client contact.
 - Only your click sends. Nothing is ever sent automatically, on a schedule, or by AI.
 - Only sales roles can send. Others still see Open in Outlook.
+- **Mention (2026-10-23).** On an email tied to a deal, **Mention** tells colleagues inside the
+  system that you wrote to the client. It does not copy them on the email; use **CC** for that.
 
 **When reply capture is also set up:** a client's reply to an email you sent from the
 system appears on that deal's timeline automatically, and counts as client contact.
@@ -1373,3 +1400,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-10-22 · Back button on every page, full intake notes in the bell · previous: project tracking, 2026-10-19 -->
 
 <!-- last reviewed 2026-10-20 · Today's actions: five cards on the Command Center · previous: manager feedback (approvals, targets), 2026-10-19 -->
+
+<!-- last reviewed 2026-10-23 · info@ mailbox: requests from email, router list, Source email panel, Mention · branch feat/info-mailbox, not deployed · previous: Today's actions, 2026-10-20 -->
