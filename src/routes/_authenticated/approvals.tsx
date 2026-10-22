@@ -367,6 +367,7 @@ function ApprovalsPage() {
       )}
 
       <ActionDialog
+        recordId={decideFor ? `${decideFor.kind}:${decideFor.id}` : null}
         open={!!decideFor}
         onOpenChange={(v) => !v && setDecideFor(null)}
         title={

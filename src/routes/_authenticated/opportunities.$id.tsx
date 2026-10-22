@@ -2,7 +2,7 @@ import { isAssignableTeamMember } from "@/lib/team-members";
 import { opportunityClassification } from "@/lib/opportunity-classification";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { updateRfqDetails } from "@/lib/rfq-actions";
@@ -76,6 +76,9 @@ import { awardedValue } from "@/lib/project-tracking";
 import { resolveCanonicalStage, canonicalStageLabelKey } from "@/lib/stage-canonical";
 import { ProjectUpdatesPanel } from "@/components/phc/ProjectUpdatesPanel";
 import { CopyDealLink } from "@/components/phc/CopyDealLink";
+import { DraftRestoredNote } from "@/components/phc/DraftRestoredNote";
+import { useFormDraft } from "@/hooks/useFormDraft";
+import { draftPayload } from "@/lib/form-draft";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
@@ -308,6 +311,42 @@ function OpportunityDetail() {
   const [editingDiscussionId, setEditingDiscussionId] = useState<string | null>(null);
   const [editingDiscussionDraft, setEditingDiscussionDraft] = useState("");
   const [savingDiscussionEdit, setSavingDiscussionEdit] = useState(false);
+  // A half-written post survives leaving the page (manager feedback
+  // 2026-10-19). Kept in this browser only; posting is still the button.
+  const discussionSaved = useFormDraft(`discussion:${id}`);
+  const [discussionRestoredAt, setDiscussionRestoredAt] = useState<number | null>(null);
+  // Nothing is written until the stored draft has been read back into the
+  // box -- otherwise the empty first render would erase it.
+  const [discussionReady, setDiscussionReady] = useState(false);
+  useEffect(() => {
+    const d = discussionSaved.read();
+    setDiscussionDraft(d?.values.body ?? "");
+    setDiscussionPicId(d?.values.picId ?? "");
+    setDiscussionPicNote(d?.values.picNote ?? "");
+    setDiscussionMentionUserId(d?.values.mentionUserId ?? "");
+    setDiscussionMentionPurpose((d?.values.mentionPurpose ?? "") as MentionPurpose | "");
+    setDiscussionRestoredAt(d?.savedAt ?? null);
+    setDiscussionReady(true);
+  }, [discussionSaved.read]);
+  useEffect(() => {
+    if (!discussionReady) return;
+    discussionSaved.save(draftPayload({
+      body: discussionDraft,
+      picId: discussionPicId,
+      picNote: discussionPicNote,
+      mentionUserId: discussionMentionUserId,
+      mentionPurpose: discussionMentionPurpose,
+    }, {}));
+  }, [discussionReady, discussionSaved.save, discussionDraft, discussionPicId, discussionPicNote, discussionMentionUserId, discussionMentionPurpose]);
+  function discardDiscussionDraft() {
+    discussionSaved.clear();
+    setDiscussionRestoredAt(null);
+    setDiscussionDraft("");
+    setDiscussionPicId("");
+    setDiscussionPicNote("");
+    setDiscussionMentionUserId("");
+    setDiscussionMentionPurpose("");
+  }
   async function handlePostDiscussion() {
     if (!discussionDraft.trim()) return;
     setPostingDiscussion(true);
@@ -325,6 +364,8 @@ function OpportunityDetail() {
       setDiscussionPicNote("");
       setDiscussionMentionUserId("");
       setDiscussionMentionPurpose("");
+      discussionSaved.clear();
+      setDiscussionRestoredAt(null);
       toast.success(t("discussion_posted_toast"));
       qc.invalidateQueries({ queryKey: ["opp-discussion", id] });
       qc.invalidateQueries({ queryKey: ["approvals"] });
@@ -449,19 +490,39 @@ function OpportunityDetail() {
 
   const [technicalNotesDraft, setTechnicalNotesDraft] = useState<string | null>(null);
   const [savingNotes, setSavingNotes] = useState(false);
-  async function saveTechnicalNotes() {
+  // What the server last accepted, so a pause and then a blur do not save the
+  // same text twice.
+  const notesSavedRef = useRef<string | null>(null);
+  const [notesAutoSaved, setNotesAutoSaved] = useState(false);
+  async function saveTechnicalNotes(quiet = false) {
     if (technicalNotesDraft === null) return;
-    setSavingNotes(true);
+    const value = technicalNotesDraft;
+    const previous = notesSavedRef.current;
+    if (value === (previous ?? oppQ.data?.technical_notes ?? "")) return;
+    notesSavedRef.current = value;
+    // A quiet save never disables the box: it runs while the person types.
+    if (!quiet) setSavingNotes(true);
     try {
-      await updateOpportunityTechnicalNotes(id, technicalNotesDraft);
-      toast.success(t("crm_saved"));
+      await updateOpportunityTechnicalNotes(id, value);
+      if (quiet) setNotesAutoSaved(true);
+      else toast.success(t("crm_saved"));
       qc.invalidateQueries({ queryKey: ["opp", id] });
     } catch (e) {
+      notesSavedRef.current = previous;
       toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
     } finally {
-      setSavingNotes(false);
+      if (!quiet) setSavingNotes(false);
     }
   }
+  // Autosave (manager feedback 2026-10-19): a pause in typing saves, the same
+  // save that leaving the box has always made.
+  useEffect(() => {
+    if (technicalNotesDraft === null) return;
+    setNotesAutoSaved(false);
+    const timer = window.setTimeout(() => void saveTechnicalNotes(true), 1500);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-armed by each keystroke only
+  }, [technicalNotesDraft]);
 
   const runSafe = async (fn: () => Promise<unknown>, okKey: Parameters<typeof t>[0], onDone?: () => void) => {
     try {
@@ -1162,6 +1223,7 @@ function OpportunityDetail() {
           }}
         />
         <ActionDialog
+          recordId={roleFor?.id as string | undefined}
           open={!!roleFor}
           onOpenChange={(v) => !v && setRoleFor(null)}
           title={lang === "ar" ? "دور صاحب المصلحة" : "Stakeholder role"}
@@ -1293,12 +1355,17 @@ function OpportunityDetail() {
         <textarea
           value={technicalNotesDraft ?? o.technical_notes ?? ""}
           onChange={(e) => setTechnicalNotesDraft(e.target.value)}
-          onBlur={saveTechnicalNotes}
+          onBlur={() => void saveTechnicalNotes()}
           disabled={savingNotes}
           rows={4}
           className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           placeholder={t("section_technical_notes")}
         />
+        {notesAutoSaved ? (
+          <p className="mt-1 text-2xs text-muted-foreground" role="status">
+            {lang === "ar" ? "حُفظ تلقائيًا" : "Saved automatically"}
+          </p>
+        ) : null}
       </Panel>
       )}
 
@@ -1571,6 +1638,9 @@ function OpportunityDetail() {
         {canDiscuss ? (
           <div className="grid gap-4">
             <div className="grid gap-2">
+              {discussionRestoredAt !== null ? (
+                <DraftRestoredNote savedAt={discussionRestoredAt} onDiscard={discardDiscussionDraft} />
+              ) : null}
               <textarea
                 value={discussionDraft}
                 onChange={(e) => setDiscussionDraft(e.target.value)}
@@ -2318,6 +2388,7 @@ function OpportunityDetail() {
               }
             />
             <ActionDialog
+              recordId={editingContract?.id}
               open={contractDialogOpen}
               onOpenChange={(v) => { setContractDialogOpen(v); if (!v) setEditingContract(null); }}
               title={editingContract ? t("contract_edit") : t("contract_create")}
@@ -2344,6 +2415,7 @@ function OpportunityDetail() {
               onSubmit={handleSaveContract}
             />
             <ActionDialog
+              recordId={completeId}
               open={!!completeId}
               onOpenChange={(v) => !v && setCompleteId(null)}
               title={t("dialog_complete_title")}
@@ -2363,6 +2435,7 @@ function OpportunityDetail() {
               }
             />
             <ActionDialog
+              recordId={rescheduleId}
               open={!!rescheduleId}
               onOpenChange={(v) => !v && setRescheduleId(null)}
               title={t("dialog_reschedule_title")}
@@ -2386,6 +2459,7 @@ function OpportunityDetail() {
               }
             />
             <ActionDialog
+              recordId={decideFor?.id}
               open={!!decideFor}
               onOpenChange={(v) => !v && setDecideFor(null)}
               title={

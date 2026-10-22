@@ -6,7 +6,6 @@ import { exactMatch, suggest } from "@/lib/name-suggest";
 import { applySuggestions, pendingSuggestions } from "@/lib/suggested-fields";
 import {
   autoDraftId,
-  draftAgeMinutes,
   draftKey as makeDraftKey,
   draftPayload,
   hasContent,
@@ -42,6 +41,7 @@ import { useI18n } from "@/lib/i18n";
 import { uploadAttachment } from "@/lib/storage-actions";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
+import { DraftRestoredNote } from "@/components/phc/DraftRestoredNote";
 
 /**
  * A field that only appears once another answer calls for it.
@@ -215,15 +215,6 @@ function AutocompleteField({
   );
 }
 
-/** "3 minutes ago" / "2 days ago" -- the age matters more than the timestamp. */
-function draftAgeLabel(minutes: number, t: (k: never) => string): string {
-  if (minutes < 1) return t("draft_age_now" as never);
-  if (minutes < 60) return `${minutes} ${t("draft_age_minutes" as never)}`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} ${t("draft_age_hours" as never)}`;
-  return `${Math.floor(hours / 24)} ${t("draft_age_days" as never)}`;
-}
-
 export function ActionDialog({
   open,
   onOpenChange,
@@ -293,7 +284,12 @@ export function ActionDialog({
     draftId === false
       ? null
       : draftId ?? autoDraftId({ path: pathname, title, fieldKeys: fields.map((f) => f.key), recordId });
-  const storageKey = formId ? makeDraftKey(user?.id, formId) : null;
+  const liveKey = formId ? makeDraftKey(user?.id, formId) : null;
+  // The key is fixed when the dialog opens. While it is open the path can
+  // change under it (a submit that navigates), fields can arrive late (a
+  // duplicate check), and the title follows the language -- none of which
+  // should move the draft somewhere it will not be found again.
+  const [storageKey, setStorageKey] = useState<string | null>(null);
   const [restoredAt, setRestoredAt] = useState<number | null>(null);
   const [suggested, setSuggested] = useState<Set<string>>(() => new Set());
   // Fields the person has changed by hand. A suggestion never overwrites one,
@@ -328,9 +324,10 @@ export function ActionDialog({
       // A draft is layered ON TOP of the defaults, never instead of them: a
       // field the user never reached still gets its seeded value.
       let restored: number | null = null;
-      if (storageKey) {
+      setStorageKey(liveKey);
+      if (liveKey) {
         try {
-          const d = readDraft(localStorage.getItem(storageKey), Date.now());
+          const d = readDraft(localStorage.getItem(liveKey), Date.now());
           if (d) {
             Object.assign(seed, d.values);
             restored = d.savedAt;
@@ -348,8 +345,11 @@ export function ActionDialog({
       setSuggested(new Set());
       touchedRef.current = new Set();
     }
+    // Closed: no key, so the first render of the next opening -- still holding
+    // the last session's values -- cannot write them anywhere.
+    if (!open) setStorageKey(null);
     wasOpen.current = open;
-  }, [open, storageKey]);
+  }, [open, liveKey]);
 
   useEffect(() => {
     if (!open || !suggestRef.current) return;
@@ -748,26 +748,7 @@ export function ActionDialog({
           </p>
         ) : null}
 
-        {/* Never a silent restore. Repopulating a form without saying so is a
-            way to file last week's answers under today's date. */}
-        {restoredAt !== null ? (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-amber/40 bg-amber/10 px-3 py-2">
-            <span className="text-xs text-foreground">
-              {t("draft_restored")}
-              {" · "}
-              <span className="text-muted-foreground">
-                {draftAgeLabel(draftAgeMinutes(restoredAt, Date.now()), t)}
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={discardDraft}
-              className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              {t("draft_discard")}
-            </button>
-          </div>
-        ) : null}
+        {restoredAt !== null ? <DraftRestoredNote savedAt={restoredAt} onDiscard={discardDraft} /> : null}
 
         <div className={cn("grid gap-4 overflow-y-auto py-2", sections ? "min-h-0 grid-cols-1 items-start gap-3 pe-1" : isWide && "sm:grid-cols-2 max-h-[55vh] pe-1")}>
           {sections ? sections.map((section, index) => {

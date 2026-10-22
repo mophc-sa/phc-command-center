@@ -1,5 +1,16 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-22 — Manager feedback group 6: drafts, short links, section keys (branch `feat/autosave-shortlinks-sections`)
+
+Worktree `~/dev/phc-g6b`. Spec `docs/superpowers/specs/2026-10-22-autosave-shortlinks-sections-design.md`.
+PR 356 (Back button, full intake notes) is the other half of group 6 and is separate.
+- Drafts: `ActionDialog` drafts by default (see DECISIONS 2026-10-22). Found by audit, not fixed:
+  several deal-page actions (`runSafe`), approvals `submitDecision`, the contract form and project
+  assign catch their own errors, so ActionDialog treats a failed submit as success: the form closes
+  and the draft is cleared. Pre-existing behaviour; fixing means rethrowing in those handlers.
+- Short links resolve `rfqs.rfq_number` → `opportunity_id`, then read the deal as the user.
+- Release: frontend only, plus `calendar-feed` deploy (approval-gated) for short links in Outlook.
+
 ## 2026-10-21 — Release of PRs 349–352, and the project-owner spec (branch `feat/project-owner`)
 
 **Released.** Production serves `f5a7af11a27d166cf7ac069bb534a9e44d628963`, Worker version

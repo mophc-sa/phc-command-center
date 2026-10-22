@@ -1,5 +1,21 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-22 — Drafts in every form, short links, section navigation (manager feedback group 6) (not deployed)
+
+- **Drafts by default.** `ActionDialog` keeps a draft for every form (`autoDraftId`: page path + title +
+  field keys + new `recordId` prop; `draftId={false}` opts out). The key is fixed when the dialog opens.
+  `recordId` added to every per-row dialog; contract test `action-dialog-drafts` fails if a new one
+  forgets it. Email and WhatsApp compose windows and the deal Discussion box keep drafts too
+  (`useFormDraft`, `DraftRestoredNote`). Deal Technical Notes save after a 1.5 s pause as well as on blur.
+- **Short links** `/p/<code>` (`src/routes/_authenticated/p.$code.tsx`, `src/lib/short-link.ts`): RFQ
+  number → deal, read as the signed-in user; no access or no such code = one not-found screen. **Copy
+  link** on the deal header. The calendar feed links events by short link when the deal has a code
+  (`withShortLinks`; UIDs unchanged) — needs a `calendar-feed` deploy.
+- **Section navigation** (`SectionNav` in AppShell, `src/lib/section-nav.ts`): ⌥↑/⌥↓ between the
+  outermost `<section>`s of the main column; index pill on md+ for pages with 4+ sections; ignored in
+  inputs, dialogs and menus; instant under reduced motion.
+- No migration. Release: frontend + `calendar-feed` function.
+
 ## 2026-10-21 — Project tracking, manager feedback and money guards released
 
 - Released `f5a7af1` (Worker `19a718a5`): PR 351 project tracking, PR 349 manager

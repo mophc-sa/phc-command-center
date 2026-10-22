@@ -216,6 +216,7 @@ export function QuotationsPanel() {
       )}
 
       <ActionDialog
+        recordId={statusFor?.id}
         open={!!statusFor}
         onOpenChange={(v) => !v && setStatusFor(null)}
         title={t("dialog_quote_status_title")}

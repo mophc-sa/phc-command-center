@@ -109,6 +109,7 @@ export function RecordLifecycleMenu({
       </DropdownMenu>
 
       <ActionDialog
+        recordId={`${entityType}:${entityId}`}
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
         title={t("lifecycle_archive")}
@@ -149,6 +150,7 @@ export function RecordLifecycleMenu({
       />
 
       <ActionDialog
+        recordId={`${entityType}:${entityId}`}
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title={t("lifecycle_request_delete")}
@@ -170,6 +172,7 @@ export function RecordLifecycleMenu({
       />
 
       <ActionDialog
+        recordId={`${entityType}:${entityId}`}
         open={duplicateOpen}
         onOpenChange={setDuplicateOpen}
         title={t("lifecycle_mark_duplicate")}

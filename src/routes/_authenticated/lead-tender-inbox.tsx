@@ -228,6 +228,7 @@ function LeadTenderInbox() {
       <NewIntakeDialog open={newItem} onOpenChange={setNewItem} onSaved={refresh} />
 
       <ActionDialog
+        recordId={classifyFor?.id}
         open={!!classifyFor}
         onOpenChange={(o) => !o && setClassifyFor(null)}
         title={t("ibx_classify")}
@@ -248,6 +249,7 @@ function LeadTenderInbox() {
       />
 
       <ActionDialog
+        recordId={convertFor?.id}
         open={!!convertFor}
         onOpenChange={(o) => !o && setConvertFor(null)}
         title={convertFor ? `${t("ibx_convert")}: ${t(`cls_${convertFor.classification}` as never)}` : ""}
@@ -382,6 +384,7 @@ function LeadTenderInbox() {
       />
 
       <ActionDialog
+        recordId={missingDataFor?.id}
         open={!!missingDataFor}
         onOpenChange={(o) => !o && setMissingDataFor(null)}
         title={t("ibx_send_missing_data")}
@@ -400,6 +403,7 @@ function LeadTenderInbox() {
       />
 
       <ActionDialog
+        recordId={duplicateFor?.id}
         open={!!duplicateFor}
         onOpenChange={(o) => !o && setDuplicateFor(null)}
         title={t("ibx_mark_duplicate")}
@@ -431,6 +435,7 @@ function LeadTenderInbox() {
       />
 
       <ActionDialog
+        recordId={archiveFor?.id}
         open={!!archiveFor}
         onOpenChange={(o) => !o && setArchiveFor(null)}
         title={t("ibx_archive")}
