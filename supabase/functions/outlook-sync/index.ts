@@ -18,6 +18,7 @@
 import { serviceClient } from "../_shared/supabase.ts";
 import { readGraphConfig } from "../_shared/graph.ts";
 import { deltaPage, getMessageDetail, initialDeltaUrl, refreshAccess } from "../_shared/graph-client.ts";
+import { syncInfoMailbox } from "./info-pass.ts";
 import {
   domainOf,
   externalAddresses,
@@ -48,6 +49,15 @@ export async function handleSync(req: Request): Promise<Response> {
 
   const cfg = readGraphConfig((k) => Deno.env.get(k));
   if (!cfg.configured) return text(503, "not configured");
+
+  // The info@ pass (cron job info-mailbox-sync sends {"mailbox":"info"}).
+  const body = await req.json().catch(() => null) as { mailbox?: unknown } | null;
+  if (body?.mailbox === "info") {
+    const mailbox = (Deno.env.get("INFO_MAILBOX") ?? "").trim().toLowerCase();
+    if (!mailbox) return text(200, "off");
+    const r = await syncInfoMailbox(svc, cfg, { mailbox, syncKey: key, started: Date.now(), budgetMs: TIME_BUDGET_MS });
+    return text(200, r.error ? "partial" : "ok");
+  }
 
   const started = Date.now();
   const { data: conns } = await svc.from("mail_connections").select("user_id").eq("status", "active");
