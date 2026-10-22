@@ -75,6 +75,7 @@ import { AttachmentLink } from "@/components/phc/AttachmentLink";
 import { awardedValue } from "@/lib/project-tracking";
 import { resolveCanonicalStage, canonicalStageLabelKey } from "@/lib/stage-canonical";
 import { ProjectUpdatesPanel } from "@/components/phc/ProjectUpdatesPanel";
+import { CopyDealLink } from "@/components/phc/CopyDealLink";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
@@ -625,6 +626,7 @@ function OpportunityDetail() {
                   <span className="num text-foreground" data-tabular="true">{rfqQ.data.rfq_number}</span>
                 )
               ) : null}
+              <CopyDealLink opportunityId={o.id} code={rfqQ.data?.rfq_number} />
             </div>
             <h1 className="text-[30px] font-bold tracking-[-0.02em] text-foreground md:text-[34px]">
               {o.project ? (

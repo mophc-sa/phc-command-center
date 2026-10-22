@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { composePhone, isUsablePhone, localPart, SAUDI_PREFIX } from "@/lib/phone-entry";
 import { exactMatch, suggest } from "@/lib/name-suggest";
 import { applySuggestions, pendingSuggestions } from "@/lib/suggested-fields";
 import {
+  autoDraftId,
   draftAgeMinutes,
   draftKey as makeDraftKey,
   draftPayload,
@@ -232,6 +234,7 @@ export function ActionDialog({
   destructive,
   onSubmit,
   draftId,
+  recordId,
   sections,
   progressive = false,
   suggest: suggestFrom,
@@ -253,8 +256,18 @@ export function ActionDialog({
    * Reported 2026-09-02: leaving a half-filled entry form loses everything. The
    * draft is per person (the key carries the user id), announced rather than
    * restored silently, and discardable in one click. See form-draft.ts.
+   *
+   * Since 2026-10-22 every dialog keeps a draft unless told not to: without an
+   * id, one is derived from the page, the title, the fields and `recordId`
+   * (autoDraftId). `false` turns it off -- for a form holding a secret, which
+   * must never be written to the browser's storage.
    */
-  draftId?: string;
+  draftId?: string | false;
+  /**
+   * The record this dialog acts on, when the page URL does not already say
+   * (a per-row dialog on a list). Keeps one row's draft off another row.
+   */
+  recordId?: string | null;
   /**
    * Values already on file for this entry, offered rather than assumed
    * (manager feedback 2026-10-19: "autofill from previous data, shown in blue
@@ -275,7 +288,12 @@ export function ActionDialog({
   const [extraOptions, setExtraOptions] = useState<Record<string, { value: string; label: string }[]>>({});
   const [creating, setCreating] = useState<string | null>(null);
   const { user } = useAuth();
-  const storageKey = draftId ? makeDraftKey(user?.id, draftId) : null;
+  const { pathname } = useLocation();
+  const formId =
+    draftId === false
+      ? null
+      : draftId ?? autoDraftId({ path: pathname, title, fieldKeys: fields.map((f) => f.key), recordId });
+  const storageKey = formId ? makeDraftKey(user?.id, formId) : null;
   const [restoredAt, setRestoredAt] = useState<number | null>(null);
   const [suggested, setSuggested] = useState<Set<string>>(() => new Set());
   // Fields the person has changed by hand. A suggestion never overwrites one,
