@@ -2,7 +2,7 @@
 // =============================================================================
 // The info@phc-sa.com mailbox — the pure rules the five-minute pass applies to
 // each message before anything is stored. (Graph calls: graph-client.ts.
-// Decisions about owners, items and replies: the SQL in 20261024100000.)
+// Decisions about owners, items and replies: the SQL in 20261025100000_info_mailbox.sql.)
 // =============================================================================
 
 import { INTERNAL_DOMAIN } from "./mail-capture.ts";
