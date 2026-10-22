@@ -33,6 +33,8 @@ describe("when the record names no deal", () => {
     // to a list with nothing to distinguish the row they were told about.
     expect(targetFor(n("approval", "a1"), null)).toEqual({ to: "/approvals", search: { focus: "a1" } });
     expect(targetFor(n("tender", "t1"), null)).toEqual({ to: "/tenders", search: { focus: "t1" } });
+    // A reminder about a client (group 5) opens the client's page.
+    expect(targetFor(n("company", "c1"), null)).toEqual({ to: "/accounts/c1" });
     expect(targetFor(n("inbox_item", "i1"), null)).toEqual({ to: "/lead-tender-inbox", search: { focus: "i1" } });
     expect(targetFor(n("rfq", "r1"), null)).toEqual({ to: "/quotations", search: { focus: "r1" } });
   });

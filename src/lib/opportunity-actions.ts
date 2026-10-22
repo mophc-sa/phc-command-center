@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { callBackend } from "@/lib/backend";
 import { scoreOpportunity, type OpportunityScoreResult, type OpportunityScoreTier } from "@/lib/opportunity-scoring";
 import { createFlag, resolveFlag, ACTIVE_FLAG_STATUSES, type RiskFlag } from "@/lib/workflow-actions";
+import type { Recurrence } from "@/lib/follow-up-recurrence";
 
 type Uuid = string;
 
@@ -74,12 +75,16 @@ export async function decideApproval(input: {
 /* ---------------- Follow-ups ---------------- */
 
 export async function scheduleFollowUp(input: {
-  opportunityId: Uuid;
+  /** A follow-up is about a deal, or (group 5) about a client company. */
+  opportunityId?: Uuid | null;
+  companyId?: Uuid | null;
   dueDate: string; // YYYY-MM-DD
   channel?: string;
   cadenceTier?: "A" | "B" | "C";
   notes?: string;
   ownerId?: Uuid | null; // null = unassigned, undefined = self-assign
+  /** Completing a repeating follow-up schedules the next one (in the database). */
+  recurrence?: Recurrence;
 }) {
   let owner_id: Uuid | null;
   if (input.ownerId === undefined) owner_id = await currentUserId();
@@ -87,24 +92,31 @@ export async function scheduleFollowUp(input: {
   const { data, error } = await supabase
     .from("follow_ups")
     .insert({
-      opportunity_id: input.opportunityId,
+      opportunity_id: input.opportunityId ?? null,
+      company_id: input.companyId ?? null,
       due_date: input.dueDate,
       channel: input.channel ?? null,
       cadence_tier: input.cadenceTier ?? "B",
       status: "scheduled",
       notes: input.notes ?? null,
       owner_id,
+      recurrence: input.recurrence ?? "none",
     })
     .select()
     .single();
   if (error) throw error;
-  await audit("follow_up.scheduled", "opportunity", input.opportunityId, null, data);
+  await audit("follow_up.scheduled", ...followUpSubject(data), null, data);
   return data;
+}
+
+/** Where a follow-up's audit rows are filed: its deal, else its client. */
+function followUpSubject(row: { opportunity_id: Uuid | null; company_id: Uuid | null }): [string, Uuid] {
+  return row.opportunity_id ? ["opportunity", row.opportunity_id] : ["company", row.company_id as Uuid];
 }
 
 export async function rescheduleFollowUp(input: {
   followUpId: Uuid;
-  opportunityId: Uuid;
+  opportunityId: Uuid | null;
   dueDate: string;
   notes?: string;
 }) {
@@ -126,8 +138,7 @@ export async function rescheduleFollowUp(input: {
   if (error) throw error;
   await audit(
     "follow_up.rescheduled",
-    "opportunity",
-    input.opportunityId,
+    ...followUpSubject(data),
     before ? { due_date: before.due_date, notes: before.notes } : null,
     { due_date: data.due_date, notes: data.notes },
   );
@@ -136,7 +147,7 @@ export async function rescheduleFollowUp(input: {
 
 export async function completeFollowUp(input: {
   followUpId: Uuid;
-  opportunityId: Uuid;
+  opportunityId: Uuid | null;
   outcome: string;
 }) {
   const { data, error } = await supabase
@@ -152,8 +163,7 @@ export async function completeFollowUp(input: {
   if (error) throw error;
   await audit(
     "follow_up.outcome_logged",
-    "opportunity",
-    input.opportunityId,
+    ...followUpSubject(data),
     null,
     { outcome: input.outcome, completed_at: data.last_contact_at },
   );

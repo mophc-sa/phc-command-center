@@ -16,6 +16,7 @@ import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { humanize } from "@/lib/utils";
+import { recurrenceLabel } from "@/lib/follow-up-recurrence";
 
 export const Route = createFileRoute("/_authenticated/follow-ups")({
   head: () => ({ meta: [{ title: "Follow-ups — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -39,7 +40,7 @@ function FollowUpsPage() {
     queryFn: async () =>
       (await supabase
         .from("follow_ups")
-        .select("*, opportunities(id, project_name, main_contractor, tier, owner_id)")
+        .select("*, opportunities(id, project_name, main_contractor, tier, owner_id), companies(id, name)")
         .neq("status", "completed")
         .order("due_date", { ascending: true })
       ).data ?? [],
@@ -112,10 +113,18 @@ function FollowUpsPage() {
                       {opp?.tier ? <StatusPill tone={opp.tier === "A" ? "attention" : "muted"}>{t("label_tier")} {opp.tier}</StatusPill> : null}
                       <span className="text-xs text-muted-foreground">{humanize(f.channel)}</span>
                       {f.cadence_tier ? <span className="text-xs text-muted-foreground">· {t("label_tier")} {f.cadence_tier}</span> : null}
+                      {f.recurrence && f.recurrence !== "none" ? (
+                        <span className="text-xs text-muted-foreground">· {recurrenceLabel(f.recurrence, lang)}</span>
+                      ) : null}
                     </div>
                     {opp?.project_name ? (
                       <Link to="/opportunities/$id" params={{ id: opp.id }} className="mt-1.5 block truncate text-base font-medium text-foreground hover:underline">
                         {opp.project_name}
+                      </Link>
+                    ) : null}
+                    {!opp && f.companies ? (
+                      <Link to="/accounts/$id" params={{ id: f.companies.id }} className="mt-1.5 block truncate text-base font-medium text-foreground hover:underline">
+                        {f.companies.name}
                       </Link>
                     ) : null}
                     {opp?.main_contractor ? (

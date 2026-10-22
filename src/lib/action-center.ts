@@ -105,6 +105,8 @@ export type TaskRowIn = {
 export type FollowUpRowIn = {
   id: string;
   opportunity_id: string | null;
+  /** A reminder about a client rather than a deal (group 5). */
+  company_id?: string | null;
   owner_id: string | null;
   due_date: string | null;
   cadence_tier: string | null;
@@ -268,7 +270,7 @@ export function fromFollowUp(f: FollowUpRowIn): UnifiedAction {
     status: f.status === "cancelled" ? "dismissed" : done ? "done" : "open",
     createdAt: f.created_at,
     resolvedAt: null,
-    href: actionHref("opportunity", entityId),
+    href: f.opportunity_id || !f.company_id ? actionHref("opportunity", entityId) : `/accounts/${f.company_id}`,
     blocking: false,
   };
 }

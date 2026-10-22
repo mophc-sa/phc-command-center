@@ -1881,6 +1881,126 @@ export type Database = {
           },
         ]
       }
+      deal_submittal_steps: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          document_id: string | null
+          id: string
+          notes: string | null
+          occurred_at: string
+          recorded_at: string
+          recorded_by: string | null
+          response: string | null
+          revision: number
+          step: string
+          submittal_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          document_id?: string | null
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          response?: string | null
+          revision?: number
+          step: string
+          submittal_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          document_id?: string | null
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          response?: string | null
+          revision?: number
+          step?: string
+          submittal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_submittal_steps_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_submittal_steps_submittal_id_fkey"
+            columns: ["submittal_id"]
+            isOneToOne: false
+            referencedRelation: "deal_submittals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_submittals: {
+        Row: {
+          client_response: string | null
+          created_at: string
+          created_by: string | null
+          current_step: string | null
+          id: string
+          kind: string
+          last_step_at: string | null
+          notes: string | null
+          opportunity_id: string
+          revision: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_response?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_step?: string | null
+          id?: string
+          kind: string
+          last_step_at?: string | null
+          notes?: string | null
+          opportunity_id: string
+          revision?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_response?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_step?: string | null
+          id?: string
+          kind?: string
+          last_step_at?: string | null
+          notes?: string | null
+          opportunity_id?: string
+          revision?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_submittals_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_submittals_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_backfill_report: {
         Row: {
           derived_path: string | null
@@ -2288,46 +2408,68 @@ export type Database = {
         Row: {
           cadence_tier: Database["public"]["Enums"]["priority_tier"]
           channel: string | null
+          company_id: string | null
+          completed_at: string | null
           created_at: string
           due_date: string
           extra_data: Json | null
           id: string
           last_contact_at: string | null
           notes: string | null
-          opportunity_id: string
+          opportunity_id: string | null
           owner_id: string | null
+          recurrence: string
+          recurrence_anchor: string | null
+          recurs_from: string | null
           status: Database["public"]["Enums"]["follow_up_status"]
           updated_at: string
         }
         Insert: {
           cadence_tier?: Database["public"]["Enums"]["priority_tier"]
           channel?: string | null
+          company_id?: string | null
+          completed_at?: string | null
           created_at?: string
           due_date: string
           extra_data?: Json | null
           id?: string
           last_contact_at?: string | null
           notes?: string | null
-          opportunity_id: string
+          opportunity_id?: string | null
           owner_id?: string | null
+          recurrence?: string
+          recurrence_anchor?: string | null
+          recurs_from?: string | null
           status?: Database["public"]["Enums"]["follow_up_status"]
           updated_at?: string
         }
         Update: {
           cadence_tier?: Database["public"]["Enums"]["priority_tier"]
           channel?: string | null
+          company_id?: string | null
+          completed_at?: string | null
           created_at?: string
           due_date?: string
           extra_data?: Json | null
           id?: string
           last_contact_at?: string | null
           notes?: string | null
-          opportunity_id?: string
+          opportunity_id?: string | null
           owner_id?: string | null
+          recurrence?: string
+          recurrence_anchor?: string | null
+          recurs_from?: string | null
           status?: Database["public"]["Enums"]["follow_up_status"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "follow_ups_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "follow_ups_opportunity_id_fkey"
             columns: ["opportunity_id"]
@@ -2340,6 +2482,13 @@ export type Database = {
             columns: ["opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_ups_recurs_from_fkey"
+            columns: ["recurs_from"]
+            isOneToOne: false
+            referencedRelation: "follow_ups"
             referencedColumns: ["id"]
           },
         ]
@@ -8766,6 +8915,15 @@ export type Database = {
           title: string
         }[]
       }
+      next_follow_up_date: {
+        Args: {
+          _after: string
+          _anchor: string
+          _recurrence: string
+          _today: string
+        }
+        Returns: string
+      }
       normalize_lead_key: {
         Args: { _location: string; _project_name: string }
         Returns: string
@@ -8842,6 +9000,10 @@ export type Database = {
       storage_object_readable: {
         Args: { _bucket: string; _path: string; _user_id: string }
         Returns: boolean
+      }
+      submittal_next_steps: {
+        Args: { _current: string; _kind: string }
+        Returns: string[]
       }
       void_historical_promotion: {
         Args: { _reason: string; _request_id: string }
