@@ -49,7 +49,7 @@ async function info_mail_forward(payload: Record<string, unknown>, ctx: SalesOsC
     return err("You can forward only to an active colleague", 400);
   }
   const { data: me } = await ctx.svc.from("profiles").select("full_name, email").eq("id", ctx.caller.userId).maybeSingle();
-  // deno-lint-ignore no-control-regex
+  // eslint-disable-next-line no-control-regex -- strip control characters from a display name
   const who = String(me?.full_name || me?.email || "a colleague").replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").trim().slice(0, 100) || "a colleague";
 
   // Claim the row before Graph, so two clicks at once cannot both send.
