@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { activeSectionIndex, isOwnedTarget, sectionStepFor, stepTarget } from "@/lib/section-nav";
+import { activeSectionIndex, isOwnedTarget, sectionStepFor, stepFrom, stepTarget } from "@/lib/section-nav";
 
 const key = (k: string, mods: Partial<{ altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }> = {}) => ({
   key: k,
@@ -79,5 +79,29 @@ describe("where a step lands", () => {
 
   it("does nothing on a page with no sections", () => {
     expect(stepTarget([], 0, "next")).toBe(-1);
+  });
+});
+
+describe("pressing again before the page has arrived", () => {
+  const tops = [100, 600, 1400, 2000];
+
+  it("counts from the last jump while the scroll is still on its way", () => {
+    const last = { index: 1, y: 540, at: 1000 };
+    // Still near the top mid-scroll; read from position alone this would aim at 1 again.
+    expect(stepFrom(tops, 120, "next", last, 60, 1300)).toBe(2);
+  });
+
+  it("counts from the last jump at the foot of the page, where scrolling cannot move", () => {
+    const last = { index: 2, y: 1500, at: 0 };
+    expect(stepFrom(tops, 1564, "next", last, 1500, 60_000)).toBe(3);
+  });
+
+  it("reads the position again once the person has scrolled away", () => {
+    const last = { index: 3, y: 1940, at: 0 };
+    expect(stepFrom(tops, 664, "next", last, 600, 60_000)).toBe(2);
+  });
+
+  it("reads the position when there was no jump yet", () => {
+    expect(stepFrom(tops, 664, "next", null, 600, 0)).toBe(2);
   });
 });

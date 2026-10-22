@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "@tanstack/react-router";
 import { ChevronDown, ChevronUp, List } from "lucide-react";
 import {
@@ -13,7 +13,8 @@ import {
   isOwnedTarget,
   MIN_SECTIONS_FOR_INDEX,
   sectionStepFor,
-  stepTarget,
+  stepFrom,
+  type LastJump,
 } from "@/lib/section-nav";
 
 // The sticky header (h-12) plus a little air, so a section lands under it
@@ -50,12 +51,12 @@ function sectionTitle(el: HTMLElement, n: number, lang: string): string {
 const tops = (els: HTMLElement[]) => els.map((el) => el.getBoundingClientRect().top + window.scrollY);
 const readingLine = () => window.scrollY + READING_OFFSET;
 
-function goTo(el: HTMLElement) {
+/** Scrolls to a section and returns where the page will come to rest. */
+function goTo(el: HTMLElement): number {
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  window.scrollTo({
-    top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - READING_OFFSET + 8),
-    behavior: reduce ? "auto" : "smooth",
-  });
+  const maxY = document.documentElement.scrollHeight - window.innerHeight;
+  const top = Math.min(Math.max(0, el.getBoundingClientRect().top + window.scrollY - READING_OFFSET + 8), Math.max(0, maxY));
+  window.scrollTo({ top, behavior: reduce ? "auto" : "smooth" });
   // Focus follows, so a screen reader announces where the jump landed and Tab
   // continues from there. The section is made focusable only for this.
   if (!el.hasAttribute("tabindex")) {
@@ -63,6 +64,7 @@ function goTo(el: HTMLElement) {
     el.style.outline = "none";
   }
   el.focus({ preventScroll: true });
+  return top;
 }
 
 /**
@@ -74,6 +76,7 @@ export function SectionNav() {
   const { pathname } = useLocation();
   const [sections, setSections] = useState<HTMLElement[]>([]);
   const [active, setActive] = useState(-1);
+  const lastJump = useRef<LastJump | null>(null);
 
   // Sections come and go: data loads in, the deal page's timeline filter
   // shows and hides panels. Re-read on any change to the main column, at most
@@ -101,6 +104,9 @@ export function SectionNav() {
   }, [pathname]);
 
   useEffect(() => {
+    // A new set of sections (another page, a filter): the last jump's index
+    // no longer points at the same thing.
+    lastJump.current = null;
     let frame = 0;
     const update = () => {
       cancelAnimationFrame(frame);
@@ -123,8 +129,10 @@ export function SectionNav() {
 
   const step = useCallback(
     (dir: "next" | "prev") => {
-      const i = stepTarget(tops(sections), readingLine(), dir);
-      if (i >= 0) goTo(sections[i]);
+      const now = performance.now();
+      const i = stepFrom(tops(sections), readingLine(), dir, lastJump.current, window.scrollY, now);
+      if (i < 0) return;
+      lastJump.current = { index: i, y: goTo(sections[i]), at: now };
     },
     [sections],
   );
@@ -178,7 +186,11 @@ export function SectionNav() {
           {sections.map((el, i) => (
             <DropdownMenuItem
               key={i}
-              onSelect={() => requestAnimationFrame(() => goTo(el))}
+              onSelect={() =>
+                requestAnimationFrame(() => {
+                  lastJump.current = { index: i, y: goTo(el), at: performance.now() };
+                })
+              }
               className={i === current ? "font-semibold text-foreground" : undefined}
             >
               <span className="num me-2 w-5 shrink-0 text-muted-foreground" data-tabular="true">{i + 1}</span>

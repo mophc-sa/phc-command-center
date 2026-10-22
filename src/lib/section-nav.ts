@@ -93,5 +93,34 @@ export function stepTarget(tops: number[], line: number, step: SectionStep): num
   return Math.max(i - 1, 0);
 }
 
+/** Where the last jump went, and where the page was heading for it. */
+export type LastJump = { index: number; y: number; at: number };
+
+/**
+ * Where a step lands when the previous jump may not have finished.
+ *
+ * Read from the scroll position alone, a second press during a smooth scroll
+ * aims at the section already on its way in, and at the foot of the page --
+ * where the last short sections cannot scroll up to the top -- every press
+ * aims at the same one. So while the page is still heading for, or sitting at,
+ * where the last jump put it, the next step counts from that jump.
+ */
+export function stepFrom(
+  tops: number[],
+  line: number,
+  step: SectionStep,
+  last: LastJump | null,
+  scrollY: number,
+  now: number,
+): number {
+  if (tops.length === 0) return -1;
+  const inFlight = last && now - last.at < 700;
+  const stillThere = last && Math.abs(scrollY - last.y) < 4;
+  if (last && (inFlight || stillThere) && last.index < tops.length) {
+    return step === "next" ? Math.min(last.index + 1, tops.length - 1) : Math.max(last.index - 1, 0);
+  }
+  return stepTarget(tops, line, step);
+}
+
 /** The index pill is noise on a short page. */
 export const MIN_SECTIONS_FOR_INDEX = 4;
