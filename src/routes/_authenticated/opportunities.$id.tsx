@@ -12,6 +12,7 @@ import { approvalTypeLabel } from "@/lib/approval-labels";
 import { LegacyOpportunityContext } from "@/components/phc/LegacyOpportunityContext";
 import { Panel } from "@/components/phc/Panel";
 import { DealCorrespondencePanel } from "@/components/phc/DealCorrespondencePanel";
+import { SourceEmailPanel } from "@/components/phc/SourceEmailPanel";
 import { StageChecklistPanel } from "@/components/phc/StageChecklistPanel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -2142,6 +2143,9 @@ function OpportunityDetail() {
         </Panel>
         );
       })()}
+
+      {/* 7c1. SOURCE EMAIL — the info@ message this deal came from, when it did */}
+      <SourceEmailPanel opportunityId={o.id} />
 
       {/* 7c2. CORRESPONDENCE — the deal's email and an on-demand AI summary (Outlook phase 3) */}
       <DealCorrespondencePanel opportunityId={o.id} />

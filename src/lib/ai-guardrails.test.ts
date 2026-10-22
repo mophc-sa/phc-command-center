@@ -287,3 +287,45 @@ test("resolveMaxInputChars accepts the exact boundary values", () => {
   expect(resolveMaxInputChars(envMin)).toBe(MIN_INPUT_CHARS_BOUND);
   expect(resolveMaxInputChars(envMax)).toBe(MAX_INPUT_CHARS_BOUND);
 });
+
+// ---------------------------------------------------------------------------
+// Final review D7: a dangerous protocol is matched only where it is used as a
+// URL. Ordinary words followed by a colon ("Tender file: …") are not URLs.
+// ---------------------------------------------------------------------------
+
+test("ordinary words before a colon are not dangerous protocols", () => {
+  for (const text of [
+    "Tender file: drawings attached",
+    "Project data: 40 villas",
+    "about: the tender",
+    "Blob: none",
+    "The data: is incomplete",
+    "See the file: BOQ.xlsx",
+  ]) {
+    expect(scanForGuardrailViolations({ summary_en: text })).toEqual([]);
+  }
+});
+
+test("a data: URL is blocked even with spaces before the MIME type", () => {
+  for (const text of ["data: text/html,<script>", "data:text/html,<script>", "data:   application/json,{}"]) {
+    expect(scanForGuardrailViolations({ summary_en: text }).length).toBeGreaterThan(0);
+  }
+  expect(scanForGuardrailViolations({ summary_en: "Project data: 40 villas" })).toEqual([]);
+});
+
+test("URL-like dangerous protocols are still rejected", () => {
+  for (const text of [
+    "javascript:alert(1)",
+    "JavaScript:void(0)",
+    "javascript: alert(1)",
+    "vbscript:msgbox",
+    "data:text/html;base64,PHNjcmlwdD4=",
+    "data:image/svg+xml,<svg/onload=alert(1)>",
+    "data:,hello",
+    "open file:///etc/passwd",
+    "about:blank",
+    "blob:https://evil.example/123",
+  ]) {
+    expect(hasGuardrailViolation({ message: text })).toBe(true);
+  }
+});

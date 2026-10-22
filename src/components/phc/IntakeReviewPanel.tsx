@@ -17,7 +17,7 @@ import { isAssignableTeamMember } from "@/lib/team-members";
 import { Fragment, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CheckCircle2, HelpCircle, Eye, XCircle, RotateCcw, ChevronRight, Check, Minus, Pencil } from "lucide-react";
+import { CheckCircle2, HelpCircle, Eye, XCircle, RotateCcw, ChevronRight, Check, Minus, Pencil, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Panel } from "@/components/phc/Panel";
 import { QueryFailure } from "@/components/phc/QueryFailure";
@@ -131,7 +131,16 @@ export function IntakeDetail({ r }: { r: any }) {
             ))
           )}
         </div>
-        <Field label={t("ibx_evidence_url")} value={r.evidence_url} />
+        {r.source_type === "info_mailbox" && /^https?:\/\//i.test(String(r.evidence_url ?? "")) ? (
+          <div className="min-w-0">
+            <div className="text-2xs tracking-[0.02em] text-muted-foreground">{lang === "ar" ? "البريد الأصلي" : "Source email"}</div>
+            <a href={r.evidence_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-foreground underline">
+              {lang === "ar" ? "افتح في Outlook" : "Open in Outlook"} <ExternalLink className="h-3 w-3" aria-hidden="true" />
+            </a>
+          </div>
+        ) : (
+          <Field label={t("ibx_evidence_url")} value={r.evidence_url} />
+        )}
         <Field label={t("ibx_deadline")} value={r.deadline} />
       </Group>
 
@@ -211,7 +220,7 @@ export function IntakeReviewPanel({ selectedId, items, loading, failed, retry, r
             "scope, scope_type, estimated_value, contact_name, contact_title, email, phone, " +
             "main_contractor, consultant, client_type, location, location_city, " +
             "notes, evidence_url, client_rfq_reference, internal_rfq_reference, " +
-            "project_number, date_received, source_name, project_type",
+            "project_number, date_received, source_name, project_type, source_type",
           )
           .in("review_state", ["pending_review", "need_information"])
           .order("created_at", { ascending: true })
@@ -325,8 +334,16 @@ export function IntakeReviewPanel({ selectedId, items, loading, failed, retry, r
                         aria-hidden="true"
                       />
                       <span>
-                        <span className="block font-medium text-foreground">{r.project_name || "—"}</span>
+                        <span className="block font-medium text-foreground">
+                          {r.project_name || "—"}
+                          {r.source_type === "info_mailbox" ? (
+                            <span className="ms-2 rounded-full border border-border px-1.5 py-0.5 align-middle text-2xs font-normal text-muted-foreground">{t("src_info_mailbox")}</span>
+                          ) : null}
+                        </span>
                         <span className="block text-xs text-muted-foreground">{r.company_name || "—"}</span>
+                        {r.client_rfq_reference ? (
+                          <span className="block text-xs text-muted-foreground">{r.client_rfq_reference}</span>
+                        ) : null}
                       </span>
                     </button>
                     <span className="sr-only">

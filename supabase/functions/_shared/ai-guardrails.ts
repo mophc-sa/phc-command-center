@@ -58,6 +58,7 @@ export const AGENT_ENTITY_ALLOWLIST: Record<AgentKey, readonly EntityType[]> = {
   sales_report_insights: ["reports"],
   deal_correspondence_summary: ["opportunities"],
   daily_email_brief: ["my_email"],
+  info_mail_triage: ["info_mail"],
 };
 
 export function isEntityAllowedForAgent(agent: AgentKey, entityType: string | null | undefined): boolean {
@@ -115,6 +116,8 @@ export const AGENT_ROLE_CHECK: Record<AgentKey, (roles: AppRole[]) => boolean> =
   // is decided per record by can_read_boq in the registry's checkAccess.
   deal_correspondence_summary: (roles) => canCreateSalesRecords(roles),
   daily_email_brief: (roles) => canCreateSalesRecords(roles),
+  // No person runs it: the info@ pass calls it as a service (orchestrator, serviceCallable).
+  info_mail_triage: () => false,
 };
 
 export function hasAgentRole(agent: AgentKey, roles: AppRole[]): boolean {
@@ -278,7 +281,12 @@ export type GuardrailFinding =
 //    three agents' free-text output and are inherently dangerous
 //    (javascript:/data: are classic XSS/script-injection vectors if this
 //    text were ever rendered as HTML by a careless reviewer UI; file: can
-//    read local files in some contexts). Blocked unconditionally, any field.
+//    read local files in some contexts). Blocked in any field, but only
+//    where the word is used as a URL (final review D7): "Tender file:
+//    drawings attached" or "Project data: 40 villas" is ordinary prose.
+//    javascript:/vbscript: are blocked wherever they appear (a space after
+//    the colon is still a working script URL); data: when a MIME type (optionally after
+//    spaces), "," or ";" follows; file:/about:/blob: when anything but a space follows.
 // 2. An http(s) URL appearing alongside webhook/action-triggering language
 //    ("call this webhook", "post this to", "trigger this endpoint" ...) —
 //    i.e. the URL is being framed as something to be ACTED ON, not cited as
@@ -286,7 +294,8 @@ export type GuardrailFinding =
 //    tool/action field a provider could use to trigger a real call, so this
 //    is defense in depth against a human reviewer being misled into
 //    manually visiting/triggering something, not a technical RCE vector.
-const DANGEROUS_URL_PROTOCOLS = /\b(javascript|data|file|vbscript|about|blob):/i;
+const DANGEROUS_URL_PROTOCOLS =
+  /\b(?:javascript|vbscript):|\bdata:(?:\s*[a-z]+\/[a-z0-9.+-]+|[,;])|\b(?:file|about|blob):\S/i;
 const ACTION_URL_CONTEXT = /\b(webhook|call(?:ing)? this (?:webhook|endpoint|api|url|link)|post (?:this|it) to|trigger this|execute this (?:url|link|webhook))\b/i;
 
 // Recursively scans a parsed structured output for any prohibited-action

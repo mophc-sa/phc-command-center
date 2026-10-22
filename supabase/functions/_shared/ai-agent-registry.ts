@@ -80,6 +80,8 @@ export type AgentDefinition = {
   outputType: OutputType;
   maxContextRecords: number;
   allowProviderFallback: true; // uniform in this sprint — every agent degrades gracefully, none is exempt.
+  /** The only agents a service call (no person) may run. See the orchestrator's service caller. */
+  serviceCallable?: true;
 };
 
 // Generic ownership check shared by every agent whose entity type has an
@@ -289,6 +291,56 @@ export async function loadDailyEmailBriefContext(
     redacted_identifiers: { user_id: redactId(userId) },
   };
   return { ok: true, contextText, manifest, recordCount: picked.length };
+}
+
+// ---------------------------------------------------------------------------
+// info_mail_triage — one message in the info@ mailbox. Service calls only.
+// ---------------------------------------------------------------------------
+
+const INFO_MAIL_TEXT = 6000;
+const INFO_MAIL_BUDGET = 11_000; // under MAX_CONTEXT_CHARS (12 000), after JSON escaping
+
+/** One info@ message, for info_mail_triage. Only an unclassified message is sent to the model. */
+export async function loadInfoMailContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+): Promise<AgentContextResult> {
+  const { data } = await svc
+    .from("info_mail")
+    .select("id, category, from_email, from_name, subject, received_at, body_text, attachment_names")
+    .eq("id", entityId)
+    .maybeSingle()
+    .throwOnError();
+  const m = data as {
+    id: string; category: string; from_email: string | null; from_name: string | null; subject: string | null;
+    received_at: string; body_text: string | null; attachment_names: string[] | null;
+  } | null;
+  if (!m) return { ok: false, code: "AI_INPUT_INVALID", message: "No such message." };
+  if (m.category !== "unclassified") return { ok: false, code: "AI_INPUT_INVALID", message: "Already classified." };
+  const email = squash(m.from_email, 200);
+  const name = squash(m.from_name, 200);
+  const build = (n: number) => JSON.stringify({
+    from: name ? `${name} <${email}>` : email || null,
+    subject: squash(m.subject, 300) || null,
+    date: m.received_at,
+    attachments: (m.attachment_names ?? []).slice(0, 20).map((a) => String(a).slice(0, 200)),
+    text: (m.body_text ?? "").slice(0, n),
+  });
+  // Quotes and line breaks double in JSON; shorten the text until it fits.
+  let contextText = build(INFO_MAIL_TEXT);
+  for (const n of [4000, 2500, 1000]) if (contextText.length > INFO_MAIL_BUDGET) contextText = build(n);
+  return {
+    ok: true,
+    contextText,
+    recordCount: 1,
+    manifest: {
+      fields_loaded: ["from_email", "from_name", "subject", "received_at", "body_text", "attachment_names"],
+      record_counts: { info_mail: 1 },
+      source_entity_types: ["info_mail"],
+      redacted_identifiers: { info_mail_id: redactId(m.id) },
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1876,5 +1928,19 @@ export const AGENT_REGISTRY: Record<AgentKey, AgentDefinition> = {
     outputType: AGENT_OUTPUT_TYPES.sales_report_insights,
     maxContextRecords: 20,
     allowProviderFallback: true,
+  },
+  info_mail_triage: {
+    key: "info_mail_triage",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.info_mail_triage,
+    hasRole: AGENT_ROLE_CHECK.info_mail_triage,
+    // The service caller is authenticated by the orchestrator; the record is the message itself.
+    checkAccess: async () => ({ ok: true }),
+    loadContext: (svc, entityType, entityId) => loadInfoMailContext(svc, entityType, entityId),
+    buildPrompt: AGENT_PROMPT_BUILDERS.info_mail_triage,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.info_mail_triage,
+    outputType: AGENT_OUTPUT_TYPES.info_mail_triage,
+    maxContextRecords: 1,
+    allowProviderFallback: true,
+    serviceCallable: true,
   },
 } satisfies Record<AgentKey, AgentDefinition>;

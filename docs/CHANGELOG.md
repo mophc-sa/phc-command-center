@@ -1,5 +1,32 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-23 — The info@ mailbox (group 3, part B; branch `feat/info-mailbox`; not deployed)
+
+- Migrations `20261025090000_inbox_source_info_mailbox.sql` (the `info_mailbox` intake source) and
+  `20261025100000_info_mailbox.sql` (the `info_mail` table, routing functions, `info_mailbox_state`, the
+  5-minute job).
+- `outlook-sync` info@ pass: reads only info@ (app-only, Exchange RBAC for Applications, no Entra Mail
+  permission), binds replies to their deal, sends each new message to `ai-orchestrator` agent
+  `info_mail_triage` (first service caller; Vault key, runs as the info@ profile, `serviceCallable` only).
+  Request: becomes an inbox item (location, client RFQ number, value, scope) for the account owner or the
+  sales managers. Anything else keeps sender, subject, label and one line; its text is not stored.
+- Triage never overrides a router's decision. An AI outage pauses sorting without spending a message's
+  three tries (`info_mailbox_state.last_error` = `triage paused: <code>`). Below 70% confidence waits for a person.
+- Client replies reach the active people on the deal or item, else the sales managers.
+- UI: router panel "info@ mail — to route" at the top of Lead & Tender Inbox (sales manager, BD, sales ops,
+  executives): forward (confirm; claims the message first so two clicks cannot send twice), This is an RFQ
+  (fetches the full text from Outlook again), dismiss. "Email to info@" chip on intake. "Source email" panel
+  on the deal page. "Mention" in the send window (in-system notice only; CC unchanged).
+- Final review: mail from before go-live is listed "Not sorted — route by hand" without AI; newsletters/bulk
+  mail go to a "Newsletters & spam" line with Dismiss all; Dismiss asks to confirm; newest 200 shown; AI
+  backs off on outages (30 min doubling to 120) and is newest-first; a handled-less-than-5-minutes row is
+  claimed (the forward handler takes a stale claim); Mention lists only people who can open the deal and the
+  toast reads "n of m notified"; Agent Activity hides `info_mail_triage`.
+- Docs: `docs/info-mailbox-setup.md` (pre-checks, release order, first run), USER_GUIDE (Step 1, Step 3, deal page, send window, section 10).
+- Not deployed. Needs deploys of `ai-orchestrator`, `outlook-sync` and `sales-os-api` first, then `db push`
+  (two migrations), Mo's Exchange setup, then `supabase secrets set INFO_MAILBOX=info@phc-sa.com`. Not tried
+  against the real mailbox.
+
 ## 2026-10-22 — Back button and full intake notes (manager feedback group 6, not deployed)
 
 - `BackButton` in the shell top bar on every signed-in page except home: `router.history.back()` when the

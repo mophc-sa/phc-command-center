@@ -453,6 +453,12 @@ async function markConverted(id: Uuid, recordType: string, recordId: Uuid) {
     .eq("id", id);
   if (error) throw error;
   await auditInbox("inbox_item.converted", id, { record_type: recordType, record_id: recordId });
+  // An item read from info@ brings its email thread to the deal it became
+  // (client replies then land on the deal). No info@ mail → 0 rows, no error.
+  if (recordType === "opportunity") {
+    const { error: linkErr } = await supabase.rpc("info_mail_link_conversion", { _inbox_item_id: id });
+    if (linkErr) console.warn("info@ mail could not be linked to the new deal", linkErr.message);
+  }
 }
 
 // ---- Conversion actions — each wraps the existing, already-safeguarded
