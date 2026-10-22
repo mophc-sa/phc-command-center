@@ -547,7 +547,7 @@ Old tenders are not allowed to sit active forever.
 | **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
 | **Approvals** `/approvals` | Opens on **Manager decisions**: only what genuinely needs the commercial manager — the **BAFO / discount chain** (which of the four steps is waiting and on which role), the **under-300k exception**, **tender → JIH**, and **verbal award / contract / won confirmations**. Everything routine — intake review, AI recommendations, management-review requests, discussion mentions, deletion and sure-win requests — is one tab over under **Other requests** (طلبات أخرى). Every type has a plain Arabic/English name; no raw codes. *(2026-10-19)* |
 | **Calendar** `/calendar` | Everything that carries a date, on one month grid — **sixteen kinds**: follow-ups due, RFQ response deadlines, next actions, expected contract and hold-review dates, enquiry deadlines and their follow-ups and information-due dates, flags, commitments, tasks, quotation expiry, expected BOQ and signage dates, and tender award and follow-up dates. If a form let you record a date, this page shows it. Each day shows a dot per item — red for overdue, amber for today — and opens a panel listing them. **New follow-up** creates one through the same path the rest of the app uses, so it also appears in Action Required and Follow-ups; there is no second task list to reconcile. Undated work does not appear at all: the calendar arranges dates, it never invents one. Closed deals and completed follow-ups drop off rather than sitting greyed out, so nothing on the grid is safe to skim past. **Add to Outlook** puts your own dated work into your Outlook calendar through a private link — see *Your work in your Outlook calendar* in section 10. |
-| **Meetings** `/meetings` | Meetings recorded by **Fireflies.ai**, for managers, BD / Sales Ops and system admins only. Each meeting arrives on its own once Fireflies has processed it, with its summary and the action items Fireflies listed per speaker. **Nothing becomes a task until you approve it.** For each item: fix the wording, choose the **owner** (Fireflies often only knows "Speaker 3" — the owner is pre-filled only when the speaker's name matches exactly one person), optionally set a due date and link an opportunity, then **Approve → task**. The task lands in the owner's My Workspace, Action Required and calendar, and they get a notification. **Dismiss** needs a reason. The timestamp next to each item opens the recording at that moment. |
+| **Meetings** `/meetings` | Meetings recorded by **Fireflies.ai**, each with its summary and the action items Fireflies listed per speaker. They arrive from the company webhook and, every 30 minutes, from each salesperson's own Fireflies account once they connect it in **Settings → Fireflies** *(2026-10-22)*. **Nothing becomes a task until someone approves it** — and that someone is now **the person the item is for**: if you were in the meeting (organiser, on the invite, or it came from your own Fireflies), you approve or dismiss the items suggested to you; the organiser also decides the items nobody was matched to and may assign them to a colleague; managers can still decide everything. For each item: fix the wording, check the **owner**, the **due date** (pre-filled **3 working days** out, Sun–Thu), and the **deal** (pre-filled from the meeting's deal), then **Approve → task**. **Dismiss** needs a reason. **Approve all ready** approves every item that has an owner, as suggested; **Dismiss the rest** closes what is left with one reason. At the top, the **Deal** line shows the deal the system found in the summary (*Suggested*) — press **Confirm** (or **Change**) and the meeting's summary is added once to that deal's **update log**. An item nobody decides is **dismissed automatically after 14 days**, with a reason, and the meeting's organiser is told. The page opens with four numbers: meetings this week, % of items approved, average time to decide, items pending over 7 days; **Needs review** filters the list. The timestamp next to each item opens the recording at that moment. |
 | **Notifications** (bell) | Opens the drawer, not a page. Shows **what happened**: unread count on the bell, mark-one/mark-all read, dismiss, and a deep link to the record. Distinct from actions — see Section 7b. |
 
 ### 7a. What counts as a sale
@@ -670,7 +670,7 @@ project does **not** create a duplicate.
 | **Agent Activity** `/agent-activity` | Every AI run and output, with accept/reject review. |
 | **Data Import** `/data-import` | *(admin only)* Spreadsheet import: map columns → preview → validate → error report → commit. |
 | **Admin Settings** `/admin-settings` | *(admin only)* Users, roles, status. |
-| **Settings** `/settings` | Your own profile, language, MFA — and, for sales roles, **Connect Outlook** (see *Sending from your own Outlook* in section 10). |
+| **Settings** `/settings` | Your own profile, language, MFA — and, for sales roles, **Connect Outlook** (see *Sending from your own Outlook* in section 10) and **Fireflies** (paste your own Fireflies API key so your meetings arrive; see *Meetings from Fireflies* in section 10). |
 
 ### Going back — رجوع *(2026-10-19)*
 Every page has a **Back** button at the start of the top bar. It returns to the page you were on
@@ -764,6 +764,7 @@ on its own** — it proposes, you apply.
 5. For every JIH deal, confirm the **next action** field is filled. Empty next action = the
    system will flag it.
 6. Request gated stage moves early — approval takes time.
+7. If **My tasks today** shows **Meeting tasks to review**, press **Review** and approve or dismiss your items from the meeting — within two working days. Anything you leave is dismissed after 14 days.
 
 **When an RFQ lands in your email:** hit **+ New Entry** from wherever you are, set Project
 Type and the project name, paste the email link into Evidence, save. You'll be on the
@@ -785,7 +786,7 @@ opportunity page with the follow-up already scheduled. Don't go looking for the 
 3. Resolve duplicates.
 4. Keep Accounts and Contacts clean; verify contact authority.
 5. Handle the commercial-review step on BAFO requests.
-6. Review new **Meetings**: name the owner of each action item and approve it into a task, or dismiss it with a reason.
+6. Check **Meetings**: the people in each meeting now decide their own items; you step in on meetings nobody on the team was matched to, unassigned items, and anything pending over 7 days (the **Work Queue** shows the count).
 
 ### Estimation Manager / Finance Manager
 
@@ -888,14 +889,26 @@ A project now has a responsible salesperson, shown at the top of the project pag
 - **The board's Team performance** shows the sales team only (salespeople without a management role): one card per person with today's completion as a ring (done/total under the name), then won this month, pipeline and overdue follow-ups; the team line sums them. Numbers only, never task titles.
 - Days are Riyadh days. AI still only suggests: nothing becomes a task without someone approving it.
 
-### Meetings from Fireflies (live 2026-09-29)
+### Meetings from Fireflies (live 2026-09-29; phase 1 2026-10-22, not yet released)
+
+**Phase 1 (2026-10-22) is in the code but not live until the database change and two functions are released** (see *AI_HANDOFF*). Until then, everything below the first bullet list still behaves as before.
 
 - Live. New meetings arrive on their own a few minutes after Fireflies finishes processing them.
-- Fireflies sends a webhook only for meetings **owned by the account whose settings hold it**. Team-wide webhooks need a Fireflies Enterprise plan.
+- Fireflies sends a webhook only for meetings **owned by the account whose settings hold it**. Team-wide webhooks need a Fireflies Enterprise plan — so each person connects their own account instead (below).
 - Action items are taken as Fireflies wrote them. No AI re-reads the transcript yet; that is a later phase if Fireflies' items prove too thin.
-- **Fetch from Fireflies (2026-10-07).** On **Meetings**, reviewers have a **Fetch from Fireflies** button: it pulls the last two weeks of processed meetings from your Fireflies account and adds the ones the system does not have yet. Use it if a meeting you expected is missing; pressing it again is harmless (nothing is duplicated). Meetings Fireflies skipped (a few seconds of audio, no summary) are ignored. Tasks still wait for a reviewer.
-- **Who sees a meeting (2026-10-04).** The reviewers (management, sales and BD managers, sales ops, system admin) see every meeting and approve its tasks. Everyone else sees, read only, the meetings **they attended**: you were the organizer or on the invite (by your sign-in email), or a reviewer approved one of its tasks to you. A meeting held without a calendar invite shows only to reviewers and to whoever gets a task from it.
+- **Fetch from Fireflies (2026-10-07).** On **Meetings**, the button pulls the last two weeks of processed meetings and adds the ones the system does not have yet. Pressing it again is harmless (nothing is duplicated). Meetings Fireflies skipped (a few seconds of audio, no summary) are ignored. From phase 1 it is also shown to anyone who connected their own Fireflies account, and pulls from that account.
 - Project names in Fireflies' text are transcribed by ear ("Myth", "Gen Adria") — check them before approving.
+
+**Phase 1:**
+
+- **Connect your own Fireflies (Settings → Fireflies).** Paste your API key from Fireflies (*Settings → Developer settings → API key*). The system checks with Fireflies that the key opens **your own account** — the email on your PHC profile; any other account's key is refused. The key is kept on the server and never shown again. Your last two weeks of meetings are fetched at once, then every 30 minutes. If Fireflies later refuses the key, Settings says so; paste a new one. **Disconnect** deletes the key.
+- **Who decides an item.** If you were in the meeting — the organiser, on the invite (by your sign-in email), or it came from your own Fireflies account — you decide the items suggested to you, and take them yourself. The **organiser** also decides the items nobody was matched to ("Speaker 3") and may give them to a colleague. **Managers** (management, sales and BD managers, sales ops) still decide everything and assign anyone. Getting a task from a meeting lets you read it, not decide its other items.
+- **Who is told.** When a meeting with action items arrives, everyone in it who has items to decide gets a notification. A meeting nobody on the team can be matched to goes to the managers. On working days at 07:10 a digest says how many meeting tasks wait for you. **Work Queue** and **My tasks today** show **Meeting tasks to review** with the count and a **Review** button that opens the oldest meeting first.
+- **Due date.** Pre-filled three working days out (Sunday–Thursday; Friday and Saturday skipped). Change it before approving if needed; approving without one uses the same default.
+- **The deal.** The system looks for a deal's project name (5+ characters) or RFQ number in the meeting's title, summary and keywords and shows it as *Suggested*; two equally good matches show none. Nothing is linked until someone in the meeting or a manager presses **Confirm** (or **Change**). Confirming fills the deal into the items still pending and adds the meeting's summary to the deal's **update log** — once per deal, however often it is linked; approving an item onto a deal does the same.
+- **14 days.** An item still undecided 14 days after it arrived is dismissed with the reason "Auto-dismissed: no decision within 14 days", and the meeting's organiser (or whoever's Fireflies it came from) is told. **The items already waiting on release day get one more week** before this applies — that week is the clean-up window for the backlog (59 items on 2026-10-22): open each meeting, approve what is real, and use **Dismiss the rest** for the remainder.
+- **Numbers on Meetings:** meetings this week (Sunday–Saturday, Riyadh), the share of all action items approved, the average time from arrival to a person's decision (automatic dismissals are not counted as decisions), and items pending more than 7 days. They cover the meetings you can see: a manager sees the team, a salesperson their own.
+- **Limits.** A meeting held without a calendar invite and not in your own Fireflies shows only to managers and to whoever gets a task from it. **Approve all ready** uses each item's suggestion, not edits you typed but did not approve. The manager dashboard does not show the meeting numbers yet — they are on the Meetings page only.
 
 ### Sending from your own Outlook (live 2026-09-29)
 
@@ -1362,3 +1375,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-10-21 · projects have an owner; the owner edits the budget · previous: interface audit, 2026-09-20 -->
 
 <!-- last reviewed 2026-10-22 · Back button on every page, full intake notes in the bell · previous: project tracking, 2026-10-19 -->
+
+<!-- last reviewed 2026-10-22 · meetings phase 1: your own Fireflies key, you decide your own items, alerts, 3-day due date, deal link, 14-day expiry, numbers · previous: Back button, 2026-10-22 -->

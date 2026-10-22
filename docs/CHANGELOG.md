@@ -1,5 +1,36 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-22 — Meetings phase 1 (not deployed)
+
+Spec `docs/superpowers/specs/2026-10-22-meetings-phase1-scope.md` (Mo approved the four recommendations).
+- Migration `20261028100000`: `fireflies_connections` (per-person Fireflies API key in Vault, service role
+  only; `my_fireflies_connection()` for Settings, never the key); `meetings.connected_user_id`,
+  `meetings.suggested_opportunity_id`; `meeting_action_items.expires_at` (14 days; items already pending get
+  `now() + 7 days`, the clean-up window); `opportunity_updates.meeting_id` + kind `meeting_summary`;
+  notifications `entity_type` gains `'meeting'` (and `'company'`, as a superset of the samples migration).
+- Review rights: `is_meeting_attendee` (email match or own Fireflies), `is_meeting_organizer`,
+  `can_decide_meeting_item` (manager → all; attendee → items suggested to them; organiser → also the
+  unassigned ones). `decide_meeting_action_item` now uses it; a non-manager non-organiser can only take the
+  item themselves and link deals they can read; due date defaults to `add_business_days(today, 3)` (Sun–Thu);
+  approving onto a deal writes the summary to its update log once (`log_meeting_to_deal`).
+- `ingest_meeting` takes `connected_user_id`, suggests a deal (`suggest_meeting_opportunity`: longest project
+  name ≥ 5 chars or RFQ number in title/summary/keywords; a tie is no suggestion) and notifies the people
+  who can decide (`notify_meeting_reviewers`; managers when nobody matched). `confirm_meeting_opportunity`.
+- `meeting_review_queue()` for Work Queue/My Day; `meeting_review_rights(meeting)` for the page;
+  `run_meetings_daily()` = `expire_meeting_action_items()` (dismiss with reason, notify the organiser) +
+  `notify_meeting_review_digest()` (working days). pg_cron `meetings-daily` 04:10 UTC and `meetings-sync`
+  every 30 min (key `meetings_sync_key` generated into Vault).
+- `meetings-inbound`: a POST with `x-phc-meetings-sync-key` runs the scheduled pull over every active
+  connection (`_shared/fireflies-pull.ts`, 45 s budget; a refused key → `needs_reconnect`). Webhook unchanged.
+- `sales-os-api`: `fireflies_connect` (key must open the caller's own Fireflies account; first two weeks
+  pulled at once), `fireflies_disconnect`, `meeting_confirm_deal`; `meetings_sync` also pulls the caller's
+  own account and is open to connected non-reviewers.
+- UI: Settings → Fireflies card; `/meetings` numbers (meetings this week, % approved, average time to decide,
+  pending > 7 days) and a Needs-review filter; meeting page driven by server rights, Deal line with
+  suggestion/confirm, default due date, expiry date, Approve all ready, Dismiss the rest;
+  `MeetingReviewCallout` in Work Queue and My tasks today; bell routes `meeting` notifications.
+- Tests: pgTAP `meetings_phase1` (45), Deno `fireflies-pull` (8), bun `meetings-metrics` + contract tests.
+
 ## 2026-10-22 — Back button and full intake notes (manager feedback group 6, not deployed)
 
 - `BackButton` in the shell top bar on every signed-in page except home: `router.history.back()` when the

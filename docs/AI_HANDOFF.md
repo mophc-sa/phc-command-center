@@ -1,5 +1,43 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-22 — Meetings phase 1 (branch `feat/meetings-phase1`, worktree `~/dev/phc-g8`)
+
+Spec `docs/superpowers/specs/2026-10-22-meetings-phase1-scope.md` (PR 357; Mo approved all four
+recommendations). Built: per-rep Fireflies key in Vault + 30-minute pull through `meetings-inbound`;
+attendees decide their own items (`can_decide_meeting_item`), organiser also the unassigned ones, managers
+everything; reviewers notified on arrival + working-day digest + `MeetingReviewCallout` in Work Queue and
+My Day; 3 Saudi business-day default due date; deal suggested from project name / RFQ number, confirmed by
+a person, summary written once to `opportunity_updates`; 14-day auto-dismiss with the organiser told (the
+backlog gets a 7-day window first); numbers on `/meetings`. Migration `20261028100000` (number chosen above
+g5/g7's `20261026100000`, which both sessions claimed — one of them must move).
+
+Local: `supabase test db` 23 files / 288 green (new `meetings_phase1` 45), `bun run verify` green
+(2935 tests), `bun run test:deno` 106. Not tried in a browser against the new schema (no signed-in local
+stack with the functions served); the pages type-check and the RPCs are covered by pgTAP.
+
+**Release — Mo runs, in this order (nothing here was pushed, deployed or set):**
+1. Merge the PR once CI is green.
+2. `supabase db push` from `~/dev/phc-command-center` on `main` → applies `20261028100000`. It creates the
+   Vault key `meetings_sync_key` and schedules `meetings-daily` (04:10 UTC) and `meetings-sync` (every 30 min;
+   idle until someone connects). If the samples migration `20261026100000` merges after this was pushed,
+   that push needs `--include-all`.
+3. `supabase functions deploy meetings-inbound` (keeps `verify_jwt = false` from config.toml) and
+   `supabase functions deploy sales-os-api`.
+4. No new secrets. `FIREFLIES_API_KEY` / `FIREFLIES_WEBHOOK_SECRET` stay as they are.
+5. Check: `select jobname, schedule from cron.job where jobname like 'meetings-%';` → two rows.
+6. Release the UI through the usual canary → readiness → production flow.
+7. Each salesperson: Settings → Fireflies → paste their own API key (Fireflies → Settings → Developer
+   settings). The key must belong to the Fireflies account with their PHC email.
+8. Clean-up week: the 59 pending items expire 7 days after step 2. Review them on `/meetings` (Needs
+   review filter; Dismiss the rest per meeting).
+
+Rollback: `select cron.unschedule('meetings-sync'); select cron.unschedule('meetings-daily');` stops the pull,
+the expiry and the digest; redeploy `sales-os-api` and `meetings-inbound` from the previous `main`. The
+migration only adds columns, functions and a table, so it can stay in place.
+
+Not done (out of scope or later): meeting numbers on the manager dashboard (spec mentions it; only on
+`/meetings` here), AI re-reading transcripts, emailing the summary to attendees.
+
 ## 2026-10-21 — Release of PRs 349–352, and the project-owner spec (branch `feat/project-owner`)
 
 **Released.** Production serves `f5a7af11a27d166cf7ac069bb534a9e44d628963`, Worker version
