@@ -185,6 +185,7 @@ export function BafoPanel({ opportunityId }: { opportunityId: string }) {
       />
 
       <ActionDialog
+        recordId={decideTarget?.request.id}
         open={!!decideTarget}
         onOpenChange={(o) => { if (!o) setDecideTarget(null); }}
         title={decideTarget ? `${t(`bafo_step_${decideTarget.step}` as never)} — ${t(`bafo_${decideTarget.decision === "approved" ? "approve" : "reject"}` as never)}` : ""}

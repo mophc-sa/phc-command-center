@@ -228,6 +228,7 @@ export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEd
 
       {canEdit && renamingStage ? (
         <ActionDialog
+          recordId={renamingStage?.id}
           open={!!renamingStage}
           onOpenChange={(o) => !o && setRenamingStage(null)}
           title={lang === "ar" ? "إعادة تسمية المرحلة" : "Rename stage"}
@@ -243,6 +244,7 @@ export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEd
 
       {canEdit && addJobFor ? (
         <ActionDialog
+          recordId={addJobFor}
           open={!!addJobFor}
           onOpenChange={(o) => !o && setAddJobFor(null)}
           title={lang === "ar" ? "إضافة بطاقة" : "Add job"}
@@ -271,6 +273,7 @@ export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEd
 
       {canEdit && editJob ? (
         <ActionDialog
+          recordId={editJob?.id}
           open={!!editJob}
           onOpenChange={(o) => !o && setEditJob(null)}
           title={lang === "ar" ? "تعديل البطاقة" : "Edit job"}

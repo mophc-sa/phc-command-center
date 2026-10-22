@@ -156,6 +156,7 @@ export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEd
 
       {canEdit && editItem ? (
         <ActionDialog
+          recordId={editItem?.id}
           open={!!editItem}
           onOpenChange={(o) => !o && setEditItem(null)}
           title={lang === "ar" ? "تعديل البند" : "Edit item"}

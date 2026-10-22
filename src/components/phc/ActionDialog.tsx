@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { composePhone, isUsablePhone, localPart, SAUDI_PREFIX } from "@/lib/phone-entry";
 import { exactMatch, suggest } from "@/lib/name-suggest";
 import { applySuggestions, pendingSuggestions } from "@/lib/suggested-fields";
 import {
-  draftAgeMinutes,
+  autoDraftId,
   draftKey as makeDraftKey,
   draftPayload,
   hasContent,
@@ -40,6 +41,7 @@ import { useI18n } from "@/lib/i18n";
 import { uploadAttachment } from "@/lib/storage-actions";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
+import { DraftRestoredNote } from "@/components/phc/DraftRestoredNote";
 
 /**
  * A field that only appears once another answer calls for it.
@@ -213,15 +215,6 @@ function AutocompleteField({
   );
 }
 
-/** "3 minutes ago" / "2 days ago" -- the age matters more than the timestamp. */
-function draftAgeLabel(minutes: number, t: (k: never) => string): string {
-  if (minutes < 1) return t("draft_age_now" as never);
-  if (minutes < 60) return `${minutes} ${t("draft_age_minutes" as never)}`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} ${t("draft_age_hours" as never)}`;
-  return `${Math.floor(hours / 24)} ${t("draft_age_days" as never)}`;
-}
-
 export function ActionDialog({
   open,
   onOpenChange,
@@ -232,6 +225,7 @@ export function ActionDialog({
   destructive,
   onSubmit,
   draftId,
+  recordId,
   sections,
   progressive = false,
   suggest: suggestFrom,
@@ -253,8 +247,18 @@ export function ActionDialog({
    * Reported 2026-09-02: leaving a half-filled entry form loses everything. The
    * draft is per person (the key carries the user id), announced rather than
    * restored silently, and discardable in one click. See form-draft.ts.
+   *
+   * Since 2026-10-22 every dialog keeps a draft unless told not to: without an
+   * id, one is derived from the page, the title, the fields and `recordId`
+   * (autoDraftId). `false` turns it off -- for a form holding a secret, which
+   * must never be written to the browser's storage.
    */
-  draftId?: string;
+  draftId?: string | false;
+  /**
+   * The record this dialog acts on, when the page URL does not already say
+   * (a per-row dialog on a list). Keeps one row's draft off another row.
+   */
+  recordId?: string | null;
   /**
    * Values already on file for this entry, offered rather than assumed
    * (manager feedback 2026-10-19: "autofill from previous data, shown in blue
@@ -275,7 +279,17 @@ export function ActionDialog({
   const [extraOptions, setExtraOptions] = useState<Record<string, { value: string; label: string }[]>>({});
   const [creating, setCreating] = useState<string | null>(null);
   const { user } = useAuth();
-  const storageKey = draftId ? makeDraftKey(user?.id, draftId) : null;
+  const { pathname } = useLocation();
+  const formId =
+    draftId === false
+      ? null
+      : draftId ?? autoDraftId({ path: pathname, title, fieldKeys: fields.map((f) => f.key), recordId });
+  const liveKey = formId ? makeDraftKey(user?.id, formId) : null;
+  // The key is fixed when the dialog opens. While it is open the path can
+  // change under it (a submit that navigates), fields can arrive late (a
+  // duplicate check), and the title follows the language -- none of which
+  // should move the draft somewhere it will not be found again.
+  const [storageKey, setStorageKey] = useState<string | null>(null);
   const [restoredAt, setRestoredAt] = useState<number | null>(null);
   const [suggested, setSuggested] = useState<Set<string>>(() => new Set());
   // Fields the person has changed by hand. A suggestion never overwrites one,
@@ -310,9 +324,10 @@ export function ActionDialog({
       // A draft is layered ON TOP of the defaults, never instead of them: a
       // field the user never reached still gets its seeded value.
       let restored: number | null = null;
-      if (storageKey) {
+      setStorageKey(liveKey);
+      if (liveKey) {
         try {
-          const d = readDraft(localStorage.getItem(storageKey), Date.now());
+          const d = readDraft(localStorage.getItem(liveKey), Date.now());
           if (d) {
             Object.assign(seed, d.values);
             restored = d.savedAt;
@@ -330,8 +345,11 @@ export function ActionDialog({
       setSuggested(new Set());
       touchedRef.current = new Set();
     }
+    // Closed: no key, so the first render of the next opening -- still holding
+    // the last session's values -- cannot write them anywhere.
+    if (!open) setStorageKey(null);
     wasOpen.current = open;
-  }, [open, storageKey]);
+  }, [open, liveKey]);
 
   useEffect(() => {
     if (!open || !suggestRef.current) return;
@@ -730,26 +748,7 @@ export function ActionDialog({
           </p>
         ) : null}
 
-        {/* Never a silent restore. Repopulating a form without saying so is a
-            way to file last week's answers under today's date. */}
-        {restoredAt !== null ? (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-amber/40 bg-amber/10 px-3 py-2">
-            <span className="text-xs text-foreground">
-              {t("draft_restored")}
-              {" · "}
-              <span className="text-muted-foreground">
-                {draftAgeLabel(draftAgeMinutes(restoredAt, Date.now()), t)}
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={discardDraft}
-              className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              {t("draft_discard")}
-            </button>
-          </div>
-        ) : null}
+        {restoredAt !== null ? <DraftRestoredNote savedAt={restoredAt} onDiscard={discardDraft} /> : null}
 
         <div className={cn("grid gap-4 overflow-y-auto py-2", sections ? "min-h-0 grid-cols-1 items-start gap-3 pe-1" : isWide && "sm:grid-cols-2 max-h-[55vh] pe-1")}>
           {sections ? sections.map((section, index) => {

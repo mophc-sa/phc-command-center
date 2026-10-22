@@ -9,8 +9,10 @@ import {
   foldLine,
   icsText,
   isFeedToken,
+  linkedOpportunityIds,
   newFeedToken,
   toICS,
+  withShortLinks,
 } from "./calendar-feed.ts";
 
 const NOW = new Date("2026-09-13T10:00:00Z");
@@ -126,4 +128,25 @@ Deno.test("feed tokens are long, unambiguous and well-formed", () => {
   assertFalse(/[ILOU]/.test(t));
   assertFalse(isFeedToken(t.slice(1)));
   assertFalse(isFeedToken(t.toLowerCase()));
+});
+
+Deno.test("a deal with a code is linked by its short link; one without keeps the full address", () => {
+  const events = collectFeedEvents({
+    followUps: [
+      { id: "f1", opportunity_id: "o1", due_date: "2026-09-15", status: "scheduled" },
+      { id: "f2", opportunity_id: "o2", due_date: "2026-09-15", status: "scheduled" },
+      { id: "f3", opportunity_id: "o3", due_date: "2026-09-15", status: "scheduled" },
+    ],
+    tenders: [{ id: "t1", tender_name: "Tender", expected_award_date: "2026-09-15" }],
+  });
+  assertEquals(linkedOpportunityIds(events).sort(), ["o1", "o2", "o3"]);
+  const linked = withShortLinks(events, new Map([["o1", "FA-26-0001"], ["o3", "bad code;"]]));
+  const path = (uid: string) => linked.find((e) => e.uid === uid)?.path;
+  assertEquals(path("follow_up-f1"), "/p/FA-26-0001");
+  assertEquals(path("follow_up-f2"), "/opportunities/o2");
+  assertEquals(path("follow_up-f3"), "/opportunities/o3", "not a code: keep the long link");
+  assertEquals(path("tender_award-t1"), null);
+  // UIDs are what Outlook matches events on; a link change must not duplicate them.
+  assertEquals(linked.map((e) => e.uid), events.map((e) => e.uid));
+  assert(toICS(linked, { appUrl: APP, now: NOW, name: "x" }).includes(`URL:${APP}/p/FA-26-0001\r\n`));
 });

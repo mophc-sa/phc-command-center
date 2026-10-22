@@ -16,6 +16,7 @@ import { NewIntakeDialog } from "@/components/phc/NewIntakeDialog";
 import { FontSizeControl } from "@/components/phc/FontSizeControl";
 import { BackButton } from "@/components/phc/BackButton";
 import { StatusPill } from "@/components/phc/StatusPill";
+import { SectionNav } from "@/components/phc/SectionNav";
 import {
   Collapsible,
   CollapsibleContent,
@@ -734,6 +735,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Global overlays — mounted once at shell level */}
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <NotificationCenter open={notifOpen} onOpenChange={setNotifOpen} />
+      {/* ⌥↑/⌥↓ between the sections of a long page (manager feedback 2026-10-19). */}
+      <SectionNav />
       {/* Mounted at shell level so the one intake form opens from any page (§6). */}
       {canCreate ? <NewIntakeDialog open={newIntakeOpen} onOpenChange={setNewIntakeOpen} /> : null}
     </div>

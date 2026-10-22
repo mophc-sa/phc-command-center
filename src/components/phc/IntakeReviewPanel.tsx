@@ -430,6 +430,7 @@ export function IntakeReviewPanel({ selectedId, items, loading, failed, retry, r
       )}
 
       <ActionDialog
+        recordId={infoFor?.id}
         open={!!infoFor}
         onOpenChange={(v) => !v && setInfoFor(null)}
         title={t("rev_need_info")}
@@ -458,6 +459,7 @@ export function IntakeReviewPanel({ selectedId, items, loading, failed, retry, r
       />
 
       <ActionDialog
+        recordId={rejectFor?.id}
         open={!!rejectFor}
         onOpenChange={(v) => !v && setRejectFor(null)}
         title={t("rev_reject")}
@@ -477,6 +479,7 @@ export function IntakeReviewPanel({ selectedId, items, loading, failed, retry, r
           the fields the review decision actually turns on — the ones the panel
           above prints as "Not recorded" — not the whole record. */}
       <ActionDialog
+        recordId={editFor?.id}
         open={!!editFor}
         onOpenChange={(v) => !v && setEditFor(null)}
         title={t("rev_edit_project_details" as never)}

@@ -135,6 +135,35 @@ export function collectFeedEvents(rows: OwnedRows): FeedEvent[] {
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.uid.localeCompare(b.uid));
 }
 
+/**
+ * Short links in the feed: an event's /opportunities/<uuid> becomes
+ * /p/<project code> when the deal has one (manager feedback 2026-10-19). The
+ * code is what people call the deal; the UUID is not something anyone can read
+ * in an Outlook event. The app resolves the code as the signed-in reader
+ * (src/lib/short-link.ts), so the shorter link opens nothing the long one would
+ * not. UIDs are untouched, so Outlook updates its events rather than adding new
+ * ones.
+ */
+export function withShortLinks(events: FeedEvent[], codeByOpportunity: Map<string, string>): FeedEvent[] {
+  return events.map((e) => {
+    const m = e.path?.match(/^\/opportunities\/([^/?#]+)$/);
+    const code = m ? codeByOpportunity.get(m[1]) : undefined;
+    // Same characters the app accepts as a code; anything else keeps the long link.
+    if (!code || !/^[A-Z0-9](?:[A-Z0-9-]{0,38}[A-Z0-9])?$/.test(code)) return e;
+    return { ...e, path: `/p/${code}` };
+  });
+}
+
+/** Opportunity ids the events link to, for looking up their codes. */
+export function linkedOpportunityIds(events: FeedEvent[]): string[] {
+  const ids = new Set<string>();
+  for (const e of events) {
+    const m = e.path?.match(/^\/opportunities\/([^/?#]+)$/);
+    if (m) ids.add(m[1]);
+  }
+  return [...ids];
+}
+
 // ---- iCalendar (RFC 5545) ---------------------------------------------------
 
 /** Escape a TEXT value: backslash, semicolon, comma and newlines. */

@@ -692,6 +692,42 @@ to that name — the address bar shows `\u200E/contacts?q=…`, which you can bo
 With the box empty you get your pinned and recently opened records instead. If nothing matches,
 it says so.
 
+### Moving around a long page — ⌥↑ / ⌥↓ (2026-10-22)
+
+On a long page (a deal, the Command Center) press **⌥↓** (Option + Down; **Alt + Down** on
+Windows) to jump to the next section and **⌥↑** to go back. From the middle of a long section,
+⌥↑ first returns to that section's top. The plain arrow keys still scroll as they always did,
+and while you are typing in a box the keys belong to the box.
+
+On a wide screen a small pill at the bottom corner shows **which section you are in**
+(e.g. `4/18 · Follow-ups`) with up/down buttons; click the name for the list of every section
+and jump straight to one. It appears only on pages with four or more sections. If your system
+is set to reduce motion, jumps are instant instead of scrolling.
+
+### Short links to a deal — `/p/FA-26-0001` (2026-10-22)
+
+Every deal with a Project Code has a short address: **`agent.phc-sa.com/p/<code>`**, for
+example `/p/FA-26-0001`. Typing or pasting it opens the deal directly. Capitals do not
+matter. On the deal page, **Copy link** beside the code copies it; a deal that has no code yet
+copies its full address instead.
+
+A short link opens only what the person could already open: someone without access to the deal
+sees "not found", the same as for a code that does not exist. The **Outlook calendar feed** now
+links its events by short link as well.
+
+### Nothing you type is lost (2026-10-22)
+
+Every form keeps what you typed until you save it — not only the New Entry form. Close the
+window, press Escape, lose the tab, open another deal: when you reopen the same form **on the
+same record**, it says **"Restored what you had typed · N minutes ago"** with a **Start fresh**
+button. The same goes for the **email** and **WhatsApp** windows and the deal's **Discussion**
+box. Nothing is ever saved or sent by itself: creating, posting and sending still need your
+button press. A draft lives in this browser, for your account only, for 7 days, and is
+removed as soon as the form is saved.
+
+On the deal page, **Technical Notes** now also saves itself after a short pause in typing
+("Saved automatically"), as it already did when you clicked away.
+
 ### Inside an opportunity
 
 The opportunity page is one long timeline you can filter by facet:
@@ -852,6 +888,20 @@ A project now has a responsible salesperson, shown at the top of the project pag
 - Every claim and reassignment is recorded with who did it and when.
 
 ## 10. Current limitations
+
+### Drafts, short links and section keys (2026-10-22)
+
+- **A draft is per browser.** Start a form on your laptop and it is not on your phone.
+- **A restored draft wins over newer data.** If someone else edited the record after you
+  started, the restored form shows your version; check it, or press **Start fresh**.
+- **A field you emptied on purpose comes back with its old value** after a restore — only
+  filled-in fields are kept.
+- **Some forms still close on an error** (several actions on the deal page, approval
+  decisions, the contract form): the error appears as a message, the form closes and its draft
+  is removed, as before.
+- **A draft follows the language.** A form started in Arabic is offered again in Arabic.
+- **Short links need a code.** A deal with no RFQ number (no Project Code yet) has only its
+  long address. The calendar feed change needs the `calendar-feed` function deployed.
 
 ### Project tracking (2026-10-19)
 
@@ -1362,3 +1412,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-10-21 · projects have an owner; the owner edits the budget · previous: interface audit, 2026-09-20 -->
 
 <!-- last reviewed 2026-10-22 · Back button on every page, full intake notes in the bell · previous: project tracking, 2026-10-19 -->
+
+<!-- last reviewed 2026-10-22 · drafts in every form, short links /p/<code>, ⌥↑/⌥↓ section navigation · previous: projects have an owner, 2026-10-21 -->
