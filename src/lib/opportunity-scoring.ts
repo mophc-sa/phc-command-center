@@ -60,6 +60,11 @@ const STAGE_FIT: Record<string, number> = {
   tender: 1,
   awarded: 1,
   under_construction: 0.85,
+  // The phases inside construction (20261026100000) score as construction did
+  // before they existed; splitting them changes what is recorded, not the fit.
+  excavation: 0.85,
+  structure: 0.85,
+  mep_finishing: 0.85,
   design_development: 0.6,
   early_planning: 0.4,
   near_handover: 0.3,

@@ -3,9 +3,10 @@
 // 2026-10-19: "an update log inside each project, e.g. offer sent, PO received,
 // awaiting payment").
 //
-// The construction % lives here too. It is not edited on its own: it moves when
-// someone posts an update that reports it, so every figure on the home page has
-// a dated entry and a name behind it.
+// The construction % and the site's stage (design, excavation, structure, ...)
+// live here too. Neither is edited on its own: each moves when someone posts an
+// update that reports it, so every figure on the home page has a dated entry and
+// a name behind it.
 // =============================================================================
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,7 +19,15 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { CompletionBar } from "@/components/phc/CompletionBar";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { personLabel } from "@/lib/person-label";
-import { UPDATE_KINDS, UPDATE_KIND_LABEL, isUpdateKind, updateKindLabel, validateUpdate } from "@/lib/project-tracking";
+import {
+  UPDATE_KINDS,
+  UPDATE_KIND_LABEL,
+  isUpdateKind,
+  siteStageLabel,
+  siteStageOptions,
+  updateKindLabel,
+  validateUpdate,
+} from "@/lib/project-tracking";
 import { deleteProjectUpdate, listProjectUpdates, postProjectUpdate } from "@/lib/project-update-actions";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -34,6 +43,7 @@ const KIND_TONE: Partial<Record<string, "positive" | "attention" | "neutral">> =
 export function ProjectUpdatesPanel({
   opportunityId,
   completionPct,
+  siteStage,
   canPost,
   canModerate,
   currentUserId,
@@ -42,12 +52,14 @@ export function ProjectUpdatesPanel({
   opportunityId: string;
   /** The deal's construction progress, 0-100, or null when nobody has said. */
   completionPct: number | null;
+  /** The site's stage (opportunities.project_stage); `unknown` or null when nobody has said. */
+  siteStage: string | null;
   /** The deal's people: owner and pipeline operators. */
   canPost: boolean;
   /** Pipeline operators may remove any entry; authors only their own, same day. */
   canModerate: boolean;
   currentUserId: string | null;
-  /** The deal row changes too (completion %, last activity). */
+  /** The deal row changes too (completion %, site stage, last activity). */
   onChanged: () => void;
 }) {
   const { lang } = useI18n();
@@ -63,12 +75,13 @@ export function ProjectUpdatesPanel({
     onChanged();
   };
 
+  const stageKnown = !!siteStage && siteStage !== "unknown";
   const kindOptions = UPDATE_KINDS.map((k) => ({ value: k, label: UPDATE_KIND_LABEL[k][lang] }));
 
   return (
     <Panel
       title={ar ? "تحديثات المشروع" : "Project updates"}
-      subtitle={ar ? "نسبة إنجاز الموقع وآخر ما حدث في المشروع" : "Construction progress and what happened last"}
+      subtitle={ar ? "مرحلة الموقع ونسبة إنجازه وآخر ما حدث في المشروع" : "Site stage, construction progress and what happened last"}
       action={
         canPost ? (
           <button
@@ -82,11 +95,21 @@ export function ProjectUpdatesPanel({
       }
     >
       <div className="grid gap-4">
-        <div className="grid gap-1.5">
-          <span className="text-xs tracking-[0.02em] text-muted-foreground">
-            {ar ? "نسبة إنجاز الموقع" : "Construction progress"}
-          </span>
-          <CompletionBar pct={completionPct} />
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <div className="grid gap-1.5">
+            <span className="text-xs tracking-[0.02em] text-muted-foreground">
+              {ar ? "مرحلة الموقع" : "Site stage"}
+            </span>
+            <span className="text-sm font-medium text-foreground">
+              {stageKnown ? siteStageLabel(siteStage, lang) : "—"}
+            </span>
+          </div>
+          <div className="grid gap-1.5">
+            <span className="text-xs tracking-[0.02em] text-muted-foreground">
+              {ar ? "نسبة إنجاز الموقع" : "Construction progress"}
+            </span>
+            <CompletionBar pct={completionPct} />
+          </div>
         </div>
 
         {isLoading ? null : rows.length === 0 ? (
@@ -110,6 +133,9 @@ export function ProjectUpdatesPanel({
                       <StatusPill tone={KIND_TONE[u.kind] ?? "neutral"}>
                         {updateKindLabel(u.kind, lang)}
                       </StatusPill>
+                      {u.project_stage ? (
+                        <span className="text-xs font-medium text-foreground">{siteStageLabel(u.project_stage, lang)}</span>
+                      ) : null}
                       {u.completion_pct !== null ? (
                         <span className="num text-xs font-medium text-foreground" data-tabular="true">
                           {ar ? `الإنجاز ${u.completion_pct}%` : `Progress ${u.completion_pct}%`}
@@ -158,6 +184,12 @@ export function ProjectUpdatesPanel({
         fields={[
           { key: "kind", type: "select", label: ar ? "ما الذي حدث؟" : "What happened?", required: true, options: kindOptions },
           {
+            key: "stage",
+            type: "select",
+            label: ar ? "مرحلة الموقع الآن (اختياري)" : "Site stage now (optional)",
+            options: siteStageOptions(lang),
+          },
+          {
             key: "pct",
             type: "text",
             label: ar ? "نسبة إنجاز الموقع الجديدة (اختياري)" : "New construction progress % (optional)",
@@ -167,17 +199,17 @@ export function ProjectUpdatesPanel({
         ]}
         onSubmit={async (v) => {
           if (!isUpdateKind(v.kind)) throw new Error(ar ? "اختر نوع التحديث." : "Choose what happened.");
-          const check = validateUpdate({ kind: v.kind, note: v.note ?? "", pct: v.pct ?? "" });
+          const check = validateUpdate({ kind: v.kind, note: v.note ?? "", pct: v.pct ?? "", stage: v.stage ?? "" });
           if (!check.ok) {
             throw new Error(
               check.reason === "note_required"
                 ? ar ? "اكتب ملاحظة تشرح التحديث." : "Add a note saying what the update is."
                 : check.reason === "pct_required"
-                  ? ar ? "تحديث نسبة الإنجاز يحتاج إلى نسبة." : "A progress update needs a %."
+                  ? ar ? "تحديث الإنجاز يحتاج إلى نسبة أو مرحلة." : "A progress update needs a % or a stage."
                   : ar ? "النسبة رقم صحيح من 0 إلى 100." : "The % must be a whole number from 0 to 100.",
             );
           }
-          await postProjectUpdate({ opportunityId, kind: v.kind, note: v.note ?? "", pct: check.pct });
+          await postProjectUpdate({ opportunityId, kind: v.kind, note: v.note ?? "", pct: check.pct, stage: check.stage });
           toast.success(ar ? "تم حفظ التحديث" : "Update saved");
           refresh();
         }}

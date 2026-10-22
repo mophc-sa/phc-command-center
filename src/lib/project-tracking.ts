@@ -1,6 +1,59 @@
 // Project tracking (manager feedback group 4, 2026-10-19).
 // Spec: docs/superpowers/specs/2026-10-19-project-tracking-design.md
+import type { Database } from "@/integrations/supabase/types";
 import { resolveCanonicalStage, type CanonicalStage } from "./stage-canonical";
+
+export type SiteStage = Database["public"]["Enums"]["project_stage"];
+
+/**
+ * Where the project stands on site, in order -- the project_stage enum. The
+ * manager asked for "excavation, design, execution..." in the intake form and on
+ * the home page (2026-10-19); excavation, structure and MEP & finishing are the
+ * phases inside construction (20261026100000). `under_construction` stays for
+ * records that say "under construction" without the phase. `unknown` is the
+ * database default and is not offered: a blank answer says the same.
+ */
+export const SITE_STAGES: readonly SiteStage[] = [
+  "early_planning",
+  "design_development",
+  "tender",
+  "awarded",
+  "under_construction",
+  "excavation",
+  "structure",
+  "mep_finishing",
+  "near_handover",
+  "completed",
+];
+
+export const SITE_STAGE_LABEL: Record<SiteStage, { en: string; ar: string }> = {
+  early_planning: { en: "Planning", ar: "تخطيط" },
+  design_development: { en: "Design", ar: "تصميم" },
+  tender: { en: "Main contract in tender", ar: "مناقصة المقاول الرئيسي" },
+  awarded: { en: "Main contract awarded", ar: "تمت ترسية المقاول الرئيسي" },
+  under_construction: { en: "Under construction (phase not given)", ar: "قيد التنفيذ (دون تحديد المرحلة)" },
+  excavation: { en: "Excavation", ar: "حفر" },
+  structure: { en: "Structure", ar: "هيكل إنشائي" },
+  mep_finishing: { en: "MEP & finishing", ar: "أعمال كهروميكانيكية وتشطيبات" },
+  near_handover: { en: "Handover", ar: "تسليم" },
+  completed: { en: "Completed", ar: "مكتمل" },
+  unknown: { en: "Unknown", ar: "غير معروف" },
+};
+
+/** The phases inside construction: what "under construction" counts on the projects page. */
+export const CONSTRUCTION_STAGES: readonly SiteStage[] = ["under_construction", "excavation", "structure", "mep_finishing"];
+
+export const isSiteStage = (v: string): v is SiteStage => v in SITE_STAGE_LABEL;
+
+/** The label for a stored stage; an unknown value is shown as stored, not hidden. */
+export const siteStageLabel = (stage: string | null | undefined, lang: "en" | "ar"): string =>
+  !stage ? "" : isSiteStage(stage) ? SITE_STAGE_LABEL[stage][lang] : stage;
+
+/** Select options for a stage field: blank first ("nobody said"), then the list. */
+export const siteStageOptions = (lang: "en" | "ar") => [
+  { value: "", label: "—" },
+  ...SITE_STAGES.map((s) => ({ value: s, label: SITE_STAGE_LABEL[s][lang] })),
+];
 
 /**
  * What happened on a project. The same closed list as the database CHECK on
@@ -32,7 +85,7 @@ export const UPDATE_KIND_LABEL: Record<UpdateKind, { en: string; ar: string }> =
   payment_received: { en: "Payment received", ar: "تم استلام الدفعة" },
   awaiting_client: { en: "Awaiting client reply", ar: "بانتظار رد العميل" },
   site_visit: { en: "Site visit", ar: "زيارة موقع" },
-  progress_update: { en: "Progress update", ar: "تحديث نسبة الإنجاز" },
+  progress_update: { en: "Progress update", ar: "تحديث الإنجاز" },
   other: { en: "Other", ar: "أخرى" },
 };
 
@@ -44,24 +97,27 @@ export const updateKindLabel = (kind: string, lang: "en" | "ar"): string =>
   isUpdateKind(kind) ? UPDATE_KIND_LABEL[kind][lang] : kind;
 
 export type UpdateValidation =
-  | { ok: true; pct: number | null }
+  | { ok: true; pct: number | null; stage: SiteStage | null }
   | { ok: false; reason: "note_required" | "pct_required" | "pct_invalid" };
 
 /**
  * The form's answer before it reaches the database, which enforces the same
  * rules -- saying so here names the field instead of surfacing a constraint.
- * Blank % means "not reported", which is not 0.
+ * Blank % means "not reported", which is not 0; a blank stage likewise. A
+ * progress update reports a %, a stage, or both.
  */
-export function validateUpdate(input: { kind: UpdateKind; note: string; pct: string }): UpdateValidation {
+export function validateUpdate(input: { kind: UpdateKind; note: string; pct: string; stage?: string }): UpdateValidation {
   const raw = input.pct.trim();
   let pct: number | null = null;
   if (raw !== "") {
     if (!/^\d{1,3}$/.test(raw) || Number(raw) > 100) return { ok: false, reason: "pct_invalid" };
     pct = Number(raw);
   }
-  if (input.kind === "progress_update" && pct === null) return { ok: false, reason: "pct_required" };
+  const rawStage = input.stage?.trim() ?? "";
+  const stage = rawStage !== "" && isSiteStage(rawStage) ? rawStage : null;
+  if (input.kind === "progress_update" && pct === null && stage === null) return { ok: false, reason: "pct_required" };
   if (input.kind === "other" && input.note.trim() === "") return { ok: false, reason: "note_required" };
-  return { ok: true, pct };
+  return { ok: true, pct, stage };
 }
 
 /**
@@ -112,6 +168,7 @@ export type ProjectProgressRow = {
   stage: string | null;
   sales_stage: string | null;
   completion_pct: number | null;
+  project_stage: string | null;
   last_activity_at: string | null;
   opportunity_updates: { kind: string; created_at: string }[] | null;
 };
@@ -122,6 +179,8 @@ export type ProjectProgressItem = {
   contractor: string | null;
   stage: CanonicalStage;
   pct: number | null;
+  /** The site's stage; null when nobody has said (stored as `unknown`). */
+  siteStage: string | null;
   latest: { kind: string; created_at: string } | null;
   sortKey: string;
 };
@@ -144,6 +203,7 @@ export function projectProgressItems(rows: ProjectProgressRow[], limit = 10): Pr
       contractor: r.contractor_company?.name ?? r.main_contractor ?? null,
       stage,
       pct: r.completion_pct,
+      siteStage: r.project_stage && r.project_stage !== "unknown" ? r.project_stage : null,
       latest,
       sortKey: latest?.created_at ?? r.last_activity_at ?? "",
     });

@@ -97,6 +97,8 @@ export type InboxItemInput = {
   saabPortal?: boolean;
   /** Construction progress 0-100. Undefined is "nobody said", not zero. */
   completionPct?: number;
+  /** Where the site stands (design, excavation, structure, ...). Undefined is "nobody said". */
+  projectStage?: ProjectStage;
   /** Phase 2: the four PRD request types. `projectType` is derived from it. */
   requestType?: IntakeRequestType;
   ownerEntity?: string;
@@ -181,6 +183,7 @@ export async function createInboxItem(input: InboxItemInput) {
       location_other:    input.locationCity === "other" ? (input.locationOther ?? null) : null,
       saab_portal: input.saabPortal ?? false,
       completion_pct: input.completionPct ?? null,
+      project_stage: input.projectStage ?? null,
       request_type: input.requestType ?? null,
       owner_entity: input.ownerEntity ?? null,
       client_rfq_reference: input.clientRfqReference ?? null,
@@ -488,12 +491,13 @@ export async function convertInboxToProject(id: Uuid, input: {
 }) {
   const { data: item } = await supabase
     .from("inbox_items")
-    .select("scope, scope_type, source_name, location, location_city")
+    .select("scope, scope_type, source_name, location, location_city, project_stage")
     .eq("id", id)
     .single();
 
   const project = await createProject({
     ...input,
+    projectStage: input.projectStage ?? item?.project_stage ?? undefined,
     location: input.location ?? item?.location ?? item?.location_city ?? undefined,
     sector: item?.scope_type ?? item?.scope ?? undefined,
     source: input.source ?? item?.source_name ?? undefined,
@@ -563,6 +567,7 @@ export async function convertInboxToRfq(id: Uuid, input: {
     // row would be leaving them where nobody looks.
     saabPortal: item.saab_portal ?? false,
     completionPct: item.completion_pct ?? null,
+    projectStage: item.project_stage ?? null,
     // The RFQ keeps the intake's Project Code (<rep code>-<YY>-<NNNN>) rather
     // than drawing a second number for the same project.
     sourceInboxId: id,

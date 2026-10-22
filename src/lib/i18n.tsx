@@ -297,6 +297,7 @@ export const strings = {
   ibx_project_known: { en: "A project with this name already exists.", ar: "يوجد مشروع بهذا الاسم." },
   ibx_saab_portal: { en: "Client uses the SAAB ARABIA portal", ar: "العميل يستخدم بوابة SAAB ARABIA" },
   ibx_completion_pct: { en: "Project completion %", ar: "نسبة إنجاز المشروع %" },
+  ibx_project_stage: { en: "Site stage (design, excavation, structure...)", ar: "مرحلة الموقع (تصميم، حفر، هيكل...)" },
   src_phone_call: { en: "Phone call", ar: "اتصال هاتفي" },
   dialog_phone_invalid: { en: "That does not look like a phone number.", ar: "هذا لا يبدو رقم هاتف." },
   draft_restored: { en: "Restored what you had typed", ar: "استُعيد ما كتبته" },

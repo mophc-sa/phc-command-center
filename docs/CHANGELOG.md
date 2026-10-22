@@ -1,5 +1,21 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-22 — Site stage from intake to home page; a code for every deal (not deployed)
+
+- Migration `20261026100000`: `project_stage` gains `excavation`, `structure`, `mep_finishing`
+  (before `near_handover`); `inbox_items.project_stage` and `opportunity_updates.project_stage`; an update
+  with a stage sets the deal's stage, and a *Progress update* needs a % or a stage.
+  `opportunities.project_code` (unique): drawn from the RFQ sequence with the owner's sales code when a
+  deal with no numbered RFQ is created or given an owner; an RFQ raised for a deal takes its code; the
+  deal follows its RFQ's number; hand edits only by `can_edit_rfq_number` (audited). `next_project_number`
+  falls back to the deal's code before `PRJ-`. Existing deals backfilled, one `audit_log` row each.
+  pgTAP `construction_phase_and_deal_code` (20).
+- Intake form: **Site stage** select next to Project completion %, carried to the deal on approval.
+  Deal page: **Project updates** shows the site stage and the update dialog sets it; the qualification
+  panel shows it labelled; the header shows the deal's code when there is no RFQ number. Home
+  **Projects in progress**: site stage above the construction bar. Opportunities table shows and sorts by
+  the deal's code. Projects pages: new stages labelled, "Under construction" counts every phase.
+
 ## 2026-10-22 — Back button and full intake notes (manager feedback group 6, not deployed)
 
 - `BackButton` in the shell top bar on every signed-in page except home: `router.history.back()` when the

@@ -251,7 +251,14 @@ Everything else is optional and can be filled in later.
 
 **Other useful fields at intake:** Source · Client type · RFQ from · Scope · Location ·
 Deadline · **Evidence** (paste the email link, or attach a file — both work) · Assigned owner ·
-**Job title** of the contact person (since 2026-10-19 — it follows the contact onto the deal page).
+**Job title** of the contact person (since 2026-10-19 — it follows the contact onto the deal page) ·
+**Site stage** and **Project completion %** — where the building stands and how far along it is.
+
+**Site stage (2026-10-22).** One closed list, in the order a building goes: *Planning · Design ·
+Main contract in tender · Main contract awarded · Excavation · Structure · MEP & finishing ·
+Handover · Completed*, plus *Under construction (phase not given)* for when you only know it is
+being built. Leave it blank if nobody said. It goes onto the deal when the request is approved,
+and from then on it moves through **Project updates** on the deal page, like the %.
 
 **Autofill in blue (2026-10-19).** Type a company the system already knows and the empty
 contact fields fill themselves from that company's last request: contact name, job title,
@@ -369,6 +376,15 @@ project is issued its number (still only after a verified BOQ), it gets **the de
 not a separate `PRJ-2026-…`. `PRJ-` numbers remain only for projects whose deal has no code. On
 the deal page, the code at the top is a link to that project file, where the budget lives.
 Only the **sales manager** can change a code.
+
+**Every deal has a code, with or without an RFQ (2026-10-22).** A deal that never had an RFQ —
+one converted from a lead or a tender, or brought in from the old records — now gets a code
+too, in the same `FA-26-0001` form, from **its owner's** code: when the deal is created with an
+owner, or when a manager assigns one. Its Production project is then issued that code instead of
+a `PRJ-` number. The code does not change when the deal is reassigned later. If an RFQ is raised
+for the deal afterwards, the RFQ takes the deal's code, so it is still one code. Deals that existed
+before this date were given theirs once (each recorded in the audit log); a deal with no owner
+gets its code when an owner is assigned.
 
 ### Step 3 — Manual classify and convert (only for what didn't route)
 
@@ -542,7 +558,7 @@ Old tenders are not allowed to sit active forever.
 
 | Page | Use it for |
 |---|---|
-| **Command Center** `/command-center` | Org-wide executive view. Opens with **Open pipeline** — the total, and a single bar showing which stages it sits in. Slate segments are deals being worked; amber segments are committed — verbally awarded, contract received or signed — and can still be lost. The legend under the bar gives every stage its own figure, share and count, and the total says how many records carry no value and are therefore not in it. Below that, **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. **A metric that cannot be calculated yet does not get a card**: those collapse into one line saying how many there are, and open to name each one, why it is unavailable — a setting nobody has entered, no records in the period, or an input the formula needs — and the link that fixes it. Every figure is computed over **the whole book you are permitted to see**; if the dataset were ever too large to read in one go, a warning appears above the figures. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention, and **Projects in progress** (since 2026-10-19): the ten live projects that moved most recently, each with its contractor, current stage, construction progress bar and latest update. **View all** opens the Opportunities table, which now has the same Stage, Construction and Last update columns. |
+| **Command Center** `/command-center` | Org-wide executive view. Opens with **Open pipeline** — the total, and a single bar showing which stages it sits in. Slate segments are deals being worked; amber segments are committed — verbally awarded, contract received or signed — and can still be lost. The legend under the bar gives every stage its own figure, share and count, and the total says how many records carry no value and are therefore not in it. Below that, **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. **A metric that cannot be calculated yet does not get a card**: those collapse into one line saying how many there are, and open to name each one, why it is unavailable — a setting nobody has entered, no records in the period, or an input the formula needs — and the link that fixes it. Every figure is computed over **the whole book you are permitted to see**; if the dataset were ever too large to read in one go, a warning appears above the figures. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention, and **Projects in progress** (since 2026-10-19): the ten live projects that moved most recently, each with its contractor, current sales stage, **site stage** (design, excavation, structure… since 2026-10-22) above the construction progress bar, and latest update. **View all** opens the Opportunities table, which now has the same Stage, Construction and Last update columns. |
 | **My Workspace** `/my-workspace` | Your personal command centre. Opens with **What needs you today** — one ranked list of your highest-priority work drawn from every queue. Below it, the dashboard your role already had: target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups and submissions. **A salesperson's home base.** |
 | **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
 | **Approvals** `/approvals` | Opens on **Manager decisions**: only what genuinely needs the commercial manager — the **BAFO / discount chain** (which of the four steps is waiting and on which role), the **under-300k exception**, **tender → JIH**, and **verbal award / contract / won confirmations**. Everything routine — intake review, AI recommendations, management-review requests, discussion mentions, deletion and sure-win requests — is one tab over under **Other requests** (طلبات أخرى). Every type has a plain Arabic/English name; no raw codes. *(2026-10-19)* |
@@ -701,10 +717,11 @@ The opportunity page is one long timeline you can filter by facet:
 updates** is the dated log of what happened: *Offer sent · Revised offer sent · PO received ·
 Contract signed · Awaiting payment · Payment received · Awaiting client reply · Site visit ·
 Progress update · Other*. Press **Post update**, pick what happened, add a note, and if you know
-it, the **new construction %** of the site. That % is the bar at the top of the panel and on the
-home page. It changes only through an update, so every figure has a date and a name behind it.
-A blank % means nobody reported it, which is shown as "—", never as 0%. You can delete your own
-update the same day; managers can delete any.
+them, the **site stage now** and the **new construction %** of the site. Both show at the top of the
+panel and on the home page. They change only through an update, so every figure has a date and a
+name behind it. A blank % means nobody reported it, which is shown as "—", never as 0%. A
+*Progress update* needs a %, a stage, or both. You can delete your own update the same day;
+managers can delete any. *(Site stage since 2026-10-22.)*
 
 **Three values, kept apart (2026-10-19).** Key facts now shows **Estimated value** (the
 from–to range), **Quotation value** (what we quoted) and **Awarded value** (the contract value,
@@ -857,10 +874,14 @@ A project now has a responsible salesperson, shown at the top of the project pag
 
 - **Not live until the database change is applied.** The update log, job title and closed-deal
   probability need migration `20261022100000` in production first (approval-gated).
-- **Construction % changes only through a project update.** There is no separate field to type it in.
-  The intake form still asks for it once, at the start.
+- **Construction % and site stage change only through a project update.** There is no separate field
+  to type them in. The intake form still asks for both once, at the start. Deleting an update does
+  not put the previous % or stage back; post a new update with the right figure.
 - **Autofill works on the intake form only**, and only from requests you can already see.
-- **A deal with no RFQ has no code**, so its Production project gets a `PRJ-` number.
+- **A deal with no owner has no code** until a manager assigns one. Every other deal has one
+  since 2026-10-22, needing migration `20261026100000` in production first (approval-gated).
+- **A code can be changed only in the database for now.** The sales manager is the only person
+  allowed to, but there is no field for it on the deal page yet.
 - **The code links to the Production project, not to a finance system.** There is no invoice,
   PO or payment module yet; the project's budget tab is the finance link today.
 
@@ -1362,3 +1383,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-10-21 · projects have an owner; the owner edits the budget · previous: interface audit, 2026-09-20 -->
 
 <!-- last reviewed 2026-10-22 · Back button on every page, full intake notes in the bell · previous: project tracking, 2026-10-19 -->
+
+<!-- last reviewed 2026-10-22 · site stage at intake, on the deal and on the home page; a code for every deal, also without an RFQ · previous: projects have an owner, 2026-10-21 -->
