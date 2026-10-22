@@ -16,6 +16,12 @@
   inputs, dialogs and menus; instant under reduced motion.
 - No migration. Release: frontend + `calendar-feed` function.
 
+## 2026-10-22 — Back button and full intake notes (manager feedback group 6, not deployed)
+
+- `BackButton` in the shell top bar on every signed-in page except home: `router.history.back()` when the
+  app has an earlier entry (`history.canGoBack()`), otherwise home.
+- Bell drawer: intake notifications show the whole note (`whitespace-pre-line`) instead of `line-clamp-2`.
+
 ## 2026-10-21 — Project tracking, manager feedback and money guards released
 
 - Released `f5a7af1` (Worker `19a718a5`): PR 351 project tracking, PR 349 manager

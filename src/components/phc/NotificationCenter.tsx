@@ -185,7 +185,18 @@ function NotifRow({
             <div className={`mt-0.5 whitespace-normal pe-5 text-sm ${unread ? "font-semibold" : "font-medium"} text-foreground`}>
               {n.subject ? `${n.subject} — ` : ""}{n.title}
             </div>
-            {n.body && <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{n.body}</div>}
+            {/* An intake note (the information asked for, a rejection reason)
+                is the message itself; cut to two lines it could not be read
+                without opening the request. Shown whole (2026-10-19). */}
+            {n.body && (
+              <div
+                className={`mt-0.5 text-xs text-muted-foreground ${
+                  n.notification_type.startsWith("intake") ? "whitespace-pre-line break-words" : "line-clamp-2"
+                }`}
+              >
+                {n.body}
+              </div>
+            )}
           </div>
           <span className="shrink-0 text-2xs text-muted-foreground">{date}</span>
         </div>
