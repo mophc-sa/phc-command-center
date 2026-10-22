@@ -1,5 +1,26 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-10-22 — Manager feedback group 5: samples, drawings, client reminders (branch `feat/samples-drawings-reminders`)
+
+Spec `docs/superpowers/specs/2026-10-22-samples-drawings-reminders-design.md` (Mo approved; Mo chose
+"sales records the steps for Ammar and the designer"). Migration `20261026100000` + pgTAP
+`samples_drawings_reminders` (30); full local `supabase test db` 273 green (23 files) on an isolated
+db-only stack (project id `phc-g5-test`, port 57322, so it does not collide with other worktrees).
+`bun run verify` parts green (typecheck, lint 0 errors, 2932 tests, build). Not tried in a browser
+(needs the migration in production and a signed-in user).
+
+What to know: the migration **reproduces `run_sales_automations` from `20260914100000`** with three
+changed lines (rules 6–7 filtered to `opportunity_id IS NOT NULL`; `notify_due_follow_ups(_today)`
+added to the closing notify pass) — a later migration that redefines it must start from this copy.
+`follow_ups.opportunity_id` is now nullable (client reminders); frontend readers were checked
+(TodayPanel/action-center route a client reminder to `/accounts/<id>`, My Workspace and Follow-ups
+show the client; calendar-feed and daily-assistant already tolerated a null deal). Step state on
+`deal_submittals` is written only by the trigger (column grants: clients insert/update title and
+notes only). Release: `db push` (approval-gated); no Edge Function deploy needed.
+
+Not done: sample approvals on the Approvals page (after group 3's #353), notifications or logins for
+Ammar/the designer, editing recorded steps, Action Center flags for overdue client reminders.
+
 ## 2026-10-21 — Release of PRs 349–352, and the project-owner spec (branch `feat/project-owner`)
 
 **Released.** Production serves `f5a7af11a27d166cf7ac069bb534a9e44d628963`, Worker version

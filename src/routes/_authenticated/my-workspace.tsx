@@ -254,7 +254,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   const { data: urgentFUs = [] } = useQuery({
     queryKey: ["ws-urgent-fus", uid], enabled: !!uid,
-    queryFn: async () => (await supabase.from("follow_ups").select("id, due_date, status, channel, notes, opportunity_id, opportunities(id, project_name, sales_stage, estimated_value_max, currency, main_contractor, last_activity_at, next_action)").eq("owner_id", uid).neq("status", "completed").neq("status", "cancelled").order("due_date", { ascending: true }).limit(25)).data ?? [],
+    queryFn: async () => (await supabase.from("follow_ups").select("id, due_date, status, channel, notes, opportunity_id, opportunities(id, project_name, sales_stage, estimated_value_max, currency, main_contractor, last_activity_at, next_action), companies(id, name)").eq("owner_id", uid).neq("status", "completed").neq("status", "cancelled").order("due_date", { ascending: true }).limit(25)).data ?? [],
   });
 
   const { data: urgentRfqs = [] } = useQuery({
@@ -399,6 +399,8 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                         <TableCell>
                           {f.opportunity_id ? (
                             <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{opp?.project_name ?? "—"}</Link>
+                          ) : (f as any).companies ? (
+                            <Link to="/accounts/$id" params={{ id: (f as any).companies.id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{(f as any).companies.name}</Link>
                           ) : <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell className="text-end num text-muted-foreground">{opp?.estimated_value_max ? formatCurrency(opp.estimated_value_max, lang, "SAR") : "—"}</TableCell>
@@ -829,7 +831,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         supabase.from("sales_targets").select("*").eq("user_id", uid).eq("period_start", monthStart()).maybeSingle(),
         supabase.from("companies").select("id, name, company_type, account_status").eq("account_owner_id", uid).order("updated_at", { ascending: false }),
         supabase.from("opportunities").select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_max, currency, owner_id").eq("owner_id", uid).order("updated_at", { ascending: false }),
-        supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, notes").eq("owner_id", uid).neq("status", "completed").order("due_date", { ascending: true }),
+        supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, notes, companies(id, name)").eq("owner_id", uid).neq("status", "completed").order("due_date", { ascending: true }),
         supabase.from("tasks").select("id, title, due_date, status").eq("owner_id", uid).neq("status", "done").order("due_date", { ascending: true }),
         supabase.from("activities").select("id, activity_type, summary, occurred_at, related_opportunity_id").eq("owner_id", uid).order("occurred_at", { ascending: false }).limit(12),
         supabase.from("approvals").select("*").eq("status", "pending"),
@@ -1028,6 +1030,8 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
                       <TableCell>
                         {f.opportunity_id ? (
                           <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="block max-w-[160px] truncate font-medium text-foreground hover:underline">{oppName(f.opportunity_id)}</Link>
+                        ) : f.companies ? (
+                          <Link to="/accounts/$id" params={{ id: f.companies.id }} className="block max-w-[160px] truncate font-medium text-foreground hover:underline">{f.companies.name}</Link>
                         ) : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></TableCell>

@@ -84,6 +84,8 @@ export function targetFor(n: NotificationLike, opportunityId: string | null): Ta
   switch (n.entity_type) {
     case "opportunity": return { to: `/opportunities/${n.entity_id}` };
     case "inbox_item": return { to: "/lead-tender-inbox", search: focus };
+    // A reminder about a client rather than a deal (group 5) opens the client.
+    case "company": return { to: `/accounts/${n.entity_id}` };
     case "approval": return { to: "/approvals", search: focus };
     case "tender": return { to: "/tenders", search: focus };
     case "rfq":

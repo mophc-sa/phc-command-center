@@ -90,6 +90,8 @@ There are 11 roles. **A user can hold more than one** — permissions are additi
 | Edit the **RFQ / project number** | `sales_manager` **only** (`system_admin` for repairs). `bd_manager` lost this on **2026-10-19** at the manager's request |
 | Edit a deal's **inputs** — client details, contact person and job title, relationships, next action, win probability | The deal's **owner** + `sales_manager`, `bd_manager`, `sales_ops` and executives (since **2026-10-19**; before, the owner could not) |
 | Post a **project update** | Same people as above |
+| Record a **sample or drawing step** | Everyone who can see the deal, except `viewer` and `system_admin` |
+| **Approve or decline a sample request** | `sales_manager` + executives (since **2026-10-22**) |
 | Use **Discussion** on an opportunity | `general_manager`, `sales_manager`, `bd_manager`, `system_admin` |
 | Assign an owner to a deal **that already has one** | `sales_manager` + executives |
 | Assign an owner to a deal **with no owner** | `sales_manager` + executives + `bd_manager` + `sales_ops` |
@@ -641,6 +643,7 @@ of something else, an action inside a record, or they belong to a section not bu
 | Page | Use it for |
 |---|---|
 | **Projects** `/projects` | Project dashboards. Auto `PRJ-2026-0001` numbering, cover image, **Job Pipeline** (a Kanban whose columns *you* define — add, rename, reorder), and **Budget** line items. Shows every linked opportunity with its contractor, package status, and BOQ status — this is where multi-contractor projects become readable. |
+| **Samples & drawings** `/submittals` | Every sample and drawing sent to a client, where it stands (awaiting approval, in production, with the client, approved, needs a new round) and the client's answer. Steps are recorded on the deal page; managers open on the samples waiting for their approval. |
 
 A project is created automatically when an opportunity is won. A second win on the same
 project does **not** create a duplicate.
@@ -710,6 +713,23 @@ update the same day; managers can delete any.
 from–to range), **Quotation value** (what we quoted) and **Awarded value** (the contract value,
 or the quotation once the deal is won; "—" before award). The "Quotation" figure used to show
 whichever of contract, quotation or estimate existed, so an estimate could read as a price.
+
+**Samples and drawings (2026-10-22).** Next to Files, **Samples and drawings** follows each item
+to the client's answer. **New sample** records the sales request; the sales manager (or an
+executive) approves or declines it; then *Production started* (name who: a colleague, or type
+a name such as Ammar), *Received from production*, *Sent to client*, and **Record client
+response**: *Approved (Code A)*, *Approved with comments (Code B)*, *Revise and resubmit (Code C)*
+or *Rejected*. **New drawing** starts at *Designer sent drawing*, then *Sent to client*, then the
+client's answer. After an answer, the next request (or the designer's next drawing) starts a new
+round, *Round 2* or *Rev 1*, and the earlier rounds stay in **History**. Each step has who, the
+date it happened (today or earlier) and notes; a drawing step can name the file it sent from the
+deal's Files. Only the next valid steps are offered, and the database refuses anything out of
+order.
+
+**Follow-ups can repeat (2026-10-22).** **Schedule follow-up** has **Repeat**: once, every month
+or every year. When you complete a repeating follow-up, the next one is created for you with the
+same purpose, owner and channel, on the same day of the month (the 31st falls back to the
+month's last day). Cancelling it stops the series.
 
 **Win probability on closed deals.** A won deal is **100%**, a lost deal **0%** — set
 automatically when the stage changes. Closed deals were corrected on 2026-10-19.
@@ -851,7 +871,33 @@ A project now has a responsible salesperson, shown at the top of the project pag
   open to whoever happens to be looking.
 - Every claim and reassignment is recorded with who did it and when.
 
+### Samples, drawings and client reminders (2026-10-22)
+
+- **Samples and drawings** live on the deal page (see *Inside an opportunity*) and in the list
+  **Samples & drawings** under Production. A sample request notifies the sales manager and the
+  GM; their decision notifies whoever asked; a client's answer notifies the deal owner if someone
+  else recorded it.
+- **Sales records every step.** Ammar in production and the designer do not need a login: the step
+  names them, and the person who recorded it is kept too.
+- **Client reminders.** A client's page (**Accounts → the client**) has **Client reminders**: pick
+  the date, once / every month / every year, who to remind, and what it is for. They appear on
+  Follow-ups and in My Workspace, and count in the day's tasks.
+- **A follow-up due today notifies its owner** in the bell, at the 07:00 run. Before this a due
+  follow-up only appeared as an Action Center item.
+
 ## 10. Current limitations
+
+### Samples, drawings and client reminders (2026-10-22)
+
+- **Not live until the database change is applied.** Migration `20261026100000` must be pushed to
+  production first (approval-gated).
+- **The sample approval is not on the Approvals page.** It is recorded on the deal and announced in
+  the bell; the manager also finds waiting samples at the top of **Samples & drawings**.
+- **A recorded step cannot be edited or deleted.** Record the correct next step with a note, or
+  cancel the item and start again.
+- **Client reminders raise no Action Center item.** An overdue client reminder shows as overdue on
+  Follow-ups and in My Workspace, but it does not create a risk flag (those belong to a deal).
+- **Ammar and the designer are not notified** in the app; they have no login for it.
 
 ### Project tracking (2026-10-19)
 
@@ -1362,3 +1408,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-10-21 · projects have an owner; the owner edits the budget · previous: interface audit, 2026-09-20 -->
 
 <!-- last reviewed 2026-10-22 · Back button on every page, full intake notes in the bell · previous: project tracking, 2026-10-19 -->
+
+<!-- last reviewed 2026-10-22 · samples and drawings tracking, repeating follow-ups, client reminders, due-today notifications · previous: projects have an owner, 2026-10-21 -->

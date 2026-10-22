@@ -27,6 +27,7 @@ export const strings = {
   nav_accounts: { en: "Accounts", ar: "الحسابات" },
   nav_contacts: { en: "Contacts", ar: "جهات الاتصال" },
   nav_projects: { en: "Projects", ar: "المشاريع" },
+  nav_submittals: { en: "Samples & drawings", ar: "العينات والمخططات" },
   nav_vendors: { en: "Vendors", ar: "الموردون" },
   nav_reference_library: { en: "Reference Library", ar: "مكتبة المراجع" },
   nav_knowledge: { en: "Knowledge Search", ar: "البحث المعرفي" },
@@ -1932,6 +1933,10 @@ export const strings = {
   notif_type_handoff_changed: { en: "Commercial handoff", ar: "التسليم التجاري" },
   notif_type_assigned: { en: "Assigned to you", ar: "مُسند إليك" },
   notif_type_item_overdue: { en: "Overdue", ar: "متأخر" },
+  notif_type_sample_approval_needed: { en: "Sample approval", ar: "اعتماد عينة" },
+  notif_type_sample_decided: { en: "Sample decision", ar: "قرار العينة" },
+  notif_type_submittal_client_response: { en: "Client response", ar: "رد العميل" },
+  notif_type_follow_up_due: { en: "Follow-up due", ar: "متابعة مستحقة" },
 
   // ---- Action Center (Phase 4 unified queue) ----
   ac_scope_mine: { en: "Mine", ar: "مهامي" },

@@ -1,5 +1,21 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-10-22 — Samples, drawings and client reminders (manager feedback group 5) (not deployed)
+
+- Migration `20261026100000`: `deal_submittals` + append-only `deal_submittal_steps` (samples and
+  drawings, step order enforced by `submittal_next_steps()` and a BEFORE INSERT trigger, revisions,
+  who/when/notes/file per step; RLS = the deal's readers, recording by sales contributors,
+  approve/decline by `is_commercial_manager` only; notifications to sales manager + GM on a sample
+  request, to the requester on the decision, to the deal owner on the client's answer).
+  `follow_ups.recurrence` (none/monthly/yearly), `recurrence_anchor`, `company_id`, `recurs_from`;
+  `opportunity_id` nullable with a deal-or-client CHECK; `schedule_next_follow_up` creates the next
+  reminder on completion; `notify_due_follow_ups()` (follow-up due today → owner) called from
+  `run_sales_automations`, whose rules 6–7 now keep to deal follow-ups; `notifications.entity_type`
+  gains `company`. pgTAP `samples_drawings_reminders` (30).
+- Deal page: **Samples and drawings** panel; Schedule follow-up gains **Repeat**. New page
+  `/submittals` (Production group, ⌘K). Client page: **Client reminders**. Follow-ups page and My
+  Workspace show the client for client reminders; a `company` notification opens the client.
+
 ## 2026-10-22 — Back button and full intake notes (manager feedback group 6, not deployed)
 
 - `BackButton` in the shell top bar on every signed-in page except home: `router.history.back()` when the
