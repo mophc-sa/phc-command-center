@@ -278,8 +278,12 @@ async function send_email(payload: Record<string, unknown>, ctx: SalesOsContext)
     : [];
   let mentioned = 0;
   if (mentions.length && activity?.id && opportunityId) {
-    const { data: n, error: mErr } = await ctx.asCaller.rpc("notify_mentions", { _activity_id: activity.id, _users: mentions });
-    if (!mErr && typeof n === "number") mentioned = n;
+    try {
+      const { data: n, error: mErr } = await ctx.asCaller.rpc("notify_mentions", { _activity_id: activity.id, _users: mentions });
+      if (!mErr && typeof n === "number") mentioned = n;
+    } catch {
+      // The email has already left; a mention problem must never read as a failed send.
+    }
   }
 
   // The email left even if the log write failed; say so rather than pretend.
