@@ -9,9 +9,8 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ExternalLink, Mail } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useI18n, formatNumber, localeFor } from "@/lib/i18n";
-import { dismissInfoMail, forwardInfoMail, listOpenInfoMail, markInfoMailRfq, type InfoMailRow } from "@/lib/info-mail-actions";
+import { dismissInfoMail, forwardInfoMail, listColleagues, listOpenInfoMail, markInfoMailRfq, type InfoMailRow } from "@/lib/info-mail-actions";
 
 const LABEL: Record<string, { en: string; ar: string }> = {
   unclassified: { en: "Being sorted", ar: "قيد الفرز" },
@@ -33,12 +32,7 @@ export function InfoMailPanel() {
   const people = useQuery({
     queryKey: ["info-mail-colleagues"],
     staleTime: 10 * 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("profiles")
-        .select("id, full_name, email").eq("status", "active").eq("is_display_account", false).order("full_name");
-      if (error) throw error;
-      return (data ?? []).filter((p) => String(p.email ?? "").toLowerCase().endsWith("@phc-sa.com"));
-    },
+    queryFn: listColleagues,
   });
   const [busy, setBusy] = useState<string | null>(null);
   const rows = q.data ?? [];

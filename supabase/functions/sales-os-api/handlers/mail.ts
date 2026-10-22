@@ -60,6 +60,8 @@ const REFUSAL_MESSAGE: Record<ComposeRefusal, string> = {
 
 const env = (k: string) => Deno.env.get(k);
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const RECONNECT = "Your Outlook connection has expired. Reconnect it in Settings, then send again.";
 
 type Connection = { email: string; status: "active" | "needs_reconnect" };
@@ -210,29 +212,27 @@ async function send_email(payload: Record<string, unknown>, ctx: SalesOsContext)
 
   // 6 ─ record the fact
   const now = new Date().toISOString();
-  const { data: activity, error: actErr } = await ctx.svc
-    .from("activities")
-    .insert({
-      activity_type: "email_draft",
-      status: "sent",
-      summary: composed.postmark.Subject,
-      draft_content: composed.postmark.TextBody,
-      related_opportunity_id: opportunityId,
-      company_id: companyId,
-      contact_id: contactId,
-      related_rfq_id: rfqId,
-      related_tender_id: tenderId,
-      template_id: templateId,
-      occurred_at: now,
-      sent_at: now,
-      sent_by: ctx.caller.userId,
-      owner_id: ctx.caller.userId,
-      created_by: ctx.caller.userId,
-      provider_message_id: messageId,
-      email_from: composed.from,
-      email_to: composed.to.join(", "),
-      email_cc: composed.cc.length ? composed.cc.join(", ") : null,
-    })
+  const { data: activity, error: actErr } = await ctx.svc.from("activities").insert({
+    activity_type: "email_draft",
+    status: "sent",
+    summary: composed.postmark.Subject,
+    draft_content: composed.postmark.TextBody,
+    related_opportunity_id: opportunityId,
+    company_id: companyId,
+    contact_id: contactId,
+    related_rfq_id: rfqId,
+    related_tender_id: tenderId,
+    template_id: templateId,
+    occurred_at: now,
+    sent_at: now,
+    sent_by: ctx.caller.userId,
+    owner_id: ctx.caller.userId,
+    created_by: ctx.caller.userId,
+    provider_message_id: messageId,
+    email_from: composed.from,
+    email_to: composed.to.join(", "),
+    email_cc: composed.cc.length ? composed.cc.join(", ") : null,
+  })
     .select("id")
     .single();
 
@@ -269,11 +269,24 @@ async function send_email(payload: Record<string, unknown>, ctx: SalesOsContext)
     ctx.caller.roles,
   );
 
+  // @mentions: an in-system note to colleagues who can read the deal — never a
+  // copy of the email (they are not recipients). Read only now, after the email
+  // is sent and recorded, so a mention can never reach the message. Failure
+  // never undoes the send.
+  const mentions = Array.isArray(payload.mentions)
+    ? payload.mentions.filter((x): x is string => typeof x === "string" && UUID.test(x)).slice(0, 10)
+    : [];
+  let mentioned = 0;
+  if (mentions.length && activity?.id && opportunityId) {
+    const { data: n, error: mErr } = await ctx.asCaller.rpc("notify_mentions", { _activity_id: activity.id, _users: mentions });
+    if (!mErr && typeof n === "number") mentioned = n;
+  }
+
   // The email left even if the log write failed; say so rather than pretend.
   if (actErr) {
-    return json({ ok: true, sent: true, logged: false, message_id: messageId, via: viaOutlook ? "outlook" : "postmark" });
+    return json({ ok: true, sent: true, logged: false, message_id: messageId, via: viaOutlook ? "outlook" : "postmark", mentioned });
   }
-  return json({ ok: true, sent: true, logged: true, activity_id: activity.id, message_id: messageId, via: viaOutlook ? "outlook" : "postmark" });
+  return json({ ok: true, sent: true, logged: true, activity_id: activity.id, message_id: messageId, via: viaOutlook ? "outlook" : "postmark", mentioned });
 }
 
 export const mailModule: HandlerModule = {

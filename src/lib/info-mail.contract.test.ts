@@ -87,3 +87,19 @@ describe("routing info@ mail", () => {
     expect(A).toContain('supabase.rpc("info_mail_dismiss"');
   });
 });
+
+describe("@mentions on a sent email", () => {
+  const MAIL = read("supabase/functions/sales-os-api/handlers/mail.ts");
+  it("notifies through notify_mentions as the caller, after the email is recorded", () => {
+    const insert = MAIL.indexOf('from("activities").insert(');
+    const mention = MAIL.indexOf('ctx.asCaller.rpc("notify_mentions"');
+    expect(insert).toBeGreaterThan(-1);
+    expect(mention).toBeGreaterThan(insert);
+  });
+  it("mentions are read only after the email is recorded, so they can never reach the recipients", () => {
+    const fn = MAIL.slice(MAIL.indexOf("async function send_email"));
+    const insert = fn.indexOf('from("activities").insert(');
+    expect(insert).toBeGreaterThan(-1);
+    expect(fn.indexOf("payload.mentions")).toBeGreaterThan(insert);
+  });
+});

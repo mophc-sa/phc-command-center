@@ -49,3 +49,13 @@ export async function sourceEmailFor(opportunityId: string): Promise<(InfoMailRo
   if (error) throw error;
   return (data ?? null) as (InfoMailRow & { body_text: string | null }) | null;
 }
+
+export type Colleague = { id: string; full_name: string | null; email: string | null };
+
+/** Active people on the company domain (not display accounts), by name. */
+export async function listColleagues(): Promise<Colleague[]> {
+  const { data, error } = await supabase.from("profiles")
+    .select("id, full_name, email").eq("status", "active").eq("is_display_account", false).order("full_name");
+  if (error) throw error;
+  return (data ?? []).filter((p) => String(p.email ?? "").toLowerCase().endsWith("@phc-sa.com"));
+}
