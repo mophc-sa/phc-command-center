@@ -4015,6 +4015,36 @@ export type Database = {
           },
         ]
       }
+      info_mailbox_state: {
+        Row: {
+          delta_link: string | null
+          id: boolean
+          last_error: string | null
+          last_run_at: string | null
+          started_at: string | null
+          triage_backoff_minutes: number
+          triage_retry_at: string | null
+        }
+        Insert: {
+          delta_link?: string | null
+          id?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          started_at?: string | null
+          triage_backoff_minutes?: number
+          triage_retry_at?: string | null
+        }
+        Update: {
+          delta_link?: string | null
+          id?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          started_at?: string | null
+          triage_backoff_minutes?: number
+          triage_retry_at?: string | null
+        }
+        Relationships: []
+      }
       internal_prices: {
         Row: {
           below_floor_justification: string | null
@@ -8832,6 +8862,7 @@ export type Database = {
         Returns: string
       }
       info_mail_dismiss: { Args: { _id: string }; Returns: undefined }
+      info_mail_dismiss_spam: { Args: never; Returns: number }
       info_mail_link_conversion: {
         Args: { _inbox_item_id: string }
         Returns: number
@@ -8866,6 +8897,14 @@ export type Database = {
           source_id: string
           source_type: string
           title: string
+        }[]
+      }
+      mentionable_colleagues: {
+        Args: { _opportunity_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
         }[]
       }
       normalize_lead_key: {

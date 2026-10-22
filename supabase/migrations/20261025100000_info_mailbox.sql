@@ -74,7 +74,13 @@ CREATE TABLE public.info_mailbox_state (
   id boolean PRIMARY KEY DEFAULT true CHECK (id),
   delta_link text,
   last_run_at timestamptz,
-  last_error text CHECK (last_error IS NULL OR length(last_error) <= 500)
+  last_error text CHECK (last_error IS NULL OR length(last_error) <= 500),
+  -- The first pass sets this; mail received before it is stored header-only
+  -- and is never sent to the AI.
+  started_at timestamptz,
+  -- After an AI outage, triage waits until triage_retry_at; the wait doubles.
+  triage_retry_at timestamptz,
+  triage_backoff_minutes integer NOT NULL DEFAULT 0 CHECK (triage_backoff_minutes >= 0)
 );
 INSERT INTO public.info_mailbox_state (id) VALUES (true);
 ALTER TABLE public.info_mailbox_state ENABLE ROW LEVEL SECURITY;
@@ -179,13 +185,17 @@ END $$;
 -- 6. The orchestrator's verdict. 0.7 is the one place the threshold lives.
 --    A router may dismiss or forward a message before the AI answers; the
 --    verdict is still recorded (and a non-request still loses its text), but it
---    never creates an item over a person's decision. ------------------------
+--    never creates an item over a person's decision.
+--    CLAIM RULE (used here and in section 8): a row still 'new' whose
+--    handled_at is under five minutes old is claimed by a forward in flight.
+--    An older claim is stale (a crashed attempt) and may be taken again. ------
 CREATE OR REPLACE FUNCTION public.info_mail_apply_triage(
   _mail_id uuid, _category text, _confidence numeric, _summary text, _fields jsonb)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   is_request boolean := _category IN ('rfq', 'quotation_request');
   st text;
+  claimed_at timestamptz;
 BEGIN
   IF _category IS NULL OR _category NOT IN ('rfq','quotation_request','supplier','finance','hr','general','spam') THEN
     RAISE EXCEPTION 'unknown category' USING ERRCODE = '22023';
@@ -197,9 +207,10 @@ BEGIN
          body_text = CASE WHEN is_request THEN body_text END,
          triage_attempts = triage_attempts + 1
    WHERE id = _mail_id AND category = 'unclassified'
-  RETURNING status INTO st;
+  RETURNING status, handled_at INTO st, claimed_at;
   IF NOT FOUND THEN RETURN 'skipped'; END IF;
-  IF st = 'new' AND is_request AND coalesce(_confidence, 0) >= 0.7 THEN
+  IF st = 'new' AND (claimed_at IS NULL OR claimed_at < now() - interval '5 minutes')
+     AND is_request AND coalesce(_confidence, 0) >= 0.7 THEN
     PERFORM public.info_mail_create_intake(_mail_id, _fields);
     RETURN 'intake_created';
   END IF;
@@ -229,8 +240,9 @@ BEGIN
   SELECT * INTO p FROM public.info_mail WHERE id = _parent_id;
   IF m.id IS NULL OR p.id IS NULL THEN RAISE EXCEPTION 'info mail not found' USING ERRCODE = 'P0002'; END IF;
 
+  -- A router's decision (dismissed, forwarded) stands; only a new row is attached.
   UPDATE public.info_mail
-     SET category = 'client_reply', status = 'attached',
+     SET category = 'client_reply', status = CASE WHEN status = 'new' THEN 'attached' ELSE status END,
          inbox_item_id = p.inbox_item_id, opportunity_id = p.opportunity_id
    WHERE id = _mail_id;
 
@@ -283,8 +295,23 @@ BEGIN
     RAISE EXCEPTION 'Only sales managers, BD and sales ops route info@ mail' USING ERRCODE = '42501';
   END IF;
   UPDATE public.info_mail SET status = 'dismissed', handled_by = u, handled_at = now()
-   WHERE id = _id AND status = 'new' AND inbox_item_id IS NULL;
+   WHERE id = _id AND status = 'new' AND inbox_item_id IS NULL
+     AND (handled_at IS NULL OR handled_at < now() - interval '5 minutes');
   IF NOT FOUND THEN RAISE EXCEPTION 'This message was already handled' USING ERRCODE = 'P0002'; END IF;
+END $$;
+
+-- "Newsletters & spam — Dismiss all": every open, unclaimed spam row at once.
+CREATE OR REPLACE FUNCTION public.info_mail_dismiss_spam()
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE u uuid := auth.uid(); n integer;
+BEGIN
+  IF u IS NULL OR NOT public.is_pipeline_operator(u) THEN
+    RAISE EXCEPTION 'Only sales managers, BD and sales ops route info@ mail' USING ERRCODE = '42501';
+  END IF;
+  UPDATE public.info_mail SET status = 'dismissed', handled_by = u, handled_at = now()
+   WHERE status = 'new' AND category = 'spam' AND inbox_item_id IS NULL AND handled_at IS NULL;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n;
 END $$;
 
 -- Called by sales-os-api after Graph accepted the forward (the caller's role was
@@ -307,16 +334,23 @@ RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   UPDATE public.info_mail
      SET category = 'rfq', confidence = 1, body_text = left(_body, 20000), handled_by = _by, handled_at = now()
-   WHERE id = _id AND status = 'new' AND inbox_item_id IS NULL AND category <> 'client_reply';
+   WHERE id = _id AND status = 'new' AND inbox_item_id IS NULL AND category <> 'client_reply'
+     AND (handled_at IS NULL OR handled_at < now() - interval '5 minutes');
   IF NOT FOUND THEN RAISE EXCEPTION 'This message was already handled' USING ERRCODE = 'P0002'; END IF;
   RETURN public.info_mail_create_intake(_id, '{}'::jsonb);
 END $$;
 
 -- 9. Conversion happens in the browser (inbox-actions.ts markConverted); this
---    binds the item's mail to the deal it became. ----------------------------
+--    binds the item's mail to the deal it became, and puts the client replies
+--    that arrived before the deal existed into its Correspondence. -----------
 CREATE OR REPLACE FUNCTION public.info_mail_link_conversion(_inbox_item_id uuid)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE u uuid := auth.uid(); item public.inbox_items; n integer;
+DECLARE
+  u uuid := auth.uid();
+  item public.inbox_items;
+  opp public.opportunities;
+  m public.info_mail;
+  n integer := 0;
 BEGIN
   IF u IS NULL OR NOT public.is_active_user(u) THEN RAISE EXCEPTION 'not allowed' USING ERRCODE = '42501'; END IF;
   SELECT * INTO item FROM public.inbox_items WHERE id = _inbox_item_id;
@@ -328,13 +362,45 @@ BEGIN
           OR public.can_read_boq(item.converted_record_id, u)) THEN
     RAISE EXCEPTION 'not allowed' USING ERRCODE = '42501';
   END IF;
-  UPDATE public.info_mail SET opportunity_id = item.converted_record_id
-   WHERE inbox_item_id = item.id AND opportunity_id IS NULL;
-  GET DIAGNOSTICS n = ROW_COUNT;
+  SELECT * INTO opp FROM public.opportunities WHERE id = item.converted_record_id;
+  FOR m IN UPDATE public.info_mail SET opportunity_id = item.converted_record_id
+            WHERE inbox_item_id = item.id AND opportunity_id IS NULL
+           RETURNING * LOOP
+    n := n + 1;
+    -- Same row as info_mail_record_reply writes, so a later capture dedupes.
+    IF m.category = 'client_reply' THEN
+      BEGIN
+        INSERT INTO public.activities (
+          activity_type, status, summary, draft_content, occurred_at, owner_id, created_by,
+          related_opportunity_id, company_id, provider_message_id, email_conversation_id, email_from)
+        VALUES (
+          'email_received', 'logged', left(coalesce(m.subject, ''), 300), m.body_text, m.received_at,
+          coalesce(opp.owner_id, item.assigned_owner_id), coalesce(opp.owner_id, item.assigned_owner_id),
+          opp.id, opp.company_id,
+          CASE WHEN m.internet_message_id IS NOT NULL THEN 'imid:' || m.internet_message_id END,
+          m.conversation_id, m.from_email);
+      EXCEPTION WHEN unique_violation THEN NULL;  -- a rep's own capture got there first
+      END;
+    END IF;
+  END LOOP;
   RETURN n;
 END $$;
 
 -- 10. @mentions on an email the caller just sent: a notification, never a copy.
+-- "Can open the deal" for any user: the permissive SELECT policy on
+-- opportunities ("Opportunities readable by owner or manager",
+-- 20260727170000) with _user_id in place of auth.uid(). The restrictive
+-- audit_session_boundary depends on the reader's own session (MFA), so it is
+-- left to that session. Keep this in step with that policy.
+CREATE OR REPLACE FUNCTION public.can_open_opportunity(_opportunity_id uuid, _user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT _user_id IS NOT NULL
+    AND public.is_active_user(_user_id)
+    AND EXISTS (SELECT 1 FROM public.opportunities o
+                 WHERE o.id = _opportunity_id
+                   AND (o.owner_id = _user_id OR public.can_view_all_sales_data(_user_id)));
+$$;
+
 CREATE OR REPLACE FUNCTION public.notify_mentions(_activity_id uuid, _users uuid[])
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -353,7 +419,7 @@ BEGIN
   SELECT coalesce(nullif(btrim(full_name), ''), email) INTO who FROM public.profiles WHERE id = u;
   FOR r IN SELECT DISTINCT x FROM unnest(_users) AS x LOOP
     -- Only people who can open the deal: a mention never widens who reads it.
-    IF r <> u AND public.is_active_user(r) AND public.can_read_boq(a.related_opportunity_id, r) THEN
+    IF r <> u AND public.can_open_opportunity(a.related_opportunity_id, r) THEN
       PERFORM public.emit_notification(
         r, 'mention', 'opportunity', a.related_opportunity_id,
         left(coalesce(who, 'A colleague') || ' mentioned you on an email', 200),
@@ -365,6 +431,20 @@ BEGIN
   RETURN n;
 END $$;
 
+-- The mention picker: the colleagues notify_mentions would actually tell.
+-- Empty when the caller cannot open the deal.
+CREATE OR REPLACE FUNCTION public.mentionable_colleagues(_opportunity_id uuid)
+RETURNS TABLE (id uuid, full_name text, email text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT p.id, p.full_name, p.email
+    FROM public.profiles p
+   WHERE public.can_open_opportunity(_opportunity_id, auth.uid())
+     AND p.id <> auth.uid()
+     AND NOT p.is_display_account
+     AND public.can_open_opportunity(_opportunity_id, p.id)
+   ORDER BY lower(coalesce(nullif(btrim(p.full_name), ''), p.email));
+$$;
+
 -- 11. Grants -----------------------------------------------------------------
 REVOKE ALL ON FUNCTION public.info_mail_owner_for(text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.info_mail_create_intake(uuid, jsonb) FROM PUBLIC, anon, authenticated;
@@ -373,6 +453,7 @@ REVOKE ALL ON FUNCTION public.info_mail_triage_failed(uuid) FROM PUBLIC, anon, a
 REVOKE ALL ON FUNCTION public.info_mail_record_reply(uuid, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.info_mail_record_forward(uuid, uuid, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.info_mail_promote(uuid, uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.can_open_opportunity(uuid, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.info_mail_owner_for(text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.info_mail_create_intake(uuid, jsonb) TO service_role;
 GRANT EXECUTE ON FUNCTION public.info_mail_apply_triage(uuid, text, numeric, text, jsonb) TO service_role;
@@ -380,11 +461,16 @@ GRANT EXECUTE ON FUNCTION public.info_mail_triage_failed(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.info_mail_record_reply(uuid, uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.info_mail_record_forward(uuid, uuid, uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.info_mail_promote(uuid, uuid, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.can_open_opportunity(uuid, uuid) TO service_role;
 
 REVOKE ALL ON FUNCTION public.info_mail_dismiss(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.info_mail_link_conversion(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.notify_mentions(uuid, uuid[]) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.info_mail_dismiss_spam() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.mentionable_colleagues(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.info_mail_dismiss(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.info_mail_dismiss_spam() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.mentionable_colleagues(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.info_mail_link_conversion(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.notify_mentions(uuid, uuid[]) TO authenticated;
 
