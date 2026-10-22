@@ -12,8 +12,12 @@ backlog gets a 7-day window first); numbers on `/meetings`. Migration `202610281
 g5/g7's `20261026100000`, which both sessions claimed — one of them must move).
 
 Local: `supabase test db` 23 files / 288 green (new `meetings_phase1` 45), `bun run verify` green
-(2935 tests), `bun run test:deno` 106. Not tried in a browser against the new schema (no signed-in local
-stack with the functions served); the pages type-check and the RPCs are covered by pgTAP.
+(2935 tests), `bun run test:deno` 106. Tried in a browser on a local stack (migration applied,
+`sales-os-api` served) as a seeded salesperson: list numbers and filter, the meeting page (own item,
+organiser's unassigned item, a colleague's item read-only), Confirm deal → items pre-filled → Approve
+(task due +3 working days, summary in `opportunity_updates` once), My Day callout, Settings card in
+both states, Arabic RTL, bell click → meeting. Not tried: a real Fireflies key (connect + the 30-minute
+pull) — covered by Deno tests with a faked Fireflies; the first real connect is the test.
 
 **Release — Mo runs, in this order (nothing here was pushed, deployed or set):**
 1. Merge the PR once CI is green.

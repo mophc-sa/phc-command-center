@@ -55,6 +55,7 @@ describe("the numbers on /meetings", () => {
   it("says nothing rather than zero when there is nothing to measure", () => {
     expect(meetingMetrics([], now)).toEqual({ meetingsThisWeek: 0, approvedPct: null, avgDecisionHours: null, pendingOver7Days: 0 });
     expect(formatDecisionTime(null, "en")).toBe("—");
+    expect(formatDecisionTime(0.2, "en")).toBe("< 1 h");
     expect(formatDecisionTime(5.4, "en")).toBe("5 h");
     expect(formatDecisionTime(84, "en")).toBe("3.5 d");
     expect(formatDecisionTime(84, "ar")).not.toMatch(/[٠-٩]/);

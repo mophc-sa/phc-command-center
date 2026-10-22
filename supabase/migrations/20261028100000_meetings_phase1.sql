@@ -266,7 +266,7 @@ BEGIN
   LOOP
     found_one := true;
     IF public.emit_notification(r, 'meeting_review_requested', 'meeting', _meeting_id,
-         left(m.title, 200), total || ' action items await your decision / ' || total || ' بنود تنتظر قرارك',
+         left(m.title, 200), total || ' action items await your decision',
          'attention', 'meeting_ingested', 'meeting_review:' || _meeting_id,
          jsonb_build_object('meeting_id', _meeting_id)) IS NOT NULL THEN n := n + 1; END IF;
   END LOOP;
@@ -278,7 +278,7 @@ BEGIN
          AND p.status = 'active' AND NOT p.is_display_account
     LOOP
       IF public.emit_notification(r, 'meeting_review_requested', 'meeting', _meeting_id,
-           left(m.title, 200), total || ' action items await review / ' || total || ' بنود تنتظر المراجعة',
+           left(m.title, 200), total || ' action items await review',
            'attention', 'meeting_ingested', 'meeting_review:' || _meeting_id,
            jsonb_build_object('meeting_id', _meeting_id)) IS NOT NULL THEN n := n + 1; END IF;
     END LOOP;
@@ -487,8 +487,7 @@ BEGIN
       INTO m_owner;
     PERFORM public.emit_notification(m_owner, 'meeting_items_auto_dismissed', 'meeting', r.meeting_id,
       left((SELECT title FROM public.meetings WHERE id = r.meeting_id), 200),
-      r.items || ' action items were dismissed after 14 days without a decision / '
-        || r.items || ' بنود رُفضت تلقائياً بعد 14 يوماً دون قرار',
+      r.items || ' action items were dismissed after 14 days without a decision',
       'attention', 'meeting_items_expired', 'meeting_expired:' || r.meeting_id || ':' || today,
       jsonb_build_object('meeting_id', r.meeting_id, 'items', r.items));
   END LOOP;
@@ -496,6 +495,10 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.expire_meeting_action_items() FROM PUBLIC, anon, authenticated;
 
+-- Notification text is English like every other notification; the bell
+-- translates the type label (notif_type_*). A count inside a mixed
+-- Arabic/English line was reordered by the bidi algorithm.
+--
 -- One notification a working day per person with items to decide. It opens
 -- the meeting list (metadata.digest); entity_id is the oldest meeting, so the
 -- dedupe key stays one per person per day.
@@ -509,10 +512,10 @@ BEGIN
     q := public.meeting_review_queue_for(p.id);
     IF (q->>'pending')::int > 0 AND public.emit_notification(p.id, 'meeting_review_digest', 'meeting',
          (q->>'oldest_meeting_id')::uuid,
-         (q->>'pending') || ' meeting tasks to review / ' || (q->>'pending') || ' مهام اجتماعات للمراجعة',
+         (q->>'pending') || ' meeting tasks to review',
          CASE WHEN (q->>'over_7_days')::int > 0
-              THEN (q->>'over_7_days') || ' waiting more than 7 days / ' || (q->>'over_7_days') || ' تنتظر أكثر من 7 أيام'
-              ELSE 'From ' || (q->>'meetings') || ' meetings / من ' || (q->>'meetings') || ' اجتماعات' END,
+              THEN (q->>'over_7_days') || ' waiting more than 7 days'
+              ELSE 'From ' || (q->>'meetings') || ' meetings' END,
          CASE WHEN (q->>'over_7_days')::int > 0 THEN 'attention' ELSE 'info' END,
          'meeting_review_digest', 'meeting_digest:' || today,
          jsonb_build_object('digest', true, 'pending', (q->>'pending')::int, 'over_7_days', (q->>'over_7_days')::int)) IS NOT NULL

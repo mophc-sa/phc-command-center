@@ -2070,7 +2070,7 @@ export const strings = {
   meetings_deal_change: { en: "Change", ar: "تغيير" },
   meetings_deal_none: { en: "Not linked to a deal yet", ar: "غير مربوط بمشروع بعد" },
   meetings_deal_linked: { en: "Deal linked — the summary is in its update log", ar: "رُبط المشروع وأُضيف الملخص إلى سجل تحديثاته" },
-  meetings_expires: { en: "Dismissed automatically on", ar: "يُرفض تلقائياً في" },
+  meetings_expires: { en: "If undecided, dismissed on", ar: "إن لم يُبتّ فيه يُرفض في" },
   meetings_approve_all: { en: "Approve all ready", ar: "اعتماد كل الجاهز" },
   meetings_approve_all_confirm: { en: "Approve every item that has an owner, with its suggested due date and deal? Edits you have not approved are not used.", ar: "اعتماد كل بند له مسؤول بموعده ومشروعه المقترحين؟ التعديلات غير المعتمدة لا تُستخدم." },
   meetings_dismiss_rest: { en: "Dismiss the rest", ar: "استبعاد الباقي" },

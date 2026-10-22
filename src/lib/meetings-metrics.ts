@@ -57,9 +57,10 @@ export function meetingMetrics(rows: MetricMeeting[], now: Date = new Date()): M
   };
 }
 
-/** "5 h" under two days, "3.5 d" after; "—" with nothing decided. */
+/** "< 1 h" within the hour, "5 h" under two days, "3.5 d" after; "—" with nothing decided. */
 export function formatDecisionTime(hours: number | null, lang: "en" | "ar"): string {
   if (hours == null) return "—";
+  if (hours < 1) return lang === "ar" ? "أقل من ساعة" : "< 1 h";
   if (hours < 48) return lang === "ar" ? `${Math.round(hours)} ساعة` : `${Math.round(hours)} h`;
   const days = Math.round((hours / 24) * 10) / 10;
   return lang === "ar" ? `${days} يوم` : `${days} d`;

@@ -35,7 +35,7 @@ insert into public.user_roles (user_id, role) values
   ('2b000000-0000-0000-0000-000000000004', 'salesperson');
 
 insert into public.opportunities (id, project_name, owner_id, created_by) values
-  ('f2b00000-0000-0000-0000-000000000001', 'Sidra Tower 345',
+  ('f2b00000-0000-0000-0000-000000000001', 'Qx7 Sidra Tower 345',
    '2b000000-0000-0000-0000-000000000002', '2b000000-0000-0000-0000-000000000002'),
   ('f2b00000-0000-0000-0000-000000000002', 'Rival Mall', '2b000000-0000-0000-0000-000000000004',
    '2b000000-0000-0000-0000-000000000004');
@@ -48,7 +48,7 @@ select is(public.add_business_days('2026-10-23', 1), '2026-10-25'::date,
 
 -- ── Ingest: deal suggested, the people in it told ──────────────────────────
 select public.ingest_meeting(
-  '{"provider_meeting_id":"FF-P1-1","title":"Weekly","summary_short":"Discussed the SIDRA TOWER 345 signage package",
+  '{"provider_meeting_id":"FF-P1-1","title":"Weekly","summary_short":"Discussed the QX7 SIDRA TOWER 345 signage package",
     "organizer_email":"P1-Rep-A+test@phc-sa.com","participants":["p1-rep-b+test@phc-sa.com"]}',
   '[{"speaker_label":"B","title":"Send drawings","suggested_owner_id":"2b000000-0000-0000-0000-000000000003"},
     {"speaker_label":"A","title":"Call client","suggested_owner_id":"2b000000-0000-0000-0000-000000000002"},
@@ -157,7 +157,7 @@ select is(public.decide_meeting_action_item(
 select is((select count(*)::int from public.opportunity_updates
             where opportunity_id = 'f2b00000-0000-0000-0000-000000000001' and kind = 'meeting_summary'),
   1, 'The summary is in the deal''s update log once, however many times it is linked');
-select ok((select note like '%Weekly%SIDRA TOWER 345%' from public.opportunity_updates
+select ok((select note like '%Weekly%QX7 SIDRA TOWER 345%' from public.opportunity_updates
             where opportunity_id = 'f2b00000-0000-0000-0000-000000000001' and kind = 'meeting_summary'),
   'The update names the meeting and carries its summary');
 
@@ -187,9 +187,13 @@ select ok(exists(select 1 from public.notifications
                     and notification_type = 'meeting_review_requested'),
   'A meeting matched to nobody goes to the managers');
 
-select is((public.notify_meeting_review_digest() > 0),
+select public.notify_meeting_review_digest();
+select is(exists(select 1 from public.notifications
+                  where recipient_user_id = '2b000000-0000-0000-0000-000000000001'
+                    and notification_type = 'meeting_review_digest'
+                    and dedupe_key = 'meeting_digest:' || (now() at time zone 'Asia/Riyadh')::date),
   extract(isodow from (now() at time zone 'Asia/Riyadh')::date) not in (5, 6),
-  'The daily digest goes out on working days only');
+  'The daily digest reaches a manager with items waiting, on working days only');
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"2b000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
