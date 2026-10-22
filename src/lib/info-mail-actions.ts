@@ -38,7 +38,7 @@ export async function countOpenInfoSpam(): Promise<number> {
 
 /** Dismiss every open newsletter/spam row in one step. Returns how many were dismissed. */
 export async function dismissOpenInfoSpam(): Promise<number> {
-  const { data, error } = await supabase.rpc("info_mail_dismiss_spam" as never, {} as never);
+  const { data, error } = await supabase.rpc("info_mail_dismiss_spam");
   if (error) throw error;
   return typeof data === "number" ? data : 0;
 }
@@ -79,7 +79,7 @@ export async function listColleagues(): Promise<Colleague[]> {
 
 /** People who can open this deal, so a mention always reaches someone who can follow it. */
 export async function mentionableColleagues(opportunityId: string): Promise<Colleague[]> {
-  const { data, error } = await supabase.rpc("mentionable_colleagues" as never, { _opportunity_id: opportunityId } as never);
+  const { data, error } = await supabase.rpc("mentionable_colleagues", { _opportunity_id: opportunityId });
   if (error) throw error;
   return ((data ?? []) as Colleague[]);
 }
