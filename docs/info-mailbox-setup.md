@@ -90,7 +90,7 @@ What the first run does:
 
 - Mail that arrived **before** go-live is not sorted by the AI. Routers see it in **info@ mail — to route** under "Not sorted — route by hand" (Arabic: "لم يُفرز — وجّهه يدويًا"). For one of those, **This is an RFQ** fetches the text from Outlook and creates the request.
 - Only new mail is sorted by the AI.
-- Newsletters and bulk mail (messages with an unsubscribe header) go straight to the **Newsletters & spam** group without the AI. A router clears the group with **Dismiss all** (asks to confirm).
+- Newsletters and bulk mail (messages with an unsubscribe header) go straight to the **Newsletters & spam** group without the AI. A router clears the group with **Dismiss all** (asks to confirm). Glance at the group first: a client who writes through a mailing tool can land there too.
 - Only the **Inbox** folder is read. Mail moved by an Outlook rule, or sitting in Junk, is not seen.
 
 Things to know:
