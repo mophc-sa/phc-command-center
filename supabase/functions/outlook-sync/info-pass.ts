@@ -120,17 +120,38 @@ async function runPass(svc: Svc, cfg: Cfg, opts: PassOpts): Promise<PassResult> 
   const { data: waiting } = await svc.from("info_mail").select("id, triage_attempts, conversation_id")
     .eq("category", "unclassified").lt("triage_attempts", 3)
     .order("received_at", { ascending: true }).limit(TRIAGE_PER_RUN);
+  // One row the provider rejects must not block the queue. An outage on row A
+  // is held back: if the next row works (or fails on its own), A was the
+  // problem and is charged; if the next row also hits an outage, it is real.
+  let pendingOutage: { id: string; code: string } | null = null;
   for (const w of waiting ?? []) {
     if (!inBudget()) break;
     const id = w.id as string;
     // Its conversation may have a parent by now (a reply whose first
-    // record_reply failed, or two mails in one window).
-    if (await recordReplyIfKnown(svc, id, w.conversation_id as string | null) === "recorded") continue;
+    // record_reply failed, or two mails in one window). A reply is never
+    // classified as new mail: a failed binding costs it an attempt, so one
+    // that keeps failing still leaves the queue.
+    const bound = await recordReplyIfKnown(svc, id, w.conversation_id as string | null);
+    if (bound !== "none") {
+      if (bound === "failed") {
+        await svc.rpc("info_mail_triage_failed", { _mail_id: id });
+        error = error ?? "reply binding failed";
+      }
+      continue;
+    }
 
     const left = opts.budgetMs - (Date.now() - opts.started);
     if (left < MIN_CALL_MS) break; // not enough time to start a call
     const r = await classify(id, Number(w.triage_attempts), opts.syncKey, Math.min(CALL_MAX_MS, left - 2000));
-    if (r.kind === "outage") { paused = r.code; break; } // not the message's fault: no attempt spent
+    if (r.kind === "outage") {
+      if (!pendingOutage) { pendingOutage = { id, code: r.code }; continue; }
+      paused = r.code; // two rows in a row: a real outage, charge neither
+      break;
+    }
+    if (pendingOutage) { // this row got an answer, so the earlier failure was its own
+      await svc.rpc("info_mail_triage_failed", { _mail_id: pendingOutage.id });
+      pendingOutage = null;
+    }
     if (r.kind === "message") {
       await svc.rpc("info_mail_triage_failed", { _mail_id: id });
       continue;
@@ -221,11 +242,12 @@ async function recordReplyIfKnown(
   conversationId: string | null,
 ): Promise<"recorded" | "none" | "failed"> {
   if (!conversationId) return "none";
-  const { data: parent } = await svc.from("info_mail").select("id")
+  const { data: parent, error: parentErr } = await svc.from("info_mail").select("id")
     .eq("conversation_id", conversationId)
     .neq("id", mailId)
     .or("inbox_item_id.not.is.null,opportunity_id.not.is.null")
     .order("received_at", { ascending: true }).limit(1).maybeSingle();
+  if (parentErr) return "failed";
   if (!parent) return "none";
   const { error } = await svc.rpc("info_mail_record_reply", { _mail_id: mailId, _parent_id: parent.id });
   return error ? "failed" : "recorded";

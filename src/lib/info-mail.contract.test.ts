@@ -31,10 +31,27 @@ describe("the info@ pass", () => {
   });
 
   it("spends a triage attempt only when the message itself failed", () => {
-    expect(PASS.match(/info_mail_triage_failed/g)?.length).toBe(2); // message fault, apply error
-    const outage = PASS.slice(PASS.indexOf('r.kind === "outage"'), PASS.indexOf('r.kind === "message"'));
+    // reply binding failed, pending outage row, message fault, apply error
+    expect(PASS.match(/info_mail_triage_failed/g)?.length).toBe(4);
+    const outage = PASS.slice(PASS.indexOf('r.kind === "outage"'), PASS.indexOf("if (pendingOutage) {"));
     expect(outage).not.toContain("info_mail_triage_failed");
     expect(outage).toContain("break");
+  });
+
+  it("never classifies a reply whose binding failed", () => {
+    const bind = PASS.slice(PASS.indexOf("const bound = await recordReplyIfKnown("), PASS.indexOf("const left = opts.budgetMs"));
+    expect(bind).toContain('bound !== "none"');
+    expect(bind).toContain('"reply binding failed"');
+    expect(bind).toContain("info_mail_triage_failed");
+    expect(bind).toContain("continue");
+    expect(PASS).toContain("parentErr");
+  });
+
+  it("charges a held-back outage row only when the next row gets an answer", () => {
+    expect(PASS).toContain("pendingOutage: { id: string; code: string } | null = null");
+    const charge = PASS.slice(PASS.indexOf("if (pendingOutage) {"), PASS.indexOf('if (r.kind === "message")'));
+    expect(charge).toContain("info_mail_triage_failed");
+    expect(charge).toContain("_mail_id: pendingOutage.id");
   });
 
   it("gives the orchestrator call a deadline", () => {
