@@ -94,6 +94,12 @@ export function targetFor(n: NotificationLike, opportunityId: string | null): Ta
       const meeting = metaString(n, "meeting_id");
       return meeting ? { to: `/meetings/${meeting}` } : { to: "/my-workspace" };
     }
+    case "meeting": {
+      // The daily digest names the oldest meeting but is about all of them.
+      const m = n.metadata;
+      const digest = Boolean(m && typeof m === "object" && (m as Record<string, unknown>).digest === true);
+      return digest ? { to: "/meetings" } : { to: `/meetings/${n.entity_id}` };
+    }
     default: return { to: "/action-center" };
   }
 }

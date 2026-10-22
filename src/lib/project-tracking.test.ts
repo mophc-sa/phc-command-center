@@ -3,6 +3,7 @@
 import { test, expect, describe } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
+  SYSTEM_UPDATE_KIND_LABEL,
   UPDATE_KINDS,
   UPDATE_KIND_LABEL,
   awardedValue,
@@ -17,6 +18,16 @@ describe("update kinds", () => {
     const list = sql.slice(sql.indexOf("kind IN ("), sql.indexOf(")),", sql.indexOf("kind IN (")));
     for (const k of UPDATE_KINDS) expect(list).toContain(`'${k}'`);
     expect(list.match(/'[a-z_]+'/g)?.length).toBe(UPDATE_KINDS.length);
+  });
+
+  test("the latest CHECK adds only the kinds the system writes (meeting summary, 20261028100000)", () => {
+    const sql = readFileSync("supabase/migrations/20261028100000_meetings_phase1.sql", "utf8");
+    const at = sql.indexOf("opportunity_updates_kind_check CHECK (kind IN (");
+    const list = sql.slice(at, sql.indexOf("));", at));
+    const all = [...UPDATE_KINDS, ...Object.keys(SYSTEM_UPDATE_KIND_LABEL)];
+    for (const k of all) expect(list).toContain(`'${k}'`);
+    expect(list.match(/'[a-z_]+'/g)?.length).toBe(all.length);
+    expect(UPDATE_KINDS as readonly string[]).not.toContain("meeting_summary");
   });
 
   test("every kind has both languages, with Western digits only", () => {

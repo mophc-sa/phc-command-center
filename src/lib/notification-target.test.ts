@@ -71,6 +71,11 @@ describe("what the trigger already said (reported 2026-10-19)", () => {
     expect(targetFor(m("task", "t1", {}), null)).toEqual({ to: "/my-workspace" });
   });
 
+  it("opens the meeting waiting for review, or the list for the daily digest (2026-10-22)", () => {
+    expect(targetFor(m("meeting", "mt-2", { meeting_id: "mt-2" }), null)).toEqual({ to: "/meetings/mt-2" });
+    expect(targetFor(m("meeting", "mt-oldest", { digest: true, pending: 4 }), null)).toEqual({ to: "/meetings" });
+  });
+
   it("ignores metadata that is not a usable id", () => {
     expect(targetFor(m("approval", "a1", { opportunity_id: 7 }), null)).toEqual({ to: "/approvals", search: { focus: "a1" } });
     expect(targetFor(m("approval", "a1", "junk"), null)).toEqual({ to: "/approvals", search: { focus: "a1" } });

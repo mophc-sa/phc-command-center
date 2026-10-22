@@ -39,9 +39,17 @@ export const UPDATE_KIND_LABEL: Record<UpdateKind, { en: string; ar: string }> =
 export const isUpdateKind = (v: string): v is UpdateKind =>
   (UPDATE_KINDS as readonly string[]).includes(v);
 
+/**
+ * Kinds the system writes and the form never offers: a meeting's summary,
+ * added when a reviewer approves its items onto the deal (20261028100000).
+ */
+export const SYSTEM_UPDATE_KIND_LABEL: Record<string, { en: string; ar: string }> = {
+  meeting_summary: { en: "Meeting", ar: "اجتماع" },
+};
+
 /** The label for a stored kind; an unknown value is shown as stored, not hidden. */
 export const updateKindLabel = (kind: string, lang: "en" | "ar"): string =>
-  isUpdateKind(kind) ? UPDATE_KIND_LABEL[kind][lang] : kind;
+  isUpdateKind(kind) ? UPDATE_KIND_LABEL[kind][lang] : SYSTEM_UPDATE_KIND_LABEL[kind]?.[lang] ?? kind;
 
 export type UpdateValidation =
   | { ok: true; pct: number | null }

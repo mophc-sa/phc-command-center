@@ -9,6 +9,12 @@
 //
 // Rules live in ../_shared/fireflies.ts. This file only sequences them.
 //
+// The same function also serves pg_cron's pull every 30 minutes (phase 1,
+// 20261028100000): a POST carrying x-phc-meetings-sync-key — a key that lives
+// only in Vault and is checked by meetings_sync_key_matches — pulls each
+// connected salesperson's recent meetings with their own Fireflies key
+// (../_shared/fireflies-pull.ts). 403 without the right key; 200 otherwise.
+//
 // STATUS CODES ARE INSTRUCTIONS TO FIREFLIES:
 //
 //   403  bad signature               -> a caller without the secret gets no retries.
@@ -30,6 +36,7 @@ import {
   TRANSCRIPT_QUERY,
   verifySignature,
 } from "../_shared/fireflies.ts";
+import { runScheduledPull } from "../_shared/fireflies-pull.ts";
 
 const env = (k: string) => Deno.env.get(k);
 const text = (status: number, body = "") => new Response(body, { status, headers: { "Content-Type": "text/plain" } });
@@ -40,6 +47,7 @@ const MAX_BODY = 16_384;
 
 export async function handleMeetingWebhook(req: Request): Promise<Response> {
   if (req.method !== "POST") return text(405, "method not allowed");
+  if (req.headers.has("x-phc-meetings-sync-key")) return handleScheduledPull(req);
 
   const secret = env("FIREFLIES_WEBHOOK_SECRET");
   const apiKey = env("FIREFLIES_API_KEY");
@@ -108,6 +116,33 @@ export async function handleMeetingWebhook(req: Request): Promise<Response> {
   const duplicate = Boolean((data as { duplicate?: boolean } | null)?.duplicate);
   log(duplicate ? "duplicate" : "recorded", { items: String(items.length) });
   return text(200, duplicate ? "duplicate" : "ok");
+}
+
+export async function handleScheduledPull(req: Request): Promise<Response> {
+  const svc = serviceClient();
+  const { data: ok } = await svc.rpc("meetings_sync_key_matches", { _key: req.headers.get("x-phc-meetings-sync-key") ?? "" });
+  if (ok !== true) return text(403, "forbidden");
+
+  const report = await runScheduledPull({
+    store: svc,
+    connections: async () => {
+      const { data } = await svc.from("fireflies_connections").select("user_id, last_synced_at").eq("status", "active");
+      return data ?? [];
+    },
+    apiKey: async (userId) => {
+      const { data } = await svc.rpc("fireflies_api_key", { _user: userId });
+      return typeof data === "string" && data ? data : null;
+    },
+    members: async () => {
+      const { data } = await svc.from("profiles").select("id, email, full_name").eq("status", "active").eq("is_display_account", false);
+      return (data ?? []) as TeamMember[];
+    },
+    mark: async (userId, status, error) => {
+      await svc.rpc("mark_fireflies_connection", { _user: userId, _status: status, _error: error });
+    },
+  });
+  log("pulled", Object.fromEntries(Object.entries(report).map(([k, v]) => [k, String(v)])));
+  return text(200, "ok");
 }
 
 Deno.serve(handleMeetingWebhook);
