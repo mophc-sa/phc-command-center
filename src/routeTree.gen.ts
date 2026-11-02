@@ -58,6 +58,7 @@ import { Route as AuthenticatedMeetingsIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedMeetingsIdRouteImport } from './routes/_authenticated/meetings.$id'
 import { Route as AuthenticatedOpportunitiesIndexRouteImport } from './routes/_authenticated/opportunities.index'
 import { Route as AuthenticatedOpportunitiesIdRouteImport } from './routes/_authenticated/opportunities.$id'
+import { Route as AuthenticatedPCodeRouteImport } from './routes/_authenticated/p.$code'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects.index'
 import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects.$id'
 
@@ -324,6 +325,11 @@ const AuthenticatedOpportunitiesIdRoute =
     path: '/opportunities/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPCodeRoute = AuthenticatedPCodeRouteImport.update({
+  id: '/p/$code',
+  path: '/p/$code',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProjectsIndexRoute =
   AuthenticatedProjectsIndexRouteImport.update({
     id: '/projects/',
@@ -381,6 +387,7 @@ export interface FileRoutesByFullPath {
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/p/$code': typeof AuthenticatedPCodeRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/data-import/': typeof AuthenticatedDataImportIndexRoute
@@ -431,6 +438,7 @@ export interface FileRoutesByTo {
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/p/$code': typeof AuthenticatedPCodeRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts': typeof AuthenticatedAccountsIndexRoute
   '/data-import': typeof AuthenticatedDataImportIndexRoute
@@ -485,6 +493,7 @@ export interface FileRoutesById {
   '/_authenticated/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/_authenticated/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/_authenticated/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/_authenticated/p/$code': typeof AuthenticatedPCodeRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/_authenticated/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/_authenticated/data-import/': typeof AuthenticatedDataImportIndexRoute
@@ -539,6 +548,7 @@ export interface FileRouteTypes {
     | '/data-import/$batchId'
     | '/meetings/$id'
     | '/opportunities/$id'
+    | '/p/$code'
     | '/projects/$id'
     | '/accounts/'
     | '/data-import/'
@@ -589,6 +599,7 @@ export interface FileRouteTypes {
     | '/data-import/$batchId'
     | '/meetings/$id'
     | '/opportunities/$id'
+    | '/p/$code'
     | '/projects/$id'
     | '/accounts'
     | '/data-import'
@@ -642,6 +653,7 @@ export interface FileRouteTypes {
     | '/_authenticated/data-import/$batchId'
     | '/_authenticated/meetings/$id'
     | '/_authenticated/opportunities/$id'
+    | '/_authenticated/p/$code'
     | '/_authenticated/projects/$id'
     | '/_authenticated/accounts/'
     | '/_authenticated/data-import/'
@@ -1010,6 +1022,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOpportunitiesIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/p/$code': {
+      id: '/_authenticated/p/$code'
+      path: '/p/$code'
+      fullPath: '/p/$code'
+      preLoaderRoute: typeof AuthenticatedPCodeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/projects/': {
       id: '/_authenticated/projects/'
       path: '/projects'
@@ -1090,6 +1109,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedContactsRepairRoute: typeof AuthenticatedContactsRepairRoute
   AuthenticatedMeetingsIdRoute: typeof AuthenticatedMeetingsIdRoute
   AuthenticatedOpportunitiesIdRoute: typeof AuthenticatedOpportunitiesIdRoute
+  AuthenticatedPCodeRoute: typeof AuthenticatedPCodeRoute
   AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
   AuthenticatedMeetingsIndexRoute: typeof AuthenticatedMeetingsIndexRoute
   AuthenticatedOpportunitiesIndexRoute: typeof AuthenticatedOpportunitiesIndexRoute
@@ -1128,6 +1148,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedContactsRepairRoute: AuthenticatedContactsRepairRoute,
   AuthenticatedMeetingsIdRoute: AuthenticatedMeetingsIdRoute,
   AuthenticatedOpportunitiesIdRoute: AuthenticatedOpportunitiesIdRoute,
+  AuthenticatedPCodeRoute: AuthenticatedPCodeRoute,
   AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
   AuthenticatedMeetingsIndexRoute: AuthenticatedMeetingsIndexRoute,
   AuthenticatedOpportunitiesIndexRoute: AuthenticatedOpportunitiesIndexRoute,

@@ -766,7 +766,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         }}
       />
 
-      <ActionDialog open={!!completeFor} onOpenChange={v => !v && setCompleteFor(null)} title={t("dialog_complete_title")} description={t("dialog_complete_desc")} submitLabel={t("action_complete")}
+      <ActionDialog recordId={completeFor?.id} open={!!completeFor} onOpenChange={v => !v && setCompleteFor(null)} title={t("dialog_complete_title")} description={t("dialog_complete_desc")} submitLabel={t("action_complete")}
         fields={[{ key: "outcome", type: "textarea", label: t("field_outcome"), required: true }]}
         onSubmit={async v => {
           try { await completeFollowUp({ followUpId: completeFor!.id, opportunityId: completeFor!.oppId, outcome: v.outcome }); toast.success(t("toast_complete_ok" as never)); qc.invalidateQueries({ queryKey: ["ws-urgent-fus", uid] }); }
@@ -776,7 +776,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         }}
       />
 
-      <ActionDialog open={!!rescheduleFor} onOpenChange={v => !v && setRescheduleFor(null)} title={lang === "ar" ? "إعادة جدولة المتابعة" : "Reschedule Follow-up"} submitLabel={lang === "ar" ? "إعادة الجدولة" : "Reschedule"}
+      <ActionDialog recordId={rescheduleFor?.id} open={!!rescheduleFor} onOpenChange={v => !v && setRescheduleFor(null)} title={lang === "ar" ? "إعادة جدولة المتابعة" : "Reschedule Follow-up"} submitLabel={lang === "ar" ? "إعادة الجدولة" : "Reschedule"}
         fields={[{ key: "dueDate", type: "date", label: lang === "ar" ? "التاريخ الجديد" : "New date", required: true, defaultValue: rescheduleFor?.currentDate ?? "" }, { key: "notes", type: "textarea", label: lang === "ar" ? "ملاحظات" : "Notes (optional)" }]}
         onSubmit={async v => {
           try { await rescheduleFollowUp({ followUpId: rescheduleFor!.id, opportunityId: rescheduleFor!.oppId, dueDate: v.dueDate, notes: v.notes || undefined }); toast.success(lang === "ar" ? "تمت إعادة الجدولة" : "Rescheduled"); qc.invalidateQueries({ queryKey: ["ws-urgent-fus", uid] }); }
@@ -1216,7 +1216,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         }}
       />
 
-      <ActionDialog open={!!completeFor} onOpenChange={v => !v && setCompleteFor(null)} title={t("dialog_complete_title")} description={t("dialog_complete_desc")} submitLabel={t("action_complete")}
+      <ActionDialog recordId={completeFor?.id} open={!!completeFor} onOpenChange={v => !v && setCompleteFor(null)} title={t("dialog_complete_title")} description={t("dialog_complete_desc")} submitLabel={t("action_complete")}
         fields={[{ key: "outcome", type: "textarea", label: t("field_outcome"), required: true }]}
         onSubmit={async v => {
           try { await completeFollowUp({ followUpId: completeFor!.id, opportunityId: completeFor!.oppId, outcome: v.outcome }); toast.success(t("toast_complete_ok" as never)); qc.invalidateQueries({ queryKey: ["workspace", uid] }); qc.invalidateQueries({ queryKey: ["all-followups"] }); }
@@ -1226,7 +1226,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         }}
       />
 
-      <ActionDialog open={!!rescheduleFor} onOpenChange={v => !v && setRescheduleFor(null)} title={lang === "ar" ? "إعادة جدولة المتابعة" : "Reschedule Follow-up"} submitLabel={lang === "ar" ? "إعادة الجدولة" : "Reschedule"}
+      <ActionDialog recordId={rescheduleFor?.id} open={!!rescheduleFor} onOpenChange={v => !v && setRescheduleFor(null)} title={lang === "ar" ? "إعادة جدولة المتابعة" : "Reschedule Follow-up"} submitLabel={lang === "ar" ? "إعادة الجدولة" : "Reschedule"}
         fields={[{ key: "dueDate", type: "date", label: lang === "ar" ? "التاريخ الجديد" : "New date", required: true, defaultValue: rescheduleFor?.currentDate ?? "" }, { key: "notes", type: "textarea", label: lang === "ar" ? "ملاحظات" : "Notes (optional)" }]}
         onSubmit={async v => {
           try { await rescheduleFollowUp({ followUpId: rescheduleFor!.id, opportunityId: rescheduleFor!.oppId, dueDate: v.dueDate, notes: v.notes || undefined }); toast.success(lang === "ar" ? "تمت إعادة الجدولة" : "Rescheduled"); qc.invalidateQueries({ queryKey: ["workspace", uid] }); qc.invalidateQueries({ queryKey: ["all-followups"] }); }

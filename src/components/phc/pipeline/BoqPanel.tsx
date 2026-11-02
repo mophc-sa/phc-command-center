@@ -335,6 +335,7 @@ export function BoqPanel() {
       />
 
       <ActionDialog
+        recordId={addItemFor}
         open={!!addItemFor}
         onOpenChange={(v) => !v && setAddItemFor(null)}
         title={t("dialog_add_item_title")}
