@@ -34,6 +34,14 @@ the reply-capture test; Cloudflare Preview URLs are ON and should be disabled ag
 the salespeople's daily tasks feature (PR 339) is live but has one task in it — nobody is
 using it yet.
 
+## 2026-10-20 — Manager feedback group 3, part A: Today's actions (branch `feat/manager-actions`)
+
+Spec `docs/superpowers/specs/2026-10-19-manager-actions-info-mail-design.md`, plan
+`docs/superpowers/plans/2026-10-19-manager-actions.md`. Stacked on #349 (needs `isManagerDecision`).
+Five cards on `/command-center`; one new read-only `sales-os-api` action (`outlook_calendar_upcoming`).
+Release: `sales-os-api` deploy (approval-gated) before the UI. Part B (info@ mailbox) follows in its own PR.
+The phc-sa.com "Staff login" link is a separate task in the website repo. Not yet tried in a browser with a signed-in manager.
+
 ## 2026-10-19 — Deal money columns guarded in the database (branch `fix/opportunity-money-guard`)
 
 Stacked on `feat/project-tracking-group4` (PR 351). Migration `20261023100000` adds
