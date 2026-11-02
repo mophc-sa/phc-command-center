@@ -103,7 +103,7 @@ describe("each salesperson's own Fireflies key (phase 1, 20261028100000)", () =>
     expect(PHASE1).toContain("REVOKE ALL ON public.fireflies_connections FROM PUBLIC, anon, authenticated;");
     expect(PHASE1).toContain("vault.create_secret(btrim(_api_key)");
     for (const f of ["save_fireflies_connection(uuid,text,text)", "fireflies_api_key(uuid)", "delete_fireflies_connection(uuid)", "meetings_sync_key_matches(text)"]) {
-      expect(PHASE1).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${f.replace(/[()]/g, "\\$&")} FROM PUBLIC, anon, authenticated;`));
+      expect(PHASE1).toContain(`REVOKE ALL ON FUNCTION public.${f} FROM PUBLIC, anon, authenticated;`);
     }
     expect(PHASE1).toContain("(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'meetings_sync_key')");
     expect(PHASE1).not.toMatch(/'x-phc-meetings-sync-key',\s*'[0-9a-f]{16,}/);
