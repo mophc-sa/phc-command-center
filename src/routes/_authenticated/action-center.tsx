@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { MeetingReviewCallout } from "@/components/phc/MeetingReviewCallout";
 import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -277,6 +278,8 @@ function ActionCenter() {
           ) : null
         }
       />
+
+      <MeetingReviewCallout className="mb-4" />
 
       <KpiRow>
         <KpiCard label={t("ac_kpi_open")} value={formatNumber(counts.total, lang)} hint={lang === "ar" ? "في قائمتك" : "In your queue"} />

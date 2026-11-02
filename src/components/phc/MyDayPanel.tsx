@@ -13,6 +13,7 @@ import { Check, ListChecks, Plus, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusPill } from "@/components/phc/StatusPill";
+import { MeetingReviewCallout } from "@/components/phc/MeetingReviewCallout";
 import { useI18n, type StringKey } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canCreateSalesRecords } from "@/lib/roles";
@@ -66,6 +67,8 @@ export function MyDayPanel() {
           {items.length > 0 ? <span className="tabular-nums"> · {done}/{items.length}</span> : null}
         </span>
       </header>
+
+      <MeetingReviewCallout />
 
       <form
         className="flex flex-wrap items-center gap-2"

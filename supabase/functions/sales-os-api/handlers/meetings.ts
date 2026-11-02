@@ -1,5 +1,6 @@
 // =============================================================================
-// The human decision on a Fireflies meeting action item.
+// The human decision on a Fireflies meeting action item, and on which deal
+// the meeting was about.
 //
 // Approving one creates a task for the named owner; dismissing one needs a
 // reason. The rules (who may decide, owner must be an active person, replay
@@ -28,7 +29,21 @@ async function meeting_action_decision(payload: Record<string, unknown>, ctx: Sa
   return json(data);
 }
 
+/**
+ * Confirm (or change, or clear) the deal a meeting is about. The rules — a
+ * reviewer, or someone in the meeting who can see the deal — live in
+ * confirm_meeting_opportunity, called as the caller.
+ */
+async function meeting_confirm_deal(payload: Record<string, unknown>, ctx: SalesOsContext) {
+  const { data, error } = await ctx.asCaller.rpc("confirm_meeting_opportunity", {
+    _meeting_id: String(payload.meetingId ?? ""),
+    _opportunity_id: str(payload.opportunityId),
+  });
+  if (error) return err(error.message, error.code === "42501" ? 403 : 409);
+  return json(data);
+}
+
 export const meetingsModule: HandlerModule = {
   name: "meetings",
-  handlers: { meeting_action_decision },
+  handlers: { meeting_action_decision, meeting_confirm_deal },
 };

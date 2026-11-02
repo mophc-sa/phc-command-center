@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Check, Loader2, ShieldCheck, ShieldAlert } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { OutlookConnectionCard } from "@/components/phc/OutlookConnectionCard";
+import { FirefliesConnectionCard } from "@/components/phc/FirefliesConnectionCard";
 
 // Verifies a password by signing in on a throwaway, non-persisting client —
 // never the shared `supabase` singleton. Reusing the real client for this
@@ -79,6 +80,10 @@ function SettingsPage() {
 
       <div className="mt-6">
         <OutlookConnectionCard />
+      </div>
+
+      <div className="mt-6">
+        <FirefliesConnectionCard />
       </div>
 
       <div className="mt-6">

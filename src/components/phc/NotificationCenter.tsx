@@ -1,4 +1,4 @@
-import { AlertTriangle, AtSign, BellOff, CheckCheck, Mail, ShieldCheck, X, Inbox, ArrowRightLeft } from "lucide-react";
+import { AlertTriangle, AtSign, BellOff, CheckCheck, Mail, Mic, ShieldCheck, X, Inbox, ArrowRightLeft } from "lucide-react";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -26,6 +26,7 @@ function iconFor(type: string) {
   if (type === "client_reply" || type === "info_mail_forwarded") return Mail;
   if (type === "mention") return AtSign;
   if (type === "stage_changed" || type === "handoff_changed") return ArrowRightLeft;
+  if (type.startsWith("meeting")) return Mic;
   return AlertTriangle;
 }
 

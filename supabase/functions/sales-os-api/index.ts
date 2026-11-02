@@ -16,6 +16,7 @@ import { lifecycleModule } from "./handlers/lifecycle.ts";
 import { mailModule } from "./handlers/mail.ts";
 import { meetingsModule } from "./handlers/meetings.ts";
 import { meetingsSyncModule } from "./handlers/meetings-sync.ts";
+import { firefliesModule } from "./handlers/fireflies.ts";
 import { outlookModule } from "./handlers/outlook.ts";
 import { infoMailModule } from "./handlers/info-mail.ts";
 import { calendarFeedModule } from "./handlers/calendar-feed.ts";
@@ -38,6 +39,7 @@ const registry = createHandlerRegistry([
   calendarFeedModule,
   meetingsModule,
   meetingsSyncModule,
+  firefliesModule,
   outlookModule,
   infoMailModule,
 ]);
