@@ -5,6 +5,7 @@
 import { assert, assertEquals, assertFalse } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   authorizeUrl,
+  calendarWindow,
   GRAPH_SCOPES,
   hashState,
   newOAuthState,
@@ -12,9 +13,23 @@ import {
   parseTokenResponse,
   readGraphConfig,
   sameMailbox,
+  toCalendarEvents,
   toGraphMessage,
 } from "./graph.ts";
-import { deltaPage, exchangeCode, getMe, getMessageDetail, initialDeltaUrl, refreshAccess, sendAsMe } from "./graph-client.ts";
+import {
+  appAccess,
+  calendarView,
+  deltaPage,
+  exchangeCode,
+  forwardMailboxMessage,
+  getMailboxMessage,
+  getMe,
+  getMessageDetail,
+  initialDeltaUrl,
+  mailboxDeltaUrl,
+  refreshAccess,
+  sendAsMe,
+} from "./graph-client.ts";
 import { composeOutbound } from "./mail.ts";
 
 const ENV: Record<string, string> = {
@@ -187,4 +202,121 @@ Deno.test("a matched message's text and sensitivity are read together", async ()
   assert(calls[0].url.includes("$expand=singleValueExtendedProperties"));
   assertEquals((calls[0].init?.headers as Record<string, string>).Prefer, 'outlook.body-content-type="text"');
   assertEquals(await getMessageDetail("t", "m1", fakeFetch([[404, {}]], [])), null);
+});
+
+Deno.test("calendar window runs from now to the end of tomorrow in Riyadh", () => {
+  // 2026-10-20 08:15 UTC = 11:15 Riyadh → end is 2026-10-22 00:00 Riyadh = 2026-10-21 21:00 UTC
+  assertEquals(calendarWindow(new Date("2026-10-20T08:15:30.123Z")), {
+    start: "2026-10-20T08:15:30Z",
+    end: "2026-10-21T21:00:00Z",
+  });
+  // 22:30 UTC is already the next day in Riyadh (01:30)
+  assertEquals(calendarWindow(new Date("2026-10-20T22:30:00Z")).end, "2026-10-22T21:00:00Z");
+});
+
+Deno.test("calendar events drop cancelled and private ones and keep Riyadh local times", () => {
+  const out = toCalendarEvents([
+    {
+      id: "e1",
+      subject: " NEOM review ",
+      start: { dateTime: "2026-10-20T10:00:00.0000000" },
+      end: { dateTime: "2026-10-20T11:00:00.0000000" },
+      location: { displayName: "HQ" },
+      webLink: "https://outlook.office365.com/owa/?itemid=1",
+      isAllDay: false,
+      isCancelled: false,
+      sensitivity: "normal",
+    },
+    { id: "e2", subject: "x", start: { dateTime: "2026-10-20T12:00:00" }, end: { dateTime: "2026-10-20T13:00:00" }, isCancelled: true },
+    { id: "e3", subject: "x", start: { dateTime: "2026-10-20T12:00:00" }, end: { dateTime: "2026-10-20T13:00:00" }, sensitivity: "private" },
+    { id: "e4", subject: "", start: { dateTime: "2026-10-21T09:30:00" }, end: { dateTime: "2026-10-21T10:00:00" }, webLink: "https://evil.example/x" },
+    { id: "e5", subject: "Site visit", start: { dateTime: "2026-10-19T00:00:00.0000000" }, end: { dateTime: "2026-10-22T00:00:00.0000000" }, isAllDay: true },
+    { subject: "no id", start: { dateTime: "2026-10-21T09:30:00" } },
+  ]);
+  assertEquals(out, [
+    { id: "e1", subject: "NEOM review", start: "2026-10-20T10:00", end: "2026-10-20T11:00", allDay: false, location: "HQ", webLink: "https://outlook.office365.com/owa/?itemid=1" },
+    { id: "e4", subject: "", start: "2026-10-21T09:30", end: "2026-10-21T10:00", allDay: false, location: null, webLink: null },
+    { id: "e5", subject: "Site visit", start: "2026-10-19T00:00", end: "2026-10-22T00:00", allDay: true, location: null, webLink: null },
+  ]);
+  assertEquals(toCalendarEvents(null), []);
+});
+
+Deno.test("calendarView asks Graph for the window in Riyadh time and reads only the listed fields", async () => {
+  let seenUrl = "";
+  let seenHeaders: Record<string, string> = {};
+  const fake = ((url: string, init?: RequestInit) => {
+    seenUrl = url;
+    seenHeaders = init?.headers as Record<string, string>;
+    return Promise.resolve(new Response(JSON.stringify({ value: [{ id: "e1" }] }), { status: 200 }));
+  }) as typeof fetch;
+  const r = await calendarView("tok", "2026-10-20T08:15:30Z", "2026-10-21T21:00:00Z", fake);
+  assertEquals(r, { ok: true, value: [{ id: "e1" }] });
+  assert(seenUrl.startsWith("https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=2026-10-20T08:15:30Z&endDateTime=2026-10-21T21:00:00Z"));
+  assert(seenUrl.includes("$select=subject,start,end,isAllDay,location,webLink,isCancelled,sensitivity"));
+  assertEquals(seenHeaders.Authorization, "Bearer tok");
+  assertEquals(seenHeaders.Prefer, 'outlook.timezone="Arab Standard Time"');
+  assertEquals(await calendarView("tok", "bad", "2026-10-21T21:00:00Z", fake), { ok: false, status: 400 });
+  const failing = (() => Promise.resolve(new Response("{}", { status: 403 }))) as typeof fetch;
+  assertEquals(await calendarView("tok", "2026-10-20T08:15:30Z", "2026-10-21T21:00:00Z", failing), { ok: false, status: 403 });
+});
+
+Deno.test("the app-only token asks for .default with the client-credentials grant", async () => {
+  let body = "";
+  const fake = ((_u: string, init?: RequestInit) => {
+    body = String(init?.body);
+    return Promise.resolve(new Response(JSON.stringify({ access_token: "app-tok" }), { status: 200 }));
+  }) as typeof fetch;
+  const r = await appAccess(CFG, fake);
+  assertEquals(r.ok && r.access, "app-tok");
+  const p = new URLSearchParams(body);
+  assertEquals(p.get("grant_type"), "client_credentials");
+  assertEquals(p.get("scope"), "https://graph.microsoft.com/.default");
+});
+
+Deno.test("the info@ delta reads that one mailbox's inbox", () => {
+  const u = mailboxDeltaUrl("info@phc-sa.com", "2026-10-13T00:00:00Z");
+  assert(u.startsWith("https://graph.microsoft.com/v1.0/users/info%40phc-sa.com/mailFolders/inbox/messages/delta?"));
+  assert(u.includes("webLink") && u.includes("hasAttachments") && u.includes("receivedDateTime+ge+2026-10-13T00:00:00Z"));
+  let threw = false;
+  try { mailboxDeltaUrl("info@phc-sa.com/../x", "2026-10-13T00:00:00Z"); } catch { threw = true; }
+  assert(threw);
+});
+
+Deno.test("a mailbox message brings its text, headers and attachment names", async () => {
+  const urls: string[] = [];
+  const fake = ((url: string) => {
+    urls.push(url);
+    if (url.includes("/attachments")) {
+      return Promise.resolve(new Response(JSON.stringify({ value: [{ name: "BOQ.xlsx" }, { name: "Drawings.pdf" }] }), { status: 200 }));
+    }
+    return Promise.resolve(new Response(JSON.stringify({
+      uniqueBody: { content: " Please quote " },
+      internetMessageHeaders: [{ name: "Auto-Submitted", value: "no" }],
+      singleValueExtendedProperties: [{ id: "Integer 0x36", value: "0" }],
+    }), { status: 200 }));
+  }) as typeof fetch;
+  const r = await getMailboxMessage("tok", "info@phc-sa.com", "AAMk1", true, fake);
+  assertEquals(r, {
+    body: "Please quote",
+    sensitivity: "0",
+    headers: [{ name: "Auto-Submitted", value: "no" }],
+    attachmentNames: ["BOQ.xlsx", "Drawings.pdf"],
+  });
+  assert(urls[0].startsWith("https://graph.microsoft.com/v1.0/users/info%40phc-sa.com/messages/AAMk1?"));
+  assertEquals(urls.length, 2);
+  const none = await getMailboxMessage("tok", "info@phc-sa.com", "AAMk1", false, fake);
+  assertEquals(none?.attachmentNames, []);
+});
+
+Deno.test("forwarding sends one recipient and a comment, and reports Graph's refusal", async () => {
+  let seen: { url: string; body: unknown } = { url: "", body: null };
+  const ok = ((url: string, init?: RequestInit) => {
+    seen = { url, body: JSON.parse(String(init?.body)) };
+    return Promise.resolve(new Response(null, { status: 202 }));
+  }) as typeof fetch;
+  assertEquals(await forwardMailboxMessage("tok", "info@phc-sa.com", "AAMk1", "khalid@phc-sa.com", "Routed by Mo", ok), { ok: true });
+  assertEquals(seen.url, "https://graph.microsoft.com/v1.0/users/info%40phc-sa.com/messages/AAMk1/forward");
+  assertEquals(seen.body, { comment: "Routed by Mo", toRecipients: [{ emailAddress: { address: "khalid@phc-sa.com" } }] });
+  const no = (() => Promise.resolve(new Response("{}", { status: 403 }))) as typeof fetch;
+  assertEquals(await forwardMailboxMessage("tok", "info@phc-sa.com", "AAMk1", "k@phc-sa.com", "c", no), { ok: false, status: 403 });
 });

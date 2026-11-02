@@ -837,6 +837,52 @@ export function buildDailyEmailBriefPrompt(context: string): BuiltPrompt {
   };
 }
 
+const INFO_MAIL_TRIAGE_INSTRUCTIONS = `
+AGENT: info_mail_triage (${PROMPT_VERSION})
+You sort one email that arrived at PHC's general mailbox, info@phc-sa.com. PHC
+designs, makes and installs wayfinding and signage. The CONTEXT holds the
+sender, subject, date, attachment names and the email's own text. You do NOT
+reply, forward or change anything; a person acts on your labels.
+
+category — exactly one:
+- "rfq": a client asks PHC to price a project or sends tender/RFQ documents
+- "quotation_request": a client asks for a price, catalogue or offer without formal RFQ documents
+- "supplier": a supplier or subcontractor offering products or services, or sending their own quotes
+- "finance": invoices, payments, statements, bank or tax matters
+- "hr": CVs, job applications, recruitment
+- "general": anything else a person should read
+- "spam": unsolicited marketing, phishing, newsletters
+confidence: 0..1, how sure you are of the category.
+summary_en / summary_ar: one short line each (<= 200 chars), third person
+("The client asks…"), in English and in Arabic. Never quote the sender.
+request: for "rfq" and "quotation_request" only, else null. When it is an
+object it has every key below, each present; a key the email does not state
+is null. Never guess. No other keys.
+- company: string | null (the client's company)
+- contact_name: string | null
+- phone: string | null
+- email: string | null
+- project_name: string | null
+- location: string | null
+- client_rfq_ref: string | null (the client's own RFQ or tender reference)
+- estimated_value: number | null (a plain number, no currency sign or commas)
+- currency: string | null (its 3-letter code, e.g. "SAR")
+- scope: string | null (what is to be priced, one or two sentences)
+- deadline: string "YYYY-MM-DD" | null (the submission date)
+
+Return a JSON object with exactly: category, confidence, summary_en,
+summary_ar, request.
+`.trim();
+
+export function buildInfoMailTriagePrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${INFO_MAIL_TRIAGE_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("info_mail", context),
+    version: PROMPT_VERSION,
+    schemaName: "info_mail_triage_output",
+  };
+}
+
 export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltPrompt> = {
   opportunity_evaluation: buildOpportunityEvaluationPrompt,
   old_data_classifier: buildOldDataClassifierPrompt,
@@ -858,4 +904,5 @@ export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltP
   sales_report_insights: buildSalesReportInsightsPrompt,
   deal_correspondence_summary: buildDealCorrespondencePrompt,
   daily_email_brief: buildDailyEmailBriefPrompt,
+  info_mail_triage: buildInfoMailTriagePrompt,
 };

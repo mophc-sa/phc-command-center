@@ -12,6 +12,7 @@ import { approvalTypeLabel } from "@/lib/approval-labels";
 import { LegacyOpportunityContext } from "@/components/phc/LegacyOpportunityContext";
 import { Panel } from "@/components/phc/Panel";
 import { DealCorrespondencePanel } from "@/components/phc/DealCorrespondencePanel";
+import { SourceEmailPanel } from "@/components/phc/SourceEmailPanel";
 import { StageChecklistPanel } from "@/components/phc/StageChecklistPanel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -72,7 +73,7 @@ import {
 } from "@/lib/opportunity-collab-actions";
 import { Upload, Paperclip } from "lucide-react";
 import { AttachmentLink } from "@/components/phc/AttachmentLink";
-import { awardedValue } from "@/lib/project-tracking";
+import { awardedValue, siteStageLabel } from "@/lib/project-tracking";
 import { resolveCanonicalStage, canonicalStageLabelKey } from "@/lib/stage-canonical";
 import { ProjectUpdatesPanel } from "@/components/phc/ProjectUpdatesPanel";
 import { CopyDealLink } from "@/components/phc/CopyDealLink";
@@ -644,6 +645,9 @@ function OpportunityDetail() {
   const canEditClientDetails = canEditOpportunityInputs(roles, { isOwner: !!user?.id && o.owner_id === user.id });
   const canonicalStage = resolveCanonicalStage(o).stage;
   const awarded = awardedValue(o);
+  // The deal's code: its RFQ's number, or for a deal with no RFQ its own code
+  // from the owner's sales code (20261026100000). Normally the two are equal.
+  const dealCode = rfqQ.data?.rfq_number ?? o.project_code ?? null;
   const BackIcon = dir === "rtl" ? ArrowRight : ArrowLeft;
   const recTone = recToTone(o.agent_recommendation);
   const canActOnScore = canScore || o.owner_id === user?.id;
@@ -669,7 +673,7 @@ function OpportunityDetail() {
                 when the timeline is filtered to another tab. */}
             <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
               <span>{t("nav_opportunities")}</span>
-              {rfqQ.data?.rfq_number ? (
+              {dealCode ? (
                 // The number is the deal's thread to Production and Finance: once
                 // the Production project exists (on award), it opens that file,
                 // where the budget lives.
@@ -681,10 +685,10 @@ function OpportunityDetail() {
                     data-tabular="true"
                     title={lang === "ar" ? "ملف المشروع (الميزانية)" : "Project file (budget)"}
                   >
-                    {rfqQ.data.rfq_number}
+                    {dealCode}
                   </Link>
                 ) : (
-                  <span className="num text-foreground" data-tabular="true">{rfqQ.data.rfq_number}</span>
+                  <span className="num text-foreground" data-tabular="true">{dealCode}</span>
                 )
               ) : null}
               <CopyDealLink opportunityId={o.id} code={rfqQ.data?.rfq_number} />
@@ -858,6 +862,7 @@ function OpportunityDetail() {
         <ProjectUpdatesPanel
           opportunityId={o.id}
           completionPct={o.completion_pct ?? null}
+          siteStage={o.project_stage ?? null}
           canPost={canEditClientDetails}
           canModerate={canManageSalesPipeline(roles)}
           currentUserId={user?.id ?? null}
@@ -1267,7 +1272,7 @@ function OpportunityDetail() {
       {show("alert") && (
       <Panel title={t("section_qualification")}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <DataField label={t("label_project_stage")} value={humanize(o.project_stage)} />
+          <DataField label={t("label_project_stage")} value={siteStageLabel(o.project_stage, lang) || "—"} />
           <DataField label={t("pipeline_step_label")} value={humanize(o.pipeline_step)} />
           <DataField label={t("label_package_status")} value={humanize(o.signage_package_status)} />
           <DataField
@@ -2214,6 +2219,9 @@ function OpportunityDetail() {
         </Panel>
         );
       })()}
+
+      {/* 7c1. SOURCE EMAIL — the info@ message this deal came from, when it did */}
+      <SourceEmailPanel opportunityId={o.id} />
 
       {/* 7c2. CORRESPONDENCE — the deal's email and an on-demand AI summary (Outlook phase 3) */}
       <DealCorrespondencePanel opportunityId={o.id} />

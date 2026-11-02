@@ -25,16 +25,14 @@ import { ProjectKanban } from "@/components/phc/ProjectKanban";
 import { ProjectBudget } from "@/components/phc/ProjectBudget";
 import { DocumentsPanel } from "@/components/phc/DocumentsPanel";
 import { sumOpportunityValue } from "@/lib/sales-kpis";
+import { SITE_STAGES, siteStageLabel } from "@/lib/project-tracking";
 
 export const Route = createFileRoute("/_authenticated/projects/$id")({
   head: () => ({ meta: [{ title: "Project — PHC" }, { name: "robots", content: "noindex" }] }),
   component: ProjectDetail,
 });
 
-const PROJECT_STAGES: ProjectStage[] = [
-  "early_planning", "design_development", "tender", "awarded",
-  "under_construction", "near_handover", "completed", "unknown",
-];
+const PROJECT_STAGES: ProjectStage[] = [...SITE_STAGES, "unknown"];
 
 const SOURCE_CONFIDENCE_LEVELS: SourceConfidence[] = ["high", "medium", "low"];
 
@@ -188,7 +186,7 @@ function ProjectDetail() {
       </div>
 
       <PageHeader
-        eyebrow={humanize(p.project_stage)}
+        eyebrow={siteStageLabel(p.project_stage, lang)}
         title={p.name}
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
@@ -419,7 +417,7 @@ function ProjectDetail() {
           { key: "name", type: "text", label: t("nav_projects"), required: true, defaultValue: p.name },
           { key: "location", type: "text", label: t("crm_location"), defaultValue: p.location ?? "" },
           { key: "sector", type: "text", label: t("crm_sector"), defaultValue: p.sector ?? "" },
-          { key: "projectStage", type: "select", label: t("crm_project_stage"), defaultValue: p.project_stage, options: PROJECT_STAGES.map((s) => ({ value: s, label: humanize(s) })) },
+          { key: "projectStage", type: "select", label: t("crm_project_stage"), defaultValue: p.project_stage, options: PROJECT_STAGES.map((s) => ({ value: s, label: siteStageLabel(s, lang) })) },
           { key: "completionPct", type: "text", label: t("crm_completion"), defaultValue: p.completion_pct != null ? String(p.completion_pct) : "" },
           { key: "totalValue", type: "text", label: t("crm_total_value"), defaultValue: p.total_value != null ? String(p.total_value) : "" },
           { key: "expectedBoqDate", type: "date", label: t("crm_expected_boq"), defaultValue: p.expected_boq_date ?? "" },

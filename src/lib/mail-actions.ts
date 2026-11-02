@@ -56,12 +56,20 @@ export type SendEmailInput = {
   rfqId?: string | null;
   tenderId?: string | null;
   templateId?: string | null;
+  /** Colleagues to notify in the system. Never copied on the email. */
+  mentions?: string[];
 };
 
-export type SendEmailResult = { sent: boolean; logged: boolean; activityId: string | null; via: "outlook" | "postmark" | null };
+export type SendEmailResult = {
+  sent: boolean;
+  logged: boolean;
+  activityId: string | null;
+  via: "outlook" | "postmark" | null;
+  mentioned: number;
+};
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
-  const r = await callBackend<{ sent?: boolean; logged?: boolean; activity_id?: string; via?: string }>("send_email", {
+  const r = await callBackend<{ sent?: boolean; logged?: boolean; activity_id?: string; via?: string; mentioned?: number }>("send_email", {
     to: input.to,
     cc: input.cc ?? "",
     subject: input.subject,
@@ -72,13 +80,30 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     rfqId: input.rfqId ?? null,
     tenderId: input.tenderId ?? null,
     templateId: input.templateId ?? null,
+    mentions: input.mentions ?? [],
   });
   const via = r?.via === "outlook" || r?.via === "postmark" ? r.via : null;
-  return { sent: r?.sent === true, logged: r?.logged === true, activityId: r?.activity_id ?? null, via };
+  return { sent: r?.sent === true, logged: r?.logged === true, activityId: r?.activity_id ?? null, via, mentioned: typeof r?.mentioned === "number" ? r.mentioned : 0 };
 }
 
 /** Link a captured email's whole conversation to a deal. */
 export async function bindEmailToDeal(activityId: string, opportunityId: string): Promise<number> {
   const r = await callBackend<{ bound?: number }>("bind_email_to_deal", { activityId, opportunityId });
   return r?.bound ?? 0;
+}
+
+export type UpcomingMeeting = {
+  id: string;
+  subject: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location: string | null;
+  webLink: string | null;
+};
+export type UpcomingMeetings = { connected: boolean; reconnect?: boolean; events: UpcomingMeeting[] };
+
+/** The caller's own Outlook meetings, now to the end of tomorrow (read-only). */
+export async function upcomingMeetings(): Promise<UpcomingMeetings> {
+  return await callBackend<UpcomingMeetings>("outlook_calendar_upcoming", {});
 }

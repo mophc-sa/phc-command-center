@@ -6,8 +6,9 @@
 // Self-contained (its own query) so it can sit anywhere on the home page; the
 // rest of that page is being reworked separately (group 3).
 //
-// Per row: project — contractor, canonical sales stage, construction %, and the
-// latest entry from the project's update log. Ordered by the latest update,
+// Per row: project — contractor, canonical sales stage, the site's stage
+// (excavation, structure, ...) with the construction %, and the latest entry from
+// the project's update log. Ordered by the latest update,
 // then by last activity, so what moved most recently is on top.
 // =============================================================================
 import { Link } from "@tanstack/react-router";
@@ -21,7 +22,7 @@ import { CompletionBar } from "@/components/phc/CompletionBar";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { canonicalStageLabelKey } from "@/lib/stage-canonical";
-import { updateKindLabel, projectProgressItems, type ProjectProgressRow } from "@/lib/project-tracking";
+import { siteStageLabel, updateKindLabel, projectProgressItems, type ProjectProgressRow } from "@/lib/project-tracking";
 
 export function ProjectProgressPanel() {
   const { t, lang } = useI18n();
@@ -33,7 +34,7 @@ export function ProjectProgressPanel() {
       const { data, error } = await supabase
         .from("opportunities")
         .select(
-          "id, project_name, main_contractor, stage, sales_stage, completion_pct, last_activity_at, contractor_company:companies!opportunities_main_contractor_id_fkey(name), opportunity_updates(kind, created_at)",
+          "id, project_name, main_contractor, stage, sales_stage, completion_pct, project_stage, last_activity_at, contractor_company:companies!opportunities_main_contractor_id_fkey(name), opportunity_updates(kind, created_at)",
         )
         .neq("stage", "archived")
         .order("last_activity_at", { ascending: false, nullsFirst: false })
@@ -46,7 +47,7 @@ export function ProjectProgressPanel() {
   return (
     <Panel
       title={ar ? "المشاريع الجارية" : "Projects in progress"}
-      subtitle={ar ? "المرحلة الحالية ونسبة إنجاز الموقع وآخر تحديث" : "Current stage, construction progress and latest update"}
+      subtitle={ar ? "مرحلة البيع، ومرحلة الموقع ونسبة إنجازه، وآخر تحديث" : "Sales stage, site stage and construction progress, latest update"}
       action={
         <Link
           to="/opportunities"
@@ -74,7 +75,12 @@ export function ProjectProgressPanel() {
               <div>
                 <StatusPill tone="neutral">{t(canonicalStageLabelKey(it.stage))}</StatusPill>
               </div>
-              <CompletionBar pct={it.pct} compact />
+              <div className="grid min-w-0 gap-1">
+                <span className="truncate text-xs text-foreground">
+                  {it.siteStage ? siteStageLabel(it.siteStage, lang) : <span className="text-muted-foreground">{ar ? "المرحلة غير محددة" : "Stage not given"}</span>}
+                </span>
+                <CompletionBar pct={it.pct} compact />
+              </div>
               <div className="min-w-0 text-xs text-muted-foreground">
                 {it.latest ? (
                   <span className="block truncate">
