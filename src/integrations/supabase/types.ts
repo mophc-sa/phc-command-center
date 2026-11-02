@@ -9065,7 +9065,7 @@ export type Database = {
           _today: string
         }
         Returns: string
-
+      }
       mentionable_colleagues: {
         Args: { _opportunity_id: string }
         Returns: {

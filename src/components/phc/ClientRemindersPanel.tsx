@@ -199,6 +199,7 @@ export function ClientRemindersPanel({
 
       <ActionDialog
         open={!!doneFor}
+        recordId={doneFor?.id}
         onOpenChange={(v) => !v && setDoneFor(null)}
         title={ar ? "تمت المتابعة" : "Follow-up done"}
         description={
