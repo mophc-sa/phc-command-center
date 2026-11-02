@@ -14,6 +14,7 @@
 //     email text" enabled so the user can still use the draft.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "@tanstack/react-router";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -27,11 +28,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, ExternalLink, Loader2, Mail, Send, Sparkles } from "lucide-react";
+import { Copy, ExternalLink, Loader2, Mail, Send, Sparkles, X } from "lucide-react";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMailStatus, sendEmail } from "@/lib/mail-actions";
-import { useI18n } from "@/lib/i18n";
+import { formatNumber, useI18n } from "@/lib/i18n";
+import { mentionableColleagues } from "@/lib/info-mail-actions";
 import {
   buildEmailDraft,
   MAILTO_MAX_LENGTH,
@@ -40,6 +42,8 @@ import {
   type EmailTemplateKind,
 } from "@/lib/email-templates";
 import { logOutlookComposeOpened } from "@/lib/outlook-compose";
+import { useFormDraft } from "@/hooks/useFormDraft";
+import { DraftRestoredNote } from "@/components/phc/DraftRestoredNote";
 
 export type EmailLinkedRecord = {
   type:
@@ -88,22 +92,67 @@ export function EmailComposeModal({
   const [cc, setCc] = useState((context.ccEmails ?? []).join(", "));
   const [subject, setSubject] = useState(draft.subject);
   const [body, setBody] = useState(draft.body);
+  // @mention: colleagues told in the system. They are not recipients.
+  const [mentions, setMentions] = useState<string[]>([]);
+  const ar = lang === "ar";
+  const dealLinked = Boolean(linked?.opportunityId);
+  const colleagues = useQuery({
+    queryKey: ["mentionable-colleagues", linked?.opportunityId ?? null],
+    queryFn: () => mentionableColleagues(String(linked?.opportunityId)),
+    staleTime: 5 * 60_000,
+    enabled: open && dealLinked,
+  });
+
+  // What the person typed by hand survives a closed window (manager feedback
+  // 2026-10-19). Only hand edits are kept: the template and the AI's text can
+  // be produced again, and saving them would offer back text nobody wrote.
+  const { pathname } = useLocation();
+  const { read: readSaved, save: saveDraft, clear: clearDraft } = useFormDraft(`email:${pathname}|${template}|${linked?.type ?? ""}:${linked?.id ?? context.recipientEmail ?? ""}`);
+  const editedRef = useRef(false);
+  const [restoredAt, setRestoredAt] = useState<number | null>(null);
+  const restoredRef = useRef(false);
 
   useEffect(() => {
     if (!open) return;
+    const saved = readSaved();
+    setTo(saved?.values.to ?? context.recipientEmail ?? "");
+    setCc(saved?.values.cc ?? (context.ccEmails ?? []).join(", "));
+    setSubject(saved?.values.subject ?? draft.subject);
+    setBody(saved?.values.body ?? draft.body);
+    setRestoredAt(saved?.savedAt ?? null);
+    restoredRef.current = !!saved;
+    editedRef.current = !!saved;
+    setMentions([]);
+    // reset when template / context changes while opening
+  }, [open, draft.subject, draft.body, context.recipientEmail, context.ccEmails, readSaved]);
+
+  useEffect(() => {
+    if (open && editedRef.current) saveDraft({ to, cc, subject, body });
+  }, [open, to, cc, subject, body, saveDraft]);
+
+  const edit = (set: (v: string) => void) => (v: string) => {
+    editedRef.current = true;
+    set(v);
+  };
+
+  function discardSavedDraft() {
+    clearDraft();
+    editedRef.current = false;
+    restoredRef.current = false;
+    setRestoredAt(null);
     setTo(context.recipientEmail ?? "");
     setCc((context.ccEmails ?? []).join(", "));
     setSubject(draft.subject);
     setBody(draft.body);
-    // reset when template / context changes while opening
-  }, [open, draft.subject, draft.body, context.recipientEmail, context.ccEmails]);
+  }
 
   // AI draft from the deal's latest updates. "template" = the person chose the
   // standard text; "fallback" = the AI could not draft, so the template stands.
   const [ai, setAi] = useState<{ state: "idle" | "loading" | "done" | "template" | "fallback"; basis?: string }>({ state: "idle" });
   const request = useRef(0);
   useEffect(() => {
-    if (!open || !aiDraftForOpportunity) {
+    // A restored draft is the person's own words; the AI does not overwrite it.
+    if (!open || !aiDraftForOpportunity || restoredRef.current) {
       setAi({ state: "idle" });
       return;
     }
@@ -173,8 +222,16 @@ export function EmailComposeModal({
         contactId: linked?.contactId ?? null,
         rfqId: linked?.rfqId ?? null,
         tenderId: linked?.tenderId ?? null,
+        mentions: dealLinked ? mentions : [],
       });
-      if (r.logged) toast.success(t("email_sent_ok"));
+      clearDraft();
+      const picked = dealLinked ? mentions.length : 0;
+      const notified = picked > 0 && r.mentioned < picked
+        ? ar ? ` · نُبّه ${formatNumber(r.mentioned, lang)} من ${formatNumber(picked, lang)}` : ` · ${formatNumber(r.mentioned, lang)} of ${formatNumber(picked, lang)} notified`
+        : r.mentioned > 0
+          ? ar ? ` · نُبّه ${formatNumber(r.mentioned, lang)}` : ` · ${formatNumber(r.mentioned, lang)} notified`
+          : "";
+      if (r.logged) toast.success(`${t("email_sent_ok")}${notified}`);
       else toast.warning(t("email_sent_unlogged"));
       void qc.invalidateQueries();
       onOpenChange(false);
@@ -206,6 +263,8 @@ export function EmailComposeModal({
     } catch {
       // Never block the compose action on a logging failure.
     }
+    // Handed to Outlook, which keeps its own draft from here.
+    clearDraft();
     // window.location assignment triggers the OS mail handler.
     window.location.href = validation.url;
     if (oversize) {
@@ -242,6 +301,7 @@ export function EmailComposeModal({
         </DialogHeader>
 
         <div className="grid gap-3 py-2">
+          {restoredAt !== null ? <DraftRestoredNote savedAt={restoredAt} onDiscard={discardSavedDraft} /> : null}
           {linked?.label ? (
             <div className="rounded-md border border-border/70 bg-surface/60 px-3 py-2 text-xs text-muted-foreground">
               <span className="tracking-[0.02em]">{t("email_linked_record")}:</span>{" "}
@@ -256,7 +316,7 @@ export function EmailComposeModal({
             <Input
               id="email-to"
               value={to}
-              onChange={(e) => setTo(e.target.value)}
+              onChange={(e) => edit(setTo)(e.target.value)}
               placeholder="name@example.com"
               type="email"
               autoComplete="off"
@@ -272,17 +332,61 @@ export function EmailComposeModal({
             <Input
               id="email-cc"
               value={cc}
-              onChange={(e) => setCc(e.target.value)}
+              onChange={(e) => edit(setCc)(e.target.value)}
               placeholder="cc1@example.com, cc2@example.com"
               autoComplete="off"
             />
           </div>
 
+          {dealLinked ? (
+            <div className="grid gap-1.5">
+              <Label htmlFor="email-mention" className="text-xs tracking-[0.02em] text-muted-foreground">
+                {ar ? "إشارة (تنبيه داخل النظام فقط)" : "Mention (in-system notice only)"}
+              </Label>
+              <select
+                id="email-mention"
+                value=""
+                disabled={!colleagues.data || mentions.length >= 10}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (id) setMentions((m) => (m.includes(id) ? m : [...m, id]));
+                }}
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">{ar ? "اختر زميلاً…" : "Pick a colleague…"}</option>
+                {(colleagues.data ?? []).filter((p) => !mentions.includes(p.id)).map((p) => (
+                  <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+                ))}
+              </select>
+              {mentions.length ? (
+                <ul className="flex flex-wrap gap-1.5">
+                  {mentions.map((id) => {
+                    const p = (colleagues.data ?? []).find((c) => c.id === id);
+                    const name = p?.full_name || p?.email || id;
+                    return (
+                      <li key={id} className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 text-xs">
+                        <span dir="auto">{name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setMentions((m) => m.filter((x) => x !== id))}
+                          aria-label={ar ? `إزالة ${name}` : `Remove ${name}`}
+                          className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-3 w-3" aria-hidden="true" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="grid gap-1.5">
             <Label htmlFor="email-subject" className="text-xs tracking-[0.02em] text-muted-foreground">
               {t("email_subject")}
             </Label>
-            <Input id="email-subject" value={subject} onChange={(e) => setSubject(e.target.value)} disabled={drafting} />
+            <Input id="email-subject" value={subject} onChange={(e) => edit(setSubject)(e.target.value)} disabled={drafting} />
           </div>
 
           <div className="grid gap-1.5">
@@ -292,7 +396,7 @@ export function EmailComposeModal({
             <Textarea
               id="email-body"
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(e) => edit(setBody)(e.target.value)}
               rows={12}
               className="font-[inherit]"
               disabled={drafting}

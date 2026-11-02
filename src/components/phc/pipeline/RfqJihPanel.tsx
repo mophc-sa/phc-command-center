@@ -298,6 +298,7 @@ export function RfqJihPanel() {
 
       {/* Convert RFQ -> JIH */}
       <ActionDialog
+        recordId={convertRfq?.id}
         open={!!convertRfq}
         onOpenChange={(o) => !o && setConvertRfq(null)}
         title={t("wf_convert_to_jih")}
@@ -350,6 +351,7 @@ export function RfqJihPanel() {
 
       {/* Advance sales stage */}
       <ActionDialog
+        recordId={advance?.opp?.id}
         open={!!advance}
         onOpenChange={(o) => !o && setAdvance(null)}
         title={advance ? `${t("wf_move_to")}: ${sstageLabel(advance.toStage)}` : ""}

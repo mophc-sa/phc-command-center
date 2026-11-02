@@ -58,7 +58,7 @@ export function TodayPanel({ uid }: { uid: string }) {
           .limit(100),
         supabase
           .from("follow_ups")
-          .select("id, opportunity_id, owner_id, due_date, cadence_tier, channel, status, notes, created_at")
+          .select("id, opportunity_id, company_id, owner_id, due_date, cadence_tier, channel, status, notes, created_at")
           .eq("owner_id", uid)
           .neq("status", "completed")
           .neq("status", "cancelled")

@@ -9,6 +9,10 @@
 //     "Copy message" enabled so the user can still use the draft.
 
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "@tanstack/react-router";
+import { useFormDraft } from "@/hooks/useFormDraft";
+import { draftPayload } from "@/lib/form-draft";
+import { DraftRestoredNote } from "@/components/phc/DraftRestoredNote";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -84,12 +88,39 @@ export function WhatsAppComposeModal({
   const [templateId, setTemplateId] = useState<string>("");
   const [message, setMessage] = useState("");
 
+  // A half-written message survives a closed window (manager feedback
+  // 2026-10-19). Kept only while it differs from how the window opens.
+  const { pathname } = useLocation();
+  const { read: readSaved, save: saveDraft, clear: clearDraft } = useFormDraft(
+    `whatsapp:${pathname}|${linked?.type ?? ""}:${linked?.id ?? recipientPhone ?? ""}`,
+  );
+  const [restoredAt, setRestoredAt] = useState<number | null>(null);
+  // Not written until this opening's values are on screen; the first render
+  // after opening still holds the last one's.
+  const [ready, setReady] = useState(false);
+
   useEffect(() => {
+    setReady(open);
     if (!open) return;
+    const saved = readSaved();
+    setPhone(saved?.values.phone ?? recipientPhone ?? "");
+    setTemplateId(saved?.values.templateId ?? "");
+    setMessage(saved?.values.message ?? "");
+    setRestoredAt(saved?.savedAt ?? null);
+  }, [open, recipientPhone, readSaved]);
+
+  useEffect(() => {
+    if (!open || !ready) return;
+    saveDraft(draftPayload({ phone, templateId, message }, { phone: recipientPhone ?? "", templateId: "", message: "" }));
+  }, [open, ready, phone, templateId, message, recipientPhone, saveDraft]);
+
+  function discardSavedDraft() {
+    clearDraft();
+    setRestoredAt(null);
     setPhone(recipientPhone ?? "");
     setTemplateId("");
     setMessage("");
-  }, [open, recipientPhone]);
+  }
 
   const selectedTemplate = useMemo(
     () => templates.find((tpl) => tpl.id === templateId),
@@ -126,6 +157,7 @@ export function WhatsAppComposeModal({
     } catch {
       // Never block the compose action on a logging failure.
     }
+    clearDraft();
     window.open(waUrl, "_blank", "noopener,noreferrer");
     onOpenChange(false);
   }
@@ -154,6 +186,7 @@ export function WhatsAppComposeModal({
         </DialogHeader>
 
         <div className="grid gap-3 py-2">
+          {restoredAt !== null ? <DraftRestoredNote savedAt={restoredAt} onDiscard={discardSavedDraft} /> : null}
           {linked?.label ? (
             <div className="rounded-md border border-border/70 bg-surface/60 px-3 py-2 text-xs text-muted-foreground">
               <span className="tracking-[0.02em]">{t("email_linked_record")}:</span>{" "}

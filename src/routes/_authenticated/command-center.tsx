@@ -22,6 +22,7 @@ import {
 } from "@/lib/sales-kpis";
 import { useI18n, formatCurrency, formatNumber, localeFor } from "@/lib/i18n";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { ManagerActions } from "@/components/phc/ManagerActions";
 import { QueryFailure } from "@/components/phc/QueryFailure";
 import { ExecutiveDisclosure } from "@/components/phc/ExecutiveDisclosure";
 import "@/styles/command-center.css";
@@ -87,7 +88,7 @@ import {
 // effectiveRole() already falls back to the historical `role` text, so
 // decisionMakerState answers exactly as it did before the column existed. The
 // rows are all there either way, so completeness is unaffected.
-const STAKEHOLDER_COLS = "id, opportunity_id, name, role, organization, last_interaction_at";
+const STAKEHOLDER_COLS = "id, opportunity_id, name, role, organization, last_interaction_at, phone, contact_order";
 
 async function fetchStakeholders() {
   try {
@@ -182,7 +183,7 @@ function CommandCenter() {
       since.setDate(since.getDate() - 29);
       const sinceIso = since.toISOString();
 
-      const [opps, followUps, approvals, activities, rfqs, quotations, transitions, stakeholders] =
+      const [opps, followUps, activities, rfqs, quotations, transitions, stakeholders] =
         await Promise.all([
           // Paged to completion, not capped. The old cap here silently
           // computed every KPI over the first 200 rows: at 201 opportunities the
@@ -203,13 +204,20 @@ function CommandCenter() {
               .neq("status", "completed")
               .order("due_date", { ascending: true }),
           ),
-          supabase.from("approvals").select("*").eq("status", "pending"),
           // activity_type + status decide whether a row counts as client contact:
           // a note is internal and an unsent draft never reached anyone.
-          supabase
-            .from("activities")
-            .select("id, related_opportunity_id, activity_type, status, occurred_at")
-            .gte("occurred_at", sinceIso),
+          // Paged like the rest: a plain select stops at PostgREST's 1,000-row
+          // cap, and the Call card would then call deals "quiet" that were not.
+          // Rows without an opportunity feed nothing here, so they are not read.
+          fetchAllRows(() =>
+            supabase
+              .from("activities")
+              .select("id, related_opportunity_id, activity_type, status, occurred_at")
+              .gte("occurred_at", sinceIso)
+              .not("related_opportunity_id", "is", null)
+              .order("occurred_at", { ascending: false })
+              .order("id", { ascending: true }),
+          ),
           fetchAllRows(() =>
             supabase
               .from("rfqs")
@@ -237,19 +245,15 @@ function CommandCenter() {
           // than by a single denormalised column.
           fetchStakeholders(),
         ]);
-      for (const result of [approvals, activities]) {
-        if (result.error) throw result.error;
-      }
       return {
         opportunities: opps.rows as unknown as OpportunityRow[],
         followUps: followUps.rows,
         stakeholders: stakeholders.rows,
         // One truncated source makes every derived metric unreliable, so
         // completeness is an AND across the set that feeds the KPIs.
-        complete: allComplete(opps, followUps, rfqs, quotations, stakeholders, transitions),
-        approvals: approvals.data ?? [],
+        complete: allComplete(opps, followUps, activities, rfqs, quotations, stakeholders, transitions),
         transitions: transitions.rows,
-        activities: activities.data ?? [],
+        activities: activities.rows,
         rfqs: rfqs.rows,
         quotations: quotations.rows,
       };
@@ -289,7 +293,6 @@ function CommandCenter() {
 
   const opps = data?.opportunities ?? [];
   const followUps = data?.followUps ?? [];
-  const approvals = data?.approvals ?? [];
   const rfqs = data?.rfqs ?? [];
 
   // Canonical stage, not the legacy CRM one. `stage` and `sales_stage` are only
@@ -462,7 +465,11 @@ function CommandCenter() {
     // 20260915100000. effectiveRole() already reads the historical `role` text
     // in that case, so a row without it is a complete row, not a broken one.
     for (const s of (data?.stakeholders ?? []) as Array<
-      StakeholderRow & { opportunity_id?: string | null }
+      StakeholderRow & {
+        opportunity_id?: string | null;
+        phone?: string | null;
+        contact_order?: number | null;
+      }
     >) {
       const oid = s.opportunity_id;
       if (!oid) continue;
@@ -694,6 +701,11 @@ function CommandCenter() {
           </>
         }
       />
+      <ManagerActions
+        attention={attention}
+        stakeholdersByOpp={stakeholdersByOpp}
+        loading={isLoading}
+      />
       <div className="flex flex-wrap items-center justify-between gap-3 border-y border-border py-3 text-sm">
         <nav
           aria-label={lang === "ar" ? "أقسام مركز القيادة" : "Command center sections"}
@@ -788,30 +800,6 @@ function CommandCenter() {
                 : "Actuals and target use the same period. Pipeline and forecast describe the current position, not realized revenue."}
             </p>
           </section>
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-5 py-4">
-            <div>
-              <h2 className="font-semibold">
-                {lang === "ar" ? "قرارات بانتظار الاعتماد" : "Decisions awaiting approval"}
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {approvals.length
-                  ? lang === "ar"
-                    ? `${formatNumber(approvals.length, lang)} طلبات تحتاج مراجعة أصحاب الصلاحية`
-                    : `${formatNumber(approvals.length, lang)} requests need an authorized review`
-                  : lang === "ar"
-                    ? "لا توجد طلبات اعتماد معلّقة ضمن صلاحياتك"
-                    : "No pending approvals within your access"}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="executive-action"
-              onClick={() => nav({ to: "/approvals" })}
-            >
-              {lang === "ar" ? "فتح الاعتمادات" : "Open approvals"}
-              <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-            </button>
-          </div>
           <section id="executive-decisions" className="scroll-mt-6">
             <KpiRow columns={3} className="mb-2">
               {(

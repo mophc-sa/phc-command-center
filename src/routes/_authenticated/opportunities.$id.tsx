@@ -2,7 +2,7 @@ import { isAssignableTeamMember } from "@/lib/team-members";
 import { opportunityClassification } from "@/lib/opportunity-classification";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { updateRfqDetails } from "@/lib/rfq-actions";
@@ -12,12 +12,15 @@ import { approvalTypeLabel } from "@/lib/approval-labels";
 import { LegacyOpportunityContext } from "@/components/phc/LegacyOpportunityContext";
 import { Panel } from "@/components/phc/Panel";
 import { DealCorrespondencePanel } from "@/components/phc/DealCorrespondencePanel";
+import { SourceEmailPanel } from "@/components/phc/SourceEmailPanel";
 import { StageChecklistPanel } from "@/components/phc/StageChecklistPanel";
 import { DataField } from "@/components/phc/DataField";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { OpportunityTimeline } from "@/components/phc/OpportunityTimeline";
 import { DocumentsPanel } from "@/components/phc/DocumentsPanel";
+import { SubmittalsPanel } from "@/components/phc/SubmittalsPanel";
+import { isRecurrence, recurrenceLabel, recurrenceOptions } from "@/lib/follow-up-recurrence";
 import { CommitmentsPanel } from "@/components/phc/CommitmentsPanel";
 import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
@@ -49,7 +52,7 @@ import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { setHumanWinProbability } from "@/lib/workflow-actions";
-import { canAssignOwner, canAssignUnownedOpportunity, canEditOpportunityInputs, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
+import { canApproveCommercialAction, canAssignOwner, canAssignUnownedOpportunity, canCreateSalesRecords, canEditOpportunityInputs, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
 import { personLabel } from "@/lib/person-label";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
 import {
@@ -72,9 +75,13 @@ import {
 } from "@/lib/opportunity-collab-actions";
 import { Upload, Paperclip } from "lucide-react";
 import { AttachmentLink } from "@/components/phc/AttachmentLink";
-import { awardedValue } from "@/lib/project-tracking";
+import { awardedValue, siteStageLabel } from "@/lib/project-tracking";
 import { resolveCanonicalStage, canonicalStageLabelKey } from "@/lib/stage-canonical";
 import { ProjectUpdatesPanel } from "@/components/phc/ProjectUpdatesPanel";
+import { CopyDealLink } from "@/components/phc/CopyDealLink";
+import { DraftRestoredNote } from "@/components/phc/DraftRestoredNote";
+import { useFormDraft } from "@/hooks/useFormDraft";
+import { draftPayload } from "@/lib/form-draft";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
@@ -307,6 +314,42 @@ function OpportunityDetail() {
   const [editingDiscussionId, setEditingDiscussionId] = useState<string | null>(null);
   const [editingDiscussionDraft, setEditingDiscussionDraft] = useState("");
   const [savingDiscussionEdit, setSavingDiscussionEdit] = useState(false);
+  // A half-written post survives leaving the page (manager feedback
+  // 2026-10-19). Kept in this browser only; posting is still the button.
+  const discussionSaved = useFormDraft(`discussion:${id}`);
+  const [discussionRestoredAt, setDiscussionRestoredAt] = useState<number | null>(null);
+  // Nothing is written until the stored draft has been read back into the
+  // box -- otherwise the empty first render would erase it.
+  const [discussionReady, setDiscussionReady] = useState(false);
+  useEffect(() => {
+    const d = discussionSaved.read();
+    setDiscussionDraft(d?.values.body ?? "");
+    setDiscussionPicId(d?.values.picId ?? "");
+    setDiscussionPicNote(d?.values.picNote ?? "");
+    setDiscussionMentionUserId(d?.values.mentionUserId ?? "");
+    setDiscussionMentionPurpose((d?.values.mentionPurpose ?? "") as MentionPurpose | "");
+    setDiscussionRestoredAt(d?.savedAt ?? null);
+    setDiscussionReady(true);
+  }, [discussionSaved.read]);
+  useEffect(() => {
+    if (!discussionReady) return;
+    discussionSaved.save(draftPayload({
+      body: discussionDraft,
+      picId: discussionPicId,
+      picNote: discussionPicNote,
+      mentionUserId: discussionMentionUserId,
+      mentionPurpose: discussionMentionPurpose,
+    }, {}));
+  }, [discussionReady, discussionSaved.save, discussionDraft, discussionPicId, discussionPicNote, discussionMentionUserId, discussionMentionPurpose]);
+  function discardDiscussionDraft() {
+    discussionSaved.clear();
+    setDiscussionRestoredAt(null);
+    setDiscussionDraft("");
+    setDiscussionPicId("");
+    setDiscussionPicNote("");
+    setDiscussionMentionUserId("");
+    setDiscussionMentionPurpose("");
+  }
   async function handlePostDiscussion() {
     if (!discussionDraft.trim()) return;
     setPostingDiscussion(true);
@@ -324,6 +367,8 @@ function OpportunityDetail() {
       setDiscussionPicNote("");
       setDiscussionMentionUserId("");
       setDiscussionMentionPurpose("");
+      discussionSaved.clear();
+      setDiscussionRestoredAt(null);
       toast.success(t("discussion_posted_toast"));
       qc.invalidateQueries({ queryKey: ["opp-discussion", id] });
       qc.invalidateQueries({ queryKey: ["approvals"] });
@@ -448,19 +493,39 @@ function OpportunityDetail() {
 
   const [technicalNotesDraft, setTechnicalNotesDraft] = useState<string | null>(null);
   const [savingNotes, setSavingNotes] = useState(false);
-  async function saveTechnicalNotes() {
+  // What the server last accepted, so a pause and then a blur do not save the
+  // same text twice.
+  const notesSavedRef = useRef<string | null>(null);
+  const [notesAutoSaved, setNotesAutoSaved] = useState(false);
+  async function saveTechnicalNotes(quiet = false) {
     if (technicalNotesDraft === null) return;
-    setSavingNotes(true);
+    const value = technicalNotesDraft;
+    const previous = notesSavedRef.current;
+    if (value === (previous ?? oppQ.data?.technical_notes ?? "")) return;
+    notesSavedRef.current = value;
+    // A quiet save never disables the box: it runs while the person types.
+    if (!quiet) setSavingNotes(true);
     try {
-      await updateOpportunityTechnicalNotes(id, technicalNotesDraft);
-      toast.success(t("crm_saved"));
+      await updateOpportunityTechnicalNotes(id, value);
+      if (quiet) setNotesAutoSaved(true);
+      else toast.success(t("crm_saved"));
       qc.invalidateQueries({ queryKey: ["opp", id] });
     } catch (e) {
+      notesSavedRef.current = previous;
       toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
     } finally {
-      setSavingNotes(false);
+      if (!quiet) setSavingNotes(false);
     }
   }
+  // Autosave (manager feedback 2026-10-19): a pause in typing saves, the same
+  // save that leaving the box has always made.
+  useEffect(() => {
+    if (technicalNotesDraft === null) return;
+    setNotesAutoSaved(false);
+    const timer = window.setTimeout(() => void saveTechnicalNotes(true), 1500);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-armed by each keystroke only
+  }, [technicalNotesDraft]);
 
   const runSafe = async (fn: () => Promise<unknown>, okKey: Parameters<typeof t>[0], onDone?: () => void) => {
     try {
@@ -582,6 +647,9 @@ function OpportunityDetail() {
   const canEditClientDetails = canEditOpportunityInputs(roles, { isOwner: !!user?.id && o.owner_id === user.id });
   const canonicalStage = resolveCanonicalStage(o).stage;
   const awarded = awardedValue(o);
+  // The deal's code: its RFQ's number, or for a deal with no RFQ its own code
+  // from the owner's sales code (20261026100000). Normally the two are equal.
+  const dealCode = rfqQ.data?.rfq_number ?? o.project_code ?? null;
   const BackIcon = dir === "rtl" ? ArrowRight : ArrowLeft;
   const recTone = recToTone(o.agent_recommendation);
   const canActOnScore = canScore || o.owner_id === user?.id;
@@ -607,7 +675,7 @@ function OpportunityDetail() {
                 when the timeline is filtered to another tab. */}
             <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
               <span>{t("nav_opportunities")}</span>
-              {rfqQ.data?.rfq_number ? (
+              {dealCode ? (
                 // The number is the deal's thread to Production and Finance: once
                 // the Production project exists (on award), it opens that file,
                 // where the budget lives.
@@ -619,12 +687,13 @@ function OpportunityDetail() {
                     data-tabular="true"
                     title={lang === "ar" ? "ملف المشروع (الميزانية)" : "Project file (budget)"}
                   >
-                    {rfqQ.data.rfq_number}
+                    {dealCode}
                   </Link>
                 ) : (
-                  <span className="num text-foreground" data-tabular="true">{rfqQ.data.rfq_number}</span>
+                  <span className="num text-foreground" data-tabular="true">{dealCode}</span>
                 )
               ) : null}
+              <CopyDealLink opportunityId={o.id} code={rfqQ.data?.rfq_number} />
             </div>
             <h1 className="text-[30px] font-bold tracking-[-0.02em] text-foreground md:text-[34px]">
               {o.project ? (
@@ -795,6 +864,7 @@ function OpportunityDetail() {
         <ProjectUpdatesPanel
           opportunityId={o.id}
           completionPct={o.completion_pct ?? null}
+          siteStage={o.project_stage ?? null}
           canPost={canEditClientDetails}
           canModerate={canManageSalesPipeline(roles)}
           currentUserId={user?.id ?? null}
@@ -1160,6 +1230,7 @@ function OpportunityDetail() {
           }}
         />
         <ActionDialog
+          recordId={roleFor?.id as string | undefined}
           open={!!roleFor}
           onOpenChange={(v) => !v && setRoleFor(null)}
           title={lang === "ar" ? "دور صاحب المصلحة" : "Stakeholder role"}
@@ -1203,7 +1274,7 @@ function OpportunityDetail() {
       {show("alert") && (
       <Panel title={t("section_qualification")}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <DataField label={t("label_project_stage")} value={humanize(o.project_stage)} />
+          <DataField label={t("label_project_stage")} value={siteStageLabel(o.project_stage, lang) || "—"} />
           <DataField label={t("pipeline_step_label")} value={humanize(o.pipeline_step)} />
           <DataField label={t("label_package_status")} value={humanize(o.signage_package_status)} />
           <DataField
@@ -1291,12 +1362,17 @@ function OpportunityDetail() {
         <textarea
           value={technicalNotesDraft ?? o.technical_notes ?? ""}
           onChange={(e) => setTechnicalNotesDraft(e.target.value)}
-          onBlur={saveTechnicalNotes}
+          onBlur={() => void saveTechnicalNotes()}
           disabled={savingNotes}
           rows={4}
           className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           placeholder={t("section_technical_notes")}
         />
+        {notesAutoSaved ? (
+          <p className="mt-1 text-2xs text-muted-foreground" role="status">
+            {lang === "ar" ? "حُفظ تلقائيًا" : "Saved automatically"}
+          </p>
+        ) : null}
       </Panel>
       )}
 
@@ -1347,6 +1423,17 @@ function OpportunityDetail() {
           fields Phase 3 relies on. */}
       {show("evidence") && (
         <DocumentsPanel entity={{ type: "opportunity", id }} />
+      )}
+
+      {/* 4b'. SAMPLES AND DRAWINGS — manager feedback group 5 (2026-10-19).
+          Beside Files because a drawing step can name the file that was sent. */}
+      {show("evidence") && (
+        <SubmittalsPanel
+          opportunityId={id}
+          canRecord={canCreateSalesRecords(roles)}
+          canApprove={canApproveCommercialAction(roles)}
+          currentUserId={user?.id ?? null}
+        />
       )}
 
       {/* 4c. COMMITMENTS — Phase 9. Placed with the deal's working material
@@ -1446,6 +1533,7 @@ function OpportunityDetail() {
                   <div className="min-w-0">
                     <div className="truncate text-sm text-foreground">
                       {humanize(f.channel)} · {humanize(f.cadence_tier)}
+                      {f.recurrence && f.recurrence !== "none" ? ` · ${recurrenceLabel(f.recurrence, lang)}` : ""}
                     </div>
                     {f.notes ? (
                       <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{f.notes}</div>
@@ -1569,6 +1657,9 @@ function OpportunityDetail() {
         {canDiscuss ? (
           <div className="grid gap-4">
             <div className="grid gap-2">
+              {discussionRestoredAt !== null ? (
+                <DraftRestoredNote savedAt={discussionRestoredAt} onDiscard={discardDiscussionDraft} />
+              ) : null}
               <textarea
                 value={discussionDraft}
                 onChange={(e) => setDiscussionDraft(e.target.value)}
@@ -2143,6 +2234,9 @@ function OpportunityDetail() {
         );
       })()}
 
+      {/* 7c1. SOURCE EMAIL — the info@ message this deal came from, when it did */}
+      <SourceEmailPanel opportunityId={o.id} />
+
       {/* 7c2. CORRESPONDENCE — the deal's email and an on-demand AI summary (Outlook phase 3) */}
       <DealCorrespondencePanel opportunityId={o.id} />
 
@@ -2256,6 +2350,8 @@ function OpportunityDetail() {
                 { key: "owner", type: "select", label: t("field_owner"), options: teamOpts, defaultValue: currentOwner },
                 { key: "channel", type: "select", label: t("field_channel"), options: channelOpts, defaultValue: "call" },
                 { key: "cadence", type: "select", label: t("field_cadence"), options: cadenceOpts, defaultValue: o.tier ?? "B" },
+                // Group 5: a reminder can repeat; completing it schedules the next one.
+                { key: "repeat", type: "select", label: lang === "ar" ? "التكرار" : "Repeat", options: recurrenceOptions(lang), defaultValue: "none" },
                 notesField,
               ]}
               onSubmit={(v) =>
@@ -2268,6 +2364,7 @@ function OpportunityDetail() {
                       cadenceTier: (v.cadence as "A" | "B" | "C") || "B",
                       notes: v.notes,
                       ownerId: v.owner === "__none__" ? null : v.owner,
+                      recurrence: isRecurrence(v.repeat) ? v.repeat : "none",
                     }),
                   "toast_schedule_ok",
                   // Jump straight to the Follow-up filter so the new entry is
@@ -2316,6 +2413,7 @@ function OpportunityDetail() {
               }
             />
             <ActionDialog
+              recordId={editingContract?.id}
               open={contractDialogOpen}
               onOpenChange={(v) => { setContractDialogOpen(v); if (!v) setEditingContract(null); }}
               title={editingContract ? t("contract_edit") : t("contract_create")}
@@ -2342,6 +2440,7 @@ function OpportunityDetail() {
               onSubmit={handleSaveContract}
             />
             <ActionDialog
+              recordId={completeId}
               open={!!completeId}
               onOpenChange={(v) => !v && setCompleteId(null)}
               title={t("dialog_complete_title")}
@@ -2361,6 +2460,7 @@ function OpportunityDetail() {
               }
             />
             <ActionDialog
+              recordId={rescheduleId}
               open={!!rescheduleId}
               onOpenChange={(v) => !v && setRescheduleId(null)}
               title={t("dialog_reschedule_title")}
@@ -2384,6 +2484,7 @@ function OpportunityDetail() {
               }
             />
             <ActionDialog
+              recordId={decideFor?.id}
               open={!!decideFor}
               onOpenChange={(v) => !v && setDecideFor(null)}
               title={

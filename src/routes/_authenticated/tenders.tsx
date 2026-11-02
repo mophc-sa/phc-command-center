@@ -364,6 +364,7 @@ function TenderMonitor() {
       )}
 
       <ActionDialog
+        recordId={advance?.tender?.id}
         open={!!advance}
         onOpenChange={(o) => !o && setAdvance(null)}
         title={advance ? `${t("wf_move_to")}: ${tstageLabel(advance.toStage)}` : ""}
@@ -382,6 +383,7 @@ function TenderMonitor() {
       />
 
       <ActionDialog
+        recordId={convertReview?.id}
         open={!!convertReview}
         onOpenChange={(o) => !o && setConvertReview(null)}
         title={t("conv_review_title")}

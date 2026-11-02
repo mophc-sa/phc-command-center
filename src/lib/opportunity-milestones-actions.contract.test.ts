@@ -51,7 +51,7 @@ test("the opportunity detail page renders one checkbox per OPPORTUNITY_MILESTONE
   expect(source).toMatch(/OPPORTUNITY_MILESTONES\.map\(\(m\) =>/);
   expect(source).toMatch(/type="checkbox"/);
   expect(source).toMatch(/onChange=\{\(e\) => toggleMilestone\(m, e\.target\.checked\)\}/);
-  expect(source).toMatch(/onBlur=\{saveTechnicalNotes\}/);
+  expect(source).toMatch(/onBlur=\{\(\) => void saveTechnicalNotes\(\)\}/);
 });
 
 test("the milestone checklist panel is a separate Panel from Evidence, not merged into evidence_sources rendering", () => {

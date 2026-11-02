@@ -17,7 +17,7 @@
 
 import { serviceClient } from "../_shared/supabase.ts";
 import { hashThreadToken } from "../_shared/mail.ts";
-import { collectFeedEvents, isFeedToken, toICS } from "../_shared/calendar-feed.ts";
+import { collectFeedEvents, isFeedToken, linkedOpportunityIds, toICS, withShortLinks } from "../_shared/calendar-feed.ts";
 
 const env = (k: string) => Deno.env.get(k);
 const notFound = () => new Response("not found", { status: 404, headers: { "Content-Type": "text/plain" } });
@@ -83,7 +83,7 @@ export async function handleFeed(req: Request): Promise<Response> {
 
   const now = new Date();
   const cutoff = new Date(now.getTime() - HISTORY_DAYS * 86_400_000).toISOString().slice(0, 10);
-  const events = collectFeedEvents({
+  const rawEvents = collectFeedEvents({
     followUps: followUps.data ?? [],
     opportunities: opportunities.data ?? [],
     rfqs: rfqs.data ?? [],
@@ -94,6 +94,28 @@ export async function handleFeed(req: Request): Promise<Response> {
     flags: flags.data ?? [],
     intake: intake.data ?? [],
   }).filter((e) => e.date >= cutoff);
+
+  // The deals' codes, newest RFQ first as on the deal page. Best-effort: if the
+  // lookup fails the feed still serves, with the long links.
+  const codes = new Map<string, string>();
+  const oppIds = linkedOpportunityIds(rawEvents);
+  // In chunks: the ids travel in the request URL.
+  for (let i = 0; i < oppIds.length; i += 150) {
+    const { data: codeRows, error: codeError } = await svc.from("rfqs")
+      .select("opportunity_id, rfq_number")
+      .in("opportunity_id", oppIds.slice(i, i + 150))
+      .not("rfq_number", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (codeError) {
+      console.error(JSON.stringify({ fn: "calendar-feed", outcome: "warn", stage: "codes" }));
+      break;
+    }
+    for (const r of codeRows ?? []) {
+      if (r.opportunity_id && r.rfq_number && !codes.has(r.opportunity_id)) codes.set(r.opportunity_id, r.rfq_number);
+    }
+  }
+  const events = withShortLinks(rawEvents, codes);
 
   const body = toICS(events, {
     appUrl: env("PUBLIC_APP_URL") ?? "https://agent.phc-sa.com",

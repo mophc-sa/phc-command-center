@@ -43,6 +43,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedRfqJihRouteImport } from './routes/_authenticated/rfq-jih'
 import { Route as AuthenticatedSalesManagementRouteImport } from './routes/_authenticated/sales-management'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSubmittalsRouteImport } from './routes/_authenticated/submittals'
 import { Route as AuthenticatedTargetsRouteImport } from './routes/_authenticated/targets'
 import { Route as AuthenticatedTenderConversionRouteImport } from './routes/_authenticated/tender-conversion'
 import { Route as AuthenticatedTendersRouteImport } from './routes/_authenticated/tenders'
@@ -58,6 +59,7 @@ import { Route as AuthenticatedMeetingsIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedMeetingsIdRouteImport } from './routes/_authenticated/meetings.$id'
 import { Route as AuthenticatedOpportunitiesIndexRouteImport } from './routes/_authenticated/opportunities.index'
 import { Route as AuthenticatedOpportunitiesIdRouteImport } from './routes/_authenticated/opportunities.$id'
+import { Route as AuthenticatedPCodeRouteImport } from './routes/_authenticated/p.$code'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects.index'
 import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects.$id'
 
@@ -240,6 +242,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSubmittalsRoute = AuthenticatedSubmittalsRouteImport.update({
+  id: '/submittals',
+  path: '/submittals',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTargetsRoute = AuthenticatedTargetsRouteImport.update({
   id: '/targets',
   path: '/targets',
@@ -324,6 +331,11 @@ const AuthenticatedOpportunitiesIdRoute =
     path: '/opportunities/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPCodeRoute = AuthenticatedPCodeRouteImport.update({
+  id: '/p/$code',
+  path: '/p/$code',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProjectsIndexRoute =
   AuthenticatedProjectsIndexRouteImport.update({
     id: '/projects/',
@@ -370,6 +382,7 @@ export interface FileRoutesByFullPath {
   '/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/sales-management': typeof AuthenticatedSalesManagementRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/submittals': typeof AuthenticatedSubmittalsRoute
   '/targets': typeof AuthenticatedTargetsRoute
   '/tender-conversion': typeof AuthenticatedTenderConversionRoute
   '/tenders': typeof AuthenticatedTendersRoute
@@ -381,6 +394,7 @@ export interface FileRoutesByFullPath {
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/p/$code': typeof AuthenticatedPCodeRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/data-import/': typeof AuthenticatedDataImportIndexRoute
@@ -420,6 +434,7 @@ export interface FileRoutesByTo {
   '/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/sales-management': typeof AuthenticatedSalesManagementRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/submittals': typeof AuthenticatedSubmittalsRoute
   '/targets': typeof AuthenticatedTargetsRoute
   '/tender-conversion': typeof AuthenticatedTenderConversionRoute
   '/tenders': typeof AuthenticatedTendersRoute
@@ -431,6 +446,7 @@ export interface FileRoutesByTo {
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/p/$code': typeof AuthenticatedPCodeRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts': typeof AuthenticatedAccountsIndexRoute
   '/data-import': typeof AuthenticatedDataImportIndexRoute
@@ -474,6 +490,7 @@ export interface FileRoutesById {
   '/_authenticated/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/_authenticated/sales-management': typeof AuthenticatedSalesManagementRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/submittals': typeof AuthenticatedSubmittalsRoute
   '/_authenticated/targets': typeof AuthenticatedTargetsRoute
   '/_authenticated/tender-conversion': typeof AuthenticatedTenderConversionRoute
   '/_authenticated/tenders': typeof AuthenticatedTendersRoute
@@ -485,6 +502,7 @@ export interface FileRoutesById {
   '/_authenticated/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
   '/_authenticated/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/_authenticated/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
+  '/_authenticated/p/$code': typeof AuthenticatedPCodeRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/_authenticated/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/_authenticated/data-import/': typeof AuthenticatedDataImportIndexRoute
@@ -528,6 +546,7 @@ export interface FileRouteTypes {
     | '/rfq-jih'
     | '/sales-management'
     | '/settings'
+    | '/submittals'
     | '/targets'
     | '/tender-conversion'
     | '/tenders'
@@ -539,6 +558,7 @@ export interface FileRouteTypes {
     | '/data-import/$batchId'
     | '/meetings/$id'
     | '/opportunities/$id'
+    | '/p/$code'
     | '/projects/$id'
     | '/accounts/'
     | '/data-import/'
@@ -578,6 +598,7 @@ export interface FileRouteTypes {
     | '/rfq-jih'
     | '/sales-management'
     | '/settings'
+    | '/submittals'
     | '/targets'
     | '/tender-conversion'
     | '/tenders'
@@ -589,6 +610,7 @@ export interface FileRouteTypes {
     | '/data-import/$batchId'
     | '/meetings/$id'
     | '/opportunities/$id'
+    | '/p/$code'
     | '/projects/$id'
     | '/accounts'
     | '/data-import'
@@ -631,6 +653,7 @@ export interface FileRouteTypes {
     | '/_authenticated/rfq-jih'
     | '/_authenticated/sales-management'
     | '/_authenticated/settings'
+    | '/_authenticated/submittals'
     | '/_authenticated/targets'
     | '/_authenticated/tender-conversion'
     | '/_authenticated/tenders'
@@ -642,6 +665,7 @@ export interface FileRouteTypes {
     | '/_authenticated/data-import/$batchId'
     | '/_authenticated/meetings/$id'
     | '/_authenticated/opportunities/$id'
+    | '/_authenticated/p/$code'
     | '/_authenticated/projects/$id'
     | '/_authenticated/accounts/'
     | '/_authenticated/data-import/'
@@ -905,6 +929,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/submittals': {
+      id: '/_authenticated/submittals'
+      path: '/submittals'
+      fullPath: '/submittals'
+      preLoaderRoute: typeof AuthenticatedSubmittalsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/targets': {
       id: '/_authenticated/targets'
       path: '/targets'
@@ -1010,6 +1041,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOpportunitiesIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/p/$code': {
+      id: '/_authenticated/p/$code'
+      path: '/p/$code'
+      fullPath: '/p/$code'
+      preLoaderRoute: typeof AuthenticatedPCodeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/projects/': {
       id: '/_authenticated/projects/'
       path: '/projects'
@@ -1083,6 +1121,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRfqJihRoute: typeof AuthenticatedRfqJihRoute
   AuthenticatedSalesManagementRoute: typeof AuthenticatedSalesManagementRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSubmittalsRoute: typeof AuthenticatedSubmittalsRoute
   AuthenticatedTargetsRoute: typeof AuthenticatedTargetsRoute
   AuthenticatedTenderConversionRoute: typeof AuthenticatedTenderConversionRoute
   AuthenticatedTendersRoute: typeof AuthenticatedTendersRoute
@@ -1090,6 +1129,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedContactsRepairRoute: typeof AuthenticatedContactsRepairRoute
   AuthenticatedMeetingsIdRoute: typeof AuthenticatedMeetingsIdRoute
   AuthenticatedOpportunitiesIdRoute: typeof AuthenticatedOpportunitiesIdRoute
+  AuthenticatedPCodeRoute: typeof AuthenticatedPCodeRoute
   AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
   AuthenticatedMeetingsIndexRoute: typeof AuthenticatedMeetingsIndexRoute
   AuthenticatedOpportunitiesIndexRoute: typeof AuthenticatedOpportunitiesIndexRoute
@@ -1121,6 +1161,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRfqJihRoute: AuthenticatedRfqJihRoute,
   AuthenticatedSalesManagementRoute: AuthenticatedSalesManagementRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSubmittalsRoute: AuthenticatedSubmittalsRoute,
   AuthenticatedTargetsRoute: AuthenticatedTargetsRoute,
   AuthenticatedTenderConversionRoute: AuthenticatedTenderConversionRoute,
   AuthenticatedTendersRoute: AuthenticatedTendersRoute,
@@ -1128,6 +1169,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedContactsRepairRoute: AuthenticatedContactsRepairRoute,
   AuthenticatedMeetingsIdRoute: AuthenticatedMeetingsIdRoute,
   AuthenticatedOpportunitiesIdRoute: AuthenticatedOpportunitiesIdRoute,
+  AuthenticatedPCodeRoute: AuthenticatedPCodeRoute,
   AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
   AuthenticatedMeetingsIndexRoute: AuthenticatedMeetingsIndexRoute,
   AuthenticatedOpportunitiesIndexRoute: AuthenticatedOpportunitiesIndexRoute,

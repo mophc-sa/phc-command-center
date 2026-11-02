@@ -406,6 +406,7 @@ function ActionCenter() {
 
       {dialog ? (
         <ActionDialog
+          recordId={dialog?.flagId}
           open={!!dialog}
           onOpenChange={(v) => !v && setDialog(null)}
           title={t(

@@ -1881,6 +1881,126 @@ export type Database = {
           },
         ]
       }
+      deal_submittal_steps: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          document_id: string | null
+          id: string
+          notes: string | null
+          occurred_at: string
+          recorded_at: string
+          recorded_by: string | null
+          response: string | null
+          revision: number
+          step: string
+          submittal_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          document_id?: string | null
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          response?: string | null
+          revision?: number
+          step: string
+          submittal_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          document_id?: string | null
+          id?: string
+          notes?: string | null
+          occurred_at?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          response?: string | null
+          revision?: number
+          step?: string
+          submittal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_submittal_steps_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_submittal_steps_submittal_id_fkey"
+            columns: ["submittal_id"]
+            isOneToOne: false
+            referencedRelation: "deal_submittals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_submittals: {
+        Row: {
+          client_response: string | null
+          created_at: string
+          created_by: string | null
+          current_step: string | null
+          id: string
+          kind: string
+          last_step_at: string | null
+          notes: string | null
+          opportunity_id: string
+          revision: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_response?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_step?: string | null
+          id?: string
+          kind: string
+          last_step_at?: string | null
+          notes?: string | null
+          opportunity_id: string
+          revision?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_response?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_step?: string | null
+          id?: string
+          kind?: string
+          last_step_at?: string | null
+          notes?: string | null
+          opportunity_id?: string
+          revision?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_submittals_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_submittals_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_backfill_report: {
         Row: {
           derived_path: string | null
@@ -2288,46 +2408,68 @@ export type Database = {
         Row: {
           cadence_tier: Database["public"]["Enums"]["priority_tier"]
           channel: string | null
+          company_id: string | null
+          completed_at: string | null
           created_at: string
           due_date: string
           extra_data: Json | null
           id: string
           last_contact_at: string | null
           notes: string | null
-          opportunity_id: string
+          opportunity_id: string | null
           owner_id: string | null
+          recurrence: string
+          recurrence_anchor: string | null
+          recurs_from: string | null
           status: Database["public"]["Enums"]["follow_up_status"]
           updated_at: string
         }
         Insert: {
           cadence_tier?: Database["public"]["Enums"]["priority_tier"]
           channel?: string | null
+          company_id?: string | null
+          completed_at?: string | null
           created_at?: string
           due_date: string
           extra_data?: Json | null
           id?: string
           last_contact_at?: string | null
           notes?: string | null
-          opportunity_id: string
+          opportunity_id?: string | null
           owner_id?: string | null
+          recurrence?: string
+          recurrence_anchor?: string | null
+          recurs_from?: string | null
           status?: Database["public"]["Enums"]["follow_up_status"]
           updated_at?: string
         }
         Update: {
           cadence_tier?: Database["public"]["Enums"]["priority_tier"]
           channel?: string | null
+          company_id?: string | null
+          completed_at?: string | null
           created_at?: string
           due_date?: string
           extra_data?: Json | null
           id?: string
           last_contact_at?: string | null
           notes?: string | null
-          opportunity_id?: string
+          opportunity_id?: string | null
           owner_id?: string | null
+          recurrence?: string
+          recurrence_anchor?: string | null
+          recurs_from?: string | null
           status?: Database["public"]["Enums"]["follow_up_status"]
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "follow_ups_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "follow_ups_opportunity_id_fkey"
             columns: ["opportunity_id"]
@@ -2340,6 +2482,13 @@ export type Database = {
             columns: ["opportunity_id"]
             isOneToOne: false
             referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_ups_recurs_from_fkey"
+            columns: ["recurs_from"]
+            isOneToOne: false
+            referencedRelation: "follow_ups"
             referencedColumns: ["id"]
           },
         ]
@@ -3755,6 +3904,7 @@ export type Database = {
           phone: string | null
           project_name: string | null
           project_number: string | null
+          project_stage: Database["public"]["Enums"]["project_stage"] | null
           project_type: Database["public"]["Enums"]["inbox_project_type"] | null
           reject_reason: string | null
           request_type: string | null
@@ -3822,6 +3972,7 @@ export type Database = {
           phone?: string | null
           project_name?: string | null
           project_number?: string | null
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
           project_type?:
             | Database["public"]["Enums"]["inbox_project_type"]
             | null
@@ -3891,6 +4042,7 @@ export type Database = {
           phone?: string | null
           project_name?: string | null
           project_number?: string | null
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
           project_type?:
             | Database["public"]["Enums"]["inbox_project_type"]
             | null
@@ -3915,6 +4067,133 @@ export type Database = {
           source_type?: Database["public"]["Enums"]["inbox_source_type"]
           status?: Database["public"]["Enums"]["inbox_status"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      info_mail: {
+        Row: {
+          attachment_names: string[]
+          body_text: string | null
+          category: string
+          confidence: number | null
+          conversation_id: string | null
+          created_at: string
+          forwarded_to: string | null
+          from_email: string | null
+          from_name: string | null
+          graph_message_id: string
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          inbox_item_id: string | null
+          internet_message_id: string | null
+          opportunity_id: string | null
+          received_at: string
+          status: string
+          subject: string | null
+          summary: string | null
+          triage_attempts: number
+          web_link: string | null
+        }
+        Insert: {
+          attachment_names?: string[]
+          body_text?: string | null
+          category?: string
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          forwarded_to?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          graph_message_id: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          inbox_item_id?: string | null
+          internet_message_id?: string | null
+          opportunity_id?: string | null
+          received_at: string
+          status?: string
+          subject?: string | null
+          summary?: string | null
+          triage_attempts?: number
+          web_link?: string | null
+        }
+        Update: {
+          attachment_names?: string[]
+          body_text?: string | null
+          category?: string
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          forwarded_to?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          graph_message_id?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          inbox_item_id?: string | null
+          internet_message_id?: string | null
+          opportunity_id?: string | null
+          received_at?: string
+          status?: string
+          subject?: string | null
+          summary?: string | null
+          triage_attempts?: number
+          web_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_mail_inbox_item_id_fkey"
+            columns: ["inbox_item_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "info_mail_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "info_mail_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      info_mailbox_state: {
+        Row: {
+          delta_link: string | null
+          id: boolean
+          last_error: string | null
+          last_run_at: string | null
+          started_at: string | null
+          triage_backoff_minutes: number
+          triage_retry_at: string | null
+        }
+        Insert: {
+          delta_link?: string | null
+          id?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          started_at?: string | null
+          triage_backoff_minutes?: number
+          triage_retry_at?: string | null
+        }
+        Update: {
+          delta_link?: string | null
+          id?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          started_at?: string | null
+          triage_backoff_minutes?: number
+          triage_retry_at?: string | null
         }
         Relationships: []
       }
@@ -4602,6 +4881,7 @@ export type Database = {
           pipeline_step: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status: string | null
           project_id: string | null
+          project_code: string | null
           project_name: string
           project_stage: Database["public"]["Enums"]["project_stage"]
           quotation_value: number | null
@@ -4702,6 +4982,7 @@ export type Database = {
           pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status?: string | null
           project_id?: string | null
+          project_code?: string | null
           project_name: string
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
@@ -4802,6 +5083,7 @@ export type Database = {
           pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status?: string | null
           project_id?: string | null
+          project_code?: string | null
           project_name?: string
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
@@ -5053,6 +5335,7 @@ export type Database = {
           meeting_id: string | null
           note: string | null
           opportunity_id: string
+          project_stage: Database["public"]["Enums"]["project_stage"] | null
         }
         Insert: {
           completion_pct?: number | null
@@ -5063,6 +5346,7 @@ export type Database = {
           meeting_id?: string | null
           note?: string | null
           opportunity_id: string
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
         }
         Update: {
           completion_pct?: number | null
@@ -5073,6 +5357,7 @@ export type Database = {
           meeting_id?: string | null
           note?: string | null
           opportunity_id?: string
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
         }
         Relationships: [
           {
@@ -8761,6 +9046,12 @@ export type Database = {
         Args: { _pattern: string; _raw: Json }
         Returns: string
       }
+      info_mail_dismiss: { Args: { _id: string }; Returns: undefined }
+      info_mail_dismiss_spam: { Args: never; Returns: number }
+      info_mail_link_conversion: {
+        Args: { _inbox_item_id: string }
+        Returns: number
+      }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
       is_commercial_manager: { Args: { _user_id: string }; Returns: boolean }
       is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
@@ -8793,11 +9084,32 @@ export type Database = {
           title: string
         }[]
       }
+      next_follow_up_date: {
+        Args: {
+          _after: string
+          _anchor: string
+          _recurrence: string
+          _today: string
+        }
+        Returns: string
+      }
+      mentionable_colleagues: {
+        Args: { _opportunity_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+        }[]
+      }
       normalize_lead_key: {
         Args: { _location: string; _project_name: string }
         Returns: string
       }
       normalize_vendor_name: { Args: { _name: string }; Returns: string }
+      notify_mentions: {
+        Args: { _activity_id: string; _users: string[] }
+        Returns: number
+      }
       notify_overdue_items: { Args: never; Returns: number }
       opportunity_value: {
         Args: {
@@ -8869,6 +9181,10 @@ export type Database = {
       storage_object_readable: {
         Args: { _bucket: string; _path: string; _user_id: string }
         Returns: boolean
+      }
+      submittal_next_steps: {
+        Args: { _current: string; _kind: string }
+        Returns: string[]
       }
       void_historical_promotion: {
         Args: { _reason: string; _request_id: string }
@@ -9071,6 +9387,7 @@ export type Database = {
         | "email_placeholder"
         | "whatsapp_placeholder"
         | "phone_call"
+        | "info_mailbox"
       inbox_status:
         | "new"
         | "in_review"
@@ -9143,6 +9460,9 @@ export type Database = {
         | "tender"
         | "awarded"
         | "under_construction"
+        | "excavation"
+        | "structure"
+        | "mep_finishing"
         | "near_handover"
         | "completed"
         | "unknown"
@@ -9578,6 +9898,7 @@ export const Constants = {
         "email_placeholder",
         "whatsapp_placeholder",
         "phone_call",
+        "info_mailbox",
       ],
       inbox_status: [
         "new",
@@ -9657,6 +9978,9 @@ export const Constants = {
         "tender",
         "awarded",
         "under_construction",
+        "excavation",
+        "structure",
+        "mep_finishing",
         "near_handover",
         "completed",
         "unknown",
