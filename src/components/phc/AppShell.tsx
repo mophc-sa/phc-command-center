@@ -49,6 +49,7 @@ import {
   Building2,
   Contact2,
   Landmark,
+  Layers,
   Briefcase,
   Truck,
   Library,
@@ -175,6 +176,9 @@ const NAV_GROUPS: NavGroup[] = [
     fallback: "Production",
     items: [
       { kind: "link", to: "/projects", key: "nav_projects", icon: Landmark },
+      // Group 5 (2026-10-19): samples are made by production, drawings come
+      // from the designer; both are tracked to the client's answer.
+      { kind: "link", to: "/submittals", key: "nav_submittals", icon: Layers },
     ],
   },
   {

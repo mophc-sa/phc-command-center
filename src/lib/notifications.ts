@@ -59,6 +59,8 @@ export function notificationHref(n: Pick<NotificationRow, "entity_type" | "entit
   switch (n.entity_type) {
     case "opportunity":
       return `/opportunities/${n.entity_id}`;
+    case "company":
+      return `/accounts/${n.entity_id}`;
     case "inbox_item":
       return "/lead-tender-inbox";
     case "approval":

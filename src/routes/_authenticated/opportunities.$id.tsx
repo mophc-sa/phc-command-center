@@ -19,6 +19,8 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { OpportunityTimeline } from "@/components/phc/OpportunityTimeline";
 import { DocumentsPanel } from "@/components/phc/DocumentsPanel";
+import { SubmittalsPanel } from "@/components/phc/SubmittalsPanel";
+import { isRecurrence, recurrenceLabel, recurrenceOptions } from "@/lib/follow-up-recurrence";
 import { CommitmentsPanel } from "@/components/phc/CommitmentsPanel";
 import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
@@ -50,7 +52,7 @@ import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { setHumanWinProbability } from "@/lib/workflow-actions";
-import { canAssignOwner, canAssignUnownedOpportunity, canEditOpportunityInputs, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
+import { canApproveCommercialAction, canAssignOwner, canAssignUnownedOpportunity, canCreateSalesRecords, canEditOpportunityInputs, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
 import { personLabel } from "@/lib/person-label";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
 import {
@@ -1423,6 +1425,17 @@ function OpportunityDetail() {
         <DocumentsPanel entity={{ type: "opportunity", id }} />
       )}
 
+      {/* 4b'. SAMPLES AND DRAWINGS — manager feedback group 5 (2026-10-19).
+          Beside Files because a drawing step can name the file that was sent. */}
+      {show("evidence") && (
+        <SubmittalsPanel
+          opportunityId={id}
+          canRecord={canCreateSalesRecords(roles)}
+          canApprove={canApproveCommercialAction(roles)}
+          currentUserId={user?.id ?? null}
+        />
+      )}
+
       {/* 4c. COMMITMENTS — Phase 9. Placed with the deal's working material
           rather than in the timeline: a promise is something still owed, and
           the timeline is a record of what already happened. */}
@@ -1520,6 +1533,7 @@ function OpportunityDetail() {
                   <div className="min-w-0">
                     <div className="truncate text-sm text-foreground">
                       {humanize(f.channel)} · {humanize(f.cadence_tier)}
+                      {f.recurrence && f.recurrence !== "none" ? ` · ${recurrenceLabel(f.recurrence, lang)}` : ""}
                     </div>
                     {f.notes ? (
                       <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{f.notes}</div>
@@ -2336,6 +2350,8 @@ function OpportunityDetail() {
                 { key: "owner", type: "select", label: t("field_owner"), options: teamOpts, defaultValue: currentOwner },
                 { key: "channel", type: "select", label: t("field_channel"), options: channelOpts, defaultValue: "call" },
                 { key: "cadence", type: "select", label: t("field_cadence"), options: cadenceOpts, defaultValue: o.tier ?? "B" },
+                // Group 5: a reminder can repeat; completing it schedules the next one.
+                { key: "repeat", type: "select", label: lang === "ar" ? "التكرار" : "Repeat", options: recurrenceOptions(lang), defaultValue: "none" },
                 notesField,
               ]}
               onSubmit={(v) =>
@@ -2348,6 +2364,7 @@ function OpportunityDetail() {
                       cadenceTier: (v.cadence as "A" | "B" | "C") || "B",
                       notes: v.notes,
                       ownerId: v.owner === "__none__" ? null : v.owner,
+                      recurrence: isRecurrence(v.repeat) ? v.repeat : "none",
                     }),
                   "toast_schedule_ok",
                   // Jump straight to the Follow-up filter so the new entry is

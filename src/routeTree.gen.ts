@@ -43,6 +43,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedRfqJihRouteImport } from './routes/_authenticated/rfq-jih'
 import { Route as AuthenticatedSalesManagementRouteImport } from './routes/_authenticated/sales-management'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSubmittalsRouteImport } from './routes/_authenticated/submittals'
 import { Route as AuthenticatedTargetsRouteImport } from './routes/_authenticated/targets'
 import { Route as AuthenticatedTenderConversionRouteImport } from './routes/_authenticated/tender-conversion'
 import { Route as AuthenticatedTendersRouteImport } from './routes/_authenticated/tenders'
@@ -241,6 +242,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSubmittalsRoute = AuthenticatedSubmittalsRouteImport.update({
+  id: '/submittals',
+  path: '/submittals',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedTargetsRoute = AuthenticatedTargetsRouteImport.update({
   id: '/targets',
   path: '/targets',
@@ -376,6 +382,7 @@ export interface FileRoutesByFullPath {
   '/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/sales-management': typeof AuthenticatedSalesManagementRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/submittals': typeof AuthenticatedSubmittalsRoute
   '/targets': typeof AuthenticatedTargetsRoute
   '/tender-conversion': typeof AuthenticatedTenderConversionRoute
   '/tenders': typeof AuthenticatedTendersRoute
@@ -427,6 +434,7 @@ export interface FileRoutesByTo {
   '/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/sales-management': typeof AuthenticatedSalesManagementRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/submittals': typeof AuthenticatedSubmittalsRoute
   '/targets': typeof AuthenticatedTargetsRoute
   '/tender-conversion': typeof AuthenticatedTenderConversionRoute
   '/tenders': typeof AuthenticatedTendersRoute
@@ -482,6 +490,7 @@ export interface FileRoutesById {
   '/_authenticated/rfq-jih': typeof AuthenticatedRfqJihRoute
   '/_authenticated/sales-management': typeof AuthenticatedSalesManagementRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/submittals': typeof AuthenticatedSubmittalsRoute
   '/_authenticated/targets': typeof AuthenticatedTargetsRoute
   '/_authenticated/tender-conversion': typeof AuthenticatedTenderConversionRoute
   '/_authenticated/tenders': typeof AuthenticatedTendersRoute
@@ -537,6 +546,7 @@ export interface FileRouteTypes {
     | '/rfq-jih'
     | '/sales-management'
     | '/settings'
+    | '/submittals'
     | '/targets'
     | '/tender-conversion'
     | '/tenders'
@@ -588,6 +598,7 @@ export interface FileRouteTypes {
     | '/rfq-jih'
     | '/sales-management'
     | '/settings'
+    | '/submittals'
     | '/targets'
     | '/tender-conversion'
     | '/tenders'
@@ -642,6 +653,7 @@ export interface FileRouteTypes {
     | '/_authenticated/rfq-jih'
     | '/_authenticated/sales-management'
     | '/_authenticated/settings'
+    | '/_authenticated/submittals'
     | '/_authenticated/targets'
     | '/_authenticated/tender-conversion'
     | '/_authenticated/tenders'
@@ -917,6 +929,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/submittals': {
+      id: '/_authenticated/submittals'
+      path: '/submittals'
+      fullPath: '/submittals'
+      preLoaderRoute: typeof AuthenticatedSubmittalsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/targets': {
       id: '/_authenticated/targets'
       path: '/targets'
@@ -1102,6 +1121,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRfqJihRoute: typeof AuthenticatedRfqJihRoute
   AuthenticatedSalesManagementRoute: typeof AuthenticatedSalesManagementRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSubmittalsRoute: typeof AuthenticatedSubmittalsRoute
   AuthenticatedTargetsRoute: typeof AuthenticatedTargetsRoute
   AuthenticatedTenderConversionRoute: typeof AuthenticatedTenderConversionRoute
   AuthenticatedTendersRoute: typeof AuthenticatedTendersRoute
@@ -1141,6 +1161,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRfqJihRoute: AuthenticatedRfqJihRoute,
   AuthenticatedSalesManagementRoute: AuthenticatedSalesManagementRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSubmittalsRoute: AuthenticatedSubmittalsRoute,
   AuthenticatedTargetsRoute: AuthenticatedTargetsRoute,
   AuthenticatedTenderConversionRoute: AuthenticatedTenderConversionRoute,
   AuthenticatedTendersRoute: AuthenticatedTendersRoute,

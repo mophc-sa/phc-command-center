@@ -15,7 +15,8 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { updateCompany, changeAccountOwner, createOpportunityForCompany, type CompanyType } from "@/lib/crm-actions";
-import { canAssignOwner, canManageSalesPipeline } from "@/lib/roles";
+import { canAssignOwner, canCreateSalesRecords, canManageSalesPipeline } from "@/lib/roles";
+import { ClientRemindersPanel } from "@/components/phc/ClientRemindersPanel";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { ArchivedBadge, RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
@@ -35,7 +36,7 @@ const COMPANY_TYPES: CompanyType[] = [
 function AccountDetail() {
   const { id } = Route.useParams();
   const { t, lang } = useI18n();
-  const { roles } = useAuth();
+  const { user, roles } = useAuth();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
@@ -290,6 +291,8 @@ function AccountDetail() {
           ) : null}
         </Panel>
       </div>
+
+      <ClientRemindersPanel companyId={c.id} canAdd={canCreateSalesRecords(roles)} currentUserId={user?.id ?? null} />
 
       <Panel title={t("comm_history")}>
         <CommunicationTimeline filter={{ companyId: c.id }} />
