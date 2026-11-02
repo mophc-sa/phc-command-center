@@ -1410,3 +1410,4 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-10-20 · Today's actions: five cards on the Command Center · previous: manager feedback (approvals, targets), 2026-10-19 -->
 
 <!-- last reviewed 2026-10-23 · info@ mailbox: requests from email, router list, Newsletters & spam, Not sorted, Source email panel, Mention (deal readers only) · branch feat/info-mailbox, not deployed · previous: Today's actions, 2026-10-20 -->
+
