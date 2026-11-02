@@ -27,11 +27,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, ExternalLink, Loader2, Mail, Send, Sparkles } from "lucide-react";
+import { Copy, ExternalLink, Loader2, Mail, Send, Sparkles, X } from "lucide-react";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMailStatus, sendEmail } from "@/lib/mail-actions";
-import { useI18n } from "@/lib/i18n";
+import { formatNumber, useI18n } from "@/lib/i18n";
+import { mentionableColleagues } from "@/lib/info-mail-actions";
 import {
   buildEmailDraft,
   MAILTO_MAX_LENGTH,
@@ -88,9 +89,20 @@ export function EmailComposeModal({
   const [cc, setCc] = useState((context.ccEmails ?? []).join(", "));
   const [subject, setSubject] = useState(draft.subject);
   const [body, setBody] = useState(draft.body);
+  // @mention: colleagues told in the system. They are not recipients.
+  const [mentions, setMentions] = useState<string[]>([]);
+  const ar = lang === "ar";
+  const dealLinked = Boolean(linked?.opportunityId);
+  const colleagues = useQuery({
+    queryKey: ["mentionable-colleagues", linked?.opportunityId ?? null],
+    queryFn: () => mentionableColleagues(String(linked?.opportunityId)),
+    staleTime: 5 * 60_000,
+    enabled: open && dealLinked,
+  });
 
   useEffect(() => {
     if (!open) return;
+    setMentions([]);
     setTo(context.recipientEmail ?? "");
     setCc((context.ccEmails ?? []).join(", "));
     setSubject(draft.subject);
@@ -173,8 +185,15 @@ export function EmailComposeModal({
         contactId: linked?.contactId ?? null,
         rfqId: linked?.rfqId ?? null,
         tenderId: linked?.tenderId ?? null,
+        mentions: dealLinked ? mentions : [],
       });
-      if (r.logged) toast.success(t("email_sent_ok"));
+      const picked = dealLinked ? mentions.length : 0;
+      const notified = picked > 0 && r.mentioned < picked
+        ? ar ? ` · نُبّه ${formatNumber(r.mentioned, lang)} من ${formatNumber(picked, lang)}` : ` · ${formatNumber(r.mentioned, lang)} of ${formatNumber(picked, lang)} notified`
+        : r.mentioned > 0
+          ? ar ? ` · نُبّه ${formatNumber(r.mentioned, lang)}` : ` · ${formatNumber(r.mentioned, lang)} notified`
+          : "";
+      if (r.logged) toast.success(`${t("email_sent_ok")}${notified}`);
       else toast.warning(t("email_sent_unlogged"));
       void qc.invalidateQueries();
       onOpenChange(false);
@@ -277,6 +296,50 @@ export function EmailComposeModal({
               autoComplete="off"
             />
           </div>
+
+          {dealLinked ? (
+            <div className="grid gap-1.5">
+              <Label htmlFor="email-mention" className="text-xs tracking-[0.02em] text-muted-foreground">
+                {ar ? "إشارة (تنبيه داخل النظام فقط)" : "Mention (in-system notice only)"}
+              </Label>
+              <select
+                id="email-mention"
+                value=""
+                disabled={!colleagues.data || mentions.length >= 10}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (id) setMentions((m) => (m.includes(id) ? m : [...m, id]));
+                }}
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">{ar ? "اختر زميلاً…" : "Pick a colleague…"}</option>
+                {(colleagues.data ?? []).filter((p) => !mentions.includes(p.id)).map((p) => (
+                  <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+                ))}
+              </select>
+              {mentions.length ? (
+                <ul className="flex flex-wrap gap-1.5">
+                  {mentions.map((id) => {
+                    const p = (colleagues.data ?? []).find((c) => c.id === id);
+                    const name = p?.full_name || p?.email || id;
+                    return (
+                      <li key={id} className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 text-xs">
+                        <span dir="auto">{name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setMentions((m) => m.filter((x) => x !== id))}
+                          aria-label={ar ? `إزالة ${name}` : `Remove ${name}`}
+                          className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="h-3 w-3" aria-hidden="true" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="grid gap-1.5">
             <Label htmlFor="email-subject" className="text-xs tracking-[0.02em] text-muted-foreground">

@@ -124,3 +124,66 @@ export function toGraphMessage(composed: Extract<ComposeResult, { ok: true }>): 
     ccRecipients: composed.cc.map(rcpt),
   };
 }
+
+// ---- Calendar (read-only): the manager's home page Meetings card ----------
+
+/** Riyadh is UTC+3 all year; Saudi Arabia keeps no daylight saving. */
+const RIYADH_OFFSET_MS = 3 * 3_600_000;
+const isoSeconds = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
+
+/** From now to midnight (Riyadh) at the end of tomorrow. */
+export function calendarWindow(now: Date): { start: string; end: string } {
+  const riyadh = new Date(now.getTime() + RIYADH_OFFSET_MS);
+  const todayStartUtc =
+    Date.UTC(riyadh.getUTCFullYear(), riyadh.getUTCMonth(), riyadh.getUTCDate()) - RIYADH_OFFSET_MS;
+  return { start: isoSeconds(now), end: isoSeconds(new Date(todayStartUtc + 2 * 86_400_000)) };
+}
+
+export type CalendarEvent = {
+  id: string;
+  subject: string;
+  /** Riyadh local time, "YYYY-MM-DDTHH:mm" (asked for with Prefer: outlook.timezone). */
+  start: string;
+  end: string;
+  /** All-day (or multi-day) event: the start time is midnight and means nothing. */
+  allDay: boolean;
+  location: string | null;
+  webLink: string | null;
+};
+
+const OUTLOOK_LINK = /^https:\/\/outlook\.office(365)?\.com\//;
+
+/** Graph calendarView items → what the card shows. Cancelled and private events never leave the server. */
+export function toCalendarEvents(value: unknown): CalendarEvent[] {
+  if (!Array.isArray(value)) return [];
+  const out: CalendarEvent[] = [];
+  for (const raw of value) {
+    const e = (raw ?? {}) as {
+      id?: unknown;
+      subject?: unknown;
+      start?: { dateTime?: unknown };
+      end?: { dateTime?: unknown };
+      location?: { displayName?: unknown };
+      webLink?: unknown;
+      isAllDay?: unknown;
+      isCancelled?: unknown;
+      sensitivity?: unknown;
+    };
+    if (e.isCancelled === true) continue;
+    if (e.sensitivity === "private" || e.sensitivity === "confidential") continue;
+    const start = typeof e.start?.dateTime === "string" ? e.start.dateTime.slice(0, 16) : "";
+    if (typeof e.id !== "string" || !e.id || start.length !== 16) continue;
+    const end = typeof e.end?.dateTime === "string" ? e.end.dateTime.slice(0, 16) : start;
+    const location = typeof e.location?.displayName === "string" ? e.location.displayName.trim() : "";
+    out.push({
+      id: e.id,
+      subject: typeof e.subject === "string" ? e.subject.trim() : "",
+      start,
+      end,
+      allDay: e.isAllDay === true,
+      location: location || null,
+      webLink: typeof e.webLink === "string" && OUTLOOK_LINK.test(e.webLink) ? e.webLink : null,
+    });
+  }
+  return out;
+}

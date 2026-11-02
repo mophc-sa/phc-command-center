@@ -17,6 +17,7 @@ import { mailModule } from "./handlers/mail.ts";
 import { meetingsModule } from "./handlers/meetings.ts";
 import { meetingsSyncModule } from "./handlers/meetings-sync.ts";
 import { outlookModule } from "./handlers/outlook.ts";
+import { infoMailModule } from "./handlers/info-mail.ts";
 import { calendarFeedModule } from "./handlers/calendar-feed.ts";
 import { pipelineModule } from "./handlers/pipeline.ts";
 import { createSalesOsRequestHandler } from "./router.ts";
@@ -38,6 +39,7 @@ const registry = createHandlerRegistry([
   meetingsModule,
   meetingsSyncModule,
   outlookModule,
+  infoMailModule,
 ]);
 
 export const salesOsActions = registry.actions;
