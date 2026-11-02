@@ -16,7 +16,20 @@ import {
   toCalendarEvents,
   toGraphMessage,
 } from "./graph.ts";
-import { calendarView, deltaPage, exchangeCode, getMe, getMessageDetail, initialDeltaUrl, refreshAccess, sendAsMe } from "./graph-client.ts";
+import {
+  appAccess,
+  calendarView,
+  deltaPage,
+  exchangeCode,
+  forwardMailboxMessage,
+  getMailboxMessage,
+  getMe,
+  getMessageDetail,
+  initialDeltaUrl,
+  mailboxDeltaUrl,
+  refreshAccess,
+  sendAsMe,
+} from "./graph-client.ts";
 import { composeOutbound } from "./mail.ts";
 
 const ENV: Record<string, string> = {
@@ -245,4 +258,65 @@ Deno.test("calendarView asks Graph for the window in Riyadh time and reads only 
   assertEquals(await calendarView("tok", "bad", "2026-10-21T21:00:00Z", fake), { ok: false, status: 400 });
   const failing = (() => Promise.resolve(new Response("{}", { status: 403 }))) as typeof fetch;
   assertEquals(await calendarView("tok", "2026-10-20T08:15:30Z", "2026-10-21T21:00:00Z", failing), { ok: false, status: 403 });
+});
+
+Deno.test("the app-only token asks for .default with the client-credentials grant", async () => {
+  let body = "";
+  const fake = ((_u: string, init?: RequestInit) => {
+    body = String(init?.body);
+    return Promise.resolve(new Response(JSON.stringify({ access_token: "app-tok" }), { status: 200 }));
+  }) as typeof fetch;
+  const r = await appAccess(CFG, fake);
+  assertEquals(r.ok && r.access, "app-tok");
+  const p = new URLSearchParams(body);
+  assertEquals(p.get("grant_type"), "client_credentials");
+  assertEquals(p.get("scope"), "https://graph.microsoft.com/.default");
+});
+
+Deno.test("the info@ delta reads that one mailbox's inbox", () => {
+  const u = mailboxDeltaUrl("info@phc-sa.com", "2026-10-13T00:00:00Z");
+  assert(u.startsWith("https://graph.microsoft.com/v1.0/users/info%40phc-sa.com/mailFolders/inbox/messages/delta?"));
+  assert(u.includes("webLink") && u.includes("hasAttachments") && u.includes("receivedDateTime+ge+2026-10-13T00:00:00Z"));
+  let threw = false;
+  try { mailboxDeltaUrl("info@phc-sa.com/../x", "2026-10-13T00:00:00Z"); } catch { threw = true; }
+  assert(threw);
+});
+
+Deno.test("a mailbox message brings its text, headers and attachment names", async () => {
+  const urls: string[] = [];
+  const fake = ((url: string) => {
+    urls.push(url);
+    if (url.includes("/attachments")) {
+      return Promise.resolve(new Response(JSON.stringify({ value: [{ name: "BOQ.xlsx" }, { name: "Drawings.pdf" }] }), { status: 200 }));
+    }
+    return Promise.resolve(new Response(JSON.stringify({
+      uniqueBody: { content: " Please quote " },
+      internetMessageHeaders: [{ name: "Auto-Submitted", value: "no" }],
+      singleValueExtendedProperties: [{ id: "Integer 0x36", value: "0" }],
+    }), { status: 200 }));
+  }) as typeof fetch;
+  const r = await getMailboxMessage("tok", "info@phc-sa.com", "AAMk1", true, fake);
+  assertEquals(r, {
+    body: "Please quote",
+    sensitivity: "0",
+    headers: [{ name: "Auto-Submitted", value: "no" }],
+    attachmentNames: ["BOQ.xlsx", "Drawings.pdf"],
+  });
+  assert(urls[0].startsWith("https://graph.microsoft.com/v1.0/users/info%40phc-sa.com/messages/AAMk1?"));
+  assertEquals(urls.length, 2);
+  const none = await getMailboxMessage("tok", "info@phc-sa.com", "AAMk1", false, fake);
+  assertEquals(none?.attachmentNames, []);
+});
+
+Deno.test("forwarding sends one recipient and a comment, and reports Graph's refusal", async () => {
+  let seen: { url: string; body: unknown } = { url: "", body: null };
+  const ok = ((url: string, init?: RequestInit) => {
+    seen = { url, body: JSON.parse(String(init?.body)) };
+    return Promise.resolve(new Response(null, { status: 202 }));
+  }) as typeof fetch;
+  assertEquals(await forwardMailboxMessage("tok", "info@phc-sa.com", "AAMk1", "khalid@phc-sa.com", "Routed by Mo", ok), { ok: true });
+  assertEquals(seen.url, "https://graph.microsoft.com/v1.0/users/info%40phc-sa.com/messages/AAMk1/forward");
+  assertEquals(seen.body, { comment: "Routed by Mo", toRecipients: [{ emailAddress: { address: "khalid@phc-sa.com" } }] });
+  const no = (() => Promise.resolve(new Response("{}", { status: 403 }))) as typeof fetch;
+  assertEquals(await forwardMailboxMessage("tok", "info@phc-sa.com", "AAMk1", "k@phc-sa.com", "c", no), { ok: false, status: 403 });
 });

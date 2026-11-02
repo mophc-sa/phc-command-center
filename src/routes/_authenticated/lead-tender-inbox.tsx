@@ -10,6 +10,8 @@ import { KpiCard } from "@/components/phc/KpiCard";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { NewIntakeDialog } from "@/components/phc/NewIntakeDialog";
 import { IntakeReviewPanel } from "@/components/phc/IntakeReviewPanel";
+import { InfoMailPanel } from "@/components/phc/InfoMailPanel";
+import { canManageSalesPipeline } from "@/lib/roles";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
@@ -174,6 +176,8 @@ function LeadTenderInbox() {
         <KpiCard label={t("ibxst_sent_to_missing_data")} value={kpis.missingData} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
         <KpiCard label={t("ibxst_converted")} value={kpis.converted} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
       </KpiRow>
+
+      {canManageSalesPipeline(roles) ? <div className="mb-4"><InfoMailPanel /></div> : null}
 
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full md:max-w-xs">

@@ -57,7 +57,7 @@ import { PROMPT_VERSION } from "../_shared/ai-prompts.ts";
 import { interpretClaimRpcResult, type ClaimRpcRow } from "../_shared/ai-idempotency.ts";
 import { computeRequestFingerprint, resolveEffectiveProviderOverride } from "../_shared/ai-fingerprint.ts";
 
-type Caller = { userId: string; roles: AppRole[] };
+type Caller = { userId: string; roles: AppRole[]; service?: true };
 type ServiceClient = ReturnType<typeof serviceClient>;
 
 function errorEnvelope(code: AiErrorCode, message: string, traceId: string | null, status: number, outputId?: string): Response {
@@ -166,14 +166,37 @@ async function markClaim(
   return { ok: true };
 }
 
+// ---- Service caller (info@ mailbox, 2026-10-20) -----------------------------
+// outlook-sync's info@ pass classifies mail with no person present. It proves
+// itself with the same Vault key pg_cron sends it (outlook_sync_key_matches),
+// runs as the info@ profile (so usage and requested_by stay a real, active
+// user), and may run ONLY agents marked serviceCallable in the registry.
+// Throws on any failure, like resolveCaller, so both share one generic 401.
+async function resolveServiceCaller(key: string): Promise<Caller> {
+  const svc = serviceClient();
+  const { data: ok } = await svc.rpc("outlook_sync_key_matches", { _key: key });
+  if (ok !== true) throw new Error("service key");
+  const mailbox = (Deno.env.get("INFO_MAILBOX") ?? "").trim().toLowerCase();
+  if (!mailbox) throw new Error("service mailbox");
+  // ilike for case; the address's own % and _ are matched literally.
+  const { data: profile } = await svc
+    .from("profiles").select("id, status").ilike("email", mailbox.replace(/[\\%_]/g, "\\$&")).maybeSingle();
+  if (!profile || profile.status !== "active") throw new Error("service profile");
+  return { userId: profile.id as string, roles: [], service: true };
+}
+
 async function handleRequest(req: Request): Promise<Response> {
   const traceId = crypto.randomUUID();
   const startedAt = Date.now();
 
   // ---- 2. Authenticate ----------------------------------------------------
+  // A service call (x-phc-service-key) never falls back to the user path.
   let caller: Caller;
+  const serviceKey = req.headers.get("x-phc-service-key");
   try {
-    caller = await resolveCaller(req.headers.get("Authorization"));
+    caller = serviceKey
+      ? await resolveServiceCaller(serviceKey)
+      : await resolveCaller(req.headers.get("Authorization"));
   } catch {
     // Deliberately generic — never confirm/deny *why* auth failed.
     return errorEnvelope("AI_UNAUTHENTICATED", "Authentication is required.", null, 401);
@@ -216,7 +239,9 @@ async function handleRequest(req: Request): Promise<Response> {
   const entityId = request.entityId;
 
   // ---- 5. Role + record access ----------------------------------------------
-  if (!agentDef.hasRole(caller.roles)) {
+  // A service caller runs only serviceCallable agents; a person, only by role.
+  const allowed = caller.service ? agentDef.serviceCallable === true : agentDef.hasRole(caller.roles);
+  if (!allowed) {
     return errorEnvelope("AI_AGENT_NOT_ALLOWED", "Your role cannot run this agent.", traceId, 403);
   }
   const access = await agentDef.checkAccess(svc, entityType, entityId, caller.userId, caller.roles);
@@ -445,7 +470,9 @@ async function handleRequest(req: Request): Promise<Response> {
     return await skip("AI_NOT_CONFIGURED", "AI service is not configured.", 200);
   }
   const { config } = providerResolution;
-  const usageKind = entityType === "import_batches" || entityType === "import_rows" ? "import" : "interactive";
+  const usageKind = caller.service
+    ? "mailbox"
+    : entityType === "import_batches" || entityType === "import_rows" ? "import" : "interactive";
   const { data: reserved, error: usageError } = await svc.rpc("reserve_ai_usage", { _user: caller.userId, _kind: usageKind });
   if (usageError || !reserved) return await fail("AI_USAGE_LIMIT", "AI usage could not be reserved or the daily limit was reached.", 429);
 

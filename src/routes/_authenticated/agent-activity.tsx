@@ -76,7 +76,7 @@ function AgentActivityPage() {
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["ai-agent-runs-all"],
     queryFn: async () =>
-      (await supabase.from("ai_agent_runs").select("*").order("started_at", { ascending: false }).limit(200)).data ?? [],
+      (await supabase.from("ai_agent_runs").select("*").neq("agent_key", "info_mail_triage").order("started_at", { ascending: false }).limit(200)).data ?? [],
     staleTime: 30_000,
   });
 
@@ -99,6 +99,8 @@ function AgentActivityPage() {
         await (supabase as any)
           .from("ai_agent_outputs")
           .select("id, agent_key, status, entity_type, entity_id, summary, created_at, output_type, client_request_id")
+          // info@ sorting runs on every inbound message; it has its own list in the inbox.
+          .neq("agent_key", "info_mail_triage")
           .order("created_at", { ascending: false })
           .limit(200)
       ).data ?? [],
