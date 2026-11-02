@@ -31,7 +31,7 @@ Date: 2026-10-22 · Due: 2026-11-01 · Approved by Mo ("Approve, build it") on 2
   `yearly`. A reminder may belong to a deal or to a client company (monthly and yearly check-ins
   are about the relationship, not a deal).
 
-## Data (migration `20261026100000_samples_drawings_reminders.sql`)
+## Data (migration `20261027100000_samples_drawings_reminders.sql`)
 
 ### `deal_submittals`
 `id`, `opportunity_id` (cascade), `kind`, `title` (1–200 chars), `notes`, `revision` (starts at 0),

@@ -3,7 +3,7 @@
 // reminders on a specific date, or repeating monthly or yearly").
 //
 // The database schedules the next reminder when one is completed
-// (schedule_next_follow_up, 20261026100000). nextFollowUpDate mirrors
+// (schedule_next_follow_up, 20261027100000). nextFollowUpDate mirrors
 // next_follow_up_date() so the screen can say when the next one will be; a test
 // pins the two to the same cases.
 // =============================================================================

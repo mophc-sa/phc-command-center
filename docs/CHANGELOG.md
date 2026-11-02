@@ -2,7 +2,7 @@
 
 ## 2026-10-22 — Samples, drawings and client reminders (manager feedback group 5) (not deployed)
 
-- Migration `20261026100000`: `deal_submittals` + append-only `deal_submittal_steps` (samples and
+- Migration `20261027100000`: `deal_submittals` + append-only `deal_submittal_steps` (samples and
   drawings, step order enforced by `submittal_next_steps()` and a BEFORE INSERT trigger, revisions,
   who/when/notes/file per step; RLS = the deal's readers, recording by sales contributors,
   approve/decline by `is_commercial_manager` only; notifications to sales manager + GM on a sample
@@ -16,6 +16,70 @@
   `/submittals` (Production group, ⌘K). Client page: **Client reminders**. Follow-ups page and My
   Workspace show the client for client reminders; a `company` notification opens the client.
 
+## 2026-10-22 — Drafts in every form, short links, section navigation (manager feedback group 6) (not deployed)
+
+- **Drafts by default.** `ActionDialog` keeps a draft for every form (`autoDraftId`: page path + title +
+  field keys + new `recordId` prop; `draftId={false}` opts out). The key is fixed when the dialog opens.
+  `recordId` added to every per-row dialog; contract test `action-dialog-drafts` fails if a new one
+  forgets it. Email and WhatsApp compose windows and the deal Discussion box keep drafts too
+  (`useFormDraft`, `DraftRestoredNote`). Deal Technical Notes save after a 1.5 s pause as well as on blur.
+- **Short links** `/p/<code>` (`src/routes/_authenticated/p.$code.tsx`, `src/lib/short-link.ts`): RFQ
+  number → deal, read as the signed-in user; no access or no such code = one not-found screen. **Copy
+  link** on the deal header. The calendar feed links events by short link when the deal has a code
+  (`withShortLinks`; UIDs unchanged) — needs a `calendar-feed` deploy.
+- **Section navigation** (`SectionNav` in AppShell, `src/lib/section-nav.ts`): ⌥↑/⌥↓ between the
+  outermost `<section>`s of the main column; index pill on md+ for pages with 4+ sections; ignored in
+  inputs, dialogs and menus; instant under reduced motion.
+- No migration. Release: frontend + `calendar-feed` function.
+
+## 2026-10-22 — Site stage from intake to home page; a code for every deal (not deployed)
+
+- Migration `20261026100000`: `project_stage` gains `excavation`, `structure`, `mep_finishing`
+  (before `near_handover`); `inbox_items.project_stage` and `opportunity_updates.project_stage`; an update
+  with a stage sets the deal's stage, and a *Progress update* needs a % or a stage.
+  `opportunities.project_code` (unique): drawn from the RFQ sequence with the owner's sales code when a
+  deal with no numbered RFQ is created or given an owner; an RFQ raised for a deal takes its code; the
+  deal follows its RFQ's number; hand edits only by `can_edit_rfq_number` (audited). `next_project_number`
+  falls back to the deal's code before `PRJ-`. Existing deals backfilled, one `audit_log` row each.
+  pgTAP `construction_phase_and_deal_code` (20).
+- Intake form: **Site stage** select next to Project completion %, carried to the deal on approval.
+  Deal page: **Project updates** shows the site stage and the update dialog sets it; the qualification
+  panel shows it labelled; the header shows the deal's code when there is no RFQ number. Home
+  **Projects in progress**: site stage above the construction bar. Opportunities table shows and sorts by
+  the deal's code. Projects pages: new stages labelled, "Under construction" counts every phase.
+
+## 2026-10-23 — The info@ mailbox (group 3, part B; branch `feat/info-mailbox`; not deployed)
+
+- Migrations `20261025090000_inbox_source_info_mailbox.sql` (the `info_mailbox` intake source) and
+  `20261025100000_info_mailbox.sql` (the `info_mail` table, routing functions, `info_mailbox_state`, the
+  5-minute job).
+- `outlook-sync` info@ pass: reads only info@ (app-only, Exchange RBAC for Applications, no Entra Mail
+  permission), binds replies to their deal, sends each new message to `ai-orchestrator` agent
+  `info_mail_triage` (first service caller; Vault key, runs as the info@ profile, `serviceCallable` only).
+  Request: becomes an inbox item (location, client RFQ number, value, scope) for the account owner or the
+  sales managers. Anything else keeps sender, subject, label and one line; its text is not stored.
+- Triage never overrides a router's decision. An AI outage pauses sorting without spending a message's
+  three tries (`info_mailbox_state.last_error` = `triage paused: <code>`). Below 70% confidence waits for a person.
+- Client replies reach the active people on the deal or item, else the sales managers.
+- UI: router panel "info@ mail — to route" at the top of Lead & Tender Inbox (sales manager, BD, sales ops,
+  executives): forward (confirm; claims the message first so two clicks cannot send twice), This is an RFQ
+  (fetches the full text from Outlook again), dismiss. "Email to info@" chip on intake. "Source email" panel
+  on the deal page. "Mention" in the send window (in-system notice only; CC unchanged).
+- Final review: mail from before go-live is listed "Not sorted — route by hand" without AI; newsletters/bulk
+  mail go to a "Newsletters & spam" line with Dismiss all; Dismiss asks to confirm; newest 200 shown; AI
+  backs off on outages (30 min doubling to 120) and is newest-first; a handled-less-than-5-minutes row is
+  claimed (the forward handler takes a stale claim); Mention lists only people who can open the deal and the
+  toast reads "n of m notified"; Agent Activity hides `info_mail_triage`.
+- Docs: `docs/info-mailbox-setup.md` (pre-checks, release order, first run), USER_GUIDE (Step 1, Step 3, deal page, send window, section 10).
+- Not deployed. Needs deploys of `ai-orchestrator`, `outlook-sync` and `sales-os-api` first, then `db push`
+  (two migrations), Mo's Exchange setup, then `supabase secrets set INFO_MAILBOX=info@phc-sa.com`. Not tried
+  against the real mailbox.
+
+## 2026-11-02 — Dependency advisories patched (not deployed)
+
+- **GHSA-mrhx-c7xc-m3w5** (Zod, high): `zod` ^4.4.3 → ^4.6.7, with an override so nested copies move too. **GHSA-27r3-jxmh-p828** (body-parser, high):
+  override to ^2.4.0. Both failed the Security workflow's Dependency audit.
+
 ## 2026-10-22 — Back button and full intake notes (manager feedback group 6, not deployed)
 
 - `BackButton` in the shell top bar on every signed-in page except home: `router.history.back()` when the
@@ -28,6 +92,20 @@
   feedback, PR 352 money-column guards, PR 350 TanStack security patch.
 - `sales-os-api` v76; the three pending migrations were already applied.
 - Spec written for project ownership (`feat/project-owner`), not yet implemented.
+
+## 2026-10-20 — Today's actions on the Command Center (group 3, part A; not deployed)
+
+- `src/lib/manager-actions.ts` (+ tests): Call (at risk / stalled / closing soon, quiet ≥ 14 days, ranked by attention score;
+  contact = decision maker with a phone, else anyone with a phone), Team (overdue, or due and none done), Approve
+  (`isManagerDecision`, oldest first), meeting day label.
+- `sales-os-api` action `outlook_calendar_upcoming`: the caller's own calendarView, now → end of tomorrow (Riyadh),
+  cancelled/private dropped, read-only (`calendarWindow`, `toCalendarEvents`, `calendarView`).
+- `ManagerActions` strip at the top of `/command-center`; replaces the "Decisions awaiting approval" strip and its query.
+  The stakeholder read now includes `phone, contact_order`.
+- `src/lib/approvals-loader.ts`: one BAFO loader shared by the Approve card (pending only) and /approvals (unchanged behaviour; the page still works when the BAFO read fails).
+- No migration. Release: deploy `sales-os-api`, then the UI.
+
+Not yet tried in a browser with a signed-in manager.
 
 ## 2026-10-19 — Deal values guarded in the database (not deployed)
 

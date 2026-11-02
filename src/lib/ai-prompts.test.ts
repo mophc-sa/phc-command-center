@@ -74,3 +74,17 @@ test("old_data_classifier prompt forbids committing or writing to CRM tables", (
   const lower = built.systemPrompt.toLowerCase();
   expect(lower).toMatch(/never insert,\s*update, delete, or merge/);
 });
+
+// Final review C1: the triage prompt must name every `request` key the schema
+// demands (all present, null when not stated), or a valid answer can never pass.
+test("info_mail_triage prompt lists every request key with its type", async () => {
+  const { InfoMailTriageOutputSchema } = await import("../../supabase/functions/_shared/ai-schemas");
+  const request = InfoMailTriageOutputSchema.shape.request.unwrap();
+  const keys = Object.keys(request.shape);
+  expect(keys.length).toBe(11);
+  const prompt = AGENT_PROMPT_BUILDERS.info_mail_triage("context").systemPrompt;
+  for (const key of keys) expect(prompt).toContain(`- ${key}:`);
+  expect(prompt).toMatch(/estimated_value[^\n]*number/);
+  expect(prompt).toMatch(/deadline[^\n]*YYYY-MM-DD/);
+  expect(prompt.toLowerCase()).toContain("every key");
+});

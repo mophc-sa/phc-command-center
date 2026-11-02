@@ -266,6 +266,7 @@ function LeadIntakePage() {
       />
 
       <ActionDialog
+        recordId={rejectFor}
         open={!!rejectFor}
         onOpenChange={(o) => !o && setRejectFor(null)}
         title={t("lead_reject")}

@@ -8,7 +8,7 @@
 //
 // Both are one model: an item (deal_submittals) and an append-only log of its
 // steps (deal_submittal_steps). The database enforces the order below in
-// submittal_next_steps() (20261026100000); NEXT_STEPS mirrors it so the screen
+// submittal_next_steps() (20261027100000); NEXT_STEPS mirrors it so the screen
 // only offers what will be accepted, and submittals.test.ts fails if they drift.
 // =============================================================================
 

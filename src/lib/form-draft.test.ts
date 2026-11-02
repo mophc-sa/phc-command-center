@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+  autoDraftId,
   DRAFT_TTL_MS,
   draftAgeMinutes,
   draftKey,
@@ -86,5 +87,31 @@ describe("telling the user how old it is", () => {
     expect(draftAgeMinutes(NOW - 90_000, NOW)).toBe(1);
     expect(draftAgeMinutes(NOW, NOW)).toBe(0);
     expect(draftAgeMinutes(NOW + 5_000, NOW)).toBe(0);
+  });
+});
+
+describe("a form that did not name itself", () => {
+  const base = { path: "/opportunities/o1", title: "Log a call", fieldKeys: ["summary", "date"] };
+
+  it("is told apart by page, record, title and fields", () => {
+    const id = autoDraftId(base);
+    expect(id).not.toBeNull();
+    expect(autoDraftId({ ...base, path: "/opportunities/o2" })).not.toBe(id);
+    expect(autoDraftId({ ...base, title: "Log a meeting" })).not.toBe(id);
+    expect(autoDraftId({ ...base, fieldKeys: ["summary"] })).not.toBe(id);
+  });
+
+  it("keeps one row's half-typed reason off the next row of the same list", () => {
+    const list = { path: "/lead-tender-inbox", title: "Reject", fieldKeys: ["reason"] };
+    expect(autoDraftId({ ...list, recordId: "lead-a" })).not.toBe(autoDraftId({ ...list, recordId: "lead-b" }));
+  });
+
+  it("is the same form on coming back to it", () => {
+    expect(autoDraftId({ ...base, path: "/opportunities/o1/" })).toBe(autoDraftId(base));
+    expect(autoDraftId({ ...base, title: " Log a call " })).toBe(autoDraftId(base));
+  });
+
+  it("is nothing for a confirmation with no fields", () => {
+    expect(autoDraftId({ ...base, fieldKeys: [] })).toBeNull();
   });
 });

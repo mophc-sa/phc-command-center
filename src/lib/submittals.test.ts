@@ -15,7 +15,7 @@ import {
 } from "./submittals";
 import { nextFollowUpDate, recurrenceLabel } from "./follow-up-recurrence";
 
-const SQL = readFileSync("supabase/migrations/20261026100000_samples_drawings_reminders.sql", "utf8");
+const SQL = readFileSync("supabase/migrations/20261027100000_samples_drawings_reminders.sql", "utf8");
 
 describe("the step order matches the database", () => {
   test("NEXT_STEPS equals submittal_next_steps() line for line", () => {

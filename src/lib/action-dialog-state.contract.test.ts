@@ -68,7 +68,10 @@ describe("the seeding effect", () => {
     //
     // So the rule is stated as the rule: only stable primitives, and never
     // anything whose identity is recreated per render.
-    const ALLOWED = new Set(["open", "storageKey"]);
+    //
+    // 2026-10-22: the effect now reads `liveKey` (the key as of this render) and
+    // fixes it for the opening; same kind of value, a string, same reason.
+    const ALLOWED = new Set(["open", "storageKey", "liveKey"]);
     const names = deps![1].split(",").map((d) => d.trim()).filter(Boolean);
     expect(names.length).toBeGreaterThan(0);
     for (const n of names) {

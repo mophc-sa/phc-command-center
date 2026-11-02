@@ -253,7 +253,14 @@ Everything else is optional and can be filled in later.
 
 **Other useful fields at intake:** Source · Client type · RFQ from · Scope · Location ·
 Deadline · **Evidence** (paste the email link, or attach a file — both work) · Assigned owner ·
-**Job title** of the contact person (since 2026-10-19 — it follows the contact onto the deal page).
+**Job title** of the contact person (since 2026-10-19 — it follows the contact onto the deal page) ·
+**Site stage** and **Project completion %** — where the building stands and how far along it is.
+
+**Site stage (2026-10-22).** One closed list, in the order a building goes: *Planning · Design ·
+Main contract in tender · Main contract awarded · Excavation · Structure · MEP & finishing ·
+Handover · Completed*, plus *Under construction (phase not given)* for when you only know it is
+being built. Leave it blank if nobody said. It goes onto the deal when the request is approved,
+and from then on it moves through **Project updates** on the deal page, like the %.
 
 **Autofill in blue (2026-10-19).** Type a company the system already knows and the empty
 contact fields fill themselves from that company's last request: contact name, job title,
@@ -261,6 +268,18 @@ phone, email, client type, main contractor and consultant. Those fields show **i
 Confirm button**. Press **Confirm** if the value is still right, or just change it. The form
 will not save while a blue field is unconfirmed, so nothing old slips in unnoticed. Fields you
 already typed are never overwritten.
+
+**Requests that arrive at info@ (2026-10-23).** Not every request is typed in. The system reads
+`info@` every 5 minutes. A quotation request or RFQ becomes a request in the inbox, with the
+location, the client's RFQ number, the estimated value and the scope filled in where the email
+states them. It carries the **Email to info@** chip, and is assigned to the client's account
+owner, or waits for the sales manager to assign it. Everything else waits in **info@ mail — to
+route** at the top of the Lead & Tender Inbox page, where a sales manager, BD or sales ops
+forwards it to a colleague's Outlook, turns it into a request (**This is an RFQ**), or dismisses
+it. Forwarding and dismissing ask you to confirm first. Newsletters and spam are not listed one by
+one: a **Newsletters & spam** line with a count and **Dismiss all** (it confirms) clears them. Open the group and glance at it before **Dismiss all**: a client who writes through a mailing tool can land there. Mail
+that arrived before the system was switched on is listed under **Not sorted — route by hand**
+(the AI does not sort old mail).
 
 ### Step 2 — Save. It goes for review.
 
@@ -372,11 +391,21 @@ not a separate `PRJ-2026-…`. `PRJ-` numbers remain only for projects whose dea
 the deal page, the code at the top is a link to that project file, where the budget lives.
 Only the **sales manager** can change a code.
 
+**Every deal has a code, with or without an RFQ (2026-10-22).** A deal that never had an RFQ —
+one converted from a lead or a tender, or brought in from the old records — now gets a code
+too, in the same `FA-26-0001` form, from **its owner's** code: when the deal is created with an
+owner, or when a manager assigns one. Its Production project is then issued that code instead of
+a `PRJ-` number. The code does not change when the deal is reassigned later. If an RFQ is raised
+for the deal afterwards, the RFQ takes the deal's code, so it is still one code. Deals that existed
+before this date were given theirs once (each recorded in the audit log); a deal with no owner
+gets its code when an owner is assigned.
+
 ### Step 3 — Manual classify and convert (only for what didn't route)
 
 **Page:** Lead & Tender Inbox — صندوق العملاء والمناقصات (`/lead-tender-inbox`)
 
-Entries that couldn't route themselves sit here. Open one and classify it:
+Entries that couldn't route themselves sit here. (Mail from info@ that the AI did not turn into a
+request sits in its own panel at the top of this page — see Step 1.) Open one and classify it:
 
 | Classification | What happens on Convert |
 |---|---|
@@ -544,7 +573,9 @@ Old tenders are not allowed to sit active forever.
 
 | Page | Use it for |
 |---|---|
-| **Command Center** `/command-center` | Org-wide executive view. Opens with **Open pipeline** — the total, and a single bar showing which stages it sits in. Slate segments are deals being worked; amber segments are committed — verbally awarded, contract received or signed — and can still be lost. The legend under the bar gives every stage its own figure, share and count, and the total says how many records carry no value and are therefore not in it. Below that, **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. **A metric that cannot be calculated yet does not get a card**: those collapse into one line saying how many there are, and open to name each one, why it is unavailable — a setting nobody has entered, no records in the period, or an input the formula needs — and the link that fixes it. Every figure is computed over **the whole book you are permitted to see**; if the dataset were ever too large to read in one go, a warning appears above the figures. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention, and **Projects in progress** (since 2026-10-19): the ten live projects that moved most recently, each with its contractor, current stage, construction progress bar and latest update. **View all** opens the Opportunities table, which now has the same Stage, Construction and Last update columns. |
+| **Command Center** `/command-center` | Org-wide executive view. Opens with **Open pipeline** — the total, and a single bar showing which stages it sits in. Slate segments are deals being worked; amber segments are committed — verbally awarded, contract received or signed — and can still be lost. The legend under the bar gives every stage its own figure, share and count, and the total says how many records carry no value and are therefore not in it. Below that, **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. **A metric that cannot be calculated yet does not get a card**: those collapse into one line saying how many there are, and open to name each one, why it is unavailable — a setting nobody has entered, no records in the period, or an input the formula needs — and the link that fixes it. Every figure is computed over **the whole book you are permitted to see**; if the dataset were ever too large to read in one go, a warning appears above the figures. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention, and **Projects in progress** (since 2026-10-19): the ten live projects that moved most recently, each with its contractor, current sales stage, **site stage** (design, excavation, structure… since 2026-10-22) above the construction progress bar, and latest update. **View all** opens the Opportunities table, which now has the same Stage, Construction and Last update columns. |
+
+| **Command Center** `/command-center` | Org-wide executive view. It now opens with **Today's actions** — five cards: **Call** (top-priority deals — at risk, stalled or closing soon — with no client contact for 14 days or more, with the contact's number and a **Log call** button), **Meetings** (your Outlook meetings today and tomorrow; connect Outlook in Settings first), **Email** (today's client emails from My daily assistant), **Follow up with the team** (reps with overdue work or nothing done yet today, with **Give a task**) and **Approve** (manager decisions waiting for you, oldest first). Each card shows its count and the top three; **View all** opens the full list (for Call: the Priorities section below). Below them, **Open pipeline** — the total, and a single bar showing which stages it sits in. Slate segments are deals being worked; amber segments are committed — verbally awarded, contract received or signed — and can still be lost. The legend under the bar gives every stage its own figure, share and count, and the total says how many records carry no value and are therefore not in it. Below that, **Sales performance** — open pipeline, weighted forecast, Won, late-stage exposure, win/loss rate. Every tile shows the formula it used and opens the exact records behind the number. **A metric that cannot be calculated yet does not get a card**: those collapse into one line saying how many there are, and open to name each one, why it is unavailable — a setting nobody has entered, no records in the period, or an input the formula needs — and the link that fixes it. Every figure is computed over **the whole book you are permitted to see**; if the dataset were ever too large to read in one go, a warning appears above the figures. Below it: pipeline by stage, follow-up distribution, RFQ status, team target, items needing attention, and **Projects in progress** (since 2026-10-19): the ten live projects that moved most recently, each with its contractor, current stage, construction progress bar and latest update. **View all** opens the Opportunities table, which now has the same Stage, Construction and Last update columns. |
 | **My Workspace** `/my-workspace` | Your personal command centre. Opens with **What needs you today** — one ranked list of your highest-priority work drawn from every queue. Below it, the dashboard your role already had: target gauge, awarded vs remaining, JIH and Tender totals, urgent follow-ups and submissions. **A salesperson's home base.** |
 | **Action Required** `/action-center` | Your work queue — now covering **all five sources**: the automation queue, tasks, follow-ups, approvals, and intake reviews. Filter by Mine / Team / All, Overdue / Due today / Upcoming, plus type, record type, priority and owner. Every row says *why* it is there. Managers also get the **Run Automations** button. |
 | **Approvals** `/approvals` | Opens on **Manager decisions**: only what genuinely needs the commercial manager — the **BAFO / discount chain** (which of the four steps is waiting and on which role), the **under-300k exception**, **tender → JIH**, and **verbal award / contract / won confirmations**. Everything routine — intake review, AI recommendations, management-review requests, discussion mentions, deletion and sure-win requests — is one tab over under **Other requests** (طلبات أخرى). Every type has a plain Arabic/English name; no raw codes. *(2026-10-19)* |
@@ -695,6 +726,42 @@ to that name — the address bar shows `\u200E/contacts?q=…`, which you can bo
 With the box empty you get your pinned and recently opened records instead. If nothing matches,
 it says so.
 
+### Moving around a long page — ⌥↑ / ⌥↓ (2026-10-22)
+
+On a long page (a deal, the Command Center) press **⌥↓** (Option + Down; **Alt + Down** on
+Windows) to jump to the next section and **⌥↑** to go back. From the middle of a long section,
+⌥↑ first returns to that section's top. The plain arrow keys still scroll as they always did,
+and while you are typing in a box the keys belong to the box.
+
+On a wide screen a small pill at the bottom corner shows **which section you are in**
+(e.g. `4/18 · Follow-ups`) with up/down buttons; click the name for the list of every section
+and jump straight to one. It appears only on pages with four or more sections. If your system
+is set to reduce motion, jumps are instant instead of scrolling.
+
+### Short links to a deal — `/p/FA-26-0001` (2026-10-22)
+
+Every deal with a Project Code has a short address: **`agent.phc-sa.com/p/<code>`**, for
+example `/p/FA-26-0001`. Typing or pasting it opens the deal directly. Capitals do not
+matter. On the deal page, **Copy link** beside the code copies it; a deal that has no code yet
+copies its full address instead.
+
+A short link opens only what the person could already open: someone without access to the deal
+sees "not found", the same as for a code that does not exist. The **Outlook calendar feed** now
+links its events by short link as well.
+
+### Nothing you type is lost (2026-10-22)
+
+Every form keeps what you typed until you save it — not only the New Entry form. Close the
+window, press Escape, lose the tab, open another deal: when you reopen the same form **on the
+same record**, it says **"Restored what you had typed · N minutes ago"** with a **Start fresh**
+button. The same goes for the **email** and **WhatsApp** windows and the deal's **Discussion**
+box. Nothing is ever saved or sent by itself: creating, posting and sending still need your
+button press. A draft lives in this browser, for your account only, for 7 days, and is
+removed as soon as the form is saved.
+
+On the deal page, **Technical Notes** now also saves itself after a short pause in typing
+("Saved automatically"), as it already did when you clicked away.
+
 ### Inside an opportunity
 
 The opportunity page is one long timeline you can filter by facet:
@@ -704,10 +771,17 @@ The opportunity page is one long timeline you can filter by facet:
 updates** is the dated log of what happened: *Offer sent · Revised offer sent · PO received ·
 Contract signed · Awaiting payment · Payment received · Awaiting client reply · Site visit ·
 Progress update · Other*. Press **Post update**, pick what happened, add a note, and if you know
-it, the **new construction %** of the site. That % is the bar at the top of the panel and on the
-home page. It changes only through an update, so every figure has a date and a name behind it.
-A blank % means nobody reported it, which is shown as "—", never as 0%. You can delete your own
-update the same day; managers can delete any.
+them, the **site stage now** and the **new construction %** of the site. Both show at the top of the
+panel and on the home page. They change only through an update, so every figure has a date and a
+name behind it. A blank % means nobody reported it, which is shown as "—", never as 0%. A
+*Progress update* needs a %, a stage, or both. You can delete your own update the same day;
+managers can delete any. *(Site stage since 2026-10-22.)*
+
+**Source email (2026-10-23).** A deal that began as an email to info@ has a **Source email** panel:
+who wrote, the subject, the AI's one-line summary, and **Open in Outlook** for the original thread
+(it opens only for people who were given read access to the info@ inbox). Later client replies to
+that conversation appear under **Correspondence** and notify the people active on the deal; if
+nobody is, the sales managers.
 
 **Three values, kept apart (2026-10-19).** Key facts now shows **Estimated value** (the
 from–to range), **Quotation value** (what we quoted) and **Awarded value** (the contract value,
@@ -791,8 +865,8 @@ opportunity page with the follow-up already scheduled. Don't go looking for the 
 
 ### Sales Manager — مدير المبيعات
 
-1. Open **Command Center** for the org-wide position.
-2. Clear **Approvals → Manager decisions** first — your team is blocked behind them. Routine requests wait under **Other requests**.
+1. Open **Command Center** and start with **Today's actions** — the five cards are your day: call, meet, answer email, chase the team, decide.
+2. Clear **Approve** first — your team is blocked behind it.
 3. Work **Award & Contract Queue**: verbal awards with no contract, contracts with no reference.
 4. Check **Tender Conversion** for anything past 90 days.
 5. Run **Automations** from Action Center *(until it is scheduled — see Limitations)*.
@@ -815,7 +889,7 @@ opportunity page with the follow-up already scheduled. Don't go looking for the 
 
 ### General Manager / Managing Director
 
-1. **Command Center** — target, pipeline, what needs a decision.
+1. **Command Center** — **Today's actions** first, then target, pipeline, what needs a decision.
 2. Final approval on BAFO requests.
 3. Approve `won` — this is the moment revenue is recognised in the system.
 4. **Reports** and the AI Weekly Report.
@@ -889,7 +963,7 @@ A project now has a responsible salesperson, shown at the top of the project pag
 
 ### Samples, drawings and client reminders (2026-10-22)
 
-- **Not live until the database change is applied.** Migration `20261026100000` must be pushed to
+- **Not live until the database change is applied.** Migration `20261027100000` must be pushed to
   production first (approval-gated).
 - **The sample approval is not on the Approvals page.** It is recorded on the deal and announced in
   the bell; the manager also finds waiting samples at the top of **Samples & drawings**.
@@ -899,14 +973,55 @@ A project now has a responsible salesperson, shown at the top of the project pag
   Follow-ups and in My Workspace, but it does not create a risk flag (those belong to a deal).
 - **Ammar and the designer are not notified** in the app; they have no login for it.
 
+### Drafts, short links and section keys (2026-10-22)
+
+- **A draft is per browser.** Start a form on your laptop and it is not on your phone.
+- **A restored draft wins over newer data.** If someone else edited the record after you
+  started, the restored form shows your version; check it, or press **Start fresh**.
+- **A field you emptied on purpose comes back with its old value** after a restore — only
+  filled-in fields are kept.
+- **Some forms still close on an error** (several actions on the deal page, approval
+  decisions, the contract form): the error appears as a message, the form closes and its draft
+  is removed, as before.
+- **A draft follows the language.** A form started in Arabic is offered again in Arabic.
+- **Short links need a code.** A deal with no RFQ number (no Project Code yet) has only its
+  long address. The calendar feed change needs the `calendar-feed` function deployed.
+
+### The info@ mailbox (2026-10-23)
+
+- It needs the Exchange setup in `docs/info-mailbox-setup.md`. Until that is done and switched on, nothing from info@ reaches the system.
+- A reply from your own Outlook starts a new email "RE: ...". It does not continue the info@ thread in the client's inbox.
+- CVs, invoices and other non-request mail keep only the sender, subject, label and one line; the text stays in Outlook.
+- Attachments are listed by name, not stored.
+- The AI sorts. A request it is unsure of (below 70%) waits in the **info@ mail — to route** list for a person. If the AI is down, sorting backs off (30 minutes, then 60, then 120) and resumes by itself; nothing is lost. The mailbox has a daily AI limit of 300; at the limit, sorting resumes after 03:00 Riyadh time.
+- Only new mail is sorted. Mail from before go-live, and mail the AI could not sort after three tries, shows as **Not sorted — route by hand**. Newsletters go to **Newsletters & spam** without the AI.
+- The list shows the newest 200 messages. Only the Inbox folder is read: mail moved by an Outlook rule, or in Junk, is not seen.
+- A message a person has dismissed or forwarded is never turned into a request afterwards by the AI.
+- Do not CC `info@` when you reply from the system: the reply would start a separate thread instead of joining the client's.
+- **Mention** only offers colleagues who can open that deal, and only they are notified. If some of the people you picked cannot be reached, the confirmation says "n of m notified".
+- For a rep to open the original email, the Reviewer permission on the info@ Inbox must be in place (see the setup guide); without it **Open in Outlook** is refused.
+
+### Today's actions on the Command Center (2026-10-20)
+
+- **Call** counts client contact from the last 30 days only; a deal with older contact shows "quiet 30+ days".
+  A deal with no stakeholder shows "No contact recorded" — add one on the deal page.
+- **Meetings** reads your own Outlook calendar and changes nothing in it. Private and cancelled meetings are not shown.
+- **Email** shows the brief My daily assistant made today. If there is no brief yet today, the card says so — it is made when new client email arrives.
+- **Follow up with the team** shows counts only; a rep's task titles stay with the rep.
+- The strip is shown to the roles that manage the sales pipeline; finance, estimation, viewer and admin accounts opening the Command Center do not see it.
+
 ### Project tracking (2026-10-19)
 
 - **Not live until the database change is applied.** The update log, job title and closed-deal
   probability need migration `20261022100000` in production first (approval-gated).
-- **Construction % changes only through a project update.** There is no separate field to type it in.
-  The intake form still asks for it once, at the start.
+- **Construction % and site stage change only through a project update.** There is no separate field
+  to type them in. The intake form still asks for both once, at the start. Deleting an update does
+  not put the previous % or stage back; post a new update with the right figure.
 - **Autofill works on the intake form only**, and only from requests you can already see.
-- **A deal with no RFQ has no code**, so its Production project gets a `PRJ-` number.
+- **A deal with no owner has no code** until a manager assigns one. Every other deal has one
+  since 2026-10-22, needing migration `20261026100000` in production first (approval-gated).
+- **A code can be changed only in the database for now.** The sales manager is the only person
+  allowed to, but there is no field for it on the deal page yet.
 - **The code links to the Production project, not to a finance system.** There is no invoice,
   PO or payment module yet; the project's budget tab is the finance link today.
 
@@ -974,6 +1089,8 @@ When Send is available:
 - The email is recorded on the deal as sent, and counts as client contact.
 - Only your click sends. Nothing is ever sent automatically, on a schedule, or by AI.
 - Only sales roles can send. Others still see Open in Outlook.
+- **Mention (2026-10-23).** On an email tied to a deal, **Mention** tells colleagues inside the
+  system that you wrote to the client. It does not copy them on the email; use **CC** for that.
 
 **When reply capture is also set up:** a client's reply to an email you sent from the
 system appears on that deal's timeline automatically, and counts as client contact.
@@ -1410,3 +1527,12 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-10-22 · Back button on every page, full intake notes in the bell · previous: project tracking, 2026-10-19 -->
 
 <!-- last reviewed 2026-10-22 · samples and drawings tracking, repeating follow-ups, client reminders, due-today notifications · previous: projects have an owner, 2026-10-21 -->
+
+<!-- last reviewed 2026-10-22 · drafts in every form, short links /p/<code>, ⌥↑/⌥↓ section navigation · previous: projects have an owner, 2026-10-21 -->
+
+<!-- last reviewed 2026-10-22 · site stage at intake, on the deal and on the home page; a code for every deal, also without an RFQ · previous: projects have an owner, 2026-10-21 -->
+
+<!-- last reviewed 2026-10-20 · Today's actions: five cards on the Command Center · previous: manager feedback (approvals, targets), 2026-10-19 -->
+
+<!-- last reviewed 2026-10-23 · info@ mailbox: requests from email, router list, Newsletters & spam, Not sorted, Source email panel, Mention (deal readers only) · branch feat/info-mailbox, not deployed · previous: Today's actions, 2026-10-20 -->
+

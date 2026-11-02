@@ -197,6 +197,7 @@ function FollowUpsPage() {
       )}
 
       <ActionDialog
+        recordId={completeFor?.id}
         open={!!completeFor}
         onOpenChange={(v) => !v && setCompleteFor(null)}
         title={t("dialog_complete_title")}
@@ -223,6 +224,7 @@ function FollowUpsPage() {
       />
 
       <ActionDialog
+        recordId={rescheduleFor?.id}
         open={!!rescheduleFor}
         onOpenChange={(v) => !v && setRescheduleFor(null)}
         title={lang === "ar" ? "إعادة جدولة المتابعة" : "Reschedule Follow-up"}

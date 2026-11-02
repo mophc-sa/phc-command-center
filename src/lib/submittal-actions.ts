@@ -1,5 +1,5 @@
 // Samples and drawings (manager feedback group 5).
-// Tables: deal_submittals + deal_submittal_steps (20261026100000). RLS lets the
+// Tables: deal_submittals + deal_submittal_steps (20261027100000). RLS lets the
 // deal's people read and record; the database refuses a step out of order and
 // an approval from anyone but a commercial manager, so these calls simply pass
 // the error on.

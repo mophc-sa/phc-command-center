@@ -128,6 +128,7 @@ export function CommunicationActions({
       ) : null}
 
       <ActionDialog
+        recordId={`${linked.type}:${linked.id}`}
         open={logOpen}
         onOpenChange={setLogOpen}
         title={t("comm_log_activity")}
@@ -175,6 +176,7 @@ export function CommunicationActions({
       />
 
       <ActionDialog
+        recordId={`${linked.type}:${linked.id}`}
         open={followUpOpen}
         onOpenChange={setFollowUpOpen}
         title={t("comm_add_followup")}

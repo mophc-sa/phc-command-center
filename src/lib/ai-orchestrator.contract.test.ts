@@ -167,11 +167,12 @@ test("every insert/update in ai-orchestrator's index.ts targets only the three A
   }
 });
 
-test("index.ts only calls request claiming and bounded AI usage reservation, never commercial write procedures", () => {
+test("index.ts only calls request claiming, bounded AI usage reservation and the read-only service-key check, never commercial write procedures", () => {
   const rpcCalls = [...orchestratorIndex.matchAll(/\.rpc\(\s*["'`]([\w]+)["'`]/g)].map((m) => m[1]);
   expect(rpcCalls.length).toBeGreaterThan(0);
   for (const name of rpcCalls) {
-    expect(["claim_ai_agent_request", "reserve_ai_usage"]).toContain(name);
+    // outlook_sync_key_matches: the info@ service caller's Vault key check (STABLE, returns a boolean).
+    expect(["claim_ai_agent_request", "reserve_ai_usage", "outlook_sync_key_matches"]).toContain(name);
   }
 });
 

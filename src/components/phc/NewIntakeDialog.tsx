@@ -32,6 +32,7 @@ import {
   INBOX_SCOPES,
   INBOX_LOCATIONS,
 } from "@/lib/inbox-actions";
+import { siteStageOptions } from "@/lib/project-tracking";
 
 // WHAT IS MANDATORY, AND WHY THAT LIST
 //
@@ -54,6 +55,7 @@ export function newIntakeFields(
   t: (k: string) => string,
   teamMembers: any[],
   known: { companies: string[]; projects: string[]; references: string[] } = { companies: [], projects: [], references: [] },
+  lang: "en" | "ar" = "en",
 ): DialogField[] {
   return [
     { key: "sourceType", type: "select", label: t("ibx_source_type"), required: true, options: INBOX_SOURCE_TYPES.map((s) => ({ value: s, label: t(`src_${s}`) })) },
@@ -120,6 +122,9 @@ export function newIntakeFields(
     // Signage is late-stage work: a project at 30% and one at 85% are different
     // opportunities on the same day. Left blank means nobody said -- not zero.
     { key: "completionPct", type: "text", label: t("ibx_completion_pct"), placeholder: "0-100" },
+    // And where the site is: design, excavation, structure, ... (manager
+    // feedback 2026-10-19). Blank means nobody said.
+    { key: "projectStage", type: "select", label: t("ibx_project_stage"), options: siteStageOptions(lang) },
     { key: "hasBoq", type: "checkbox", label: t("ibx_has_boq") },
     { key: "hasDrawings", type: "checkbox", label: t("ibx_has_drawings") },
     { key: "hasSpecs", type: "checkbox", label: t("ibx_has_specs") },
@@ -141,7 +146,7 @@ export function NewIntakeDialog({
   /** Optional: let the host refresh its own list instead of navigating away. */
   onSaved?: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { data: teamMembers = [] } = useQuery({ queryKey: ["team-members-min"], queryFn: listTeamMembers });
@@ -211,10 +216,10 @@ export function NewIntakeDialog({
       sections={[
         { title: t("ibx_new_item"), keys: ["sourceType", "requestType", "projectName", "companyName", "contactName", "contactTitle", "phone", "assignedOwnerId"] },
         { title: t("intake_section_contact"), keys: ["dateReceived", "clientType", "clientTypeOther", "email", "rfqFrom", "rfqFromOther", "clientRfqReference", "internalRfqReference"] },
-        { title: t("intake_section_project"), keys: ["clientOwner", "mainContractor", "consultant", "ownerEntity", "scopeType", "scopeTypeOther", "locationCity", "locationOther", "completionPct", "deadline"] },
+        { title: t("intake_section_project"), keys: ["clientOwner", "mainContractor", "consultant", "ownerEntity", "scopeType", "scopeTypeOther", "locationCity", "locationOther", "projectStage", "completionPct", "deadline"] },
         { title: t("intake_section_followup"), keys: ["followUpDate", "nextAction", "saabPortal", "hasBoq", "hasDrawings", "hasSpecs", "notes", "evidenceUrl"] },
       ]}
-      fields={newIntakeFields((k) => t(k as never), teamMembers, known)}
+      fields={newIntakeFields((k) => t(k as never), teamMembers, known, lang)}
       suggest={(v) => known.lastByCompany.get(rankKey(v.companyName ?? "")) ?? null}
       onSubmit={async (v) => {
         if (!v.sourceType) throw new Error(t("ibx_no_source"));
@@ -242,6 +247,7 @@ export function NewIntakeDialog({
             // Blank means nobody said, which is not zero. `Number("")` is 0, so
             // the emptiness has to be checked before the conversion.
             completionPct: v.completionPct?.trim() ? Number(v.completionPct) : undefined,
+            projectStage: v.projectStage ? (v.projectStage as never) : undefined,
             requestType: v.requestType ? (v.requestType as never) : undefined,
             ownerEntity: v.ownerEntity || undefined,
             clientRfqReference: v.clientRfqReference || undefined,

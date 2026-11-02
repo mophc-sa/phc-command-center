@@ -3904,6 +3904,7 @@ export type Database = {
           phone: string | null
           project_name: string | null
           project_number: string | null
+          project_stage: Database["public"]["Enums"]["project_stage"] | null
           project_type: Database["public"]["Enums"]["inbox_project_type"] | null
           reject_reason: string | null
           request_type: string | null
@@ -3971,6 +3972,7 @@ export type Database = {
           phone?: string | null
           project_name?: string | null
           project_number?: string | null
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
           project_type?:
             | Database["public"]["Enums"]["inbox_project_type"]
             | null
@@ -4040,6 +4042,7 @@ export type Database = {
           phone?: string | null
           project_name?: string | null
           project_number?: string | null
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
           project_type?:
             | Database["public"]["Enums"]["inbox_project_type"]
             | null
@@ -4064,6 +4067,133 @@ export type Database = {
           source_type?: Database["public"]["Enums"]["inbox_source_type"]
           status?: Database["public"]["Enums"]["inbox_status"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      info_mail: {
+        Row: {
+          attachment_names: string[]
+          body_text: string | null
+          category: string
+          confidence: number | null
+          conversation_id: string | null
+          created_at: string
+          forwarded_to: string | null
+          from_email: string | null
+          from_name: string | null
+          graph_message_id: string
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          inbox_item_id: string | null
+          internet_message_id: string | null
+          opportunity_id: string | null
+          received_at: string
+          status: string
+          subject: string | null
+          summary: string | null
+          triage_attempts: number
+          web_link: string | null
+        }
+        Insert: {
+          attachment_names?: string[]
+          body_text?: string | null
+          category?: string
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          forwarded_to?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          graph_message_id: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          inbox_item_id?: string | null
+          internet_message_id?: string | null
+          opportunity_id?: string | null
+          received_at: string
+          status?: string
+          subject?: string | null
+          summary?: string | null
+          triage_attempts?: number
+          web_link?: string | null
+        }
+        Update: {
+          attachment_names?: string[]
+          body_text?: string | null
+          category?: string
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          forwarded_to?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          graph_message_id?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          inbox_item_id?: string | null
+          internet_message_id?: string | null
+          opportunity_id?: string | null
+          received_at?: string
+          status?: string
+          subject?: string | null
+          summary?: string | null
+          triage_attempts?: number
+          web_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_mail_inbox_item_id_fkey"
+            columns: ["inbox_item_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "info_mail_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "info_mail_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      info_mailbox_state: {
+        Row: {
+          delta_link: string | null
+          id: boolean
+          last_error: string | null
+          last_run_at: string | null
+          started_at: string | null
+          triage_backoff_minutes: number
+          triage_retry_at: string | null
+        }
+        Insert: {
+          delta_link?: string | null
+          id?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          started_at?: string | null
+          triage_backoff_minutes?: number
+          triage_retry_at?: string | null
+        }
+        Update: {
+          delta_link?: string | null
+          id?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          started_at?: string | null
+          triage_backoff_minutes?: number
+          triage_retry_at?: string | null
         }
         Relationships: []
       }
@@ -4735,6 +4865,7 @@ export type Database = {
           pipeline_step: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status: string | null
           project_id: string | null
+          project_code: string | null
           project_name: string
           project_stage: Database["public"]["Enums"]["project_stage"]
           quotation_value: number | null
@@ -4835,6 +4966,7 @@ export type Database = {
           pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status?: string | null
           project_id?: string | null
+          project_code?: string | null
           project_name: string
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
@@ -4935,6 +5067,7 @@ export type Database = {
           pipeline_step?: Database["public"]["Enums"]["pipeline_step"] | null
           prequalification_status?: string | null
           project_id?: string | null
+          project_code?: string | null
           project_name?: string
           project_stage?: Database["public"]["Enums"]["project_stage"]
           quotation_value?: number | null
@@ -5185,6 +5318,7 @@ export type Database = {
           kind: string
           note: string | null
           opportunity_id: string
+          project_stage: Database["public"]["Enums"]["project_stage"] | null
         }
         Insert: {
           completion_pct?: number | null
@@ -5194,6 +5328,7 @@ export type Database = {
           kind: string
           note?: string | null
           opportunity_id: string
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
         }
         Update: {
           completion_pct?: number | null
@@ -5203,6 +5338,7 @@ export type Database = {
           kind?: string
           note?: string | null
           opportunity_id?: string
+          project_stage?: Database["public"]["Enums"]["project_stage"] | null
         }
         Relationships: [
           {
@@ -8883,6 +9019,12 @@ export type Database = {
         Args: { _pattern: string; _raw: Json }
         Returns: string
       }
+      info_mail_dismiss: { Args: { _id: string }; Returns: undefined }
+      info_mail_dismiss_spam: { Args: never; Returns: number }
+      info_mail_link_conversion: {
+        Args: { _inbox_item_id: string }
+        Returns: number
+      }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
       is_commercial_manager: { Args: { _user_id: string }; Returns: boolean }
       is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
@@ -8923,12 +9065,24 @@ export type Database = {
           _today: string
         }
         Returns: string
+
+      mentionable_colleagues: {
+        Args: { _opportunity_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+        }[]
       }
       normalize_lead_key: {
         Args: { _location: string; _project_name: string }
         Returns: string
       }
       normalize_vendor_name: { Args: { _name: string }; Returns: string }
+      notify_mentions: {
+        Args: { _activity_id: string; _users: string[] }
+        Returns: number
+      }
       notify_overdue_items: { Args: never; Returns: number }
       opportunity_value: {
         Args: {
@@ -9206,6 +9360,7 @@ export type Database = {
         | "email_placeholder"
         | "whatsapp_placeholder"
         | "phone_call"
+        | "info_mailbox"
       inbox_status:
         | "new"
         | "in_review"
@@ -9278,6 +9433,9 @@ export type Database = {
         | "tender"
         | "awarded"
         | "under_construction"
+        | "excavation"
+        | "structure"
+        | "mep_finishing"
         | "near_handover"
         | "completed"
         | "unknown"
@@ -9713,6 +9871,7 @@ export const Constants = {
         "email_placeholder",
         "whatsapp_placeholder",
         "phone_call",
+        "info_mailbox",
       ],
       inbox_status: [
         "new",
@@ -9792,6 +9951,9 @@ export const Constants = {
         "tender",
         "awarded",
         "under_construction",
+        "excavation",
+        "structure",
+        "mep_finishing",
         "near_handover",
         "completed",
         "unknown",

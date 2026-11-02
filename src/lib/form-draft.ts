@@ -91,3 +91,32 @@ export function readDraft(raw: string | null, now: number): Draft | null {
 export function draftAgeMinutes(savedAt: number, now: number): number {
   return Math.max(0, Math.floor((now - savedAt) / 60_000));
 }
+
+/**
+ * The id of a form that did not name itself.
+ *
+ * Manager feedback 2026-10-19: autosave in every form, not only the intake
+ * form. Rather than naming seventy-odd dialogs by hand, a dialog is identified
+ * by where it is and what it asks:
+ *
+ *   - the page path, which on a detail page already carries the record
+ *     (/opportunities/<id>), so a draft for one deal never opens on another;
+ *   - the record id, for the dialogs that act on one row of a list while the
+ *     page stays the same (reject THIS lead) -- without it, a reason half-typed
+ *     for one row would be offered on the next;
+ *   - the title and the field keys, which tell two dialogs on one page apart.
+ *
+ * The title is in the reader's language, so a draft begun in Arabic is offered
+ * again in Arabic. Switching language halfway through a form is rare, and the
+ * draft is still there on switching back.
+ */
+export function autoDraftId(parts: {
+  path: string;
+  title: string;
+  fieldKeys: string[];
+  recordId?: string | null;
+}): string | null {
+  if (parts.fieldKeys.length === 0) return null;
+  const path = parts.path.replace(/\/+$/, "") || "/";
+  return `auto:${path}|${parts.recordId ?? ""}|${parts.title.trim()}|${parts.fieldKeys.join(",")}`;
+}
