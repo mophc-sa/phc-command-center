@@ -1,5 +1,10 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-02 — Dependency advisories patched (not deployed)
+
+- **GHSA-mrhx-c7xc-m3w5** (Zod, high): `zod` ^4.4.3 → ^4.6.7, with an override so nested copies move too. **GHSA-27r3-jxmh-p828** (body-parser, high):
+  override to ^2.4.0. Both failed the Security workflow's Dependency audit.
+
 ## 2026-10-22 — Back button and full intake notes (manager feedback group 6, not deployed)
 
 - `BackButton` in the shell top bar on every signed-in page except home: `router.history.back()` when the
