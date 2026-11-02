@@ -3,6 +3,9 @@
 import { test, expect, describe } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
+  CONSTRUCTION_STAGES,
+  SITE_STAGES,
+  SITE_STAGE_LABEL,
   UPDATE_KINDS,
   UPDATE_KIND_LABEL,
   awardedValue,
@@ -28,18 +31,60 @@ describe("update kinds", () => {
   });
 });
 
+describe("site stages", () => {
+  const enumBlock = (() => {
+    const types = readFileSync("src/integrations/supabase/types.ts", "utf8");
+    const at = types.indexOf("project_stage: [");
+    return types.slice(at, types.indexOf("]", at));
+  })();
+  const enumValues = enumBlock.match(/"[a-z_]+"/g)?.map((v) => v.slice(1, -1)) ?? [];
+
+  test("the list is the project_stage enum, in its order, less unknown", () => {
+    expect([...SITE_STAGES]).toEqual(enumValues.filter((v) => v !== "unknown"));
+  });
+  test("the migration adds the three construction phases before handover", () => {
+    const sql = readFileSync("supabase/migrations/20261026100000_construction_phase_and_deal_code.sql", "utf8");
+    for (const v of ["excavation", "structure", "mep_finishing"]) {
+      expect(sql).toContain(`ADD VALUE IF NOT EXISTS '${v}'`);
+      expect(enumValues.indexOf(v)).toBeGreaterThan(enumValues.indexOf("under_construction"));
+      expect(enumValues.indexOf(v)).toBeLessThan(enumValues.indexOf("near_handover"));
+    }
+  });
+  test("every stage has both languages, with Western digits only", () => {
+    for (const v of enumValues) {
+      const label = SITE_STAGE_LABEL[v as keyof typeof SITE_STAGE_LABEL];
+      expect(label.en.length).toBeGreaterThan(0);
+      expect(label.ar.length).toBeGreaterThan(0);
+      expect(label.ar).not.toMatch(/[٠-٩]/);
+    }
+  });
+  test("construction counts every phase inside it", () => {
+    expect([...CONSTRUCTION_STAGES].sort()).toEqual(["excavation", "mep_finishing", "structure", "under_construction"]);
+  });
+});
+
 describe("validateUpdate", () => {
   test("a plain update needs nothing else", () => {
-    expect(validateUpdate({ kind: "po_received", note: "", pct: "" })).toEqual({ ok: true, pct: null });
+    expect(validateUpdate({ kind: "po_received", note: "", pct: "" })).toEqual({ ok: true, pct: null, stage: null });
   });
   test("a % is parsed", () => {
-    expect(validateUpdate({ kind: "offer_sent", note: "", pct: " 60 " })).toEqual({ ok: true, pct: 60 });
+    expect(validateUpdate({ kind: "offer_sent", note: "", pct: " 60 " })).toEqual({ ok: true, pct: 60, stage: null });
   });
   test("0 is a real figure, not blank", () => {
-    expect(validateUpdate({ kind: "progress_update", note: "", pct: "0" })).toEqual({ ok: true, pct: 0 });
+    expect(validateUpdate({ kind: "progress_update", note: "", pct: "0" })).toEqual({ ok: true, pct: 0, stage: null });
   });
-  test("a progress update needs a %", () => {
+  test("a progress update needs a % or a stage", () => {
     expect(validateUpdate({ kind: "progress_update", note: "x", pct: "" })).toEqual({ ok: false, reason: "pct_required" });
+    expect(validateUpdate({ kind: "progress_update", note: "x", pct: "", stage: "" })).toEqual({ ok: false, reason: "pct_required" });
+  });
+  test("a stage alone is a progress update", () => {
+    expect(validateUpdate({ kind: "progress_update", note: "", pct: "", stage: "structure" })).toEqual({ ok: true, pct: null, stage: "structure" });
+  });
+  test("a stage rides along with any update", () => {
+    expect(validateUpdate({ kind: "site_visit", note: "", pct: "45", stage: "excavation" })).toEqual({ ok: true, pct: 45, stage: "excavation" });
+  });
+  test("a value outside the list is not a stage", () => {
+    expect(validateUpdate({ kind: "site_visit", note: "", pct: "", stage: "digging" })).toEqual({ ok: true, pct: null, stage: null });
   });
   test("other needs a note", () => {
     expect(validateUpdate({ kind: "other", note: "  ", pct: "" })).toEqual({ ok: false, reason: "note_required" });
@@ -83,7 +128,7 @@ describe("awardedValue", () => {
 describe("projectProgressItems", () => {
   const row = (id: string, o: Record<string, unknown>) => ({
     id, project_name: id, main_contractor: null, contractor_company: null, stage: "quotation",
-    sales_stage: "jih", completion_pct: null, last_activity_at: null, opportunity_updates: [], ...o,
+    sales_stage: "jih", completion_pct: null, project_stage: "unknown", last_activity_at: null, opportunity_updates: [], ...o,
   });
   test("leaves out won, lost, on-hold and archived deals", () => {
     const items = projectProgressItems([
@@ -111,5 +156,13 @@ describe("projectProgressItems", () => {
   test("keeps unknown progress as null, not 0", () => {
     const [i] = projectProgressItems([row("x", {})] as never);
     expect(i.pct).toBeNull();
+  });
+  test("carries the site stage, and an unknown one as null", () => {
+    const [a, b] = projectProgressItems([
+      row("a", { project_stage: "structure", last_activity_at: "2026-10-20T00:00:00Z" }),
+      row("b", { last_activity_at: "2026-10-19T00:00:00Z" }),
+    ] as never);
+    expect(a.siteStage).toBe("structure");
+    expect(b.siteStage).toBeNull();
   });
 });
