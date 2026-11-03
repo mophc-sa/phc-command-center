@@ -34,7 +34,7 @@ DECLARE f public.pricing_files;
 BEGIN
   UPDATE public.pricing_files
      SET state = _to, state_changed_at = now(), state_changed_by = _actor, updated_at = now(),
-         closed_reason = CASE WHEN _to = 'closed' THEN _note ELSE closed_reason END
+         closed_reason = CASE WHEN _to = 'closed' THEN nullif(btrim(coalesce(_note,'')), '') ELSE closed_reason END
    WHERE id = _file.id RETURNING * INTO f;
   INSERT INTO public.pricing_file_events (file_id, from_state, to_state, actor_id, note)
   VALUES (f.id, _file.state, _to, _actor, nullif(btrim(coalesce(_note,'')), ''));
@@ -83,10 +83,12 @@ BEGIN
        SELECT 1 FROM public.boq_revisions r WHERE r.id = f.boq_revision_id AND r.frozen_at IS NOT NULL) THEN
     RAISE EXCEPTION 'Freeze a BOQ revision on this file first. | جمّد إصدار جدول الكميات أولاً.';
   END IF;
+  -- A client round needs a revision frozen AFTER the latest quote, i.e. a new one.
   IF f.state = 'quoted' AND _to = 'boq_frozen' AND NOT EXISTS (
-       SELECT 1 FROM public.pricing_file_events e
-        WHERE e.file_id = f.id AND e.to_state = 'quoted'
-          AND e.created_at < (SELECT r.frozen_at FROM public.boq_revisions r WHERE r.id = f.boq_revision_id)) THEN
+       SELECT 1 FROM public.boq_revisions r
+        WHERE r.id = f.boq_revision_id AND r.frozen_at IS NOT NULL
+          AND r.frozen_at > (SELECT max(e.created_at) FROM public.pricing_file_events e
+                              WHERE e.file_id = f.id AND e.to_state = 'quoted')) THEN
     RAISE EXCEPTION 'A client revision needs a new frozen BOQ revision. | مراجعة العميل تحتاج إصدار كميات جديداً مجمّداً.';
   END IF;
   IF _to = 'at_supplier' AND f.state IN ('supplier_priced','price_review') AND length(btrim(coalesce(_note,''))) = 0 THEN
@@ -130,11 +132,12 @@ CREATE OR REPLACE FUNCTION public.pricing_file_answer_needs_info(_file_id uuid, 
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE u uuid := auth.uid(); f public.pricing_files;
 BEGIN
-  SELECT * INTO f FROM public.pricing_files WHERE id = _file_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Unknown pricing file. | ملف التسعير غير موجود.' USING ERRCODE = '23514'; END IF;
-  IF NOT (public.is_pricer(u) OR (public.is_sales_contributor(u) AND public.can_read_boq(f.opportunity_id, u))) THEN
+  -- Permission first, so an unknown id and a forbidden file look the same.
+  SELECT * INTO f FROM public.pricing_files WHERE id = _file_id;
+  IF NOT FOUND OR NOT (public.is_pricer(u) OR (public.is_sales_contributor(u) AND public.can_read_boq(f.opportunity_id, u))) THEN
     RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501';
   END IF;
+  SELECT * INTO f FROM public.pricing_files WHERE id = _file_id FOR UPDATE;
   IF f.state <> 'needs_info' THEN RAISE EXCEPTION 'Nothing is waiting for an answer. | لا توجد نواقص بانتظار الرد.'; END IF;
   UPDATE public.pricing_files SET needs_info_due = NULL WHERE id = f.id RETURNING * INTO f;
   RETURN to_jsonb(public._pricing_file_apply(f, 'package_review', u, _note));
