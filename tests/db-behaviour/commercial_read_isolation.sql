@@ -165,10 +165,12 @@ BEGIN
   SELECT count(*) INTO n FROM public.boqs WHERE title LIKE 'CI BOQ%';
   RAISE NOTICE '% 17. sales_manager sees the BOQs (expect 2, got %)',
     CASE WHEN n=2 THEN 'PASS' ELSE 'FAIL' END, n;
-  SELECT count(*) INTO n FROM public.boq_item_costs;
-  RAISE NOTICE '% 18. …but NO cost through the view (expect 0, got %)',
-    CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
+  -- sales_manager reads cost since 2026-11-03 (management); the boundary is
+  -- asserted on bd_manager, which stays out.
   PERFORM set_config('test.uid', bd::text, false);
+  SELECT count(*) INTO n FROM public.boq_item_costs;
+  RAISE NOTICE '% 18. …but the BD manager gets NO cost through the view (expect 0, got %)',
+    CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
   SELECT count(*) INTO n FROM public.boq_item_costs;
   RAISE NOTICE '% 19. bd_manager: no cost either (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;

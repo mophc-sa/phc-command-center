@@ -108,9 +108,10 @@ BEGIN
   SELECT count(*) INTO n FROM public.supplier_quote_costs;
   RAISE NOTICE '%  3. GM reads it (expect 2, got %)', CASE WHEN n=2 THEN 'PASS' ELSE 'FAIL' END, n;
 
-  PERFORM set_config('test.uid', sm::text, false);
+  -- sales_manager reads cost since 2026-11-03 (management); bd_manager keeps the old answer.
+  PERFORM set_config('test.uid', bd::text, false);
   SELECT count(*) INTO n FROM public.supplier_quote_costs;
-  RAISE NOTICE '%  4. sales_manager reads NO supplier cost (expect 0, got %)', CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
+  RAISE NOTICE '%  4. bd_manager reads NO supplier cost (expect 0, got %)', CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
   PERFORM set_config('test.uid', bd::text, false);
   SELECT count(*) INTO n FROM public.supplier_quote_costs;
   RAISE NOTICE '%  5. bd_manager reads none (expect 0, got %)', CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
@@ -131,9 +132,9 @@ BEGIN
   RAISE NOTICE '% 10. anon reads none (expect 0, got %)', CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- the quote rows themselves, not just the view
-  PERFORM set_config('test.uid', sm::text, false);
+  PERFORM set_config('test.uid', bd::text, false);
   SELECT count(*) INTO n FROM public.supplier_quotes;
-  RAISE NOTICE '% 11. sales_manager cannot even see that a quote exists (expect 0, got %)',
+  RAISE NOTICE '% 11. bd_manager cannot even see that a quote exists (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== the column privilege, as PostgREST would hit it =====
@@ -160,9 +161,9 @@ BEGIN
   RAISE NOTICE '% 16. …and counts two quotes (got %)', CASE WHEN n=2 THEN 'PASS' ELSE 'FAIL' END, n;
   SELECT spread::INT INTO n FROM public.supplier_comparison WHERE boq_line_id=l1;
   RAISE NOTICE '% 17. …with the spread computed (expect 40, got %)', CASE WHEN n=40 THEN 'PASS' ELSE 'FAIL' END, n;
-  PERFORM set_config('test.uid', sm::text, false);
+  PERFORM set_config('test.uid', bd::text, false);
   SELECT count(*) INTO n FROM public.supplier_comparison;
-  RAISE NOTICE '% 18. sales_manager gets nothing from the comparison (expect 0, got %)',
+  RAISE NOTICE '% 18. bd_manager gets nothing from the comparison (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
 
   -- ===== selection =====
