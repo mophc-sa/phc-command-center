@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS public.logistics_rates (
 -- note; Ahmed confirms them in the settings screen (PR 2).
 INSERT INTO public.logistics_rates (key, value, currency, note) VALUES
   ('container_rate', 12000, 'SAR', 'Meeting 74: 12,000 per container from China, currency unstated — confirm'),
-  ('customs_pct',    5,     'SAR', 'Meeting 74: about 5% of goods value (unclear) — confirm'),
+  ('customs_pct',    5,     '%', 'Meeting 74: about 5% of goods value (unclear) — confirm'),
   ('clearing_fee',   500,   'SAR', 'Meeting 74: clearing agent fee'),
   ('delivery_jeddah',2000,  'SAR', 'Meeting 74: delivery inside Jeddah'),
   ('delivery_riyadh',5000,  'SAR', 'Meeting 74: Jeddah to Riyadh warehouse')
@@ -78,6 +78,45 @@ BEGIN NEW.updated_by := auth.uid(); NEW.updated_at := now(); RETURN NEW; END $$;
 DROP TRIGGER IF EXISTS logistics_rates_stamp ON public.logistics_rates;
 CREATE TRIGGER logistics_rates_stamp BEFORE UPDATE ON public.logistics_rates
   FOR EACH ROW EXECUTE FUNCTION public.logistics_rates_stamp();
+
+-- Authorship is not client-controlled: created_by / created_at are set here on
+-- insert and frozen on update.
+CREATE OR REPLACE FUNCTION public.installation_rates_stamp()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    NEW.created_by := auth.uid(); NEW.created_at := now();
+  ELSE
+    NEW.created_by := OLD.created_by; NEW.created_at := OLD.created_at;
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS installation_rates_stamp ON public.installation_rates;
+CREATE TRIGGER installation_rates_stamp BEFORE INSERT OR UPDATE ON public.installation_rates
+  FOR EACH ROW EXECUTE FUNCTION public.installation_rates_stamp();
+
+-- Every cost-rate change leaves an audit_log row. audit_log.entity_id is uuid,
+-- so logistics_rates (text PK `key`) gets NULL there and the key in after_value.
+CREATE OR REPLACE FUNCTION public.pricing_settings_audit()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, before_value, after_value)
+  VALUES (auth.uid(), 'user',
+          TG_TABLE_NAME || CASE TG_OP WHEN 'INSERT' THEN '.inserted' ELSE '.updated' END,
+          TG_TABLE_NAME,
+          CASE WHEN TG_TABLE_NAME = 'logistics_rates' THEN NULL ELSE (to_jsonb(NEW) ->> 'id')::uuid END,
+          CASE WHEN TG_OP = 'UPDATE' THEN to_jsonb(OLD) END,
+          to_jsonb(NEW));
+  RETURN NULL;
+END $$;
+REVOKE ALL ON FUNCTION public.pricing_settings_audit() FROM PUBLIC, anon, authenticated;
+DO $$ DECLARE t text; BEGIN
+  FOREACH t IN ARRAY ARRAY['installation_rates','pricing_extras_catalog','logistics_rates'] LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS %1$s_audit ON public.%1$I', t);
+    EXECUTE format('CREATE TRIGGER %1$s_audit AFTER INSERT OR UPDATE ON public.%1$I
+                    FOR EACH ROW EXECUTE FUNCTION public.pricing_settings_audit()', t);
+  END LOOP;
+END $$;
 
 ALTER TABLE public.installation_rates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pricing_extras_catalog ENABLE ROW LEVEL SECURITY;
@@ -125,3 +164,19 @@ GRANT SELECT (install_type, width_mm, height_mm, weight_kg, mount_height_m, has_
 -- from spec" already exists as alternate_spec.
 ALTER TABLE public.supplier_quote_lines
   ADD COLUMN IF NOT EXISTS unit_cost_with_screen numeric(14,2) CHECK (unit_cost_with_screen IS NULL OR unit_cost_with_screen >= 0);
+
+-- Pricers read the screen price through the cost-gated view (the column itself
+-- is not granted). Same definition as Phase 7B with the new column appended
+-- last, which CREATE OR REPLACE VIEW requires; the cost gate is unchanged.
+CREATE OR REPLACE VIEW public.supplier_quote_costs AS
+  SELECT l.id, l.supplier_quote_id, l.boq_line_id, q.boq_revision_id, q.vendor_id,
+         v.name AS vendor_name, q.status, q.currency, q.is_current, q.revision_number,
+         l.unit_cost, l.quantity, l.line_cost,
+         l.is_selected, l.selected_by, l.selected_at, l.selection_note,
+         l.lead_time_days, l.alternate_spec,
+         l.unit_cost_with_screen
+    FROM public.supplier_quote_lines l
+    JOIN public.supplier_quotes q ON q.id = l.supplier_quote_id
+    JOIN public.vendors v         ON v.id = q.vendor_id
+   WHERE public.can_read_commercial_cost((SELECT auth.uid()))
+     AND public.can_read_boq_revision(q.boq_revision_id, (SELECT auth.uid()));
