@@ -103,7 +103,7 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'That BOQ revision is not this deal''s. | إصدار الكميات هذا لا يخص هذه الفرصة.' USING ERRCODE = '23514';
   END IF;
-  IF r.superseded_by IS NOT NULL THEN
+  IF r.superseded_by IS NOT NULL OR NOT r.is_current THEN
     RAISE EXCEPTION 'That BOQ revision was replaced by a newer one. | استُبدل إصدار الكميات هذا بإصدار أحدث.'
       USING ERRCODE = 'P0001';
   END IF;
@@ -119,15 +119,25 @@ GRANT EXECUTE ON FUNCTION public.pricing_file_attach_revision(uuid, uuid) TO aut
 
 -- 5. Link the estimation and price the selling build creates. Internal: only
 -- pricing_file_build_price (20261104150000) calls it. Every check of the PR 2
--- contract lives here, so no caller can link around them.
+-- contract lives here, so no caller can link around them. Lock order is the
+-- price, then its file (as the price guard and pricing_file_move do); the
+-- price's status is read under that lock, so a concurrent propose either
+-- finishes first (and the link is refused) or waits for the link.
 CREATE OR REPLACE FUNCTION public._pricing_file_link_price(_file_id uuid, _estimation_id uuid, _price_id uuid)
 RETURNS public.pricing_files LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE f public.pricing_files; e public.estimations;
-        p_est uuid; p_status public.internal_price_status;
+        p_found boolean; p_est uuid; p_status public.internal_price_status;
 BEGIN
+  SELECT p.estimation_id, p.status INTO p_est, p_status
+    FROM public.internal_prices p WHERE p.id = _price_id FOR UPDATE;
+  p_found := FOUND;
   SELECT * INTO f FROM public.pricing_files WHERE id = _file_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Unknown pricing file. | ملف التسعير غير موجود.' USING ERRCODE = '23514';
+  END IF;
+  IF f.state <> 'selling_build' THEN
+    RAISE EXCEPTION 'A price is linked to a file in the selling build. | يُربط السعر بالملف أثناء بناء سعر البيع.'
+      USING ERRCODE = 'P0001';
   END IF;
   IF f.boq_revision_id IS NULL OR NOT EXISTS (
        SELECT 1 FROM public.boq_revisions r JOIN public.boqs b ON b.id = r.boq_id
@@ -138,8 +148,7 @@ BEGIN
   IF NOT FOUND OR e.boq_revision_id IS DISTINCT FROM f.boq_revision_id THEN
     RAISE EXCEPTION 'The estimation is not for this file''s BOQ revision. | التقدير لا يخص إصدار الكميات في هذا الملف.' USING ERRCODE = '23514';
   END IF;
-  SELECT p.estimation_id, p.status INTO p_est, p_status FROM public.internal_prices p WHERE p.id = _price_id;
-  IF NOT FOUND OR p_est IS DISTINCT FROM e.id THEN
+  IF NOT p_found OR p_est IS DISTINCT FROM e.id THEN
     RAISE EXCEPTION 'The price is not for this estimation. | السعر لا يخص هذا التقدير.' USING ERRCODE = '23514';
   END IF;
   IF p_status NOT IN ('draft','cost_complete','internal_price_proposed') THEN
@@ -156,16 +165,25 @@ REVOKE ALL ON FUNCTION public._pricing_file_link_price(uuid, uuid, uuid) FROM PU
 -- review, and after it is approved, so what Zayed reviews and what is
 -- approved are the cost Kalas priced from. Notes still save. Outside pricing
 -- files nothing changes.
+-- The file's price rows are read FOR SHARE (all of them, whatever their status),
+-- so a propose running at the same moment either commits first and is seen here,
+-- or waits until this cost edit has committed.
 CREATE OR REPLACE FUNCTION public.estimation_frozen_under_review()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE st public.internal_price_status;
 BEGIN
   IF (NEW.cost_total, NEW.wastage_pct, NEW.installation_cost, NEW.overhead_pct, NEW.boq_revision_id)
-       IS DISTINCT FROM (OLD.cost_total, OLD.wastage_pct, OLD.installation_cost, OLD.overhead_pct, OLD.boq_revision_id)
-     AND EXISTS (SELECT 1 FROM public.internal_prices p
-                   JOIN public.pricing_files pf ON pf.internal_price_id = p.id
-                  WHERE p.estimation_id = NEW.id AND p.status IN ('gm_pending','gm_approved')) THEN
-    RAISE EXCEPTION 'The cost behind a price under review or approved cannot change; return the price first. | لا تتغير التكلفة خلف سعر قيد المراجعة أو معتمد؛ أرجع السعر أولاً.'
-      USING ERRCODE = 'P0001';
+       IS DISTINCT FROM (OLD.cost_total, OLD.wastage_pct, OLD.installation_cost, OLD.overhead_pct, OLD.boq_revision_id) THEN
+    FOR st IN SELECT p.status FROM public.internal_prices p
+                JOIN public.pricing_files pf ON pf.internal_price_id = p.id
+               WHERE p.estimation_id = NEW.id
+                 FOR SHARE OF p
+    LOOP
+      IF st IN ('gm_pending','gm_approved') THEN
+        RAISE EXCEPTION 'The cost behind a price under review or approved cannot change; return the price first. | لا تتغير التكلفة خلف سعر قيد المراجعة أو معتمد؛ أرجع السعر أولاً.'
+          USING ERRCODE = 'P0001';
+      END IF;
+    END LOOP;
   END IF;
   RETURN NEW;
 END $$;
@@ -176,21 +194,34 @@ CREATE TRIGGER estimations_frozen_under_review BEFORE UPDATE ON public.estimatio
 
 -- 7. The pricing queue: every file with its deal's name, code, owner and
 -- value fields (the screen computes the value with opportunityValue()). No
--- cost. Pricers and the GM read all; other cost readers read what they can
--- read of the deal. Reps and the BD manager read nothing here.
+-- cost. The view runs as its owner, so it repeats the deal read rule itself
+-- (20260727170000: the owner, or can_view_all_sales_data):
+--   * a pricer (estimation, finance) reads every file, since they price every
+--     deal, but the deal's values only when the deal is readable to them, so
+--     estimation alone sees a file with NULL values;
+--   * the GM, or a delegate, reads the files of the deals they can read;
+--   * other cost readers read what they can read of the deal.
+-- Reps and the BD manager read nothing here.
 CREATE OR REPLACE VIEW public.pricing_queue AS
   SELECT f.id AS file_id, f.state, f.state_changed_at, f.created_at, f.due_at,
          f.needs_info_items, f.needs_info_due,
          f.opportunity_id, o.project_name, o.project_code, o.owner_id,
-         o.contract_value, o.quotation_value, o.estimated_value_max,
+         CASE WHEN public.can_view_all_sales_data((SELECT auth.uid()))
+                OR o.owner_id = (SELECT auth.uid()) THEN o.contract_value END AS contract_value,
+         CASE WHEN public.can_view_all_sales_data((SELECT auth.uid()))
+                OR o.owner_id = (SELECT auth.uid()) THEN o.quotation_value END AS quotation_value,
+         CASE WHEN public.can_view_all_sales_data((SELECT auth.uid()))
+                OR o.owner_id = (SELECT auth.uid()) THEN o.estimated_value_max END AS estimated_value_max,
          f.boq_revision_id, f.estimation_id, f.internal_price_id, f.closed_reason
     FROM public.pricing_files f
     JOIN public.opportunities o ON o.id = f.opportunity_id
    WHERE public.is_pricer((SELECT auth.uid()))
-      OR public.can_approve_final_price((SELECT auth.uid()))
+      OR (public.can_approve_final_price((SELECT auth.uid()))
+          AND (public.can_view_all_sales_data((SELECT auth.uid()))
+               OR public.can_read_boq(f.opportunity_id, (SELECT auth.uid()))))
       OR (public.can_read_commercial_cost((SELECT auth.uid()))
           AND public.can_read_boq(f.opportunity_id, (SELECT auth.uid())));
 REVOKE ALL ON public.pricing_queue FROM anon, authenticated;
 GRANT SELECT ON public.pricing_queue TO authenticated;
 COMMENT ON VIEW public.pricing_queue IS
-  'Pricing files with their deal for the /pricing queue and the file header. No cost. Pricers and the GM read all; other cost readers what they can read of the deal.';
+  'Pricing files with their deal for the /pricing queue and the file header. No cost. Pricers read every file, the GM and cost readers the files of deals they can read; deal values only where the deal itself is readable (NULL otherwise).';
