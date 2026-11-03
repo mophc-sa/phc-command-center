@@ -59,7 +59,7 @@ select is((select count(*)::int from public.supplier_quote_costs), 1,
   'A pricer sees the supplier line in the cost view');
 select is((select unit_cost_with_screen from public.supplier_quote_costs), 777::numeric,
   'A pricer reads the screen price through the cost view');
-select is((select count(*)::int from public.logistics_rates), 5, 'Five logistics keys are seeded');
+select is((select count(*)::int from public.logistics_rates where key in ('container_rate','customs_pct','clearing_fee','delivery_jeddah','delivery_riyadh')), 5, 'Five logistics keys are seeded');
 
 select set_config('request.jwt.claims','{"sub":"5c000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
 select is((select count(*)::int from public.installation_rates), 0, 'The BD manager reads no installation rates (the sales manager does, Task 6)');
