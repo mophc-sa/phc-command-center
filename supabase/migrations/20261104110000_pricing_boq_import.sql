@@ -11,17 +11,108 @@
 -- the session, and the move is pricing_file_move's, so its checks still run.
 -- =============================================================================
 
--- A number as text: digits with an optional decimal part. NULL is fine.
-CREATE OR REPLACE FUNCTION public._pricing_num_ok(_v text)
-RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = public AS $$
-  SELECT _v IS NULL OR _v ~ '^[0-9]+(\.[0-9]+)?$';
-$$;
-REVOKE ALL ON FUNCTION public._pricing_num_ok(text) FROM PUBLIC, anon, authenticated;
+-- The first thing wrong with one imported line, as {English, Arabic}, or NULL.
+-- Every number is held to its boq_lines column (precision and scale), so a bad
+-- value is a 23514 that names the field, never a raw 22003 or CHECK error.
+-- Text columns are unbounded TEXT; the caps here are for sanity, not the column.
+CREATE OR REPLACE FUNCTION public._pricing_boq_line_problem(_v jsonb)
+RETURNS text[] LANGUAGE plpgsql STABLE SET search_path = public AS $$
+DECLARE s record; typ text; t text; r numeric;
+BEGIN
+  IF jsonb_typeof(_v) IS DISTINCT FROM 'object' THEN
+    RETURN ARRAY['not a line','ليس بنداً'];
+  END IF;
+
+  -- Sign type: required text.
+  typ := jsonb_typeof(_v->'sign_type');
+  IF typ IS DISTINCT FROM 'string' OR btrim(_v->>'sign_type') = '' THEN
+    RETURN CASE WHEN typ IS NULL OR typ = 'null' OR btrim(coalesce(_v->>'sign_type','')) = ''
+                THEN ARRAY['sign type is empty','نوع اللوحة فارغ']
+                ELSE ARRAY['sign type must be text','نوع اللوحة يجب أن يكون نصاً'] END;
+  END IF;
+  IF char_length(btrim(_v->>'sign_type')) > 120 THEN
+    RETURN ARRAY['sign type is longer than 120 characters','نوع اللوحة أطول من 120 حرفاً'];
+  END IF;
+
+  -- Numbers: (key, whole digits the column holds, decimals, must be above zero, English, Arabic).
+  FOR s IN SELECT * FROM (VALUES
+      ('quantity',       11, 3, true,  'quantity',     'الكمية'),
+      ('width_mm',        9, 1, true,  'width',        'العرض'),
+      ('height_mm',       9, 1, true,  'height',       'الارتفاع'),
+      ('weight_kg',       8, 2, false, 'weight',       'الوزن'),
+      ('mount_height_m',  4, 2, false, 'mount height', 'ارتفاع التركيب')
+    ) AS x(k, whole, scl, pos, en, ar)
+  LOOP
+    typ := jsonb_typeof(_v->s.k);
+    IF typ IS NULL OR typ = 'null' OR (typ = 'string' AND (_v->>s.k) = '') THEN
+      IF s.k = 'quantity' THEN RETURN ARRAY['quantity is missing','الكمية غير موجودة']; END IF;
+      CONTINUE;
+    END IF;
+    t := _v->>s.k;
+    IF typ NOT IN ('number','string') OR t !~ '^-?[0-9]+(\.[0-9]+)?$' THEN
+      RETURN ARRAY[s.en || ' is not a number', s.ar || ' ليس رقماً'];
+    END IF;
+    IF char_length(t) > 40 THEN
+      RETURN ARRAY[s.en || ' is too large', s.ar || ' كبير جداً'];
+    END IF;
+    r := round(t::numeric, s.scl);
+    IF r < 0 THEN
+      RETURN ARRAY[s.en || ' cannot be negative', s.ar || ' لا يكون سالباً'];
+    END IF;
+    IF s.pos AND r = 0 THEN
+      RETURN ARRAY[s.en || ' must be above zero', s.ar || ' يجب أن يكون أكبر من صفر'];
+    END IF;
+    IF r >= 10::numeric ^ s.whole THEN
+      RETURN ARRAY[s.en || ' must be below ' || (10::numeric ^ s.whole)::bigint,
+                   s.ar || ' يجب أن يكون أقل من ' || (10::numeric ^ s.whole)::bigint];
+    END IF;
+  END LOOP;
+
+  -- Install type: one of the enum.
+  typ := jsonb_typeof(_v->'install_type');
+  IF typ IS NOT NULL AND typ <> 'null' AND (_v->>'install_type') <> '' THEN
+    IF typ <> 'string' OR NOT ((_v->>'install_type') = ANY (enum_range(NULL::public.install_type)::text[])) THEN
+      RETURN ARRAY['unknown install type','نوع تركيب غير معروف'];
+    END IF;
+  END IF;
+
+  -- Free text: a string, within its cap.
+  FOR s IN SELECT * FROM (VALUES
+      ('description', 500, 'description',  'الوصف'),
+      ('dimensions',  120, 'dimensions',   'الأبعاد'),
+      ('material',    120, 'material',     'الخامة'),
+      ('mounting',    120, 'mounting',     'طريقة التثبيت'),
+      ('illumination',120, 'illumination', 'الإضاءة'),
+      ('finish',      120, 'finish',       'التشطيب'),
+      ('location',    120, 'location',     'الموقع'),
+      ('unit',        120, 'unit',         'الوحدة')
+    ) AS x(k, cap, en, ar)
+  LOOP
+    typ := jsonb_typeof(_v->s.k);
+    IF typ IS NULL OR typ = 'null' THEN CONTINUE; END IF;
+    IF typ <> 'string' THEN
+      RETURN ARRAY[s.en || ' must be text', s.ar || ' يجب أن يكون نصاً'];
+    END IF;
+    IF char_length(btrim(_v->>s.k)) > s.cap THEN
+      RETURN ARRAY[s.en || ' is longer than ' || s.cap || ' characters', s.ar || ' أطول من ' || s.cap || ' حرفاً'];
+    END IF;
+  END LOOP;
+
+  -- Yes/no flags.
+  IF jsonb_typeof(_v->'has_screen') NOT IN ('boolean','null') THEN
+    RETURN ARRAY['screen must be yes or no','الشاشة يجب أن تكون نعم أو لا'];
+  END IF;
+  IF jsonb_typeof(_v->'needs_floor_cut') NOT IN ('boolean','null') THEN
+    RETURN ARRAY['floor cut must be yes or no','قص الأرضية يجب أن يكون نعم أو لا'];
+  END IF;
+  RETURN NULL;
+END $$;
+REVOKE ALL ON FUNCTION public._pricing_boq_line_problem(jsonb) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.pricing_boq_import(_file_id uuid, _lines jsonb, _replace boolean DEFAULT false)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE u uuid := auth.uid(); f public.pricing_files; rev public.boq_revisions;
-        b_id uuid; prev uuid; next_no integer; first_no integer; n integer;
+        b_id uuid; prev uuid; made uuid; next_no integer; first_no integer; n integer; copied integer := 0;
         bad_ord bigint; bad_why text[];
 BEGIN
   IF NOT public.is_pricer(u) THEN
@@ -38,27 +129,7 @@ BEGIN
   -- The first line that is not valid, with the reason in both languages.
   SELECT e.ord, x.why INTO bad_ord, bad_why
     FROM jsonb_array_elements(_lines) WITH ORDINALITY AS e(v, ord)
-    CROSS JOIN LATERAL (SELECT CASE
-      WHEN jsonb_typeof(e.v) <> 'object' THEN ARRAY['not a line','ليس بنداً']
-      WHEN btrim(coalesce(e.v->>'sign_type','')) = '' THEN ARRAY['sign type is empty','نوع اللوحة فارغ']
-      WHEN e.v->>'quantity' IS NULL THEN ARRAY['quantity is missing','الكمية غير موجودة']
-      WHEN NOT public._pricing_num_ok(e.v->>'quantity') THEN ARRAY['quantity is not a number','الكمية ليست رقماً']
-      WHEN (e.v->>'quantity')::numeric <= 0 THEN ARRAY['quantity must be above zero','الكمية يجب أن تكون أكبر من صفر']
-      WHEN nullif(e.v->>'install_type','') IS NOT NULL
-           AND NOT ((e.v->>'install_type') = ANY (enum_range(NULL::public.install_type)::text[]))
-        THEN ARRAY['unknown install type','نوع تركيب غير معروف']
-      WHEN NOT public._pricing_num_ok(nullif(e.v->>'width_mm',''))
-        OR NOT public._pricing_num_ok(nullif(e.v->>'height_mm',''))
-        THEN ARRAY['width and height are millimetres','العرض والارتفاع بالمليمتر']
-      WHEN (nullif(e.v->>'width_mm',''))::numeric = 0 OR (nullif(e.v->>'height_mm',''))::numeric = 0
-        THEN ARRAY['width and height must be above zero','العرض والارتفاع يجب أن يكونا أكبر من صفر']
-      WHEN NOT public._pricing_num_ok(nullif(e.v->>'weight_kg',''))
-        OR NOT public._pricing_num_ok(nullif(e.v->>'mount_height_m',''))
-        THEN ARRAY['weight and mount height are numbers','الوزن وارتفاع التركيب أرقام']
-      WHEN (e.v ? 'has_screen' AND jsonb_typeof(e.v->'has_screen') NOT IN ('boolean','null'))
-        OR (e.v ? 'needs_floor_cut' AND jsonb_typeof(e.v->'needs_floor_cut') NOT IN ('boolean','null'))
-        THEN ARRAY['screen and floor cut are yes or no','الشاشة وقص الأرضية نعم أو لا']
-    END AS why) x
+    CROSS JOIN LATERAL (SELECT public._pricing_boq_line_problem(e.v) AS why) x
    WHERE x.why IS NOT NULL
    ORDER BY e.ord LIMIT 1;
   IF bad_ord IS NOT NULL THEN
@@ -77,6 +148,10 @@ BEGIN
 
   IF f.boq_revision_id IS NOT NULL THEN
     SELECT * INTO rev FROM public.boq_revisions WHERE id = f.boq_revision_id FOR NO KEY UPDATE;
+    IF rev.superseded_by IS NOT NULL OR NOT rev.is_current THEN
+      RAISE EXCEPTION 'This file''s BOQ revision was replaced by a newer one; attach the current one. | استُبدل إصدار الكميات في هذا الملف بإصدار أحدث؛ اربط الإصدار الحالي.'
+        USING ERRCODE = 'P0001';
+    END IF;
   END IF;
   IF rev.id IS NULL OR rev.frozen_at IS NOT NULL THEN
     -- A new draft revision of the deal's BOQ, which becomes its current one.
@@ -97,13 +172,35 @@ BEGIN
     INSERT INTO public.boq_revisions (boq_id, revision_number, status, source_type, notes, created_by, is_current)
     VALUES (b_id, next_no, 'draft', 'manual', 'Entered in the pricing file', u, true)
     RETURNING * INTO rev;
+    made := rev.id;
     IF prev IS NOT NULL THEN
       UPDATE public.boq_revisions SET superseded_by = rev.id, superseded_at = now() WHERE id = prev;
+      IF NOT _replace THEN
+        -- Adding to a revision that cannot change: the new one starts as a copy
+        -- of it (every column but the cost ones), so it replaces the whole set,
+        -- not just the lines that were added.
+        INSERT INTO public.boq_lines (revision_id, line_number, sort_order, sign_type, description, dimensions,
+                                      material, mounting, illumination, finish, location, quantity, unit,
+                                      selling_price, item_source, install_type, width_mm, height_mm,
+                                      weight_kg, mount_height_m, has_screen, needs_floor_cut)
+        SELECT rev.id, l.line_number, l.sort_order, l.sign_type, l.description, l.dimensions,
+               l.material, l.mounting, l.illumination, l.finish, l.location, l.quantity, l.unit,
+               l.selling_price, l.item_source, l.install_type, l.width_mm, l.height_mm,
+               l.weight_kg, l.mount_height_m, l.has_screen, l.needs_floor_cut
+          FROM public.boq_lines l WHERE l.revision_id = prev
+         ORDER BY l.line_number, l.sort_order, l.created_at, l.id;
+        GET DIAGNOSTICS copied = ROW_COUNT;
+      END IF;
     END IF;
     UPDATE public.pricing_files SET boq_revision_id = rev.id, updated_at = now() WHERE id = f.id;
   END IF;
 
   IF _replace THEN
+    IF EXISTS (SELECT 1 FROM public.supplier_quote_lines sl JOIN public.boq_lines l ON l.id = sl.boq_line_id
+                WHERE l.revision_id = rev.id) THEN
+      RAISE EXCEPTION 'A supplier quote prices these lines; they cannot be replaced. | عرض مورّد يسعّر هذه البنود؛ لا يمكن استبدالها.'
+        USING ERRCODE = 'P0001';
+    END IF;
     DELETE FROM public.boq_lines WHERE revision_id = rev.id;
   END IF;
   SELECT coalesce(max(l.line_number), 0) INTO first_no FROM public.boq_lines l WHERE l.revision_id = rev.id;
@@ -129,7 +226,9 @@ BEGIN
 
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (u, 'user', 'pricing_file.boq_lines_entered', 'opportunity', f.opportunity_id,
-          jsonb_build_object('file_id', f.id, 'revision_id', rev.id, 'inserted', n, 'replaced', _replace));
+          jsonb_build_object('file_id', f.id, 'revision_id', rev.id, 'created_revision_id', made,
+                             'superseded_revision_id', prev, 'copied_forward', copied,
+                             'inserted', n, 'replaced', _replace));
   RETURN jsonb_build_object('revision_id', rev.id, 'revision_number', rev.revision_number, 'inserted', n);
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_boq_import(uuid, jsonb, boolean) FROM PUBLIC, anon;
@@ -150,6 +249,10 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.boq_lines l WHERE l.id = _line_id AND l.revision_id = f.boq_revision_id) THEN
     RAISE EXCEPTION 'That line is not in this file''s BOQ. | هذا البند ليس في كميات هذا الملف.' USING ERRCODE = '23514';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.supplier_quote_lines sl WHERE sl.boq_line_id = _line_id) THEN
+    RAISE EXCEPTION 'A supplier quote prices this line; it cannot be removed. | عرض مورّد يسعّر هذا البند؛ لا يمكن حذفه.'
+      USING ERRCODE = 'P0001';
   END IF;
   -- boq_lines_guard refuses this once the revision is frozen.
   DELETE FROM public.boq_lines WHERE id = _line_id;
@@ -192,15 +295,29 @@ BEGIN
       USING ERRCODE = 'P0001';
   END IF;
   SELECT * INTO rev FROM public.boq_revisions WHERE id = f.boq_revision_id FOR NO KEY UPDATE;
+  IF FOUND AND (rev.superseded_by IS NOT NULL OR NOT rev.is_current) THEN
+    RAISE EXCEPTION 'This file''s BOQ revision was replaced by a newer one; attach the current one. | استُبدل إصدار الكميات في هذا الملف بإصدار أحدث؛ اربط الإصدار الحالي.'
+      USING ERRCODE = 'P0001';
+  END IF;
   IF NOT FOUND OR NOT EXISTS (SELECT 1 FROM public.boq_lines l WHERE l.revision_id = rev.id) THEN
     RAISE EXCEPTION 'Enter or attach BOQ lines before freezing. | أدخل بنود الكميات أو اربطها قبل التجميد.'
       USING ERRCODE = 'P0001';
   END IF;
-  IF rev.frozen_at IS NULL THEN
+  IF rev.frozen_at IS NOT NULL THEN
+    -- Already frozen (attached that way): accept it only if it was verified.
+    IF rev.status NOT IN ('verified','partially_verified') THEN
+      RAISE EXCEPTION 'This BOQ revision is frozen but not verified; attach a verified one. | إصدار الكميات مجمّد لكنه غير متحقق منه؛ اربط إصداراً متحققاً منه.'
+        USING ERRCODE = 'P0001';
+    END IF;
+  ELSE
     -- The Phase 7A freeze; propagate_freeze_to_supplier_quotes runs after it.
     UPDATE public.boq_revisions
        SET frozen_at = now(), frozen_by = u, status = _status::public.boq_revision_status
      WHERE id = rev.id;
+    INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
+    VALUES (u, 'user', 'boq_revision.frozen', 'boq_revision', rev.id,
+            jsonb_build_object('revision_id', rev.id, 'status', _status, 'file_id', f.id,
+                               'opportunity_id', f.opportunity_id));
   END IF;
   PERFORM public.pricing_file_move(f.id, 'boq_frozen', _note);
   PERFORM public.pricing_suggest_extras(f.id);
