@@ -48,14 +48,24 @@ REVOKE ALL ON FUNCTION public._pricing_file_apply(public.pricing_files, public.p
 
 CREATE OR REPLACE FUNCTION public.pricing_file_move(_file_id uuid, _to public.pricing_file_state, _note text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE u uuid := auth.uid(); f public.pricing_files; rule text;
+DECLARE u uuid := auth.uid(); f public.pricing_files; rule text; price_id uuid;
 BEGIN
   IF NOT (public.is_pricer(u) OR public.can_approve_final_price(u)) THEN
     RAISE EXCEPTION 'Only estimation, finance or the GM may move a pricing file. | تحريك ملف التسعير يقتصر على التقدير أو المالية أو المدير العام.'
       USING ERRCODE = '42501';
   END IF;
+  -- Lock order: the file's price, then the file. A price move takes them in that
+  -- order (the UPDATE locks the price, its follow trigger then locks the file,
+  -- Task 5), so taking them the other way here could deadlock against it.
+  SELECT internal_price_id INTO price_id FROM public.pricing_files WHERE id = _file_id;
+  IF price_id IS NOT NULL THEN
+    PERFORM 1 FROM public.internal_prices WHERE id = price_id FOR UPDATE;
+  END IF;
   SELECT * INTO f FROM public.pricing_files WHERE id = _file_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Unknown pricing file. | ملف التسعير غير موجود.' USING ERRCODE = '23514'; END IF;
+  IF f.internal_price_id IS DISTINCT FROM price_id THEN
+    RAISE EXCEPTION 'The pricing file changed while it was being moved; try again. | تغيّر ملف التسعير أثناء تحريكه؛ أعد المحاولة.';
+  END IF;
   IF f.state = 'closed' THEN RAISE EXCEPTION 'This pricing file is closed. | ملف التسعير مغلق.'; END IF;
 
   IF _to = 'closed' THEN

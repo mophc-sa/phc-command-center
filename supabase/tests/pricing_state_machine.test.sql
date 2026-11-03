@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 5b… prefix.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(25);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
@@ -95,6 +95,26 @@ select is((public.pricing_file_move((select id from public.pricing_files limit 1
   'closed', 'The pricer closes a file with a reason');
 reset role;
 select is((select closed_reason from public.pricing_files limit 1), 'Client cancelled the tender', 'The closing reason is stored trimmed');
+
+-- A file with a price: the move locks the price, then the file, and an
+-- estimation pricer sending lines back from price review returns the price.
+insert into public.estimations (id, boq_revision_id, cost_total)
+values ('5b700000-0000-0000-0000-000000000001','5b500000-0000-0000-0000-000000000001', 100000);
+insert into public.internal_prices (id, estimation_id, proposed_price, status, proposed_by)
+values ('5b800000-0000-0000-0000-000000000001','5b700000-0000-0000-0000-000000000001', 140000, 'gm_pending',
+        '5b000000-0000-0000-0000-000000000004');
+insert into public.pricing_files (id, opportunity_id, state, boq_revision_id, estimation_id, internal_price_id)
+values ('5b600000-0000-0000-0000-000000000002','5b200000-0000-0000-0000-000000000001','price_review',
+        '5b500000-0000-0000-0000-000000000001','5b700000-0000-0000-0000-000000000001','5b800000-0000-0000-0000-000000000001');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"5b000000-0000-0000-0000-000000000003","role":"authenticated"}',true);
+select is((public.pricing_file_move('5b600000-0000-0000-0000-000000000002','at_supplier','Line 2 missing'))->>'state',
+  'at_supplier', 'A file with a price moves: lines go back to the supplier');
+reset role;
+select is((select status::text from public.internal_prices where id = '5b800000-0000-0000-0000-000000000001'),
+  'returned', 'The price under review is returned with it');
+select is((select count(*)::int from public.pricing_file_events where file_id = '5b600000-0000-0000-0000-000000000002'),
+  1, 'The file moves once: the returned price does not pull it to the selling build');
 
 -- Unknown ids and forbidden callers get the same answer.
 set local role authenticated;
