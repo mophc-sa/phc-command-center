@@ -157,8 +157,14 @@ BEGIN
     -- A new draft revision of the deal's BOQ, which becomes its current one.
     b_id := rev.boq_id;
     IF b_id IS NULL THEN
-      SELECT b.id INTO b_id FROM public.boqs b
-       WHERE b.related_opportunity_id = f.opportunity_id ORDER BY b.created_at, b.id LIMIT 1;
+      -- The BOQ holding the deal's current revision (the latest such, if several);
+      -- only when none has one, the deal's oldest BOQ.
+      SELECT b.id INTO b_id
+        FROM public.boqs b
+        LEFT JOIN public.boq_revisions cr ON cr.boq_id = b.id AND cr.is_current
+       WHERE b.related_opportunity_id = f.opportunity_id
+       ORDER BY (cr.id IS NOT NULL) DESC, cr.created_at DESC NULLS LAST, cr.id DESC, b.created_at, b.id
+       LIMIT 1;
     END IF;
     IF b_id IS NULL THEN
       INSERT INTO public.boqs (related_opportunity_id, title, source, created_by)
