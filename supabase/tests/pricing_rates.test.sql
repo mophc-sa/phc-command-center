@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 5c… prefix.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(23);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
@@ -24,6 +24,14 @@ insert into public.boq_lines (id, revision_id, sign_type, quantity) values ('5c6
 insert into public.supplier_quotes (id, boq_revision_id, vendor_id) values ('5c700000-0000-0000-0000-000000000001','5c500000-0000-0000-0000-000000000001','5c100000-0000-0000-0000-000000000001');
 insert into public.supplier_quote_lines (supplier_quote_id, boq_line_id, unit_cost, unit_cost_with_screen, quantity)
 values ('5c700000-0000-0000-0000-000000000001','5c600000-0000-0000-0000-000000000001',500,777,1);
+
+-- Final review M4: a change with no session (a migration, a script) is audited
+-- as the system's, not as a user's.
+update public.logistics_rates set note = 'pr-system-edit' where key = 'clearing_fee';
+select is((select actor_type from public.audit_log where action = 'logistics_rates.updated'
+            and after_value->>'note' = 'pr-system-edit'), 'system', 'A change with no session is audited as the system');
+select is((select proconfig::text from pg_proc where oid = 'public.logistics_rates_stamp()'::regprocedure),
+  '{search_path=public}', 'The logistics stamp runs with a fixed search_path');
 
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"5c000000-0000-0000-0000-000000000003","role":"authenticated"}',true);

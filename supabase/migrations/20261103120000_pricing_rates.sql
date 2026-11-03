@@ -73,8 +73,8 @@ INSERT INTO public.logistics_rates (key, value, currency, note) VALUES
 ON CONFLICT (key) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION public.logistics_rates_stamp()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN NEW.updated_by := auth.uid(); NEW.updated_at := now(); RETURN NEW; END $$;
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN NEW.updated_by := auth.uid(); NEW.updated_at := pg_catalog.now(); RETURN NEW; END $$;
 DROP TRIGGER IF EXISTS logistics_rates_stamp ON public.logistics_rates;
 CREATE TRIGGER logistics_rates_stamp BEFORE UPDATE ON public.logistics_rates
   FOR EACH ROW EXECUTE FUNCTION public.logistics_rates_stamp();
@@ -101,7 +101,7 @@ CREATE OR REPLACE FUNCTION public.pricing_settings_audit()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, before_value, after_value)
-  VALUES (auth.uid(), 'user',
+  VALUES (auth.uid(), CASE WHEN auth.uid() IS NULL THEN 'system' ELSE 'user' END,
           TG_TABLE_NAME || CASE TG_OP WHEN 'INSERT' THEN '.inserted' ELSE '.updated' END,
           TG_TABLE_NAME,
           CASE WHEN TG_TABLE_NAME = 'logistics_rates' THEN NULL ELSE (to_jsonb(NEW) ->> 'id')::uuid END,

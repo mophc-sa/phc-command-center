@@ -24,6 +24,19 @@
 CREATE UNIQUE INDEX IF NOT EXISTS pricing_files_one_per_price
   ON public.pricing_files (internal_price_id) WHERE internal_price_id IS NOT NULL;
 
+-- Final review I1: who last typed the figure. Zayed holds estimation AND
+-- finance (DECISIONS D12), so he may draft the figure in the selling build and
+-- then review it after Kalas proposes it unchanged. proposed_by names Kalas
+-- then, so the approval also checks the figure's author. Stamped by the guards
+-- below from the session (on insert, and whenever the figure, its cost basis
+-- or its floor justification changes); never taken from the payload.
+-- Readable like the other stamps (column grant), not a cost figure.
+ALTER TABLE public.internal_prices
+  ADD COLUMN IF NOT EXISTS figure_set_by uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+GRANT SELECT (figure_set_by) ON public.internal_prices TO authenticated;
+COMMENT ON COLUMN public.internal_prices.figure_set_by IS
+  'Who last set proposed_price, estimation_id or below_floor_justification. Stamped by the guards from auth.uid(); in a pricing file the approver may be neither the proposer nor this user.';
+
 -- 2026-11-03: facts about a price, read past RLS. Internal to the guard.
 -- The state of the price's pricing file; NULL when it is in none.
 CREATE OR REPLACE FUNCTION public._pricing_price_file_state(_internal_price_id uuid)
@@ -76,6 +89,17 @@ BEGIN
        OR NEW.proposed_by IS DISTINCT FROM OLD.proposed_by
        OR NEW.proposed_at IS DISTINCT FROM OLD.proposed_at) THEN
     RAISE EXCEPTION 'A price under review cannot change; return it first. | لا يُعدَّل سعر قيد المراجعة؛ أرجعه أولاً.';
+  END IF;
+
+  -- Final review I1: whoever changes the figure is its author, in this
+  -- statement too (a propose that changes the figure makes the proposer its
+  -- author). Otherwise the author stays as it was, whatever the payload says.
+  IF NEW.proposed_price IS DISTINCT FROM OLD.proposed_price
+     OR NEW.estimation_id IS DISTINCT FROM OLD.estimation_id
+     OR NEW.below_floor_justification IS DISTINCT FROM OLD.below_floor_justification THEN
+    NEW.figure_set_by := _uid;
+  ELSE
+    NEW.figure_set_by := OLD.figure_set_by;
   END IF;
 
   -- 2026-11-03: in a pricing file the price is the GM's to set; estimation and
@@ -136,13 +160,15 @@ BEGIN
   -- Who may make each move. The database decides, not the button.
   -- 2026-11-03: who completes a price. Outside pricing files: the GM, as before.
   -- Inside: finance, reviewing a price the authority set, never its own, while
-  -- the file is in price review.
+  -- the file is in price review. Final review I1: never a figure the approver
+  -- typed either, though someone else proposed it.
   IF NEW.status = 'gm_approved' THEN
     IF _in_file THEN
       IF NOT (public.has_role(_uid, 'finance_manager'::public.app_role)
               AND public.can_approve_final_price(OLD.proposed_by)
-              AND OLD.proposed_by IS DISTINCT FROM _uid) THEN
-        RAISE EXCEPTION 'Finance reviews and approves the price the GM set. | المالية تراجع وتعتمد السعر الذي وضعه المدير العام.'
+              AND OLD.proposed_by IS DISTINCT FROM _uid
+              AND OLD.figure_set_by IS DISTINCT FROM _uid) THEN
+        RAISE EXCEPTION 'Finance reviews and approves the price the GM set, never one it proposed or typed itself. | المالية تراجع وتعتمد السعر الذي وضعه المدير العام، لا سعرًا اقترحته أو أدخلته بنفسها.'
           USING ERRCODE = 'insufficient_privilege';
       END IF;
       IF _file_state <> 'price_review' THEN
@@ -251,6 +277,9 @@ BEGIN
     RAISE EXCEPTION 'A new price starts as a draft or a proposal; review moves it on. | يبدأ السعر الجديد مسودة أو مقترحًا، والمراجعة تنقله بعد ذلك.'
       USING ERRCODE = 'insufficient_privilege';
   END IF;
+  -- Final review I1: whoever inserts the figure typed it. The payload is used
+  -- only where there is no session (migrations, fixtures).
+  NEW.figure_set_by := coalesce(auth.uid(), NEW.figure_set_by);
   RETURN NEW;
 END $$;
 REVOKE ALL ON FUNCTION public.internal_price_insert_guard() FROM PUBLIC, anon, authenticated;
@@ -283,8 +312,10 @@ BEGIN
                   WHERE t.from_state = f.state AND t.to_state = target AND t.who = 'system') THEN
     RETURN NEW;   -- e.g. lines already sent back to the supplier; the price still moves
   END IF;
-  PERFORM public._pricing_file_apply(f, target, _uid,
-    CASE WHEN NEW.status = 'returned' THEN NEW.return_reason END);
+  -- Final review I4: the return reason stays on the price (cost holders and the
+  -- review chain read it there); the file event, which the deal owner reads,
+  -- does not copy it.
+  PERFORM public._pricing_file_apply(f, target, _uid, NULL);
   RETURN NEW;
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_file_follow_price() FROM PUBLIC, anon, authenticated;

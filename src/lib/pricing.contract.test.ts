@@ -152,12 +152,30 @@ describe("Kalas sets, Zayed reviews", () => {
   it("and never its own", () => {
     expect(condition()).toMatch(/OLD\.proposed_by IS DISTINCT FROM _uid/);
   });
-  it("all three must hold together", () => {
+  it("and never a figure the approver typed, though someone else proposed it", () => {
+    // Final review I1: Zayed holds estimation and finance (DECISIONS D12).
+    expect(condition()).toMatch(/OLD\.figure_set_by IS DISTINCT FROM _uid/);
+  });
+  it("the figure's author comes from the session, never the payload", () => {
+    const stamp = between(
+      guardFn(),
+      "IF NEW.proposed_price IS DISTINCT FROM OLD.proposed_price\n",
+      "END IF;",
+    );
+    expect(stamp).toMatch(
+      /OR NEW\.estimation_id IS DISTINCT FROM OLD\.estimation_id\s+OR NEW\.below_floor_justification IS DISTINCT FROM OLD\.below_floor_justification THEN\s+NEW\.figure_set_by := _uid;\s+ELSE\s+NEW\.figure_set_by := OLD\.figure_set_by;/,
+    );
+    // The stamp runs before the early return for edits that are not moves.
+    expect(guardFn().indexOf("NEW.figure_set_by := _uid;")).toBeLessThan(
+      guardFn().indexOf("IF NEW.status = OLD.status THEN"),
+    );
+  });
+  it("all four must hold together", () => {
     // AND-joined inside one NOT ( ... ), so failing any one refuses the approval.
     const parts = condition()
       .split(/\bAND\b/)
       .map((p) => p.trim());
-    expect(parts.length).toBe(3);
+    expect(parts.length).toBe(4);
     expect(condition()).not.toMatch(/\bOR\b/);
   });
   it("approves only while the file is in price review", () => {

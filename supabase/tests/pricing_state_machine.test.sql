@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 5b… prefix.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(27);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
@@ -41,6 +41,10 @@ select is((public.pricing_file_set_needs_info((select id from public.pricing_fil
 select set_config('request.jwt.claims','{"sub":"5b000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
 select is((public.pricing_file_answer_needs_info((select id from public.pricing_files limit 1), 'Uploaded'))->>'state',
   'package_review', 'The deal owner answers and the file returns to review');
+select is((select note from public.pricing_file_events where to_state = 'needs_info'), 'Location plan',
+  'The deal owner reads the missing-items question (final review I4 keeps it his)');
+select is((select note from public.pricing_file_events where from_state = 'needs_info'), 'Uploaded',
+  'The deal owner reads his answer');
 
 select set_config('request.jwt.claims','{"sub":"5b000000-0000-0000-0000-000000000003","role":"authenticated"}',true);
 select throws_ok($$select public.pricing_file_move((select id from public.pricing_files limit 1),'boq_frozen')$$,

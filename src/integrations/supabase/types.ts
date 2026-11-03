@@ -4279,6 +4279,7 @@ export type Database = {
           commercial_reviewed_by: string | null
           created_at: string
           estimation_id: string
+          figure_set_by: string | null
           finance_reviewed_at: string | null
           finance_reviewed_by: string | null
           gm_decided_at: string | null
@@ -4299,6 +4300,7 @@ export type Database = {
           commercial_reviewed_by?: string | null
           created_at?: string
           estimation_id: string
+          figure_set_by?: string | null
           finance_reviewed_at?: string | null
           finance_reviewed_by?: string | null
           gm_decided_at?: string | null
@@ -4319,6 +4321,7 @@ export type Database = {
           commercial_reviewed_by?: string | null
           created_at?: string
           estimation_id?: string
+          figure_set_by?: string | null
           finance_reviewed_at?: string | null
           finance_reviewed_by?: string | null
           gm_decided_at?: string | null
@@ -5556,6 +5559,7 @@ export type Database = {
       pricing_file_events: {
         Row: {
           actor_id: string | null
+          cost_note: string | null
           created_at: string
           file_id: string
           from_state: Database["public"]["Enums"]["pricing_file_state"] | null
@@ -5565,6 +5569,7 @@ export type Database = {
         }
         Insert: {
           actor_id?: string | null
+          cost_note?: string | null
           created_at?: string
           file_id: string
           from_state?: Database["public"]["Enums"]["pricing_file_state"] | null
@@ -5574,6 +5579,7 @@ export type Database = {
         }
         Update: {
           actor_id?: string | null
+          cost_note?: string | null
           created_at?: string
           file_id?: string
           from_state?: Database["public"]["Enums"]["pricing_file_state"] | null
@@ -8970,6 +8976,18 @@ export type Database = {
           pipeline_value: number | null
           sales_stage: Database["public"]["Enums"]["sales_stage"] | null
           stalled: number | null
+        }
+        Relationships: []
+      }
+      pricing_file_cost_notes: {
+        Row: {
+          actor_id: string | null
+          cost_note: string | null
+          created_at: string | null
+          file_id: string | null
+          from_state: Database["public"]["Enums"]["pricing_file_state"] | null
+          id: string | null
+          to_state: Database["public"]["Enums"]["pricing_file_state"] | null
         }
         Relationships: []
       }

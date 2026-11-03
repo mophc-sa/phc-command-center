@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 5e… prefix. GM and finance sessions carry aal2 (MFA).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(57);
+select plan(71);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
@@ -26,26 +26,27 @@ insert into public.price_authority_delegations (grantor_id, grantee_id, reason, 
 values ('5e000000-0000-0000-0000-000000000004','5e000000-0000-0000-0000-000000000005','g1 cover',
         now() - interval '1 hour', now() + interval '1 day');
 
--- Deals 1..7 each have one pricing file; deal 1 also carries prices outside any file.
+-- Deals 1..8 each have one pricing file; deal 1 also carries prices outside any file.
 insert into public.opportunities (id, project_name, owner_id, created_by, sales_stage)
 select ('5e20000' || n || '-0000-0000-0000-000000000001')::uuid, 'g1-deal-' || n,
        '5e000000-0000-0000-0000-000000000001','5e000000-0000-0000-0000-000000000001','rfq_received'
-  from generate_series(1,7) n;
+  from generate_series(1,8) n;
 insert into public.boqs (id, related_opportunity_id, title)
 select ('5e40000' || n || '-0000-0000-0000-000000000001')::uuid, ('5e20000' || n || '-0000-0000-0000-000000000001')::uuid, 'g1-boq-' || n
-  from generate_series(1,7) n;
+  from generate_series(1,8) n;
 insert into public.boq_revisions (id, boq_id, revision_number, frozen_at, frozen_by, status)
 select ('5e50000' || n || '-0000-0000-0000-000000000001')::uuid, ('5e40000' || n || '-0000-0000-0000-000000000001')::uuid, 1,
        now(), '5e000000-0000-0000-0000-000000000003','verified'
-  from generate_series(1,7) n;
+  from generate_series(1,8) n;
 insert into public.estimations (id, boq_revision_id, cost_total)
 select ('5e70000' || n || '-0000-0000-0000-000000000001')::uuid, ('5e50000' || n || '-0000-0000-0000-000000000001')::uuid, 100000
-  from generate_series(1,7) n;
+  from generate_series(1,8) n;
 -- 1: Kalas has set the price (proposed_by = GM). 2: under review. 3: proposed by
 -- estimation, not by Kalas. 4: walked the old chain to finance review in a file.
 -- 5: set, but its file is not yet in the selling build. 6: under review while its
 -- file is still in the selling build. 7: drafted by estimation, for the finance
--- delegate. 9, 10: outside any pricing file.
+-- delegate. 8: drafted by estimation, in the selling build, for the figure
+-- rule (final review I1). 9, 10: outside any pricing file.
 insert into public.internal_prices (id, estimation_id, proposed_price, status, proposed_by) values
   ('5e800001-0000-0000-0000-000000000001','5e700001-0000-0000-0000-000000000001', 140000, 'internal_price_proposed', '5e000000-0000-0000-0000-000000000004'),
   ('5e800002-0000-0000-0000-000000000001','5e700002-0000-0000-0000-000000000001', 140000, 'gm_pending',              '5e000000-0000-0000-0000-000000000004'),
@@ -54,6 +55,7 @@ insert into public.internal_prices (id, estimation_id, proposed_price, status, p
   ('5e800005-0000-0000-0000-000000000001','5e700005-0000-0000-0000-000000000001', 140000, 'internal_price_proposed', '5e000000-0000-0000-0000-000000000004'),
   ('5e800006-0000-0000-0000-000000000001','5e700006-0000-0000-0000-000000000001', 140000, 'gm_pending',              '5e000000-0000-0000-0000-000000000004'),
   ('5e800007-0000-0000-0000-000000000001','5e700007-0000-0000-0000-000000000001', 140000, 'internal_price_proposed', '5e000000-0000-0000-0000-000000000003'),
+  ('5e800008-0000-0000-0000-000000000001','5e700008-0000-0000-0000-000000000001', 140000, 'internal_price_proposed', '5e000000-0000-0000-0000-000000000003'),
   ('5e800009-0000-0000-0000-000000000001','5e700001-0000-0000-0000-000000000001', 140000, 'internal_price_proposed', '5e000000-0000-0000-0000-000000000003'),
   ('5e800010-0000-0000-0000-000000000001','5e700001-0000-0000-0000-000000000001', 140000, 'gm_pending',              '5e000000-0000-0000-0000-000000000004');
 insert into public.pricing_files (id, opportunity_id, state, boq_revision_id, estimation_id, internal_price_id)
@@ -61,7 +63,7 @@ select ('5e60000' || n || '-0000-0000-0000-000000000001')::uuid, ('5e20000' || n
        (case n when 2 then 'price_review' when 5 then 'supplier_priced' else 'selling_build' end)::public.pricing_file_state,
        ('5e50000' || n || '-0000-0000-0000-000000000001')::uuid, ('5e70000' || n || '-0000-0000-0000-000000000001')::uuid,
        ('5e80000' || n || '-0000-0000-0000-000000000001')::uuid
-  from generate_series(1,7) n;
+  from generate_series(1,8) n;
 insert into public.pricing_extras_catalog (id, code, name_en, name_ar, unit, default_rate)
 values ('5e900000-0000-0000-0000-000000000001','crane_hire','Crane hire','رافعة','lump',2000);
 insert into public.pricing_file_extras (file_id, catalog_id, rate) values ('5e600001-0000-0000-0000-000000000001','5e900000-0000-0000-0000-000000000001',2000);
@@ -134,6 +136,33 @@ select lives_ok($$update public.internal_prices set proposed_price = 145000 wher
   'Kalas edits the price he is setting');
 select is((select proposed_price from public.internal_prices where id = '5e800005-0000-0000-0000-000000000001'), 145000::numeric,
   'Kalas''s edit is kept');
+
+-- ===== The approver never set the figure (final review I1) =====
+-- Zayed holds estimation and finance (DECISIONS D12). He may draft the figure
+-- in the selling build; then he is not the one who approves it, even though
+-- Kalas proposed it unchanged.
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select lives_ok($$update public.internal_prices set proposed_price = 138000 where id = '5e800008-0000-0000-0000-000000000001'$$,
+  'Zayed (estimation and finance) drafts the figure in the selling build');
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select lives_ok($$update public.internal_prices set status = 'gm_pending' where id = '5e800008-0000-0000-0000-000000000001'$$,
+  'Kalas proposes it without changing the figure');
+select lives_ok($$update public.internal_prices set figure_set_by = '5e000000-0000-0000-0000-000000000004' where id = '5e800008-0000-0000-0000-000000000001'$$,
+  'An edit that names someone else as the figure''s author goes through ...');
+reset role;
+select is((select to_jsonb(p)->>'figure_set_by' from public.internal_prices p where p.id = '5e800008-0000-0000-0000-000000000001'),
+  '5e000000-0000-0000-0000-000000000003', '... but the figure stays Zayed''s: the stamp comes from the session, never the payload');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$update public.internal_prices set status = 'gm_approved' where id = '5e800008-0000-0000-0000-000000000001'$$,
+  '42501', null, 'Zayed cannot approve a figure he typed, though Kalas proposed it');
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000007","role":"authenticated","aal":"aal2"}',true);
+select lives_ok($$update public.internal_prices set status = 'gm_approved' where id = '5e800008-0000-0000-0000-000000000001'$$,
+  'A different finance user approves it');
+reset role;
+select is((select finance_reviewed_by::text || ' / ' || gm_decided_by::text from public.internal_prices where id = '5e800008-0000-0000-0000-000000000001'),
+  '5e000000-0000-0000-0000-000000000007 / 5e000000-0000-0000-0000-000000000004', 'Kalas''s proposal, the other finance user''s review');
+set local role authenticated;
 
 -- ===== Propose from the selling build, approve in price review =====
 select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
@@ -208,10 +237,14 @@ reset role;
 update public.margin_policies set effective_to = now() - interval '1 minute' where id = '5ea00000-0000-0000-0000-000000000001';
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
-select lives_ok($$update public.internal_prices set status = 'gm_pending' where id = '5e800003-0000-0000-0000-000000000001'$$,
-  'Kalas proposes a price estimation had drafted');
+select lives_ok($$update public.internal_prices set status = 'gm_pending', proposed_price = 141000 where id = '5e800003-0000-0000-0000-000000000001'$$,
+  'Kalas proposes a price estimation had drafted, at his own figure');
 select is((select proposed_by::text from public.internal_prices where id = '5e800003-0000-0000-0000-000000000001'),
   '5e000000-0000-0000-0000-000000000004', 'Kalas''s propose stamps him as the proposer');
+reset role;
+select is((select to_jsonb(p)->>'figure_set_by' from public.internal_prices p where p.id = '5e800003-0000-0000-0000-000000000001'),
+  '5e000000-0000-0000-0000-000000000004', 'A figure changed by the propose itself is stamped as Kalas''s');
+set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select lives_ok($$update public.internal_prices set status = 'returned', return_reason = 'Margin too thin on line 2' where id = '5e800003-0000-0000-0000-000000000001'$$,
   'Zayed returns the price');
@@ -220,7 +253,19 @@ select is((select finance_reviewed_by::text || ' / ' || coalesce(gm_decided_by::
 select is((select state::text from public.pricing_files where id = '5e600003-0000-0000-0000-000000000001'), 'selling_build',
   'The file goes back to Kalas''s selling build');
 select is((select note from public.pricing_file_events where file_id = '5e600003-0000-0000-0000-000000000001' and to_state = 'selling_build'),
-  'Margin too thin on line 2', 'The file event carries the return reason');
+  null, 'The file event does not copy the return reason; it stays on the price');
+-- Final review I4: the deal owner sees where the price is, not why it moved.
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+select is((select count(*)::int from public.pricing_file_events where file_id = '5e600003-0000-0000-0000-000000000001' and to_state = 'selling_build'),
+  1, 'The deal owner sees that the price went back to the selling build');
+select is((select count(*)::int from public.pricing_file_events
+            where note like '%Margin too thin%' or note like '%Line 3 missing screen%'),
+  0, 'The deal owner reads neither the return reason nor the note on lines sent back to the supplier');
+-- Deferred from Task 5: a move that carries an edit is still an edit.
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000006","role":"authenticated"}',true);
+select throws_ok($$update public.internal_prices set status = 'internal_price_proposed', proposed_price = 150000 where id = '5e800003-0000-0000-0000-000000000001'$$,
+  '42501', null, 'A pipeline operator cannot reprice a returned price by putting it back up');
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select lives_ok($$update public.internal_prices set status = 'internal_price_proposed', proposed_by = '5e000000-0000-0000-0000-000000000004' where id = '5e800003-0000-0000-0000-000000000001'$$,
   'Zayed puts the returned price back up');
 select is((select proposed_by::text from public.internal_prices where id = '5e800003-0000-0000-0000-000000000001'),
@@ -253,6 +298,15 @@ select lives_ok($$update public.internal_prices set status = 'gm_approved' where
   'Outside a pricing file the GM approves, as before');
 select is((select gm_decided_by::text from public.internal_prices where id = '5e800010-0000-0000-0000-000000000001'),
   '5e000000-0000-0000-0000-000000000004', 'Outside a pricing file the GM''s decision is stamped as before');
+
+-- ===== Cost notes are read through the cost gate (final review I4) =====
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+select throws_ok($$select cost_note from public.pricing_file_events$$,
+  '42501', null, 'The deal owner cannot select the cost note column');
+select is((select count(*)::int from public.pricing_file_cost_notes), 0, 'The deal owner reads no cost note through the view');
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select is((select cost_note from public.pricing_file_cost_notes where file_id = '5e600002-0000-0000-0000-000000000001' and to_state = 'at_supplier'),
+  'Line 3 missing screen', 'A pricer reads the note on lines sent back to the supplier through the cost-gated view');
 reset role;
 select * from finish();
 rollback;
