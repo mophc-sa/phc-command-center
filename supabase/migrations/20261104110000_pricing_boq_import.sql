@@ -177,15 +177,16 @@ BEGIN
       UPDATE public.boq_revisions SET superseded_by = rev.id, superseded_at = now() WHERE id = prev;
       IF NOT _replace THEN
         -- Adding to a revision that cannot change: the new one starts as a copy
-        -- of it (every column but the cost ones), so it replaces the whole set,
+        -- of it (every column but the cost ones and the old selling price, which
+        -- the new round's grid rebuilds), so it replaces the whole set,
         -- not just the lines that were added.
         INSERT INTO public.boq_lines (revision_id, line_number, sort_order, sign_type, description, dimensions,
                                       material, mounting, illumination, finish, location, quantity, unit,
-                                      selling_price, item_source, install_type, width_mm, height_mm,
+                                      item_source, install_type, width_mm, height_mm,
                                       weight_kg, mount_height_m, has_screen, needs_floor_cut)
         SELECT rev.id, l.line_number, l.sort_order, l.sign_type, l.description, l.dimensions,
                l.material, l.mounting, l.illumination, l.finish, l.location, l.quantity, l.unit,
-               l.selling_price, l.item_source, l.install_type, l.width_mm, l.height_mm,
+               l.item_source, l.install_type, l.width_mm, l.height_mm,
                l.weight_kg, l.mount_height_m, l.has_screen, l.needs_floor_cut
           FROM public.boq_lines l WHERE l.revision_id = prev
          ORDER BY l.line_number, l.sort_order, l.created_at, l.id;
