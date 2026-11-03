@@ -1213,14 +1213,19 @@ export type Database = {
           description: string | null
           dimensions: string | null
           finish: string | null
+          has_screen: boolean
+          height_mm: number | null
           id: string
           illumination: string | null
+          install_type: Database["public"]["Enums"]["install_type"] | null
           item_source: string | null
           line_number: number | null
           line_total: number | null
           location: string | null
           material: string | null
+          mount_height_m: number | null
           mounting: string | null
+          needs_floor_cut: boolean
           quantity: number
           revision_id: string
           selling_price: number | null
@@ -1228,20 +1233,27 @@ export type Database = {
           sort_order: number | null
           unit: string | null
           unit_price: number | null
+          weight_kg: number | null
+          width_mm: number | null
         }
         Insert: {
           created_at?: string
           description?: string | null
           dimensions?: string | null
           finish?: string | null
+          has_screen?: boolean
+          height_mm?: number | null
           id?: string
           illumination?: string | null
+          install_type?: Database["public"]["Enums"]["install_type"] | null
           item_source?: string | null
           line_number?: number | null
           line_total?: number | null
           location?: string | null
           material?: string | null
+          mount_height_m?: number | null
           mounting?: string | null
+          needs_floor_cut?: boolean
           quantity?: number
           revision_id: string
           selling_price?: number | null
@@ -1249,20 +1261,27 @@ export type Database = {
           sort_order?: number | null
           unit?: string | null
           unit_price?: number | null
+          weight_kg?: number | null
+          width_mm?: number | null
         }
         Update: {
           created_at?: string
           description?: string | null
           dimensions?: string | null
           finish?: string | null
+          has_screen?: boolean
+          height_mm?: number | null
           id?: string
           illumination?: string | null
+          install_type?: Database["public"]["Enums"]["install_type"] | null
           item_source?: string | null
           line_number?: number | null
           line_total?: number | null
           location?: string | null
           material?: string | null
+          mount_height_m?: number | null
           mounting?: string | null
+          needs_floor_cut?: boolean
           quantity?: number
           revision_id?: string
           selling_price?: number | null
@@ -1270,6 +1289,8 @@ export type Database = {
           sort_order?: number | null
           unit?: string | null
           unit_price?: number | null
+          weight_kg?: number | null
+          width_mm?: number | null
         }
         Relationships: [
           {
@@ -4197,6 +4218,60 @@ export type Database = {
         }
         Relationships: []
       }
+      installation_rates: {
+        Row: {
+          base_rate: number
+          crane_add: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          effective_from: string
+          effective_to: string | null
+          floor_cut_add: number
+          height_threshold_m: number | null
+          id: string
+          install_type: Database["public"]["Enums"]["install_type"]
+          per_kg_over: number
+          per_m_over: number
+          scaffold_add: number
+          weight_threshold_kg: number | null
+        }
+        Insert: {
+          base_rate: number
+          crane_add?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from?: string
+          effective_to?: string | null
+          floor_cut_add?: number
+          height_threshold_m?: number | null
+          id?: string
+          install_type: Database["public"]["Enums"]["install_type"]
+          per_kg_over?: number
+          per_m_over?: number
+          scaffold_add?: number
+          weight_threshold_kg?: number | null
+        }
+        Update: {
+          base_rate?: number
+          crane_add?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from?: string
+          effective_to?: string | null
+          floor_cut_add?: number
+          height_threshold_m?: number | null
+          id?: string
+          install_type?: Database["public"]["Enums"]["install_type"]
+          per_kg_over?: number
+          per_m_over?: number
+          scaffold_add?: number
+          weight_threshold_kg?: number | null
+        }
+        Relationships: []
+      }
       internal_prices: {
         Row: {
           below_floor_justification: string | null
@@ -4204,6 +4279,7 @@ export type Database = {
           commercial_reviewed_by: string | null
           created_at: string
           estimation_id: string
+          figure_set_by: string | null
           finance_reviewed_at: string | null
           finance_reviewed_by: string | null
           gm_decided_at: string | null
@@ -4224,6 +4300,7 @@ export type Database = {
           commercial_reviewed_by?: string | null
           created_at?: string
           estimation_id: string
+          figure_set_by?: string | null
           finance_reviewed_at?: string | null
           finance_reviewed_by?: string | null
           gm_decided_at?: string | null
@@ -4244,6 +4321,7 @@ export type Database = {
           commercial_reviewed_by?: string | null
           created_at?: string
           estimation_id?: string
+          figure_set_by?: string | null
           finance_reviewed_at?: string | null
           finance_reviewed_by?: string | null
           gm_decided_at?: string | null
@@ -4516,6 +4594,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      logistics_rates: {
+        Row: {
+          currency: string
+          key: string
+          note: string | null
+          updated_at: string
+          updated_by: string | null
+          value: number
+        }
+        Insert: {
+          currency?: string
+          key: string
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          value: number
+        }
+        Update: {
+          currency?: string
+          key?: string
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          value?: number
+        }
+        Relationships: []
       }
       margin_policies: {
         Row: {
@@ -5411,6 +5516,278 @@ export type Database = {
           starts_at?: string
         }
         Relationships: []
+      }
+      pricing_extras_catalog: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          default_rate: number
+          id: string
+          name_ar: string
+          name_en: string
+          suggest_for: Database["public"]["Enums"]["install_type"][]
+          suggest_min_height_m: number | null
+          unit: Database["public"]["Enums"]["pricing_extra_unit"]
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          default_rate?: number
+          id?: string
+          name_ar: string
+          name_en: string
+          suggest_for?: Database["public"]["Enums"]["install_type"][]
+          suggest_min_height_m?: number | null
+          unit: Database["public"]["Enums"]["pricing_extra_unit"]
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          default_rate?: number
+          id?: string
+          name_ar?: string
+          name_en?: string
+          suggest_for?: Database["public"]["Enums"]["install_type"][]
+          suggest_min_height_m?: number | null
+          unit?: Database["public"]["Enums"]["pricing_extra_unit"]
+        }
+        Relationships: []
+      }
+      pricing_file_events: {
+        Row: {
+          actor_id: string | null
+          cost_note: string | null
+          created_at: string
+          file_id: string
+          from_state: Database["public"]["Enums"]["pricing_file_state"] | null
+          id: string
+          note: string | null
+          to_state: Database["public"]["Enums"]["pricing_file_state"]
+        }
+        Insert: {
+          actor_id?: string | null
+          cost_note?: string | null
+          created_at?: string
+          file_id: string
+          from_state?: Database["public"]["Enums"]["pricing_file_state"] | null
+          id?: string
+          note?: string | null
+          to_state: Database["public"]["Enums"]["pricing_file_state"]
+        }
+        Update: {
+          actor_id?: string | null
+          cost_note?: string | null
+          created_at?: string
+          file_id?: string
+          from_state?: Database["public"]["Enums"]["pricing_file_state"] | null
+          id?: string
+          note?: string | null
+          to_state?: Database["public"]["Enums"]["pricing_file_state"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_file_events_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_file_extras: {
+        Row: {
+          catalog_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          dismiss_reason: string | null
+          file_id: string
+          id: string
+          quantity: number
+          rate: number
+          source_line_id: string | null
+          status: string
+        }
+        Insert: {
+          catalog_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          dismiss_reason?: string | null
+          file_id: string
+          id?: string
+          quantity?: number
+          rate: number
+          source_line_id?: string | null
+          status?: string
+        }
+        Update: {
+          catalog_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          dismiss_reason?: string | null
+          file_id?: string
+          id?: string
+          quantity?: number
+          rate?: number
+          source_line_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_file_extras_catalog_id_fkey"
+            columns: ["catalog_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_extras_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_file_extras_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_file_extras_source_line_id_fkey"
+            columns: ["source_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_files: {
+        Row: {
+          boq_revision_id: string | null
+          closed_reason: string | null
+          created_at: string
+          due_at: string | null
+          estimation_id: string | null
+          id: string
+          internal_price_id: string | null
+          needs_info_due: string | null
+          needs_info_items: string[]
+          opened_by: string | null
+          opportunity_id: string
+          rfq_id: string | null
+          state: Database["public"]["Enums"]["pricing_file_state"]
+          state_changed_at: string
+          state_changed_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          boq_revision_id?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          due_at?: string | null
+          estimation_id?: string | null
+          id?: string
+          internal_price_id?: string | null
+          needs_info_due?: string | null
+          needs_info_items?: string[]
+          opened_by?: string | null
+          opportunity_id: string
+          rfq_id?: string | null
+          state?: Database["public"]["Enums"]["pricing_file_state"]
+          state_changed_at?: string
+          state_changed_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          boq_revision_id?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          due_at?: string | null
+          estimation_id?: string | null
+          id?: string
+          internal_price_id?: string | null
+          needs_info_due?: string | null
+          needs_info_items?: string[]
+          opened_by?: string | null
+          opportunity_id?: string
+          rfq_id?: string | null
+          state?: Database["public"]["Enums"]["pricing_file_state"]
+          state_changed_at?: string
+          state_changed_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_files_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revision_sales_totals"
+            referencedColumns: ["revision_id"]
+          },
+          {
+            foreignKeyName: "pricing_files_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_files_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimation_cost_reconciliation"
+            referencedColumns: ["estimation_id"]
+          },
+          {
+            foreignKeyName: "pricing_files_estimation_id_fkey"
+            columns: ["estimation_id"]
+            isOneToOne: false
+            referencedRelation: "estimations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_files_internal_price_id_fkey"
+            columns: ["internal_price_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_review_queue"
+            referencedColumns: ["internal_price_id"]
+          },
+          {
+            foreignKeyName: "pricing_files_internal_price_id_fkey"
+            columns: ["internal_price_id"]
+            isOneToOne: false
+            referencedRelation: "internal_price_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_files_internal_price_id_fkey"
+            columns: ["internal_price_id"]
+            isOneToOne: false
+            referencedRelation: "internal_prices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_files_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_scope_opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_files_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_files_rfq_id_fkey"
+            columns: ["rfq_id"]
+            isOneToOne: false
+            referencedRelation: "rfqs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -6837,6 +7214,7 @@ export type Database = {
           selection_note: string | null
           supplier_quote_id: string
           unit_cost: number | null
+          unit_cost_with_screen: number | null
         }
         Insert: {
           alternate_spec?: string | null
@@ -6852,6 +7230,7 @@ export type Database = {
           selection_note?: string | null
           supplier_quote_id: string
           unit_cost?: number | null
+          unit_cost_with_screen?: number | null
         }
         Update: {
           alternate_spec?: string | null
@@ -6867,6 +7246,7 @@ export type Database = {
           selection_note?: string | null
           supplier_quote_id?: string
           unit_cost?: number | null
+          unit_cost_with_screen?: number | null
         }
         Relationships: [
           {
@@ -8599,6 +8979,26 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_file_cost_notes: {
+        Row: {
+          actor_id: string | null
+          cost_note: string | null
+          created_at: string | null
+          file_id: string | null
+          from_state: Database["public"]["Enums"]["pricing_file_state"] | null
+          id: string | null
+          to_state: Database["public"]["Enums"]["pricing_file_state"] | null
+        }
+        Relationships: []
+      }
+      pricing_file_transitions: {
+        Row: {
+          from_state: Database["public"]["Enums"]["pricing_file_state"] | null
+          to_state: Database["public"]["Enums"]["pricing_file_state"] | null
+          who: string | null
+        }
+        Relationships: []
+      }
       quotation_current_revision: {
         Row: {
           approved_at: string | null
@@ -8731,6 +9131,7 @@ export type Database = {
           status: Database["public"]["Enums"]["supplier_quote_status"] | null
           supplier_quote_id: string | null
           unit_cost: number | null
+          unit_cost_with_screen: number | null
           vendor_id: string | null
           vendor_name: string | null
         }
@@ -9056,6 +9457,7 @@ export type Database = {
       is_commercial_manager: { Args: { _user_id: string }; Returns: boolean }
       is_pipeline_operator: { Args: { _user_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_pricer: { Args: { _user_id: string }; Returns: boolean }
       is_sales_contributor: { Args: { _user_id: string }; Returns: boolean }
       issue_project_number: { Args: { _project_id: string }; Returns: string }
       jsonb_has_money_key: { Args: { _payload: Json }; Returns: boolean }
@@ -9111,6 +9513,10 @@ export type Database = {
         Returns: number
       }
       notify_overdue_items: { Args: never; Returns: number }
+      open_pricing_file: {
+        Args: { _opportunity_id: string; _rfq_id?: string }
+        Returns: Json
+      }
       opportunity_value: {
         Args: {
           _contract_value: number
@@ -9139,6 +9545,47 @@ export type Database = {
           variant: string
         }[]
       }
+      pricing_decide_extra: {
+        Args: {
+          _accept: boolean
+          _extra_id: string
+          _quantity?: number
+          _rate?: number
+          _reason?: string
+        }
+        Returns: Json
+      }
+      pricing_file_answer_needs_info: {
+        Args: { _file_id: string; _note: string }
+        Returns: Json
+      }
+      pricing_file_move: {
+        Args: {
+          _file_id: string
+          _note?: string
+          _to: Database["public"]["Enums"]["pricing_file_state"]
+        }
+        Returns: Json
+      }
+      pricing_file_open_suggestions: {
+        Args: { _file_id: string }
+        Returns: number
+      }
+      pricing_file_set_needs_info: {
+        Args: { _due: string; _file_id: string; _items: string[] }
+        Returns: Json
+      }
+      pricing_installation_cost: {
+        Args: {
+          _floor_cut: boolean
+          _mount_height_m: number
+          _on?: string
+          _type: Database["public"]["Enums"]["install_type"]
+          _weight_kg: number
+        }
+        Returns: number
+      }
+      pricing_suggest_extras: { Args: { _file_id: string }; Returns: number }
       project_has_valid_boq: { Args: { _project_id: string }; Returns: boolean }
       project_number_denied_message: { Args: never; Returns: string }
       promote_historical_row: { Args: { _request_id: string }; Returns: string }
@@ -9395,6 +9842,7 @@ export type Database = {
         | "sent_to_missing_data"
         | "marked_duplicate"
         | "archived"
+      install_type: "double_tape" | "wall_screw" | "pylon" | "ceiling" | "floor"
       internal_price_status:
         | "draft"
         | "cost_complete"
@@ -9453,6 +9901,19 @@ export type Database = {
         | "won"
         | "lost"
         | "hold"
+      pricing_extra_unit: "lump" | "item" | "m2"
+      pricing_file_state:
+        | "received"
+        | "package_review"
+        | "needs_info"
+        | "boq_frozen"
+        | "at_supplier"
+        | "supplier_priced"
+        | "selling_build"
+        | "price_review"
+        | "approved"
+        | "quoted"
+        | "closed"
       priority_tier: "A" | "B" | "C"
       project_stage:
         | "early_planning"
@@ -9908,6 +10369,7 @@ export const Constants = {
         "marked_duplicate",
         "archived",
       ],
+      install_type: ["double_tape", "wall_screw", "pylon", "ceiling", "floor"],
       internal_price_status: [
         "draft",
         "cost_complete",
@@ -9970,6 +10432,20 @@ export const Constants = {
         "won",
         "lost",
         "hold",
+      ],
+      pricing_extra_unit: ["lump", "item", "m2"],
+      pricing_file_state: [
+        "received",
+        "package_review",
+        "needs_info",
+        "boq_frozen",
+        "at_supplier",
+        "supplier_priced",
+        "selling_build",
+        "price_review",
+        "approved",
+        "quoted",
+        "closed",
       ],
       priority_tier: ["A", "B", "C"],
       project_stage: [

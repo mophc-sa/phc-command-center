@@ -1,5 +1,42 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-03 — Pricing loop foundation (branch `feat/pricing-loop-foundation`, worktree `~/dev/phc-pricing`)
+
+Spec `docs/superpowers/specs/2026-11-03-pricing-loop-design.md`; plan `docs/superpowers/plans/2026-11-03-pricing-loop-foundation.md`. Commercial & Finance part 1, PR 1 of 5: **database foundation only, no screens**. Migrations `20261103100000` (`pricing_files`, events, one open file per deal, auto-opened from its RFQ), `20261103110000` (enforced path, needs-info RPCs), `20261103120000` (installation rates, extras catalog, logistics rates, structured BOQ attributes, `unit_cost_with_screen`), `20261103130000` (cost calculation), `20261103140000` (Kalas sets the price, Zayed reviews it; guard rewrite), `20261103150000` (`can_read_commercial_cost` gains `sales_manager`). pgTAP per migration; `src/lib/pricing.ts` mirror, `pricing.contract.test.ts`, `pricing-actions.ts` (SQL RPC wrappers). Actions are SQL RPCs, not `sales-os-api`, so **no function deploy**.
+
+**Needs `supabase db push` before PR 2's screens are useful.** Nothing is deployed or pushed; the PR is opened by the controller after a final review. Release is `db push` only.
+
+Behaviour that changes OUTSIDE pricing files (the Phase 7A guard `internal_price_transition_guard` was rewritten; see DECISIONS 2026-11-03): runs SECURITY DEFINER; `gm_pending` price frozen; `gm_approved` price immutable (propose a new one); proposer/reviewer stamps not editable outside a status move; an authenticated INSERT must be `draft` or `internal_price_proposed`. Inside a file, `service_role` price edits are refused.
+
+Local checks: `bun run verify` and `bun audit --audit-level=high` (results in `.superpowers/sdd/task-8-report.md`, final-review fixes in `.superpowers/sdd/final-fix-report.md`); DB suite via `supabase test db` on a rebuilt local DB (32 files, 553 tests after the final-review fixes).
+
+**Final-review fixes (same migrations, edited in place before release):** the approver is never `internal_prices.figure_set_by` (who last typed the figure; Zayed holds estimation and finance, D12); `_pricing_file_open` is race-safe (`ON CONFLICT … DO NOTHING`, then reselect); the file also opens when an RFQ is linked to a deal later (`AFTER INSERT OR UPDATE OF opportunity_id`); the return reason is not copied into file events, and notes on moves out of cost stages go to `cost_note` (read through `pricing_file_cost_notes`, cost holders only); `logistics_rates_stamp` has a fixed `search_path`; `pricing_settings_audit` writes `actor_type 'system'` with no session.
+
+**A file cannot pass `package_review` until PR 2.** Nothing in PR 1 sets `pricing_files.boq_revision_id`, `estimation_id` or `internal_price_id` (only fixtures do), so `boq_frozen` (which needs a frozen revision on the file) is unreachable through the RPCs. PR 2 adds the linking RPC.
+
+**PR 2 contract (must hold):**
+- The linking RPC checks: the revision belongs to the file's deal (`boq_revisions → boqs.related_opportunity_id = pricing_files.opportunity_id`); the estimation belongs to that revision; the price belongs to that estimation; the price's status is at most `internal_price_proposed` (`draft`, `cost_complete` or `internal_price_proposed`), never one already under review or decided.
+- Any SECURITY DEFINER RPC that inserts `internal_prices` runs as the owner, so `internal_price_insert_guard` (which checks `current_user = 'authenticated'`) does not stop it: the RPC must enforce the draft-or-proposed status rule itself. `figure_set_by` is still stamped from `auth.uid()`.
+- `pricing_file_events` uses column grants (`cost_note` is not granted), so a PostgREST `select=*` returns 42501 for every user. Always list columns explicitly.
+- The close dialog says the reason is visible to the sales rep.
+
+**Deferred to PR 2:**
+- Suggest-vs-propose race: `pricing_suggest_extras` can add a suggestion while Kalas's propose checks for open extras. Lock the file row (`FOR UPDATE`) in `pricing_suggest_extras` and in the guard's open-extras check (`_pricing_price_has_open_extras`).
+- On a client revision, old decided extras suppress new suggestions for the same catalog item. Add `UNIQUE (file_id, catalog_id)` scoped to the round (or reset per round) and insert with `ON CONFLICT DO NOTHING`.
+- A store for the installation % fallback: `logistics_rates.key` has a closed CHECK, so the fallback % has no row to live in yet.
+- `open_pricing_file(_opportunity_id, _rfq_id)` does not check that `_rfq_id` belongs to the deal.
+- The cost basis is not frozen under review: Zayed, as estimation, can still edit the estimation's `cost_total` / `wastage_pct` while Kalas's price is `gm_pending`, and `compute_margin` re-runs on the approve. Freeze the linked estimation while its price is under review.
+- An RFQ moved from deal A to deal B leaves A's open file pointing at an RFQ that now belongs to B. Decide whether the move closes or re-points A's file.
+- If Zayed is the only finance_manager, a figure he types in a file can be approved only after Kalas retypes it (approver ≠ `figure_set_by`). The selling-price screen should say so.
+- Decision for PR 2: the placeholder RFQ that the classification edit creates on a deal with none (`src/lib/opportunity-collab-actions.ts`, `upsertClientDetails`) also opens a pricing file. It has no column, flag or source value that tells it apart from a real RFQ saved with few fields, so it is not excluded. If that is wrong, PR 2 marks it (e.g. a `source_type` value) and the trigger skips it.
+- No backfill: RFQs that existed before `20261103100000` get no file; pricers open them by hand with `open_pricing_file`.
+
+**Open points**
+- `scripts/db-behaviour.sh` cannot replay this branch locally: its stubs lack `extensions.gen_random_bytes` and `vault.create_secret`. Pre-existing, not caused by this branch. CI uses `supabase test db`, which is the source of truth.
+- Spec open points, to confirm with Zayed during build (not blockers): exact installation types and modifier bands and the first rate-card values; the default margin % and the margin floor value (existing `margin_policies`); the default logistics values (the meeting's figures are partly unclear: customs about 5%?, container 12,000 in what currency?); whether stickers are bought and fitted by the installer (meeting 76 [05:19-05:36], unclear). Seeded logistics rows mark the unclear figures.
+- The Phase 7B migration comment (`20260827100000_phase7b_supplier_costing.sql` lines 44-48) still says the sales manager is refused cost. It is superseded by `20261103150000`; migrations are not edited after release.
+- Next: PR 2 screens (`/pricing`, `/pricing/$id`, `/pricing/settings`, BOQ import, price grid), PR 3 `supplier` role and portal, PR 4 price-review card and quotation revision, PR 5 AI reviews (notify only).
+
 ## 2026-10-22 — Meetings phase 1 (branch `feat/meetings-phase1`, worktree `~/dev/phc-g8`)
 
 Spec `docs/superpowers/specs/2026-10-22-meetings-phase1-scope.md` (PR 357; Mo approved all four

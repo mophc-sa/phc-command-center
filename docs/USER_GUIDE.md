@@ -962,6 +962,10 @@ A project now has a responsible salesperson, shown at the top of the project pag
 
 ## 10. Current limitations
 
+### Pricing loop foundation (2026-11-03)
+
+- The pricing file, its path, the installation rate card, extras and logistics rates exist in the database. There are no screens yet (PR 2). A new RFQ on a deal opens a pricing file in state *Received for pricing*. Nothing is visible to users until the screens ship.
+
 ### Samples, drawings and client reminders (2026-10-22)
 
 - **Not live until the database change is applied.** Migration `20261027100000` must be pushed to
@@ -1551,3 +1555,4 @@ Update this file when the workflow changes.*
 
 <!-- last reviewed 2026-10-23 · info@ mailbox: requests from email, router list, Newsletters & spam, Not sorted, Source email panel, Mention (deal readers only) · branch feat/info-mailbox, not deployed · previous: Today's actions, 2026-10-20 -->
 
+<!-- last reviewed 2026-11-03 · pricing loop foundation: database only, no screens yet (limitations note) · branch feat/pricing-loop-foundation, not deployed · previous: info@ mailbox, 2026-10-23 -->
