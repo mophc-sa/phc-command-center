@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 5e… prefix. GM and finance sessions carry aal2 (MFA).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(57);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
@@ -99,6 +99,12 @@ select throws_ok($$update public.internal_prices set proposed_price = 130000 whe
   'P0001', null, 'A price under review cannot be changed');
 select throws_ok($$update public.internal_prices set proposed_by = '5e000000-0000-0000-0000-000000000005' where id = '5e800001-0000-0000-0000-000000000001'$$,
   'P0001', null, 'Who proposed a price under review cannot be rewritten');
+select throws_ok($$update public.internal_prices set below_floor_justification = 'Strategic client' where id = '5e800001-0000-0000-0000-000000000001'$$,
+  'P0001', null, 'The floor justification of a price under review cannot be changed');
+select throws_ok($$update public.internal_prices set status = 'gm_approved', below_floor_justification = 'Strategic client' where id = '5e800001-0000-0000-0000-000000000001'$$,
+  'P0001', null, 'The approval cannot carry a different floor justification');
+select throws_ok($$update public.internal_prices set status = 'gm_approved', proposed_at = now() - interval '1 day' where id = '5e800001-0000-0000-0000-000000000001'$$,
+  'P0001', null, 'The approval cannot rewrite when the price was proposed');
 select throws_ok($$update public.internal_prices set status = 'gm_approved', proposed_price = 120000 where id = '5e800001-0000-0000-0000-000000000001'$$,
   'P0001', null, 'The approval cannot carry a different price than the one Kalas set');
 select lives_ok($$update public.internal_prices set status = 'gm_approved' where id = '5e800001-0000-0000-0000-000000000001'$$,
@@ -114,9 +120,20 @@ select is((select finance_reviewed_by::text from public.internal_prices where id
 select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
 select throws_ok($$update public.internal_prices set proposed_price = 150000 where id = '5e800001-0000-0000-0000-000000000001'$$,
   'P0001', null, 'Kalas cannot edit the price once Zayed has approved it');
+select throws_ok($$update public.internal_prices set status = 'returned', return_reason = 'x', proposed_price = 150000 where id = '5e800001-0000-0000-0000-000000000001'$$,
+  '42501', null, 'An approved price cannot be moved and repriced in one statement');
 select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000006","role":"authenticated"}',true);
 select throws_ok($$update public.internal_prices set proposed_price = 150000 where id = '5e800001-0000-0000-0000-000000000001'$$,
   'P0001', null, 'A pipeline operator cannot edit an approved price either');
+
+-- ===== In a file, only the GM or a pricer edits the price =====
+select throws_ok($$update public.internal_prices set proposed_price = 135000 where id = '5e800005-0000-0000-0000-000000000001'$$,
+  '42501', null, 'A pipeline operator cannot edit a proposed price in a pricing file');
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select lives_ok($$update public.internal_prices set proposed_price = 145000 where id = '5e800005-0000-0000-0000-000000000001'$$,
+  'Kalas edits the price he is setting');
+select is((select proposed_price from public.internal_prices where id = '5e800005-0000-0000-0000-000000000001'), 145000::numeric,
+  'Kalas''s edit is kept');
 
 -- ===== Propose from the selling build, approve in price review =====
 select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
@@ -204,10 +221,22 @@ select is((select state::text from public.pricing_files where id = '5e600003-000
   'The file goes back to Kalas''s selling build');
 select is((select note from public.pricing_file_events where file_id = '5e600003-0000-0000-0000-000000000001' and to_state = 'selling_build'),
   'Margin too thin on line 2', 'The file event carries the return reason');
+select lives_ok($$update public.internal_prices set status = 'internal_price_proposed', proposed_by = '5e000000-0000-0000-0000-000000000004' where id = '5e800003-0000-0000-0000-000000000001'$$,
+  'Zayed puts the returned price back up');
+select is((select proposed_by::text from public.internal_prices where id = '5e800003-0000-0000-0000-000000000001'),
+  '5e000000-0000-0000-0000-000000000003', 'In a file the proposer of a re-proposal is the session, not the payload');
 
 -- ===== In a pricing file, the only way to review is Kalas's propose =====
 select throws_ok($$update public.internal_prices set status = 'gm_pending' where id = '5e800004-0000-0000-0000-000000000001'$$,
   '23514', null, 'In a pricing file the old chain cannot reach review: the GM proposes');
+
+-- ===== A new price starts as a draft or a proposal =====
+select throws_ok($$insert into public.internal_prices (estimation_id, proposed_price, status) values ('5e700001-0000-0000-0000-000000000001', 140000, 'gm_approved')$$,
+  '42501', null, 'Estimation cannot insert an approved price');
+select lives_ok($$insert into public.internal_prices (estimation_id, proposed_price) values ('5e700001-0000-0000-0000-000000000001', 140000)$$,
+  'Estimation inserts a draft price');
+select lives_ok($$insert into public.internal_prices (estimation_id, proposed_price, status) values ('5e700001-0000-0000-0000-000000000001', 140000, 'internal_price_proposed')$$,
+  'Estimation inserts a proposed price');
 
 -- ===== Outside pricing files, Phase 7A is unchanged =====
 select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);

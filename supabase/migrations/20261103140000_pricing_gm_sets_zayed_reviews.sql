@@ -72,8 +72,23 @@ BEGIN
   IF OLD.status = 'gm_pending' AND (
        NEW.proposed_price IS DISTINCT FROM OLD.proposed_price
        OR NEW.estimation_id IS DISTINCT FROM OLD.estimation_id
-       OR NEW.proposed_by IS DISTINCT FROM OLD.proposed_by) THEN
+       OR NEW.below_floor_justification IS DISTINCT FROM OLD.below_floor_justification
+       OR NEW.proposed_by IS DISTINCT FROM OLD.proposed_by
+       OR NEW.proposed_at IS DISTINCT FROM OLD.proposed_at) THEN
     RAISE EXCEPTION 'A price under review cannot change; return it first. | لا يُعدَّل سعر قيد المراجعة؛ أرجعه أولاً.';
+  END IF;
+
+  -- 2026-11-03: in a pricing file the price is the GM's to set; estimation and
+  -- finance may draft it. Nobody else changes the figure, its cost basis or its
+  -- floor justification, whether or not the statement also moves the price.
+  IF _in_file AND (
+       NEW.proposed_price IS DISTINCT FROM OLD.proposed_price
+       OR NEW.estimation_id IS DISTINCT FROM OLD.estimation_id
+       OR NEW.below_floor_justification IS DISTINCT FROM OLD.below_floor_justification)
+     AND NOT (coalesce(public.can_approve_final_price(_uid), FALSE)
+              OR coalesce(public.is_pricer(_uid), FALSE)) THEN
+    RAISE EXCEPTION 'In a pricing file only the GM or a pricer edits the price. | في ملف التسعير لا يعدّل السعر إلا المدير العام أو المسعّر.'
+      USING ERRCODE = 'insufficient_privilege';
   END IF;
 
   IF NEW.status = OLD.status THEN
@@ -179,7 +194,9 @@ BEGIN
 
   -- Stamp who did what, from the session rather than from the payload.
   IF _in_file THEN
-    -- 2026-11-03: in a pricing file the review stamps are only ever the guard's.
+    -- 2026-11-03: in a pricing file the proposal and review stamps are only ever
+    -- the guard's.
+    NEW.proposed_by            := OLD.proposed_by;            NEW.proposed_at            := OLD.proposed_at;
     NEW.commercial_reviewed_by := OLD.commercial_reviewed_by; NEW.commercial_reviewed_at := OLD.commercial_reviewed_at;
     NEW.finance_reviewed_by    := OLD.finance_reviewed_by;    NEW.finance_reviewed_at    := OLD.finance_reviewed_at;
     NEW.gm_decided_by          := OLD.gm_decided_by;          NEW.gm_decided_at          := OLD.gm_decided_at;
@@ -208,6 +225,10 @@ BEGIN
     -- 2026-11-03: Kalas's propose makes him the proposer; the approval rule above
     -- trusts proposed_by, so it comes from the session, never the payload.
     NEW.proposed_by := _uid;            NEW.proposed_at := now();
+  ELSIF NEW.status = 'internal_price_proposed' AND _in_file THEN
+    -- 2026-11-03: whoever puts a price in a file up again is its proposer, so
+    -- nobody returns a price while posing as the one who proposed it.
+    NEW.proposed_by := _uid;            NEW.proposed_at := now();
   ELSIF NEW.status = 'internal_price_proposed' THEN
     NEW.proposed_by := coalesce(NEW.proposed_by, _uid);
     NEW.proposed_at := coalesce(NEW.proposed_at, now());
@@ -217,6 +238,25 @@ BEGIN
   RETURN NEW;
 END; $$;
 REVOKE ALL ON FUNCTION public.internal_price_transition_guard() FROM PUBLIC, anon, authenticated;
+
+-- 2026-11-03: a price a user creates starts as a draft or a proposal and earns
+-- every later status through the guard above. Without this, estimation could
+-- insert a row already gm_approved, and a quotation would carry it. Migrations,
+-- fixtures and SECURITY DEFINER code run as the owner, not as authenticated.
+CREATE OR REPLACE FUNCTION public.internal_price_insert_guard()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+BEGIN
+  IF current_user = 'authenticated'
+     AND NEW.status NOT IN ('draft','internal_price_proposed') THEN
+    RAISE EXCEPTION 'A new price starts as a draft or a proposal; review moves it on. | يبدأ السعر الجديد مسودة أو مقترحًا، والمراجعة تنقله بعد ذلك.'
+      USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION public.internal_price_insert_guard() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS internal_prices_insert_guard ON public.internal_prices;
+CREATE TRIGGER internal_prices_insert_guard BEFORE INSERT ON public.internal_prices
+  FOR EACH ROW EXECUTE FUNCTION public.internal_price_insert_guard();
 
 -- 2026-11-03: the pricing file follows its price, and every move of a price in
 -- a pricing file is audited.
