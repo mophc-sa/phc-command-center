@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 5c… prefix.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(21);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
@@ -12,6 +12,18 @@ update public.profiles set status = 'active' where id::text like '5c000000-%';
 insert into public.user_roles (user_id, role) values
   ('5c000000-0000-0000-0000-000000000001','bd_manager'),
   ('5c000000-0000-0000-0000-000000000003','estimation_manager');
+
+-- One real supplier line (777 with screen) so the cost-view assertions test data, not emptiness.
+-- bd_manager is a pipeline operator, so can_read_boq_revision passes for them: only the cost gate hides the row.
+insert into public.vendors (id, name) values ('5c100000-0000-0000-0000-000000000001','pr-vendor');
+insert into public.opportunities (id, project_name, owner_id, created_by, sales_stage)
+values ('5c200000-0000-0000-0000-000000000001','pr-deal','5c000000-0000-0000-0000-000000000001','5c000000-0000-0000-0000-000000000001','rfq_received');
+insert into public.boqs (id, related_opportunity_id, title) values ('5c400000-0000-0000-0000-000000000001','5c200000-0000-0000-0000-000000000001','pr-boq');
+insert into public.boq_revisions (id, boq_id, revision_number) values ('5c500000-0000-0000-0000-000000000001','5c400000-0000-0000-0000-000000000001',1);
+insert into public.boq_lines (id, revision_id, sign_type, quantity) values ('5c600000-0000-0000-0000-000000000001','5c500000-0000-0000-0000-000000000001','pylon',1);
+insert into public.supplier_quotes (id, boq_revision_id, vendor_id) values ('5c700000-0000-0000-0000-000000000001','5c500000-0000-0000-0000-000000000001','5c100000-0000-0000-0000-000000000001');
+insert into public.supplier_quote_lines (supplier_quote_id, boq_line_id, unit_cost, unit_cost_with_screen, quantity)
+values ('5c700000-0000-0000-0000-000000000001','5c600000-0000-0000-0000-000000000001',500,777,1);
 
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"5c000000-0000-0000-0000-000000000003","role":"authenticated"}',true);
@@ -35,7 +47,9 @@ select lives_ok($$update public.installation_rates set created_by = '5c000000-00
   where install_type = 'ceiling'$$, 'A pricer tries to rewrite the author');
 select is((select created_by from public.installation_rates where install_type = 'ceiling'),
   '5c000000-0000-0000-0000-000000000003'::uuid, 'The author cannot be rewritten');
-select lives_ok($$select unit_cost_with_screen from public.supplier_quote_costs limit 1$$,
+select is((select count(*)::int from public.supplier_quote_costs), 1,
+  'A pricer sees the supplier line in the cost view');
+select is((select unit_cost_with_screen from public.supplier_quote_costs), 777::numeric,
   'A pricer reads the screen price through the cost view');
 select is((select count(*)::int from public.logistics_rates), 5, 'Five logistics keys are seeded');
 
@@ -48,7 +62,7 @@ select throws_ok($$insert into public.installation_rates (install_type, base_rat
 select lives_ok($$select install_type, width_mm, has_screen from public.boq_lines limit 1$$,
   'The new line attributes are readable (they are not cost)');
 select is((select count(*)::int from public.supplier_quote_costs), 0,
-  'The BD manager sees no rows in the cost view');
+  'The BD manager sees no rows in the cost view even though the line exists and the BOQ is readable to them');
 select lives_ok($$update public.logistics_rates set value = 1 where key = 'container_rate'$$,
   'A BD manager logistics update is accepted as a statement');
 select set_config('request.jwt.claims','{"sub":"5c000000-0000-0000-0000-000000000003","role":"authenticated"}',true);
