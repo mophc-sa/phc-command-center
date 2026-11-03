@@ -1,12 +1,15 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
-import { GM_MOVES, PRICER_MOVES } from "@/lib/pricing";
+import { GM_MOVES, PRICER_MOVES, PRICING_STATES } from "@/lib/pricing";
 
 // The screens decide which buttons to show from PRICER_MOVES / GM_MOVES; the
 // database decides what is allowed from pricing_file_transitions. They must agree.
 // Comments are stripped first, so a rule that is only commented out does not count.
-const read = (file: string) =>
-  readFileSync(`supabase/migrations/${file}`, "utf8").replace(/--[^\n]*/g, "");
+// Paths are relative to this file, so the suite reads the same from any cwd.
+const read = (file: string) => {
+  const url = new URL(`../../supabase/migrations/${file}`, import.meta.url);
+  return readFileSync(url, "utf8").replace(/--[^\n]*/g, "");
+};
 const SQL = read("20261103110000_pricing_state_machine.sql");
 
 const VIEW = SQL.slice(
@@ -47,6 +50,24 @@ describe("button moves match the SQL transition list", () => {
     const sql = movesFor("gm");
     expect(sql.length).toBeGreaterThan(0);
     expect(GM_MOVES.map(([a, b]) => `${a}>${b}`).sort()).toEqual(sql);
+  });
+});
+
+describe("the state list matches the SQL enum", () => {
+  const ENUM = read("20261103100000_pricing_files.sql");
+  const decl = ENUM.match(/CREATE TYPE public\.pricing_file_state AS ENUM\s*\(([^)]*)\)/);
+  const sqlStates = [...(decl?.[1] ?? "").matchAll(/'(\w+)'/g)].map((m) => m[1]);
+  it("parses the enum declaration", () => {
+    expect(decl).not.toBeNull();
+    expect(sqlStates.length).toBeGreaterThan(5);
+  });
+  it("equals PRICING_STATES, in order", () => {
+    expect(sqlStates).toEqual([...PRICING_STATES]);
+  });
+  it("every from and to state in pricing_file_transitions is a PRICING_STATES value", () => {
+    const known = new Set<string>(PRICING_STATES);
+    const unknown = rows.flatMap((r) => [r.from, r.to]).filter((s) => !known.has(s));
+    expect(unknown).toEqual([]);
   });
 });
 
@@ -154,7 +175,13 @@ describe("Kalas sets, Zayed reviews", () => {
       "IF OLD.status = 'gm_pending' AND (",
     );
     expect(frozen).toMatch(/IF NEW\.status IS DISTINCT FROM OLD\.status THEN\s+RAISE EXCEPTION/);
-    expect(frozen).toMatch(/IS DISTINCT FROM \(to_jsonb\(OLD\)[^)]*\)\s+THEN\s+RAISE EXCEPTION/);
+    // The exact exclusion list, on the NEW side and the OLD side of the comparison.
+    const ALLOW = String.raw`ARRAY\s*\[\s*'margin_value'\s*,\s*'margin_percentage'\s*,\s*'updated_at'\s*\]`;
+    expect(frozen).toMatch(
+      new RegExp(
+        String.raw`\(\s*to_jsonb\(NEW\)\s*-\s*${ALLOW}\s*\)\s+IS\s+DISTINCT\s+FROM\s+\(\s*to_jsonb\(OLD\)\s*-\s*${ALLOW}\s*\)\s+THEN\s+RAISE EXCEPTION`,
+      ),
+    );
     expect(frozen).toMatch(/RETURN OLD;/);
   });
   it("a user cannot insert a price already past draft or proposed", () => {
