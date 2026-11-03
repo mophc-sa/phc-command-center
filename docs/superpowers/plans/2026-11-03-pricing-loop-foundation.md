@@ -1,8 +1,10 @@
 # Pricing loop — PR 1: Foundation — Implementation Plan
 
+> **Revised 2026-11-03 (Mo):** Kalas sets the selling price and Zayed reviews it; AI reviews for missing items (PR 5); the sales manager sees supplier cost (Task 6).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Lay the database foundation of the pricing loop: one pricing file per RFQ with an enforced state machine, the installation rate card, the extras catalog with auto-suggestions, logistics rates, structured BOQ line attributes, and a one-step GM approval path. Plus the TypeScript mirror the screens in PR 2 will use.
+**Goal:** Lay the database foundation of the pricing loop: one pricing file per RFQ with an enforced state machine, the installation rate card, the extras catalog with auto-suggestions, logistics rates, structured BOQ line attributes, and a a price path where Kalas (GM) sets the price and Zayed reviews it, and the sales manager reading supplier cost. Plus the TypeScript mirror the screens in PR 2 will use.
 
 **Architecture:** Five migrations add tables and SECURITY DEFINER RPCs on top of the Phase 7A–8 engine (`boq_revisions`, `boq_lines`, `estimations`, `internal_prices`, `supplier_quote_lines`). Authorization lives in SQL; the browser calls RPCs through `supabase.rpc`. Calculations are in SQL with a pure TypeScript mirror for display and tests. There is no UI in this PR, and no Edge Function change.
 
@@ -13,11 +15,11 @@
 ## Global Constraints
 
 - Every new table has `ENABLE ROW LEVEL SECURITY`. Writes go through RPCs: no direct INSERT/UPDATE grants on workflow tables.
-- Cost columns are never readable by sales. A cost read requires `public.can_read_commercial_cost(auth.uid())` (estimation_manager, finance_manager, MD, GM, CEO).
-- "Pricer" = `estimation_manager` or `finance_manager`, through the new `public.is_pricer(uuid)`.
+- Cost columns are never readable by reps or the BD manager. A cost read requires `public.can_read_commercial_cost(auth.uid())`: estimation_manager, finance_manager, MD, GM, CEO, plus **sales_manager** from Task 6.
+- "Pricer" = `estimation_manager` or `finance_manager`, through the new `public.is_pricer(uuid)`. "GM" = `public.can_approve_final_price(uuid)` (GM or an active delegate). Kalas sets the price; Zayed reviews it.
 - Error messages are bilingual: `'English. | العربية.'`. The codes are `42501` (not allowed), `23514` (bad input) and `P0001` (rule).
 - No Arabic-Indic digits in any source string. `src/lib/arabic-digits.test.ts` enforces this.
-- Migration numbers: `20261103100000` … `20261103140000`. Before starting, re-check that the highest on `origin/main` is below `20261103100000`, and renumber upward if not.
+- Migration numbers: `20261103100000` … `20261103150000`. Before starting, re-check that the highest on `origin/main` is below `20261103100000`, and renumber upward if not.
 - Every RPC: `REVOKE ALL … FROM PUBLIC, anon; GRANT EXECUTE … TO authenticated;`.
 - Every state change writes `audit_log` (`actor_type 'user'`).
 
@@ -35,12 +37,14 @@
 | `supabase/migrations/20261103110000_pricing_state_machine.sql` | `pricing_file_move`, `pricing_file_set_needs_info`, `pricing_file_answer_needs_info` |
 | `supabase/migrations/20261103120000_pricing_rates.sql` | `install_type` enum, `installation_rates`, `pricing_extras_catalog`, `logistics_rates`, new `boq_lines` / `supplier_quote_lines` columns, cost-gated RLS |
 | `supabase/migrations/20261103130000_pricing_calc.sql` | `pricing_installation_cost()`, `pricing_file_extras`, `pricing_suggest_extras()`, `pricing_decide_extra()`, propose guard |
-| `supabase/migrations/20261103140000_pricing_gm_one_step.sql` | Allow `internal_price_proposed → gm_pending` for finance; sync file state from `internal_prices` |
+| `supabase/migrations/20261103140000_pricing_gm_sets_zayed_reviews.sql` | Kalas proposes (`internal_price_proposed → gm_pending`); Zayed approves a price Kalas set; the price is frozen under review; file state follows `internal_prices` |
+| `supabase/migrations/20261103150000_sales_manager_reads_cost.sql` | `can_read_commercial_cost` gains `sales_manager` |
 | `supabase/tests/pricing_files.test.sql` | Access and auto-open |
 | `supabase/tests/pricing_state_machine.test.sql` | Transitions and who may make them |
 | `supabase/tests/pricing_rates.test.sql` | Cost isolation for rates and lines |
 | `supabase/tests/pricing_calc.test.sql` | Installation cost, suggestions, propose guard |
-| `supabase/tests/pricing_gm_one_step.test.sql` | One-step approval and state sync |
+| `supabase/tests/pricing_gm_sets_zayed_reviews.test.sql` | Kalas proposes, Zayed approves, guards, state sync |
+| `supabase/tests/sales_manager_reads_cost.test.sql` | Omar reads cost; Marie and reps still do not |
 | `src/lib/pricing.ts` | States, labels (en/ar), transition table, `installationCost()` mirror |
 | `src/lib/pricing.test.ts` | Unit tests for the mirror |
 | `src/lib/pricing.contract.test.ts` | TS transitions match the SQL transition list |
@@ -66,7 +70,7 @@ If the local stack is unavailable (port 54322 can be taken by another project), 
 
 **Interfaces:**
 - Produces:
-  - SQL type `public.pricing_file_state` with values `received, package_review, needs_info, boq_frozen, at_supplier, supplier_priced, cost_review, selling_build, gm_pending, approved, quoted, closed`.
+  - SQL type `public.pricing_file_state` with values `received, package_review, needs_info, boq_frozen, at_supplier, supplier_priced, selling_build, price_review, approved, quoted, closed`.
   - `public.is_pricer(uuid) → boolean`
   - Table `public.pricing_files(id, opportunity_id, rfq_id, state, boq_revision_id, estimation_id, internal_price_id, due_at, needs_info_items, needs_info_due, closed_reason, opened_by, created_at, updated_at, state_changed_at, state_changed_by)`
   - Table `public.pricing_file_events(id, file_id, from_state, to_state, actor_id, note, created_at)`
@@ -151,7 +155,7 @@ Create `supabase/migrations/20261103100000_pricing_files.sql`:
 DO $$ BEGIN
   CREATE TYPE public.pricing_file_state AS ENUM (
     'received','package_review','needs_info','boq_frozen','at_supplier',
-    'supplier_priced','cost_review','selling_build','gm_pending',
+    'supplier_priced','selling_build','price_review',
     'approved','quoted','closed');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
@@ -295,7 +299,7 @@ git commit -m "feat(pricing): pricing files opened per RFQ, readable with the de
 **Interfaces:**
 - Consumes: `pricing_files`, `pricing_file_events`, `is_pricer` (Task 1).
 - Produces:
-  - `public.pricing_file_transitions` (view of `from_state, to_state, who`), where `who` ∈ `pricer`, `deal`, `system`.
+  - `public.pricing_file_transitions` (view of `from_state, to_state, who`), where `who` ∈ `pricer`, `gm`, `rpc_needs_info`, `rpc_answer`, `system`.
   - `public.pricing_file_move(_file_id uuid, _to public.pricing_file_state, _note text DEFAULT NULL) → jsonb`
   - `public.pricing_file_set_needs_info(_file_id uuid, _items text[], _due date) → jsonb`
   - `public.pricing_file_answer_needs_info(_file_id uuid, _note text) → jsonb`
@@ -310,12 +314,12 @@ git commit -m "feat(pricing): pricing files opened per RFQ, readable with the de
 | package_review → boq_frozen | pricer | `boq_revision_id` set and that revision `frozen_at IS NOT NULL` |
 | boq_frozen → at_supplier | pricer | — |
 | at_supplier → supplier_priced | pricer | — (PR 3 adds the supplier) |
-| supplier_priced → cost_review | pricer | — |
-| cost_review → at_supplier | pricer | note required (which lines go back) |
-| cost_review → selling_build | pricer | — |
-| selling_build → gm_pending | system | set by Task 5 when the internal price reaches `gm_pending` |
-| gm_pending → approved | system | Task 5, on `gm_approved` |
-| gm_pending → selling_build | system | Task 5, on `returned` |
+| supplier_priced → at_supplier | pricer | note required (which lines go back) |
+| supplier_priced → selling_build | **gm** (Kalas) | — |
+| selling_build → price_review | system | Task 5, when Kalas's price reaches `gm_pending` |
+| price_review → approved | system | Task 5, when Zayed approves (`gm_approved`) |
+| price_review → selling_build | system | Task 5, on `returned` (back to Kalas) |
+| price_review → at_supplier | pricer | note required; the RPC also returns the internal price (Task 5 then leaves the file at `at_supplier`) |
 | approved → quoted | deal | PR 4 (the quotation is sent) |
 | quoted → boq_frozen | pricer | a new frozen revision, different from the current one |
 | any non-closed → closed | pricer | note required (becomes `closed_reason`) |
@@ -398,8 +402,10 @@ Create `supabase/migrations/20261103110000_pricing_state_machine.sql`:
 -- =============================================================================
 -- Pricing loop, part 2: the pricing file's path, enforced.
 -- Anything not in pricing_file_transitions is refused, so a skip is an error
--- rather than a shortcut. 'system' moves are made by triggers only (Task 5
--- for gm_pending/approved, PR 4 for quoted); RPC callers can never make them.
+-- rather than a shortcut. 'pricer' = Zayed (is_pricer), 'gm' = Kalas
+-- (can_approve_final_price): the supplier's prices go to Kalas, who sets the
+-- price (Mo, 2026-11-03). 'system' moves are made by triggers only (Task 5 for
+-- price_review/approved, PR 4 for quoted); RPC callers can never make them.
 -- =============================================================================
 
 CREATE OR REPLACE VIEW public.pricing_file_transitions AS
@@ -410,12 +416,12 @@ SELECT * FROM (VALUES
   ('package_review',  'boq_frozen',      'pricer'),
   ('boq_frozen',      'at_supplier',     'pricer'),
   ('at_supplier',     'supplier_priced', 'pricer'),
-  ('supplier_priced', 'cost_review',     'pricer'),
-  ('cost_review',     'at_supplier',     'pricer'),
-  ('cost_review',     'selling_build',   'pricer'),
-  ('selling_build',   'gm_pending',      'system'),
-  ('gm_pending',      'approved',        'system'),
-  ('gm_pending',      'selling_build',   'system'),
+  ('supplier_priced', 'at_supplier',     'pricer'),
+  ('supplier_priced', 'selling_build',   'gm'),
+  ('selling_build',   'price_review',    'system'),
+  ('price_review',    'approved',        'system'),
+  ('price_review',    'selling_build',   'system'),
+  ('price_review',    'at_supplier',     'pricer'),
   ('approved',        'quoted',          'system'),
   ('quoted',          'boq_frozen',      'pricer')
 ) AS t(from_state, to_state, who);
@@ -445,8 +451,8 @@ CREATE OR REPLACE FUNCTION public.pricing_file_move(_file_id uuid, _to public.pr
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE u uuid := auth.uid(); f public.pricing_files; rule text;
 BEGIN
-  IF NOT public.is_pricer(u) THEN
-    RAISE EXCEPTION 'Only estimation or finance may move a pricing file. | تحريك ملف التسعير يقتصر على التقدير أو المالية.'
+  IF NOT (public.is_pricer(u) OR public.can_approve_final_price(u)) THEN
+    RAISE EXCEPTION 'Only estimation, finance or the GM may move a pricing file. | تحريك ملف التسعير يقتصر على التقدير أو المالية أو المدير العام.'
       USING ERRCODE = '42501';
   END IF;
   SELECT * INTO f FROM public.pricing_files WHERE id = _file_id FOR UPDATE;
@@ -454,6 +460,9 @@ BEGIN
   IF f.state = 'closed' THEN RAISE EXCEPTION 'This pricing file is closed. | ملف التسعير مغلق.'; END IF;
 
   IF _to = 'closed' THEN
+    IF NOT public.is_pricer(u) THEN
+      RAISE EXCEPTION 'Only estimation or finance may close a pricing file. | إغلاق ملف التسعير يقتصر على التقدير أو المالية.' USING ERRCODE = '42501';
+    END IF;
     IF length(btrim(coalesce(_note,''))) = 0 THEN
       RAISE EXCEPTION 'Closing needs a reason. | الإغلاق يحتاج سبباً.';
     END IF;
@@ -461,8 +470,14 @@ BEGIN
   END IF;
 
   SELECT who INTO rule FROM public.pricing_file_transitions WHERE from_state = f.state AND to_state = _to;
-  IF rule IS DISTINCT FROM 'pricer' THEN
+  IF rule IS NULL OR rule NOT IN ('pricer','gm') THEN
     RAISE EXCEPTION 'Illegal pricing move % -> %. | انتقال غير مسموح في ملف التسعير.', f.state, _to;
+  END IF;
+  IF rule = 'pricer' AND NOT public.is_pricer(u) THEN
+    RAISE EXCEPTION 'This step is estimation''s. | هذه الخطوة للتقدير والمالية.' USING ERRCODE = '42501';
+  END IF;
+  IF rule = 'gm' AND NOT public.can_approve_final_price(u) THEN
+    RAISE EXCEPTION 'The GM sets the selling price. | سعر البيع يضعه المدير العام.' USING ERRCODE = '42501';
   END IF;
 
   IF _to = 'boq_frozen' AND NOT EXISTS (
@@ -475,11 +490,18 @@ BEGIN
           AND e.created_at < (SELECT r.frozen_at FROM public.boq_revisions r WHERE r.id = f.boq_revision_id)) THEN
     RAISE EXCEPTION 'A client revision needs a new frozen BOQ revision. | مراجعة العميل تحتاج إصدار كميات جديداً مجمّداً.';
   END IF;
-  IF f.state = 'cost_review' AND _to = 'at_supplier' AND length(btrim(coalesce(_note,''))) = 0 THEN
+  IF _to = 'at_supplier' AND f.state IN ('supplier_priced','price_review') AND length(btrim(coalesce(_note,''))) = 0 THEN
     RAISE EXCEPTION 'Say which lines go back to the supplier. | اذكر الأسطر المُرجعة للمورد.';
   END IF;
 
-  RETURN to_jsonb(public._pricing_file_apply(f, _to, u, _note));
+  f := public._pricing_file_apply(f, _to, u, _note);
+  -- Sending lines back from price review also returns Kalas's price; the
+  -- follow trigger (Task 5) sees the file already at at_supplier and leaves it.
+  IF _to = 'at_supplier' AND f.internal_price_id IS NOT NULL THEN
+    UPDATE public.internal_prices SET status = 'returned', return_reason = _note
+     WHERE id = f.internal_price_id AND status = 'gm_pending';
+  END IF;
+  RETURN to_jsonb(f);
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_file_move(uuid, public.pricing_file_state, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.pricing_file_move(uuid, public.pricing_file_state, text) TO authenticated;
@@ -557,7 +579,7 @@ git commit -m "feat(pricing): the pricing file moves only along its path, by the
 Create `supabase/tests/pricing_rates.test.sql`:
 
 ```sql
--- Rates and the supplier's screen price are cost: pricers read and write them, sales never.
+-- Rates and the supplier's screen price are cost: pricers read and write them; BD and reps never.
 -- Test user UUIDs use the 5c… prefix.
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -569,7 +591,7 @@ insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   ('00000000-0000-0000-0000-000000000000','5c000000-0000-0000-0000-000000000003','authenticated','authenticated','pr-pricer+test@phc-sa.com',now(),'{"provider":"email","providers":["email"]}','{}',now(),now());
 update public.profiles set status = 'active' where id::text like '5c000000-%';
 insert into public.user_roles (user_id, role) values
-  ('5c000000-0000-0000-0000-000000000001','sales_manager'),
+  ('5c000000-0000-0000-0000-000000000001','bd_manager'),
   ('5c000000-0000-0000-0000-000000000003','estimation_manager');
 
 set local role authenticated;
@@ -584,7 +606,7 @@ select lives_ok($$update public.logistics_rates set value = 12000 where key = 'c
 select is((select count(*)::int from public.logistics_rates), 5, 'Five logistics keys are seeded');
 
 select set_config('request.jwt.claims','{"sub":"5c000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
-select is((select count(*)::int from public.installation_rates), 0, 'A sales manager reads no installation rates');
+select is((select count(*)::int from public.installation_rates), 0, 'The BD manager reads no installation rates (the sales manager does, Task 6)');
 select throws_ok($$select unit_cost_with_screen from public.supplier_quote_lines limit 1$$,
   '42501', null, 'The screen price is revoked like every supplier cost');
 select throws_ok($$insert into public.installation_rates (install_type, base_rate) values ('pylon', 1)$$,
@@ -964,29 +986,32 @@ git commit -m "feat(pricing): installation cost by type, suggested extras that m
 
 ---
 
-### Task 5: One-step GM approval, and the file following the price
+### Task 5: Kalas sets the price, Zayed reviews it; the file follows the price
 
 **Files:**
-- Create: `supabase/migrations/20261103140000_pricing_gm_one_step.sql`
-- Test: `supabase/tests/pricing_gm_one_step.test.sql`
+- Create: `supabase/migrations/20261103140000_pricing_gm_sets_zayed_reviews.sql`
+- Test: `supabase/tests/pricing_gm_sets_zayed_reviews.test.sql`
 
 **Interfaces:**
-- Consumes: `internal_price_transition_guard` (Phase 7A, `20260826120000:103-160`); `pricing_files.internal_price_id`; `pricing_file_open_suggestions` (Task 4); `_pricing_file_apply` (Task 2).
-- Produces:
-  - `internal_prices` may go `internal_price_proposed → gm_pending` when the caller is finance. This stamps `finance_reviewed_by/at`.
-  - That move is refused while the linked pricing file has open suggestions.
-  - A trigger moves the pricing file: `gm_pending` (file to `gm_pending`), `gm_approved` (to `approved`), `returned` (to `selling_build`).
+- Consumes: `internal_price_transition_guard` (Phase 7A, `20260826120000:103-160`); `pricing_files.internal_price_id`; `pricing_file_open_suggestions` (Task 4); `_pricing_file_apply` and `pricing_file_transitions` (Task 2).
+- Produces, all on `internal_prices` (Mo, 2026-11-03: the supplier's prices go to Kalas, who sets the price; Zayed reviews it):
+  - `internal_price_proposed → gm_pending` by the **final-price authority** (Kalas). This is his "Propose", so the Phase 8 floor guard runs at `gm_pending` as before. It is refused while the linked pricing file has open suggestions.
+  - `gm_pending → gm_approved`, when the price belongs to a pricing file, **only by finance (Zayed)**, and only when `proposed_by` is a final-price authority other than the reviewer. This stamps `finance_reviewed_by/at`, and records `gm_decided_by` as the proposer. Outside pricing files, the Phase 7A rule is unchanged (GM approves).
+  - While `gm_pending`, `proposed_price` cannot change. To change it, return the price.
+  - A trigger moves the pricing file: `gm_pending` moves it to `price_review`, `gm_approved` to `approved`, and `returned` to `selling_build` (unless the file has already gone to `at_supplier`).
+
+**This changes a Phase 7A invariant.** "`gm_approved` is guarded by `can_approve_final_price` and nothing else" (`src/lib/phase7a-schema.contract.test.ts`) becomes "guarded by `can_approve_final_price`, or by finance reviewing a price that the authority proposed". Record this in DECISIONS (Task 8). The old contract test reads only the old migration file, so it keeps passing. This task adds the new rule to `src/lib/pricing.contract.test.ts` in Task 7.
 
 - [ ] **Step 1: Write the failing pgTAP test**
 
-Create `supabase/tests/pricing_gm_one_step.test.sql`:
+Create `supabase/tests/pricing_gm_sets_zayed_reviews.test.sql`:
 
 ```sql
--- Zayed proposes (counts as finance review), Kalas approves; the file follows.
+-- Kalas sets the price, Zayed reviews it; the file follows.
 -- Test user UUIDs use the 5e… prefix.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(6);
+select plan(9);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
@@ -1005,8 +1030,10 @@ insert into public.boqs (id, related_opportunity_id, title) values ('5e400000-00
 insert into public.boq_revisions (id, boq_id, revision_number, frozen_at, frozen_by, status)
 values ('5e500000-0000-0000-0000-000000000001','5e400000-0000-0000-0000-000000000001',1, now(), '5e000000-0000-0000-0000-000000000003','verified');
 insert into public.estimations (id, boq_revision_id, cost_total) values ('5e700000-0000-0000-0000-000000000001','5e500000-0000-0000-0000-000000000001', 100000);
-insert into public.internal_prices (id, estimation_id, proposed_price, status)
-values ('5e800000-0000-0000-0000-000000000001','5e700000-0000-0000-0000-000000000001', 140000, 'internal_price_proposed');
+-- Kalas has set the price (proposed_by = GM).
+insert into public.internal_prices (id, estimation_id, proposed_price, status, proposed_by)
+values ('5e800000-0000-0000-0000-000000000001','5e700000-0000-0000-0000-000000000001', 140000, 'internal_price_proposed',
+        '5e000000-0000-0000-0000-000000000004');
 insert into public.pricing_files (id, opportunity_id, state, boq_revision_id, estimation_id, internal_price_id)
 values ('5e600000-0000-0000-0000-000000000001','5e200000-0000-0000-0000-000000000001','selling_build',
         '5e500000-0000-0000-0000-000000000001','5e700000-0000-0000-0000-000000000001','5e800000-0000-0000-0000-000000000001');
@@ -1015,59 +1042,77 @@ values ('5e900000-0000-0000-0000-000000000001','crane_hire','Crane hire','راف
 insert into public.pricing_file_extras (file_id, catalog_id, rate) values ('5e600000-0000-0000-0000-000000000001','5e900000-0000-0000-0000-000000000001',2000);
 
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000003","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000004","role":"authenticated"}',true);
 select throws_ok($$update public.internal_prices set status = 'gm_pending' where id = '5e800000-0000-0000-0000-000000000001'$$,
   'P0001', null, 'Proposing is blocked while a suggestion is open');
 reset role;
 update public.pricing_file_extras set status = 'accepted';
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000003","role":"authenticated"}',true);
-select lives_ok($$update public.internal_prices set status = 'gm_pending' where id = '5e800000-0000-0000-0000-000000000001'$$,
-  'Finance takes a proposed price straight to the GM');
-select is((select state::text from public.pricing_files where id = '5e600000-0000-0000-0000-000000000001'), 'gm_pending',
-  'The file follows to gm_pending');
-select throws_ok($$update public.internal_prices set status = 'gm_approved' where id = '5e800000-0000-0000-0000-000000000001'$$,
-  '42501', null, 'Finance cannot approve its own price');
+select throws_ok($$update public.internal_prices set status = 'gm_pending' where id = '5e800000-0000-0000-0000-000000000001'$$,
+  '42501', null, 'Zayed cannot propose: the GM sets the price');
 
 select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000004","role":"authenticated"}',true);
+select lives_ok($$update public.internal_prices set status = 'gm_pending' where id = '5e800000-0000-0000-0000-000000000001'$$,
+  'Kalas proposes his price');
+select is((select state::text from public.pricing_files where id = '5e600000-0000-0000-0000-000000000001'), 'price_review',
+  'The file goes to Zayed''s price review');
+select throws_ok($$update public.internal_prices set status = 'gm_approved' where id = '5e800000-0000-0000-0000-000000000001'$$,
+  '42501', null, 'Kalas cannot approve his own price in a pricing file');
+
+select set_config('request.jwt.claims','{"sub":"5e000000-0000-0000-0000-000000000003","role":"authenticated"}',true);
+select throws_ok($$update public.internal_prices set proposed_price = 130000 where id = '5e800000-0000-0000-0000-000000000001'$$,
+  'P0001', null, 'A price under review cannot be changed');
 select lives_ok($$update public.internal_prices set status = 'gm_approved' where id = '5e800000-0000-0000-0000-000000000001'$$,
-  'The GM approves');
+  'Zayed approves the price Kalas set');
 select is((select state::text from public.pricing_files where id = '5e600000-0000-0000-0000-000000000001'), 'approved',
   'The file follows to approved');
+select is((select gm_decided_by::text from public.internal_prices where id = '5e800000-0000-0000-0000-000000000001'),
+  '5e000000-0000-0000-0000-000000000004', 'The decision is recorded as Kalas''s price, reviewed by Zayed');
 reset role;
 select * from finish();
 rollback;
 ```
 
-If `internal_prices` refuses an INSERT straight into `internal_price_proposed`, insert it as `draft` and walk it up as the test superuser (`draft → cost_complete → internal_price_proposed`; `auth.uid()` is null there, so the role checks pass).
+If `internal_prices` refuses an INSERT straight into `internal_price_proposed`, insert it as `draft` and walk it up as the test superuser (`draft → cost_complete → internal_price_proposed`; `auth.uid()` is null there, so the role checks pass). Keep `proposed_by` set to the GM.
 
-Before relying on this test, check one thing: GM approval runs the Phase 8 floor guard (`internal_prices_zz_floor_guard`). With no active `margin_policies` row the guard passes. If a policy is seeded by an earlier migration, set `proposed_price` above its floor.
+The Phase 7A update policies on `internal_prices` decide which rows each role can UPDATE. If Zayed's price-edit attempt matches 0 rows (RLS), the statement silently does nothing instead of raising. In that case assert that `proposed_price` is unchanged, rather than `throws_ok`.
+
+Before relying on this test, check one thing: Kalas's propose runs the Phase 8 floor guard (`internal_prices_zz_floor_guard`) at `gm_pending`. With no active `margin_policies` row the guard passes. If a policy is seeded by an earlier migration, set `proposed_price` above its floor.
 
 - [ ] **Step 2: Run it and confirm it fails**
 
 Run: `zsh -c 'source ~/.supabase-guard.zsh && supabase test db'`
-Expected: FAIL on "Finance takes a proposed price straight to the GM", with `Illegal price transition internal_price_proposed -> gm_pending`.
+Expected: FAIL on "Kalas proposes his price", with `Illegal price transition internal_price_proposed -> gm_pending`.
 
 - [ ] **Step 3: Write the migration**
 
-Create `supabase/migrations/20261103140000_pricing_gm_one_step.sql`.
+Create `supabase/migrations/20261103140000_pricing_gm_sets_zayed_reviews.sql`.
 
-The function body below is the Phase 7A function (`20260826120000:103-160`) with three additions, each marked `-- 2026-11-03`. Copy the current definition from that migration first, and diff it against this one. If a later migration has redefined it, start from the latest.
+The function body below is the Phase 7A function (`20260826120000:103-160`) with additions, each marked `-- 2026-11-03`. Copy the current definition from that migration first, and diff it against this one. If a later migration has redefined it, start from the latest.
 
 ```sql
 -- =============================================================================
--- Pricing loop, part 5: Zayed proposes, Kalas approves (spec decision 2).
--- Estimation and finance are one person, so his proposal IS the finance
--- review: proposed -> gm_pending in one move, by finance only. The old chain
--- (via commercial_review and finance_review) stays legal for anything else.
--- The pricing file follows its price instead of being moved by hand.
+-- Pricing loop, part 5: Kalas sets the price, Zayed reviews it (Mo, 2026-11-03).
+-- The supplier's prices go to the GM, who builds and proposes the selling price;
+-- his propose is the move to gm_pending, so the Phase 8 floor guard still runs.
+-- Zayed's review then completes it: for a price that belongs to a pricing file,
+-- gm_approved is finance's, and only for a price the authority proposed. The
+-- old chain stays legal outside pricing files. The file follows its price.
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION public.internal_price_transition_guard()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE _ok BOOLEAN := FALSE; _uid UUID := auth.uid();
+DECLARE _ok BOOLEAN := FALSE; _uid UUID := auth.uid(); _in_file BOOLEAN;
 BEGIN
+  -- 2026-11-03: is this price on the pricing-loop path?
+  _in_file := EXISTS (SELECT 1 FROM public.pricing_files pf WHERE pf.internal_price_id = NEW.id);
+
   IF NEW.status = OLD.status THEN
+    -- 2026-11-03: a price under review is frozen; return it to change it.
+    IF OLD.status = 'gm_pending' AND NEW.proposed_price IS DISTINCT FROM OLD.proposed_price THEN
+      RAISE EXCEPTION 'A price under review cannot change; return it first. | لا يُعدَّل سعر قيد المراجعة؛ أرجعه أولاً.';
+    END IF;
     NEW.updated_at := now();
     RETURN NEW;
   END IF;
@@ -1083,7 +1128,7 @@ BEGIN
     ('internal_price_proposed','commercial_review'),
     ('commercial_review','finance_review'),
     ('finance_review','gm_pending'),
-    ('internal_price_proposed','gm_pending'),          -- 2026-11-03: one step for finance
+    ('internal_price_proposed','gm_pending'),          -- 2026-11-03: Kalas proposes
     ('gm_pending','gm_approved'),
     ('returned','internal_price_proposed')
   ) OR (NEW.status = 'returned' AND OLD.status <> 'gm_approved');
@@ -1093,19 +1138,31 @@ BEGIN
       OLD.status, NEW.status USING ERRCODE = 'check_violation';
   END IF;
 
-  IF NEW.status = 'gm_approved' AND NOT public.can_approve_final_price(_uid) THEN
-    RAISE EXCEPTION 'Only the General Manager, or an active delegate, may approve a final price. | اعتماد السعر النهائي يقتصر على المدير العام أو مفوّض ساري.'
-      USING ERRCODE = 'insufficient_privilege';
+  -- 2026-11-03: who completes a price. Outside pricing files: the GM, as before.
+  -- Inside: finance, reviewing a price the authority set, never its own.
+  IF NEW.status = 'gm_approved' THEN
+    IF _in_file THEN
+      IF _uid IS NOT NULL AND NOT (
+           public.has_role(_uid, 'finance_manager'::public.app_role)
+           AND public.can_approve_final_price(OLD.proposed_by)
+           AND OLD.proposed_by IS DISTINCT FROM _uid) THEN
+        RAISE EXCEPTION 'Finance reviews and approves the price the GM set. | المالية تراجع وتعتمد السعر الذي وضعه المدير العام.'
+          USING ERRCODE = 'insufficient_privilege';
+      END IF;
+    ELSIF NOT public.can_approve_final_price(_uid) THEN
+      RAISE EXCEPTION 'Only the General Manager, or an active delegate, may approve a final price. | اعتماد السعر النهائي يقتصر على المدير العام أو مفوّض ساري.'
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
   END IF;
   IF NEW.status = 'finance_review'
      AND _uid IS NOT NULL
      AND NOT public.has_role(_uid, 'finance_manager'::public.app_role) THEN
     RAISE EXCEPTION 'Only finance may take a price into finance review.' USING ERRCODE = 'insufficient_privilege';
   END IF;
-  -- 2026-11-03: the one-step move is finance's, and never with an undecided extra.
+  -- 2026-11-03: the one-step propose is the GM's, never with an undecided extra.
   IF OLD.status = 'internal_price_proposed' AND NEW.status = 'gm_pending' THEN
-    IF _uid IS NOT NULL AND NOT public.has_role(_uid, 'finance_manager'::public.app_role) THEN
-      RAISE EXCEPTION 'Only finance may send a proposed price to the GM. | إرسال السعر المقترح للمدير العام يقتصر على المالية.'
+    IF _uid IS NOT NULL AND NOT public.can_approve_final_price(_uid) THEN
+      RAISE EXCEPTION 'The GM sets and proposes the selling price. | سعر البيع يضعه ويقترحه المدير العام.'
         USING ERRCODE = 'insufficient_privilege';
     END IF;
     IF EXISTS (SELECT 1 FROM public.pricing_files pf
@@ -1113,7 +1170,6 @@ BEGIN
                   AND public.pricing_file_open_suggestions(pf.id) > 0) THEN
       RAISE EXCEPTION 'Accept or dismiss every suggested item before proposing. | اقبل أو ارفض كل بند مقترح قبل اقتراح السعر.';
     END IF;
-    NEW.finance_reviewed_by := _uid; NEW.finance_reviewed_at := now();
   END IF;
   IF NEW.status = 'commercial_review'
      AND _uid IS NOT NULL
@@ -1125,6 +1181,10 @@ BEGIN
     NEW.commercial_reviewed_by := _uid; NEW.commercial_reviewed_at := now();
   ELSIF NEW.status = 'finance_review' THEN
     NEW.finance_reviewed_by := _uid;    NEW.finance_reviewed_at := now();
+  ELSIF NEW.status = 'gm_approved' AND _in_file THEN
+    -- 2026-11-03: Kalas's price, Zayed's review.
+    NEW.finance_reviewed_by := _uid;    NEW.finance_reviewed_at := now();
+    NEW.gm_decided_by := OLD.proposed_by; NEW.gm_decided_at := now();
   ELSIF NEW.status IN ('gm_approved','returned') THEN
     NEW.gm_decided_by := _uid;          NEW.gm_decided_at := now();
   ELSIF NEW.status = 'internal_price_proposed' THEN
@@ -1142,7 +1202,7 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE f public.pricing_files; target public.pricing_file_state;
 BEGIN
   IF NEW.status = OLD.status THEN RETURN NEW; END IF;
-  target := CASE NEW.status WHEN 'gm_pending' THEN 'gm_pending'
+  target := CASE NEW.status WHEN 'gm_pending' THEN 'price_review'
                             WHEN 'gm_approved' THEN 'approved'
                             WHEN 'returned' THEN 'selling_build' END;
   IF target IS NULL THEN RETURN NEW; END IF;
@@ -1150,7 +1210,7 @@ BEGIN
   IF NOT FOUND OR f.state = target THEN RETURN NEW; END IF;
   IF NOT EXISTS (SELECT 1 FROM public.pricing_file_transitions t
                   WHERE t.from_state = f.state AND t.to_state = target AND t.who = 'system') THEN
-    RETURN NEW;   -- the file is elsewhere (e.g. closed in between); the price still moves
+    RETURN NEW;   -- e.g. lines already sent back to the supplier; the price still moves
   END IF;
   PERFORM public._pricing_file_apply(f, target, auth.uid(),
     CASE WHEN NEW.status = 'returned' THEN NEW.return_reason END);
@@ -1166,19 +1226,119 @@ CREATE TRIGGER internal_prices_zzz_pricing_file AFTER UPDATE OF status ON public
 
 Run: `zsh -c 'source ~/.supabase-guard.zsh && supabase test db'`
 Expected:
-- `pricing_gm_one_step.test.sql .. ok`.
+- `pricing_gm_sets_zayed_reviews.test.sql .. ok`.
 - The existing Phase 7A suites still pass: `tests/db-behaviour/phase7a_pricing_workflow.sql` runs locally via `bun run test:db:behaviour`. That suite currently stops at the older `20261003100000`, so here CI is the evidence.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20261103140000_pricing_gm_one_step.sql supabase/tests/pricing_gm_one_step.test.sql
-git commit -m "feat(pricing): finance proposes straight to the GM; the file follows its price"
+git add supabase/migrations/20261103140000_pricing_gm_sets_zayed_reviews.sql supabase/tests/pricing_gm_sets_zayed_reviews.test.sql
+git commit -m "feat(pricing): Kalas sets the price, Zayed reviews it; the file follows its price"
 ```
 
 ---
 
-### Task 6: TypeScript mirror, RPC wrappers, generated types
+### Task 6: The sales manager reads supplier cost
+
+**Files:**
+- Create: `supabase/migrations/20261103150000_sales_manager_reads_cost.sql`
+- Test: `supabase/tests/sales_manager_reads_cost.test.sql`
+
+**Interfaces:**
+- Produces: `public.can_read_commercial_cost(uuid)` admits `sales_manager` (Omar, as management; Mo, 2026-11-03). Every cost-gated view and policy that calls it follows automatically: the Phase 7A–8 views, the rate tables (Task 3) and `pricing_file_extras` (Task 4). `bd_manager`, `sales_ops`, reps, viewers and `system_admin` stay out.
+
+- [ ] **Step 1: Write the failing pgTAP test**
+
+Create `supabase/tests/sales_manager_reads_cost.test.sql`:
+
+```sql
+-- Omar (sales manager) is management and reads supplier cost; Marie (BD) and reps do not.
+-- Test user UUIDs use the 5f… prefix.
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(4);
+insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
+  ('00000000-0000-0000-0000-000000000000','5f000000-0000-0000-0000-000000000001','authenticated','authenticated','smc-sm+test@phc-sa.com',now(),'{"provider":"email","providers":["email"]}','{}',now(),now()),
+  ('00000000-0000-0000-0000-000000000000','5f000000-0000-0000-0000-000000000002','authenticated','authenticated','smc-bd+test@phc-sa.com',now(),'{"provider":"email","providers":["email"]}','{}',now(),now()),
+  ('00000000-0000-0000-0000-000000000000','5f000000-0000-0000-0000-000000000003','authenticated','authenticated','smc-rep+test@phc-sa.com',now(),'{"provider":"email","providers":["email"]}','{}',now(),now());
+update public.profiles set status = 'active' where id::text like '5f000000-%';
+insert into public.user_roles (user_id, role) values
+  ('5f000000-0000-0000-0000-000000000001','sales_manager'),
+  ('5f000000-0000-0000-0000-000000000002','bd_manager'),
+  ('5f000000-0000-0000-0000-000000000003','salesperson');
+select ok(public.can_read_commercial_cost('5f000000-0000-0000-0000-000000000001'), 'The sales manager reads cost');
+select ok(not public.can_read_commercial_cost('5f000000-0000-0000-0000-000000000002'), 'The BD manager does not');
+select ok(not public.can_read_commercial_cost('5f000000-0000-0000-0000-000000000003'), 'A rep does not');
+insert into public.installation_rates (install_type, base_rate) values ('pylon', 900);
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"5f000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+select is((select count(*)::int from public.installation_rates), 1, 'The sales manager sees the rate card');
+reset role;
+select * from finish();
+rollback;
+```
+
+- [ ] **Step 2: Run it and confirm it fails**
+
+Run: `zsh -c 'source ~/.supabase-guard.zsh && supabase test db'`
+Expected: FAIL on "The sales manager reads cost".
+
+- [ ] **Step 3: Write the migration**
+
+Create `supabase/migrations/20261103150000_sales_manager_reads_cost.sql`. Start from the current definition in `20260824100000_commercial_read_isolation.sql:100-118`, and diff it.
+
+```sql
+-- =============================================================================
+-- The sales manager is management and reads supplier cost (Mo, 2026-11-03).
+-- Narrower than can_read_boq still: BD, sales ops and reps run on the selling
+-- price only. One predicate, so every cost view and policy follows.
+-- =============================================================================
+CREATE OR REPLACE FUNCTION public.can_read_commercial_cost(_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    _user_id IS NOT NULL
+    AND public.is_active_user(_user_id)
+    AND public.has_any_role(_user_id, ARRAY[
+      'estimation_manager',                       -- builds the cost
+      'finance_manager',                          -- bills against it
+      'sales_manager',                            -- management (2026-11-03)
+      'managing_director', 'general_manager', 'ceo'  -- owns the margin
+    ]::public.app_role[]);
+$$;
+
+COMMENT ON FUNCTION public.can_read_commercial_cost IS
+  'Who may see supplier cost, internal cost, rates and margin. Estimation, finance, the sales manager (management, 2026-11-03) and executives. bd_manager, sales_ops and reps run the pipeline on the selling price and are not shown the floor. Excludes viewer and system_admin.';
+```
+
+- [ ] **Step 4: Run all DB tests, and fix the ones that asserted the old rule**
+
+Run: `zsh -c 'source ~/.supabase-guard.zsh && supabase test db'`
+Expected: `sales_manager_reads_cost.test.sql .. ok`.
+
+Then search for assertions that a sales manager is refused cost:
+
+```bash
+grep -rn "sales_manager" supabase/tests tests/db-behaviour src/lib/*.test.ts | grep -iE "cost|margin|unit_price|supplier_quote|internal_price"
+```
+
+For each hit, change the asserting user to `bd_manager`. That role keeps the old answer, so the test still proves the boundary. Don't delete the assertion. `tests/db-behaviour/commercial_read_isolation.sql` is the likeliest place.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add supabase/migrations/20261103150000_sales_manager_reads_cost.sql supabase/tests/sales_manager_reads_cost.test.sql tests src
+git commit -m "feat(pricing): the sales manager reads supplier cost (management)"
+```
+
+---
+
+### Task 7: TypeScript mirror, RPC wrappers, generated types
 
 **Files:**
 - Create: `src/lib/pricing.ts`, `src/lib/pricing.test.ts`, `src/lib/pricing.contract.test.ts`, `src/lib/pricing-actions.ts`
@@ -1189,8 +1349,9 @@ git commit -m "feat(pricing): finance proposes straight to the GM; the file foll
   - `type PricingState`
   - `PRICING_STATES: readonly PricingState[]`
   - `PRICING_STATE_LABEL: Record<PricingState, { en: string; ar: string }>`
-  - `PRICER_MOVES: ReadonlyArray<readonly [PricingState, PricingState]>`
+  - `PRICER_MOVES` and `GM_MOVES: ReadonlyArray<readonly [PricingState, PricingState]>`
   - `canPricerMove(from, to): boolean`
+  - `canGmMove(from, to): boolean`
   - `type InstallType`
   - `type InstallationRate`
   - `installationCost(rate: InstallationRate | null, line: { weightKg?: number | null; mountHeightM?: number | null; floorCut?: boolean }): number | null`
@@ -1202,7 +1363,7 @@ Create `src/lib/pricing.test.ts`:
 
 ```ts
 import { describe, expect, it } from "bun:test";
-import { canPricerMove, installationCost, PRICING_STATE_LABEL, PRICING_STATES } from "@/lib/pricing";
+import { canGmMove, canPricerMove, installationCost, PRICING_STATE_LABEL, PRICING_STATES } from "@/lib/pricing";
 
 describe("installation cost mirrors pricing_installation_cost", () => {
   const ceiling = {
@@ -1235,7 +1396,11 @@ describe("pricing states", () => {
   it("lets the pricer move along the path and never skip", () => {
     expect(canPricerMove("received", "package_review")).toBe(true);
     expect(canPricerMove("received", "at_supplier")).toBe(false);
-    expect(canPricerMove("selling_build", "gm_pending")).toBe(false); // the price moves it, not a button
+    expect(canPricerMove("selling_build", "price_review")).toBe(false); // the price moves it, not a button
+  });
+  it("gives the selling build to the GM, not to the pricer", () => {
+    expect(canGmMove("supplier_priced", "selling_build")).toBe(true);
+    expect(canPricerMove("supplier_priced", "selling_build")).toBe(false);
   });
 });
 ```
@@ -1245,18 +1410,37 @@ Create `src/lib/pricing.contract.test.ts`:
 ```ts
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
-import { PRICER_MOVES } from "@/lib/pricing";
+import { GM_MOVES, PRICER_MOVES } from "@/lib/pricing";
 
 // The screens decide which buttons to show from PRICER_MOVES; the database
 // decides what is allowed from pricing_file_transitions. They must agree.
 const SQL = readFileSync("supabase/migrations/20261103110000_pricing_state_machine.sql", "utf8");
 
-describe("pricer moves match the SQL transition list", () => {
+const rowsFor = (who: string) =>
+  [...SQL.matchAll(new RegExp(`\\('(\\w+)'(?:::public\\.pricing_file_state)?,\\s*'(\\w+)'(?:::public\\.pricing_file_state)?,\\s*'${who}'\\)`, "g"))]
+    .map((m) => `${m[1]}>${m[2]}`).sort();
+
+describe("button moves match the SQL transition list", () => {
   it("lists exactly the 'pricer' rows", () => {
-    const rows = [...SQL.matchAll(/\('(\w+)'(?:::public\.pricing_file_state)?,\s*'(\w+)'(?:::public\.pricing_file_state)?,\s*'pricer'\)/g)]
-      .map((m) => `${m[1]}>${m[2]}`).sort();
+    const rows = rowsFor("pricer");
     expect(rows.length).toBeGreaterThan(5);
     expect(PRICER_MOVES.map(([a, b]) => `${a}>${b}`).sort()).toEqual(rows);
+  });
+  it("lists exactly the 'gm' rows", () => {
+    expect(GM_MOVES.map(([a, b]) => `${a}>${b}`).sort()).toEqual(rowsFor("gm"));
+  });
+});
+
+// Mo, 2026-11-03: the GM sets the price and finance reviews it. Inside a
+// pricing file, gm_approved belongs to finance reviewing the GM's price.
+const GUARD = readFileSync("supabase/migrations/20261103140000_pricing_gm_sets_zayed_reviews.sql", "utf8");
+describe("Kalas sets, Zayed reviews", () => {
+  it("only the final-price authority proposes", () => {
+    expect(GUARD).toMatch(/internal_price_proposed' AND NEW\.status = 'gm_pending'[\s\S]*?NOT public\.can_approve_final_price\(_uid\)/);
+  });
+  it("finance approves only a price the authority proposed, never its own", () => {
+    expect(GUARD).toMatch(/can_approve_final_price\(OLD\.proposed_by\)/);
+    expect(GUARD).toMatch(/OLD\.proposed_by IS DISTINCT FROM _uid/);
   });
 });
 ```
@@ -1282,12 +1466,12 @@ Create `src/lib/pricing.ts`:
 
 export type PricingState =
   | "received" | "package_review" | "needs_info" | "boq_frozen" | "at_supplier"
-  | "supplier_priced" | "cost_review" | "selling_build" | "gm_pending"
+  | "supplier_priced" | "selling_build" | "price_review"
   | "approved" | "quoted" | "closed";
 
 export const PRICING_STATES: readonly PricingState[] = [
   "received", "package_review", "needs_info", "boq_frozen", "at_supplier",
-  "supplier_priced", "cost_review", "selling_build", "gm_pending", "approved", "quoted", "closed",
+  "supplier_priced", "selling_build", "price_review", "approved", "quoted", "closed",
 ];
 
 export const PRICING_STATE_LABEL: Record<PricingState, { en: string; ar: string }> = {
@@ -1296,30 +1480,37 @@ export const PRICING_STATE_LABEL: Record<PricingState, { en: string; ar: string 
   needs_info: { en: "Missing items with sales", ar: "نواقص لدى المبيعات" },
   boq_frozen: { en: "BOQ frozen", ar: "الكميات مجمّدة" },
   at_supplier: { en: "At supplier", ar: "عند المورد" },
-  supplier_priced: { en: "Supplier priced", ar: "سعّر المورد" },
-  cost_review: { en: "Cost review", ar: "مراجعة التكلفة" },
-  selling_build: { en: "Building selling price", ar: "بناء سعر البيع" },
-  gm_pending: { en: "Awaiting GM approval", ar: "بانتظار اعتماد المدير العام" },
+  supplier_priced: { en: "Supplier priced, with the GM", ar: "سعّر المورد — لدى المدير العام" },
+  selling_build: { en: "GM setting the selling price", ar: "المدير العام يضع سعر البيع" },
+  price_review: { en: "Price review (finance)", ar: "مراجعة السعر (المالية)" },
   approved: { en: "Approved", ar: "معتمد" },
   quoted: { en: "Quoted to client", ar: "أُرسل العرض للعميل" },
   closed: { en: "Closed", ar: "مغلق" },
 };
 
-/** Moves a pricer makes with pricing_file_move. Needs-info has its own RPCs; system moves follow the price. */
+/** Moves Zayed (pricer) makes with pricing_file_move. Needs-info has its own RPCs; system moves follow the price. */
 export const PRICER_MOVES: ReadonlyArray<readonly [PricingState, PricingState]> = [
   ["received", "package_review"],
   ["package_review", "boq_frozen"],
   ["boq_frozen", "at_supplier"],
   ["at_supplier", "supplier_priced"],
-  ["supplier_priced", "cost_review"],
-  ["cost_review", "at_supplier"],
-  ["cost_review", "selling_build"],
+  ["supplier_priced", "at_supplier"],
+  ["price_review", "at_supplier"],
   ["quoted", "boq_frozen"],
+];
+
+/** Moves Kalas (GM) makes: the supplier's prices go to him and he builds the selling price. */
+export const GM_MOVES: ReadonlyArray<readonly [PricingState, PricingState]> = [
+  ["supplier_priced", "selling_build"],
 ];
 
 export function canPricerMove(from: PricingState, to: PricingState): boolean {
   if (to === "closed") return from !== "closed";
   return PRICER_MOVES.some(([a, b]) => a === from && b === to);
+}
+
+export function canGmMove(from: PricingState, to: PricingState): boolean {
+  return GM_MOVES.some(([a, b]) => a === from && b === to);
 }
 
 export type InstallType = "double_tape" | "wall_screw" | "pylon" | "ceiling" | "floor";
@@ -1409,7 +1600,7 @@ git commit -m "feat(pricing): TS mirror of states and installation cost, RPC wra
 
 ---
 
-### Task 7: Docs, full verify, PR
+### Task 8: Docs, full verify, PR
 
 **Files:**
 - Modify: `docs/USER_GUIDE.md` (section 10), `docs/CHANGELOG.md`, `docs/DECISIONS.md`, `docs/AI_HANDOFF.md`, `tasks/current.md`
@@ -1424,10 +1615,12 @@ git commit -m "feat(pricing): TS mirror of states and installation cost, RPC wra
    ```markdown
    ## 2026-11-03 — Pricing loop foundation (Commercial & Finance part 1, PR 1; not deployed)
 
-   - Migrations `20261103100000`–`20261103140000`: `pricing_files` + `pricing_file_events` (one per RFQ, auto-opened on a new RFQ with a deal), the enforced path (`pricing_file_move`, needs-info RPCs), `installation_rates` by `install_type` with weight/height/cut/scaffold modifiers, `pricing_extras_catalog` + `pricing_file_extras` with auto-suggestions that must be decided, `logistics_rates` (seeded from the meeting, unclear figures marked), structured `boq_lines` attributes, `supplier_quote_lines.unit_cost_with_screen` (cost-revoked). `internal_prices` may go `internal_price_proposed → gm_pending` for finance (one-step GM approval); the file follows its price.
+   - Migrations `20261103100000`–`20261103150000`: `pricing_files` + `pricing_file_events` (one per RFQ, auto-opened on a new RFQ with a deal), the enforced path (`pricing_file_move`, needs-info RPCs), `installation_rates` by `install_type` with weight/height/cut/scaffold modifiers, `pricing_extras_catalog` + `pricing_file_extras` with auto-suggestions that must be decided, `logistics_rates` (seeded from the meeting, unclear figures marked), structured `boq_lines` attributes, `supplier_quote_lines.unit_cost_with_screen` (cost-revoked). Kalas (GM) sets and proposes the price (`internal_price_proposed → gm_pending`, floor guard runs) and Zayed (finance) reviews and approves it (`gm_pending → gm_approved` only for a price the GM proposed, never his own; the price is frozen under review); the file follows its price. `can_read_commercial_cost` gains `sales_manager`.
    - `src/lib/pricing.ts` mirror + contract test; `src/lib/pricing-actions.ts`.
    ```
-3. `docs/DECISIONS.md`: add `## 2026-11-03 — Pricing actions are SQL RPCs; the supplier role ships with its portal`, with the two deviations listed in Global Constraints and the reason: "no function deploy; authorization and tests stay in one place; the role and its only consumer ship together".
+3. `docs/DECISIONS.md`: add two entries.
+   - `## 2026-11-03 — Pricing actions are SQL RPCs; the supplier role ships with its portal`: the two deviations listed in Global Constraints. Reason: "no function deploy; authorization and tests stay in one place; the role and its only consumer ship together".
+   - `## 2026-11-03 — Kalas sets the price, Zayed reviews; the sales manager reads cost`. Record the changed Phase 7A invariant: inside a pricing file, `gm_approved` is finance's, for a price the GM proposed. Also record the widened `can_read_commercial_cost`.
 4. `docs/AI_HANDOFF.md`: a new top entry with the branch name, the migrations, "needs `db push` before PR 2's screens are useful", and the open points from the spec.
 5. `tasks/current.md`: a new active item, "Pricing loop PR 1", with what remains (CI, `db push`).
 
@@ -1446,10 +1639,10 @@ git add docs tasks
 git commit -m "docs: pricing loop foundation (user guide limits, changelog, decisions, handoff)"
 gh auth switch -u mophc-sa
 git -c credential.helper= -c credential.helper='!gh auth git-credential' push -u origin HEAD
-gh pr create --repo mophc-sa/phc-command-center --base main --title "Pricing loop PR 1: foundation (pricing files, path, rates, extras, one-step GM)" --body-file - <<'EOF'
+gh pr create --repo mophc-sa/phc-command-center --base main --title "Pricing loop PR 1: foundation (pricing files, path, rates, extras, GM sets / finance reviews)" --body-file - <<'EOF'
 Commercial & Finance part 1, PR 1 of 4. Spec: `docs/superpowers/specs/2026-11-03-pricing-loop-design.md`. Plan: `docs/superpowers/plans/2026-11-03-pricing-loop-foundation.md`.
 
-Database foundation only, with no screens. Migrations `20261103100000`–`20261103140000`, and pgTAP for each.
+Database foundation only, with no screens. Migrations `20261103100000`–`20261103150000`, and pgTAP for each. Kalas sets the price and Zayed reviews it. The sales manager reads supplier cost.
 
 Release: `db push` only. There is no function deploy and no UI change.
 
@@ -1466,4 +1659,9 @@ Expected: the PR URL prints, and CI runs. The "Supabase migrations and database 
 
 - **PR 2:** Zayed's screens (`/pricing`, `/pricing/$id` up to Propose, `/pricing/settings`), BOQ Excel import, the selling-price grid, and the new sidebar group. The cost-gated SQL view for the grid: materials (selected supplier line, normal or with screen), plus installation (`pricing_installation_cost` or the % fallback), plus accepted extras, plus logistics allocated by line value, then margin. It feeds `estimations` / `internal_prices` so the Phase 8 margin and floor rules apply unchanged. Also the project-level cinema flag for the acoustic suggestion.
 - **PR 3:** the `supplier` role, `profiles.vendor_id`, `supplier_invitations`, the portal, the invite email, entry on behalf.
-- **PR 4:** Kalas approval card, the quotation revision from the approved price, the PDF for Marie, the pricing state on the deal page, and the client-revision loop.
+- **PR 4:** Zayed's price-review card (Approvals → Manager decisions: "Review selling price"), Kalas's set-price queue, the quotation revision from the approved price, the PDF for Marie, the pricing state on the deal page, and the client-revision loop.
+- **PR 5: AI reviews** (Mo, 2026-11-03). Two agents registered in `ai-orchestrator` (`docs/ai-orchestrator.md`; never a new Edge Function):
+  - `pricing_package_review`: at `package_review`, compares the BOQ lines with the drawings and location plan text, lists what is missing, and notifies the rep.
+  - `supplier_quote_review`: at `supplier_priced`, compares the supplier quote with the BOQ and files (unpriced lines, a missing screen price, a spec change with no note), and notifies the supplier and Zayed.
+  
+  Both store findings in a `pricing_ai_findings` table that is cost-gated where a finding quotes a price. They **notify only**: they never move the file or change a price (USER_GUIDE rule 10). They need `ai-orchestrator` deployed and file-text extraction for PDFs. Before the supplier notices go live, check the agents with Zayed on real files.
