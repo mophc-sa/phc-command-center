@@ -1,5 +1,10 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-03 — Pricing loop foundation (Commercial & Finance part 1, PR 1; not deployed)
+
+- Migrations `20261103100000`–`20261103150000`: `pricing_files` + `pricing_file_events` (one per RFQ, auto-opened on a new RFQ with a deal), the enforced path (`pricing_file_move`, needs-info RPCs), `installation_rates` by `install_type` with weight/height/cut/scaffold modifiers, `pricing_extras_catalog` + `pricing_file_extras` with auto-suggestions that must be decided, `logistics_rates` (seeded from the meeting, unclear figures marked), structured `boq_lines` attributes, `supplier_quote_lines.unit_cost_with_screen` (cost-revoked). Kalas (GM) sets and proposes the price (`internal_price_proposed → gm_pending`, floor guard runs) and Zayed (finance) reviews and approves it (`gm_pending → gm_approved` only for a price the GM proposed, never his own; the price is frozen under review); the file follows its price. `can_read_commercial_cost` gains `sales_manager`.
+- `src/lib/pricing.ts` mirror + contract test; `src/lib/pricing-actions.ts`.
+
 ## 2026-10-22 — Meetings phase 1 (not deployed)
 
 Spec `docs/superpowers/specs/2026-10-22-meetings-phase1-scope.md` (Mo approved the four recommendations).

@@ -1,5 +1,21 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-03 — Pricing loop foundation (branch `feat/pricing-loop-foundation`, worktree `~/dev/phc-pricing`)
+
+Spec `docs/superpowers/specs/2026-11-03-pricing-loop-design.md`; plan `docs/superpowers/plans/2026-11-03-pricing-loop-foundation.md`. Commercial & Finance part 1, PR 1 of 5: **database foundation only, no screens**. Migrations `20261103100000` (`pricing_files`, events, auto-open per RFQ), `20261103110000` (enforced path, needs-info RPCs), `20261103120000` (installation rates, extras catalog, logistics rates, structured BOQ attributes, `unit_cost_with_screen`), `20261103130000` (cost calculation), `20261103140000` (Kalas sets the price, Zayed reviews it; guard rewrite), `20261103150000` (`can_read_commercial_cost` gains `sales_manager`). pgTAP per migration; `src/lib/pricing.ts` mirror, `pricing.contract.test.ts`, `pricing-actions.ts` (SQL RPC wrappers). Actions are SQL RPCs, not `sales-os-api`, so **no function deploy**.
+
+**Needs `supabase db push` before PR 2's screens are useful.** Nothing is deployed or pushed; the PR is opened by the controller after a final review. Release is `db push` only.
+
+Behaviour that changes OUTSIDE pricing files (the Phase 7A guard `internal_price_transition_guard` was rewritten; see DECISIONS 2026-11-03): runs SECURITY DEFINER; `gm_pending` price frozen; `gm_approved` price immutable (propose a new one); proposer/reviewer stamps not editable outside a status move; an authenticated INSERT must be `draft` or `internal_price_proposed`. Inside a file, `service_role` price edits are refused.
+
+Local checks: `bun run verify` and `bun audit --audit-level=high` (results in `.superpowers/sdd/task-8-report.md`); DB suite via `supabase test db` on a rebuilt local DB (32 files, 529 tests).
+
+**Open points**
+- `scripts/db-behaviour.sh` cannot replay this branch locally: its stubs lack `extensions.gen_random_bytes` and `vault.create_secret`. Pre-existing, not caused by this branch. CI uses `supabase test db`, which is the source of truth.
+- Spec open points, to confirm with Zayed during build (not blockers): exact installation types and modifier bands and the first rate-card values; the default margin % and the margin floor value (existing `margin_policies`); the default logistics values (the meeting's figures are partly unclear: customs about 5%?, container 12,000 in what currency?); whether stickers are bought and fitted by the installer (meeting 76 [05:19-05:36], unclear). Seeded logistics rows mark the unclear figures.
+- The Phase 7B migration comment (`20260827100000_phase7b_supplier_costing.sql` lines 44-48) still says the sales manager is refused cost. It is superseded by `20261103150000`; migrations are not edited after release.
+- Next: PR 2 screens (`/pricing`, `/pricing/$id`, `/pricing/settings`, BOQ import, price grid), PR 3 `supplier` role and portal, PR 4 price-review card and quotation revision, PR 5 AI reviews (notify only).
+
 ## 2026-10-22 — Meetings phase 1 (branch `feat/meetings-phase1`, worktree `~/dev/phc-g8`)
 
 Spec `docs/superpowers/specs/2026-10-22-meetings-phase1-scope.md` (PR 357; Mo approved all four

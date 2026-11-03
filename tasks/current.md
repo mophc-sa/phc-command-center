@@ -1,5 +1,9 @@
 # Current Task — PHC Command Center
 
+## بند فعّال — حلقة التسعير، PR 1 (الأساس، 2026-11-03)
+
+الفرع `feat/pricing-loop-foundation` (worktree `~/dev/phc-pricing`). قاعدة البيانات فقط بلا شاشات: migrations من `20261103100000` إلى `20261103150000`، واختبارات pgTAP، وطبقة `src/lib/pricing.ts`. الكود والاختبارات المحلية مكتملة. المتبقي: مراجعة نهائية، دفع الفرع وفتح الـPR، CI (مهمة «Supabase migrations and database tests»)، دمج، ثم `db push` بموافقة. لا نشر دوال. التالي: PR 2 (شاشات زايد). التفاصيل في أعلى `docs/AI_HANDOFF.md`.
+
 ## بند فعّال — وحدة الاجتماعات، المرحلة الأولى (2026-10-22)
 
 الفرع `feat/meetings-phase1` (worktree `~/dev/phc-g8`). الكود والاختبارات المحلية مكتملة (pgTAP 45، Deno 106، verify أخضر). المتبقي: CI، دمج، `db push` للـmigration `20261028100000`، نشر `meetings-inbound` و`sales-os-api`، نشر الواجهة، ثم يربط كل مندوب مفتاح Fireflies، وأسبوع تنظيف الـ59 بنداً. التفاصيل في أعلى `docs/AI_HANDOFF.md`.
