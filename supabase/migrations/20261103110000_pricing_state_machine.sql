@@ -27,15 +27,16 @@ SELECT * FROM (VALUES
 GRANT SELECT ON public.pricing_file_transitions TO authenticated;
 
 -- The one place a state changes. Callers pass who they are acting as.
--- Final review I4: a note on a move out of a cost stage is cost reasoning (which
--- supplier lines go back, why), so it is kept in cost_note, which reps cannot
--- read. A close keeps its reason readable: it is the deal's answer to "why did
+-- Final review I4: a note on a move into or out of a cost stage is cost
+-- reasoning (supplier prices received, which lines go back, why), so it is kept
+-- in cost_note, which reps cannot read. A close keeps its reason readable: it is the deal's answer to "why did
 -- pricing stop", and closed_reason on the file carries the same text.
 CREATE OR REPLACE FUNCTION public._pricing_file_apply(_file public.pricing_files, _to public.pricing_file_state,
                                                        _actor uuid, _note text)
 RETURNS public.pricing_files LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE f public.pricing_files; n text := nullif(btrim(coalesce(_note,'')), '');
-        is_cost boolean := _file.state IN ('supplier_priced','selling_build','price_review') AND _to <> 'closed';
+        is_cost boolean := (_file.state IN ('supplier_priced','selling_build','price_review')
+                            OR _to IN ('supplier_priced','selling_build','price_review')) AND _to <> 'closed';
 BEGIN
   UPDATE public.pricing_files
      SET state = _to, state_changed_at = now(), state_changed_by = _actor, updated_at = now(),

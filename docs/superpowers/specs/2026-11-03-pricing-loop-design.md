@@ -31,7 +31,7 @@ Date: 2026-11-03 · Approved by Mo section by section on 2026-11-03. Revised the
 
 ## 1. Flow
 
-One **pricing file** per RFQ, holding one state.
+One open **pricing file** per deal (opened by its RFQ), holding one state.
 
 | State | Owner | Moves to |
 |---|---|---|

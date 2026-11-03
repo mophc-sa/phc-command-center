@@ -17,12 +17,17 @@ Local checks: `bun run verify` and `bun audit --audit-level=high` (results in `.
 **PR 2 contract (must hold):**
 - The linking RPC checks: the revision belongs to the file's deal (`boq_revisions → boqs.related_opportunity_id = pricing_files.opportunity_id`); the estimation belongs to that revision; the price belongs to that estimation; the price's status is at most `internal_price_proposed` (`draft`, `cost_complete` or `internal_price_proposed`), never one already under review or decided.
 - Any SECURITY DEFINER RPC that inserts `internal_prices` runs as the owner, so `internal_price_insert_guard` (which checks `current_user = 'authenticated'`) does not stop it: the RPC must enforce the draft-or-proposed status rule itself. `figure_set_by` is still stamped from `auth.uid()`.
+- `pricing_file_events` uses column grants (`cost_note` is not granted), so a PostgREST `select=*` returns 42501 for every user. Always list columns explicitly.
+- The close dialog says the reason is visible to the sales rep.
 
 **Deferred to PR 2:**
 - Suggest-vs-propose race: `pricing_suggest_extras` can add a suggestion while Kalas's propose checks for open extras. Lock the file row (`FOR UPDATE`) in `pricing_suggest_extras` and in the guard's open-extras check (`_pricing_price_has_open_extras`).
 - On a client revision, old decided extras suppress new suggestions for the same catalog item. Add `UNIQUE (file_id, catalog_id)` scoped to the round (or reset per round) and insert with `ON CONFLICT DO NOTHING`.
 - A store for the installation % fallback: `logistics_rates.key` has a closed CHECK, so the fallback % has no row to live in yet.
 - `open_pricing_file(_opportunity_id, _rfq_id)` does not check that `_rfq_id` belongs to the deal.
+- The cost basis is not frozen under review: Zayed, as estimation, can still edit the estimation's `cost_total` / `wastage_pct` while Kalas's price is `gm_pending`, and `compute_margin` re-runs on the approve. Freeze the linked estimation while its price is under review.
+- An RFQ moved from deal A to deal B leaves A's open file pointing at an RFQ that now belongs to B. Decide whether the move closes or re-points A's file.
+- If Zayed is the only finance_manager, a figure he types in a file can be approved only after Kalas retypes it (approver ≠ `figure_set_by`). The selling-price screen should say so.
 - Decision for PR 2: the placeholder RFQ that the classification edit creates on a deal with none (`src/lib/opportunity-collab-actions.ts`, `upsertClientDetails`) also opens a pricing file. It has no column, flag or source value that tells it apart from a real RFQ saved with few fields, so it is not excluded. If that is wrong, PR 2 marks it (e.g. a `source_type` value) and the trigger skips it.
 - No backfill: RFQs that existed before `20261103100000` get no file; pricers open them by hand with `open_pricing_file`.
 

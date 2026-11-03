@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 5b… prefix.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(29);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at) values
@@ -85,8 +85,12 @@ select is((public.pricing_file_move((select id from public.pricing_files limit 1
 -- Supplier round trip, the GM gate, and closing.
 select is((public.pricing_file_move((select id from public.pricing_files limit 1),'at_supplier'))->>'state',
   'at_supplier', 'The pricer sends the file to the supplier');
-select is((public.pricing_file_move((select id from public.pricing_files limit 1),'supplier_priced'))->>'state',
+select is((public.pricing_file_move((select id from public.pricing_files limit 1),'supplier_priced','Supplier X quoted 82k'))->>'state',
   'supplier_priced', 'The pricer records the supplier prices');
+select is((select note from public.pricing_file_events where to_state = 'supplier_priced'),
+  null, 'A note on recording supplier prices is not in the note a rep can read');
+select is((select cost_note from public.pricing_file_cost_notes where to_state = 'supplier_priced'),
+  'Supplier X quoted 82k', 'It is kept in the cost note, read through the cost gate');
 select throws_ok($$select public.pricing_file_move((select id from public.pricing_files limit 1),'at_supplier')$$,
   'P0001', null, 'Sending lines back to the supplier needs a note');
 select throws_ok($$select public.pricing_file_move((select id from public.pricing_files limit 1),'selling_build')$$,
