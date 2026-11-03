@@ -52,11 +52,24 @@ CREATE OR REPLACE FUNCTION public.pricing_suggest_extras(_file_id uuid)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE u uuid := auth.uid(); f public.pricing_files; n integer;
 BEGIN
-  IF NOT public.is_pricer(u) THEN RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501'; END IF;
+  IF NOT (public.is_pricer(u) OR public.can_approve_final_price(u)) THEN
+    RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501';
+  END IF;
   SELECT * INTO f FROM public.pricing_files WHERE id = _file_id;
-  IF NOT FOUND OR f.boq_revision_id IS NULL THEN
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Unknown pricing file. | ملف التسعير غير موجود.' USING ERRCODE = '23514';
+  END IF;
+  IF f.state::text NOT IN ('boq_frozen','at_supplier','supplier_priced','selling_build') THEN
+    RAISE EXCEPTION 'Extras can only be suggested after the BOQ is frozen and before the price goes to review. | لا يمكن اقتراح البنود الإضافية إلا بعد تجميد الكميات وقبل إرسال السعر للمراجعة.' USING ERRCODE = 'P0001';
+  END IF;
+  IF f.boq_revision_id IS NULL THEN
     RAISE EXCEPTION 'The file has no BOQ revision yet. | لا يوجد إصدار كميات في الملف بعد.' USING ERRCODE = '23514';
   END IF;
+  -- Undecided suggestions from an older revision must not block Propose forever.
+  DELETE FROM public.pricing_file_extras x
+   WHERE x.file_id = f.id AND x.status = 'suggested'
+     AND (x.source_line_id IS NULL
+          OR x.source_line_id NOT IN (SELECT l.id FROM public.boq_lines l WHERE l.revision_id = f.boq_revision_id));
   WITH hits AS (
     SELECT DISTINCT ON (c.id) c.id AS catalog_id, c.default_rate, l.id AS line_id
       FROM public.boq_lines l
@@ -84,11 +97,22 @@ GRANT EXECUTE ON FUNCTION public.pricing_suggest_extras(uuid) TO authenticated;
 CREATE OR REPLACE FUNCTION public.pricing_decide_extra(_extra_id uuid, _accept boolean,
   _quantity numeric DEFAULT NULL, _rate numeric DEFAULT NULL, _reason text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE u uuid := auth.uid(); e public.pricing_file_extras; opp uuid;
+DECLARE u uuid := auth.uid(); e public.pricing_file_extras; f public.pricing_files;
 BEGIN
-  IF NOT public.is_pricer(u) THEN RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501'; END IF;
+  IF NOT (public.is_pricer(u) OR public.can_approve_final_price(u)) THEN
+    RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501';
+  END IF;
+  IF (_quantity IS NOT NULL AND _quantity < 0) OR (_rate IS NOT NULL AND _rate < 0) THEN
+    RAISE EXCEPTION 'Quantity and rate cannot be negative. | الكمية والسعر لا يمكن أن يكونا سالبين.' USING ERRCODE = '23514';
+  END IF;
   IF NOT _accept AND length(btrim(coalesce(_reason,''))) = 0 THEN
     RAISE EXCEPTION 'Say why this item is not needed. | اذكر سبب عدم الحاجة لهذا البند.' USING ERRCODE = '23514';
+  END IF;
+  SELECT * INTO e FROM public.pricing_file_extras WHERE id = _extra_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Unknown item. | البند غير موجود.' USING ERRCODE = '23514'; END IF;
+  SELECT * INTO f FROM public.pricing_files WHERE id = e.file_id FOR SHARE;
+  IF f.state::text NOT IN ('supplier_priced','selling_build') THEN
+    RAISE EXCEPTION 'Extras are locked once the price is under review. | البنود الإضافية تُقفل بعد إرسال السعر للمراجعة.' USING ERRCODE = 'P0001';
   END IF;
   UPDATE public.pricing_file_extras
      SET status = CASE WHEN _accept THEN 'accepted' ELSE 'dismissed' END,
@@ -96,20 +120,24 @@ BEGIN
          dismiss_reason = CASE WHEN _accept THEN NULL ELSE btrim(_reason) END,
          decided_by = u, decided_at = now()
    WHERE id = _extra_id RETURNING * INTO e;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Unknown item. | البند غير موجود.' USING ERRCODE = '23514'; END IF;
-  SELECT opportunity_id INTO opp FROM public.pricing_files WHERE id = e.file_id;
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
-  VALUES (u, 'user', 'pricing_file.extra_decided', 'opportunity', opp,
+  VALUES (u, 'user', 'pricing_file.extra_decided', 'opportunity', f.opportunity_id,
           jsonb_build_object('file_id', e.file_id, 'extra_id', e.id, 'catalog_id', e.catalog_id,
-                             'status', e.status, 'quantity', e.quantity, 'rate', e.rate));
+                             'status', e.status, 'quantity', e.quantity, 'rate', e.rate,
+                             'dismiss_reason', e.dismiss_reason));
   RETURN to_jsonb(e);
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_decide_extra(uuid, boolean, numeric, numeric, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.pricing_decide_extra(uuid, boolean, numeric, numeric, text) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.pricing_file_open_suggestions(_file_id uuid)
-RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT count(*)::int FROM public.pricing_file_extras WHERE file_id = _file_id AND status = 'suggested';
-$$;
+RETURNS integer LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE u uuid := auth.uid();
+BEGIN
+  IF NOT (public.is_pricer(u) OR public.can_read_commercial_cost(u)) THEN
+    RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501';
+  END IF;
+  RETURN (SELECT count(*)::int FROM public.pricing_file_extras WHERE file_id = _file_id AND status = 'suggested');
+END $$;
 REVOKE ALL ON FUNCTION public.pricing_file_open_suggestions(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.pricing_file_open_suggestions(uuid) TO authenticated;
