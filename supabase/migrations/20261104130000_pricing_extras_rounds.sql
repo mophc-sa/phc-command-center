@@ -47,9 +47,38 @@ DROP INDEX IF EXISTS public.pricing_file_extras_one_per_item;
 CREATE UNIQUE INDEX IF NOT EXISTS pricing_file_extras_one_per_item_per_round
   ON public.pricing_file_extras (file_id, boq_revision_id, catalog_id);
 
+-- The catalog items a file's current revision expects as extras: line-based hits
+-- plus the cinema items. One definition for the suggester and the Propose check,
+-- so neither depends on the other having run. The caller holds the file lock.
+CREATE OR REPLACE FUNCTION public._pricing_expected_extras(_file_id uuid)
+RETURNS TABLE (catalog_id uuid, default_rate numeric, line_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  WITH f AS (
+    SELECT pf.id, pf.boq_revision_id,
+           coalesce((SELECT i.is_cinema FROM public.pricing_file_inputs i WHERE i.file_id = pf.id), false) AS cinema
+      FROM public.pricing_files pf WHERE pf.id = _file_id
+  ), line_hits AS (
+    SELECT DISTINCT ON (c.id) c.id AS catalog_id, c.default_rate, l.id AS line_id
+      FROM f
+      JOIN public.boq_lines l ON l.revision_id = f.boq_revision_id
+      JOIN public.pricing_extras_catalog c ON c.active
+       AND ((l.install_type IS NOT NULL AND l.install_type = ANY (c.suggest_for))
+            OR (c.suggest_min_height_m IS NOT NULL AND coalesce(l.mount_height_m,0) >= c.suggest_min_height_m))
+     ORDER BY c.id, l.line_number NULLS LAST
+  ), cinema_hits AS (
+    SELECT c.id AS catalog_id, c.default_rate, NULL::uuid AS line_id
+      FROM f, public.pricing_extras_catalog c
+     WHERE f.cinema AND c.active AND c.suggest_if_cinema
+  )
+  SELECT DISTINCT ON (h.catalog_id) h.catalog_id, h.default_rate, h.line_id
+    FROM (SELECT * FROM line_hits UNION ALL SELECT * FROM cinema_hits) h
+   ORDER BY h.catalog_id, h.line_id NULLS LAST
+$$;
+REVOKE ALL ON FUNCTION public._pricing_expected_extras(uuid) FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.pricing_suggest_extras(_file_id uuid)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE u uuid := auth.uid(); f public.pricing_files; n integer; cinema boolean;
+DECLARE u uuid := auth.uid(); f public.pricing_files; n integer; cinema boolean; purged integer; withdrawn integer;
 BEGIN
   IF NOT (public.is_pricer(u) OR public.can_approve_final_price(u)) THEN
     RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501';
@@ -68,34 +97,32 @@ BEGIN
   cinema := coalesce((SELECT i.is_cinema FROM public.pricing_file_inputs i WHERE i.file_id = f.id), false);
 
   -- Undecided suggestions from an older round no longer block Propose.
-  DELETE FROM public.pricing_file_extras x
-   WHERE x.file_id = f.id AND x.status = 'suggested' AND x.boq_revision_id <> f.boq_revision_id;
+  WITH d AS (DELETE FROM public.pricing_file_extras x
+              WHERE x.file_id = f.id AND x.status = 'suggested' AND x.boq_revision_id <> f.boq_revision_id
+              RETURNING 1)
+  SELECT count(*)::int INTO purged FROM d;
+  IF purged > 0 THEN
+    INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
+    VALUES (u, 'user', 'pricing_file.extras_old_round_purged', 'opportunity', f.opportunity_id,
+            jsonb_build_object('file_id', f.id, 'revision_id', f.boq_revision_id, 'count', purged));
+  END IF;
   -- An undecided cinema suggestion goes when the project is no longer a cinema.
   IF NOT cinema THEN
-    DELETE FROM public.pricing_file_extras x
-     WHERE x.file_id = f.id AND x.status = 'suggested' AND x.source_line_id IS NULL
-       AND x.catalog_id IN (SELECT c.id FROM public.pricing_extras_catalog c WHERE c.suggest_if_cinema);
+    WITH d AS (DELETE FROM public.pricing_file_extras x
+                WHERE x.file_id = f.id AND x.status = 'suggested' AND x.source_line_id IS NULL
+                  AND x.catalog_id IN (SELECT c.id FROM public.pricing_extras_catalog c WHERE c.suggest_if_cinema)
+                RETURNING 1)
+    SELECT count(*)::int INTO withdrawn FROM d;
+    IF withdrawn > 0 THEN
+      INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
+      VALUES (u, 'user', 'pricing_file.extras_cinema_withdrawn', 'opportunity', f.opportunity_id,
+              jsonb_build_object('file_id', f.id, 'revision_id', f.boq_revision_id, 'count', withdrawn));
+    END IF;
   END IF;
 
-  WITH line_hits AS (
-    SELECT DISTINCT ON (c.id) c.id AS catalog_id, c.default_rate, l.id AS line_id
-      FROM public.boq_lines l
-      JOIN public.pricing_extras_catalog c ON c.active
-       AND ((l.install_type IS NOT NULL AND l.install_type = ANY (c.suggest_for))
-            OR (c.suggest_min_height_m IS NOT NULL AND coalesce(l.mount_height_m,0) >= c.suggest_min_height_m))
-     WHERE l.revision_id = f.boq_revision_id
-     ORDER BY c.id, l.line_number NULLS LAST
-  ), cinema_hits AS (
-    SELECT c.id AS catalog_id, c.default_rate, NULL::uuid AS line_id
-      FROM public.pricing_extras_catalog c
-     WHERE cinema AND c.active AND c.suggest_if_cinema
-  ), hits AS (
-    SELECT DISTINCT ON (h.catalog_id) h.catalog_id, h.default_rate, h.line_id
-      FROM (SELECT * FROM line_hits UNION ALL SELECT * FROM cinema_hits) h
-     ORDER BY h.catalog_id, h.line_id NULLS LAST
-  ), ins AS (
+  WITH ins AS (
     INSERT INTO public.pricing_file_extras (file_id, boq_revision_id, catalog_id, rate, source_line_id)
-    SELECT f.id, f.boq_revision_id, h.catalog_id, h.default_rate, h.line_id FROM hits h
+    SELECT f.id, f.boq_revision_id, h.catalog_id, h.default_rate, h.line_id FROM public._pricing_expected_extras(f.id) h
     ON CONFLICT (file_id, boq_revision_id, catalog_id) DO NOTHING
     RETURNING 1)
   SELECT count(*)::int INTO n FROM ins;
@@ -116,9 +143,15 @@ DECLARE f public.pricing_files;
 BEGIN
   SELECT * INTO f FROM public.pricing_files WHERE internal_price_id = _internal_price_id FOR UPDATE;
   IF NOT FOUND THEN RETURN false; END IF;
+  -- Blocked when a current-round extra is undecided, or when an expected item has no
+  -- row this round at all (suggest never ran, e.g. package_review -> boq_frozen).
   RETURN EXISTS (SELECT 1 FROM public.pricing_file_extras x
                   WHERE x.file_id = f.id AND x.boq_revision_id = f.boq_revision_id
-                    AND x.status = 'suggested');
+                    AND x.status = 'suggested')
+      OR EXISTS (SELECT 1 FROM public._pricing_expected_extras(f.id) h
+                  WHERE NOT EXISTS (SELECT 1 FROM public.pricing_file_extras x
+                                     WHERE x.file_id = f.id AND x.boq_revision_id = f.boq_revision_id
+                                       AND x.catalog_id = h.catalog_id));
 END $$;
 REVOKE ALL ON FUNCTION public._pricing_price_has_open_extras(uuid) FROM PUBLIC, anon, authenticated;
 
@@ -146,6 +179,10 @@ BEGIN
   IF _quantity IS NULL OR _quantity <= 0 OR (_rate IS NOT NULL AND _rate < 0) THEN
     RAISE EXCEPTION 'Give a quantity above zero and a rate that is not negative. | حدد كمية أكبر من صفر وسعراً غير سالب.' USING ERRCODE = '23514';
   END IF;
+  -- Within the columns' precision (numeric(14,3) and numeric(14,2)), so a bad number is 23514, not an overflow.
+  IF _quantity > 99999999999.999 OR (_rate IS NOT NULL AND _rate > 999999999999.99) THEN
+    RAISE EXCEPTION 'The quantity or rate is too large. | الكمية أو السعر أكبر من الحد المسموح.' USING ERRCODE = '23514';
+  END IF;
   SELECT * INTO f FROM public.pricing_files WHERE id = _file_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Unknown pricing file. | ملف التسعير غير موجود.' USING ERRCODE = '23514';
@@ -167,7 +204,9 @@ BEGIN
   VALUES (u, 'user', 'pricing_file.extra_added', 'opportunity', f.opportunity_id,
           jsonb_build_object('file_id', f.id, 'extra_id', e.id, 'catalog_id', c.id,
                              'quantity', e.quantity, 'rate', e.rate));
-  RETURN to_jsonb(e);
+  -- The rate is cost: only a reader of cost gets it back.
+  IF public.can_read_commercial_cost(u) THEN RETURN to_jsonb(e); END IF;
+  RETURN to_jsonb(e) - 'rate';
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_add_extra(uuid, uuid, numeric, numeric) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.pricing_add_extra(uuid, uuid, numeric, numeric) TO authenticated;

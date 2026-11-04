@@ -3,7 +3,7 @@
 -- can be added from the catalog. Test user UUIDs use the 6d… prefix.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(36);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -58,8 +58,9 @@ select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-00000000
 select is(public.pricing_suggest_extras('6d600001-0000-0000-0000-000000000001'), 2,
   'Round 2 suggests both again: round 1''s decisions do not suppress them');
 select is(public.pricing_file_open_suggestions('6d600001-0000-0000-0000-000000000001'), 2, 'Two open, all in round 2');
-select is((select count(*)::int from public.pricing_file_extras where boq_revision_id = '6d500001-0000-0000-0000-000000000001'), 2,
-  'Round 1''s decisions are kept as history');
+select is((select string_agg(status::text, ',' order by status::text) from public.pricing_file_extras
+            where file_id = '6d600001-0000-0000-0000-000000000001' and boq_revision_id = '6d500001-0000-0000-0000-000000000001'),
+  'accepted,dismissed', 'Round 1''s decisions are kept as they were (PR 1 would have left round 2 with nothing to suggest)');
 
 -- The propose check counts the current round only, and locks the file.
 reset role;
@@ -75,6 +76,12 @@ insert into public.pricing_file_extras (file_id, boq_revision_id, catalog_id, ra
 values ('6d600001-0000-0000-0000-000000000001','6d500001-0000-0000-0000-000000000001','6d900004-0000-0000-0000-000000000001',2000);
 select ok(not public._pricing_price_has_open_extras('6d800001-0000-0000-0000-000000000001'),
   'An undecided suggestion of an older round does not block Propose');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select is(public.pricing_suggest_extras('6d600001-0000-0000-0000-000000000001'), 0, 'Suggesting again adds nothing, and drops the older round''s undecided crane');
+reset role;
+select ok(exists (select 1 from public.audit_log where action = 'pricing_file.extras_old_round_purged'
+                   and entity_id = '6d200001-0000-0000-0000-000000000001'), 'The purge of an older round''s suggestion is audited');
 insert into public.pricing_file_extras (file_id, catalog_id, rate, status, decided_at)
 values ('6d600001-0000-0000-0000-000000000001','6d900003-0000-0000-0000-000000000001',150,'accepted',now());
 select is((select boq_revision_id::text from public.pricing_file_extras
@@ -100,8 +107,34 @@ select lives_ok($$select public.pricing_file_set_inputs('6d600001-0000-0000-0000
   'Zayed unmarks it');
 select is((select count(*)::int from public.pricing_file_extras where catalog_id = '6d900003-0000-0000-0000-000000000001'), 0,
   'The undecided acoustic suggestion goes with it');
+reset role;
+select ok(exists (select 1 from public.audit_log where action = 'pricing_file.extras_cinema_withdrawn'
+                   and entity_id = '6d200001-0000-0000-0000-000000000001'), 'The cinema withdrawal is audited');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select public.pricing_file_set_inputs('6d600001-0000-0000-0000-000000000001','{"is_cinema":true}');
+select public.pricing_decide_extra(x.id, true, 1, null, null) from public.pricing_file_extras x
+ where x.file_id = '6d600001-0000-0000-0000-000000000001' and x.catalog_id = '6d900003-0000-0000-0000-000000000001';
+select public.pricing_file_set_inputs('6d600001-0000-0000-0000-000000000001','{"is_cinema":false}');
+select is((select status::text from public.pricing_file_extras
+            where file_id = '6d600001-0000-0000-0000-000000000001' and catalog_id = '6d900003-0000-0000-0000-000000000001'),
+  'accepted', 'A decided acoustic extra survives turning cinema off');
+reset role;
+delete from public.pricing_file_extras where catalog_id = '6d900003-0000-0000-0000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select public.pricing_file_set_inputs('6d600001-0000-0000-0000-000000000001','{"is_cinema":true}');
 
 -- Adding from the catalog.
+select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select is((public.pricing_add_extra('6d600001-0000-0000-0000-000000000001','6d900003-0000-0000-0000-000000000001',3))->>'status', 'accepted',
+  'Adding an item already suggested this round accepts it');
+select is((select count(*)::int from public.pricing_file_extras where file_id = '6d600001-0000-0000-0000-000000000001'
+             and catalog_id = '6d900003-0000-0000-0000-000000000001'), 1, 'It is the same row, not a second one');
+select throws_ok($$select public.pricing_add_extra('6d600001-0000-0000-0000-000000000001','6d900004-0000-0000-0000-000000000001',1e11)$$,
+  '23514', null, 'A quantity beyond the column is refused as 23514, not an overflow');
+select throws_ok($$select public.pricing_add_extra('6d600001-0000-0000-0000-000000000001','6d900004-0000-0000-0000-000000000001',1,1e12)$$,
+  '23514', null, 'A rate beyond the column is refused as 23514');
 select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2"}',true);
 select throws_ok($$select public.pricing_add_extra('6d600001-0000-0000-0000-000000000001','6d900004-0000-0000-0000-000000000001',1)$$,
   '42501', null, 'A rep cannot add extras');
@@ -119,5 +152,47 @@ select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-00000000
 select throws_ok($$select public.pricing_add_extra('6d600001-0000-0000-0000-000000000001','6d900004-0000-0000-0000-000000000001',1)$$,
   'P0001', null, 'Extras are added once the supplier has priced');
 reset role;
+select ok(exists (select 1 from public.audit_log where action = 'pricing_file.extra_added'
+                   and after_value->>'catalog_id' = '6d900003-0000-0000-0000-000000000001' and after_value->>'quantity' = '3.000'),
+  'Adding is audited, also when it accepts a suggestion');
+
+-- ===== Propose must not depend on suggest having run =====
+-- A frozen revision with a pylon line, moved with pricing_file_move straight to
+-- boq_frozen (no suggest), then on to the selling build.
+insert into public.opportunities (id, project_name, owner_id, created_by, sales_stage)
+values ('6d200002-0000-0000-0000-000000000001','er-deal-2','6d000000-0000-0000-0000-000000000001','6d000000-0000-0000-0000-000000000001','rfq_received');
+insert into public.boqs (id, related_opportunity_id, title) values ('6d400002-0000-0000-0000-000000000001','6d200002-0000-0000-0000-000000000001','er-boq-2');
+insert into public.boq_revisions (id, boq_id, revision_number) values ('6d500003-0000-0000-0000-000000000001','6d400002-0000-0000-0000-000000000001',1);
+insert into public.boq_lines (revision_id, sign_type, quantity, install_type, mount_height_m) values
+  ('6d500003-0000-0000-0000-000000000001','Pylon P9',1,'pylon',null);
+update public.boq_revisions set frozen_at = now(), frozen_by = '6d000000-0000-0000-0000-000000000002', status = 'verified'
+ where id = '6d500003-0000-0000-0000-000000000001';
+insert into public.pricing_files (id, opportunity_id, state, boq_revision_id)
+values ('6d600002-0000-0000-0000-000000000001','6d200002-0000-0000-0000-000000000001','package_review','6d500003-0000-0000-0000-000000000001');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select lives_ok($$select public.pricing_file_move('6d600002-0000-0000-0000-000000000001','boq_frozen')$$, 'Moved to boq_frozen without suggesting');
+reset role;
+update public.pricing_files set state = 'selling_build' where id = '6d600002-0000-0000-0000-000000000001';
+insert into public.estimations (id, boq_revision_id, cost_total) values ('6d700002-0000-0000-0000-000000000001','6d500003-0000-0000-0000-000000000001',1000);
+insert into public.internal_prices (id, estimation_id, proposed_price, status, proposed_by)
+values ('6d800002-0000-0000-0000-000000000001','6d700002-0000-0000-0000-000000000001',2000,'internal_price_proposed','6d000000-0000-0000-0000-000000000003');
+update public.pricing_files set estimation_id = '6d700002-0000-0000-0000-000000000001', internal_price_id = '6d800002-0000-0000-0000-000000000001'
+ where id = '6d600002-0000-0000-0000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$update public.internal_prices set status = 'gm_pending' where id = '6d800002-0000-0000-0000-000000000001'$$,
+  'P0001', null, 'Propose is refused: the pylon''s concrete base was never suggested');
+select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select is(public.pricing_suggest_extras('6d600002-0000-0000-0000-000000000001'), 1, 'Suggesting now finds the base');
+select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$update public.internal_prices set status = 'gm_pending' where id = '6d800002-0000-0000-0000-000000000001'$$,
+  'P0001', null, 'Still refused while the suggestion is undecided');
+select public.pricing_decide_extra(x.id, true, 1, null, null) from public.pricing_file_extras x where x.file_id = '6d600002-0000-0000-0000-000000000001';
+select lives_ok($$update public.internal_prices set status = 'gm_pending' where id = '6d800002-0000-0000-0000-000000000001'$$,
+  'Propose passes once every expected extra is decided');
+reset role;
+select ok(not has_function_privilege('authenticated', 'public._pricing_expected_extras(uuid)', 'execute'),
+  'The expected-extras helper is not callable by users');
 select * from finish();
 rollback;
