@@ -5,7 +5,7 @@
 --        6 estimation only, 7 finance only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(68);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -137,9 +137,26 @@ select is((public.pricing_set_margin_floor(12, 'Board decision'))->>'min_margin_
 select is(public.current_margin_floor(), 12.00::numeric, 'It is the floor in force');
 select is((public.pricing_set_margin_floor(15, 'Board decision, corrected'))->>'min_margin_pct', '15.00', 'A second change the same moment corrects it');
 select is((select count(*)::int from public.margin_policies where effective_to is null), 1, 'One floor is open; the old one was closed');
+select is((select effective_to from public.margin_policies where rationale = 'si-old'),
+          (select effective_from from public.margin_policies where effective_to is null),
+  'The closed floor ends exactly where the new one starts (no gap, no overlap)');
+-- The floor moves only through the call (rationale, audit, contiguity); a direct write is refused.
+select throws_ok($$insert into public.margin_policies (min_margin_pct, effective_from, rationale, created_by)
+                   values (9, now() + interval '1 day', 'si-direct', '6c000000-0000-0000-0000-000000000003')$$,
+  '42501', null, 'Kalas cannot insert a floor directly');
+select throws_ok($$update public.margin_policies set rationale = 'si-direct' where effective_to is null$$,
+  '42501', null, 'Nor edit one directly');
 select set_config('request.jwt.claims','{"sub":"6c000000-0000-0000-0000-000000000007","role":"authenticated","aal":"aal2"}',true);
 select is((public.pricing_set_margin_floor(18, 'Finance review'))->>'min_margin_pct', '18.00', 'Finance sets the floor');
 select is(public.current_margin_floor(), 18.00::numeric, 'The finance change is the floor in force');
+
+-- ===== The UI's margin right (pricing_my_rights) =====
+select set_config('request.jwt.claims','{"sub":"6c000000-0000-0000-0000-000000000006","role":"authenticated","aal":"aal2"}',true);
+select is(public.pricing_my_rights()->'can_set_margins', 'false'::jsonb, 'Estimation only: no margin rights');
+select set_config('request.jwt.claims','{"sub":"6c000000-0000-0000-0000-000000000007","role":"authenticated","aal":"aal2"}',true);
+select is(public.pricing_my_rights()->'can_set_margins', 'true'::jsonb, 'Finance: margin rights');
+select set_config('request.jwt.claims','{"sub":"6c000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select is(public.pricing_my_rights()->'can_set_margins', 'true'::jsonb, 'The GM: margin rights');
 
 -- ===== The file's inputs =====
 select set_config('request.jwt.claims','{"sub":"6c000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2"}',true);
@@ -162,15 +179,9 @@ select throws_ok($$select public.pricing_file_set_inputs('6c600001-0000-0000-000
   '23514', null, 'An unknown input is refused');
 select throws_ok($$select public.pricing_file_set_inputs('6c600002-0000-0000-0000-000000000001','{"containers":1}')$$,
   'P0001', null, 'Inputs wait until the BOQ is frozen');
--- The cinema flag re-runs the suggestions: the cinema-only extra appears, and goes when the flag does.
-select public.pricing_file_set_inputs('6c600001-0000-0000-0000-000000000001','{"is_cinema":true}');
-select is((select count(*)::int from public.pricing_file_extras x join public.pricing_extras_catalog c on c.id = x.catalog_id
-            where x.file_id = '6c600001-0000-0000-0000-000000000001' and c.code = 'si_acoustic' and x.status = 'suggested'),
-  1, 'A cinema file is suggested the cinema-only extra');
-select public.pricing_file_set_inputs('6c600001-0000-0000-0000-000000000001','{"is_cinema":false}');
-select is((select count(*)::int from public.pricing_file_extras x join public.pricing_extras_catalog c on c.id = x.catalog_id
-            where x.file_id = '6c600001-0000-0000-0000-000000000001' and c.code = 'si_acoustic'),
-  0, 'Switching the cinema flag off withdraws the undecided cinema-only suggestion');
+-- The cinema flag is stored. It has no suggestion effect yet: the suggester reads it from Task 4 on.
+select is((public.pricing_file_set_inputs('6c600001-0000-0000-0000-000000000001','{"is_cinema":true}'))->>'is_cinema',
+  'true', 'The cinema flag is stored on the file');
 select set_config('request.jwt.claims','{"sub":"6c000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select throws_ok($$select public.pricing_file_set_inputs('6c600001-0000-0000-0000-000000000001','{"default_margin_pct":20}')$$,
   'P0001', null, 'The margin is set in the selling build');
@@ -185,6 +196,21 @@ select is((select count(*)::int from public.pricing_file_inputs), 0, 'A rep read
 select set_config('request.jwt.claims','{"sub":"6c000000-0000-0000-0000-000000000005","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.pricing_file_inputs where file_id = '6c600001-0000-0000-0000-000000000001'), 1,
   'The sales manager reads them');
+
+-- ===== An MFA-role session with no aal claim fails closed (never NULL) =====
+select set_config('request.jwt.claims','{"sub":"6c000000-0000-0000-0000-000000000007","role":"authenticated"}',true);
+select is(public.has_app_access('6c000000-0000-0000-0000-000000000007'), false, 'Finance, no aal claim: has_app_access is false, not NULL');
+select is(public.is_pricer('6c000000-0000-0000-0000-000000000007'), false, 'Finance, no aal claim: not a pricer');
+select is(public.can_read_commercial_cost('6c000000-0000-0000-0000-000000000007'), false, 'Finance, no aal claim: cannot read cost');
+select is(public.is_active_user('6c000000-0000-0000-0000-000000000007'), false, 'Finance, no aal claim: not an active user');
+select throws_ok($$select public.pricing_file_move('6c600002-0000-0000-0000-000000000001','package_review')$$,
+  '42501', null, 'Finance, no aal claim: a PR 1 RPC refuses the call');
+select set_config('request.jwt.claims','{"sub":"6c000000-0000-0000-0000-000000000003","role":"authenticated"}',true);
+select is(public.has_app_access('6c000000-0000-0000-0000-000000000003'), false, 'GM, no aal claim: has_app_access is false, not NULL');
+select is(public.can_approve_final_price('6c000000-0000-0000-0000-000000000003'), false, 'GM, no aal claim: cannot approve the final price');
+select is(public.can_set_pricing_margins('6c000000-0000-0000-0000-000000000003'), false, 'GM, no aal claim: cannot set margins');
+select throws_ok($$select public.pricing_file_move('6c600002-0000-0000-0000-000000000001','package_review')$$,
+  '42501', null, 'GM, no aal claim: a PR 1 RPC refuses the call');
 reset role;
 select ok(exists (select 1 from public.audit_log where action = 'margin_policy.set'
                    and actor_id = '6c000000-0000-0000-0000-000000000007'), 'The floor change by finance is audited');

@@ -75,14 +75,14 @@ insert into public.internal_prices (id, estimation_id, proposed_price, status) v
 -- ===== Rights =====
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"6a000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
-select is(public.pricing_my_rights(), '{"is_pricer":true,"is_gm":false,"can_read_cost":true}'::jsonb,
+select is(public.pricing_my_rights(), '{"is_pricer":true,"is_gm":false,"can_read_cost":true,"can_set_margins":true}'::jsonb,
   'Zayed is a pricer and a cost reader, not the GM');
 select set_config('request.jwt.claims','{"sub":"6a000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
-select is(public.pricing_my_rights(), '{"is_pricer":false,"is_gm":true,"can_read_cost":true}'::jsonb,
+select is(public.pricing_my_rights(), '{"is_pricer":false,"is_gm":true,"can_read_cost":true,"can_set_margins":true}'::jsonb,
   'Kalas is the GM and a cost reader');
 select set_config('request.jwt.claims','{"sub":"6a000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2"}',true);
-select is(public.pricing_my_rights(), '{"is_pricer":false,"is_gm":false,"can_read_cost":false}'::jsonb,
-  'A rep has none of the three');
+select is(public.pricing_my_rights(), '{"is_pricer":false,"is_gm":false,"can_read_cost":false,"can_set_margins":false}'::jsonb,
+  'A rep has none of the four');
 
 -- ===== open_pricing_file checks the RFQ is the deal's =====
 select set_config('request.jwt.claims','{"sub":"6a000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);

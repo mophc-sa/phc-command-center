@@ -13,11 +13,13 @@
 --   that one predicate. The fallback %, the other rates and the catalog stay
 --   with any pricer. A file's own default margin is a selling input: the GM's.
 -- * The extras catalog gains "suggest for a cinema project" (spec §3) and the
---   same in-force date for its default rate; the suggester honours the flag.
+--   same in-force date for its default rate. The suggester does not read the
+--   flag yet: the cinema suggestion is Task 4's.
 -- * Installation rates already have date ranges (PR 1). Changing one is a
 --   close-and-open, done in one call so two people cannot leave a gap.
 -- * The margin floor (Phase 8 margin_policies): one call closes the floor in
---   force and opens the new one.
+--   force and opens the new one; it is the only way the floor changes (direct
+--   INSERT/UPDATE on margin_policies is revoked).
 -- * pricing_file_inputs: per file, cost inputs (logistics, overhead, cinema)
 --   for a pricer or the GM, and the default margin for the GM alone.
 -- Lock order stays estimation -> price -> file; nothing here takes a price lock.
@@ -27,7 +29,7 @@
 -- already require an active profile and, for GM and finance, an aal2 session.
 CREATE OR REPLACE FUNCTION public.can_set_pricing_margins(_user_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  -- coalesce: has_app_access is NULL (not false) when the JWT has no aal claim.
+  -- coalesce: belt and braces; has_app_access itself now fails closed (0b below).
   SELECT coalesce(_user_id IS NOT NULL
      AND (public.can_approve_final_price(_user_id)
           OR public.has_role(_user_id, 'finance_manager'::public.app_role)), false);
@@ -36,6 +38,41 @@ REVOKE ALL ON FUNCTION public.can_set_pricing_margins(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.can_set_pricing_margins(uuid) TO authenticated;
 COMMENT ON FUNCTION public.can_set_pricing_margins IS
   'Who may change the global default margin and the margin floor: the GM (or a price-authority delegate) and finance (Mo, 2026-11-03). An estimation-only pricer may not; a file''s own default margin stays the GM''s.';
+
+-- 0b. Fail closed. has_app_access was NULL, not false, for an MFA-role user whose
+-- JWT carries no aal claim (auth.jwt()->>'aal' is NULL), and every predicate built
+-- on it (is_pricer, can_approve_final_price, can_read_commercial_cost,
+-- is_active_user) inherited the NULL, so an `IF NOT pred(u)` gate let the call
+-- through. Same body as 20260928100000, wrapped in coalesce(..., false).
+CREATE OR REPLACE FUNCTION public.has_app_access(_user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT coalesce(
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = _user_id AND status = 'active')
+    AND (NOT EXISTS (
+      SELECT 1 FROM public.user_roles WHERE user_id = _user_id
+      AND role IN ('general_manager','finance_manager','sales_manager','system_admin','managing_director')
+    ) OR (auth.uid() = _user_id AND auth.jwt()->>'aal' = 'aal2')), false);
+$$;
+REVOKE ALL ON FUNCTION public.has_app_access(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.has_app_access(uuid) TO authenticated, service_role;
+
+-- 0c. The screens learn the margin right from the same call as the others
+-- (Task 1's body plus can_set_margins).
+CREATE OR REPLACE FUNCTION public.pricing_my_rights()
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT jsonb_build_object(
+    'is_pricer',       coalesce(public.is_pricer(auth.uid()), false),
+    'is_gm',           coalesce(public.can_approve_final_price(auth.uid()), false),
+    'can_read_cost',   coalesce(public.can_read_commercial_cost(auth.uid()), false),
+    'can_set_margins', coalesce(public.can_set_pricing_margins(auth.uid()), false));
+$$;
+REVOKE ALL ON FUNCTION public.pricing_my_rights() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.pricing_my_rights() TO authenticated;
+
+-- 0d. The floor changes only through pricing_set_margin_floor (rationale, audit,
+-- contiguity). Nothing in src/ or supabase/functions writes the table directly.
+-- SELECT stays; the SECURITY DEFINER RPC does not need the grants.
+REVOKE INSERT, UPDATE ON public.margin_policies FROM authenticated;
 
 -- 1. Two pricing defaults beside the logistics rates.
 ALTER TABLE public.logistics_rates DROP CONSTRAINT IF EXISTS logistics_rates_key_check;
@@ -229,68 +266,7 @@ DROP POLICY IF EXISTS audit_session_boundary ON public.pricing_file_inputs;
 CREATE POLICY audit_session_boundary ON public.pricing_file_inputs AS RESTRICTIVE FOR ALL TO authenticated
   USING ((SELECT public.has_app_access(auth.uid()))) WITH CHECK ((SELECT public.has_app_access(auth.uid())));
 
--- 6. The suggester honours the cinema flag. Internal helper: the extras a
--- revision's lines call for (an install type, a mounting height, or a cinema
--- file for a cinema-only item). Where several lines call for one item, the
--- first line is the source.
-CREATE OR REPLACE FUNCTION public._pricing_extra_hits(_file_id uuid, _revision_id uuid)
-RETURNS TABLE (catalog_id uuid, default_rate numeric, line_id uuid)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT DISTINCT ON (c.id) c.id, c.default_rate, l.id
-    FROM public.boq_lines l
-    JOIN public.pricing_extras_catalog c ON c.active
-     AND ((l.install_type IS NOT NULL AND l.install_type = ANY (c.suggest_for))
-          OR (c.suggest_min_height_m IS NOT NULL AND coalesce(l.mount_height_m,0) >= c.suggest_min_height_m)
-          OR (c.suggest_if_cinema AND coalesce((SELECT i.is_cinema FROM public.pricing_file_inputs i
-                                                 WHERE i.file_id = _file_id), false)))
-   WHERE l.revision_id = _revision_id
-   ORDER BY c.id, l.line_number NULLS LAST;
-$$;
-REVOKE ALL ON FUNCTION public._pricing_extra_hits(uuid, uuid) FROM PUBLIC, anon, authenticated;
-
--- Same as PR 1 except the hits come from the helper, and an undecided
--- suggestion is also withdrawn when its item no longer applies (a file that
--- stopped being a cinema). Decided extras are never touched.
-CREATE OR REPLACE FUNCTION public.pricing_suggest_extras(_file_id uuid)
-RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE u uuid := auth.uid(); f public.pricing_files; n integer;
-BEGIN
-  IF NOT coalesce(public.is_pricer(u) OR public.can_approve_final_price(u), false) THEN
-    RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501';
-  END IF;
-  SELECT * INTO f FROM public.pricing_files WHERE id = _file_id;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Unknown pricing file. | ملف التسعير غير موجود.' USING ERRCODE = '23514';
-  END IF;
-  IF f.state::text NOT IN ('boq_frozen','at_supplier','supplier_priced','selling_build') THEN
-    RAISE EXCEPTION 'Extras can only be suggested after the BOQ is frozen and before the price goes to review. | لا يمكن اقتراح البنود الإضافية إلا بعد تجميد الكميات وقبل إرسال السعر للمراجعة.' USING ERRCODE = 'P0001';
-  END IF;
-  IF f.boq_revision_id IS NULL THEN
-    RAISE EXCEPTION 'The file has no BOQ revision yet. | لا يوجد إصدار كميات في الملف بعد.' USING ERRCODE = '23514';
-  END IF;
-  -- Undecided suggestions from an older revision, or for an item that no longer
-  -- applies, must not block Propose forever.
-  DELETE FROM public.pricing_file_extras x
-   WHERE x.file_id = f.id AND x.status = 'suggested'
-     AND (x.source_line_id IS NULL
-          OR x.source_line_id NOT IN (SELECT l.id FROM public.boq_lines l WHERE l.revision_id = f.boq_revision_id)
-          OR x.catalog_id NOT IN (SELECT h.catalog_id FROM public._pricing_extra_hits(f.id, f.boq_revision_id) h));
-  WITH ins AS (
-    INSERT INTO public.pricing_file_extras (file_id, catalog_id, rate, source_line_id)
-    SELECT f.id, h.catalog_id, h.default_rate, h.line_id FROM public._pricing_extra_hits(f.id, f.boq_revision_id) h
-    ON CONFLICT (file_id, catalog_id) DO NOTHING
-    RETURNING 1)
-  SELECT count(*)::int INTO n FROM ins;
-  IF n > 0 THEN
-    INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
-    VALUES (u, 'user', 'pricing_file.extras_suggested', 'opportunity', f.opportunity_id,
-            jsonb_build_object('file_id', f.id, 'count', n));
-  END IF;
-  RETURN n;
-END $$;
-REVOKE ALL ON FUNCTION public.pricing_suggest_extras(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.pricing_suggest_extras(uuid) TO authenticated;
-
+-- 6. The pricing inputs RPC. (The cinema suggestion itself is Task 4's.)
 CREATE OR REPLACE FUNCTION public.pricing_file_set_inputs(_file_id uuid, _inputs jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE u uuid := auth.uid(); f public.pricing_files; i public.pricing_file_inputs;
