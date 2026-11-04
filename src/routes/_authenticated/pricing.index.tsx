@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Calculator, FolderPlus } from "lucide-react";
@@ -11,13 +11,14 @@ import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { QueryFailure } from "@/components/phc/QueryFailure";
-import { useI18n, formatCurrency } from "@/lib/i18n";
+import { useI18n, formatCurrency, formatNumber, localeFor } from "@/lib/i18n";
 import { PRICING_STATE_LABEL } from "@/lib/pricing";
 import { listPricingQueue, openPricingFile } from "@/lib/pricing-actions";
 import {
   canOpenPricing, daysWaiting, defaultQueueFilter, inQueue, nextOwner, NEXT_OWNER_LABEL, NO_RIGHTS,
   type QueueFilter,
 } from "@/lib/pricing-access";
+import { compareQueue, isOverdue, localDateString } from "@/lib/pricing-queue";
 import { opportunityValue } from "@/lib/opportunity-value";
 import { dbMessage, pick, type Bi } from "@/lib/pricing-text";
 import { searchOpportunities } from "@/lib/meetings-actions";
@@ -38,6 +39,7 @@ const TEXT = {
   project: { en: "Project", ar: "المشروع" },
   state: { en: "State", ar: "الحالة" },
   next: { en: "Next step", ar: "الخطوة التالية" },
+  due: { en: "Due", ar: "الاستحقاق" },
   waiting: { en: "Waiting", ar: "الانتظار" },
   value: { en: "Deal value", ar: "قيمة الفرصة" },
   days: { en: "days", ar: "يوم" },
@@ -49,6 +51,9 @@ const TEXT = {
   openTitle: { en: "Open a pricing file for a deal", ar: "افتح ملف تسعير لفرصة" },
   openHint: { en: "For deals whose RFQ came in before pricing files existed.", ar: "للفرص التي وصل طلبها قبل ملفات التسعير." },
   search: { en: "Search deals by name…", ar: "ابحث عن فرصة بالاسم…" },
+  searching: { en: "Searching…", ar: "جارٍ البحث…" },
+  noDeals: { en: "No deals match.", ar: "لا فرص مطابقة." },
+  searchFailed: { en: "Search failed. Try again.", ar: "تعذر البحث. أعد المحاولة." },
   open: { en: "Open file", ar: "افتح الملف" },
 } satisfies Record<string, Bi>;
 
@@ -58,6 +63,7 @@ const FIELD =
 function PricingQueuePage() {
   const { lang } = useI18n();
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const rights = usePricingRights();
   const r = rights.data ?? NO_RIGHTS;
   const allowed = canOpenPricing(r);
@@ -65,25 +71,32 @@ function PricingQueuePage() {
   const [chosen, setChosen] = useState<QueueFilter | null>(null);
   const filter = chosen ?? defaultQueueFilter(r);
   const [term, setTerm] = useState("");
+  const searching = r.is_pricer && term.trim().length >= 2;
   const deals = useQuery({
     queryKey: ["pricing-deal-search", term],
     queryFn: () => searchOpportunities(term),
-    enabled: r.is_pricer && term.trim().length >= 2,
+    enabled: searching,
   });
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateString();
 
   const shown = useMemo(
     () =>
       (queue.data ?? [])
         .filter((row) => inQueue(row.state, filter))
-        .map((row) => ({ row, days: daysWaiting(row.state_changed_at) }))
-        .sort((a, b) => b.days - a.days),
+        .map((row) => ({ row, days: daysWaiting(row.state_changed_at), value: opportunityValue(row) }))
+        .sort((a, b) =>
+          compareQueue(
+            { fileId: a.row.file_id, dueAt: a.row.due_at, days: a.days, value: a.value },
+            { fileId: b.row.file_id, dueAt: b.row.due_at, days: b.days, value: b.value },
+          ),
+        ),
     [queue.data, filter],
   );
 
   async function openFor(opportunityId: string) {
     try {
       const f = await openPricingFile(opportunityId);
+      void qc.invalidateQueries({ queryKey: ["pricing-queue"] });
       await navigate({ to: "/pricing/$id", params: { id: f.id }, search: {} });
     } catch (e) {
       toast.error(dbMessage(e, lang));
@@ -91,6 +104,7 @@ function PricingQueuePage() {
   }
 
   if (rights.isLoading) return <SkeletonTable />;
+  if (rights.isError) return <QueryFailure retry={() => rights.refetch()} />;
   if (!allowed) {
     return <EmptyState icon={Calculator} title={pick(TEXT.noAccess, lang)} description={pick(TEXT.noAccessHint, lang)} />;
   }
@@ -119,13 +133,15 @@ function PricingQueuePage() {
               <TableHead>{pick(TEXT.project, lang)}</TableHead>
               <TableHead>{pick(TEXT.state, lang)}</TableHead>
               <TableHead>{pick(TEXT.next, lang)}</TableHead>
+              <TableHead className="text-end">{pick(TEXT.due, lang)}</TableHead>
               <TableHead className="text-end">{pick(TEXT.waiting, lang)}</TableHead>
               <TableHead className="text-end">{pick(TEXT.value, lang)}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shown.map(({ row, days }) => {
-              const overdue = row.state === "needs_info" && row.needs_info_due != null && row.needs_info_due < today;
+            {shown.map(({ row, days, value }) => {
+              const overdue = row.state === "needs_info" && isOverdue(row.needs_info_due, today);
+              const dueLate = isOverdue(row.due_at, today);
               return (
                 <TableRow key={row.file_id}>
                   <TableCell>
@@ -139,8 +155,11 @@ function PricingQueuePage() {
                     {overdue ? <div className="mt-1 text-xs text-destructive">{pick(TEXT.overdue, lang)}</div> : null}
                   </TableCell>
                   <TableCell>{pick(NEXT_OWNER_LABEL[nextOwner(row.state)], lang)}</TableCell>
-                  <TableCell className="text-end tabular-nums">{days} {pick(TEXT.days, lang)}</TableCell>
-                  <TableCell className="text-end tabular-nums">{formatCurrency(opportunityValue(row), lang)}</TableCell>
+                  <TableCell className={`text-end tabular-nums ${dueLate ? "font-medium text-destructive" : ""}`}>
+                    {row.due_at ? new Date(row.due_at).toLocaleDateString(localeFor(lang), { dateStyle: "medium", timeZone: "UTC" }) : "—"}
+                  </TableCell>
+                  <TableCell className="text-end tabular-nums">{formatNumber(days, lang)} {pick(TEXT.days, lang)}</TableCell>
+                  <TableCell className="text-end tabular-nums">{formatCurrency(value, lang)}</TableCell>
                 </TableRow>
               );
             })}
@@ -152,7 +171,10 @@ function PricingQueuePage() {
         <Panel title={pick(TEXT.openTitle, lang)} subtitle={pick(TEXT.openHint, lang)}>
           <div className="space-y-3">
             <input className={FIELD} value={term} onChange={(e) => setTerm(e.target.value)} placeholder={pick(TEXT.search, lang)} aria-label={pick(TEXT.search, lang)} />
-            {(deals.data ?? []).map((d) => (
+            {searching && deals.isLoading ? <p className="text-sm text-muted-foreground">{pick(TEXT.searching, lang)}</p> : null}
+            {searching && deals.isError ? <p className="text-sm text-destructive">{pick(TEXT.searchFailed, lang)}</p> : null}
+            {searching && deals.isSuccess && deals.data.length === 0 ? <p className="text-sm text-muted-foreground">{pick(TEXT.noDeals, lang)}</p> : null}
+            {(searching ? deals.data ?? [] : []).map((d) => (
               <div key={d.id} className="flex items-center justify-between gap-3 text-sm">
                 <span>{d.project_name ?? "—"}</span>
                 <Button size="sm" variant="outline" onClick={() => void openFor(d.id)}>

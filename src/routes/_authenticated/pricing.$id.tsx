@@ -12,7 +12,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { QueryFailure } from "@/components/phc/QueryFailure";
 import { ActionDialog } from "@/components/phc/ActionDialog";
-import { useI18n, localeFor, formatCurrency } from "@/lib/i18n";
+import { useI18n, localeFor, formatCurrency, formatNumber } from "@/lib/i18n";
 import { canPricerMove, PRICING_STATE_LABEL } from "@/lib/pricing";
 import { getPricingFile, listCostNotes, listFileEvents, movePricingFile } from "@/lib/pricing-actions";
 import {
@@ -101,7 +101,7 @@ function PricingFilePage() {
           <span className="flex flex-wrap items-center gap-2">
             <StatusPill tone={f.state === "closed" ? "muted" : "neutral"}>{pick(PRICING_STATE_LABEL[f.state], lang)}</StatusPill>
             <span>
-              {pick(TEXT.next, lang)}: {pick(NEXT_OWNER_LABEL[nextOwner(f.state)], lang)} · {daysWaiting(f.state_changed_at)} {pick(TEXT.days, lang)} {pick(TEXT.waiting, lang)}
+              {pick(TEXT.next, lang)}: {pick(NEXT_OWNER_LABEL[nextOwner(f.state)], lang)} · {formatNumber(daysWaiting(f.state_changed_at), lang)} {pick(TEXT.days, lang)} {pick(TEXT.waiting, lang)}
             </span>
             <span>
               {pick(TEXT.value, lang)}: {formatCurrency(opportunityValue(f), lang)}
