@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS public.pricing_file_lines (
   use_screen_price    boolean,
   install_type        public.install_type,
   margin_pct          numeric(5,2) CHECK (margin_pct IS NULL OR (margin_pct > -100 AND margin_pct < 100)),
-  selling_price       numeric(16,2) CHECK (selling_price IS NULL OR selling_price >= 0),
+  selling_price       numeric(16,2) CHECK (selling_price IS NULL OR selling_price > 0),
   built_cost          numeric(16,2),
   built_selling_price numeric(16,2),
   built_at            timestamptz,
@@ -50,7 +50,7 @@ CREATE POLICY audit_session_boundary ON public.pricing_file_lines AS RESTRICTIVE
 
 CREATE OR REPLACE FUNCTION public.pricing_file_set_line(_file_id uuid, _boq_line_id uuid, _choice jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE u uuid := auth.uid(); f public.pricing_files; l public.pricing_file_lines; k text;
+DECLARE u uuid := auth.uid(); f public.pricing_files; l public.pricing_file_lines; prev public.pricing_file_lines; k text;
         selling_keys boolean;
 BEGIN
   IF NOT coalesce(public.is_pricer(u) OR public.can_approve_final_price(u), false) THEN
@@ -79,7 +79,7 @@ BEGIN
   IF (jsonb_typeof(_choice->'margin_pct') = 'number'
       AND ((_choice->>'margin_pct')::numeric <= -100 OR (_choice->>'margin_pct')::numeric >= 100))
      OR (jsonb_typeof(_choice->'selling_price') = 'number'
-         AND ((_choice->>'selling_price')::numeric < 0 OR (_choice->>'selling_price')::numeric >= 100000000000000)) THEN
+         AND ((_choice->>'selling_price')::numeric <= 0 OR (_choice->>'selling_price')::numeric >= 100000000000000)) THEN
     RAISE EXCEPTION 'A line choice is out of range. | أحد اختيارات البند خارج النطاق.' USING ERRCODE = '23514';
   END IF;
   IF jsonb_typeof(_choice->'margin_pct') = 'number' AND jsonb_typeof(_choice->'selling_price') = 'number' THEN
@@ -100,6 +100,7 @@ BEGIN
   END IF;
   INSERT INTO public.pricing_file_lines (file_id, boq_line_id, updated_by) VALUES (f.id, _boq_line_id, u)
   ON CONFLICT (file_id, boq_line_id) DO NOTHING;
+  SELECT * INTO prev FROM public.pricing_file_lines WHERE file_id = f.id AND boq_line_id = _boq_line_id;
   UPDATE public.pricing_file_lines SET
     use_screen_price = CASE WHEN _choice ? 'use_screen_price' THEN (_choice->>'use_screen_price')::boolean ELSE use_screen_price END,
     install_type     = CASE WHEN _choice ? 'install_type' THEN (nullif(_choice->>'install_type',''))::public.install_type ELSE install_type END,
@@ -112,8 +113,11 @@ BEGIN
     updated_by = u, updated_at = now()
    WHERE file_id = f.id AND boq_line_id = _boq_line_id
   RETURNING * INTO l;
-  INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
+  INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, before_value, after_value)
   VALUES (u, 'user', 'pricing_file.line_set', 'opportunity', f.opportunity_id,
+          jsonb_build_object('file_id', f.id, 'boq_line_id', _boq_line_id,
+                             'use_screen_price', prev.use_screen_price, 'install_type', prev.install_type,
+                             'margin_pct', prev.margin_pct, 'selling_price', prev.selling_price),
           jsonb_build_object('file_id', f.id, 'boq_line_id', _boq_line_id, 'choice', _choice));
   RETURN to_jsonb(l);
 END $$;
@@ -124,7 +128,7 @@ CREATE OR REPLACE VIEW public.pricing_selling_grid WITH (security_barrier = true
 WITH base AS (
   SELECT f.id AS file_id, f.boq_revision_id,
          bl.id AS boq_line_id, bl.line_number, bl.sign_type, bl.description, bl.quantity, bl.unit, bl.has_screen,
-         sq.id AS supplier_quote_line_id, sq.unit_cost, sq.unit_cost_with_screen, sq.alternate_spec,
+         sq.id AS supplier_quote_line_id, sq.unit_cost, sq.unit_cost_with_screen, sq.alternate_spec, sq.currency,
          coalesce(sq.quotes_count, 0)::int AS quotes_count,
          coalesce(pl.use_screen_price, bl.has_screen) AS use_screen_price,
          coalesce(pl.install_type, bl.install_type) AS install_type,
@@ -132,9 +136,10 @@ WITH base AS (
          pl.selling_price AS typed_selling_price,
          pl.built_cost, pl.built_selling_price,
          coalesce(i.overhead_pct, 0) AS overhead_pct,
-         coalesce(i.default_margin_pct, s.default_margin_pct, 0) AS default_margin_pct,
+         coalesce(i.default_margin_pct, s.default_margin_pct) AS default_margin_pct,
          coalesce(s.fallback_pct, 0) AS fallback_pct,
-         CASE WHEN sq.id IS NULL THEN NULL
+         (sq.id IS NOT NULL AND sq.currency IS DISTINCT FROM 'SAR') AS currency_mismatch,
+         CASE WHEN sq.id IS NULL OR sq.currency IS DISTINCT FROM 'SAR' THEN NULL
               WHEN coalesce(pl.use_screen_price, bl.has_screen) AND sq.unit_cost_with_screen IS NOT NULL
                 THEN sq.unit_cost_with_screen
               ELSE sq.unit_cost END AS unit_material,
@@ -148,7 +153,7 @@ WITH base AS (
       SELECT (SELECT r.value FROM public.logistics_rates r WHERE r.key = 'install_fallback_pct') AS fallback_pct,
              (SELECT r.value FROM public.logistics_rates r WHERE r.key = 'default_margin_pct') AS default_margin_pct) s
     LEFT JOIN LATERAL (
-      SELECT l.id, l.unit_cost, l.unit_cost_with_screen, l.alternate_spec, count(*) OVER () AS quotes_count
+      SELECT l.id, l.unit_cost, l.unit_cost_with_screen, l.alternate_spec, q.currency, count(*) OVER () AS quotes_count
         FROM public.supplier_quote_lines l
         JOIN public.supplier_quotes q ON q.id = l.supplier_quote_id
        WHERE l.boq_line_id = bl.id AND q.boq_revision_id = f.boq_revision_id
@@ -208,7 +213,9 @@ SELECT c.file_id, c.boq_line_id, c.line_number, c.sign_type, c.description, c.qu
        CASE WHEN sp.selling_price > 0 THEN round((sp.selling_price - lc.line_cost) / sp.selling_price * 100, 2) END AS margin_pct,
        c.extras_total, c.logistics_total,
        c.built_cost, c.built_selling_price,
-       (c.unit_material IS NULL) AS unpriced,
+       (c.unit_material IS NULL
+        OR (c.typed_selling_price IS NULL AND coalesce(c.line_margin_pct, c.default_margin_pct) IS NULL)) AS unpriced,
+       c.currency_mismatch,
        (c.use_screen_price AND c.unit_cost_with_screen IS NULL AND c.supplier_quote_line_id IS NOT NULL) AS screen_price_missing
   FROM costed c
   CROSS JOIN LATERAL (
@@ -217,26 +224,28 @@ SELECT c.file_id, c.boq_line_id, c.line_number, c.sign_type, c.description, c.qu
   CROSS JOIN LATERAL (
     SELECT CASE WHEN c.typed_selling_price IS NOT NULL THEN c.typed_selling_price
                 WHEN c.unit_material IS NULL THEN NULL
+                WHEN coalesce(c.line_margin_pct, c.default_margin_pct) IS NULL THEN NULL
                 WHEN coalesce(c.line_margin_pct, c.default_margin_pct) >= 100 THEN NULL
                 ELSE round(lc.line_cost / (1 - coalesce(c.line_margin_pct, c.default_margin_pct) / 100), 2)
            END AS selling_price) sp;
 REVOKE ALL ON public.pricing_selling_grid FROM anon, authenticated;
 GRANT SELECT ON public.pricing_selling_grid TO authenticated;
 COMMENT ON VIEW public.pricing_selling_grid IS
-  'Selling price per BOQ line of a pricing file. Cost: cost readers who can read the file only. Margin on price. EXCLUDING VAT.';
+  'Selling price per BOQ line of a pricing file. Cost: cost readers who can read the file only. Margin on price. EXCLUDING VAT. Everything is in SAR: a line whose chosen supplier quote is in another currency is unpriced (currency_mismatch, no conversion), and the rates (installation, logistics, extras) are entered in SAR by convention. A line with no margin from the line, the file or the global default has no price.';
 
 CREATE OR REPLACE VIEW public.pricing_selling_totals WITH (security_barrier = true) AS
-SELECT a.file_id, a.line_count, a.unpriced_lines, a.multi_quote_lines, a.screen_price_missing_lines,
+SELECT a.file_id, a.line_count, a.unpriced_lines, a.non_sar_lines, a.multi_quote_lines, a.screen_price_missing_lines,
        a.materials_total, a.installation_total, a.extras_total, a.logistics_total, a.overhead_pct,
        c.total_cost, a.total_selling,
        a.total_selling - c.total_cost AS margin_value,
-       m.margin_pct,
+       CASE WHEN a.unpriced_lines = 0 THEN m.margin_pct END AS margin_pct,
        public.current_margin_floor() AS floor_pct,
-       coalesce(m.margin_pct < public.current_margin_floor(), false) AS below_floor
+       CASE WHEN a.unpriced_lines = 0 THEN coalesce(m.margin_pct < public.current_margin_floor(), false) END AS below_floor
   FROM (
     SELECT g.file_id,
            count(*)::int AS line_count,
            (count(*) FILTER (WHERE g.unpriced))::int AS unpriced_lines,
+           (count(*) FILTER (WHERE g.currency_mismatch))::int AS non_sar_lines,
            (count(*) FILTER (WHERE g.quotes_count > 1))::int AS multi_quote_lines,
            (count(*) FILTER (WHERE g.screen_price_missing))::int AS screen_price_missing_lines,
            sum(coalesce(g.materials, 0)) AS materials_total,
@@ -257,4 +266,4 @@ SELECT a.file_id, a.line_count, a.unpriced_lines, a.multi_quote_lines, a.screen_
 REVOKE ALL ON public.pricing_selling_totals FROM anon, authenticated;
 GRANT SELECT ON public.pricing_selling_totals TO authenticated;
 COMMENT ON VIEW public.pricing_selling_totals IS
-  'Totals of pricing_selling_grid per file. total_cost uses estimation_cost_basis''s expression on the estimation pricing_file_build_price writes. Cost-gated through the grid.';
+  'Totals of pricing_selling_grid per file. total_cost uses estimation_cost_basis''s expression on the estimation pricing_file_build_price writes. Cost-gated through the grid. margin_pct and below_floor are NULL while any line is unpriced (no price, or a non-SAR quote): the sums stay, but a margin over part of the file is not a final margin.';

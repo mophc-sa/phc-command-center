@@ -8,7 +8,7 @@
 -- Test user UUIDs use the 6e… prefix. Every session carries aal2.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(50);
+select plan(76);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -96,6 +96,30 @@ select is((select margin_pct from public.pricing_selling_totals where file_id = 
 select is((select logistics_total from public.pricing_selling_totals where file_id = '6e600001-0000-0000-0000-000000000001'), 18300.00::numeric, 'Logistics total');
 select is((select unpriced_lines from public.pricing_selling_totals where file_id = '6e600002-0000-0000-0000-000000000001'), 1, 'A line with no supplier price is counted unpriced');
 
+-- ===== An MFA role on a password-only session reads nothing and writes nothing =====
+select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal1"}',true);
+select is((select count(*)::int from public.pricing_selling_grid), 0, 'A GM session at aal1 reads no grid rows');
+select is((select count(*)::int from public.pricing_selling_totals), 0, 'A GM session at aal1 reads no totals');
+select throws_ok($$select public.pricing_file_set_line('6e600001-0000-0000-0000-000000000001','6e510001-0000-0000-0000-000000000001','{"use_screen_price":true}')$$,
+  '42501', null, 'A GM session at aal1 cannot set a line choice');
+
+-- ===== Overhead is pinned: the file carries 10% =====
+reset role;
+update public.pricing_file_inputs set overhead_pct = 10 where file_id = '6e600001-0000-0000-0000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+-- L1: (10000 + 2000 + 1935.48 + 11806.45) x 1.10 = 25741.94 x 1.10 = 28316.13
+select is((select line_cost from public.pricing_selling_grid where boq_line_id = '6e510001-0000-0000-0000-000000000001'), 28316.13::numeric, 'L1 cost carries 10% overhead');
+select is((select selling_price from public.pricing_selling_grid where boq_line_id = '6e510001-0000-0000-0000-000000000001'), 37754.84::numeric, 'L1 sells at 25% on the loaded cost');
+-- 39900 x 1.10 = 43890
+select is((select total_cost from public.pricing_selling_totals where file_id = '6e600001-0000-0000-0000-000000000001'), 43890.00::numeric, 'Total cost carries 10% overhead');
+select is((select total_selling from public.pricing_selling_totals where file_id = '6e600001-0000-0000-0000-000000000001'), 58520.00::numeric, 'Total selling with overhead');
+select is((select margin_pct from public.pricing_selling_totals where file_id = '6e600001-0000-0000-0000-000000000001'), 25.00::numeric, 'Margin on price is unchanged by overhead');
+reset role;
+update public.pricing_file_inputs set overhead_pct = 0 where file_id = '6e600001-0000-0000-0000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+
 -- ===== Line choices =====
 select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2"}',true);
 select throws_ok($$select public.pricing_file_set_line('6e600001-0000-0000-0000-000000000001','6e510001-0000-0000-0000-000000000001','{"use_screen_price":true}')$$,
@@ -154,6 +178,110 @@ set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select is((select floor_pct from public.pricing_selling_totals where file_id = '6e600001-0000-0000-0000-000000000001'), 30.00::numeric, 'The floor in force');
 select ok((select below_floor from public.pricing_selling_totals where file_id = '6e600001-0000-0000-0000-000000000001'), '29.72% is below a 30% floor');
+reset role;
+
+-- ===== More fixtures: a USD BOQ (deal 3) and a messy SAR one (deal 4) =====
+reset role;
+insert into public.vendors (id, name) values
+  ('6e100000-0000-0000-0000-000000000002','sg-vendor-2'),
+  ('6e100000-0000-0000-0000-000000000003','sg-vendor-3');
+insert into public.opportunities (id, project_name, owner_id, created_by, sales_stage)
+select ('6e20000' || n || '-0000-0000-0000-000000000001')::uuid, 'sg-deal-' || n,
+       '6e000000-0000-0000-0000-000000000001','6e000000-0000-0000-0000-000000000001','rfq_received'
+  from generate_series(3,4) n;
+insert into public.boqs (id, related_opportunity_id, title, currency) values
+  ('6e400003-0000-0000-0000-000000000001','6e200003-0000-0000-0000-000000000001','sg-boq-3','USD'),
+  ('6e400004-0000-0000-0000-000000000001','6e200004-0000-0000-0000-000000000001','sg-boq-4','SAR');
+insert into public.boq_revisions (id, boq_id, revision_number) values
+  ('6e500003-0000-0000-0000-000000000001','6e400003-0000-0000-0000-000000000001',1),
+  ('6e500004-0000-0000-0000-000000000001','6e400004-0000-0000-0000-000000000001',1);
+insert into public.boq_lines (id, revision_id, line_number, sign_type, quantity, has_screen) values
+  ('6e510031-0000-0000-0000-000000000001','6e500003-0000-0000-0000-000000000001',1,'Wall USD',1,false),
+  ('6e510041-0000-0000-0000-000000000001','6e500004-0000-0000-0000-000000000001',1,'M1',1,false),
+  ('6e510042-0000-0000-0000-000000000001','6e500004-0000-0000-0000-000000000001',2,'M2 screen',1,true),
+  ('6e510043-0000-0000-0000-000000000001','6e500004-0000-0000-0000-000000000001',3,'M3 unquoted',1,false);
+insert into public.supplier_quotes (id, boq_revision_id, vendor_id, currency, status, is_current, cancel_reason, created_at) values
+  ('6e520003-0000-0000-0000-000000000001','6e500003-0000-0000-0000-000000000001','6e100000-0000-0000-0000-000000000001','USD','responses_received',true,null, now()),
+  ('6e520004-0000-0000-0000-000000000001','6e500004-0000-0000-0000-000000000001','6e100000-0000-0000-0000-000000000001','SAR','responses_received',true,null, now()),
+  ('6e520005-0000-0000-0000-000000000001','6e500004-0000-0000-0000-000000000001','6e100000-0000-0000-0000-000000000002','SAR','cancelled',true,'sg test', now() + interval '1 hour'),
+  ('6e520006-0000-0000-0000-000000000001','6e500004-0000-0000-0000-000000000001','6e100000-0000-0000-0000-000000000003','SAR','superseded',false,null, now() + interval '2 hours');
+insert into public.supplier_quote_lines (supplier_quote_id, boq_line_id, unit_cost, quantity, line_cost, unit_cost_with_screen) values
+  ('6e520003-0000-0000-0000-000000000001','6e510031-0000-0000-0000-000000000001',1000,1,1000,null),
+  ('6e520004-0000-0000-0000-000000000001','6e510041-0000-0000-0000-000000000001',1000,1,1000,null),
+  ('6e520004-0000-0000-0000-000000000001','6e510042-0000-0000-0000-000000000001',500,1,500,null),
+  ('6e520005-0000-0000-0000-000000000001','6e510041-0000-0000-0000-000000000001',50,1,50,null),
+  ('6e520006-0000-0000-0000-000000000001','6e510041-0000-0000-0000-000000000001',60,1,60,null);
+update public.boq_revisions set frozen_at = now(), frozen_by = '6e000000-0000-0000-0000-000000000002', status = 'verified'
+ where id in ('6e500003-0000-0000-0000-000000000001','6e500004-0000-0000-0000-000000000001');
+insert into public.pricing_files (id, opportunity_id, state, boq_revision_id) values
+  ('6e600003-0000-0000-0000-000000000001','6e200003-0000-0000-0000-000000000001','supplier_priced','6e500003-0000-0000-0000-000000000001'),
+  ('6e600004-0000-0000-0000-000000000001','6e200004-0000-0000-0000-000000000001','selling_build','6e500004-0000-0000-0000-000000000001');
+-- Deal 4: Jeddah delivery, no clearing, no containers.
+insert into public.pricing_file_inputs (file_id, containers, delivery, clearing, overhead_pct)
+values ('6e600004-0000-0000-0000-000000000001', 0, 'jeddah', false, 0);
+insert into public.pricing_extras_catalog (id, code, name_en, name_ar, unit, default_rate, active) values
+  ('6e900002-0000-0000-0000-000000000001','sg_xtwo','X2','س٢','lump',1000, true),
+  ('6e900003-0000-0000-0000-000000000001','sg_xthree','X3','س٣','lump',700, true),
+  ('6e900004-0000-0000-0000-000000000001','sg_xfour','X4','س٤','lump',800, true),
+  ('6e900005-0000-0000-0000-000000000001','sg_xfive','X5','س٥','lump',900, true);
+-- Only the accepted extra of the current round counts: 1000.
+insert into public.pricing_file_extras (file_id, boq_revision_id, catalog_id, quantity, rate, status, dismiss_reason, decided_at) values
+  ('6e600004-0000-0000-0000-000000000001','6e500004-0000-0000-0000-000000000001','6e900002-0000-0000-0000-000000000001',1,1000,'accepted',null,now()),
+  ('6e600004-0000-0000-0000-000000000001','6e500004-0000-0000-0000-000000000001','6e900003-0000-0000-0000-000000000001',1,700,'suggested',null,null),
+  ('6e600004-0000-0000-0000-000000000001','6e500004-0000-0000-0000-000000000001','6e900004-0000-0000-0000-000000000001',1,800,'dismissed','sg',now()),
+  ('6e600004-0000-0000-0000-000000000001','6e500002-0000-0000-0000-000000000001','6e900005-0000-0000-0000-000000000001',1,900,'accepted',null,now());
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+
+-- ===== A quote in another currency is not priced =====
+select ok((select currency_mismatch and unpriced and materials is null and selling_price is null
+             from public.pricing_selling_grid where boq_line_id = '6e510031-0000-0000-0000-000000000001'),
+  'A USD quote line is flagged, unpriced, with no materials and no selling price');
+select is((select non_sar_lines from public.pricing_selling_totals where file_id = '6e600003-0000-0000-0000-000000000001'), 1, 'The totals count the non-SAR line');
+select ok((select not currency_mismatch from public.pricing_selling_grid where boq_line_id = '6e510041-0000-0000-0000-000000000001'), 'A SAR quote line is not flagged');
+
+-- ===== Delivery, clearing, extras, quotes, screen price (deal 4) =====
+select is((select logistics_total from public.pricing_selling_totals where file_id = '6e600004-0000-0000-0000-000000000001'), 2075.00::numeric,
+  'Jeddah delivery 2000 + customs 5% of 1500; no clearing fee');
+select is((select extras_total from public.pricing_selling_totals where file_id = '6e600004-0000-0000-0000-000000000001'), 1000.00::numeric,
+  'Suggested, dismissed and old-round extras are left out');
+select is((select materials from public.pricing_selling_grid where boq_line_id = '6e510041-0000-0000-0000-000000000001'), 1000.00::numeric,
+  'A cancelled and a superseded quote are skipped');
+select ok((select screen_price_missing from public.pricing_selling_grid where boq_line_id = '6e510042-0000-0000-0000-000000000001'),
+  'A screen line with no with-screen price is flagged');
+select is((select screen_price_missing_lines from public.pricing_selling_totals where file_id = '6e600004-0000-0000-0000-000000000001'), 1, 'The totals count it');
+select is((select selling_price from public.pricing_selling_grid where boq_line_id = '6e510041-0000-0000-0000-000000000001'), 4200.00::numeric, 'M1 sells at 25% on price');
+
+-- ===== No final margin while a line is unpriced =====
+select is((select unpriced_lines from public.pricing_selling_totals where file_id = '6e600004-0000-0000-0000-000000000001'), 1, 'M3 has no quote');
+select is((select total_selling from public.pricing_selling_totals where file_id = '6e600004-0000-0000-0000-000000000001'), 6300.00::numeric, 'The sums stay');
+select ok((select margin_pct is null and below_floor is null from public.pricing_selling_totals where file_id = '6e600004-0000-0000-0000-000000000001'),
+  'margin_pct and below_floor are NULL while a line is unpriced');
+select ok((select margin_pct is null and below_floor is null from public.pricing_selling_totals where file_id = '6e600003-0000-0000-0000-000000000001'),
+  'Same for a file with only a non-SAR line');
+
+-- ===== A margin clears a typed price; a typed price must be positive =====
+select lives_ok($$select public.pricing_file_set_line('6e600001-0000-0000-0000-000000000001','6e510002-0000-0000-0000-000000000001','{"margin_pct":20}')$$,
+  'Kalas sets a margin on the line that had a typed price');
+select ok((select typed_selling_price is null and line_margin_pct = 20 from public.pricing_selling_grid where boq_line_id = '6e510002-0000-0000-0000-000000000001'),
+  'The margin cleared the typed price');
+reset role;
+select ok((select (before_value->>'selling_price')::numeric = 20000 from public.audit_log
+            where action = 'pricing_file.line_set' and (after_value->'choice') = '{"margin_pct":20}'::jsonb),
+  'The audit row keeps the previous typed price');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$select public.pricing_file_set_line('6e600001-0000-0000-0000-000000000001','6e510001-0000-0000-0000-000000000001','{"selling_price":0}')$$,
+  '23514', null, 'A typed selling price of 0 is refused');
+
+-- ===== No default margin anywhere: no price, never 0% =====
+reset role;
+delete from public.logistics_rates where key = 'default_margin_pct';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select ok((select selling_price is null and margin_pct is null and unpriced
+             from public.pricing_selling_grid where boq_line_id = '6e510041-0000-0000-0000-000000000001'),
+  'With no default margin a line without its own margin has no price');
 reset role;
 
 -- ===== Edges: no price yet, anon, audit =====
