@@ -93,7 +93,11 @@ describe("the pieces", () => {
     expect(sellingFromMargin(75, 25)).toBe(100);
     expect(marginPct(100, 75)).toBe(25);
     expect(marginPct(0, 75)).toBeNull();
-    expect(() => sellingFromMargin(75, 100)).toThrow();
+    expect(sellingFromMargin(75, 100)).toBeNull();
+    expect(sellingFromMargin(75, 250)).toBeNull();
+    expect(sellingFromMargin(75, -100)).toBeNull();
+    expect(sellingFromMargin(75, Number.NaN)).toBeNull();
+    expect(sellingFromMargin(75, -25)).toBe(60);
   });
   it("logistics: containers, customs on goods, clearing, delivery", () => {
     expect(logisticsTotal({ containers: 2, delivery: "jeddah", clearing: false }, file.rates, 10000)).toBe(24000 + 500 + 2000);

@@ -113,9 +113,12 @@ export const canEditPackage = (s: PricingState, r: PricingRights): boolean => r.
 /** pricing_file_set_inputs (cost keys). */
 export const canEditFileInputs = (s: PricingState, r: PricingRights): boolean =>
   (r.is_pricer || r.is_gm) && ["boq_frozen", "at_supplier", "supplier_priced", "selling_build"].includes(s);
-/** pricing_file_set_line (cost keys), pricing_decide_extra, pricing_add_extra. */
+/** pricing_file_set_line (cost keys), pricing_decide_extra, pricing_add_extra: supplier_priced and selling_build only. */
 export const canEditLineCost = (s: PricingState, r: PricingRights): boolean =>
   (r.is_pricer || r.is_gm) && (s === "supplier_priced" || s === "selling_build");
+/** pricing_suggest_extras (20261104130000): a wider window than the above, from boq_frozen to selling_build. */
+export const canSuggestExtras = (s: PricingState, r: PricingRights): boolean =>
+  (r.is_pricer || r.is_gm) && ["boq_frozen", "at_supplier", "supplier_priced", "selling_build"].includes(s);
 /** pricing_file_set_line (margin_pct, selling_price) and the file's default margin. */
 export const canEditSelling = (s: PricingState, r: PricingRights): boolean => r.is_gm && s === "selling_build";
 /** pricing_file_build_price / pricing_file_propose. */

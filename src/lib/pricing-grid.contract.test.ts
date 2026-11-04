@@ -13,18 +13,37 @@ const PHASE8 = read("20260830100000_phase8_margin_integrity.sql");
 describe("the selling grid's arithmetic", () => {
   it("installation falls back to a % of materials from install_fallback_pct", () => {
     expect(GRID).toContain("r.key = 'install_fallback_pct'");
-    expect(GRID).toMatch(/coalesce\(b\.unit_material, 0\) \* b\.quantity \* b\.fallback_pct \/ 100(?!\d)/);
+    expect(GRID).toMatch(/coalesce\(b\.unit_material, 0\) \* b\.quantity \* b\.fallback_pct \/ 100(?![\d.])/);
   });
   it("extras and logistics are spread by line value, equally when there is none", () => {
-    expect(GRID).toMatch(/\(coalesce\(s\.materials, 0\) \+ s\.installation\) \/ s\.value_total/);
+    expect(GRID).toMatch(/\(coalesce\(s\.materials, 0\) \+ s\.installation\) \/ s\.value_total\b/);
     expect(GRID).toMatch(/ELSE 1\.0 \/ s\.line_count END AS share/);
   });
   it("logistics: containers, customs on goods, clearing, delivery", () => {
-    expect(GRID).toMatch(/coalesce\(fi\.containers, 0\) \* coalesce\(r\.container_rate, 0\)/);
-    expect(GRID).toMatch(/s\.goods_total \* coalesce\(r\.customs_pct, 0\) \/ 100/);
+    expect(GRID).toMatch(/coalesce\(fi\.containers, 0\) \* coalesce\(r\.container_rate, 0\)\s*\+/);
+    expect(GRID).toMatch(/s\.goods_total \* coalesce\(r\.customs_pct, 0\) \/ 100(?![\d.])/);
     expect(GRID).toMatch(/WHEN coalesce\(fi\.clearing, false\) THEN coalesce\(r\.clearing_fee, 0\)/);
     expect(GRID).toMatch(/WHEN 'jeddah' THEN coalesce\(r\.delivery_jeddah, 0\)/);
     expect(GRID).toMatch(/WHEN 'riyadh' THEN coalesce\(r\.delivery_riyadh, 0\)/);
+  });
+  it("rounding: materials and installation to 2 decimals, installation falling back inside the round", () => {
+    expect(GRID).toMatch(/round\(b\.unit_material \* b\.quantity, 2\) AS materials/);
+    expect(GRID).toMatch(
+      /round\(CASE WHEN b\.unit_install IS NOT NULL THEN b\.unit_install \* b\.quantity\s+ELSE coalesce\(b\.unit_material, 0\) \* b\.quantity \* b\.fallback_pct \/ 100(?![\d.]) END, 2\) AS installation/,
+    );
+  });
+  it("extras are the accepted ones of the file's current round, rounded", () => {
+    expect(GRID).toMatch(
+      /round\(coalesce\(sum\(x\.quantity \* x\.rate\), 0\), 2\) AS extras_total\s+FROM public\.pricing_file_extras x\s+WHERE x\.file_id = s\.file_id AND x\.boq_revision_id = s\.boq_revision_id AND x\.status = 'accepted'/,
+    );
+  });
+  it("logistics is rounded once, over the whole sum", () => {
+    expect(GRID).toMatch(/ELSE 0 END, 2\) AS logistics_total/);
+  });
+  it("the supplier quote is the newest current one of this round, not cancelled or superseded", () => {
+    expect(GRID).toMatch(
+      /WHERE l\.boq_line_id = bl\.id AND q\.boq_revision_id = f\.boq_revision_id\s+AND q\.is_current AND q\.status NOT IN \('cancelled','superseded'\)\s+ORDER BY q\.created_at DESC, l\.created_at DESC\s+LIMIT 1\) sq/,
+    );
   });
   it("line cost adds the allocations, then overhead", () => {
     expect(GRID).toMatch(

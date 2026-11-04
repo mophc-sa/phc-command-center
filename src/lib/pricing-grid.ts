@@ -31,8 +31,9 @@ export function shares(values: number[]): number[] {
   return total > 0 ? values.map((v) => v / total) : values.map(() => 1 / values.length);
 }
 
-export function sellingFromMargin(cost: number, marginPctOnPrice: number): number {
-  if (!(marginPctOnPrice > -100 && marginPctOnPrice < 100)) throw new RangeError("margin must be above -100 and below 100");
+/** null (no price) for a margin of 100 or more, as in SQL, and for -100 or less, which the line's check constraint refuses; never throws, so a render path cannot crash on a typed value. */
+export function sellingFromMargin(cost: number, marginPctOnPrice: number): number | null {
+  if (!(marginPctOnPrice > -100 && marginPctOnPrice < 100)) return null;
   return round2(cost / (1 - marginPctOnPrice / 100));
 }
 

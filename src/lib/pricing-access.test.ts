@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import {
-  canBuildPrice, canEditCostRates, canEditFileInputs, canEditLineCost, canEditPackage, canEditSelling,
+  canBuildPrice, canEditCostRates, canEditFileInputs, canEditLineCost, canEditPackage, canSuggestExtras, canEditSelling,
   canOpenPricing, canSeePricingNav, canSetGlobalMargins, COST_READER_ROLES, daysWaiting, defaultQueueFilter,
   defaultTab, GM_QUEUE_STATES, inQueue, nextOwner, NO_RIGHTS, parsePricingTab, PRICER_QUEUE_STATES,
   visibleTabs, type PricingRights,
@@ -115,6 +115,15 @@ describe("edit gates mirror SQL", () => {
   it("line cost choices: pricer or GM once the supplier has priced", () => {
     expect(canEditLineCost("supplier_priced", zayed)).toBe(true);
     expect(canEditLineCost("at_supplier", zayed)).toBe(false);
+  });
+  it("suggesting extras opens earlier than deciding them: from the BOQ freeze to the selling build", () => {
+    expect(canSuggestExtras("boq_frozen", zayed)).toBe(true);
+    expect(canSuggestExtras("at_supplier", kalas)).toBe(true);
+    expect(canSuggestExtras("selling_build", zayed)).toBe(true);
+    expect(canSuggestExtras("package_review", zayed)).toBe(false);
+    expect(canSuggestExtras("price_review", zayed)).toBe(false);
+    expect(canSuggestExtras("at_supplier", { ...zayed, is_pricer: false })).toBe(false);
+    expect(canEditLineCost("boq_frozen", zayed)).toBe(false);
   });
   it("selling: the GM in the selling build only", () => {
     expect(canEditSelling("selling_build", kalas)).toBe(true);
