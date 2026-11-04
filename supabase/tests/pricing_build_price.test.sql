@@ -4,7 +4,7 @@
 -- Test user UUIDs use the 6f… prefix. Every session carries aal2.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(33);
+select plan(54);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -29,37 +29,49 @@ insert into public.installation_rates (install_type, base_rate, effective_from) 
 insert into public.vendors (id, name) values ('6f100000-0000-0000-0000-000000000001','bp-vendor');
 
 -- Deal 1: the worked example. Deal 2: a supplier line already selected. Deal 3: an unpriced line.
+-- Deal 4: a with-screen line the supplier gave no screen price for. Deal 5: a price in a status that cannot be rebuilt.
+-- Deal 6: a typed selling price (cost moves, total does not), the stale-line cleanup and the guards.
 insert into public.opportunities (id, project_name, owner_id, created_by, sales_stage)
 select ('6f20000' || n || '-0000-0000-0000-000000000001')::uuid, 'bp-deal-' || n,
        '6f000000-0000-0000-0000-000000000001','6f000000-0000-0000-0000-000000000001','rfq_received'
-  from generate_series(1,3) n;
+  from generate_series(1,6) n;
 insert into public.boqs (id, related_opportunity_id, title)
 select ('6f40000' || n || '-0000-0000-0000-000000000001')::uuid, ('6f20000' || n || '-0000-0000-0000-000000000001')::uuid, 'bp-boq-' || n
-  from generate_series(1,3) n;
+  from generate_series(1,6) n;
 insert into public.boq_revisions (id, boq_id, revision_number)
 select ('6f50000' || n || '-0000-0000-0000-000000000001')::uuid, ('6f40000' || n || '-0000-0000-0000-000000000001')::uuid, 1
-  from generate_series(1,3) n;
+  from generate_series(1,6) n;
 insert into public.boq_lines (id, revision_id, line_number, sign_type, quantity, install_type, has_screen) values
   ('6f510001-0000-0000-0000-000000000001','6f500001-0000-0000-0000-000000000001',1,'Pylon P1',2,'pylon',false),
   ('6f510002-0000-0000-0000-000000000001','6f500001-0000-0000-0000-000000000001',2,'Ceiling C1',4,'ceiling',true),
   ('6f510003-0000-0000-0000-000000000001','6f500002-0000-0000-0000-000000000001',1,'Wall W1',1,null,false),
-  ('6f510004-0000-0000-0000-000000000001','6f500003-0000-0000-0000-000000000001',1,'Wall W2',1,null,false);
+  ('6f510004-0000-0000-0000-000000000001','6f500003-0000-0000-0000-000000000001',1,'Wall W2',1,null,false),
+  ('6f510005-0000-0000-0000-000000000001','6f500004-0000-0000-0000-000000000001',1,'Screen S1',1,null,true),
+  ('6f510006-0000-0000-0000-000000000001','6f500005-0000-0000-0000-000000000001',1,'Wall W3',1,null,false),
+  ('6f510007-0000-0000-0000-000000000001','6f500006-0000-0000-0000-000000000001',1,'Wall W4',1,null,false);
 insert into public.supplier_quotes (id, boq_revision_id, vendor_id, currency, status) values
   ('6f520001-0000-0000-0000-000000000001','6f500001-0000-0000-0000-000000000001','6f100000-0000-0000-0000-000000000001','SAR','responses_received'),
-  ('6f520002-0000-0000-0000-000000000001','6f500002-0000-0000-0000-000000000001','6f100000-0000-0000-0000-000000000001','SAR','responses_received');
+  ('6f520002-0000-0000-0000-000000000001','6f500002-0000-0000-0000-000000000001','6f100000-0000-0000-0000-000000000001','SAR','responses_received'),
+  ('6f520004-0000-0000-0000-000000000001','6f500004-0000-0000-0000-000000000001','6f100000-0000-0000-0000-000000000001','SAR','responses_received'),
+  ('6f520005-0000-0000-0000-000000000001','6f500005-0000-0000-0000-000000000001','6f100000-0000-0000-0000-000000000001','SAR','responses_received'),
+  ('6f520006-0000-0000-0000-000000000001','6f500006-0000-0000-0000-000000000001','6f100000-0000-0000-0000-000000000001','SAR','responses_received');
 insert into public.supplier_quote_lines (supplier_quote_id, boq_line_id, unit_cost, quantity, line_cost, unit_cost_with_screen, is_selected, selected_by, selected_at) values
   ('6f520001-0000-0000-0000-000000000001','6f510001-0000-0000-0000-000000000001',5000,2,10000,null,false,null,null),
   ('6f520001-0000-0000-0000-000000000001','6f510002-0000-0000-0000-000000000001',1000,4,4000,1500,false,null,null),
-  ('6f520002-0000-0000-0000-000000000001','6f510003-0000-0000-0000-000000000001',700,1,700,null,true,'6f000000-0000-0000-0000-000000000002',now());
+  ('6f520002-0000-0000-0000-000000000001','6f510003-0000-0000-0000-000000000001',700,1,700,null,true,'6f000000-0000-0000-0000-000000000002',now()),
+  ('6f520004-0000-0000-0000-000000000001','6f510005-0000-0000-0000-000000000001',1000,1,1000,null,false,null,null),
+  ('6f520005-0000-0000-0000-000000000001','6f510006-0000-0000-0000-000000000001',1000,1,1000,null,false,null,null),
+  ('6f520006-0000-0000-0000-000000000001','6f510007-0000-0000-0000-000000000001',1000,1,1000,null,false,null,null);
 update public.boq_revisions set frozen_at = now(), frozen_by = '6f000000-0000-0000-0000-000000000002', status = 'verified'
  where id::text like '6f50000%';
 insert into public.pricing_files (id, opportunity_id, state, boq_revision_id)
 select ('6f60000' || n || '-0000-0000-0000-000000000001')::uuid, ('6f20000' || n || '-0000-0000-0000-000000000001')::uuid,
        (case n when 1 then 'supplier_priced' else 'selling_build' end)::public.pricing_file_state,
        ('6f50000' || n || '-0000-0000-0000-000000000001')::uuid
-  from generate_series(1,3) n;
+  from generate_series(1,6) n;
 insert into public.pricing_file_inputs (file_id, containers, delivery, clearing, overhead_pct)
-values ('6f600001-0000-0000-0000-000000000001', 1, 'riyadh', true, 0);
+values ('6f600001-0000-0000-0000-000000000001', 1, 'riyadh', true, 0),
+       ('6f600006-0000-0000-0000-000000000001', 0, 'none', false, 0);
 insert into public.pricing_extras_catalog (id, code, name_en, name_ar, unit, default_rate) values
   ('6f900001-0000-0000-0000-000000000001','bp_crane','Crane','رافعة','lump',3000),
   ('6f900002-0000-0000-0000-000000000001','bp_scaffold','Scaffold','سقالة','lump',800);
@@ -110,16 +122,34 @@ select is((select count(*)::int from public.estimations where boq_revision_id = 
   'The estimation is reused, not duplicated');
 
 -- ===== Propose =====
-select throws_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 53200)$$,
+select throws_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 53200, 39900)$$,
   'P0001', null, 'A stale total is refused');
 select is((select p.status::text from public.internal_prices p join public.pricing_files f on f.internal_price_id = p.id
             where f.id = '6f600001-0000-0000-0000-000000000001'), 'internal_price_proposed', '... and nothing moved');
+select throws_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61, 39000)$$,
+  'P0001', null, 'A stale total cost is refused even when the total matches');
+
+-- A justification someone else wrote is not Kalas's: build discards it.
+reset role;
+set local session_replication_role = replica;
+update public.internal_prices set below_floor_justification = 'written by someone else'
+ where id = (select internal_price_id from public.pricing_files where id = '6f600001-0000-0000-0000-000000000001');
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select lives_ok($$select public.pricing_file_build_price('6f600001-0000-0000-0000-000000000001')$$, 'Kalas builds again');
+reset role;
+select is((select p.below_floor_justification from public.internal_prices p join public.pricing_files f on f.internal_price_id = p.id
+            where f.id = '6f600001-0000-0000-0000-000000000001'), null,
+  'Build discards a justification written by someone else');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
 reset role;
 insert into public.pricing_file_extras (file_id, catalog_id, rate)
 values ('6f600001-0000-0000-0000-000000000001','6f900002-0000-0000-0000-000000000001',800);
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
-select throws_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61)$$,
+select throws_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61, 39900)$$,
   'P0001', null, 'An undecided suggestion blocks Propose');
 reset role;
 update public.pricing_file_extras set status = 'dismissed', dismiss_reason = 'Not needed', decided_at = now()
@@ -127,12 +157,26 @@ update public.pricing_file_extras set status = 'dismissed', dismiss_reason = 'No
 insert into public.margin_policies (min_margin_pct, effective_from, rationale) values (40, now() - interval '1 day', 'bp-floor');
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
-select throws_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61)$$,
+select throws_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61, 39900)$$,
   '23514', null, 'Below the floor, Propose needs a justification (Phase 8 guard)');
-select lives_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61, 'Strategic first job with this client')$$,
+select lives_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61, 39900, 'Strategic first job with this client')$$,
   'Kalas proposes with a justification');
 select is((select state::text from public.pricing_files where id = '6f600001-0000-0000-0000-000000000001'), 'price_review',
   'The file goes to Zayed''s price review');
+reset role;
+select is((select p.below_floor_justification from public.internal_prices p join public.pricing_files f on f.internal_price_id = p.id
+            where f.id = '6f600001-0000-0000-0000-000000000001'), 'Strategic first job with this client',
+  'Kalas''s own justification is stored at Propose');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select is((select count(*)::int from public.audit_log where action = 'pricing_file.proposed'
+             and entity_id = '6f200001-0000-0000-0000-000000000001'
+             and after_value->>'below_floor_justification' = 'Strategic first job with this client'), 1,
+  'The proposal''s audit row carries the justification');
+select ok(exists (select 1 from public.audit_log where action = 'pricing_file.price_built'
+                   and entity_id = '6f200001-0000-0000-0000-000000000001'
+                   and (after_value->>'total_cost')::numeric = 39900 and (after_value->>'margin_pct') is not null),
+  'The price_built audit row carries total_cost and margin_pct');
 select is((select p.status::text || '/' || p.proposed_by::text from public.internal_prices p
              join public.pricing_files f on f.internal_price_id = p.id where f.id = '6f600001-0000-0000-0000-000000000001'),
   'gm_pending/6f000000-0000-0000-0000-000000000003', 'Kalas is the proposer');
@@ -152,10 +196,18 @@ select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-00000000
 -- Build in its own statement: a query that calls it cannot see what it wrote.
 select lives_ok($$select public.pricing_file_build_price('6f600001-0000-0000-0000-000000000001')$$,
   'Kalas rebuilds the returned price');
+reset role;
+select is((select p.below_floor_justification from public.internal_prices p join public.pricing_files f on f.internal_price_id = p.id
+            where f.id = '6f600001-0000-0000-0000-000000000001'), null,
+  'The round-1 justification does not survive a return and a rebuild');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61, 39900)$$,
+  '23514', null, 'Proposing again below the floor without a new justification is refused');
 select is((select p.status::text from public.internal_prices p join public.pricing_files f on f.internal_price_id = p.id
             where f.id = '6f600001-0000-0000-0000-000000000001'),
   'internal_price_proposed', 'Rebuilding a returned price makes it a proposal again');
-select lives_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61, 'Strategic first job with this client')$$,
+select lives_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61, 39900, 'Strategic first job with this client')$$,
   'Kalas proposes again');
 select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select lives_ok($$update public.internal_prices set status = 'gm_approved'
@@ -170,6 +222,88 @@ select throws_ok($$select public.pricing_file_build_price('6f600002-0000-0000-00
   'P0001', null, 'A supplier line already marked selected would make Phase 8 ignore the grid, so it is refused');
 select throws_ok($$select public.pricing_file_build_price('6f600003-0000-0000-0000-000000000001')$$,
   'P0001', null, 'An unpriced line is refused');
+
+-- ===== A with-screen line with no with-screen price =====
+select throws_ok($$select public.pricing_file_build_price('6f600004-0000-0000-0000-000000000001')$$,
+  'P0001', '1 line(s) use the with-screen price but the supplier gave none; enter it or choose the normal price. | 1 بند يستخدم سعر الشاشة ولم يحدده المورد؛ أدخله أو اختر السعر العادي.',
+  'A line using the screen price with none quoted is refused, not priced at the normal price');
+
+-- ===== A price in a status that cannot be rebuilt =====
+select lives_ok($$select public.pricing_file_build_price('6f600005-0000-0000-0000-000000000001')$$, 'Deal 5 is built once');
+reset role;
+set local session_replication_role = replica;
+update public.internal_prices set status = 'draft'
+ where id = (select internal_price_id from public.pricing_files where id = '6f600005-0000-0000-0000-000000000001');
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$select public.pricing_file_build_price('6f600005-0000-0000-0000-000000000001')$$,
+  'P0001', 'The file''s price is draft, so it cannot be rebuilt. | سعر الملف في حالة draft، فلا يمكن إعادة بنائه.',
+  'A price that is neither proposed nor returned is not rebuilt');
+
+-- ===== The file link is re-checked under the lock (helper called directly) =====
+reset role;
+select lives_ok($$select public._pricing_file_assert_link('6f600006-0000-0000-0000-000000000001', null, null)$$,
+  'An unlinked file matches an unlinked read');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select lives_ok($$select public.pricing_file_set_line('6f600006-0000-0000-0000-000000000001','6f510007-0000-0000-0000-000000000001','{"selling_price":2000}')$$,
+  'Kalas types a selling price on deal 6');
+select is((public.pricing_file_build_price('6f600006-0000-0000-0000-000000000001'))->>'total_selling', '2000.00',
+  'Deal 6 builds at the typed price');
+select set_config('bp.cost0', (public.pricing_file_build_price('6f600006-0000-0000-0000-000000000001'))->>'total_cost', true);
+reset role;
+select throws_ok($$select public._pricing_file_assert_link('6f600006-0000-0000-0000-000000000001', null, null)$$,
+  'P0001', 'The file changed, try again. | تغيّر الملف، أعد المحاولة.', 'A file linked since the read (NULL to not NULL) is refused');
+select throws_ok($$select public._pricing_file_assert_link('6f600006-0000-0000-0000-000000000001',
+    (select estimation_id from public.pricing_files where id = '6f600006-0000-0000-0000-000000000001'), gen_random_uuid())$$,
+  'P0001', 'The file changed, try again. | تغيّر الملف، أعد المحاولة.', 'A file linked to a different price is refused');
+
+-- ===== Stale cost: overhead moves the cost, the typed total stays =====
+update public.pricing_file_inputs set overhead_pct = 5 where file_id = '6f600006-0000-0000-0000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$select public.pricing_file_propose('6f600006-0000-0000-0000-000000000001', 2000, current_setting('bp.cost0')::numeric)$$,
+  'P0001', null, 'Overhead changed after the GM looked: the same total with a different cost is refused');
+reset role;
+update public.pricing_file_inputs set overhead_pct = 0 where file_id = '6f600006-0000-0000-0000-000000000001';
+
+-- ===== The totals re-check (a trigger moves the overhead while the file is linked) =====
+create function public._bp_test_bump() returns trigger language plpgsql as $f$
+begin update public.pricing_file_inputs set overhead_pct = overhead_pct + 1 where file_id = new.id; return new; end $f$;
+create trigger bp_test_bump before update of internal_price_id on public.pricing_files
+  for each row when (new.id = '6f600006-0000-0000-0000-000000000001') execute function public._bp_test_bump();
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$select public.pricing_file_build_price('6f600006-0000-0000-0000-000000000001')$$,
+  'P0001', 'The file changed while the price was being built; try again. | تغيّر الملف أثناء بناء السعر؛ أعد المحاولة.',
+  'Figures that moved while the file was linked refuse the build');
+reset role;
+drop trigger bp_test_bump on public.pricing_files;
+
+-- ===== The line sum must equal the price (a trigger skews one built price) =====
+create function public._bp_test_skew() returns trigger language plpgsql as $f$
+begin new.built_selling_price := new.built_selling_price + 1; return new; end $f$;
+create trigger bp_test_skew before insert or update on public.pricing_file_lines
+  for each row when (new.built_selling_price is not null) execute function public._bp_test_skew();
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$select public.pricing_file_build_price('6f600006-0000-0000-0000-000000000001')$$,
+  'P0001', 'The line prices do not add up to the price; try again. | أسعار البنود لا تساوي السعر؛ أعد المحاولة.',
+  'Built line prices that do not sum to the price refuse the build');
+reset role;
+drop trigger bp_test_skew on public.pricing_file_lines;
+
+-- ===== Built figures of lines outside the current revision are cleared =====
+insert into public.pricing_file_lines (file_id, boq_line_id, built_cost, built_selling_price, built_at)
+values ('6f600006-0000-0000-0000-000000000001','6f510004-0000-0000-0000-000000000001', 5, 9, now());
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select lives_ok($$select public.pricing_file_build_price('6f600006-0000-0000-0000-000000000001')$$, 'Deal 6 rebuilds with a stale line row');
+select is((select string_agg(boq_line_id::text || '/' || coalesce(built_selling_price::text, 'null'), ',' order by boq_line_id)
+             from public.pricing_file_lines where file_id = '6f600006-0000-0000-0000-000000000001'),
+  '6f510004-0000-0000-0000-000000000001/null,6f510007-0000-0000-0000-000000000001/2000.00',
+  'A line outside the current revision keeps no built figures; the current line keeps its own');
 
 -- ===== Extra: the figure and the proposal are Kalas's; the lines sum to the price =====
 select is((select p.figure_set_by::text || '/' || p.proposed_by::text from public.internal_prices p

@@ -17,7 +17,8 @@
 -- guards (not from the payload), so Kalas is both and Zayed can approve.
 --
 -- Lock order (branch-wide): estimation, then price, then file.
---   build: reads the file unlocked; locks the estimation, then the price;
+--   build: reads the file unlocked; locks the estimation, then the price, then
+--   the file (_pricing_file_assert_link: it must still link what was read);
 --   writes both; _pricing_file_link_price re-locks the price (already held)
 --   and takes the file. The totals are read again once the file is locked and
 --   must match what was written, else the build is refused as stale.
@@ -28,6 +29,22 @@
 -- files: estimation_cost_basis would take the selected lines' cost and ignore
 -- the grid, so a revision with a selected line is refused.
 -- =============================================================================
+
+-- The file must still point at the estimation and price this build read and
+-- locked. Locks the file (order: estimation, price, file). Called by build; a
+-- separate function so the refusal can be tested directly.
+CREATE OR REPLACE FUNCTION public._pricing_file_assert_link(_file_id uuid, _estimation_id uuid, _price_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE cur_est uuid; cur_price uuid; found_file boolean;
+BEGIN
+  SELECT f.estimation_id, f.internal_price_id INTO cur_est, cur_price
+    FROM public.pricing_files f WHERE f.id = _file_id FOR UPDATE;
+  found_file := FOUND;
+  IF NOT found_file OR cur_est IS DISTINCT FROM _estimation_id OR cur_price IS DISTINCT FROM _price_id THEN
+    RAISE EXCEPTION 'The file changed, try again. | تغيّر الملف، أعد المحاولة.' USING ERRCODE = 'P0001';
+  END IF;
+END $$;
+REVOKE ALL ON FUNCTION public._pricing_file_assert_link(uuid, uuid, uuid) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.pricing_file_build_price(_file_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -65,6 +82,9 @@ BEGIN
         USING ERRCODE = 'P0001';
     END IF;
   END IF;
+  -- Both locked: the file must still link to exactly what was read above, else a
+  -- concurrent build linked another price and this one would be orphaned.
+  PERFORM public._pricing_file_assert_link(f.id, f.estimation_id, f.internal_price_id);
 
   IF EXISTS (SELECT 1 FROM public.supplier_quote_lines l JOIN public.supplier_quotes q ON q.id = l.supplier_quote_id
               WHERE q.boq_revision_id = f.boq_revision_id AND l.is_selected) THEN
@@ -82,6 +102,10 @@ BEGIN
   END IF;
   IF t.unpriced_lines > 0 THEN
     RAISE EXCEPTION '% line(s) have no price yet (no supplier price in SAR, or no margin). | % بند بلا سعر بعد (لا سعر مورد بالريال أو لا هامش).', t.unpriced_lines, t.unpriced_lines
+      USING ERRCODE = 'P0001';
+  END IF;
+  IF t.screen_price_missing_lines > 0 THEN
+    RAISE EXCEPTION '% line(s) use the with-screen price but the supplier gave none; enter it or choose the normal price. | % بند يستخدم سعر الشاشة ولم يحدده المورد؛ أدخله أو اختر السعر العادي.', t.screen_price_missing_lines, t.screen_price_missing_lines
       USING ERRCODE = 'P0001';
   END IF;
   IF t.multi_quote_lines > 0 THEN
@@ -113,7 +137,8 @@ BEGIN
   -- proposal. Never inserted or set past internal_price_proposed.
   IF p.id IS NOT NULL THEN
     UPDATE public.internal_prices
-       SET proposed_price = t.total_selling, estimation_id = e.id, status = 'internal_price_proposed'
+       SET proposed_price = t.total_selling, estimation_id = e.id, status = 'internal_price_proposed',
+           below_floor_justification = NULL
      WHERE id = p.id RETURNING * INTO p;
   ELSE
     INSERT INTO public.internal_prices (estimation_id, proposed_price, status, proposed_by, proposed_at)
@@ -142,10 +167,24 @@ BEGIN
      SET built_cost = EXCLUDED.built_cost, built_selling_price = EXCLUDED.built_selling_price,
          built_at = EXCLUDED.built_at;
 
+  -- Lines no longer on the current revision keep no built figures.
+  UPDATE public.pricing_file_lines pl
+     SET built_cost = NULL, built_selling_price = NULL, built_at = NULL
+   WHERE pl.file_id = f.id
+     AND NOT EXISTS (SELECT 1 FROM public.boq_lines bl WHERE bl.id = pl.boq_line_id AND bl.revision_id = f.boq_revision_id);
+
+  -- The lines of the current revision must add up to the price.
+  IF (SELECT sum(pl.built_selling_price) FROM public.pricing_file_lines pl
+        JOIN public.boq_lines bl ON bl.id = pl.boq_line_id
+       WHERE pl.file_id = f.id AND bl.revision_id = f.boq_revision_id) IS DISTINCT FROM p.proposed_price THEN
+    RAISE EXCEPTION 'The line prices do not add up to the price; try again. | أسعار البنود لا تساوي السعر؛ أعد المحاولة.' USING ERRCODE = 'P0001';
+  END IF;
+
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (u, 'user', 'pricing_file.price_built', 'opportunity', f.opportunity_id,
           jsonb_build_object('file_id', f.id, 'internal_price_id', p.id, 'estimation_id', e.id,
-                             'proposed_price', p.proposed_price));
+                             'proposed_price', p.proposed_price, 'total_cost', t.total_cost,
+                             'margin_pct', p.margin_percentage));
   RETURN jsonb_build_object('internal_price_id', p.id, 'estimation_id', e.id,
                             'total_cost', t.total_cost, 'total_selling', t.total_selling,
                             'margin_pct', p.margin_percentage, 'floor_pct', t.floor_pct,
@@ -154,23 +193,31 @@ END $$;
 REVOKE ALL ON FUNCTION public.pricing_file_build_price(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.pricing_file_build_price(uuid) TO authenticated;
 
-CREATE OR REPLACE FUNCTION public.pricing_file_propose(_file_id uuid, _expected_total numeric, _justification text DEFAULT NULL)
+CREATE OR REPLACE FUNCTION public.pricing_file_propose(_file_id uuid, _expected_total numeric, _expected_total_cost numeric, _justification text DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE b jsonb; f public.pricing_files;
+DECLARE u uuid := auth.uid(); b jsonb; f public.pricing_files; j text := nullif(btrim(_justification), '');
 BEGIN
   b := public.pricing_file_build_price(_file_id);
-  IF (b->>'total_selling')::numeric IS DISTINCT FROM _expected_total THEN
-    RAISE EXCEPTION 'The price changed since you built it (now %); check it and propose again. | تغيّر السعر منذ بنائه (الآن %)؛ راجعه واقترحه مجدداً.',
-      b->>'total_selling', b->>'total_selling' USING ERRCODE = 'P0001';
+  -- The total and the cost the GM saw: a changed overhead moves the cost, not the typed total.
+  IF (b->>'total_selling')::numeric IS DISTINCT FROM _expected_total
+     OR (b->>'total_cost')::numeric IS DISTINCT FROM _expected_total_cost THEN
+    RAISE EXCEPTION 'The price changed since you built it (now %, cost %); check it and propose again. | تغيّر السعر منذ بنائه (الآن %، التكلفة %)؛ راجعه واقترحه مجدداً.',
+      b->>'total_selling', b->>'total_cost', b->>'total_selling', b->>'total_cost' USING ERRCODE = 'P0001';
   END IF;
   -- The existing in-file propose path: the transition guard (GM, selling build,
   -- no open extras), the floor guard and the file-follow trigger all run here.
+  -- The justification is this proposal's own: nothing stored is carried over.
   UPDATE public.internal_prices
-     SET status = 'gm_pending',
-         below_floor_justification = coalesce(nullif(btrim(coalesce(_justification, '')), ''), below_floor_justification)
+     SET status = 'gm_pending', below_floor_justification = j
    WHERE id = (b->>'internal_price_id')::uuid;
+  INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
+  SELECT u, 'user', 'pricing_file.proposed', 'opportunity', pf.opportunity_id,
+         jsonb_build_object('file_id', pf.id, 'internal_price_id', pf.internal_price_id,
+                            'total_selling', _expected_total, 'total_cost', _expected_total_cost,
+                            'below_floor_justification', j)
+    FROM public.pricing_files pf WHERE pf.id = _file_id;
   SELECT * INTO f FROM public.pricing_files WHERE id = _file_id;
   RETURN to_jsonb(f);
 END $$;
-REVOKE ALL ON FUNCTION public.pricing_file_propose(uuid, numeric, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.pricing_file_propose(uuid, numeric, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.pricing_file_propose(uuid, numeric, numeric, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.pricing_file_propose(uuid, numeric, numeric, text) TO authenticated;

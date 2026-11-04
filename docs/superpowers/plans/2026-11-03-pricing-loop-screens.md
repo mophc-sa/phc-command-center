@@ -2168,8 +2168,8 @@ git commit -m "feat(pricing): per-line choices and the cost-gated selling grid w
     - It writes or updates the estimation: `cost_total = materials + extras + logistics`, `installation_cost`, `wastage_pct = 0`, `overhead_pct`.
     - It inserts or updates the file's internal price at `internal_price_proposed`, and never any other status.
     - It links both through `_pricing_file_link_price` and snapshots each line's cost and selling price in `pricing_file_lines.built_*`.
-  - `public.pricing_file_propose(_file_id uuid, _expected_total numeric, _justification text DEFAULT NULL) → jsonb` (the file row, now `price_review`).
-    - It rebuilds, and refuses (P0001) if the total is not `_expected_total`.
+  - `public.pricing_file_propose(_file_id uuid, _expected_total numeric, _expected_total_cost numeric, _justification text DEFAULT NULL) → jsonb` (the file row, now `price_review`).
+    - It rebuilds, and refuses (P0001) if the total is not `_expected_total` or the total cost is not `_expected_total_cost`.
     - It then moves the price `internal_price_proposed → gm_pending` through the existing path, carrying `_justification` into `below_floor_justification`.
 
 - [ ] **Step 1: Write the failing pgTAP test**
@@ -3529,8 +3529,8 @@ export type BuildResult = {
 };
 export const buildPrice = (fileId: string) => call<BuildResult>("pricing_file_build_price", { _file_id: fileId });
 /** expectedTotal is the total the GM was shown; the server refuses a stale one. */
-export const proposePrice = (fileId: string, expectedTotal: number, justification?: string) =>
-  call("pricing_file_propose", { _file_id: fileId, _expected_total: expectedTotal, _justification: justification ?? null });
+export const proposePrice = (fileId: string, expectedTotal: number, expectedTotalCost: number, justification?: string) =>
+  call("pricing_file_propose", { _file_id: fileId, _expected_total: expectedTotal, _expected_total_cost: expectedTotalCost, _justification: justification ?? null });
 
 export type PriceSummary = {
   id: string;
