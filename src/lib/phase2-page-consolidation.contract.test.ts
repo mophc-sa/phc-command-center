@@ -58,13 +58,13 @@ test("sidebar no longer lists /rfq-jih or /boq as separate nav items", () => {
   expect(source).not.toMatch(/to: "\/boq"/);
 });
 
-// Phase 1 (PRD 2026-08-12): /quotations left the Sales sidebar — it belongs to
-// Commercial & Finance, which does not exist yet. This test used to require
-// `to: "/quotations"` in AppShell, which would have blocked that move. What
-// actually matters is that the route keeps working and stays reachable, so
-// that is what is asserted now.
-test("/quotations is out of the sidebar but still routable and still reachable", () => {
-  expect(read("src/components/phc/AppShell.tsx")).not.toMatch(/to: "\/quotations"/);
+// Phase 1 (PRD 2026-08-12): /quotations left the Sales sidebar because it
+// belongs to Commercial & Finance. Pricing loop PR 2 (2026-11-04) builds that
+// section, "Pricing & Finance", and /quotations is in the sidebar there.
+test("/quotations is in the Pricing & Finance group, still routable and still reachable", () => {
+  const shell = read("src/components/phc/AppShell.tsx");
+  const group = shell.slice(shell.indexOf('key: "navgroup_pricing_finance"'), shell.indexOf('key: "navgroup_reports"'));
+  expect(group).toMatch(/to: "\/quotations"/);
 
   // The route file still exists and still renders all three panels.
   const route = read("src/routes/_authenticated/quotations.tsx");

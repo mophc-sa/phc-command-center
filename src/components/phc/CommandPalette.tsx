@@ -49,6 +49,8 @@ import {
   Mailbox,
   Pin,
   Clock,
+  Calculator,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -66,6 +68,8 @@ const PAGES: PageEntry[] = [
   { to: "/approvals",         labelEn: "Approvals",           labelAr: "الاعتمادات",                    group: "Execution", icon: ShieldCheck },
   { to: "/follow-ups",        labelEn: "Follow-ups",          labelAr: "المتابعات",                     group: "Execution", icon: CalendarClock },
   { to: "/quotations",        labelEn: "Quotations, RFQ & JIH, BOQ", labelAr: "عروض الأسعار وRFQ وJIH وBOQ", group: "Execution", icon: FileText },
+  { to: "/pricing",           labelEn: "Pricing queue",       labelAr: "قائمة التسعير",                 group: "Execution", icon: Calculator },
+  { to: "/pricing/settings",  labelEn: "Pricing settings",    labelAr: "إعدادات التسعير",               group: "Execution", icon: SlidersHorizontal },
   { to: "/award-queue",       labelEn: "Awards",              labelAr: "الترسيات",                      group: "Execution", icon: Award },
   { to: "/tender-conversion", labelEn: "Conversion Queue",    labelAr: "طابور التحويل",                 group: "Execution", icon: GitMerge },
   { to: "/accounts",          labelEn: "Accounts",            labelAr: "الحسابات",                      group: "CRM",       icon: Building2 },

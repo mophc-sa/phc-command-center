@@ -55,6 +55,9 @@ export const strings = {
   navgroup_execution: { en: "Execution", ar: "التنفيذ" },
   navgroup_intelligence: { en: "Intelligence & Resources", ar: "المعلومات والموارد" },
   navgroup_admin: { en: "Admin", ar: "الإدارة" },
+  navgroup_pricing_finance: { en: "Pricing & Finance", ar: "التسعير والمالية" },
+  nav_pricing_queue: { en: "Pricing queue", ar: "قائمة التسعير" },
+  nav_pricing_settings: { en: "Pricing settings", ar: "إعدادات التسعير" },
 
   // Sales stages (RFQ/JIH flow)
   sstage_rfq_received: { en: "RFQ Received", ar: "استلام طلب عرض سعر" },
