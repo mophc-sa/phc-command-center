@@ -4,7 +4,7 @@
 -- Test user UUIDs use the 6f… prefix. Every session carries aal2.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(58);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -122,12 +122,23 @@ select is((select count(*)::int from public.estimations where boq_revision_id = 
   'The estimation is reused, not duplicated');
 
 -- ===== Propose =====
-select throws_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 53200, 39900)$$,
-  'P0001', null, 'A stale total is refused');
+select throws_like($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 53200, 39900)$$,
+  'The price changed since you built it%', 'A stale total is refused (with the stale-price message)');
 select is((select p.status::text from public.internal_prices p join public.pricing_files f on f.internal_price_id = p.id
             where f.id = '6f600001-0000-0000-0000-000000000001'), 'internal_price_proposed', '... and nothing moved');
-select throws_ok($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61, 39000)$$,
-  'P0001', null, 'A stale total cost is refused even when the total matches');
+select throws_like($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 55651.61, 39000)$$,
+  'The price changed since you built it%', 'A stale total cost is refused even when the total matches');
+
+-- Phase 7A lets the GM UPDATE internal_prices; in a file that must not skip Propose's checks.
+select throws_ok($$update public.internal_prices set status = 'gm_pending'
+                   where id = (select internal_price_id from public.pricing_files where id = '6f600001-0000-0000-0000-000000000001')$$,
+  '42501', 'In a pricing file the price reaches review only through Propose. | في ملف التسعير يصل السعر إلى المراجعة عبر الاقتراح فقط.',
+  'A direct UPDATE to gm_pending on an in-file price is refused');
+select is((select p.status::text from public.internal_prices p join public.pricing_files f on f.internal_price_id = p.id
+            where f.id = '6f600001-0000-0000-0000-000000000001'), 'internal_price_proposed', '... and the price did not move');
+select is((select state::text from public.pricing_files where id = '6f600001-0000-0000-0000-000000000001'), 'selling_build',
+  '... nor the file');
+select ok(coalesce(current_setting('pricing.proposing', true), '') = '', 'The propose flag is not left set');
 
 -- A justification someone else wrote is not Kalas's: build discards it.
 reset role;
@@ -263,8 +274,8 @@ select throws_ok($$select public._pricing_file_assert_link('6f600006-0000-0000-0
 update public.pricing_file_inputs set overhead_pct = 5 where file_id = '6f600006-0000-0000-0000-000000000001';
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
-select throws_ok($$select public.pricing_file_propose('6f600006-0000-0000-0000-000000000001', 2000, current_setting('bp.cost0')::numeric)$$,
-  'P0001', null, 'Overhead changed after the GM looked: the same total with a different cost is refused');
+select throws_like($$select public.pricing_file_propose('6f600006-0000-0000-0000-000000000001', 2000, current_setting('bp.cost0')::numeric)$$,
+  'The price changed since you built it%', 'Overhead changed after the GM looked: the same total with a different cost is refused');
 reset role;
 update public.pricing_file_inputs set overhead_pct = 0 where file_id = '6f600006-0000-0000-0000-000000000001';
 

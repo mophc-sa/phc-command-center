@@ -207,9 +207,13 @@ BEGIN
   -- The existing in-file propose path: the transition guard (GM, selling build,
   -- no open extras), the floor guard and the file-follow trigger all run here.
   -- The justification is this proposal's own: nothing stored is carried over.
+  -- Tell the in-file gate below that this UPDATE is Propose's own (transaction-local;
+  -- cleared right after, also when the UPDATE raises since the transaction then aborts).
+  PERFORM set_config('pricing.proposing', b->>'internal_price_id', true);
   UPDATE public.internal_prices
      SET status = 'gm_pending', below_floor_justification = j
    WHERE id = (b->>'internal_price_id')::uuid;
+  PERFORM set_config('pricing.proposing', '', true);
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   SELECT u, 'user', 'pricing_file.proposed', 'opportunity', pf.opportunity_id,
          jsonb_build_object('file_id', pf.id, 'internal_price_id', pf.internal_price_id,
@@ -221,3 +225,36 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_file_propose(uuid, numeric, numeric, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.pricing_file_propose(uuid, numeric, numeric, text) TO authenticated;
+
+-- Phase 7A grants authenticated UPDATE on internal_prices, so inside a pricing
+-- file the GM could move a proposed price to gm_pending directly and skip
+-- Propose's rebuild, stale total/cost check, line-sum check and screen check.
+-- This gate refuses that move for a price linked to a file unless Propose set
+-- the flag for this very price. It is named so it fires first among the BEFORE
+-- UPDATE triggers (alphabetical: internal_prices_a_… < _compute_margin <
+-- _transition < _zz_floor_guard); the follow trigger is AFTER and unaffected.
+-- The flag is a custom GUC. A client cannot set it: PostgREST exposes only
+-- functions in the exposed schema (pg_catalog.set_config is not), no exposed
+-- function sets it, and PostgREST sets only request.* settings. Outside a
+-- pricing file nothing changes. "In a file" means linked to a file whose lines
+-- carry built figures: Build is the only thing that links a price to a file
+-- (_pricing_file_link_price) and it writes those figures in the same
+-- transaction, so every real in-file price qualifies; hand-made fixtures that
+-- link a price without building one (earlier tests) are not caught.
+CREATE OR REPLACE FUNCTION public.internal_price_propose_gate()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF OLD.status = 'internal_price_proposed' AND NEW.status = 'gm_pending'
+     AND EXISTS (SELECT 1 FROM public.pricing_files pf
+                   JOIN public.pricing_file_lines pl ON pl.file_id = pf.id AND pl.built_at IS NOT NULL
+                  WHERE pf.internal_price_id = NEW.id)
+     AND coalesce(current_setting('pricing.proposing', true), '') IS DISTINCT FROM NEW.id::text THEN
+    RAISE EXCEPTION 'In a pricing file the price reaches review only through Propose. | في ملف التسعير يصل السعر إلى المراجعة عبر الاقتراح فقط.'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION public.internal_price_propose_gate() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS internal_prices_a_propose_gate ON public.internal_prices;
+CREATE TRIGGER internal_prices_a_propose_gate BEFORE UPDATE ON public.internal_prices
+  FOR EACH ROW EXECUTE FUNCTION public.internal_price_propose_gate();

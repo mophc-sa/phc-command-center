@@ -3528,7 +3528,7 @@ export type BuildResult = {
   below_floor: boolean;
 };
 export const buildPrice = (fileId: string) => call<BuildResult>("pricing_file_build_price", { _file_id: fileId });
-/** expectedTotal is the total the GM was shown; the server refuses a stale one. */
+/** expectedTotal and expectedTotalCost are the totals the GM was shown; the server refuses either if stale. */
 export const proposePrice = (fileId: string, expectedTotal: number, expectedTotalCost: number, justification?: string) =>
   call("pricing_file_propose", { _file_id: fileId, _expected_total: expectedTotal, _expected_total_cost: expectedTotalCost, _justification: justification ?? null });
 
@@ -6034,7 +6034,7 @@ export function SellingPriceTab(props: PricingTabProps) {
               </Button>
               <Button
                 disabled={busy || !canPropose}
-                onClick={() => void act(() => proposePrice(file.file_id, t?.total_selling ?? 0, justification.trim() || undefined), TEXT.proposed)}
+                onClick={() => void act(() => proposePrice(file.file_id, t?.total_selling ?? 0, t?.total_cost ?? 0, justification.trim() || undefined), TEXT.proposed)}
               >
                 {pick(TEXT.propose, lang)}
               </Button>
