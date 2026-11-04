@@ -68,7 +68,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   ), cinema_hits AS (
     SELECT c.id AS catalog_id, c.default_rate, NULL::uuid AS line_id
       FROM f, public.pricing_extras_catalog c
-     WHERE f.cinema AND c.active AND c.suggest_if_cinema
+     WHERE f.cinema AND f.boq_revision_id IS NOT NULL AND c.active AND c.suggest_if_cinema
   )
   SELECT DISTINCT ON (h.catalog_id) h.catalog_id, h.default_rate, h.line_id
     FROM (SELECT * FROM line_hits UNION ALL SELECT * FROM cinema_hits) h
@@ -162,9 +162,16 @@ BEGIN
   IF NOT (public.is_pricer(u) OR public.can_read_commercial_cost(u)) THEN
     RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501';
   END IF;
+  -- Exactly what _pricing_price_has_open_extras blocks Propose on: undecided rows of the
+  -- current round, plus expected catalog items that have no row this round.
   RETURN (SELECT count(*)::int FROM public.pricing_file_extras x
             JOIN public.pricing_files f ON f.id = x.file_id
-           WHERE x.file_id = _file_id AND x.boq_revision_id = f.boq_revision_id AND x.status = 'suggested');
+           WHERE x.file_id = _file_id AND x.boq_revision_id = f.boq_revision_id AND x.status = 'suggested')
+       + (SELECT count(*)::int FROM public._pricing_expected_extras(_file_id) h
+           WHERE NOT EXISTS (SELECT 1 FROM public.pricing_file_extras x
+                               JOIN public.pricing_files f ON f.id = x.file_id
+                              WHERE x.file_id = _file_id AND x.boq_revision_id = f.boq_revision_id
+                                AND x.catalog_id = h.catalog_id));
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_file_open_suggestions(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.pricing_file_open_suggestions(uuid) TO authenticated;

@@ -3,7 +3,7 @@
 -- can be added from the catalog. Test user UUIDs use the 6d… prefix.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(36);
+select plan(42);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -184,14 +184,62 @@ select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-00000000
 select throws_ok($$update public.internal_prices set status = 'gm_pending' where id = '6d800002-0000-0000-0000-000000000001'$$,
   'P0001', null, 'Propose is refused: the pylon''s concrete base was never suggested');
 select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select is(public.pricing_file_open_suggestions('6d600002-0000-0000-0000-000000000001'), 1,
+  'The open count includes an expected extra that has no row yet');
 select is(public.pricing_suggest_extras('6d600002-0000-0000-0000-000000000001'), 1, 'Suggesting now finds the base');
+select is(public.pricing_file_open_suggestions('6d600002-0000-0000-0000-000000000001'), 1,
+  'After suggesting, the same item is still one open');
 select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select throws_ok($$update public.internal_prices set status = 'gm_pending' where id = '6d800002-0000-0000-0000-000000000001'$$,
   'P0001', null, 'Still refused while the suggestion is undecided');
 select public.pricing_decide_extra(x.id, true, 1, null, null) from public.pricing_file_extras x where x.file_id = '6d600002-0000-0000-0000-000000000001';
 select lives_ok($$update public.internal_prices set status = 'gm_pending' where id = '6d800002-0000-0000-0000-000000000001'$$,
   'Propose passes once every expected extra is decided');
+select is(public.pricing_file_open_suggestions('6d600002-0000-0000-0000-000000000001'), 0, 'Once decided, nothing is open');
 reset role;
+
+-- ===== An old round's row does not satisfy this round; a dismissal does =====
+insert into public.opportunities (id, project_name, owner_id, created_by, sales_stage)
+values ('6d200003-0000-0000-0000-000000000001','er-deal-3','6d000000-0000-0000-0000-000000000001','6d000000-0000-0000-0000-000000000001','rfq_received');
+insert into public.boqs (id, related_opportunity_id, title) values ('6d400003-0000-0000-0000-000000000001','6d200003-0000-0000-0000-000000000001','er-boq-3');
+insert into public.boqs (id, related_opportunity_id, title) values ('6d400004-0000-0000-0000-000000000001','6d200003-0000-0000-0000-000000000001','er-boq-3-old');
+insert into public.boq_revisions (id, boq_id, revision_number) values
+  ('6d500004-0000-0000-0000-000000000001','6d400004-0000-0000-0000-000000000001',1),
+  ('6d500005-0000-0000-0000-000000000001','6d400003-0000-0000-0000-000000000001',2);
+insert into public.boq_lines (revision_id, sign_type, quantity, install_type, mount_height_m) values
+  ('6d500005-0000-0000-0000-000000000001','Pylon P3',1,'pylon',null);
+update public.boq_revisions set frozen_at = now(), frozen_by = '6d000000-0000-0000-0000-000000000002', status = 'verified'
+ where id in ('6d500004-0000-0000-0000-000000000001','6d500005-0000-0000-0000-000000000001');
+insert into public.pricing_files (id, opportunity_id, state, boq_revision_id)
+values ('6d600003-0000-0000-0000-000000000001','6d200003-0000-0000-0000-000000000001','selling_build','6d500005-0000-0000-0000-000000000001');
+insert into public.pricing_file_extras (file_id, boq_revision_id, catalog_id, quantity, rate, status, decided_by, decided_at)
+values ('6d600003-0000-0000-0000-000000000001','6d500004-0000-0000-0000-000000000001','6d900001-0000-0000-0000-000000000001',1,1200,'accepted','6d000000-0000-0000-0000-000000000002',now());
+insert into public.estimations (id, boq_revision_id, cost_total) values ('6d700003-0000-0000-0000-000000000001','6d500005-0000-0000-0000-000000000001',1000);
+insert into public.internal_prices (id, estimation_id, proposed_price, status, proposed_by)
+values ('6d800003-0000-0000-0000-000000000001','6d700003-0000-0000-0000-000000000001',2000,'internal_price_proposed','6d000000-0000-0000-0000-000000000003');
+update public.pricing_files set estimation_id = '6d700003-0000-0000-0000-000000000001', internal_price_id = '6d800003-0000-0000-0000-000000000001'
+ where id = '6d600003-0000-0000-0000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$update public.internal_prices set status = 'gm_pending' where id = '6d800003-0000-0000-0000-000000000001'$$,
+  'P0001', null, 'Propose is refused: the only row for the pylon base is from an old round');
+select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select public.pricing_suggest_extras('6d600003-0000-0000-0000-000000000001');
+select public.pricing_decide_extra(x.id, false, null, null, 'Not needed for this site')
+  from public.pricing_file_extras x
+ where x.file_id = '6d600003-0000-0000-0000-000000000001' and x.boq_revision_id = '6d500005-0000-0000-0000-000000000001';
+select set_config('request.jwt.claims','{"sub":"6d000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select lives_ok($$update public.internal_prices set status = 'gm_pending' where id = '6d800003-0000-0000-0000-000000000001'$$,
+  'Propose passes when the expected item is dismissed this round');
+reset role;
+
+-- ===== Cinema hits need a revision =====
+insert into public.opportunities (id, project_name, owner_id, created_by, sales_stage)
+values ('6d200004-0000-0000-0000-000000000001','er-deal-4','6d000000-0000-0000-0000-000000000001','6d000000-0000-0000-0000-000000000001','rfq_received');
+insert into public.pricing_files (id, opportunity_id, state) values ('6d600004-0000-0000-0000-000000000001','6d200004-0000-0000-0000-000000000001','package_review');
+insert into public.pricing_file_inputs (file_id, is_cinema) values ('6d600004-0000-0000-0000-000000000001', true);
+select is((select count(*)::int from public._pricing_expected_extras('6d600004-0000-0000-0000-000000000001')), 0,
+  'A cinema flag alone suggests nothing while the file has no revision');
 select ok(not has_function_privilege('authenticated', 'public._pricing_expected_extras(uuid)', 'execute'),
   'The expected-extras helper is not callable by users');
 select * from finish();
