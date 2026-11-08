@@ -583,4 +583,4 @@ export const listSupplierAccounts = (vendorId: string) =>
 export const createSupplierAccount = (vendorId: string, email: string, fullName: string) =>
   callBackend<{ ok: boolean; user_id: string; set_password_url: string | null }>("supplier_account_create", { vendorId, email, fullName });
 export const newSupplierPasswordLink = (userId: string) =>
-  callBackend<{ ok: boolean; set_password_url: string }>("supplier_account_password_link", { userId });
+  callBackend<{ ok: boolean; set_password_url: string | null }>("supplier_account_password_link", { userId });
