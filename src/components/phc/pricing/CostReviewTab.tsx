@@ -4,12 +4,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Panel } from "@/components/phc/Panel";
+import { SkeletonTable } from "@/components/phc/Skeleton";
+import { QueryFailure } from "@/components/phc/QueryFailure";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
-import { useI18n, formatNumber, localeFor } from "@/lib/i18n";
-import { PRICING_STATE_LABEL, canGmMove, canPricerMove, type InstallType } from "@/lib/pricing";
+import { useI18n, formatNumber } from "@/lib/i18n";
+import { canGmMove, canPricerMove, type InstallType } from "@/lib/pricing";
 import {
-  listCostNotes,
   listSellingGrid,
   listSupplierCosts,
   movePricingFile,
@@ -48,9 +49,15 @@ const TEXT = {
   which: { en: "Which lines, and what is wrong (internal note)", ar: "أي البنود، وما المشكلة (ملاحظة داخلية)" },
   start: { en: "Start the selling price", ar: "ابدأ بناء سعر البيع" },
   started: { en: "Selling build started", ar: "بدأ بناء سعر البيع" },
-  notesTitle: { en: "Cost notes", ar: "ملاحظات التكلفة" },
-  notesSub: { en: "Internal. Written when the file moved through the cost stages; sales do not see them.", ar: "داخلية. كُتبت عند تنقّل الملف بين مراحل التكلفة؛ لا يراها فريق المبيعات." },
-  moved: { en: "Moved to", ar: "انتقل إلى" },
+  backPr: { en: "Send back to the supplier and return the price", ar: "أرجع للمورد وأعد السعر" },
+  backPrTitle: { en: "Send back to the supplier, and return the selling price", ar: "إرجاع للمورد وإعادة سعر البيع" },
+  backPrDesc: {
+    en: "This also returns the GM's proposed selling price for a new build: the price goes back to the GM and must be proposed again. Say which lines and why. This note is internal: it is a cost note, and sales do not see it.",
+    ar: "هذا يُعيد أيضاً سعر البيع الذي اقترحه المدير العام ليُبنى من جديد: يعود السعر إلى المدير العام ويجب اقتراحه مرة أخرى. اذكر البنود والسبب. هذه ملاحظة داخلية: هي ملاحظة تكلفة لا يراها فريق المبيعات.",
+  },
+  backed: { en: "Sent back to the supplier", ar: "أُرجع للمورد" },
+  backedPr: { en: "Sent back to the supplier; the selling price was returned too", ar: "أُرجع للمورد وأُعيد سعر البيع أيضاً" },
+  noLines: { en: "This BOQ has no lines.", ar: "لا بنود في هذه الكميات." },
 } satisfies Record<string, Bi>;
 
 const FIELD =
@@ -70,13 +77,9 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
     queryFn: () => listSupplierCosts(revisionId as string),
     enabled: revisionId != null && costOk,
   });
-  const notes = useQuery({
-    queryKey: ["pricing-cost-notes", file.file_id],
-    queryFn: () => listCostNotes(file.file_id),
-    enabled: costOk,
-  });
   const editable = canEditLineCost(file.state, rights);
   const [backOpen, setBackOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const money = (n: number | null) => (n == null ? "—" : formatNumber(n, lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
   // The current quotes per BOQ line, to show each one's currency and supplier.
@@ -84,26 +87,41 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
   for (const q of quotes.data ?? []) quotesByLine.set(q.boq_line_id, [...(quotesByLine.get(q.boq_line_id) ?? []), q]);
 
   async function choose(lineId: string, choice: LineChoice) {
+    if (busy) return;
+    setBusy(true);
     try {
       await setLineChoice(file.file_id, lineId, choice);
       onChanged();
     } catch (e) {
       toast.error(dbMessage(e, lang));
+    } finally {
+      setBusy(false);
     }
   }
 
   async function startSelling() {
+    if (busy) return;
+    setBusy(true);
     try {
       await movePricingFile(file.file_id, "selling_build");
       toast.success(pick(TEXT.started, lang));
       onChanged();
     } catch (e) {
       toast.error(dbMessage(e, lang));
+    } finally {
+      setBusy(false);
     }
   }
 
   if (!costOk) return null;
   if (!revisionId) return <p className="text-sm text-muted-foreground">{pick(TEXT.noBoq, lang)}</p>;
+
+  if (grid.isLoading || quotes.isLoading) return <SkeletonTable />;
+  if (grid.isError || quotes.isError) {
+    return <QueryFailure retry={() => { void grid.refetch(); void quotes.refetch(); }} />;
+  }
+  const fromPriceReview = file.state === "price_review";
+  const gridRows = grid.data ?? [];
 
   const canSendBack =
     rights.is_pricer &&
@@ -127,36 +145,44 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(grid.data ?? []).map((g) => {
+            {gridRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-muted-foreground">{pick(TEXT.noLines, lang)}</TableCell>
+              </TableRow>
+            ) : null}
+            {gridRows.map((g) => {
               const qs = quotesByLine.get(g.boq_line_id) ?? [];
               const chosen = qs.find((q) => q.id === g.supplier_quote_line_id) ?? qs[0];
-              const cur = chosen?.currency ?? "SAR";
+              const cur = chosen?.currency;
+              // A non-SAR quote is shown as its own number and currency code, never as SAR.
+              const amount = (grid: number | null, quote: number | null | undefined) =>
+                g.currency_mismatch ? `${money(quote ?? grid)}${cur ? ` ${cur}` : ""}` : money(grid);
               return (
                 <TableRow key={g.boq_line_id}>
                   <TableCell>
                     <div className="font-medium">{g.sign_type}</div>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {g.unpriced ? <StatusPill tone="danger">{pick(TEXT.unpriced, lang)}</StatusPill> : null}
-                      {g.currency_mismatch ? <StatusPill tone="danger">{pick(TEXT.nonSar, lang)}: {cur}</StatusPill> : null}
+                      {g.currency_mismatch ? <StatusPill tone="danger">{pick(TEXT.nonSar, lang)}{cur ? `: ${cur}` : ""}</StatusPill> : null}
                       {g.screen_price_missing ? <StatusPill tone="attention">{pick(TEXT.noScreen, lang)}</StatusPill> : null}
                       {g.quotes_count > 1 ? <StatusPill tone="attention">{pick(TEXT.multi, lang)}</StatusPill> : null}
                       {g.alternate_spec ? <StatusPill tone="attention">{pick(TEXT.differs, lang)}: {g.alternate_spec}</StatusPill> : null}
                     </div>
                     {chosen ? (
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {pick(TEXT.quoteBy, lang)}: {chosen.vendor_name} · {cur}
+                        {pick(TEXT.quoteBy, lang)}: {chosen.vendor_name}{cur ? ` · ${cur}` : ""}
                       </div>
                     ) : null}
                   </TableCell>
                   <TableCell className="text-end tabular-nums">{formatNumber(g.quantity, lang)}</TableCell>
-                  <TableCell className="text-end tabular-nums">{money(g.unit_cost)}</TableCell>
-                  <TableCell className="text-end tabular-nums">{money(g.unit_cost_with_screen)}</TableCell>
+                  <TableCell className="text-end tabular-nums">{amount(g.unit_cost, chosen?.unit_cost)}</TableCell>
+                  <TableCell className="text-end tabular-nums">{amount(g.unit_cost_with_screen, chosen?.unit_cost_with_screen)}</TableCell>
                   <TableCell>
                     <input
                       type="checkbox"
                       aria-label={`${pick(TEXT.useScreen, lang)}: ${g.sign_type}`}
                       checked={g.use_screen_price}
-                      disabled={!editable || g.unit_cost_with_screen == null}
+                      disabled={!editable || busy || g.currency_mismatch || (!g.use_screen_price && g.unit_cost_with_screen == null)}
                       onChange={(e) => void choose(g.boq_line_id, { use_screen_price: e.target.checked })}
                     />
                   </TableCell>
@@ -165,7 +191,7 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
                       className={FIELD}
                       aria-label={`${pick(TEXT.install, lang)}: ${g.sign_type}`}
                       value={g.install_type ?? ""}
-                      disabled={!editable}
+                      disabled={!editable || busy}
                       onChange={(e) => void choose(g.boq_line_id, { install_type: (e.target.value || null) as InstallType | null })}
                     >
                       <option value="">{pick(TEXT.noType, lang)}</option>
@@ -186,39 +212,25 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
         </Table>
       </Panel>
 
-      {(notes.data ?? []).length > 0 ? (
-        <Panel title={pick(TEXT.notesTitle, lang)} subtitle={pick(TEXT.notesSub, lang)}>
-          <ul className="space-y-3 text-sm">
-            {(notes.data ?? []).map((n) => (
-              <li key={n.id}>
-                <div className="text-xs text-muted-foreground">
-                  {new Date(n.created_at).toLocaleDateString(localeFor(lang))} · {pick(TEXT.moved, lang)} {pick(PRICING_STATE_LABEL[n.to_state], lang)}
-                </div>
-                <p className="whitespace-pre-wrap">{n.cost_note}</p>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      ) : null}
-
       <div className="flex flex-wrap gap-2">
-        {canSendBack ? <Button variant="outline" onClick={() => setBackOpen(true)}>{pick(TEXT.back, lang)}</Button> : null}
+        {canSendBack ? <Button variant="outline" disabled={busy} onClick={() => setBackOpen(true)}>{pick(fromPriceReview ? TEXT.backPr : TEXT.back, lang)}</Button> : null}
         {rights.is_gm && file.state === "supplier_priced" && canGmMove("supplier_priced", "selling_build") ? (
-          <Button onClick={() => void startSelling()}>{pick(TEXT.start, lang)}</Button>
+          <Button disabled={busy} onClick={() => void startSelling()}>{pick(TEXT.start, lang)}</Button>
         ) : null}
       </div>
 
       <ActionDialog
         open={backOpen}
         onOpenChange={setBackOpen}
-        title={pick(TEXT.backTitle, lang)}
-        description={pick(TEXT.backDesc, lang)}
+        title={pick(fromPriceReview ? TEXT.backPrTitle : TEXT.backTitle, lang)}
+        description={pick(fromPriceReview ? TEXT.backPrDesc : TEXT.backDesc, lang)}
         fields={[{ key: "note", type: "textarea", label: pick(TEXT.which, lang), required: true }]}
-        submitLabel={pick(TEXT.back, lang)}
+        submitLabel={pick(fromPriceReview ? TEXT.backPr : TEXT.back, lang)}
         recordId={file.file_id}
         onSubmit={async (v) => {
           try {
             await movePricingFile(file.file_id, "at_supplier", v.note);
+            toast.success(pick(fromPriceReview ? TEXT.backedPr : TEXT.backed, lang));
             onChanged();
           } catch (e) {
             throw asError(e, lang);
