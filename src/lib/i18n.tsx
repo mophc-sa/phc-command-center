@@ -1028,6 +1028,7 @@ export const strings = {
   role_estimation_manager: { en: "Estimation Manager", ar: "مدير التقدير" },
   role_salesperson: { en: "Salesperson", ar: "مندوب مبيعات" },
   role_viewer: { en: "Viewer", ar: "قارئ" },
+  role_supplier: { en: "Supplier (portal)", ar: "مورد (البوابة)" },
   toast_role_granted: { en: "Role granted", ar: "تم منح الدور" },
   toast_role_revoked: { en: "Role revoked", ar: "تم سحب الدور" },
 

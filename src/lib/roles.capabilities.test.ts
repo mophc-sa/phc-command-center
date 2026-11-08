@@ -17,6 +17,8 @@ import {
   isEstimationManager,
   isSalesperson,
   isViewer,
+  isSupplier,
+  requiresMfa,
   canApproveCommercialAction,
   canAssignOwner,
   canChangeCommercialStage,
@@ -43,6 +45,7 @@ test("group predicates partition every role into exactly one group", () => {
     isEstimationManager,
     isSalesperson,
     isViewer,
+    isSupplier,
   ];
   for (const role of ALL_ROLES) {
     const memberships = groupPredicates.filter((p) => p(role)).length;
@@ -238,4 +241,19 @@ test("canEditRfqNumber: sales_manager and system_admin only", () => {
   expect(canEditRfqNumber("system_admin")).toBe(true);
   expect(canEditRfqNumber("bd_manager")).toBe(false);
   expect(canEditRfqNumber("salesperson")).toBe(false);
+});
+
+// Pricing loop PR 3: a supplier account is external. It holds no staff
+// capability at all, and it must sign in with MFA like the managers.
+test("a supplier account holds no staff capability and needs MFA", async () => {
+  const caps = (await import("./roles")) as unknown as Record<string, unknown>;
+  const ctx = { isOwner: false, ownerId: null, userId: null };
+  const granted = Object.entries(caps)
+    .filter(([name, f]) => name.startsWith("can") && typeof f === "function")
+    .filter(([, f]) => (f as (r: AppRole[], c: typeof ctx) => boolean)(["supplier"], ctx))
+    .map(([name]) => name);
+  expect(granted).toEqual([]);
+  expect(requiresMfa(["supplier"])).toBe(true);
+  expect(isSupplier(["supplier"])).toBe(true);
+  expect(isSupplier(["estimation_manager"])).toBe(false);
 });
