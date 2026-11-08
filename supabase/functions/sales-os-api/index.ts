@@ -21,6 +21,8 @@ import { outlookModule } from "./handlers/outlook.ts";
 import { infoMailModule } from "./handlers/info-mail.ts";
 import { calendarFeedModule } from "./handlers/calendar-feed.ts";
 import { pipelineModule } from "./handlers/pipeline.ts";
+import { supplierPortalModule } from "./handlers/supplier-portal.ts";
+import { callerMayUseAction } from "../_shared/supplier-portal.ts";
 import { createSalesOsRequestHandler } from "./router.ts";
 
 const registry = createHandlerRegistry([
@@ -42,6 +44,7 @@ const registry = createHandlerRegistry([
   firefliesModule,
   outlookModule,
   infoMailModule,
+  supplierPortalModule,
 ]);
 
 export const salesOsActions = registry.actions;
@@ -49,7 +52,9 @@ export const handleSalesOsRequest = createSalesOsRequestHandler({
   handlers: registry.handlers,
   corsHeaders,
   errorResponse: err,
-  resolveCaller,
+  // Supplier accounts get through resolveCaller here, then only to their own actions.
+  resolveCaller: (authorization) => resolveCaller(authorization, { allowSupplier: true }),
+  authorizeAction: (caller, action) => callerMayUseAction(caller.roles, action),
   createContext: (caller, authorization) =>
     createSalesOsContext(caller, authorization, serviceClient, userClient, audit),
 });

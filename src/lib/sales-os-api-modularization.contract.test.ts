@@ -61,6 +61,7 @@ const expectedByModule = {
     "flag_duplicate",
     "resolve_duplicate_group",
   ],
+  "supplier-portal": ["supplier_account_create", "supplier_account_password_link", "supplier_file_download"],
 } as const;
 
 test("registered sales-os-api actions exist exactly once in their vertical modules", () => {
@@ -115,4 +116,11 @@ test("architecture size limits keep the entrypoint and feature modules focused",
     const lines = readFileSync(join(apiRoot, supportFile), "utf8").split("\n").length;
     expect(lines, `${supportFile} exceeds 700 lines`).toBeLessThanOrEqual(700);
   }
+});
+
+test("supplier downloads stream the bytes; no signed URL or storage path leaves sales-os-api", () => {
+  const src = readFileSync(join(apiRoot, "handlers/supplier-portal.ts"), "utf8");
+  expect(src).not.toContain("createSignedUrl");
+  expect(src).toContain('rpc("_supplier_portal_file_location"');
+  expect(src).not.toMatch(/json\([^)]*\bpath\b/);
 });

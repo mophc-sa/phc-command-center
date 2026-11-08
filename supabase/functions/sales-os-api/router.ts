@@ -6,6 +6,8 @@ export interface SalesOsRouterDependencies {
   readonly errorResponse: (message: string, status?: number) => Response;
   readonly resolveCaller: (authorization: string | null) => Promise<SalesOsCaller>;
   readonly createContext: (caller: SalesOsCaller, authorization: string) => SalesOsContext;
+  /** Optional per-action gate after the caller is known (supplier accounts: their actions only). */
+  readonly authorizeAction?: (caller: SalesOsCaller, action: string) => boolean;
 }
 
 export function createSalesOsRequestHandler(
@@ -45,6 +47,10 @@ export function createSalesOsRequestHandler(
         authError.message ?? "Unauthorized",
         authError.status ?? 401,
       );
+    }
+
+    if (dependencies.authorizeAction && !dependencies.authorizeAction(caller, action)) {
+      return dependencies.errorResponse("This account cannot use this action", 403);
     }
 
     try {
