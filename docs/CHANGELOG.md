@@ -1,5 +1,23 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-08 — Supplier portal (Commercial & Finance part 1, PR 3; not deployed)
+
+- **PENDING MO SIGN-OFF:** until email is approved, a pricer (or system_admin) creates a supplier account and copies a one-time set-password link to the supplier by hand. A pricer could therefore set the password of a NEW supplier account and impersonate it. Mitigations: every issued link is audited with its issuer; no new link for a supplier who has enrolled MFA unless the issuer is system_admin. Lasting fix: a GoTrue recovery email once a provider is approved.
+- **MO TO CONFIRM:** production exposed API schemas are `public` + `graphql_public` only (Supabase dashboard).
+- Migrations `20261108100000`–`20261108150000`:
+  - `app_role` gains `supplier`; `profiles.vendor_id`, set only by `supplier_account_activate` (or the service role), is what makes an account a supplier. The supplier role holds no other role and cannot be removed while the account is linked (suspend it instead); an ex-supplier cannot be given staff roles.
+  - `has_app_access` is false for supplier accounts, so the session boundary and every role predicate close the schema to them. `is_active_user` and `has_any_role` are false about a supplier for staff too: no task, notification or picker reaches one. `my_day`, `meeting_review_queue` and `my_fireflies_connection` check `has_app_access`; `current_margin_floor` and `estimation_cost_basis` are closed to anon, and `estimation_cost_basis` answers only cost readers outside the margin trigger. The restrictive `audit_session_boundary` policy is now on every public table (PR 1's pricing tables and others made after 2026-09-28 lacked it). `vendor_duplicate_candidates` and `automation_health` run as invoker. `current_margin_floor` returns nothing to a supplier. `next_sales_code` is revoked from clients and the historical helpers are gated.
+  - `auth.users` accepts a non-PHC address only for an account the supplier-account action is creating: an open `supplier_account_invites` row for the address at INSERT, and its id in `app_metadata` at commit (deferred trigger `auth.phc_supplier_invite_check`; GoTrue writes `app_metadata` after the INSERT). A supplier account keeps its address.
+  - `supplier_account_prepare`, `supplier_account_activate` (service role), `supplier_account_email`, `pricing_supplier_accounts`.
+  - `supplier_invitations` (+ lines, files with the exact storage version, submissions); `pricing_send_to_supplier` (cancels another supplier's earlier quote and clears 7B selections on the pricer's confirmation), `pricing_cancel_invitation`, `pricing_extend_invitation`.
+  - Portal functions `supplier_portal_invitations`, `supplier_portal_invitation`, `supplier_portal_file`, `supplier_portal_submit` (a new `supplier_quotes` revision; `supplier_quotes.source` and `source_document_id`), `supplier_portal_confirmation`.
+  - `pricing_enter_supplier_quote` gains `_document_id` (the supplier's own file), follows the open request and supersedes a portal quote instead of overwriting it.
+  - `pricing_return_lines_to_supplier`; `pricing_notify_overdue_suppliers` with pg_cron `pricing-supplier-overdue` (05:15 UTC = 08:15 Riyadh).
+  - Notifications `pricing_supplier_submitted` (GM, estimation, finance) and `pricing_supplier_overdue` (estimation, finance); both open the pricing file.
+- `sales-os-api`: module `supplier-portal` (`supplier_account_create`, `supplier_account_password_link`, `supplier_file_download`); a per-action gate lets a supplier call `supplier_file_download` only (it streams the file's bytes under the neutral name; no signed URL or storage path reaches the supplier). `_shared/supabase.ts` `resolveCaller` refuses supplier accounts unless a function opts in; OAuth consent and the MCP tools refuse suppliers; the `next` redirect on sign-in and MFA pages refuses `/\`.
+- UI: Supplier tab (send with an amber "no client names" warning, request panel, portal accounts, entry on behalf with the supplier's file), Cost review returns chosen lines; `/supplier`, `/supplier/$invitationId`.
+- Tests: six pgTAP files (incl. a catalog-driven sweep over every table, view, client-callable SECURITY DEFINER function and owner-run view, with a signature allowlist), `supplier-portal` bun and contract tests, `supplier-portal.deno-test.ts`; `roles.capabilities.test.ts`, `pricing-actions.contract.test.ts`, the router and modularization tests extended.
+
 ## 2026-11-04 — Pricing loop screens (Commercial & Finance part 1, PR 2; not deployed)
 
 - Migrations `20261104100000`–`20261104160000`:

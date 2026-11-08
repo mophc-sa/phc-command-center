@@ -701,14 +701,17 @@ Estimation, finance, the sales manager, the GM, MD and CEO see the whole group. 
    - If something is missing, **Ask sales for missing items** with a due date; the rep sees the list. Until reps can answer from their own screen, record their answer with *Record the rep's answer*.
    - **Freeze the BOQ** when it is complete. Freezing is one-way: a later quantity change opens a new revision.
    - Freezing also suggests extras from the extras catalog, for example a concrete base for a pylon or floor sign, a scaffold for a high ceiling, acoustic insulation for a cinema project. The catalog starts empty: nothing is suggested until estimation or finance fill it in `/pricing/settings`.
-2. **Supplier (Zayed).**
-   - The supplier portal is not ready yet. Send the frozen BOQ and the files to the supplier as you do today, then *Mark as sent to the supplier*.
-   - When the supplier answers, enter their prices on their behalf: normal and with-screen price, and any difference from the spec, per line. Entering again overwrites the prices in place; the history does not keep the earlier figures.
-   - When the prices are in, press *The supplier has priced*. The file goes to Kalas.
+2. **Supplier (Zayed).** *(2026-11-08)*
+   - **Send to the supplier:** choose the supplier, a reply-by date and the files to send (the latest version of each is ticked), and add a note if needed. The supplier sees the project code, the lines (sign type, description, size, material, specs, quantity) and the files under neutral names (`<project code>-01.pdf`). Never the client, the site or a price other than its own, so keep client names out of descriptions, drawings' title blocks and of the note (the system warns you before sending).
+   - If the BOQ already has another supplier's prices from before the freeze, tick the box to cancel them for this file: one supplier per file.
+   - **Portal account:** the first time, create the supplier's account (contact name and email) on the same panel and copy the message with the one-time set-password link into your email or WhatsApp. *New set-password link* makes a fresh one. The supplier then signs in at the usual address and must set up two-step verification.
+   - **The request panel** shows sent, opened, the reply-by date (and how late), and the answers. Copy the portal message to tell the supplier a request is waiting. You can change the reply-by date or cancel the request.
+   - When the supplier submits, the file goes to Kalas by itself and you and Kalas get a notification. A late supplier sends you one reminder (08:15) per reply-by date.
+   - If the supplier answers outside the portal, **enter their prices on their behalf** (normal and with-screen price, and any spec difference per line) and pick their own Excel or PDF, attached to the deal first. That closes the request. Without a request, press *The supplier has priced* when the prices are in.
 3. **Cost review (Zayed and Kalas).**
    - Each line shows the supplier's price, the with-screen price, and flags for no price, a missing screen price or a spec difference.
    - Zayed chooses the normal or the with-screen price, and can correct a line's install type.
-   - Zayed can **send lines back to the supplier**. The note is a cost note; sales do not see it.
+   - Zayed can **send lines back to the supplier**. If the supplier answered through the portal, tick the lines that go back, give a new reply-by date, the reason (a cost note: sales and the supplier do not see it) and, if you want, a message the supplier sees. Only those lines reopen in the portal; the others keep their prices.
    - Kalas presses **Start the selling price**.
 4. **Selling price (Kalas sets it; Zayed sets the cost choices).**
    - Logistics inputs: containers, inland delivery, clearing agent, overhead %, cinema project. Line choices and these inputs need cost access: a delegate of Kalas who cannot see cost cannot set them.
@@ -728,6 +731,17 @@ Estimation, finance, the sales manager, the GM, MD and CEO see the whole group. 
 - Zayed cannot approve a price whose figures he set.
 - The cost behind a price under review cannot change.
 - One supplier per file in this release.
+
+### Supplier portal — بوابة الموردين *(2026-11-08)*
+
+For the factory, not for PHC staff. A supplier account is linked to one supplier, needs two-step verification, and sees nothing of the Command Center.
+
+| Page | What it is for |
+|---|---|
+| **Requests** `/supplier` | Every request sent to the supplier: project code, reply-by date, status (waiting for your prices, returned for changes, submitted, closed). |
+| **One request** `/supplier/<id>` | The files (download only the versions PHC sent), the lines with quantity and specs, and per line: unit price, price with screen, and what differs from the spec. Then lead time, payment terms and the offer's validity. |
+
+**Submitting:** tick *"My prices are based only on the files attached to this request; any material or spec difference is written on its line."* and press *Submit prices*. The prices lock. If PHC returns lines, only those lines open again, with PHC's message.
 
 ### Reports & Analysis — التقارير والتحليل
 
@@ -938,6 +952,7 @@ opportunity page with the follow-up already scheduled. Don't go looking for the 
 - **Finance:** finance approval on BAFO; you are one of only two roles that can set
   **Total Value**.
 - **Pricing (2026-11-04):** `/pricing` on *Estimation & finance*: package review and BOQ entry, missing items, freeze, sending to the supplier, entering the supplier's prices, cost review (normal or with-screen price), logistics and extras. Settings at `/pricing/settings`; finance also changes the default margin and the margin floor there.
+- **Supplier portal (2026-11-08):** send each frozen file from the Supplier tab, create the supplier's portal account once, copy the messages to the supplier, and follow the request panel. Return only the lines that need fixing from Cost review.
 
 ### General Manager / Managing Director
 
@@ -1018,8 +1033,9 @@ A project now has a responsible salesperson, shown at the top of the project pag
 
 - Zayed's review of a proposed price (approve, return, return lines to the supplier) and the quotation from the approved price come in the next release. Until then a proposed price waits in *Price review*.
 - Reps do not see the pricing state on the deal yet, and cannot answer missing items from their own screen: Zayed records their answer.
-- No notifications are sent yet for any pricing step.
-- The supplier portal is not ready. Zayed enters the supplier's prices on their behalf. The supplier's original file is not attached in the system yet, and entering again overwrites the prices without keeping the earlier ones in the history.
+- Notifications: the supplier's submission and a late supplier only (2026-11-08). Price review, return and quotation notifications come with the next release.
+- No email is sent by the system yet: Zayed copies the account and request messages into his own email or WhatsApp.
+- Entering a supplier's prices on their behalf again overwrites that entry in place (a supplier's own portal submission is always kept as its own revision).
 - One supplier per file. A line priced by two suppliers stops the build.
 - A quote not in SAR is not priced yet.
 - A client revision after a quotation (new quantities) comes in the next release.
@@ -1637,3 +1653,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-03 · pricing loop foundation: database only, no screens yet (limitations note) · branch feat/pricing-loop-foundation, not deployed · previous: info@ mailbox, 2026-10-23 -->
 
 <!-- last reviewed 2026-11-04 · pricing loop screens: Pricing & Finance group, /pricing queue, pricing file (package, supplier, cost review, selling price), /pricing/settings · branch feat/pricing-loop-screens, not deployed · previous: pricing loop foundation, 2026-11-03 -->
+
+<!-- last reviewed 2026-11-08 · supplier portal: supplier accounts with MFA, send to the supplier, /supplier portal, returned lines, notifications on submit and overdue · branch feat/pricing-supplier-portal, not deployed · previous: pricing loop screens, 2026-11-04 -->
