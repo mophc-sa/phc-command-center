@@ -203,13 +203,17 @@ DECLARE inv public.supplier_invitations :=
           public._supplier_invitation_for_vendor(_invitation_id, public._supplier_account_vendor(_supplier_user));
         sf public.supplier_invitation_files := public._supplier_portal_file_checked(inv, _file_id);
         opp uuid;
+        sz bigint;
 BEGIN
   SELECT f.opportunity_id INTO opp FROM public.pricing_files f WHERE f.id = inv.file_id;
+  -- The size storage holds for the object (what will be read into memory), not the documents row.
+  SELECT (o.metadata->>'size')::bigint INTO sz FROM storage.objects o
+   WHERE o.bucket_id = sf.storage_bucket AND o.name = sf.storage_path;
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (_supplier_user, 'user', 'supplier_portal.file_downloaded', 'opportunity', opp,
           jsonb_build_object('invitation_id', inv.id, 'file_id', sf.id, 'document_id', sf.document_id));
   RETURN jsonb_build_object('bucket', sf.storage_bucket, 'path', sf.storage_path, 'name', sf.display_name,
-                            'mime_type', sf.mime_type);
+                            'mime_type', sf.mime_type, 'size_bytes', sz);
 END $$;
 REVOKE ALL ON FUNCTION public._supplier_portal_file_location(uuid, uuid, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._supplier_portal_file_location(uuid, uuid, uuid) TO service_role;

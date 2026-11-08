@@ -122,5 +122,23 @@ test("supplier downloads stream the bytes; no signed URL or storage path leaves 
   const src = readFileSync(join(apiRoot, "handlers/supplier-portal.ts"), "utf8");
   expect(src).not.toContain("createSignedUrl");
   expect(src).toContain('rpc("_supplier_portal_file_location"');
-  expect(src).not.toMatch(/json\([^)]*\bpath\b/);
+  // The location object is only read field by field: never spread, returned, or keyed out.
+  expect(src).not.toMatch(/\.\.\.\s*\(?\s*(located|file)\b/);
+  expect(src).not.toMatch(/(json|err)\(\s*(located|file)\b/);
+  expect(src).not.toMatch(/\b(storage_path|storage_bucket|signedUrl|signed_url)\b/);
+  // json()/Response bodies are built from fields that name no bucket or path.
+  const bodies = src.match(/\bjson\(\s*\{[^}]*\}\s*\)/g) ?? [];
+  for (const body of bodies) expect(body).not.toMatch(/\b(bucket|path)\b/);
+  expect(src.match(/\bnew Response\(/g)?.length).toBe(1);
+  expect(src).toContain("new Response(blob.stream()");
+});
+
+test("sales-os-api cannot lose the supplier gate: it is required and wired to callerMayUseAction", () => {
+  const index = readFileSync(join(apiRoot, "index.ts"), "utf8");
+  expect(index).toMatch(/authorizeAction:\s*\(caller, action\)\s*=>\s*callerMayUseAction\(caller\.roles, action\)/);
+  expect(index).toContain("allowSupplier: true");
+  const router = readFileSync(join(apiRoot, "router.ts"), "utf8");
+  expect(router).toMatch(/readonly authorizeAction:\s*\(/);
+  expect(router).not.toMatch(/authorizeAction\?/);
+  expect(router).not.toMatch(/dependencies\.authorizeAction\s*&&/);
 });

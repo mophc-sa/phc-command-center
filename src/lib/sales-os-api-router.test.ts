@@ -5,6 +5,7 @@ import {
   type SalesOsHandler,
 } from "../../supabase/functions/sales-os-api/contracts";
 import { createSalesOsRequestHandler } from "../../supabase/functions/sales-os-api/router";
+import { callerMayUseAction } from "../../supabase/functions/_shared/supplier-portal";
 
 const caller = { userId: "user-1", roles: ["salesperson" as const] };
 const audit = async () => ({ error: null });
@@ -26,6 +27,7 @@ function makeRouter(handler?: SalesOsHandler) {
       authCalls += 1;
       return caller;
     },
+    authorizeAction: (who, action) => callerMayUseAction(who.roles, action),
     createContext: (resolvedCaller, authorization) =>
       createSalesOsContext(
         resolvedCaller,

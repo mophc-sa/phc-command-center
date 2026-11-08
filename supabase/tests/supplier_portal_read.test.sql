@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 8c prefix. Sessions carry aal2 unless they say otherwise.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(53);
+select plan(54);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -58,11 +58,11 @@ insert into public.documents (id, storage_bucket, storage_path, original_filenam
 insert into public.document_links (document_id, entity_type, entity_id, linked_by) values
   ('8c700001-0000-0000-0000-000000000001','opportunity','8c200001-0000-0000-0000-000000000001','8c000000-0000-0000-0000-000000000001'),
   ('8c700002-0000-0000-0000-000000000001','opportunity','8c200002-0000-0000-0000-000000000001','8c000000-0000-0000-0000-000000000001');
-insert into storage.objects (bucket_id, name, owner, version) values
-  ('attachments','opportunity/8c1/a.pdf','8c000000-0000-0000-0000-000000000001','v1');
+insert into storage.objects (bucket_id, name, owner, version, metadata) values
+  ('attachments','opportunity/8c1/a.pdf','8c000000-0000-0000-0000-000000000001','v1','{"size": 1234}');
 -- Storage reported no updated time for b: it must still download (nothing to compare is not a mismatch).
-insert into storage.objects (bucket_id, name, owner, version, updated_at) values
-  ('attachments','opportunity/8c2/b.pdf','8c000000-0000-0000-0000-000000000001','v1',null);
+insert into storage.objects (bucket_id, name, owner, version, updated_at, metadata) values
+  ('attachments','opportunity/8c2/b.pdf','8c000000-0000-0000-0000-000000000001','v1',null,'{"size": 99}');
 
 -- The pricer sends file 1 to vendor A and file 2 to vendor B.
 create temp table pr_inv (k text, id uuid);
@@ -177,6 +177,8 @@ set local role service_role;
 select set_config('request.jwt.claims','{"role":"service_role"}',true);
 select is((public._supplier_portal_file_location((select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a'),
   '8c000000-0000-0000-0000-000000000004'))->>'path', 'opportunity/8c1/a.pdf', 'The service gets the location once the checks pass');
+select is((public._supplier_portal_file_location((select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a'),
+  '8c000000-0000-0000-0000-000000000004'))->>'size_bytes', '1234', 'The size is the storage object''s, not the documents row''s (1000)');
 select throws_ok(format($$select public._supplier_portal_file_location('%s', '%s', '8c000000-0000-0000-0000-000000000005')$$,
   (select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a')),
   '42501', null, 'Not for another supplier''s user');

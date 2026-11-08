@@ -369,6 +369,16 @@ END $$;
 REVOKE ALL ON FUNCTION public.supplier_account_email(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.supplier_account_email(uuid) TO authenticated;
 
+-- Whether an account has a verified second factor (sales-os-api, service role only):
+-- a set-password link for such an account would let whoever holds it take over the
+-- login with its password, so a pricer may not issue one; the administrator may.
+CREATE OR REPLACE FUNCTION public._supplier_account_has_verified_mfa(_user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM auth.mfa_factors f WHERE f.user_id = _user_id AND f.status = 'verified');
+$$;
+REVOKE ALL ON FUNCTION public._supplier_account_has_verified_mfa(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._supplier_account_has_verified_mfa(uuid) TO service_role;
+
 -- The vendor's portal accounts, for the Supplier tab.
 CREATE OR REPLACE FUNCTION public.pricing_supplier_accounts(_vendor_id uuid)
 RETURNS TABLE (user_id uuid, full_name text, email text, status public.user_status, created_at timestamptz)

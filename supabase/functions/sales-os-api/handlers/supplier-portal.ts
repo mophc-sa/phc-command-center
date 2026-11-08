@@ -34,6 +34,8 @@ const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
 type DbError = { message?: string; code?: string } | null;
 
 function dbError(e: DbError, fallback: string): Response {
+  // A malformed id: never echo the input or Postgres' text.
+  if (e?.code === "22P02") return err("Invalid request. | طلب غير صالح.", 400);
   const status = e?.code === "42501" ? 403 : e?.code === "23514" ? 400 : 409;
   return err(e?.message ?? fallback, status);
 }
@@ -91,7 +93,10 @@ async function supplier_account_create(payload: Record<string, unknown>, ctx: Sa
   }
 
   const url = await setPasswordLink(ctx, email);
-  await ctx.audit(ctx.svc, ctx.caller.userId, "supplier_account.link_issued", "user", created.user.id, {}, ctx.caller.roles);
+  if (url) {
+    await ctx.audit(ctx.svc, ctx.caller.userId, "supplier_account.link_issued", "user", created.user.id,
+      { issued_by: ctx.caller.userId, had_mfa: false }, ctx.caller.roles);
+  }
   return json({ ok: true, user_id: created.user.id, set_password_url: url });
 }
 
@@ -99,9 +104,21 @@ async function supplier_account_password_link(payload: Record<string, unknown>, 
   const userId = String(payload.userId ?? "");
   const { data: email, error } = await ctx.asCaller.rpc("supplier_account_email", { _user_id: userId });
   if (error || typeof email !== "string") return dbError(error, "Not an active supplier account");
+  // A link lets its holder set the password and sign in. For an account that already
+  // has a verified second factor that would hand over half of the login, so only the
+  // system administrator may re-link it (the password alone still cannot pass aal2).
+  const { data: hadMfa, error: mfaError } = await ctx.svc.rpc("_supplier_account_has_verified_mfa", { _user_id: userId });
+  if (mfaError || typeof hadMfa !== "boolean") return err("Could not check the account", 502);
+  if (hadMfa && !ctx.caller.roles.includes("system_admin")) {
+    return err(
+      "This supplier already secured its account; ask the system administrator to reset it. | هذا المورد أمّن حسابه بالفعل؛ اطلب من مدير النظام إعادة تعيينه.",
+      403,
+    );
+  }
   const url = await setPasswordLink(ctx, email);
   if (!url) return err("Could not make a set-password link", 502);
-  await ctx.audit(ctx.svc, ctx.caller.userId, "supplier_account.link_issued", "user", userId, {}, ctx.caller.roles);
+  await ctx.audit(ctx.svc, ctx.caller.userId, "supplier_account.link_issued", "user", userId,
+    { issued_by: ctx.caller.userId, had_mfa: hadMfa }, ctx.caller.roles);
   return json({ ok: true, set_password_url: url });
 }
 
@@ -111,10 +128,6 @@ async function supplier_file_download(payload: Record<string, unknown>, ctx: Sal
   // 1. As the supplier (its session, aal2): its own request and file, the version sent.
   const { data: checked, error: checkError } = await ctx.asCaller.rpc("supplier_portal_file", args);
   if (checkError || !checked) return dbError(checkError, "This file is not available");
-  // The whole object is held in memory before it is streamed back.
-  if (Number((checked as { size_bytes?: number }).size_bytes ?? 0) > MAX_DOWNLOAD_BYTES) {
-    return err("This file is too large to download here", 413);
-  }
 
   // 2. As the service, for the same user: where the bytes are (and the audit row).
   const { data: located, error: locateError } = await ctx.svc.rpc("_supplier_portal_file_location", {
@@ -122,7 +135,12 @@ async function supplier_file_download(payload: Record<string, unknown>, ctx: Sal
     _supplier_user: ctx.caller.userId,
   });
   if (locateError || !located) return dbError(locateError, "This file is not available");
-  const file = located as { bucket: string; path: string; name: string };
+  const file = located as { bucket: string; path: string; name: string; size_bytes: number | null };
+  // The object is held in memory before it is streamed back. The size is storage's own;
+  // an unknown size is refused rather than trusted.
+  if (file.size_bytes == null || Number(file.size_bytes) > MAX_DOWNLOAD_BYTES) {
+    return err("This file is too large to download here. | هذا الملف كبير جداً للتنزيل هنا.", 413);
+  }
 
   // 3. The bytes, read with the service client and streamed back: never a link, never the path.
   const { data: blob, error: downloadError } = await ctx.svc.storage.from(file.bucket).download(file.path);

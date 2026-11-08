@@ -4,7 +4,7 @@
 -- deletable supplier role row: 8a..07 is a vendor-linked profile with no role row.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(92);
+select plan(96);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -246,6 +246,23 @@ select is((select count(*)::int from public.pricing_supplier_accounts('8a100001-
 select is(public.supplier_account_email('8a000000-0000-0000-0000-00000000000a'), 'new@factory.example', 'The pricer gets the address for a new set-password link');
 select throws_ok($$select public.supplier_account_email('8a000000-0000-0000-0000-000000000001')$$,
   '23514', null, 'No set-password link for a staff account through this path');
+select throws_ok($$select public._supplier_account_has_verified_mfa('8a000000-0000-0000-0000-00000000000a')$$,
+  '42501', null, 'A signed-in account cannot ask whether an account has a second factor');
+reset role;
+set local role service_role;
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+select is(public._supplier_account_has_verified_mfa('8a000000-0000-0000-0000-00000000000a'), false, 'No factor: false');
+reset role;
+insert into auth.mfa_factors (id, user_id, factor_type, status, created_at, updated_at)
+  values ('8a900001-0000-0000-0000-000000000001', '8a000000-0000-0000-0000-00000000000a', 'totp', 'unverified', now(), now());
+set local role service_role;
+select is(public._supplier_account_has_verified_mfa('8a000000-0000-0000-0000-00000000000a'), false, 'An unverified factor does not count');
+reset role;
+update auth.mfa_factors set status = 'verified' where id = '8a900001-0000-0000-0000-000000000001';
+set local role service_role;
+select is(public._supplier_account_has_verified_mfa('8a000000-0000-0000-0000-00000000000a'), true, 'A verified factor counts');
+reset role;
+delete from auth.mfa_factors where id = '8a900001-0000-0000-0000-000000000001';
 
 -- The cost basis: a signed-in account that cannot read cost gets nothing; the
 -- Phase 8 margin trigger still computes it for a pipeline user without cost rights.
