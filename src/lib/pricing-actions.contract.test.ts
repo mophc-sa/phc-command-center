@@ -11,7 +11,12 @@ const SQL = readdirSync(dir)
   .sort()
   .map((f) => readFileSync(new URL(f, dir), "utf8").replace(/--[^\n]*/g, ""))
   .join("\n");
-const SRC = readFileSync(new URL("./pricing-actions.ts", import.meta.url), "utf8");
+// The supplier portal's wrappers (PR 3) follow the same rules.
+const SRC = ["./pricing-actions.ts", "./supplier-portal-actions.ts"]
+  .map((f) => readFileSync(new URL(f, import.meta.url), "utf8"))
+  .join("\n");
+/** RPCs that take no parameter. */
+const NO_PARAMS = new Set(["pricing_my_rights", "supplier_portal_invitations"]);
 
 /** The latest definition's parameter list: everything between "FUNCTION public.fn(" and RETURNS. */
 function signature(fn: string): string | undefined {
@@ -124,7 +129,7 @@ describe("pricing-actions", () => {
       .filter(Boolean);
   it.each(calls.map((c) => [c.fn, c.keys] as const))("%s sends every required parameter", (fn, keys) => {
     const required = requiredParams(signature(fn) ?? "");
-    if (fn !== "pricing_my_rights") expect(required.length).toBeGreaterThan(0);
+    if (!NO_PARAMS.has(fn)) expect(required.length).toBeGreaterThan(0);
     expect(required.filter((r) => !keys.includes(r))).toEqual([]);
   });
 
