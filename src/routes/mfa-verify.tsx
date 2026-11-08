@@ -10,6 +10,10 @@ import { Loader2, ShieldCheck } from "lucide-react";
 const phcLogo = { url: "/phc-logo.png" };
 
 export const Route = createFileRoute("/mfa-verify")({
+  validateSearch: (s: Record<string, unknown>): { next?: string } => ({
+    // Same rule as /auth: only a same-site path survives.
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Verify two-factor code — PHC Command Center" },
@@ -23,6 +27,7 @@ function MfaVerifyPage() {
   const { user, loading } = useAuth();
   const { lang, setLang, dir } = useI18n();
   const nav = useNavigate();
+  const { next } = Route.useSearch();
 
   const [factorId, setFactorId] = useState<string | null>(null);
   const [code, setCode] = useState("");
@@ -48,7 +53,7 @@ function MfaVerifyPage() {
         if (cancelled) return;
         if (!verified) {
           // No verified factor at all — this account still needs enrollment.
-          nav({ to: "/mfa-setup", replace: true });
+          nav({ to: "/mfa-setup", search: { next }, replace: true });
           return;
         }
         setFactorId(verified.id);
@@ -69,7 +74,8 @@ function MfaVerifyPage() {
     try {
       const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
       if (error) throw error;
-      nav({ to: "/", replace: true });
+      if (next) window.location.replace(next);
+      else nav({ to: "/", replace: true });
     } catch (err: unknown) {
       const msg = authErrorMessage(err, lang);
       toast.error(msg);

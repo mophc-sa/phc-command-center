@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { isSupplierSession, SUPPLIER_REFUSED_TEXT } from "../../supplier-refusal";
 
 function supabaseForUser(ctx: ToolContext) {
   return createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
@@ -22,6 +23,10 @@ export default defineTool({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
     const sb = supabaseForUser(ctx);
+    const { data: who } = await sb.auth.getUser(ctx.getToken());
+    if (!who.user || (await isSupplierSession(sb, who.user.id))) {
+      return { content: [{ type: "text", text: SUPPLIER_REFUSED_TEXT }], isError: true };
+    }
     const { data, error } = await sb
       .from("ai_agent_runs")
       .select(

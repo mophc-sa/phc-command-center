@@ -31,6 +31,10 @@ async function enrollTotpFactor() {
 }
 
 export const Route = createFileRoute("/mfa-setup")({
+  validateSearch: (s: Record<string, unknown>): { next?: string } => ({
+    // Same rule as /auth: only a same-site path survives.
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Set up two-factor authentication — PHC Command Center" },
@@ -44,6 +48,7 @@ function MfaSetupPage() {
   const { user, loading } = useAuth();
   const { lang, setLang, dir } = useI18n();
   const nav = useNavigate();
+  const { next } = Route.useSearch();
 
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
@@ -90,7 +95,8 @@ function MfaSetupPage() {
       const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
       if (error) throw error;
       toast.success(lang === "ar" ? "تم تفعيل التحقق بخطوتين" : "Two-factor authentication enabled");
-      nav({ to: "/", replace: true });
+      if (next) window.location.replace(next);
+      else nav({ to: "/", replace: true });
     } catch (err: unknown) {
       const msg = authErrorMessage(err, lang);
       toast.error(msg);

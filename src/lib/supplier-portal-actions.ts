@@ -33,8 +33,8 @@ export async function downloadPortalFile(invitationId: string, fileId: string): 
     body: { action: "supplier_file_download", payload: { invitationId, fileId } },
   });
   if (error) {
-    // Same as callBackend: surface the server's message (errors are JSON {error}).
-    let message = error.message || "Could not download the file. | تعذّر تنزيل الملف.";
+    // A fixed bilingual message, replaced only by the server's own {error} body.
+    let message = "Could not download the file. | تعذّر تنزيل الملف.";
     try {
       const ctx = (error as { context?: Response }).context;
       const parsed = ctx ? await ctx.json() : null;

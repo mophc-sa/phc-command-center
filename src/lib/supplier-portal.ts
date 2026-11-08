@@ -170,8 +170,8 @@ export type PortalRedirect =
   | { to: "/auth"; search: { next: string } }
   | { to: "/pending-approval" }
   | { to: "/" }
-  | { to: "/mfa-setup" }
-  | { to: "/mfa-verify" };
+  | { to: "/mfa-setup"; search: { next: string } }
+  | { to: "/mfa-verify"; search: { next: string } };
 export type GateInput = {
   signedIn: boolean;
   status: string | null;
@@ -183,8 +183,10 @@ export function supplierGate(i: GateInput, next: string): { redirect: PortalRedi
   if (!i.status || i.status === "pending_approval") return { redirect: { to: "/pending-approval" }, signOut: false };
   if (i.status !== "active") return { redirect: { to: "/auth", search: { next: "" } }, signOut: true };
   if (!i.roles.includes("supplier")) return { redirect: { to: "/" }, signOut: false };
-  if (i.aal?.nextLevel === "aal1") return { redirect: { to: "/mfa-setup" }, signOut: false };
-  if (i.aal?.nextLevel === "aal2" && i.aal.currentLevel !== "aal2") return { redirect: { to: "/mfa-verify" }, signOut: false };
+  // Fail closed: an unreadable level is aal1 (MFA first); the deep link rides along as `next`.
+  if (!i.aal) return { redirect: { to: "/mfa-verify", search: { next } }, signOut: false };
+  if (i.aal.nextLevel === "aal1") return { redirect: { to: "/mfa-setup", search: { next } }, signOut: false };
+  if (i.aal.nextLevel === "aal2" && i.aal.currentLevel !== "aal2") return { redirect: { to: "/mfa-verify", search: { next } }, signOut: false };
   return { redirect: null, signOut: false };
 }
 

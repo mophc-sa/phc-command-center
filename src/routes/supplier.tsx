@@ -28,8 +28,9 @@ export const Route = createFileRoute("/supplier")({
       status = profile?.status ?? null;
       const { data: rolesRows } = await supabase.from("user_roles").select("role").eq("user_id", data.user!.id);
       roles = (rolesRows ?? []).map((r) => r.role as AppRole);
-      const { data: level } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      aal = level ? { currentLevel: level.currentLevel, nextLevel: level.nextLevel } : null;
+      const { data: level, error: levelError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      // Fail closed: if the level cannot be read, treat the session as aal1 and send it through MFA.
+      aal = !levelError && level ? { currentLevel: level.currentLevel, nextLevel: level.nextLevel } : { currentLevel: "aal1", nextLevel: "aal2" };
     }
     // Staff are not sent away silently: they see a page saying this is not theirs.
     if (signedIn && status === "active" && !roles.includes("supplier")) return { redirectTo: null, notForYou: true };

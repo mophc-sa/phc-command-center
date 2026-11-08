@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { useI18n } from "@/lib/i18n";
@@ -14,6 +14,7 @@ const TEXT = {
 export function SupplierShell({ children }: { children: ReactNode }) {
   const { lang, setLang, dir } = useI18n();
   const { signOut } = useAuth();
+  const navigate = useNavigate();
   return (
     <div dir={dir} className="flex min-h-dvh flex-col bg-background text-foreground">
       <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
@@ -29,7 +30,10 @@ export function SupplierShell({ children }: { children: ReactNode }) {
             {lang === "en" ? "AR" : "EN"}
           </button>
           <button
-            onClick={() => void signOut()}
+            onClick={async () => {
+              await signOut();
+              navigate({ to: "/auth", search: { next: "" }, replace: true });
+            }}
             className="flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <LogOut className="h-3.5 w-3.5" />

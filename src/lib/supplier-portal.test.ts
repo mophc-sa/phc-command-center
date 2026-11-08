@@ -96,7 +96,9 @@ describe("supplierGate", () => {
     expect(supplierGate({ ...ok, status: "pending_approval" }, "").redirect).toEqual({ to: "/pending-approval" });
     expect(supplierGate({ ...ok, status: "suspended" }, "")).toEqual({ redirect: { to: "/auth", search: { next: "" } }, signOut: true });
     expect(supplierGate({ ...ok, roles: ["estimation_manager"] }, "").redirect).toEqual({ to: "/" });
-    expect(supplierGate({ ...ok, aal: { currentLevel: "aal1", nextLevel: "aal1" } }, "").redirect).toEqual({ to: "/mfa-setup" });
-    expect(supplierGate({ ...ok, aal: { currentLevel: "aal1", nextLevel: "aal2" } }, "").redirect).toEqual({ to: "/mfa-verify" });
+    expect(supplierGate({ ...ok, aal: { currentLevel: "aal1", nextLevel: "aal1" } }, "/supplier/x").redirect).toEqual({ to: "/mfa-setup", search: { next: "/supplier/x" } });
+    expect(supplierGate({ ...ok, aal: { currentLevel: "aal1", nextLevel: "aal2" } }, "/supplier/x").redirect).toEqual({ to: "/mfa-verify", search: { next: "/supplier/x" } });
+    // An unreadable assurance level fails closed.
+    expect(supplierGate({ ...ok, aal: null }, "/supplier").redirect).toEqual({ to: "/mfa-verify", search: { next: "/supplier" } });
   });
 });

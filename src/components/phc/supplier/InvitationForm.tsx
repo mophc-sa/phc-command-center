@@ -77,8 +77,18 @@ export function InvitationForm({ invitation }: { invitation: PortalInvitation })
   const [busy, setBusy] = useState(false);
   const left = daysLeft(invitation.reply_by, today);
 
+  // The range limit goes through formatNumber (draftError prints the raw number).
+  const rangeText = (rules: typeof PRICE_RULES): string => {
+    const lo = rules.min != null ? { en: `at least ${formatNumber(rules.min, lang)}`, ar: `${formatNumber(rules.min, lang)} على الأقل` } : null;
+    const hi = rules.below != null ? { en: `below ${formatNumber(rules.below, lang)}`, ar: `أقل من ${formatNumber(rules.below, lang)}` }
+      : rules.max != null ? { en: `at most ${formatNumber(rules.max, lang)}`, ar: `${formatNumber(rules.max, lang)} على الأكثر` } : null;
+    return lang === "ar"
+      ? `القيمة يجب أن تكون ${[lo?.ar, hi?.ar].filter(Boolean).join(" و")}.`
+      : `The value must be ${[lo?.en, hi?.en].filter(Boolean).join(" and ")}.`;
+  };
   const problemText = (p: SubmissionProblem, rules = PRICE_RULES): string =>
-    p === "required" ? pick(TEXT.required, lang)
+    p === "range" ? rangeText(rules)
+    : p === "required" ? pick(TEXT.required, lang)
       : p === "too_long" ? pick(TEXT.tooLong, lang)
         : p === "past_date" ? pick(TEXT.pastDate, lang)
           : p === "no_price" ? pick(TEXT.noPrice, lang)
@@ -92,7 +102,8 @@ export function InvitationForm({ invitation }: { invitation: PortalInvitation })
   };
   const setCell = (lineId: string, k: keyof LineDraft, v: string) => {
     setDrafts((d) => ({ ...d, [lineId]: { ...d[lineId], [k]: v } }));
-    setErrors((e) => { const { [`${lineId}:${k}`]: _gone, ...rest } = e; return rest; });
+    // A price typed anywhere also clears the "price at least one line" error.
+    setErrors((e) => { const { [`${lineId}:${k}`]: _gone, lines: _noPrice, ...rest } = e; return rest; });
   };
 
   // The bytes come back from sales-os-api; save them under the neutral name.
@@ -152,8 +163,8 @@ export function InvitationForm({ invitation }: { invitation: PortalInvitation })
         <StatusPill tone={invitation.editable ? "attention" : "muted"}>{pick(PORTAL_STATUS_LABEL[invitation.status], lang)}</StatusPill>
         <span>{pick(TEXT.replyBy, lang)} {new Date(`${invitation.reply_by}T00:00:00`).toLocaleDateString(localeFor(lang))}</span>
         {invitation.editable ? (
-          left < 0 ? <StatusPill tone="danger">{pick(TEXT.late, lang)} {-left} {pick(TEXT.days, lang)}</StatusPill>
-            : <span className="text-muted-foreground">{left} {pick(TEXT.daysLeft, lang)}</span>
+          left < 0 ? <StatusPill tone="danger">{pick(TEXT.late, lang)} {formatNumber(-left, lang)} {pick(TEXT.days, lang)}</StatusPill>
+            : <span className="text-muted-foreground">{formatNumber(left, lang)} {pick(TEXT.daysLeft, lang)}</span>
         ) : null}
       </div>
       {!invitation.editable ? <p className="text-sm text-muted-foreground">{pick(TEXT.readOnly, lang)}</p> : null}
@@ -164,7 +175,7 @@ export function InvitationForm({ invitation }: { invitation: PortalInvitation })
         <Panel title={pick(TEXT.fromPhc, lang)}><p className="whitespace-pre-line text-sm" dir="auto">{invitation.instructions}</p></Panel>
       ) : null}
 
-      {invitation.editable ? (
+      {invitation.editable && invitation.files.length > 0 ? (
       <Panel title={pick(TEXT.files, lang)} subtitle={pick(TEXT.filesHint, lang)}>
         <ul className="space-y-2 text-sm">
           {invitation.files.map((f) => (
