@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ActionDialog } from "@/components/phc/ActionDialog";
 import { Panel } from "@/components/phc/Panel";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { QueryFailure } from "@/components/phc/QueryFailure";
@@ -10,13 +11,14 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, formatNumber } from "@/lib/i18n";
 import {
   buildPrice, countOpenSuggestions, getPriceSummary, getSellingTotals, listSellingGrid, proposePrice, setLineChoice, suggestExtras,
-  type GridRow, type LineChoice,
+  type GridRow, type LineChoice, type TotalsRow,
 } from "@/lib/pricing-actions";
 import { canBuildPrice, canEditSelling, canSuggestExtras } from "@/lib/pricing-access";
-import { dbMessage, pick, type Bi } from "@/lib/pricing-text";
+import { parseDraft, draftText, type DraftRules } from "@/lib/pricing-input";
+import { dbMessage, draftError, pick, type Bi } from "@/lib/pricing-text";
 import { CostInputsPanel } from "@/components/phc/pricing/CostInputsPanel";
 import { ExtrasPanel } from "@/components/phc/pricing/ExtrasPanel";
-import type { PricingTabProps } from "@/components/phc/pricing/types";
+import { suggestRunKey, type PricingTabProps } from "@/components/phc/pricing/types";
 
 const TEXT = {
   noBoq: { en: "No BOQ on this file yet.", ar: "لا كميات في هذا الملف بعد." },
@@ -35,9 +37,10 @@ const TEXT = {
   multi: { en: "More than one supplier", ar: "أكثر من مورد" },
   noLines: { en: "This BOQ has no lines.", ar: "لا بنود في هذه الكميات." },
   totals: { en: "Totals", ar: "الإجماليات" },
-  totalsSub: { en: "Figures from the server, not a sum of the rows above.", ar: "أرقام من الخادم، وليست مجموع الصفوف أعلاه." },
-  totalCost: { en: "Total cost", ar: "إجمالي التكلفة" },
-  totalSelling: { en: "Total selling price", ar: "إجمالي سعر البيع" },
+  totalsSub: { en: "SAR, excluding VAT. Figures from the server, not a sum of the rows above.", ar: "بالريال السعودي، بدون ضريبة القيمة المضافة. أرقام من الخادم، وليست مجموع الصفوف أعلاه." },
+  totalCost: { en: "Total cost (SAR)", ar: "إجمالي التكلفة (ريال)" },
+  partial: { en: "partial", ar: "جزئي" },
+  totalSelling: { en: "Total selling price (SAR)", ar: "إجمالي سعر البيع (ريال)" },
   marginTotal: { en: "Margin", ar: "الهامش" },
   floor: { en: "Margin floor", ar: "الحد الأدنى للهامش" },
   noFloor: { en: "No floor set", ar: "لا حد أدنى محدد" },
@@ -46,7 +49,12 @@ const TEXT = {
   extrasT: { en: "Extras", ar: "البنود الإضافية" },
   logistics: { en: "Logistics", ar: "الشحن" },
   overhead: { en: "Overhead", ar: "المصاريف العامة" },
-  belowFloor: { en: "Below the floor: write why this price is worth taking.", ar: "أقل من الحد الأدنى: اكتب لماذا يستحق هذا السعر." },
+  belowFloor: { en: "Below the floor: you will be asked to write why this price is worth taking.", ar: "أقل من الحد الأدنى: ستُسأل عن سبب أخذ هذا السعر." },
+  belowFloorDlg: { en: "Below the margin floor: write why this price is worth taking.", ar: "أقل من الحد الأدنى للهامش: اكتب لماذا يستحق هذا السعر." },
+  aboveFloorDlg: { en: "At or above the floor", ar: "عند الحد الأدنى أو أعلى منه" },
+  confirmTitle: { en: "Propose this price to Zayed?", ar: "اقتراح هذا السعر على زايد؟" },
+  confirmSub: { en: "These are the figures that will be proposed (SAR, excluding VAT). If they changed meanwhile, the server refuses and you review the new ones.", ar: "هذه الأرقام التي ستُقترح (ريال، بدون ضريبة). إن تغيّرت في الأثناء يرفض الخادم وتراجع الجديدة." },
+  status: { en: "Floor check", ar: "فحص الحد الأدنى" },
   justification: { en: "Justification", ar: "المبرر" },
   warnTitle: { en: "The price is not complete yet:", ar: "السعر غير مكتمل بعد:" },
   unpricedWarn: { en: "lines have no price (no supplier price in SAR, or no margin or typed price)", ar: "بنود بلا سعر (لا سعر مورد بالريال، أو لا هامش ولا سعر يدوي)" },
@@ -58,6 +66,7 @@ const TEXT = {
     ar: "الاقتراح موقوف: بعض البنود الإضافية المقترحة لم يُقرَّر فيها بعد. اقبل أو ارفض كل بند مقترح في البنود الإضافية أعلاه. إن لم تظهر بنود فاضغط افحص الاقتراحات: قد يكون بند متوقع بلا صف بعد.",
   },
   openUnknown: { en: "Checking which extras are still open…", ar: "جارٍ فحص البنود الإضافية المفتوحة…" },
+  inputsPending: { en: "Some logistics or project inputs are not saved yet (or were refused). Finish them before building or proposing.", ar: "بعض مُدخلات الشحن أو المشروع لم تُحفظ بعد (أو رُفضت). أنهِها قبل البناء أو الاقتراح." },
   suggestFailed: { en: "Could not check the extras suggestions. Try again before proposing.", ar: "تعذّر فحص اقتراحات البنود الإضافية. أعد المحاولة قبل الاقتراح." },
   retry: { en: "Try again", ar: "أعد المحاولة" },
   buildBlocked: { en: "Build price is off until the lines above are fully priced.", ar: "بناء السعر موقوف حتى تُسعَّر البنود أعلاه بالكامل." },
@@ -70,13 +79,53 @@ const TEXT = {
   proposed: { en: "Proposed: the price goes to Zayed's review", ar: "اقتُرح السعر: يذهب لمراجعة زايد" },
   reload: { en: "The figures were reloaded. Review the new totals before proposing again.", ar: "أُعيد تحميل الأرقام. راجع الإجماليات الجديدة قبل الاقتراح مجدداً." },
   gmNote: { en: "Zayed reviews the price you propose. He can approve a price only if he did not set its figures; prices you build are yours.", ar: "يراجع زايد السعر الذي تقترحه. لا يعتمد سعراً وضع هو أرقامه؛ الأسعار التي تبنيها أنت أرقامها لك." },
+  costLink: { en: "Screen or normal price and install type are set on the Cost review tab.", ar: "سعر الشاشة أو العادي ونوع التركيب يُحددان في تبويب مراجعة التكلفة." },
+  costLinkBtn: { en: "Open Cost review", ar: "افتح مراجعة التكلفة" },
+  inEffect: { en: "In effect", ar: "المعمول به" },
+  byTyped: { en: "Typed price", ar: "السعر اليدوي" },
+  byMargin: { en: "Line margin", ar: "هامش البند" },
+  byDefault: { en: "Default margin", ar: "الهامش الافتراضي" },
+  marginSwitch: { en: "Typing a margin replaces the typed price on this line.", ar: "كتابة هامش تحل محل السعر اليدوي في هذا البند." },
+  priceSwitch: { en: "Typing a price replaces the margin on this line.", ar: "كتابة سعر تحل محل الهامش في هذا البند." },
   pricerNote: { en: "Only the GM sets margins and selling prices. You set the cost choices: screen price, install type, logistics and extras.", ar: "الهوامش وأسعار البيع يضعها المدير العام فقط. أنت تضبط اختيارات التكلفة: سعر الشاشة ونوع التركيب والشحن والبنود الإضافية." },
 } satisfies Record<string, Bi>;
 
 const FIELD =
   "w-24 rounded-md border border-border bg-background px-2 py-1 text-end text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60";
 
-type SuggestRun = { key: string; ok: boolean };
+/**
+ * A number box that keeps its text as typed and turns it into a number only when you leave it
+ * ("1.0", "1.05" and "20.05" stay as typed). A refused entry stays on screen with the reason.
+ */
+function NumberBox(props: {
+  saved: number | null;
+  rules: DraftRules;
+  disabled: boolean;
+  label: string;
+  title?: string;
+  placeholder?: string;
+  onCommit: (next: number | null) => void;
+}) {
+  const { lang } = useI18n();
+  const [text, setText] = useState(draftText(props.saved));
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div>
+      <input
+        type="text" inputMode="decimal" className={FIELD} aria-label={props.label} title={props.title}
+        aria-invalid={error ? true : undefined}
+        value={text} placeholder={props.placeholder} disabled={props.disabled}
+        onChange={(e) => { setText(e.target.value); setError(null); }}
+        onBlur={() => {
+          const r = parseDraft(text, props.rules);
+          if (!r.ok) return setError(draftError(r.reason, lang));
+          if (r.value !== props.saved) props.onCommit(r.value);
+        }}
+      />
+      {error ? <div className="mt-1 max-w-48 text-xs text-destructive">{error}</div> : null}
+    </div>
+  );
+}
 
 export function SellingPriceTab(props: PricingTabProps) {
   const { file, rights, onChanged } = props;
@@ -95,32 +144,31 @@ export function SellingPriceTab(props: PricingTabProps) {
 
   // Suggest on open, once per file and round, so the open count below is true.
   const suggestable = costOk && canSuggestExtras(file.state, rights);
-  const suggestKey = `${file.file_id}:${revisionId}`;
-  const [suggestRun, setSuggestRun] = useState<SuggestRun | null>(null);
-  const started = useRef<string | null>(null);
-  async function runSuggest() {
-    started.current = suggestKey;
-    setSuggestRun(null);
-    let ok = true;
-    try {
-      await suggestExtras(file.file_id);
-    } catch (e) {
-      ok = false;
-      toast.error(dbMessage(e, lang));
-    }
-    setSuggestRun({ key: suggestKey, ok });
-    void qc.invalidateQueries({ queryKey: ["pricing-extras", file.file_id] });
-  }
-  useEffect(() => {
-    if (suggestable && started.current !== suggestKey) void runSuggest();
-    // runSuggest closes over suggestKey only through the key checked here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [suggestable, suggestKey]);
+  const suggestKey = suggestRunKey(file.file_id, revisionId);
+  // The query is the "has the on-open check finished for this file and round" record. Check suggestions
+  // in the Extras panel writes a success into it. Never refetches by itself; Try again does.
+  const suggest = useQuery({
+    queryKey: suggestKey,
+    queryFn: async () => {
+      try {
+        const n = await suggestExtras(file.file_id);
+        void qc.invalidateQueries({ queryKey: ["pricing-extras", file.file_id] });
+        void qc.invalidateQueries({ queryKey: ["pricing-open-suggestions", file.file_id] });
+        return n;
+      } catch (e) {
+        toast.error(dbMessage(e, lang));
+        throw e;
+      }
+    },
+    enabled: suggestable,
+    retry: false,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   const suggestStatus: "na" | "running" | "done" | "failed" = !suggestable
     ? "na"
-    : suggestRun?.key !== suggestKey
-      ? "running"
-      : suggestRun.ok ? "done" : "failed";
+    : suggest.isSuccess ? "done" : suggest.isError && !suggest.isFetching ? "failed" : "running";
 
   const open = useQuery({
     queryKey: ["pricing-open-suggestions", file.file_id, revisionId],
@@ -130,7 +178,8 @@ export function SellingPriceTab(props: PricingTabProps) {
 
   const sellingEditable = canEditSelling(file.state, rights);
   const canBuild = canBuildPrice(file.state, rights);
-  const [justification, setJustification] = useState("");
+  const [snapshot, setSnapshot] = useState<TotalsRow | null>(null);
+  const [inputsPending, setInputsPending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resetNonce, setResetNonce] = useState(0);
   const money = (n: number | null | undefined) => (n == null ? "—" : formatNumber(n, lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -151,9 +200,11 @@ export function SellingPriceTab(props: PricingTabProps) {
   // The server refuses all of these too; this only says why the button is off.
   const ready = !!t && !incomplete && t.line_count > 0 && (t.total_selling ?? 0) > 0;
   const belowFloor = t?.below_floor === true;
-  const fresh = !totals.isFetching && !grid.isFetching && !open.isFetching;
-  const extrasDecided = openCount === 0;
-  const canPropose = canBuild && ready && extrasDecided && fresh && (!belowFloor || justification.trim().length > 0);
+  const fresh = !totals.isFetching && !grid.isFetching && !open.isFetching && !suggest.isFetching;
+  // Propose waits for the on-open suggestion check of this file and round, a fresh open count, and saved inputs.
+  const suggestSettled = suggestStatus === "done" || suggestStatus === "na";
+  const extrasDecided = suggestSettled && !open.isError && openCount === 0;
+  const canPropose = canBuild && ready && extrasDecided && fresh && !inputsPending;
   const priceStale = price.data?.proposed_price != null && t?.total_selling != null && price.data.proposed_price !== t.total_selling;
 
   async function choose(g: GridRow, choice: LineChoice) {
@@ -169,7 +220,6 @@ export function SellingPriceTab(props: PricingTabProps) {
       setBusy(false);
     }
   }
-  const numOrNull = (s: string) => (s.trim() === "" || !Number.isFinite(Number(s)) ? null : Number(s));
 
   async function build() {
     if (busy) return;
@@ -186,11 +236,12 @@ export function SellingPriceTab(props: PricingTabProps) {
     }
   }
 
-  async function propose() {
-    if (busy || !t || t.total_selling == null) return;
+  async function propose(snap: TotalsRow, justification: string) {
+    if (busy || snap.total_selling == null) return;
     setBusy(true);
     try {
-      await proposePrice(file.file_id, t.total_selling, t.total_cost, belowFloor ? justification.trim() : undefined);
+      // Exactly the figures the confirmation showed.
+      await proposePrice(file.file_id, snap.total_selling, snap.total_cost, snap.below_floor ? justification.trim() : undefined);
       toast.success(pick(TEXT.proposed, lang));
       onChanged();
     } catch (e) {
@@ -199,6 +250,7 @@ export function SellingPriceTab(props: PricingTabProps) {
       onChanged();
     } finally {
       setBusy(false);
+      setSnapshot(null);
     }
   }
 
@@ -207,10 +259,17 @@ export function SellingPriceTab(props: PricingTabProps) {
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">{pick(rights.is_gm ? TEXT.gmNote : TEXT.pricerNote, lang)}</p>
-      <CostInputsPanel {...props} />
+      {props.goToCost ? (
+        <p className="text-sm text-muted-foreground">
+          {pick(TEXT.costLink, lang)}{" "}
+          <Button size="sm" variant="outline" onClick={props.goToCost}>{pick(TEXT.costLinkBtn, lang)}</Button>
+        </p>
+      ) : null}
+      <CostInputsPanel {...props} onPending={setInputsPending} />
       <ExtrasPanel {...props} />
 
       <Panel title={pick(TEXT.lines, lang)} subtitle={pick(TEXT.linesSub, lang)}>
+        {sellingEditable ? <p className="mb-2 text-xs text-muted-foreground">{pick(TEXT.marginSwitch, lang)} {pick(TEXT.priceSwitch, lang)}</p> : null}
         <Table>
           <TableHeader>
             <TableRow>
@@ -243,33 +302,34 @@ export function SellingPriceTab(props: PricingTabProps) {
                 <TableCell className="text-end tabular-nums">{formatNumber(g.quantity, lang)}</TableCell>
                 <TableCell className="text-end tabular-nums">{money(g.line_cost)}</TableCell>
                 <TableCell className="text-end">
-                  <input
+                  <NumberBox
                     key={`m-${g.boq_line_id}-${g.line_margin_pct ?? ""}-${resetNonce}`}
-                    type="number" step="0.01" className={FIELD}
-                    aria-label={`${pick(TEXT.marginIn, lang)}: ${g.sign_type}`}
-                    defaultValue={g.line_margin_pct ?? ""}
+                    saved={g.line_margin_pct} rules={{ above: -100, below: 100 }}
+                    label={`${pick(TEXT.marginIn, lang)}: ${g.sign_type}`}
+                    title={pick(TEXT.marginSwitch, lang)}
                     placeholder={g.default_margin_pct == null ? "" : String(g.default_margin_pct)}
-                    disabled={!sellingEditable || busy || g.typed_selling_price != null}
-                    onBlur={(e) => {
-                      const next = numOrNull(e.currentTarget.value);
-                      if (next !== g.line_margin_pct) void choose(g, { margin_pct: next });
-                    }}
+                    disabled={!sellingEditable || busy}
+                    onCommit={(next) => void choose(g, { margin_pct: next })}
                   />
                 </TableCell>
                 <TableCell className="text-end">
-                  <input
+                  <NumberBox
                     key={`s-${g.boq_line_id}-${g.typed_selling_price ?? ""}-${resetNonce}`}
-                    type="number" step="0.01" min={0} className={FIELD}
-                    aria-label={`${pick(TEXT.typed, lang)}: ${g.sign_type}`}
-                    defaultValue={g.typed_selling_price ?? ""}
+                    saved={g.typed_selling_price} rules={{ above: 0 }}
+                    label={`${pick(TEXT.typed, lang)}: ${g.sign_type}`}
+                    title={pick(TEXT.priceSwitch, lang)}
                     disabled={!sellingEditable || busy}
-                    onBlur={(e) => {
-                      const next = numOrNull(e.currentTarget.value);
-                      if (next !== g.typed_selling_price) void choose(g, { selling_price: next });
-                    }}
+                    onCommit={(next) => void choose(g, { selling_price: next })}
                   />
                 </TableCell>
-                <TableCell className="text-end tabular-nums">{money(g.selling_price)}</TableCell>
+                <TableCell className="text-end tabular-nums">
+                  {money(g.selling_price)}
+                  {g.selling_price != null ? (
+                    <div className="text-xs font-normal text-muted-foreground">
+                      {pick(TEXT.inEffect, lang)}: {pick(g.typed_selling_price != null ? TEXT.byTyped : g.line_margin_pct != null ? TEXT.byMargin : TEXT.byDefault, lang)}
+                    </div>
+                  ) : null}
+                </TableCell>
                 <TableCell className="text-end tabular-nums">{pct(g.margin_pct)}</TableCell>
               </TableRow>
             ))}
@@ -280,7 +340,9 @@ export function SellingPriceTab(props: PricingTabProps) {
       <Panel title={pick(TEXT.totals, lang)} subtitle={pick(TEXT.totalsSub, lang)} tone={belowFloor ? "attention" : "default"}>
         <div className="space-y-4 text-sm">
           <dl className="grid gap-3 sm:grid-cols-4">
-            <div><dt className="text-muted-foreground">{pick(TEXT.totalCost, lang)}</dt><dd className="text-lg font-semibold tabular-nums">{money(t?.total_cost)}</dd></div>
+            <div><dt className="text-muted-foreground">{pick(TEXT.totalCost, lang)}</dt><dd className="text-lg font-semibold tabular-nums">
+              {unpriced > 0 ? <>{money(t?.total_cost)} <StatusPill tone="attention">{pick(TEXT.partial, lang)}</StatusPill></> : money(t?.total_cost)}
+            </dd></div>
             <div><dt className="text-muted-foreground">{pick(TEXT.totalSelling, lang)}</dt><dd className="text-lg font-semibold tabular-nums">{unpriced > 0 ? "—" : money(t?.total_selling)}</dd></div>
             <div><dt className="text-muted-foreground">{pick(TEXT.marginTotal, lang)}</dt><dd className="text-lg font-semibold tabular-nums">{unpriced > 0 ? "—" : pct(t?.margin_pct)}</dd></div>
             <div><dt className="text-muted-foreground">{pick(TEXT.floor, lang)}</dt><dd className="text-lg font-semibold tabular-nums">{t?.floor_pct == null ? pick(TEXT.noFloor, lang) : pct(t.floor_pct)}</dd></div>
@@ -309,11 +371,11 @@ export function SellingPriceTab(props: PricingTabProps) {
           {canBuild && suggestStatus === "failed" ? (
             <p className="text-destructive">
               {pick(TEXT.suggestFailed, lang)}{" "}
-              <Button size="sm" variant="outline" disabled={busy} onClick={() => void runSuggest()}>{pick(TEXT.retry, lang)}</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void suggest.refetch()}>{pick(TEXT.retry, lang)}</Button>
             </p>
           ) : null}
-          {canBuild && suggestStatus !== "failed" && openCount == null ? <p className="text-muted-foreground">{pick(TEXT.openUnknown, lang)}</p> : null}
-          {canBuild && openCount != null && openCount > 0 ? (
+          {canBuild && suggestStatus !== "failed" && (openCount == null || suggestStatus === "running") ? <p className="text-muted-foreground">{pick(TEXT.openUnknown, lang)}</p> : null}
+          {canBuild && suggestSettled && openCount != null && openCount > 0 ? (
             <p className="text-amber-light">{formatNumber(openCount, lang)} · {pick(TEXT.openWarn, lang)}</p>
           ) : null}
           {price.data ? (
@@ -325,29 +387,42 @@ export function SellingPriceTab(props: PricingTabProps) {
           {price.data?.status === "returned" && price.data.return_reason ? (
             <p className="text-amber-light">{pick(TEXT.returned, lang)}: {price.data.return_reason}</p>
           ) : null}
-          {belowFloor && canBuild ? (
-            <label className="block space-y-1">
-              <span>{pick(TEXT.belowFloor, lang)}</span>
-              <textarea
-                className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm"
-                aria-label={pick(TEXT.justification, lang)}
-                value={justification}
-                onChange={(e) => setJustification(e.target.value)}
-              />
-            </label>
-          ) : null}
+          {belowFloor && canBuild ? <p className="text-amber-light">{pick(TEXT.belowFloor, lang)}</p> : null}
+          {canBuild && inputsPending ? <p className="text-destructive">{pick(TEXT.inputsPending, lang)}</p> : null}
           {canBuild ? (
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" disabled={busy || !ready || !fresh} onClick={() => void build()}>
+              <Button variant="outline" disabled={busy || !ready || !fresh || inputsPending} onClick={() => void build()}>
                 {pick(TEXT.build, lang)}
               </Button>
-              <Button disabled={busy || !canPropose} onClick={() => void propose()}>
+              <Button disabled={busy || !canPropose} onClick={() => setSnapshot(t ?? null)}>
                 {pick(TEXT.propose, lang)}
               </Button>
             </div>
           ) : null}
         </div>
       </Panel>
+      <ActionDialog
+        open={snapshot != null}
+        recordId={file.file_id}
+        onOpenChange={(o) => !o && !busy && setSnapshot(null)}
+        title={pick(TEXT.confirmTitle, lang)}
+        description={snapshot ? (
+          <span className="block space-y-2">
+            <span className="block">{pick(TEXT.confirmSub, lang)}</span>
+            <span className="grid grid-cols-2 gap-x-4 gap-y-1 text-foreground">
+              <span>{pick(TEXT.totalSelling, lang)}</span><span className="text-end tabular-nums">{money(snapshot.total_selling)}</span>
+              <span>{pick(TEXT.totalCost, lang)}</span><span className="text-end tabular-nums">{money(snapshot.total_cost)}</span>
+              <span>{pick(TEXT.marginTotal, lang)}</span><span className="text-end tabular-nums">{pct(snapshot.margin_pct)}</span>
+              <span>{pick(TEXT.floor, lang)}</span><span className="text-end tabular-nums">{snapshot.floor_pct == null ? pick(TEXT.noFloor, lang) : pct(snapshot.floor_pct)}</span>
+              <span>{pick(TEXT.status, lang)}</span>
+              <span className="text-end">{snapshot.below_floor ? pick(TEXT.belowFloorDlg, lang) : pick(TEXT.aboveFloorDlg, lang)}</span>
+            </span>
+          </span>
+        ) : undefined}
+        fields={snapshot?.below_floor ? [{ key: "justification", type: "textarea", label: pick(TEXT.justification, lang), required: true }] : []}
+        submitLabel={pick(TEXT.propose, lang)}
+        onSubmit={async (v) => { if (snapshot) await propose(snapshot, v.justification ?? ""); }}
+      />
     </div>
   );
 }

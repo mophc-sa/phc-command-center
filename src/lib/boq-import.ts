@@ -116,7 +116,7 @@ export function findHeaderRow(rows: readonly (readonly unknown[])[]): number {
 }
 
 /** Western digits from Arabic-Indic (U+0660–0669) and extended (U+06F0–06F9); U+066B is the decimal mark, U+066C is dropped, U+060C becomes a comma. */
-function westernDigits(s: string): string {
+export function westernDigits(s: string): string {
   let out = "";
   for (const ch of s) {
     const c = ch.codePointAt(0) ?? 0;

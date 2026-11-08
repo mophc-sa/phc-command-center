@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,9 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatNumber } from "@/lib/i18n";
 import { addExtra, decideExtra, listCatalog, listFileExtras, suggestExtras, type FileExtraRow } from "@/lib/pricing-actions";
 import { canEditLineCost, canSuggestExtras } from "@/lib/pricing-access";
-import { asError, dbMessage, pick, type Bi } from "@/lib/pricing-text";
-import type { PricingTabProps } from "@/components/phc/pricing/types";
+import { parseDraft } from "@/lib/pricing-input";
+import { asError, dbMessage, draftError, pick, type Bi } from "@/lib/pricing-text";
+import { suggestRunKey, type PricingTabProps } from "@/components/phc/pricing/types";
 
 const TEXT = {
   title: { en: "Extras", ar: "البنود الإضافية" },
@@ -42,6 +43,7 @@ const FIELD =
 
 export function ExtrasPanel({ file, rights, onChanged }: PricingTabProps) {
   const { lang } = useI18n();
+  const qc = useQueryClient();
   const revisionId = file.boq_revision_id;
   const costOk = rights.can_read_cost;
   const extras = useQuery({
@@ -81,6 +83,9 @@ export function ExtrasPanel({ file, rights, onChanged }: PricingTabProps) {
     setBusy(true);
     try {
       const n = await suggestExtras(file.file_id);
+      // A successful check is also the on-open check: it clears a failed one, and the open count is stale now.
+      qc.setQueryData(suggestRunKey(file.file_id, revisionId), n);
+      void qc.invalidateQueries({ queryKey: ["pricing-open-suggestions", file.file_id] });
       toast.success(`${n} ${pick(TEXT.added, lang)}`);
       onChanged();
     } catch (e) {
@@ -90,7 +95,12 @@ export function ExtrasPanel({ file, rights, onChanged }: PricingTabProps) {
     }
   }
 
-  const num = (s: string | undefined) => (s == null || s.trim() === "" ? undefined : Number(s));
+  // Quantity and rate stay text while typed; they become numbers here, with the import's comma rules.
+  const parsed = (s: string | undefined): { ok: true; value?: number } | { ok: false; message: string } => {
+    const r = parseDraft(s ?? "", { min: 0 });
+    return r.ok ? { ok: true, value: r.value ?? undefined } : { ok: false, message: draftError(r.reason, lang) };
+  };
+  const addQty = parsed(add.quantity);
   const rows = extras.data ?? [];
 
   return (
@@ -119,7 +129,7 @@ export function ExtrasPanel({ file, rights, onChanged }: PricingTabProps) {
                     <TableCell>{name(x)}{x.catalog ? <span className="text-xs text-muted-foreground"> · {x.catalog.unit}</span> : null}</TableCell>
                     <TableCell className="text-end">
                       {open ? (
-                        <input type="number" min={0} className={`${FIELD} w-24`} aria-label={`${pick(TEXT.qty, lang)}: ${name(x)}`}
+                        <input type="text" inputMode="decimal" className={`${FIELD} w-24`} aria-label={`${pick(TEXT.qty, lang)}: ${name(x)}`}
                           value={e.quantity ?? String(x.quantity)} disabled={busy}
                           onChange={(ev) => setEdits((m) => ({ ...m, [x.id]: { ...m[x.id], quantity: ev.target.value } }))} />
                       ) : (
@@ -128,7 +138,7 @@ export function ExtrasPanel({ file, rights, onChanged }: PricingTabProps) {
                     </TableCell>
                     <TableCell className="text-end">
                       {open ? (
-                        <input type="number" min={0} className={`${FIELD} w-28`} aria-label={`${pick(TEXT.rate, lang)}: ${name(x)}`}
+                        <input type="text" inputMode="decimal" className={`${FIELD} w-28`} aria-label={`${pick(TEXT.rate, lang)}: ${name(x)}`}
                           value={e.rate ?? String(x.rate)} disabled={busy}
                           onChange={(ev) => setEdits((m) => ({ ...m, [x.id]: { ...m[x.id], rate: ev.target.value } }))} />
                       ) : (
@@ -144,7 +154,12 @@ export function ExtrasPanel({ file, rights, onChanged }: PricingTabProps) {
                     <TableCell className="text-end">
                       {open ? (
                         <div className="flex justify-end gap-1">
-                          <Button size="sm" disabled={busy} onClick={() => void run(() => decideExtra(x.id, true, { quantity: num(e.quantity), rate: num(e.rate) }))}>
+                          <Button size="sm" disabled={busy} onClick={() => {
+                            const q = parsed(e.quantity), rt = parsed(e.rate);
+                            if (!q.ok) return void toast.error(q.message);
+                            if (!rt.ok) return void toast.error(rt.message);
+                            void run(() => decideExtra(x.id, true, { quantity: q.value, rate: rt.value }));
+                          }}>
                             {pick(TEXT.accept, lang)}
                           </Button>
                           <Button size="sm" variant="outline" disabled={busy} onClick={() => setDismissing(x)}>{pick(TEXT.dismiss, lang)}</Button>
@@ -171,19 +186,23 @@ export function ExtrasPanel({ file, rights, onChanged }: PricingTabProps) {
             </label>
             <label className="space-y-1 text-sm">
               <span>{pick(TEXT.qty, lang)}</span>
-              <input type="number" min={0} className={FIELD} disabled={busy} value={add.quantity} onChange={(e) => setAdd((a) => ({ ...a, quantity: e.target.value }))} />
+              <input type="text" inputMode="decimal" className={FIELD} disabled={busy} value={add.quantity} onChange={(e) => setAdd((a) => ({ ...a, quantity: e.target.value }))} />
             </label>
             <label className="space-y-1 text-sm">
               <span>{pick(TEXT.rate, lang)}</span>
-              <input type="number" min={0} className={FIELD} disabled={busy} value={add.rate}
+              <input type="text" inputMode="decimal" className={FIELD} disabled={busy} value={add.rate}
                 placeholder={String((catalog.data ?? []).find((c) => c.id === add.id)?.default_rate ?? "")}
                 onChange={(e) => setAdd((a) => ({ ...a, rate: e.target.value }))} />
             </label>
-            <Button disabled={busy || !add.id || !(Number(add.quantity) > 0)}
-              onClick={() => void run(async () => {
-                await addExtra(file.file_id, add.id, Number(add.quantity), num(add.rate) ?? null);
-                setAdd({ id: "", quantity: "1", rate: "" });
-              })}>
+            <Button disabled={busy || !add.id || !(addQty.ok && (addQty.value ?? 0) > 0)}
+              onClick={() => {
+                const rt = parsed(add.rate);
+                if (!rt.ok) return void toast.error(rt.message);
+                void run(async () => {
+                  await addExtra(file.file_id, add.id, addQty.ok ? (addQty.value ?? 0) : 0, rt.value ?? null);
+                  setAdd({ id: "", quantity: "1", rate: "" });
+                });
+              }}>
               {pick(TEXT.addBtn, lang)}
             </Button>
           </div>

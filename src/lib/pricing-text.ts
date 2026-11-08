@@ -22,3 +22,13 @@ export function dbMessage(e: unknown, lang: Lang): string {
 
 /** For ActionDialog onSubmit: rethrow so the dialog stays open and shows the message. */
 export const asError = (e: unknown, lang: Lang): Error => new Error(dbMessage(e, lang));
+
+const DRAFT_ERROR = {
+  not_a_number: { en: "Enter a number.", ar: "أدخل رقماً." },
+  ambiguous: { en: "Comma is unclear (1,5 may mean 1.5 or 15). Use a dot for decimals and no comma, or exactly three digits after a thousands comma.", ar: "الفاصلة غير واضحة (1,5 قد تعني 1.5 أو 15). استعمل النقطة للكسور، ولا فاصلة إلا لآلاف بثلاث خانات بعدها." },
+  range: { en: "Value is out of the allowed range.", ar: "القيمة خارج المدى المسموح." },
+  not_integer: { en: "Enter a whole number.", ar: "أدخل عدداً صحيحاً." },
+} satisfies Record<string, Bi>;
+
+/** What to tell the reader when a typed number is refused (see pricing-input.ts). */
+export const draftError = (reason: keyof typeof DRAFT_ERROR, lang: Lang): string => DRAFT_ERROR[reason][lang];

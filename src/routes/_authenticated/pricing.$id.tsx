@@ -80,7 +80,8 @@ function PricingFilePage() {
   const f = file.data;
   const tabs = visibleTabs(r);
   const current: PricingTab = tab && tabs.includes(tab) ? tab : defaultTab(f.state, r);
-  const props = { file: f, rights: r, onChanged };
+  const goToCost = tabs.includes("cost") ? () => void navigate({ search: { tab: "cost" as PricingTab } }) : undefined;
+  const props = { file: f, rights: r, onChanged, goToCost };
 
   async function start() {
     try {
