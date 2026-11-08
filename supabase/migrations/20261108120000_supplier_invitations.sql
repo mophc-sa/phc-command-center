@@ -14,6 +14,10 @@
 -- pricer's confirmation it cancels the other suppliers' live quotes on this
 -- revision and clears selections, through PR 2's entry flag (the file is
 -- at_supplier by then, which the flag requires).
+--
+-- An open request stays 'sent'/'opened' if its file later moves past at_supplier
+-- or closes: the portal functions (Task 3) filter on the file's state, and
+-- cancel/extend refuse a file that is no longer at the supplier.
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS public.supplier_invitations (
@@ -96,8 +100,10 @@ CREATE POLICY audit_session_boundary ON public.supplier_invitation_files AS REST
   USING ((SELECT public.has_app_access(auth.uid()))) WITH CHECK ((SELECT public.has_app_access(auth.uid())));
 
 -- Riyadh's date: reply-by dates are business days in Saudi Arabia, not UTC.
+-- Internal helper: the SECURITY DEFINER functions below call it as the owner.
 CREATE OR REPLACE FUNCTION public._pricing_today()
 RETURNS date LANGUAGE sql STABLE AS $$ SELECT (now() AT TIME ZONE 'Asia/Riyadh')::date; $$;
+REVOKE ALL ON FUNCTION public._pricing_today() FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.pricing_send_to_supplier(_file_id uuid, _vendor_id uuid, _reply_by date,
   _document_ids uuid[], _instructions text DEFAULT NULL, _replace_earlier boolean DEFAULT false)
@@ -105,6 +111,7 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE u uuid := auth.uid(); f public.pricing_files; inv public.supplier_invitations; code text;
         today date := public._pricing_today(); others integer; selected integer; n_lines integer;
         d record; ext text; ins text := nullif(btrim(coalesce(_instructions, '')), '');
+        cancelled_ids uuid[] := '{}'; cleared_ids uuid[] := '{}'; est_ids uuid[];
 BEGIN
   IF NOT public.is_pricer(u) THEN
     RAISE EXCEPTION 'Only estimation or finance send a file to the supplier. | إرسال الملف للمورد للتقدير أو المالية.' USING ERRCODE = '42501';
@@ -123,8 +130,9 @@ BEGIN
     RAISE EXCEPTION 'The note to the supplier is up to 1000 characters. | الملاحظة للمورد حتى 1000 حرف.' USING ERRCODE = '23514';
   END IF;
 
-  -- Lock order: the file's price, then the file. A file at boq_frozen or
-  -- at_supplier has no price under review, so the file lock is the first.
+  -- Lock order: estimation -> price -> file (PR 1). This RPC holds only the file
+  -- lock: it writes neither an estimation nor an internal price. (A file at
+  -- at_supplier may carry a price the supplier returned; it is not touched here.)
   SELECT * INTO f FROM public.pricing_files WHERE id = _file_id FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Unknown pricing file. | ملف التسعير غير موجود.' USING ERRCODE = '23514';
@@ -172,8 +180,20 @@ BEGIN
   SELECT count(*) INTO selected FROM public.supplier_quote_lines l
     JOIN public.supplier_quotes q ON q.id = l.supplier_quote_id
    WHERE q.boq_revision_id = f.boq_revision_id AND l.is_selected;
+  -- Clearing a selection changes what estimation_cost_basis sums for EVERY
+  -- estimation on this revision (it adds up the selected lines). The file's own
+  -- estimation is the one this file is priced from; any other would silently
+  -- change its cost, so the send is refused, confirmation or not.
+  IF selected > 0 THEN
+    SELECT array_agg(e.id ORDER BY e.created_at, e.id) INTO est_ids FROM public.estimations e
+     WHERE e.boq_revision_id = f.boq_revision_id AND e.id IS DISTINCT FROM f.estimation_id;
+    IF est_ids IS NOT NULL THEN
+      RAISE EXCEPTION 'Another estimation on this BOQ uses the selected supplier prices; clearing them would change its cost. Finish or cancel that estimation first. | تقدير آخر على هذه الكميات يستخدم أسعار المورد المختارة؛ إلغاؤها يغيّر تكلفته. أنهِ ذلك التقدير أو ألغه أولاً.'
+        USING ERRCODE = 'P0001', DETAIL = 'estimations: ' || array_to_string(est_ids, ',');
+    END IF;
+  END IF;
   IF (others > 0 OR selected > 0) AND NOT coalesce(_replace_earlier, false) THEN
-    RAISE EXCEPTION 'This BOQ already has supplier prices from before the freeze (another supplier''s quote or a selection). Confirm to cancel them for this file. | لهذه الكميات أسعار مورد من قبل التجميد (عرض مورد آخر أو اختيار). أكّد لإلغائها لهذا الملف.'
+    RAISE EXCEPTION 'This BOQ already has supplier prices on this revision (another supplier''s quote, or a selection by anyone). Confirm to cancel them for this file. | لهذه الكميات أسعار مورد على هذه المراجعة (عرض مورد آخر، أو اختيار من أي مستخدم). أكّد لإلغائها لهذا الملف.'
       USING ERRCODE = 'P0001';
   END IF;
 
@@ -183,13 +203,19 @@ BEGIN
   END IF;
   IF others > 0 OR selected > 0 THEN
     PERFORM set_config('phc.pricing_supplier_entry', f.boq_revision_id::text, true);
-    UPDATE public.supplier_quote_lines l SET is_selected = false, selected_by = NULL, selected_at = NULL
-      FROM public.supplier_quotes q
-     WHERE q.id = l.supplier_quote_id AND q.boq_revision_id = f.boq_revision_id AND l.is_selected;
-    UPDATE public.supplier_quotes q
-       SET status = 'cancelled', cancel_reason = 'Another supplier was chosen for this pricing file'
-     WHERE q.boq_revision_id = f.boq_revision_id AND q.vendor_id <> _vendor_id
-       AND q.is_current AND q.status NOT IN ('cancelled','superseded');
+    WITH c AS (
+      UPDATE public.supplier_quote_lines l SET is_selected = false, selected_by = NULL, selected_at = NULL
+        FROM public.supplier_quotes q
+       WHERE q.id = l.supplier_quote_id AND q.boq_revision_id = f.boq_revision_id AND l.is_selected
+      RETURNING l.id)
+    SELECT coalesce(array_agg(id ORDER BY id), '{}') INTO cleared_ids FROM c;
+    WITH c AS (
+      UPDATE public.supplier_quotes q
+         SET status = 'cancelled', cancel_reason = 'Another supplier was chosen for this pricing file'
+       WHERE q.boq_revision_id = f.boq_revision_id AND q.vendor_id <> _vendor_id
+         AND q.is_current AND q.status NOT IN ('cancelled','superseded')
+      RETURNING q.id)
+    SELECT coalesce(array_agg(id ORDER BY id), '{}') INTO cancelled_ids FROM c;
     PERFORM set_config('phc.pricing_supplier_entry', '', true);
   END IF;
 
@@ -200,8 +226,12 @@ BEGIN
   SELECT inv.id, l.id FROM public.boq_lines l WHERE l.revision_id = f.boq_revision_id;
   GET DIAGNOSTICS n_lines = ROW_COUNT;
   FOR d IN
-    SELECT dd.id, dd.original_filename, dd.storage_bucket, dd.storage_path, dd.mime_type, dd.size_bytes, dd.checksum,
-           o.version AS object_version, o.updated_at AS object_updated_at, x.ord
+    SELECT dd.id, dd.original_filename, dd.storage_bucket, dd.storage_path, dd.mime_type, dd.size_bytes,
+           o.version AS object_version, o.updated_at AS object_updated_at, x.ord,
+           -- The hash of the bytes actually sent: the storage object's own ETag,
+           -- never the documents row (which may describe other bytes). NULL when
+           -- storage reports none. Task 3's re-check compares version + updated_at.
+           nullif(btrim(o.metadata->>'eTag', '"'), '') AS object_checksum
       FROM unnest(_document_ids) WITH ORDINALITY AS x(id, ord)
       JOIN public.documents dd ON dd.id = x.id
       JOIN storage.objects o ON o.bucket_id = dd.storage_bucket AND o.name = dd.storage_path
@@ -211,7 +241,7 @@ BEGIN
     INSERT INTO public.supplier_invitation_files (invitation_id, document_id, display_name, storage_bucket, storage_path,
                                                   mime_type, size_bytes, checksum, object_version, object_updated_at)
     VALUES (inv.id, d.id, code || '-' || lpad(d.ord::text, 2, '0') || coalesce('.' || ext, ''),
-            d.storage_bucket, d.storage_path, d.mime_type, d.size_bytes, d.checksum, d.object_version,
+            d.storage_bucket, d.storage_path, d.mime_type, d.size_bytes, d.object_checksum, d.object_version,
             coalesce(d.object_updated_at, now()));
   END LOOP;
 
@@ -219,7 +249,8 @@ BEGIN
   VALUES (u, 'user', 'pricing_file.sent_to_supplier', 'opportunity', f.opportunity_id,
           jsonb_build_object('file_id', f.id, 'invitation_id', inv.id, 'vendor_id', _vendor_id, 'reply_by', _reply_by,
                              'lines', n_lines, 'files', cardinality(_document_ids),
-                             'cancelled_quotes', others, 'cleared_selections', selected));
+                             'cancelled_quotes', cardinality(cancelled_ids), 'cleared_selections', cardinality(cleared_ids),
+                             'cancelled_quote_ids', to_jsonb(cancelled_ids), 'cleared_line_ids', to_jsonb(cleared_ids)));
   RETURN jsonb_build_object('invitation_id', inv.id, 'lines', n_lines, 'files', cardinality(_document_ids));
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_send_to_supplier(uuid, uuid, date, uuid[], text, boolean) FROM PUBLIC, anon;
@@ -227,7 +258,7 @@ GRANT EXECUTE ON FUNCTION public.pricing_send_to_supplier(uuid, uuid, date, uuid
 
 CREATE OR REPLACE FUNCTION public.pricing_cancel_invitation(_invitation_id uuid, _reason text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE u uuid := auth.uid(); inv public.supplier_invitations; fid uuid; opp uuid; r text := btrim(coalesce(_reason, ''));
+DECLARE u uuid := auth.uid(); inv public.supplier_invitations; fid uuid; opp uuid; fstate public.pricing_file_state; r text := btrim(coalesce(_reason, ''));
 BEGIN
   IF NOT public.is_pricer(u) THEN
     RAISE EXCEPTION 'Only estimation or finance cancel a supplier request. | إلغاء طلب المورد للتقدير أو المالية.' USING ERRCODE = '42501';
@@ -240,8 +271,11 @@ BEGIN
     RAISE EXCEPTION 'Unknown supplier request. | طلب المورد غير موجود.' USING ERRCODE = '23514';
   END IF;
   -- Lock order: the file, then its request.
-  SELECT f.opportunity_id INTO opp FROM public.pricing_files f WHERE f.id = fid FOR UPDATE;
+  SELECT f.opportunity_id, f.state INTO opp, fstate FROM public.pricing_files f WHERE f.id = fid FOR UPDATE;
   SELECT * INTO inv FROM public.supplier_invitations WHERE id = _invitation_id FOR UPDATE;
+  IF fstate <> 'at_supplier' THEN
+    RAISE EXCEPTION 'The file is no longer at the supplier. | الملف لم يعد عند المورد.' USING ERRCODE = 'P0001';
+  END IF;
   IF inv.status NOT IN ('sent','opened','reopened') THEN
     RAISE EXCEPTION 'Only an open request can be cancelled. | يُلغى الطلب المفتوح فقط.' USING ERRCODE = 'P0001';
   END IF;
@@ -258,7 +292,7 @@ GRANT EXECUTE ON FUNCTION public.pricing_cancel_invitation(uuid, text) TO authen
 
 CREATE OR REPLACE FUNCTION public.pricing_extend_invitation(_invitation_id uuid, _reply_by date)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE u uuid := auth.uid(); inv public.supplier_invitations; fid uuid; opp uuid; today date := public._pricing_today();
+DECLARE u uuid := auth.uid(); inv public.supplier_invitations; fid uuid; opp uuid; fstate public.pricing_file_state; today date := public._pricing_today();
 BEGIN
   IF NOT public.is_pricer(u) THEN
     RAISE EXCEPTION 'Only estimation or finance change the reply-by date. | تغيير موعد الرد للتقدير أو المالية.' USING ERRCODE = '42501';
@@ -270,8 +304,11 @@ BEGIN
   IF fid IS NULL THEN
     RAISE EXCEPTION 'Unknown supplier request. | طلب المورد غير موجود.' USING ERRCODE = '23514';
   END IF;
-  SELECT f.opportunity_id INTO opp FROM public.pricing_files f WHERE f.id = fid FOR UPDATE;
+  SELECT f.opportunity_id, f.state INTO opp, fstate FROM public.pricing_files f WHERE f.id = fid FOR UPDATE;
   SELECT * INTO inv FROM public.supplier_invitations WHERE id = _invitation_id FOR UPDATE;
+  IF fstate <> 'at_supplier' THEN
+    RAISE EXCEPTION 'The file is no longer at the supplier. | الملف لم يعد عند المورد.' USING ERRCODE = 'P0001';
+  END IF;
   IF inv.status NOT IN ('sent','opened','reopened') THEN
     RAISE EXCEPTION 'Only an open request has a reply-by date to change. | يتغير موعد الرد للطلب المفتوح فقط.' USING ERRCODE = 'P0001';
   END IF;

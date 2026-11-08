@@ -761,6 +761,8 @@ git commit -m "feat(pricing): supplier role, supplier accounts and the session b
 - Create: `supabase/migrations/20261108120000_supplier_invitations.sql`
 - Test: `supabase/tests/supplier_invitations.test.sql`
 
+> **Fix round 1 (Task 2 as built; the code below is the original brief, the migration and test files are authoritative):** sending also audits the ids of the quotes it cancelled and the selection lines it cleared; it refuses (P0001, `DETAIL` lists the estimation ids) when a selection would be cleared while another estimation, not the file's own, uses the revision; the checksum of a sent file is the storage object's ETag, not the documents row's; `_pricing_today()` is internal; cancel and extend refuse a file that is no longer `at_supplier`. An open invitation stays `sent`/`opened`/`reopened` when its file moves past `at_supplier` or closes.
+
 **Interfaces:**
 - Consumes: Task 1 (`has_app_access`, the boundary); PR 1 `public._pricing_file_apply(pricing_files, pricing_file_state, uuid, text) → pricing_files` (internal), `pricing_files`; PR 2 `public._pricing_supplier_entry_open(uuid)` and the entry flag `phc.pricing_supplier_entry` (the 7B guards admit a write on a frozen revision only while the flag names that revision and its file is `at_supplier`); `public.boq_revision_is_frozen(uuid)`; `documents`, `document_links`, `storage.objects`.
 - Produces:
@@ -1267,6 +1269,8 @@ git commit -m "feat(pricing): send a frozen file to one supplier with the exact 
 - Create: `supabase/migrations/20261108130000_supplier_portal_read.sql`
 - Test: `supabase/tests/supplier_portal_read.test.sql`
 
+> **Note from Task 2:** an invitation is not closed when its file moves past `at_supplier` or closes, so every portal read (`supplier_portal_invitations`, `supplier_portal_invitation`, `_supplier_invitation_for_session`, `supplier_portal_file`) must also require the file's state to be `at_supplier` (otherwise a supplier keeps reading a finished file). The re-check in `supplier_portal_file` compares the storage object's `version` and `updated_at` with what was sent; `supplier_invitation_files.checksum` is the storage ETag read at send time and is informational (shown in the confirmation snapshot), not compared.
+
 **Interfaces:**
 - Consumes: Task 1 `public._supplier_session_vendor()`; Task 2 tables and `pricing_send_to_supplier` (the test sends through it); 7B `supplier_quotes`, `supplier_quote_lines`.
 - Produces:
@@ -1632,6 +1636,8 @@ git commit -m "feat(pricing): supplier portal reads its own requests, lines and 
 **Files:**
 - Create: `supabase/migrations/20261108140000_supplier_portal_submit.sql`
 - Test: `supabase/tests/supplier_portal_submit.test.sql`
+
+> **Note from Task 2:** Task 2 must not ship without this task. Until `pricing_enter_supplier_quote` follows the open request, a pricer can enter prices on behalf of another vendor while an invitation to a different vendor is open (Task 2 only blocks it at send time). Task 4 must refuse on-behalf entry for any vendor other than the open invitation's, and the submit RPC must refuse when the file is no longer `at_supplier`.
 
 **Interfaces:**
 - Consumes: Tasks 1–3; PR 2 `public._pricing_supplier_num_ok(text, integer, integer)` (internal), the 7B guards and entry flag, `pricing_selling_grid` / `pricing_selling_totals` (the test reads them), PR 1 `pricing_file_move`; `public.emit_notification_to_roles(app_role[], text, text, uuid, text, text, text, text, text, jsonb)`.
