@@ -14,7 +14,7 @@ Plan `docs/superpowers/plans/2026-11-03-pricing-loop-screens.md`. PR 2 of 5: Zay
 4. Production Readiness.
 5. Production.
 
-No secrets. Settings to confirm with Zayed and Kalas after release: the fallback % (10), the default margin (25), the logistics values seeded in PR 1, the first installation rates, the extras catalog, and the margin floor (none set: no justification is asked for until one is set).
+No secrets. Settings to confirm with Zayed and Kalas after release: the fallback % (10), the default margin (25), the logistics values seeded in PR 1, the first installation rates, the extras catalog (ships empty: freezing suggests nothing until it is filled), and the margin floor (whatever `margin_policies` holds from Phase 8; changed on `/pricing/settings`).
 
 **Canary walk-through (to do with real accounts: Zayed, Kalas, Omar, and a rep):**
 - A rep sees no Pricing links except Quotations, and `/pricing` says no access.
@@ -24,13 +24,14 @@ No secrets. Settings to confirm with Zayed and Kalas after release: the fallback
 - Use a real Excel BOQ for the import, and also a CSV saved without a BOM: check that Arabic decodes (open point from Task 9).
 - Both languages, desktop and phone width.
 
-**Local checks (2026-11-04):** `bun run verify`, `bun audit --audit-level=high`, and the DB suite (`dbtest-ui.sh`: 39 files, 939 tests, PASS). No browser walk-through on a local stack was run in this task; the canary above covers it.
+**Local checks (2026-11-04):** `bun run verify`, `bun audit --audit-level=high`, and the DB suite (`dbtest-ui.sh`: 39 files, 939 tests, PASS). After the final-review fixes (2026-11-08, `.superpowers/sdd/final-fix-report.md`): 39 files, 955 tests, PASS. No browser walk-through on a local stack was run in this task; the canary above covers it.
 
 **Behaviour that changes outside pricing files** (all recorded in DECISIONS 2026-11-04):
 - `has_app_access` fails closed (hardening; no production change). `daily_task_completion.test.sql` needed `aal2` for it.
 - `margin_policies` INSERT/UPDATE are revoked from `authenticated`. The Phase 8 INSERT/UPDATE policies are now unreachable and `phase8-schema.contract.test` still pins the old policy text. The floor changes only through `pricing_set_margin_floor`.
 - The Phase 7B supplier-quote guards admit a write on a frozen revision only inside `pricing_enter_supplier_quote` (transaction-local flag `phc.pricing_supplier_entry`, set for that revision, and the file `at_supplier`). The guards call the helper only when the flag is set, because the helper is revoked from `authenticated`.
 - The estimation freeze under review and the propose gate apply only to prices linked to a pricing file.
+- Final review (2026-11-08): a pricing file never supersedes a Phase 7A revision it did not attach (a file with no revision gets its own BOQ); `pricing_decide_extra` (PR 1) returns the rate only to a cost reader and no longer logs it.
 - PR 1 tests edited here: `pricing_calc.test.sql` (Task 4) and `pricing_rates.test.sql` (Task 3).
 
 **PR 1 deferred items, closed here:**
@@ -55,6 +56,7 @@ No secrets. Settings to confirm with Zayed and Kalas after release: the fallback
 - Never set `supplier_quote_lines.is_selected` in pricing files: `pricing_file_build_price` refuses a revision with a selected line.
 - The grid takes the latest current, non-cancelled quote per line and refuses a line with two (`multi_quote_lines`).
 - The 7B exception for a frozen revision exists only inside `pricing_enter_supplier_quote`. The portal needs its own entry path (same flag pattern, or a supplier-role policy) and must keep the file-at-supplier condition.
+- A second vendor's quote entered before the freeze (7B) makes the file unbuildable: the grid counts the line in `multi_quote_lines`, and a quote on a frozen revision cannot be cancelled. PR 3 must handle it (choose or cancel per file, or let the file pick its vendor).
 - Returned lines reopen (spec §2) and are not built yet. `supplier_invitations`, the `supplier` role, `profiles.vendor_id`, and attaching the supplier's original file are PR 3.
 - Notifications for supplier steps.
 
@@ -68,13 +70,13 @@ No secrets. Settings to confirm with Zayed and Kalas after release: the fallback
 - The opportunity page's pricing state for sales: reps cannot read `pricing_queue` (cost readers only). Read `pricing_files` (readable with the deal, no cost) and `pricing_file_events` with listed columns.
 - The rep answering missing items from their own screen (PR 2 has the pricer record it), and the Approval and Quotations tabs.
 - Notifications for review, return and quotation steps.
+- In-file edits: the propose gate now refuses direct changes of a built in-file price's figure (`proposed_price`, `estimation_id`, `below_floor_justification`) outside build/propose. Tighten other in-file direct edits further in PR 4 if review needs it (for example columns the approval or return moves touch).
 
 **Carried minor items (not done; pick up in PR 3/PR 4 or a clean-up):**
 - Link helper reads `estimations` unlocked (TOCTOU on `boq_revision_id`); lock order should be estimation, price, file.
 - `pricing_decide_extra` (PR 1) has no upper bound on quantity or rate; no index on `pricing_file_extras.boq_revision_id`.
 - `current_date` for "in force since" is UTC, so it lags Riyadh by 3 hours (00:00–03:00).
 - Pricers can still write `installation_rates` directly (audited; the future-date rule is RPC-only).
-- `pricing_file_set_line` lets a GM delegate without cost access set margins on a grid they cannot see.
 - `canSuggestExtras` helper in `src/lib/pricing-access.ts` is not wired everywhere it could be.
 - Settings: a rights-query error shows "no access" (use `QueryFailure`); the catalog Save is silently disabled for a short or Arabic-only code, and a duplicate code shows a raw 23505.
 - Checklist ticks on the Package tab are local to the browser.
@@ -84,7 +86,6 @@ No secrets. Settings to confirm with Zayed and Kalas after release: the fallback
 
 **Follow-ups found while planning (not done):**
 - PR 1's pricing tables (`pricing_files`, `pricing_file_events`, `installation_rates`, `pricing_extras_catalog`, `logistics_rates`, `pricing_file_extras`) lack the restrictive `audit_session_boundary` policy that later tables carry. PR 2's new tables have it.
-- `estimations_frozen_under_review` does not lock the price row, so an estimation edit at the exact moment of a propose is not serialized. The propose recomputes from what is stored.
 
 ## 2026-11-03 — Pricing loop foundation (branch `feat/pricing-loop-foundation`, worktree `~/dev/phc-pricing`)
 

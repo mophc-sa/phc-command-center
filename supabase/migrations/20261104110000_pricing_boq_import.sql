@@ -4,9 +4,15 @@
 -- Zayed checks the BOQ against the drawings and the location plan, then
 -- freezes it (spec §1 package_review → boq_frozen). The Excel file is parsed
 -- and mapped in the browser (src/lib/boq-import.ts); the lines arrive here as
--- JSON, are validated, and go into a DRAFT revision of the deal's BOQ, with the
--- structured attributes PR 1 added (install type, size, weight, mount height,
--- screen, floor cut). A line typed by hand is the same call with one line.
+-- JSON, are validated, and go into a DRAFT revision, with the structured
+-- attributes PR 1 added (install type, size, weight, mount height, screen,
+-- floor cut). A line typed by hand is the same call with one line.
+-- A pricing file never supersedes a revision it did not attach (final review,
+-- 2026-11-08): a file with no revision gets a BOQ of its own (revision 1), whose
+-- lines start from the deal's current Phase 7A revision (append) or are only the
+-- imported ones (replace); the deal's revision stays current and untouched. A
+-- file that has a revision (its own, or one a pricer attached) keeps that BOQ:
+-- new lines on a frozen one open its next revision, which supersedes it.
 -- The freeze is the existing Phase 7A one-way door (frozen_at), stamped from
 -- the session, and the move is pricing_file_move's, so its checks still run.
 -- =============================================================================
@@ -112,7 +118,7 @@ REVOKE ALL ON FUNCTION public._pricing_boq_line_problem(jsonb) FROM PUBLIC, anon
 CREATE OR REPLACE FUNCTION public.pricing_boq_import(_file_id uuid, _lines jsonb, _replace boolean DEFAULT false)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE u uuid := auth.uid(); f public.pricing_files; rev public.boq_revisions;
-        b_id uuid; prev uuid; made uuid; next_no integer; first_no integer; n integer; copied integer := 0;
+        b_id uuid; prev uuid; src uuid; made uuid; next_no integer; first_no integer; n integer; copied integer := 0;
         bad_ord bigint; bad_why text[];
 BEGIN
   IF NOT public.is_pricer(u) THEN
@@ -153,23 +159,41 @@ BEGIN
         USING ERRCODE = 'P0001';
     END IF;
   END IF;
-  IF rev.id IS NULL OR rev.frozen_at IS NOT NULL THEN
-    -- A new draft revision of the deal's BOQ, which becomes its current one.
+  IF rev.id IS NULL THEN
+    -- No revision on the file: a BOQ of its own, revision 1. The deal's current
+    -- revision (the latest, if several BOQs have one) is only read, never
+    -- superseded or changed: it stays Phase 7A's.
+    SELECT cr.id INTO src
+      FROM public.boqs b JOIN public.boq_revisions cr ON cr.boq_id = b.id AND cr.is_current
+     WHERE b.related_opportunity_id = f.opportunity_id
+     ORDER BY cr.created_at DESC, cr.id DESC
+     LIMIT 1;
+    INSERT INTO public.boqs (related_opportunity_id, title, source, created_by)
+    VALUES (f.opportunity_id, 'Pricing BOQ', 'pricing_file', u) RETURNING id INTO b_id;
+    INSERT INTO public.boq_revisions (boq_id, revision_number, status, source_type, notes, created_by, is_current)
+    VALUES (b_id, 1, 'draft', 'manual', 'Entered in the pricing file', u, true)
+    RETURNING * INTO rev;
+    made := rev.id;
+    IF src IS NOT NULL AND NOT _replace THEN
+      -- Appending: start from the deal's current lines (every column but the
+      -- cost ones and the old selling price, which the grid rebuilds).
+      INSERT INTO public.boq_lines (revision_id, line_number, sort_order, sign_type, description, dimensions,
+                                    material, mounting, illumination, finish, location, quantity, unit,
+                                    item_source, install_type, width_mm, height_mm,
+                                    weight_kg, mount_height_m, has_screen, needs_floor_cut)
+      SELECT rev.id, l.line_number, l.sort_order, l.sign_type, l.description, l.dimensions,
+             l.material, l.mounting, l.illumination, l.finish, l.location, l.quantity, l.unit,
+             l.item_source, l.install_type, l.width_mm, l.height_mm,
+             l.weight_kg, l.mount_height_m, l.has_screen, l.needs_floor_cut
+        FROM public.boq_lines l WHERE l.revision_id = src
+       ORDER BY l.line_number, l.sort_order, l.created_at, l.id;
+      GET DIAGNOSTICS copied = ROW_COUNT;
+    END IF;
+    UPDATE public.pricing_files SET boq_revision_id = rev.id, updated_at = now() WHERE id = f.id;
+  ELSIF rev.frozen_at IS NOT NULL THEN
+    -- The file's own (or attached) revision is frozen: its BOQ's next draft
+    -- revision, which supersedes it and becomes the BOQ's current one.
     b_id := rev.boq_id;
-    IF b_id IS NULL THEN
-      -- The BOQ holding the deal's current revision (the latest such, if several);
-      -- only when none has one, the deal's oldest BOQ.
-      SELECT b.id INTO b_id
-        FROM public.boqs b
-        LEFT JOIN public.boq_revisions cr ON cr.boq_id = b.id AND cr.is_current
-       WHERE b.related_opportunity_id = f.opportunity_id
-       ORDER BY (cr.id IS NOT NULL) DESC, cr.created_at DESC NULLS LAST, cr.id DESC, b.created_at, b.id
-       LIMIT 1;
-    END IF;
-    IF b_id IS NULL THEN
-      INSERT INTO public.boqs (related_opportunity_id, title, source, created_by)
-      VALUES (f.opportunity_id, 'Pricing BOQ', 'pricing_file', u) RETURNING id INTO b_id;
-    END IF;
     SELECT r.id INTO prev FROM public.boq_revisions r WHERE r.boq_id = b_id AND r.is_current FOR NO KEY UPDATE;
     SELECT coalesce(max(r.revision_number), 0) + 1 INTO next_no FROM public.boq_revisions r WHERE r.boq_id = b_id;
     IF prev IS NOT NULL THEN
@@ -234,7 +258,8 @@ BEGIN
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (u, 'user', 'pricing_file.boq_lines_entered', 'opportunity', f.opportunity_id,
           jsonb_build_object('file_id', f.id, 'revision_id', rev.id, 'created_revision_id', made,
-                             'superseded_revision_id', prev, 'copied_forward', copied,
+                             'superseded_revision_id', prev, 'copied_from_revision_id', coalesce(prev, src),
+                             'copied_forward', copied,
                              'inserted', n, 'replaced', _replace));
   RETURN jsonb_build_object('revision_id', rev.id, 'revision_number', rev.revision_number, 'inserted', n);
 END $$;

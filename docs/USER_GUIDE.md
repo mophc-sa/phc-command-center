@@ -681,14 +681,14 @@ project does **not** create a duplicate.
 
 ### Pricing & Finance — التسعير والمالية *(2026-11-04)*
 
-Estimation, finance, the sales manager, the GM, MD and CEO see this group. Reps and the BD manager never see cost; they will see where a price is on the deal in the next release.
+Estimation, finance, the sales manager, the GM, MD and CEO see the whole group. Reps and the BD manager see only **Quotations** in it, and never see cost; they will see where a price is on the deal in the next release.
 
 | Page | What it is for |
 |---|---|
 | **Pricing queue** `/pricing` | Every open pricing file: its state, who owes the next step, days waiting and the deal's value. Zayed opens on *Estimation & finance*, Kalas on *Set selling price (GM)*. A pricer can open a file by hand for a deal whose RFQ came in before pricing files existed. |
 | **Pricing file** `/pricing/<id>` | One file per deal. Four tabs follow the work: Package, Supplier, Cost review, Selling price. The history at the bottom lists every move. |
 | **Quotations** `/quotations` | Unchanged. |
-| **Pricing settings** `/pricing/settings` | Installation rate card (by type, with a start date), logistics rates, the installation fallback % (10% of materials until changed) and the default margin (25% on price until changed), the margin floor, and the extras catalog. Estimation and finance edit the rates and the catalog. The default margin and the margin floor are changed by Kalas or finance. Everyone else here reads. |
+| **Pricing settings** `/pricing/settings` | Installation rate card (by type, with a start date), logistics rates, the installation fallback % (10% of materials until changed) and the default margin (25% on price until changed), the margin floor (whatever floor the system already holds from the margin rules; changed here), and the extras catalog (empty until filled). Estimation and finance edit the rates and the catalog. The default margin and the margin floor are changed by Kalas or finance. Everyone else here reads. |
 
 **The pricing file, tab by tab**
 
@@ -700,7 +700,7 @@ Estimation, finance, the sales manager, the GM, MD and CEO see this group. Reps 
      - **Use a revision already on the deal.**
    - If something is missing, **Ask sales for missing items** with a due date; the rep sees the list. Until reps can answer from their own screen, record their answer with *Record the rep's answer*.
    - **Freeze the BOQ** when it is complete. Freezing is one-way: a later quantity change opens a new revision.
-   - Freezing also suggests extras: a pylon or floor sign suggests a concrete base, a high ceiling a scaffold, a cinema project acoustic insulation.
+   - Freezing also suggests extras from the extras catalog, for example a concrete base for a pylon or floor sign, a scaffold for a high ceiling, acoustic insulation for a cinema project. The catalog starts empty: nothing is suggested until estimation or finance fill it in `/pricing/settings`.
 2. **Supplier (Zayed).**
    - The supplier portal is not ready yet. Send the frozen BOQ and the files to the supplier as you do today, then *Mark as sent to the supplier*.
    - When the supplier answers, enter their prices on their behalf: normal and with-screen price, and any difference from the spec, per line. Entering again overwrites the prices in place; the history does not keep the earlier figures.
@@ -711,7 +711,7 @@ Estimation, finance, the sales manager, the GM, MD and CEO see this group. Reps 
    - Zayed can **send lines back to the supplier**. The note is a cost note; sales do not see it.
    - Kalas presses **Start the selling price**.
 4. **Selling price (Kalas sets it; Zayed sets the cost choices).**
-   - Logistics inputs: containers, inland delivery, clearing agent, overhead %, cinema project.
+   - Logistics inputs: containers, inland delivery, clearing agent, overhead %, cinema project. Line choices and these inputs need cost access: a delegate of Kalas who cannot see cost cannot set them.
    - Extras belong to the round (the BOQ revision): accept each suggestion (with its quantity and rate) or dismiss it with a reason, and add any catalog item by hand.
    - The grid gives each line's cost: materials, installation, and its share of the extras and logistics by value (materials plus installation). Customs is a % of all materials; overhead is added once, before the margin. Kalas sets a margin % or types a selling price per line.
    - A quote not in SAR is not priced yet: the line stays unpriced and the totals say how many. While any line is unpriced, the margin and the floor check show nothing.
@@ -723,7 +723,8 @@ Estimation, finance, the sales manager, the GM, MD and CEO see this group. Reps 
 - Margin is on price: 20% means 20% of what the client pays.
 - Totals and the overall margin are computed by the system; nobody types them.
 - Only Kalas (or his delegate) sets a line's margin or selling price. Kalas or finance changes the default margin and the margin floor.
-- In a pricing file a price reaches review only through Propose.
+- In a pricing file a price reaches review only through Propose, and its figure changes only through Build and Propose (nobody types it on the price itself).
+- A pricing file never replaces the deal's own BOQ revision: entering lines in a file with no revision starts a BOQ of the file's own, beginning from the deal's current lines.
 - Zayed cannot approve a price whose figures he set.
 - The cost behind a price under review cannot change.
 - One supplier per file in this release.

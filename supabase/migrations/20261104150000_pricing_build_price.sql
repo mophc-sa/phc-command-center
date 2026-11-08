@@ -136,10 +136,14 @@ BEGIN
   -- The price: the file's own while it is a proposal or returned, else a new
   -- proposal. Never inserted or set past internal_price_proposed.
   IF p.id IS NOT NULL THEN
+    -- Tell the in-file gate (internal_price_propose_gate) this UPDATE is Build's
+    -- own; transaction-local, cleared right after (a raise aborts the transaction).
+    PERFORM set_config('pricing.building', p.id::text, true);
     UPDATE public.internal_prices
        SET proposed_price = t.total_selling, estimation_id = e.id, status = 'internal_price_proposed',
            below_floor_justification = NULL
      WHERE id = p.id RETURNING * INTO p;
+    PERFORM set_config('pricing.building', '', true);
   ELSE
     INSERT INTO public.internal_prices (estimation_id, proposed_price, status, proposed_by, proposed_at)
     VALUES (e.id, t.total_selling, 'internal_price_proposed', u, now())
@@ -180,11 +184,11 @@ BEGIN
     RAISE EXCEPTION 'The line prices do not add up to the price; try again. | أسعار البنود لا تساوي السعر؛ أعد المحاولة.' USING ERRCODE = 'P0001';
   END IF;
 
+  -- The selling total only: no cost and no margin (platform admins read audit_log).
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (u, 'user', 'pricing_file.price_built', 'opportunity', f.opportunity_id,
           jsonb_build_object('file_id', f.id, 'internal_price_id', p.id, 'estimation_id', e.id,
-                             'proposed_price', p.proposed_price, 'total_cost', t.total_cost,
-                             'margin_pct', p.margin_percentage));
+                             'proposed_price', p.proposed_price, 'line_count', t.line_count));
   RETURN jsonb_build_object('internal_price_id', p.id, 'estimation_id', e.id,
                             'total_cost', t.total_cost, 'total_selling', t.total_selling,
                             'margin_pct', p.margin_percentage, 'floor_pct', t.floor_pct,
@@ -217,8 +221,7 @@ BEGIN
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   SELECT u, 'user', 'pricing_file.proposed', 'opportunity', pf.opportunity_id,
          jsonb_build_object('file_id', pf.id, 'internal_price_id', pf.internal_price_id,
-                            'total_selling', _expected_total, 'total_cost', _expected_total_cost,
-                            'below_floor_justification', j)
+                            'total_selling', _expected_total, 'below_floor_justified', j IS NOT NULL)
     FROM public.pricing_files pf WHERE pf.id = _file_id;
   SELECT * INTO f FROM public.pricing_files WHERE id = _file_id;
   RETURN to_jsonb(f);
@@ -230,26 +233,45 @@ GRANT EXECUTE ON FUNCTION public.pricing_file_propose(uuid, numeric, numeric, te
 -- file the GM could move a proposed price to gm_pending directly and skip
 -- Propose's rebuild, stale total/cost check, line-sum check and screen check.
 -- This gate refuses that move for a price linked to a file unless Propose set
--- the flag for this very price. It is named so it fires first among the BEFORE
--- UPDATE triggers (alphabetical: internal_prices_a_… < _compute_margin <
--- _transition < _zz_floor_guard); the follow trigger is AFTER and unaffected.
--- The flag is a custom GUC. A client cannot set it: PostgREST exposes only
+-- the flag for this very price. Final review, 2026-11-08: it also refuses any
+-- direct change of the figure (proposed_price, estimation_id,
+-- below_floor_justification) of such a price, unless Build or Propose set its
+-- flag for this price. Otherwise a pricer could type the grid's total by hand;
+-- Build would then change nothing, figure_set_by would stay the pricer, and the
+-- pricer could not approve the price they "set" (a stuck file). The figure of an
+-- in-file price comes from the grid only.
+-- It is named so it fires first among the BEFORE UPDATE triggers (alphabetical:
+-- internal_prices_a_… < _compute_margin < _transition < _zz_floor_guard); the
+-- follow trigger is AFTER and unaffected.
+-- The flags are custom GUCs. A client cannot set them: PostgREST exposes only
 -- functions in the exposed schema (pg_catalog.set_config is not), no exposed
--- function sets it, and PostgREST sets only request.* settings. Outside a
--- pricing file nothing changes. "In a file" means linked to a file whose lines
--- carry built figures: Build is the only thing that links a price to a file
--- (_pricing_file_link_price) and it writes those figures in the same
+-- function sets them except Build and Propose (each for the price it is
+-- writing, cleared right after), and PostgREST sets only request.* settings.
+-- Outside a pricing file nothing changes. "In a file" means linked to a file
+-- whose lines carry built figures: Build is the only thing that links a price to
+-- a file (_pricing_file_link_price) and it writes those figures in the same
 -- transaction, so every real in-file price qualifies; hand-made fixtures that
 -- link a price without building one (earlier tests) are not caught.
 CREATE OR REPLACE FUNCTION public.internal_price_propose_gate()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE proposing boolean; building boolean;
 BEGIN
-  IF OLD.status = 'internal_price_proposed' AND NEW.status = 'gm_pending'
-     AND EXISTS (SELECT 1 FROM public.pricing_files pf
+  IF NOT EXISTS (SELECT 1 FROM public.pricing_files pf
                    JOIN public.pricing_file_lines pl ON pl.file_id = pf.id AND pl.built_at IS NOT NULL
-                  WHERE pf.internal_price_id = NEW.id)
-     AND coalesce(current_setting('pricing.proposing', true), '') IS DISTINCT FROM NEW.id::text THEN
+                  WHERE pf.internal_price_id = NEW.id) THEN
+    RETURN NEW;
+  END IF;
+  proposing := coalesce(current_setting('pricing.proposing', true), '') = NEW.id::text;
+  building  := coalesce(current_setting('pricing.building', true), '') = NEW.id::text;
+  IF OLD.status = 'internal_price_proposed' AND NEW.status = 'gm_pending' AND NOT proposing THEN
     RAISE EXCEPTION 'In a pricing file the price reaches review only through Propose. | في ملف التسعير يصل السعر إلى المراجعة عبر الاقتراح فقط.'
+      USING ERRCODE = '42501';
+  END IF;
+  IF (NEW.proposed_price IS DISTINCT FROM OLD.proposed_price
+      OR NEW.estimation_id IS DISTINCT FROM OLD.estimation_id
+      OR NEW.below_floor_justification IS DISTINCT FROM OLD.below_floor_justification)
+     AND NOT (proposing OR building) THEN
+    RAISE EXCEPTION 'In a pricing file the price comes from the selling grid: change the grid and build it. | في ملف التسعير يأتي السعر من جدول البيع: عدّل الجدول وابنِ السعر.'
       USING ERRCODE = '42501';
   END IF;
   RETURN NEW;

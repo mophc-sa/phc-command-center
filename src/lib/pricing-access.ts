@@ -112,17 +112,21 @@ export function daysWaiting(since: string, now: Date = new Date()): number {
 export const canEditPackage = (s: PricingState, r: PricingRights): boolean => r.is_pricer && s === "package_review";
 /** pricing_answer_needs_info: a pricer records the rep's answer while the file is waiting on information. */
 export const canAnswerNeedsInfo = (s: PricingState, r: PricingRights): boolean => r.is_pricer && s === "needs_info";
-/** pricing_file_set_inputs (cost keys). */
+/** pricing_file_set_inputs (cost keys). The caller must read cost (a GM delegate may not). */
 export const canEditFileInputs = (s: PricingState, r: PricingRights): boolean =>
-  (r.is_pricer || r.is_gm) && ["boq_frozen", "at_supplier", "supplier_priced", "selling_build"].includes(s);
-/** pricing_file_set_line (cost keys), pricing_decide_extra, pricing_add_extra: supplier_priced and selling_build only. */
+  (r.is_pricer || r.is_gm) && r.can_read_cost && ["boq_frozen", "at_supplier", "supplier_priced", "selling_build"].includes(s);
+/**
+ * pricing_file_set_line (cost keys; needs cost access), pricing_decide_extra, pricing_add_extra:
+ * supplier_priced and selling_build only. The panels using it sit on the cost-only tabs.
+ */
 export const canEditLineCost = (s: PricingState, r: PricingRights): boolean =>
-  (r.is_pricer || r.is_gm) && (s === "supplier_priced" || s === "selling_build");
+  (r.is_pricer || r.is_gm) && r.can_read_cost && (s === "supplier_priced" || s === "selling_build");
 /** pricing_suggest_extras (20261104130000): a wider window than the above, from boq_frozen to selling_build. */
 export const canSuggestExtras = (s: PricingState, r: PricingRights): boolean =>
   (r.is_pricer || r.is_gm) && ["boq_frozen", "at_supplier", "supplier_priced", "selling_build"].includes(s);
-/** pricing_file_set_line (margin_pct, selling_price) and the file's default margin. */
-export const canEditSelling = (s: PricingState, r: PricingRights): boolean => r.is_gm && s === "selling_build";
+/** pricing_file_set_line (margin_pct, selling_price) and the file's default margin: the GM who reads cost. */
+export const canEditSelling = (s: PricingState, r: PricingRights): boolean =>
+  r.is_gm && r.can_read_cost && s === "selling_build";
 /** pricing_file_build_price / pricing_file_propose. */
 export const canBuildPrice = (s: PricingState, r: PricingRights): boolean =>
   r.is_gm && r.can_read_cost && s === "selling_build";

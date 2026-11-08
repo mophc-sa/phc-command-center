@@ -210,10 +210,52 @@ BEGIN
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (u, 'user', 'pricing_file.extra_added', 'opportunity', f.opportunity_id,
           jsonb_build_object('file_id', f.id, 'extra_id', e.id, 'catalog_id', c.id,
-                             'quantity', e.quantity, 'rate', e.rate));
+                             'quantity', e.quantity));
   -- The rate is cost: only a reader of cost gets it back.
   IF public.can_read_commercial_cost(u) THEN RETURN to_jsonb(e); END IF;
   RETURN to_jsonb(e) - 'rate';
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_add_extra(uuid, uuid, numeric, numeric) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.pricing_add_extra(uuid, uuid, numeric, numeric) TO authenticated;
+
+-- PR 1's pricing_decide_extra (20261103130000), final review 2026-11-08: the GM
+-- side admits a price-authority delegate, who may be sales staff without cost
+-- access, so the rate (cost) goes back only to a cost reader, as in
+-- pricing_add_extra; and the audit row carries no rate (platform admins read
+-- audit_log and are not cost readers). Otherwise the same body.
+CREATE OR REPLACE FUNCTION public.pricing_decide_extra(_extra_id uuid, _accept boolean,
+  _quantity numeric DEFAULT NULL, _rate numeric DEFAULT NULL, _reason text DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE u uuid := auth.uid(); e public.pricing_file_extras; f public.pricing_files;
+BEGIN
+  IF NOT (public.is_pricer(u) OR public.can_approve_final_price(u)) THEN
+    RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501';
+  END IF;
+  IF (_quantity IS NOT NULL AND _quantity < 0) OR (_rate IS NOT NULL AND _rate < 0) THEN
+    RAISE EXCEPTION 'Quantity and rate cannot be negative. | الكمية والسعر لا يمكن أن يكونا سالبين.' USING ERRCODE = '23514';
+  END IF;
+  IF NOT _accept AND length(btrim(coalesce(_reason,''))) = 0 THEN
+    RAISE EXCEPTION 'Say why this item is not needed. | اذكر سبب عدم الحاجة لهذا البند.' USING ERRCODE = '23514';
+  END IF;
+  SELECT * INTO e FROM public.pricing_file_extras WHERE id = _extra_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Unknown item. | البند غير موجود.' USING ERRCODE = '23514'; END IF;
+  SELECT * INTO f FROM public.pricing_files WHERE id = e.file_id FOR SHARE;
+  IF f.state::text NOT IN ('supplier_priced','selling_build') THEN
+    RAISE EXCEPTION 'Extras are locked once the price is under review. | البنود الإضافية تُقفل بعد إرسال السعر للمراجعة.' USING ERRCODE = 'P0001';
+  END IF;
+  UPDATE public.pricing_file_extras
+     SET status = CASE WHEN _accept THEN 'accepted' ELSE 'dismissed' END,
+         quantity = coalesce(_quantity, quantity), rate = coalesce(_rate, rate),
+         dismiss_reason = CASE WHEN _accept THEN NULL ELSE btrim(_reason) END,
+         decided_by = u, decided_at = now()
+   WHERE id = _extra_id RETURNING * INTO e;
+  INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
+  VALUES (u, 'user', 'pricing_file.extra_decided', 'opportunity', f.opportunity_id,
+          jsonb_build_object('file_id', e.file_id, 'extra_id', e.id, 'catalog_id', e.catalog_id,
+                             'status', e.status, 'quantity', e.quantity,
+                             'dismiss_reason', e.dismiss_reason));
+  IF public.can_read_commercial_cost(u) THEN RETURN to_jsonb(e); END IF;
+  RETURN to_jsonb(e) - 'rate';
+END $$;
+REVOKE ALL ON FUNCTION public.pricing_decide_extra(uuid, boolean, numeric, numeric, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.pricing_decide_extra(uuid, boolean, numeric, numeric, text) TO authenticated;

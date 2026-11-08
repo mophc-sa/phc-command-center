@@ -8,14 +8,14 @@
 -- Test user UUIDs use the 6e… prefix. Every session carries aal2.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(76);
+select plan(83);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 select '00000000-0000-0000-0000-000000000000', ('6e000000-0000-0000-0000-00000000000' || n)::uuid,
        'authenticated','authenticated','sg-user' || n || '+test@phc-sa.com', now(),
        '{"provider":"email","providers":["email"]}','{}', now(), now()
-  from generate_series(1,5) n;
+  from generate_series(1,6) n;
 update public.profiles set status = 'active' where id::text like '6e000000-%';
 insert into public.user_roles (user_id, role) values
   ('6e000000-0000-0000-0000-000000000001','salesperson'),
@@ -23,7 +23,12 @@ insert into public.user_roles (user_id, role) values
   ('6e000000-0000-0000-0000-000000000002','finance_manager'),
   ('6e000000-0000-0000-0000-000000000003','general_manager'),
   ('6e000000-0000-0000-0000-000000000004','bd_manager'),
-  ('6e000000-0000-0000-0000-000000000005','sales_manager');
+  ('6e000000-0000-0000-0000-000000000005','sales_manager'),
+  ('6e000000-0000-0000-0000-000000000006','salesperson');
+-- User 6 is a salesperson holding the GM's delegated price authority, without cost access.
+insert into public.price_authority_delegations (grantor_id, grantee_id, reason, starts_at, expires_at)
+values ('6e000000-0000-0000-0000-000000000003','6e000000-0000-0000-0000-000000000006','sg test cover',
+        now() - interval '1 hour', now() + interval '1 day');
 
 update public.logistics_rates set value = 12000 where key = 'container_rate';
 update public.logistics_rates set value = 5     where key = 'customs_pct';
@@ -63,8 +68,8 @@ insert into public.pricing_file_inputs (file_id, containers, delivery, clearing,
 values ('6e600001-0000-0000-0000-000000000001', 1, 'riyadh', true, 0);
 insert into public.pricing_extras_catalog (id, code, name_en, name_ar, unit, default_rate)
 values ('6e900001-0000-0000-0000-000000000001','sg_crane','Crane','رافعة','lump',3000);
-insert into public.pricing_file_extras (file_id, catalog_id, quantity, rate, status, decided_at)
-values ('6e600001-0000-0000-0000-000000000001','6e900001-0000-0000-0000-000000000001',1,3000,'accepted',now());
+insert into public.pricing_file_extras (id, file_id, catalog_id, quantity, rate, status, decided_at)
+values ('6e910001-0000-0000-0000-000000000001','6e600001-0000-0000-0000-000000000001','6e900001-0000-0000-0000-000000000001',1,3000,'accepted',now());
 
 -- ===== Cost isolation =====
 set local role authenticated;
@@ -160,6 +165,24 @@ select throws_ok($$select public.pricing_file_set_line('6e600001-0000-0000-0000-
   '23514', null, 'An unknown install type is refused');
 select throws_ok($$select public.pricing_file_set_line('6e600001-0000-0000-0000-000000000001','6e510001-0000-0000-0000-000000000001','{"discount":5}')$$,
   '23514', null, 'An unknown key is refused');
+select ok(not (public.pricing_file_set_line('6e600001-0000-0000-0000-000000000001','6e510001-0000-0000-0000-000000000001','{"margin_pct":30}')
+               ?| array['built_cost','built_selling_price']),
+  'set_line returns the choice, never the built cost or selling figures');
+
+-- ===== A GM delegate without cost access (final review, 2026-11-08) =====
+select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000006","role":"authenticated","aal":"aal2"}',true);
+select ok(public.can_approve_final_price('6e000000-0000-0000-0000-000000000006')
+          and not public.can_read_commercial_cost('6e000000-0000-0000-0000-000000000006'),
+  'User 6 holds the GM''s authority but cannot read cost');
+select throws_ok($$select public.pricing_file_set_line('6e600001-0000-0000-0000-000000000001','6e510001-0000-0000-0000-000000000001','{"margin_pct":35}')$$,
+  '42501', null, 'A GM delegate without cost access cannot set a margin');
+select throws_ok($$select public.pricing_file_set_line('6e600001-0000-0000-0000-000000000001','6e510001-0000-0000-0000-000000000001','{"use_screen_price":true}')$$,
+  '42501', null, '... nor a cost choice');
+select throws_ok($$select public.pricing_file_set_inputs('6e600001-0000-0000-0000-000000000001','{"overhead_pct":0}')$$,
+  '42501', null, '... nor the file''s pricing inputs');
+select ok(not (public.pricing_decide_extra('6e910001-0000-0000-0000-000000000001', true) ? 'rate'),
+  'Deciding an extra returns no rate to a caller without cost access');
+select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.pricing_file_lines), 0, 'The rep reads no line choices');
 select is((select count(*)::int from public.pricing_file_inputs), 0, 'The rep reads no inputs');
@@ -266,9 +289,13 @@ select lives_ok($$select public.pricing_file_set_line('6e600001-0000-0000-0000-0
 select ok((select typed_selling_price is null and line_margin_pct = 20 from public.pricing_selling_grid where boq_line_id = '6e510002-0000-0000-0000-000000000001'),
   'The margin cleared the typed price');
 reset role;
-select ok((select (before_value->>'selling_price')::numeric = 20000 from public.audit_log
-            where action = 'pricing_file.line_set' and (after_value->'choice') = '{"margin_pct":20}'::jsonb),
-  'The audit row keeps the previous typed price');
+select is((select count(*)::int from public.audit_log
+            where action = 'pricing_file.line_set' and (before_value is not null or after_value ? 'choice')), 0,
+  'No line_set audit row carries a margin or a price (platform admins read the audit log)');
+select ok(exists (select 1 from public.audit_log where action = 'pricing_file.line_set'
+                   and after_value->>'boq_line_id' = '6e510002-0000-0000-0000-000000000001'
+                   and after_value->'keys' = '["margin_pct"]'::jsonb),
+  'The audit row names which choice changed');
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"6e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select throws_ok($$select public.pricing_file_set_line('6e600001-0000-0000-0000-000000000001','6e510001-0000-0000-0000-000000000001','{"selling_price":0}')$$,

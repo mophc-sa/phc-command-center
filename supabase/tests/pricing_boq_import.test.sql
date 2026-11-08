@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 6b… prefix. Every session carries aal2.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(59);
+select plan(63);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -51,6 +51,15 @@ insert into public.boq_revisions (id, boq_id, revision_number) values
 insert into public.boq_lines (revision_id, line_number, sort_order, sign_type, quantity) values
   ('6b500038-0000-0000-0000-000000000001',1,1,'Wall N1',1),
   ('6b500039-0000-0000-0000-000000000001',1,1,'Wall M1',1);
+-- Deal 10: a file with no revision on a deal whose current revision holds a line; lines come in replacing.
+insert into public.opportunities (id, project_name, owner_id, created_by, sales_stage) values
+  ('6b20000a-0000-0000-0000-000000000001','bi-deal-10','6b000000-0000-0000-0000-000000000001','6b000000-0000-0000-0000-000000000001','rfq_received');
+insert into public.boqs (id, related_opportunity_id, title) values
+  ('6b40000a-0000-0000-0000-000000000001','6b20000a-0000-0000-0000-000000000001','bi-boq-10');
+insert into public.boq_revisions (id, boq_id, revision_number) values
+  ('6b50000a-0000-0000-0000-000000000001','6b40000a-0000-0000-0000-000000000001',1);
+insert into public.boq_lines (revision_id, line_number, sort_order, sign_type, quantity) values
+  ('6b50000a-0000-0000-0000-000000000001',1,1,'Wall Q1',1);
 -- V (deal 4): frozen but only an estimate. W (5): frozen and verified, replaced wholesale.
 -- U (6): the file still points at a superseded revision. T (7): a draft whose line a supplier quote prices.
 insert into public.boqs (id, related_opportunity_id, title)
@@ -87,7 +96,8 @@ insert into public.pricing_files (id, opportunity_id, state, boq_revision_id) va
   ('6b600006-0000-0000-0000-000000000001','6b200006-0000-0000-0000-000000000001','package_review','6b500016-0000-0000-0000-000000000001'),
   ('6b600007-0000-0000-0000-000000000001','6b200007-0000-0000-0000-000000000001','package_review','6b500017-0000-0000-0000-000000000001'),
   ('6b600008-0000-0000-0000-000000000001','6b200008-0000-0000-0000-000000000001','package_review', null),
-  ('6b600009-0000-0000-0000-000000000001','6b200009-0000-0000-0000-000000000001','package_review', null);
+  ('6b600009-0000-0000-0000-000000000001','6b200009-0000-0000-0000-000000000001','package_review', null),
+  ('6b60000a-0000-0000-0000-000000000001','6b20000a-0000-0000-0000-000000000001','package_review', null);
 insert into public.pricing_extras_catalog (code, name_en, name_ar, unit, default_rate, suggest_for)
 values ('bi_concrete_base','Concrete base','قاعدة خرسانية','item',1200, array['pylon']::public.install_type[]);
 
@@ -224,24 +234,40 @@ select is((select count(*)::int from public.boq_lines l join public.pricing_file
 select throws_ok($$select public.pricing_file_freeze_boq('6b600004-0000-0000-0000-000000000001')$$,
   'P0001', null, 'A revision frozen without being verified cannot be accepted');
 
--- Deals 8 and 9: no revision on the file. The import follows the BOQ that holds the current revision, not the oldest BOQ.
+-- Deals 8, 9 and 10: no revision on the file. A pricing file never supersedes a revision it did not
+-- attach: it gets a BOQ of its own, starting from the deal's current lines (append) or only the new ones (replace).
 select is((public.pricing_boq_import('6b600008-0000-0000-0000-000000000001','[{"sign_type":"Wall N2","quantity":2}]'))->>'revision_number',
-  '2', 'A file with no revision continues the BOQ whose current revision is frozen');
-select is((select r.boq_id::text from public.boq_revisions r join public.pricing_files f on f.boq_revision_id = r.id
+  '1', 'A file with no revision gets revision 1 of its own BOQ');
+select is((select b.source || '/' || b.related_opportunity_id::text || '/'
+                  || (b.id not in ('6b400028-0000-0000-0000-000000000001','6b400038-0000-0000-0000-000000000001'))::text
+             from public.boqs b join public.boq_revisions r on r.boq_id = b.id join public.pricing_files f on f.boq_revision_id = r.id
             where f.id = '6b600008-0000-0000-0000-000000000001'),
-  '6b400028-0000-0000-0000-000000000001', '... in the newer BOQ, not the oldest one');
-select is((select count(*)::int from public.boq_lines l join public.pricing_files f on f.boq_revision_id = l.revision_id
-            where f.id = '6b600008-0000-0000-0000-000000000001'), 2, '... carrying the frozen line forward');
-select is((select r.is_current::text || '/' || (r.superseded_by = f.boq_revision_id)::text
-             from public.boq_revisions r, public.pricing_files f
-            where r.id = '6b500038-0000-0000-0000-000000000001' and f.id = '6b600008-0000-0000-0000-000000000001'),
-  'false/true', '... and the old revision is superseded by the one the file points at');
+  'pricing_file/6b200008-0000-0000-0000-000000000001/true', '... a new BOQ of the deal, not one of its existing ones');
+select is((select array_agg(l.sign_type order by l.line_number) from public.boq_lines l join public.pricing_files f on f.boq_revision_id = l.revision_id
+            where f.id = '6b600008-0000-0000-0000-000000000001'), array['Wall N1','Wall N2'],
+  '... starting from the lines of the deal''s current revision, then the new one');
+select is((select r.is_current::text || '/' || coalesce(r.superseded_by::text, 'none') || '/'
+                  || (select count(*) from public.boq_lines l where l.revision_id = r.id)
+             from public.boq_revisions r where r.id = '6b500038-0000-0000-0000-000000000001'),
+  'true/none/1', 'The deal''s frozen Phase 7A revision stays current, not superseded, with its one line');
 select is((public.pricing_boq_import('6b600009-0000-0000-0000-000000000001','[{"sign_type":"Wall M2","quantity":2}]'))->>'revision_number',
-  '2', 'A file with no revision continues the BOQ whose current revision is a draft');
-select is((select r.boq_id::text || '/' || (select count(*) from public.boq_lines l where l.revision_id = r.id)
+  '1', 'Same when the deal''s current revision is a draft');
+select is((select (r.boq_id <> '6b400029-0000-0000-0000-000000000001')::text || '/' || (select count(*) from public.boq_lines l where l.revision_id = r.id)
              from public.boq_revisions r join public.pricing_files f on f.boq_revision_id = r.id
             where f.id = '6b600009-0000-0000-0000-000000000001'),
-  '6b400029-0000-0000-0000-000000000001/2', '... in the newer BOQ, with its line carried forward');
+  'true/2', '... a BOQ of its own with the draft''s line copied and the new one');
+select is((select r.is_current::text || '/' || coalesce(r.superseded_by::text, 'none') || '/'
+                  || (select count(*) from public.boq_lines l where l.revision_id = r.id)
+             from public.boq_revisions r where r.id = '6b500039-0000-0000-0000-000000000001'),
+  'true/none/1', '... and the deal''s draft revision is untouched');
+select is((public.pricing_boq_import('6b60000a-0000-0000-0000-000000000001','[{"sign_type":"Wall Q2","quantity":1}]', true))->>'revision_number',
+  '1', 'Replace on a file with no revision also starts revision 1 of its own BOQ');
+select is((select array_agg(l.sign_type) from public.boq_lines l join public.pricing_files f on f.boq_revision_id = l.revision_id
+            where f.id = '6b60000a-0000-0000-0000-000000000001'), array['Wall Q2'], '... holding only the imported line');
+select is((select r.is_current::text || '/' || coalesce(r.superseded_by::text, 'none') || '/'
+                  || (select count(*) from public.boq_lines l where l.revision_id = r.id)
+             from public.boq_revisions r where r.id = '6b50000a-0000-0000-0000-000000000001'),
+  'true/none/1', '... and the deal''s revision is untouched');
 
 -- U: the file points at a revision that was replaced.
 select throws_ok($$select public.pricing_boq_import('6b600006-0000-0000-0000-000000000001','[{"sign_type":"Late","quantity":1}]')$$,

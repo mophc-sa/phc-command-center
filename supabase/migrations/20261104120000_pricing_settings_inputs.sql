@@ -233,9 +233,11 @@ BEGIN
     INSERT INTO public.margin_policies (min_margin_pct, effective_from, rationale, created_by)
     VALUES (_min_margin_pct, now(), btrim(_rationale), u) RETURNING * INTO m;
   END IF;
+  -- The floor is read by cost holders only (Phase 8); the audit row points at
+  -- the policy row, which keeps the figure and the reason.
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (u, 'user', 'margin_policy.set', 'margin_policy', m.id,
-          jsonb_build_object('min_margin_pct', m.min_margin_pct, 'rationale', m.rationale));
+          jsonb_build_object('margin_policy_id', m.id));
   RETURN to_jsonb(m);
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_set_margin_floor(numeric, text) FROM PUBLIC, anon;
@@ -274,6 +276,12 @@ DECLARE u uuid := auth.uid(); f public.pricing_files; i public.pricing_file_inpu
 BEGIN
   IF NOT coalesce(public.is_pricer(u) OR public.can_approve_final_price(u), false) THEN
     RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501';
+  END IF;
+  -- Final review, 2026-11-08: the inputs are cost (RLS shows them to cost readers
+  -- only) and the call returns them, so a GM delegate who cannot read cost may
+  -- not set them either. Pricers always read cost.
+  IF NOT coalesce(public.can_read_commercial_cost(u), false) THEN
+    RAISE EXCEPTION 'Pricing inputs need cost access. | مُدخلات التسعير تحتاج صلاحية رؤية التكلفة.' USING ERRCODE = '42501';
   END IF;
   IF _inputs IS NULL OR jsonb_typeof(_inputs) <> 'object' THEN
     RAISE EXCEPTION 'Pricing inputs are an object. | مُدخلات التسعير كائن.' USING ERRCODE = '23514';
@@ -327,7 +335,8 @@ BEGIN
    WHERE file_id = f.id RETURNING * INTO i;
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (u, 'user', 'pricing_file.inputs_set', 'opportunity', f.opportunity_id,
-          jsonb_build_object('file_id', f.id, 'inputs', _inputs));
+          jsonb_build_object('file_id', f.id,
+                             'keys', (SELECT jsonb_agg(x ORDER BY x) FROM jsonb_object_keys(_inputs) x)));
   -- A file with no BOQ revision yet has nothing to suggest against.
   IF i.is_cinema IS DISTINCT FROM was_cinema AND f.boq_revision_id IS NOT NULL THEN
     PERFORM public.pricing_suggest_extras(f.id);

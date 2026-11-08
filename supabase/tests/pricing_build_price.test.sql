@@ -4,7 +4,7 @@
 -- Test user UUIDs use the 6f… prefix. Every session carries aal2.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(58);
+select plan(63);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -121,6 +121,23 @@ select is((public.pricing_file_build_price('6f600001-0000-0000-0000-000000000001
 select is((select count(*)::int from public.estimations where boq_revision_id = '6f500001-0000-0000-0000-000000000001'), 1,
   'The estimation is reused, not duplicated');
 
+-- ===== In a built file the figure changes only through Build and Propose (final review, 2026-11-08) =====
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$update public.internal_prices set proposed_price = proposed_price + 1
+                   where id = (select internal_price_id from public.pricing_files where id = '6f600001-0000-0000-0000-000000000001')$$,
+  '42501', null, 'Zayed cannot edit an in-file built price directly');
+select throws_ok($$update public.internal_prices set below_floor_justification = 'typed by hand'
+                   where id = (select internal_price_id from public.pricing_files where id = '6f600001-0000-0000-0000-000000000001')$$,
+  '42501', null, '... nor its floor justification');
+select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$update public.internal_prices set proposed_price = proposed_price + 1
+                   where id = (select internal_price_id from public.pricing_files where id = '6f600001-0000-0000-0000-000000000001')$$,
+  '42501', null, 'Nor can Kalas: the figure comes from the grid');
+select is((select p.proposed_price::text || '/' || p.figure_set_by::text from public.internal_prices p
+             join public.pricing_files f on f.internal_price_id = p.id where f.id = '6f600001-0000-0000-0000-000000000001'),
+  '55651.61/6f000000-0000-0000-0000-000000000003', '... the price and its author are unchanged');
+select ok(coalesce(current_setting('pricing.building', true), '') = '', 'The build flag is not left set');
+
 -- ===== Propose =====
 select throws_like($$select public.pricing_file_propose('6f600001-0000-0000-0000-000000000001', 53200, 39900)$$,
   'The price changed since you built it%', 'A stale total is refused (with the stale-price message)');
@@ -182,12 +199,14 @@ set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"6f000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select is((select count(*)::int from public.audit_log where action = 'pricing_file.proposed'
              and entity_id = '6f200001-0000-0000-0000-000000000001'
-             and after_value->>'below_floor_justification' = 'Strategic first job with this client'), 1,
-  'The proposal''s audit row carries the justification');
+             and (after_value->>'below_floor_justified')::boolean
+             and not (after_value ?| array['total_cost','margin_pct','below_floor_justification'])), 1,
+  'The proposal''s audit row says it was justified, without the cost or the text');
 select ok(exists (select 1 from public.audit_log where action = 'pricing_file.price_built'
-                   and entity_id = '6f200001-0000-0000-0000-000000000001'
-                   and (after_value->>'total_cost')::numeric = 39900 and (after_value->>'margin_pct') is not null),
-  'The price_built audit row carries total_cost and margin_pct');
+                   and entity_id = '6f200001-0000-0000-0000-000000000001')
+          and not exists (select 1 from public.audit_log where action = 'pricing_file.price_built'
+                   and after_value ?| array['total_cost','margin_pct']),
+  'The price_built audit row carries no total cost and no margin');
 select is((select p.status::text || '/' || p.proposed_by::text from public.internal_prices p
              join public.pricing_files f on f.internal_price_id = p.id where f.id = '6f600001-0000-0000-0000-000000000001'),
   'gm_pending/6f000000-0000-0000-0000-000000000003', 'Kalas is the proposer');

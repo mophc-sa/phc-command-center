@@ -111,10 +111,12 @@ describe("edit gates mirror SQL", () => {
     expect(canEditFileInputs("boq_frozen", zayed)).toBe(true);
     expect(canEditFileInputs("selling_build", kalas)).toBe(true);
     expect(canEditFileInputs("price_review", zayed)).toBe(false);
+    expect(canEditFileInputs("selling_build", { ...kalas, can_read_cost: false })).toBe(false);
   });
   it("line cost choices: pricer or GM once the supplier has priced", () => {
     expect(canEditLineCost("supplier_priced", zayed)).toBe(true);
     expect(canEditLineCost("at_supplier", zayed)).toBe(false);
+    expect(canEditLineCost("selling_build", { ...kalas, can_read_cost: false })).toBe(false);
   });
   it("suggesting extras opens earlier than deciding them: from the BOQ freeze to the selling build", () => {
     expect(canSuggestExtras("boq_frozen", zayed)).toBe(true);
@@ -129,6 +131,7 @@ describe("edit gates mirror SQL", () => {
     expect(canEditSelling("selling_build", kalas)).toBe(true);
     expect(canEditSelling("selling_build", zayed)).toBe(false);
     expect(canEditSelling("supplier_priced", kalas)).toBe(false);
+    expect(canEditSelling("selling_build", { ...kalas, can_read_cost: false })).toBe(false);
   });
   it("build: the GM who reads cost, in the selling build", () => {
     expect(canBuildPrice("selling_build", kalas)).toBe(true);

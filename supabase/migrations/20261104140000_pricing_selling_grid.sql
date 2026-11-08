@@ -12,6 +12,10 @@
 -- Who sets what (Mo, 2026-11-03: Kalas sets the price, Zayed reviews it):
 --   cost choices (screen or normal price, install-type override): a pricer or the GM;
 --   selling choices (margin %, typed selling price): the GM alone.
+-- Either way the caller must read cost (final review, 2026-11-08): a GM delegate
+-- may be sales staff, and a choice made on the grid needs the grid. The call
+-- returns the choice columns only, never the built cost or selling figures, and
+-- the audit row names which choices changed, not their values.
 -- Both views run as the owner and gate on cost access in their WHERE, like
 -- boq_line_costs and supplier_quote_costs. Reps and the BD manager get no rows.
 -- =============================================================================
@@ -50,11 +54,14 @@ CREATE POLICY audit_session_boundary ON public.pricing_file_lines AS RESTRICTIVE
 
 CREATE OR REPLACE FUNCTION public.pricing_file_set_line(_file_id uuid, _boq_line_id uuid, _choice jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE u uuid := auth.uid(); f public.pricing_files; l public.pricing_file_lines; prev public.pricing_file_lines; k text;
+DECLARE u uuid := auth.uid(); f public.pricing_files; l public.pricing_file_lines; k text;
         selling_keys boolean;
 BEGIN
   IF NOT coalesce(public.is_pricer(u) OR public.can_approve_final_price(u), false) THEN
     RAISE EXCEPTION 'Not allowed. | غير مسموح.' USING ERRCODE = '42501';
+  END IF;
+  IF NOT coalesce(public.can_read_commercial_cost(u), false) THEN
+    RAISE EXCEPTION 'Line choices need cost access. | اختيارات البنود تحتاج صلاحية رؤية التكلفة.' USING ERRCODE = '42501';
   END IF;
   IF _choice IS NULL OR jsonb_typeof(_choice) <> 'object' THEN
     RAISE EXCEPTION 'A line choice is an object. | اختيار البند كائن.' USING ERRCODE = '23514';
@@ -100,7 +107,6 @@ BEGIN
   END IF;
   INSERT INTO public.pricing_file_lines (file_id, boq_line_id, updated_by) VALUES (f.id, _boq_line_id, u)
   ON CONFLICT (file_id, boq_line_id) DO NOTHING;
-  SELECT * INTO prev FROM public.pricing_file_lines WHERE file_id = f.id AND boq_line_id = _boq_line_id;
   UPDATE public.pricing_file_lines SET
     use_screen_price = CASE WHEN _choice ? 'use_screen_price' THEN (_choice->>'use_screen_price')::boolean ELSE use_screen_price END,
     install_type     = CASE WHEN _choice ? 'install_type' THEN (nullif(_choice->>'install_type',''))::public.install_type ELSE install_type END,
@@ -113,13 +119,15 @@ BEGIN
     updated_by = u, updated_at = now()
    WHERE file_id = f.id AND boq_line_id = _boq_line_id
   RETURNING * INTO l;
-  INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, before_value, after_value)
+  -- No values: platform admins read audit_log and are not cost readers.
+  INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (u, 'user', 'pricing_file.line_set', 'opportunity', f.opportunity_id,
           jsonb_build_object('file_id', f.id, 'boq_line_id', _boq_line_id,
-                             'use_screen_price', prev.use_screen_price, 'install_type', prev.install_type,
-                             'margin_pct', prev.margin_pct, 'selling_price', prev.selling_price),
-          jsonb_build_object('file_id', f.id, 'boq_line_id', _boq_line_id, 'choice', _choice));
-  RETURN to_jsonb(l);
+                             'keys', (SELECT jsonb_agg(x ORDER BY x) FROM jsonb_object_keys(_choice) x)));
+  RETURN jsonb_build_object('file_id', l.file_id, 'boq_line_id', l.boq_line_id,
+                            'use_screen_price', l.use_screen_price, 'install_type', l.install_type,
+                            'margin_pct', l.margin_pct, 'selling_price', l.selling_price,
+                            'updated_by', l.updated_by, 'updated_at', l.updated_at);
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_file_set_line(uuid, uuid, jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.pricing_file_set_line(uuid, uuid, jsonb) TO authenticated;
