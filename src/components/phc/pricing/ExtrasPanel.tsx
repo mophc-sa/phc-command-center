@@ -97,8 +97,9 @@ export function ExtrasPanel({ file, rights, onChanged }: PricingTabProps) {
 
   // Quantity and rate stay text while typed; they become numbers here, with the import's comma rules.
   const parsed = (s: string | undefined): { ok: true; value?: number } | { ok: false; message: string } => {
-    const r = parseDraft(s ?? "", { min: 0 });
-    return r.ok ? { ok: true, value: r.value ?? undefined } : { ok: false, message: draftError(r.reason, lang) };
+    const rules = { min: 0 };
+    const r = parseDraft(s ?? "", rules);
+    return r.ok ? { ok: true, value: r.value ?? undefined } : { ok: false, message: draftError(r.reason, lang, rules) };
   };
   const addQty = parsed(add.quantity);
   const rows = extras.data ?? [];

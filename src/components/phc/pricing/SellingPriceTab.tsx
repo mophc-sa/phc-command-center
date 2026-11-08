@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -13,7 +13,8 @@ import {
   buildPrice, countOpenSuggestions, getPriceSummary, getSellingTotals, listSellingGrid, proposePrice, setLineChoice, suggestExtras,
   type GridRow, type LineChoice, type TotalsRow,
 } from "@/lib/pricing-actions";
-import { canBuildPrice, canEditSelling, canSuggestExtras } from "@/lib/pricing-access";
+import { canEditSelling, canSuggestExtras } from "@/lib/pricing-access";
+import { buildProposePayload, buildVisible, canBuild as canBuildNow, canPropose as canProposeNow } from "@/lib/pricing-propose";
 import { parseDraft, draftText, type DraftRules } from "@/lib/pricing-input";
 import { dbMessage, draftError, pick, type Bi } from "@/lib/pricing-text";
 import { CostInputsPanel } from "@/components/phc/pricing/CostInputsPanel";
@@ -66,6 +67,8 @@ const TEXT = {
     ar: "الاقتراح موقوف: بعض البنود الإضافية المقترحة لم يُقرَّر فيها بعد. اقبل أو ارفض كل بند مقترح في البنود الإضافية أعلاه. إن لم تظهر بنود فاضغط افحص الاقتراحات: قد يكون بند متوقع بلا صف بعد.",
   },
   openUnknown: { en: "Checking which extras are still open…", ar: "جارٍ فحص البنود الإضافية المفتوحة…" },
+  unsavedLine: { en: "A line value was not saved (typed but not accepted, or refused). Fix or clear it before proposing; the totals above do not include it.", ar: "قيمة في أحد البنود لم تُحفظ (مكتوبة ولم تُقبل، أو رُفضت). صحّحها أو امسحها قبل الاقتراح؛ الإجماليات أعلاه لا تشملها." },
+  justificationBlank: { en: "Write the justification: it cannot be blank.", ar: "اكتب المبرر: لا يمكن أن يكون فارغاً." },
   inputsPending: { en: "Some logistics or project inputs are not saved yet (or were refused). Finish them before building or proposing.", ar: "بعض مُدخلات الشحن أو المشروع لم تُحفظ بعد (أو رُفضت). أنهِها قبل البناء أو الاقتراح." },
   suggestFailed: { en: "Could not check the extras suggestions. Try again before proposing.", ar: "تعذّر فحص اقتراحات البنود الإضافية. أعد المحاولة قبل الاقتراح." },
   retry: { en: "Try again", ar: "أعد المحاولة" },
@@ -104,11 +107,20 @@ function NumberBox(props: {
   label: string;
   title?: string;
   placeholder?: string;
+  /** Tells the tab whether this box holds text that is not the saved figure (id is unique per box). */
+  id: string;
+  onUnsaved: (id: string, unsaved: boolean) => void;
   onCommit: (next: number | null) => void;
 }) {
   const { lang } = useI18n();
   const [text, setText] = useState(draftText(props.saved));
   const [error, setError] = useState<string | null>(null);
+  const { id, onUnsaved } = props;
+  const unsaved = error != null || text.trim() !== draftText(props.saved);
+  useEffect(() => {
+    onUnsaved(id, unsaved);
+    return () => onUnsaved(id, false);
+  }, [id, unsaved, onUnsaved]);
   return (
     <div>
       <input
@@ -118,7 +130,7 @@ function NumberBox(props: {
         onChange={(e) => { setText(e.target.value); setError(null); }}
         onBlur={() => {
           const r = parseDraft(text, props.rules);
-          if (!r.ok) return setError(draftError(r.reason, lang));
+          if (!r.ok) return setError(draftError(r.reason, lang, props.rules));
           if (r.value !== props.saved) props.onCommit(r.value);
         }}
       />
@@ -177,11 +189,20 @@ export function SellingPriceTab(props: PricingTabProps) {
   });
 
   const sellingEditable = canEditSelling(file.state, rights);
-  const canBuild = canBuildPrice(file.state, rights);
+  const canBuild = buildVisible({ isGm: rights.is_gm, canReadCost: rights.can_read_cost, state: file.state });
   const [snapshot, setSnapshot] = useState<TotalsRow | null>(null);
   const [inputsPending, setInputsPending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resetNonce, setResetNonce] = useState(0);
+  const [unsavedBoxes, setUnsavedBoxes] = useState<ReadonlySet<string>>(new Set());
+  const onUnsaved = useCallback((id: string, unsaved: boolean) => {
+    setUnsavedBoxes((prev) => {
+      if (prev.has(id) === unsaved) return prev;
+      const next = new Set(prev);
+      if (unsaved) next.add(id); else next.delete(id);
+      return next;
+    });
+  }, []);
   const money = (n: number | null | undefined) => (n == null ? "—" : formatNumber(n, lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const pct = (n: number | null | undefined) => (n == null ? "—" : `${formatNumber(n, lang, { maximumFractionDigits: 2 })}%`);
 
@@ -197,14 +218,17 @@ export function SellingPriceTab(props: PricingTabProps) {
   const openCount = open.data;
   const unpriced = t?.unpriced_lines ?? 0;
   const incomplete = !!t && (t.unpriced_lines > 0 || t.non_sar_lines > 0 || t.multi_quote_lines > 0 || t.screen_price_missing_lines > 0);
-  // The server refuses all of these too; this only says why the button is off.
-  const ready = !!t && !incomplete && t.line_count > 0 && (t.total_selling ?? 0) > 0;
   const belowFloor = t?.below_floor === true;
   const fresh = !totals.isFetching && !grid.isFetching && !open.isFetching && !suggest.isFetching;
   // Propose waits for the on-open suggestion check of this file and round, a fresh open count, and saved inputs.
   const suggestSettled = suggestStatus === "done" || suggestStatus === "na";
-  const extrasDecided = suggestSettled && !open.isError && openCount === 0;
-  const canPropose = canBuild && ready && extrasDecided && fresh && !inputsPending;
+  const gate = {
+    isGm: rights.is_gm, canReadCost: rights.can_read_cost, state: file.state, inputsPending, fresh, totals: t,
+    suggestSettled, openFailed: open.isError, openCount,
+  };
+  // The server refuses all of these too; this only says why the buttons are off.
+  const buildOk = canBuildNow(gate).ok;
+  const canPropose = canProposeNow(gate).ok;
   const priceStale = price.data?.proposed_price != null && t?.total_selling != null && price.data.proposed_price !== t.total_selling;
 
   async function choose(g: GridRow, choice: LineChoice) {
@@ -237,11 +261,16 @@ export function SellingPriceTab(props: PricingTabProps) {
   }
 
   async function propose(snap: TotalsRow, justification: string) {
-    if (busy || snap.total_selling == null) return;
+    if (busy) return;
+    // Exactly the figures the confirmation showed; a blank justification is refused here, before sending.
+    const p = buildProposePayload(snap, justification);
+    if (!p.ok) {
+      if (p.reason === "justification_blank") throw new Error(pick(TEXT.justificationBlank, lang));
+      return;
+    }
     setBusy(true);
     try {
-      // Exactly the figures the confirmation showed.
-      await proposePrice(file.file_id, snap.total_selling, snap.total_cost, snap.below_floor ? justification.trim() : undefined);
+      await proposePrice(file.file_id, p.payload.expectedTotal, p.payload.expectedTotalCost, p.payload.justification);
       toast.success(pick(TEXT.proposed, lang));
       onChanged();
     } catch (e) {
@@ -305,6 +334,7 @@ export function SellingPriceTab(props: PricingTabProps) {
                   <NumberBox
                     key={`m-${g.boq_line_id}-${g.line_margin_pct ?? ""}-${resetNonce}`}
                     saved={g.line_margin_pct} rules={{ above: -100, below: 100 }}
+                    id={`m-${g.boq_line_id}`} onUnsaved={onUnsaved}
                     label={`${pick(TEXT.marginIn, lang)}: ${g.sign_type}`}
                     title={pick(TEXT.marginSwitch, lang)}
                     placeholder={g.default_margin_pct == null ? "" : String(g.default_margin_pct)}
@@ -316,6 +346,7 @@ export function SellingPriceTab(props: PricingTabProps) {
                   <NumberBox
                     key={`s-${g.boq_line_id}-${g.typed_selling_price ?? ""}-${resetNonce}`}
                     saved={g.typed_selling_price} rules={{ above: 0 }}
+                    id={`s-${g.boq_line_id}`} onUnsaved={onUnsaved}
                     label={`${pick(TEXT.typed, lang)}: ${g.sign_type}`}
                     title={pick(TEXT.priceSwitch, lang)}
                     disabled={!sellingEditable || busy}
@@ -388,10 +419,11 @@ export function SellingPriceTab(props: PricingTabProps) {
             <p className="text-amber-light">{pick(TEXT.returned, lang)}: {price.data.return_reason}</p>
           ) : null}
           {belowFloor && canBuild ? <p className="text-amber-light">{pick(TEXT.belowFloor, lang)}</p> : null}
+          {canBuild && unsavedBoxes.size > 0 ? <p className="text-destructive">{pick(TEXT.unsavedLine, lang)}</p> : null}
           {canBuild && inputsPending ? <p className="text-destructive">{pick(TEXT.inputsPending, lang)}</p> : null}
           {canBuild ? (
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" disabled={busy || !ready || !fresh || inputsPending} onClick={() => void build()}>
+              <Button variant="outline" disabled={busy || !buildOk} onClick={() => void build()}>
                 {pick(TEXT.build, lang)}
               </Button>
               <Button disabled={busy || !canPropose} onClick={() => setSnapshot(t ?? null)}>

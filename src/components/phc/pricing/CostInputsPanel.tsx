@@ -93,7 +93,7 @@ export function CostInputsPanel({ file, rights, onChanged, onPending }: Props) {
     const text = drafts[key];
     if (text == null) return;
     const r = parseDraft(text, RULES[key]);
-    if (!r.ok) { setErrors((e) => ({ ...e, [key]: draftError(r.reason, lang) })); return; }
+    if (!r.ok) { setErrors((e) => ({ ...e, [key]: draftError(r.reason, lang, RULES[key]) })); return; }
     const value = key === "default_margin_pct" ? r.value : (r.value ?? 0);
     if (value === saved[key]) {
       setDrafts((d) => { const { [key]: _gone, ...rest } = d; return rest; });

@@ -22,6 +22,14 @@ describe("parseDraft", () => {
     expect(parseDraft("1.2.3")).toEqual({ ok: false, reason: "not_a_number" });
     expect(parseDraft("abc")).toEqual({ ok: false, reason: "not_a_number" });
   });
+  it("accepts a leading or trailing dot", () => {
+    expect(parseDraft(".5")).toEqual({ ok: true, value: 0.5 });
+    expect(parseDraft("5.")).toEqual({ ok: true, value: 5 });
+    expect(parseDraft("-.5")).toEqual({ ok: true, value: -0.5 });
+    expect(parseDraft("1,200.")).toEqual({ ok: true, value: 1200 });
+    expect(parseDraft(".")).toEqual({ ok: false, reason: "not_a_number" });
+    expect(parseDraft("-.")).toEqual({ ok: false, reason: "not_a_number" });
+  });
   it("reads Arabic-Indic digits", () => {
     expect(parseDraft(String.fromCharCode(0x0662, 0x0660))).toEqual({ ok: true, value: 20 });
   });

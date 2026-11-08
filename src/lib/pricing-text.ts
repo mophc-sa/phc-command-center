@@ -31,4 +31,18 @@ const DRAFT_ERROR = {
 } satisfies Record<string, Bi>;
 
 /** What to tell the reader when a typed number is refused (see pricing-input.ts). */
-export const draftError = (reason: keyof typeof DRAFT_ERROR, lang: Lang): string => DRAFT_ERROR[reason][lang];
+export function draftError(
+  reason: keyof typeof DRAFT_ERROR,
+  lang: Lang,
+  rules?: { min?: number; above?: number; max?: number; below?: number },
+): string {
+  if (reason !== "range" || !rules) return DRAFT_ERROR[reason][lang];
+  const lo = rules.above != null ? { en: `above ${rules.above}`, ar: `أكبر من ${rules.above}` }
+    : rules.min != null ? { en: `at least ${rules.min}`, ar: `${rules.min} على الأقل` } : null;
+  const hi = rules.below != null ? { en: `below ${rules.below}`, ar: `أقل من ${rules.below}` }
+    : rules.max != null ? { en: `at most ${rules.max}`, ar: `${rules.max} على الأكثر` } : null;
+  if (!lo && !hi) return DRAFT_ERROR.range[lang];
+  const en = [lo?.en, hi?.en].filter(Boolean).join(" and ");
+  const ar = [lo?.ar, hi?.ar].filter(Boolean).join(" و");
+  return lang === "ar" ? `القيمة يجب أن تكون ${ar}.` : `The value must be ${en}.`;
+}

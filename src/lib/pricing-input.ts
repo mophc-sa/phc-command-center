@@ -19,8 +19,9 @@ export function parseDraft(text: string, rules: DraftRules = {}): DraftResult {
   const s = westernDigits(text).trim();
   if (s === "") return { ok: true, value: null };
   // The import accepts "12 pcs"; a box that says "12 pcs" or "1.2.3" is a typo, not a number.
-  if (!/^-?\d[\d,]*(?:\.\d+)?$/.test(s)) return { ok: false, reason: "not_a_number" };
-  const r = parseNumberResult(s);
+  // ".5" and "5." are numbers too (0.5 and 5); "." alone is not.
+  if (!/^-?(?:\d[\d,]*(?:\.\d*)?|\.\d+)$/.test(s)) return { ok: false, reason: "not_a_number" };
+  const r = parseNumberResult(s.replace(/^(-?)\./, "$10.").replace(/\.$/, ""));
   if (!r.ok) return { ok: false, reason: r.reason };
   const v = r.value;
   if (v == null) return { ok: true, value: null };
