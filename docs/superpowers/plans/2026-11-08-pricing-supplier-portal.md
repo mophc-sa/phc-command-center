@@ -4,7 +4,7 @@
 
 **Goal:** Give the factory (the supplier) its own MFA-protected portal account, linked to one vendor, through which it sees only the pricing requests sent to it (project code, lines, the exact files), submits its prices, and re-prices only the lines Zayed returns, while every other path in the schema gives a supplier nothing.
 
-**Architecture:** Six migrations (`20261108100000`–`20261108150000`). A supplier fails `has_app_access`, so the restrictive `audit_session_boundary` policy (now on every public table) and every role predicate close the whole schema to it; it reads and writes only through `supplier_portal_*` SECURITY DEFINER functions that start from `_supplier_session_vendor()` (active supplier, linked vendor, `aal2`). A pricer sends a frozen file to one vendor (`supplier_invitations` + lines + the exact file versions); the supplier's submission writes a new Phase 7B `supplier_quotes` revision that PR 2's selling grid picks, moves the file to `supplier_priced` and notifies Kalas and Zayed. `sales-os-api` gains a `supplier-portal` module (account creation with a one-time set-password link, and signed download links for suppliers), and the shared `resolveCaller` refuses supplier accounts in every other function. The portal is a separate route tree `/supplier` outside `/_authenticated`.
+**Architecture:** Six migrations (`20261108100000`–`20261108150000`). A supplier fails `has_app_access`, so the restrictive `audit_session_boundary` policy (now on every public table) and every role predicate close the whole schema to it; it reads and writes only through `supplier_portal_*` SECURITY DEFINER functions that start from `_supplier_session_vendor()` (active supplier, linked vendor, `aal2`). A pricer sends a frozen file to one vendor (`supplier_invitations` + lines + the exact file versions); the supplier's submission writes a new Phase 7B `supplier_quotes` revision that PR 2's selling grid picks, moves the file to `supplier_priced` and notifies Kalas and Zayed. `sales-os-api` gains a `supplier-portal` module (account creation with a one-time set-password link, and supplier file downloads streamed through the function under the neutral name, never a signed link or a storage path), and the shared `resolveCaller` refuses supplier accounts in every other function. The portal is a separate route tree `/supplier` outside `/_authenticated`.
 
 **Tech Stack:** Postgres 15 (Supabase), pgTAP, pg_cron, Deno Edge Functions (`sales-os-api`, `_shared`), TypeScript, React 19, TanStack Router/Start, @tanstack/react-query, bun test, deno test.
 
@@ -77,7 +77,7 @@ Each has a default. The tasks are written with the default, so nothing waits on 
 | `supabase/migrations/20261108100000_supplier_role.sql` | `app_role` gains `supplier` (alone: a new enum value cannot be used in its own transaction) |
 | `supabase/migrations/20261108110000_supplier_accounts.sql` | `profiles.vendor_id` + guard (the supplier key); `is_supplier_account`, `_supplier_session_vendor`; `has_app_access`, `is_active_user`, `has_any_role` refuse vendor-linked profiles; supplier role exclusive and undeletable while linked; no task owned by a supplier; a supplier edits only its language; non-PHC email exception (`supplier_account_invites`, deferred check at commit); `supplier_account_prepare` / `_activate` / `_email`, `pricing_supplier_accounts`; two owner-run views made invoker; `current_margin_floor` hides the floor from suppliers and is closed to anon; `estimation_cost_basis` closed to anon and to non-cost-readers; `my_day`, `meeting_review_queue`, `my_fireflies_connection` check `has_app_access`; session boundary on every public table |
 | `supabase/migrations/20261108120000_supplier_invitations.sql` | `supplier_invitations`, `_lines`, `_files`; `_pricing_today`; `pricing_send_to_supplier` (incl. the second supplier's earlier quote), `pricing_cancel_invitation`, `pricing_extend_invitation` |
-| `supabase/migrations/20261108130000_supplier_portal_read.sql` | `_supplier_invitation_for_session`, `_supplier_invitation_editable`, `_supplier_portal_status`; `supplier_portal_invitations`, `supplier_portal_invitation`, `supplier_portal_file` |
+| `supabase/migrations/20261108130000_supplier_portal_read.sql` | `_supplier_invitation_for_session`, `_supplier_invitation_editable`, `_supplier_portal_status`; `supplier_portal_invitations`, `supplier_portal_invitation`, `supplier_portal_file` (neutral name only); `_supplier_portal_file_location` (service role only) |
 | `supabase/migrations/20261108140000_supplier_portal_submit.sql` | `supplier_quotes.source` / `source_document_id`; `supplier_invitation_submissions`; `supplier_portal_confirmation`; `supplier_portal_submit`; `pricing_enter_supplier_quote` follows the request and keeps the supplier's file |
 | `supabase/migrations/20261108150000_supplier_returns_overdue.sql` | `pricing_return_lines_to_supplier`; `pricing_notify_overdue_suppliers` + pg_cron job |
 | `supabase/tests/supplier_accounts.test.sql` … `supplier_returns_overdue.test.sql`, `supplier_isolation_sweep.test.sql` | pgTAP per migration, and the sweep |
@@ -85,7 +85,7 @@ Each has a default. The tasks are written with the default, so nothing waits on 
 | `src/integrations/supabase/types.ts` | `app_role` enum gains `supplier` |
 | `supabase/functions/_shared/supplier-portal.ts` (+ `.deno-test.ts`) | Supplier actions allow-list, email and app-URL helpers |
 | `supabase/functions/_shared/supabase.ts` | `resolveCaller` refuses suppliers unless the function opts in |
-| `supabase/functions/sales-os-api/router.ts`, `index.ts`, `handlers/supplier-portal.ts` | Per-action gate; `supplier_account_create`, `supplier_account_password_link`, `supplier_file_link` |
+| `supabase/functions/sales-os-api/router.ts`, `index.ts`, `handlers/supplier-portal.ts` | Per-action gate; `supplier_account_create`, `supplier_account_password_link`, `supplier_file_download` |
 | `src/lib/supplier-portal.ts` (+ `.test.ts`, `.contract.test.ts`) | Portal types, submission builder, dates, messages, guard decision |
 | `src/lib/supplier-portal-actions.ts` | Portal RPC wrappers, file link |
 | `src/lib/pricing-actions.ts` (+ contract test) | Pricer-side wrappers for requests, returns, accounts |
@@ -1035,7 +1035,7 @@ CREATE TABLE IF NOT EXISTS public.supplier_invitation_files (
   size_bytes        bigint,
   checksum          text,
   object_version    text,
-  object_updated_at timestamptz NOT NULL,
+  object_updated_at timestamptz,
   CONSTRAINT sif_one_per_document UNIQUE (invitation_id, document_id)
 );
 
@@ -1176,7 +1176,7 @@ BEGIN
                                                   mime_type, size_bytes, checksum, object_version, object_updated_at)
     VALUES (inv.id, d.id, code || '-' || lpad(d.ord::text, 2, '0') || coalesce('.' || ext, ''),
             d.storage_bucket, d.storage_path, d.mime_type, d.size_bytes, d.checksum, d.object_version,
-            coalesce(d.object_updated_at, now()));
+            d.object_updated_at);
   END LOOP;
 
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
@@ -1271,6 +1271,8 @@ git commit -m "feat(pricing): send a frozen file to one supplier with the exact 
 
 > **Note from Task 2:** an invitation is not closed when its file moves past `at_supplier` or closes, so every portal read (`supplier_portal_invitations`, `supplier_portal_invitation`, `_supplier_invitation_for_session`, `supplier_portal_file`) must also require the file's state to be `at_supplier` (otherwise a supplier keeps reading a finished file). The re-check in `supplier_portal_file` compares the storage object's `version` and `updated_at` with what was sent; `supplier_invitation_files.checksum` is the storage ETag read at send time and is informational (shown in the confirmation snapshot), not compared.
 
+> **Fix round 1 (Task 3 as built; the code below is the original brief, the migration and test files are authoritative):** `supplier_portal_file` (callable by the supplier) returns only `{ok, file_id, name, mime_type, size_bytes}` (the neutral name) and writes nothing: the storage path carries the deal id and the original file name, often the client's, so it never reaches a supplier, nor does a signed URL (the path is in the URL and the token). Where the bytes are comes from `_supplier_portal_file_location(_invitation_id, _file_id, _supplier_user)`, executable by `service_role` only: it re-runs the same checks for that user (`_supplier_account_vendor`: active supplier with a vendor; sales-os-api has already required aal2), writes the `supplier_portal.file_downloaded` audit row and returns `{bucket, path, name, mime_type}`. The checks are shared in `_supplier_portal_file_checked(inv, file_id)`; the request lookup is `_supplier_invitation_for_vendor(_invitation_id, _vendor_id)`. The version and updated time are compared with `IS NOT DISTINCT FROM` (Task 2 now stores a NULL updated time as NULL instead of `now()`). Opening a `sent` request writes an audit row (`supplier_portal.opened`); `return_message` shows only while the request is live.
+
 **Interfaces:**
 - Consumes: Task 1 `public._supplier_session_vendor()`; Task 2 tables and `pricing_send_to_supplier` (the test sends through it); 7B `supplier_quotes`, `supplier_quote_lines`.
 - Produces:
@@ -1278,7 +1280,8 @@ git commit -m "feat(pricing): send a frozen file to one supplier with the exact 
   - `public._supplier_invitation_editable(supplier_invitations) → boolean`, `public._supplier_portal_status(supplier_invitations) → text` ∈ `open|returned|submitted|closed` (internal).
   - `public.supplier_portal_invitations() → TABLE(invitation_id uuid, project_code text, reply_by date, status text, sent_at timestamptz, submitted_at timestamptz, lines integer, open_lines integer)`.
   - `public.supplier_portal_invitation(_invitation_id uuid) → jsonb` with keys `invitation_id, project_code, reply_by, sent_at, instructions, return_message, status, editable, terms{lead_time_days, payment_terms, valid_until}, lines[{line_id, line_number, sign_type, description, dimensions, material, mounting, illumination, finish, quantity, unit, width_mm, height_mm, has_screen, state, editable, unit_cost, unit_cost_with_screen, spec_difference}], files[{file_id, name, size_bytes, mime_type}]`. Marks an open `sent` request `opened`.
-  - `public.supplier_portal_file(_invitation_id uuid, _file_id uuid) → jsonb {"bucket","path","name"}` (only the exact version sent; audited `supplier_portal.file_downloaded`).
+  - `public.supplier_portal_file(_invitation_id uuid, _file_id uuid) → jsonb {"ok","file_id","name","mime_type","size_bytes"}` (only the exact version sent; never a bucket, path, document id or original name).
+  - `public._supplier_portal_file_location(_invitation_id uuid, _file_id uuid, _supplier_user uuid) → jsonb {"bucket","path","name","mime_type"}` (`service_role` only; same checks for that user; audited `supplier_portal.file_downloaded`).
 
 - [ ] **Step 1: Write the failing pgTAP test**
 
@@ -2755,15 +2758,15 @@ git commit -m "feat(pricing): returned lines reopen alone, overdue reminder, sup
 - Test: `src/lib/sales-os-api-router.test.ts`, `src/lib/sales-os-api-modularization.contract.test.ts`
 
 **Interfaces:**
-- Consumes: Task 1 `supplier_account_prepare`, `supplier_account_activate` (service role), `supplier_account_email`; Task 3 `supplier_portal_file`; Task 1's `"supplier"` in `_shared/roles.ts` (and in `MFA_REQUIRED_ROLES`).
+- Consumes: Task 1 `supplier_account_prepare`, `supplier_account_activate` (service role), `supplier_account_email`; Task 3 `supplier_portal_file` (as the caller) and `_supplier_portal_file_location` (service role); Task 1's `"supplier"` in `_shared/roles.ts` (and in `MFA_REQUIRED_ROLES`).
 - Produces:
-  - `SUPPLIER_ACTIONS = ["supplier_file_link"]`, `callerMayUseAction(roles, action): boolean`, `normalizeSupplierEmail(raw): string | null`, `appUrl(env): string` in `_shared/supplier-portal.ts`.
+  - `SUPPLIER_ACTIONS = ["supplier_file_download"]`, `callerMayUseAction(roles, action): boolean`, `normalizeSupplierEmail(raw): string | null`, `appUrl(env): string`, `attachmentHeader(name): string` in `_shared/supplier-portal.ts`.
   - `resolveCaller(authHeader, options?: { allowSupplier?: boolean })`: a supplier is refused `{status: 403, message: "Supplier accounts use the supplier portal only"}` unless `allowSupplier`; then MFA (`aal2`) is still required.
   - `SalesOsRouterDependencies.authorizeAction?: (caller, action) => boolean` → 403 `"This account cannot use this action"`.
   - sales-os-api actions (module `supplier-portal`):
     - `supplier_account_create` payload `{vendorId, email, fullName}` → `{ok, user_id, set_password_url}` (`set_password_url` may be null if the link could not be made).
     - `supplier_account_password_link` payload `{userId}` → `{ok, set_password_url}`.
-    - `supplier_file_link` payload `{invitationId, fileId}` → `{ok, url}` (5-minute signed download link; the only action a supplier may call).
+    - `supplier_file_download` payload `{invitationId, fileId}` → the file's bytes (`200`, `Content-Type: application/octet-stream`, `Content-Disposition: attachment` with the neutral name), streamed by the function with the service client; errors are JSON `{error}`. Never a signed URL or a storage path. The only action a supplier may call.
   - Function deploys at release: `sales-os-api` (required), `ai-orchestrator` and `import-pipeline` (carry the shared supplier refusal).
 
 - [ ] **Step 1: Write the failing Deno test**
@@ -2772,12 +2775,12 @@ Create `supabase/functions/_shared/supplier-portal.deno-test.ts`:
 
 ```ts
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { appUrl, callerMayUseAction, normalizeSupplierEmail, SUPPLIER_ACTIONS } from "./supplier-portal.ts";
+import { appUrl, attachmentHeader, callerMayUseAction, normalizeSupplierEmail, SUPPLIER_ACTIONS } from "./supplier-portal.ts";
 import { resolveCaller } from "./supabase.ts";
 
 Deno.test("a supplier account may call only the supplier actions", () => {
-  assertEquals(SUPPLIER_ACTIONS, ["supplier_file_link"]);
-  assertEquals(callerMayUseAction(["supplier"], "supplier_file_link"), true);
+  assertEquals(SUPPLIER_ACTIONS, ["supplier_file_download"]);
+  assertEquals(callerMayUseAction(["supplier"], "supplier_file_download"), true);
   assertEquals(callerMayUseAction(["supplier"], "send_email"), false);
   assertEquals(callerMayUseAction(["supplier"], "supplier_account_create"), false);
   assertEquals(callerMayUseAction(["estimation_manager", "finance_manager"], "supplier_account_create"), true);
@@ -2790,6 +2793,12 @@ Deno.test("supplier emails are trimmed, lower-cased and checked", () => {
   assertEquals(normalizeSupplierEmail(""), null);
   assertEquals(normalizeSupplierEmail(undefined), null);
   assertEquals(normalizeSupplierEmail(`${"a".repeat(250)}@x.io`), null);
+});
+
+Deno.test("a supplier download is named by its neutral name only, header-safe", () => {
+  assertEquals(attachmentHeader("PR-26-0001-01.pdf"), `attachment; filename="PR-26-0001-01.pdf"; filename*=UTF-8''PR-26-0001-01.pdf`);
+  assertEquals(attachmentHeader('a"b\r\n.pdf'), `attachment; filename="a_b__.pdf"; filename*=UTF-8''a%22b%0D%0A.pdf`);
+  assertEquals(attachmentHeader(""), `attachment; filename="file"; filename*=UTF-8''file`);
 });
 
 Deno.test("the app URL comes from APP_URL, without a trailing slash", () => {
@@ -2857,7 +2866,7 @@ Create `supabase/functions/_shared/supplier-portal.ts`:
 import type { AppRole } from "./roles.ts";
 
 /** The sales-os-api actions a supplier account may call. Every other action answers 403. */
-export const SUPPLIER_ACTIONS: readonly string[] = ["supplier_file_link"];
+export const SUPPLIER_ACTIONS: readonly string[] = ["supplier_file_download"];
 
 export function callerMayUseAction(roles: readonly AppRole[], action: string): boolean {
   return !roles.includes("supplier") || SUPPLIER_ACTIONS.includes(action);
@@ -2874,6 +2883,12 @@ export const DEFAULT_APP_URL = "https://agent.phc-sa.com";
 /** The app's origin for links in messages (same setting outlook-connector reads). */
 export function appUrl(env: (key: string) => string | undefined): string {
   return (env("APP_URL") ?? DEFAULT_APP_URL).replace(/\/+$/, "");
+}
+
+/** Content-Disposition for a supplier download: the neutral name (code-NN.ext) only, safe in a header. */
+export function attachmentHeader(name: string): string {
+  const n = name || "file";
+  return `attachment; filename="${n.replace(/[^A-Za-z0-9._-]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(n)}`;
 }
 ```
 
@@ -2949,7 +2964,7 @@ test("router lets authorizeAction refuse a caller before the handler runs", asyn
     corsHeaders: {},
     errorResponse,
     resolveCaller: async () => ({ userId: "supplier-1", roles: ["supplier"] }),
-    authorizeAction: (who, action) => !who.roles.includes("supplier") || action === "supplier_file_link",
+    authorizeAction: (who, action) => !who.roles.includes("supplier") || action === "supplier_file_download",
     createContext: (resolvedCaller, authorization) =>
       createSalesOsContext(resolvedCaller, authorization, () => ({}) as never, () => ({}) as never, audit as never),
   });
@@ -3025,9 +3040,22 @@ with
     "flag_duplicate",
     "resolve_duplicate_group",
   ],
-  "supplier-portal": ["supplier_account_create", "supplier_account_password_link", "supplier_file_link"],
+  "supplier-portal": ["supplier_account_create", "supplier_account_password_link", "supplier_file_download"],
 } as const;
 ```
+
+and add to the same file:
+
+```ts
+test("supplier downloads stream the bytes; no signed URL or storage path leaves sales-os-api", () => {
+  const src = readFileSync(join(apiRoot, "handlers/supplier-portal.ts"), "utf8");
+  expect(src).not.toContain("createSignedUrl");
+  expect(src).toContain('rpc("_supplier_portal_file_location"');
+  expect(src).not.toMatch(/json\([^)]*\bpath\b/);
+});
+```
+
+(`readFileSync`, `join` and `apiRoot` are already in that file.)
 
 Run: `bun test src/lib/sales-os-api-modularization.contract.test.ts`
 Expected: FAIL (`handlers/supplier-portal.ts` not found).
@@ -3048,18 +3076,23 @@ Create `supabase/functions/sales-os-api/handlers/supplier-portal.ts`:
 //   automated email exists yet (Postmark is not approved, info@ is deferred).
 // supplier_account_password_link: a new set-password link for an existing
 //   supplier account (the old one expired, or the supplier lost it).
-// supplier_file_link: the one action a supplier account may call. The database
-//   says which file and checks it is the version sent (supplier_portal_file,
-//   as the caller); the signed link is made here because a supplier has no
-//   storage access of its own. Five minutes, download only.
+// supplier_file_download: the one action a supplier account may call. The
+//   database checks, as the caller, that the file is its own and the exact
+//   version sent (supplier_portal_file answers with the neutral name only);
+//   then, with the service client, _supplier_portal_file_location re-runs the
+//   same checks for this caller's user id, audits the download and says where
+//   the bytes are. The bytes are read here with the service client and
+//   streamed back under the neutral name. No signed URL and no storage path
+//   ever leave this function: both carry the deal id and the original file
+//   name, which is often the client's.
 // =============================================================================
 
 import type { HandlerModule, SalesOsContext } from "../contracts.ts";
 import { json, err } from "../shared.ts";
-import { appUrl, normalizeSupplierEmail } from "../../_shared/supplier-portal.ts";
+import { corsHeaders } from "../../_shared/cors.ts";
+import { appUrl, attachmentHeader, normalizeSupplierEmail } from "../../_shared/supplier-portal.ts";
 
 const env = (k: string) => Deno.env.get(k);
-const SIGNED_URL_SECONDS = 300;
 
 type DbError = { message?: string; code?: string } | null;
 
@@ -3126,23 +3159,43 @@ async function supplier_account_password_link(payload: Record<string, unknown>, 
   return json({ ok: true, set_password_url: url });
 }
 
-async function supplier_file_link(payload: Record<string, unknown>, ctx: SalesOsContext) {
-  const { data, error } = await ctx.asCaller.rpc("supplier_portal_file", {
-    _invitation_id: String(payload.invitationId ?? ""),
-    _file_id: String(payload.fileId ?? ""),
+async function supplier_file_download(payload: Record<string, unknown>, ctx: SalesOsContext) {
+  const args = { _invitation_id: String(payload.invitationId ?? ""), _file_id: String(payload.fileId ?? "") };
+
+  // 1. As the supplier (its session, aal2): its own request and file, the version sent.
+  const { data: checked, error: checkError } = await ctx.asCaller.rpc("supplier_portal_file", args);
+  if (checkError || !checked) return dbError(checkError, "This file is not available");
+
+  // 2. As the service, for the same user: where the bytes are (and the audit row).
+  const { data: located, error: locateError } = await ctx.svc.rpc("_supplier_portal_file_location", {
+    ...args,
+    _supplier_user: ctx.caller.userId,
   });
-  if (error || !data) return dbError(error, "This file is not available");
-  const file = data as { bucket: string; path: string; name: string };
-  const { data: signed, error: signError } = await ctx.svc.storage
-    .from(file.bucket)
-    .createSignedUrl(file.path, SIGNED_URL_SECONDS, { download: file.name });
-  if (signError || !signed?.signedUrl) return err("Could not prepare the download", 502);
-  return json({ ok: true, url: signed.signedUrl });
+  if (locateError || !located) return dbError(locateError, "This file is not available");
+  const file = located as { bucket: string; path: string; name: string };
+
+  // 3. The bytes, read with the service client and streamed back: never a link, never the path.
+  const { data: blob, error: downloadError } = await ctx.svc.storage.from(file.bucket).download(file.path);
+  if (downloadError || !blob) return err("Could not prepare the download", 502);
+  return new Response(blob.stream(), {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      // octet-stream so supabase-js functions.invoke hands the portal a Blob; the
+      // portal already has the file's type from supplier_portal_invitation.
+      "Content-Type": "application/octet-stream",
+      "Content-Length": String(blob.size),
+      "Content-Disposition": attachmentHeader(file.name),
+      "Access-Control-Expose-Headers": "Content-Disposition",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }
 
 export const supplierPortalModule: HandlerModule = {
   name: "supplier-portal",
-  handlers: { supplier_account_create, supplier_account_password_link, supplier_file_link },
+  handlers: { supplier_account_create, supplier_account_password_link, supplier_file_download },
 };
 ```
 
@@ -3220,7 +3273,7 @@ git commit -m "feat(sales-os-api): supplier accounts, supplier downloads, and su
 - Consumes: Tasks 1–6 (SQL signatures and the three sales-os-api actions); `parseDraft`, `draftText`, `DraftRules`, `DraftFailure` (`src/lib/pricing-input.ts`); `callBackend` (`src/lib/backend.ts`).
 - Produces (later tasks use these exact names):
   - `src/lib/supplier-portal.ts`: types `PortalStatus`, `PortalListRow`, `PortalLine`, `PortalFile`, `PortalInvitation`, `LineDraft`, `TermsDraft`, `SubmissionLine`, `SubmissionTerms`, `SubmissionProblem`, `SubmissionError`, `PortalRedirect`, `GateInput`; constants `PORTAL_STATUS_LABEL`, `PORTAL_CONFIRMATION`, `PRICE_RULES`, `LEAD_RULES`; functions `buildSubmission(lines, drafts, terms, today)`, `riyadhToday(now?)`, `daysLeft(replyBy, today)`, `isOverdue(replyBy, today)`, `portalLink(origin, invitationId?)`, `inviteMessage(link, lang)`, `accountMessage(setPasswordUrl, signInUrl, lang)`, `supplierGate(input, next) → { redirect, signOut }`.
-  - `src/lib/supplier-portal-actions.ts`: `listPortalInvitations()`, `getPortalInvitation(id)`, `submitPortalQuote(id, lines, terms, lang)`, `getPortalFileUrl(invitationId, fileId) → Promise<string>`.
+  - `src/lib/supplier-portal-actions.ts`: `listPortalInvitations()`, `getPortalInvitation(id)`, `submitPortalQuote(id, lines, terms, lang)`, `downloadPortalFile(invitationId, fileId) → Promise<Blob>` (the bytes from sales-os-api `supplier_file_download`; no URL).
   - `src/lib/pricing-actions.ts`: `enterSupplierQuote(fileId, vendorId, lines, terms, documentId?)`; `InvitationStatus`, `OPEN_INVITATION`, `InvitationRow`, `listFileInvitations(fileId)`, `InvitationLineRow`, `listInvitationLines(id)`, `InvitationFileRow`, `listInvitationFiles(id)`, `SubmissionRow`, `listInvitationSubmissions(id)`, `EarlierQuoteRow`, `listEarlierQuotes(revisionId)`, `sendToSupplier(fileId, vendorId, replyBy, documentIds, instructions, replaceEarlier)`, `cancelInvitation(id, reason)`, `extendInvitation(id, replyBy)`, `returnLinesToSupplier(fileId, boqLineIds, replyBy, note, message)`, `SupplierAccountRow`, `listSupplierAccounts(vendorId)`, `createSupplierAccount(vendorId, email, fullName)`, `newSupplierPasswordLink(userId)`.
   - `targetFor` / `resolveTarget`: a notification with `metadata.pricing_file_id` opens `/pricing/<id>` without a lookup.
 
@@ -3360,13 +3413,17 @@ describe("supplier portal contract", () => {
   it("every sales-os-api action the screens call is registered, and a supplier may call only its own", () => {
     const handlers = read("../../supabase/functions/sales-os-api/handlers/supplier-portal.ts");
     const manifest = handlers.match(/handlers:\s*\{([^}]+)\}/)?.[1].split(",").map((s) => s.trim()) ?? [];
-    const called = (src: string) => [...src.matchAll(/callBackend(?:<[^>]*>)?\(\s*"(supplier_\w+)"/g)].map((m) => m[1]);
+    const called = (src: string) => [
+      ...[...src.matchAll(/callBackend(?:<[^>]*>)?\(\s*"(supplier_\w+)"/g)].map((m) => m[1]),
+      ...[...src.matchAll(/action:\s*"(supplier_\w+)"/g)].map((m) => m[1]),
+    ];
     const pricer = called(read("./pricing-actions.ts"));
     const supplier = called(read("./supplier-portal-actions.ts"));
     expect(pricer.sort()).toEqual(["supplier_account_create", "supplier_account_password_link"]);
-    expect(supplier).toEqual(["supplier_file_link"]);
+    expect(supplier).toEqual(["supplier_file_download"]);
     for (const a of [...pricer, ...supplier]) expect(manifest).toContain(a);
     expect([...SUPPLIER_ACTIONS]).toEqual(supplier);
+    expect(read("./supplier-portal-actions.ts")).not.toMatch(/signedUrl|\burl\b/i);
   });
 
   it("supplier_portal_invitation never returns a site, a deal or a BOQ id", () => {
@@ -3634,8 +3691,9 @@ export function supplierGate(i: GateInput, next: string): { redirect: PortalRedi
 ```ts
 // The supplier portal's calls (pricing loop PR 3). A supplier account has no
 // table access: everything goes through the supplier_portal_* functions, which
-// check the session's vendor and MFA themselves. File downloads come from
-// sales-os-api (supplier_file_link), because a supplier has no storage access.
+// check the session's vendor and MFA themselves. File bytes come from
+// sales-os-api (supplier_file_download), streamed under the neutral name: a
+// supplier has no storage access, and never sees a storage path or signed link.
 import { supabase } from "@/integrations/supabase/client";
 import { callBackend } from "@/lib/backend";
 import type { Lang } from "@/lib/i18n";
@@ -3660,11 +3718,25 @@ export const submitPortalQuote = (invitationId: string, lines: SubmissionLine[],
     _confirm_lang: lang,
   });
 
-/** A five-minute download link for one file of the request. */
-export async function getPortalFileUrl(invitationId: string, fileId: string): Promise<string> {
-  const r = await callBackend<{ url?: string }>("supplier_file_link", { invitationId, fileId });
-  if (!r?.url) throw new Error("Could not prepare the download");
-  return r.url;
+/** One file of the request, as bytes streamed by sales-os-api (no link, no storage path). */
+export async function downloadPortalFile(invitationId: string, fileId: string): Promise<Blob> {
+  const { data, error } = await supabase.functions.invoke("sales-os-api", {
+    body: { action: "supplier_file_download", payload: { invitationId, fileId } },
+  });
+  if (error) {
+    // Same as callBackend: surface the server's message (errors are JSON {error}).
+    let message = error.message;
+    try {
+      const ctx = (error as { context?: Response }).context;
+      const parsed = ctx ? await ctx.json() : null;
+      if (parsed?.error) message = parsed.error;
+    } catch {
+      /* keep the generic message */
+    }
+    throw new Error(message);
+  }
+  if (!(data instanceof Blob)) throw new Error("Could not download the file");
+  return data;
 }
 ```
 
@@ -4213,6 +4285,10 @@ const TEXT = {
   chooseVendor: { en: "Choose the supplier first.", ar: "اختر المورد أولاً." },
   chooseFiles: { en: "Tick at least one file.", ar: "اختر ملفاً واحداً على الأقل." },
   confirmEarlier: { en: "Tick the box to cancel the earlier prices first.", ar: "ضع العلامة لإلغاء الأسعار السابقة أولاً." },
+  shownWarning: {
+    en: "The supplier sees each line's sign type, description, size, material, mounting, illumination, finish and quantity, and your note, exactly as written. Do not put a client name, project name or site in them. Files are renamed, but their contents go as they are: check drawings' title blocks.",
+    ar: "يرى المورد نوع اللوحة والوصف والمقاس والخامة والتثبيت والإضاءة والتشطيب والكمية لكل بند، وملاحظتك، كما كُتبت تماماً. لا تضع فيها اسم عميل أو اسم مشروع أو موقعاً. تُعاد تسمية الملفات لكن محتواها يُرسل كما هو: راجع خانة العنوان في الرسومات.",
+  },
 } satisfies Record<string, Bi>;
 
 const FIELD =
@@ -4281,6 +4357,9 @@ export function SendToSupplierPanel({ file, onChanged }: Pick<PricingTabProps, "
   return (
     <Panel title={pick(TEXT.title, lang)} subtitle={pick(TEXT.sub, lang)}>
       <div className="space-y-4 text-sm">
+        <p role="note" className="rounded-md border border-amber/40 bg-amber/10 p-2 text-amber-light">
+          {pick(TEXT.shownWarning, lang)}
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1">
             <span>{pick(TEXT.supplier, lang)}</span>
@@ -5034,7 +5113,7 @@ git commit -m "feat(pricing): send to the supplier, follow the request, supplier
 - Generated: `src/routeTree.gen.ts`
 
 **Interfaces:**
-- Consumes: Task 7 (`supplierGate`, `PortalRedirect`, `buildSubmission`, `PORTAL_CONFIRMATION`, `PORTAL_STATUS_LABEL`, `PRICE_RULES`, `LEAD_RULES`, `daysLeft`, `riyadhToday`, `listPortalInvitations`, `getPortalInvitation`, `submitPortalQuote`, `getPortalFileUrl`); Task 1 `isSupplier`; `useIdleLogout(enabled, minutes, lang)`; `useAuth().signOut`.
+- Consumes: Task 7 (`supplierGate`, `PortalRedirect`, `buildSubmission`, `PORTAL_CONFIRMATION`, `PORTAL_STATUS_LABEL`, `PRICE_RULES`, `LEAD_RULES`, `daysLeft`, `riyadhToday`, `listPortalInvitations`, `getPortalInvitation`, `submitPortalQuote`, `downloadPortalFile`); Task 1 `isSupplier`; `useIdleLogout(enabled, minutes, lang)`; `useAuth().signOut`.
 - Produces: routes `/supplier` (layout + guard, outside `/_authenticated`), `/supplier/` (requests list), `/supplier/$invitationId` (request page). Staff routes and the landing page send a supplier to `/supplier`; `/supplier` sends anyone else to `/`. After MFA set-up or verify (which navigate to `/`), a supplier lands on `/supplier`.
 
 - [ ] **Step 1: Create the shell and the request form**
@@ -5107,9 +5186,9 @@ import { draftText } from "@/lib/pricing-input";
 import { dbMessage, draftError, pick, type Bi } from "@/lib/pricing-text";
 import {
   buildSubmission, daysLeft, LEAD_RULES, PORTAL_CONFIRMATION, PORTAL_STATUS_LABEL, PRICE_RULES, riyadhToday,
-  type LineDraft, type PortalInvitation, type PortalLine, type SubmissionProblem, type TermsDraft,
+  type LineDraft, type PortalFile, type PortalInvitation, type PortalLine, type SubmissionProblem, type TermsDraft,
 } from "@/lib/supplier-portal";
-import { getPortalFileUrl, submitPortalQuote } from "@/lib/supplier-portal-actions";
+import { downloadPortalFile, submitPortalQuote } from "@/lib/supplier-portal-actions";
 
 const TEXT = {
   replyBy: { en: "Reply by", ar: "موعد الرد" },
@@ -5189,9 +5268,18 @@ export function InvitationForm({ invitation }: { invitation: PortalInvitation })
     setErrors((e) => { const { [`${lineId}:${k}`]: _gone, ...rest } = e; return rest; });
   };
 
-  async function download(fileId: string) {
+  // The bytes come back from sales-os-api; save them under the neutral name.
+  async function download(f: PortalFile) {
     try {
-      window.location.assign(await getPortalFileUrl(invitation.invitation_id, fileId));
+      const bytes = await downloadPortalFile(invitation.invitation_id, f.file_id);
+      const url = URL.createObjectURL(new Blob([bytes], { type: f.mime_type ?? "application/octet-stream" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = f.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e) {
       toast.error(dbMessage(e, lang));
     }
@@ -5255,7 +5343,7 @@ export function InvitationForm({ invitation }: { invitation: PortalInvitation })
             <li key={f.file_id} className="flex flex-wrap items-center gap-2">
               <span dir="ltr">{f.name}</span>
               <span className="text-xs text-muted-foreground">{formatBytes(f.size_bytes)}</span>
-              <Button size="sm" variant="outline" onClick={() => void download(f.file_id)}>
+              <Button size="sm" variant="outline" onClick={() => void download(f)}>
                 <Download className="me-1 h-3.5 w-3.5" />{pick(TEXT.download, lang)}
               </Button>
             </li>
@@ -5757,7 +5845,7 @@ with
   - `pricing_enter_supplier_quote` gains `_document_id` (the supplier's own file), follows the open request and supersedes a portal quote instead of overwriting it.
   - `pricing_return_lines_to_supplier`; `pricing_notify_overdue_suppliers` with pg_cron `pricing-supplier-overdue` (05:15 UTC).
   - Notifications `pricing_supplier_submitted` (GM, estimation, finance) and `pricing_supplier_overdue` (estimation, finance); both open the pricing file.
-- `sales-os-api`: module `supplier-portal` (`supplier_account_create`, `supplier_account_password_link`, `supplier_file_link`); a per-action gate lets a supplier call `supplier_file_link` only. `_shared/supabase.ts` `resolveCaller` refuses supplier accounts unless a function opts in.
+- `sales-os-api`: module `supplier-portal` (`supplier_account_create`, `supplier_account_password_link`, `supplier_file_download`); a per-action gate lets a supplier call `supplier_file_download` only (it streams the file's bytes under the neutral name; no signed URL or storage path reaches the supplier). `_shared/supabase.ts` `resolveCaller` refuses supplier accounts unless a function opts in.
 - UI: Supplier tab (send, request panel, portal accounts, entry on behalf with the supplier's file), Cost review returns chosen lines; `/supplier`, `/supplier/$invitationId`.
 - Tests: six pgTAP files (incl. a sweep over every table, view, client-callable SECURITY DEFINER function and owner-run view), `supplier-portal` bun and contract tests, `supplier-portal.deno-test.ts`; `roles.capabilities.test.ts`, `pricing-actions.contract.test.ts`, the router and modularization tests extended.
 ```

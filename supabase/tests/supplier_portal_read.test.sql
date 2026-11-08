@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 8c prefix. Sessions carry aal2 unless they say otherwise.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(33);
+select plan(53);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -35,6 +35,9 @@ select ('8c40000' || n || '-0000-0000-0000-000000000001')::uuid, ('8c20000' || n
 insert into public.boq_revisions (id, boq_id, revision_number)
 select ('8c50000' || n || '-0000-0000-0000-000000000001')::uuid, ('8c40000' || n || '-0000-0000-0000-000000000001')::uuid, 1
   from generate_series(1,2) n;
+-- A later revision of BOQ 1, to move file 1 onto while it stays at the supplier.
+insert into public.boq_revisions (id, boq_id, revision_number, is_current) values
+  ('8c500003-0000-0000-0000-000000000001','8c400001-0000-0000-0000-000000000001',2,false);
 insert into public.boq_lines (id, revision_id, line_number, sign_type, description, quantity, unit, location, has_screen) values
   ('8c510001-0000-0000-0000-000000000001','8c500001-0000-0000-0000-000000000001',1,'Pylon P1','Double-sided pylon',2,'pcs','pr-site-secret',true),
   ('8c510002-0000-0000-0000-000000000001','8c500001-0000-0000-0000-000000000001',2,'Wall W1','Channel letters',4,'pcs',null,false),
@@ -56,12 +59,14 @@ insert into public.document_links (document_id, entity_type, entity_id, linked_b
   ('8c700001-0000-0000-0000-000000000001','opportunity','8c200001-0000-0000-0000-000000000001','8c000000-0000-0000-0000-000000000001'),
   ('8c700002-0000-0000-0000-000000000001','opportunity','8c200002-0000-0000-0000-000000000001','8c000000-0000-0000-0000-000000000001');
 insert into storage.objects (bucket_id, name, owner, version) values
-  ('attachments','opportunity/8c1/a.pdf','8c000000-0000-0000-0000-000000000001','v1'),
-  ('attachments','opportunity/8c2/b.pdf','8c000000-0000-0000-0000-000000000001','v1');
+  ('attachments','opportunity/8c1/a.pdf','8c000000-0000-0000-0000-000000000001','v1');
+-- Storage reported no updated time for b: it must still download (nothing to compare is not a mismatch).
+insert into storage.objects (bucket_id, name, owner, version, updated_at) values
+  ('attachments','opportunity/8c2/b.pdf','8c000000-0000-0000-0000-000000000001','v1',null);
 
 -- The pricer sends file 1 to vendor A and file 2 to vendor B.
 create temp table pr_inv (k text, id uuid);
-grant all on pr_inv to authenticated;
+grant all on pr_inv to authenticated, service_role;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
 insert into pr_inv select 'a', (public.pricing_send_to_supplier('8c600001-0000-0000-0000-000000000001','8c100001-0000-0000-0000-000000000001',
@@ -72,11 +77,24 @@ select throws_ok($$select * from public.supplier_portal_invitations()$$, '42501'
 -- What the supplier sessions below cannot read themselves.
 reset role;
 create temp table pr_ref (k text, v text);
-grant all on pr_ref to authenticated;
+grant all on pr_ref to authenticated, service_role;
 insert into pr_ref
   select 'code', project_code from public.opportunities where id = '8c200001-0000-0000-0000-000000000001'
   union all select 'file_a', f.id::text from public.supplier_invitation_files f where f.document_id = '8c700001-0000-0000-0000-000000000001'
   union all select 'file_b', f.id::text from public.supplier_invitation_files f where f.document_id = '8c700002-0000-0000-0000-000000000001';
+-- Each vendor's prices stay its own: vendor B has a current quote on vendor A's revision,
+-- and vendor A one on vendor B's (fixtures written with the 7B guards off). Vendor B has
+-- no quote of its own on its revision, so without the portal's vendor filter it would be
+-- shown vendor A's (the test that fails then); vendor A's own quote is found first by
+-- row order either way, so A's check states the rule but cannot catch the filter alone.
+set local session_replication_role = replica;
+insert into public.supplier_quotes (id, boq_revision_id, vendor_id, currency, lead_time_days) values
+  ('8c800002-0000-0000-0000-000000000001','8c500001-0000-0000-0000-000000000001','8c100002-0000-0000-0000-000000000001','SAR',99),
+  ('8c800003-0000-0000-0000-000000000001','8c500002-0000-0000-0000-000000000001','8c100001-0000-0000-0000-000000000001','SAR',88);
+insert into public.supplier_quote_lines (supplier_quote_id, boq_line_id, quantity, unit_cost) values
+  ('8c800002-0000-0000-0000-000000000001','8c510001-0000-0000-0000-000000000001',2,777),
+  ('8c800003-0000-0000-0000-000000000001','8c510003-0000-0000-0000-000000000001',1,555);
+set local session_replication_role = origin;
 set local role authenticated;
 
 select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal1"}',true);
@@ -98,6 +116,9 @@ select is((select j->'lines'->0->>'sign_type' || '/' || (j->'lines'->0->>'quanti
   'Pylon P1/2.000/true', 'A line shows its sign type, quantity and screen');
 select is((select (j->'lines'->0->>'unit_cost')::numeric from pr_doc), 100.00::numeric, 'The supplier sees its own earlier price');
 select is((select (j->'terms'->>'lead_time_days')::int from pr_doc), 21, 'And its own earlier lead time');
+select is((select count(*)::int from pr_doc, jsonb_array_elements(j->'lines') e
+             where (e->>'unit_cost')::numeric = 777), 0,
+  'Vendor B''s price on the same revision never reaches vendor A');
 select ok((select not (j->'lines'->0 ? 'location') and not (j->'lines'->0 ? 'boq_line_id') from pr_doc),
   'A line carries no site and no internal BOQ id');
 select is((select strpos(j::text, 'pr-deal-secret') + strpos(j::text, 'pr-site-secret') + strpos(j::text, '8c510001') + strpos(j::text, '8c200001') from pr_doc), 0,
@@ -109,6 +130,9 @@ select is((select j->>'instructions' from pr_doc), 'Two prices for the pylon, pl
 reset role;
 select is((select status || '/' || (opened_at is not null)::text from public.supplier_invitations where id = (select id from pr_inv where k = 'a')),
   'opened/true', 'Reading the request marks it opened');
+select ok(exists (select 1 from public.audit_log where action = 'supplier_portal.opened'
+  and actor_id = '8c000000-0000-0000-0000-000000000004' and after_value->>'invitation_id' = (select id from pr_inv where k = 'a')::text),
+  'Marking it opened is audited');
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
 select throws_ok(format($$select public.supplier_portal_invitation('%s')$$, (select id from pr_inv where k = 'b')),
@@ -116,10 +140,29 @@ select throws_ok(format($$select public.supplier_portal_invitation('%s')$$, (sel
 select throws_ok($$select public.supplier_portal_invitation('8c90000f-0000-0000-0000-000000000001')$$,
   '42501', null, 'An unknown request answers the same as another supplier''s');
 
--- Files: only the version sent, only one's own.
-select is((public.supplier_portal_file((select id from pr_inv where k = 'a'),
-  (select v::uuid from pr_ref where k = 'file_a')))->>'path',
-  'opportunity/8c1/a.pdf', 'The supplier gets its file''s location for a signed link');
+select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000005","role":"authenticated","aal":"aal2"}',true);
+select is((select ((j->'lines'->0->>'unit_cost') is null and (j->'terms'->>'lead_time_days') is null)::text
+             from (select public.supplier_portal_invitation((select id from pr_inv where k = 'b')) j) x), 'true',
+  'Vendor B, with no prices of its own, never sees vendor A''s price or terms on its revision');
+select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+
+-- Files: only the version sent, only one's own. The supplier's check says which
+-- file under its neutral name; where the bytes are is for the service only.
+create temp table pr_file (j jsonb);
+grant all on pr_file to authenticated, service_role;
+insert into pr_file select public.supplier_portal_file((select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a'));
+select is((select array_agg(k order by k) from pr_file, jsonb_object_keys(j) k),
+  array['file_id','mime_type','name','ok','size_bytes'],
+  'The supplier''s file check returns only ok, the file id, its neutral name, type and size');
+select is((select (j->>'ok') || '/' || (j->>'name') || '/' || (j->>'file_id') from pr_file),
+  'true/' || (select v from pr_ref where k = 'code') || '-01.pdf/' || (select v from pr_ref where k = 'file_a'),
+  'Under the neutral name');
+select is((select strpos(j::text, 'opportunity/') + strpos(j::text, 'attachments') + strpos(j::text, '8c700001')
+                + strpos(j::text, 'pr-deal-secret') + strpos(j::text, 'drawings') from pr_file), 0,
+  'No bucket, path, document id or original file name reaches the supplier');
+select throws_ok(format($$select public._supplier_portal_file_location('%s', '%s', '8c000000-0000-0000-0000-000000000004')$$,
+  (select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a')),
+  '42501', null, 'A supplier cannot call the internal location function');
 select throws_ok(format($$select public.supplier_portal_file('%s', '%s')$$, (select id from pr_inv where k = 'a'),
   (select v::uuid from pr_ref where k = 'file_b')),
   '42501', null, 'Another request''s file is refused');
@@ -127,17 +170,102 @@ select throws_ok(format($$select public.supplier_portal_file('%s', '%s')$$, (sel
   (select v::uuid from pr_ref where k = 'file_b')),
   '42501', null, 'Another supplier''s file is refused');
 select is((select count(*)::int from storage.objects), 0, 'The supplier has no storage access of its own');
+
+-- The service (sales-os-api) asks where the bytes are, for the supplier user it checked.
+reset role;
+set local role service_role;
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+select is((public._supplier_portal_file_location((select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a'),
+  '8c000000-0000-0000-0000-000000000004'))->>'path', 'opportunity/8c1/a.pdf', 'The service gets the location once the checks pass');
+select throws_ok(format($$select public._supplier_portal_file_location('%s', '%s', '8c000000-0000-0000-0000-000000000005')$$,
+  (select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a')),
+  '42501', null, 'Not for another supplier''s user');
+select throws_ok(format($$select public._supplier_portal_file_location('%s', '%s', '8c000000-0000-0000-0000-000000000004')$$,
+  (select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_b')),
+  '42501', null, 'Nor for another request''s file');
+select throws_ok(format($$select public._supplier_portal_file_location('%s', '%s', '8c000000-0000-0000-0000-000000000002')$$,
+  (select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a')),
+  '42501', null, 'Nor for a staff user');
+select is((public._supplier_portal_file_location((select id from pr_inv where k = 'b'), (select v::uuid from pr_ref where k = 'file_b'),
+  '8c000000-0000-0000-0000-000000000005'))->>'path', 'opportunity/8c2/b.pdf',
+  'A file whose storage object had no updated time still downloads');
 reset role;
 select ok(exists (select 1 from public.audit_log where action = 'supplier_portal.file_downloaded'
   and actor_id = '8c000000-0000-0000-0000-000000000004'), 'A download is audited');
+
+-- Overwritten after it was sent: a new version alone, then a new updated time alone.
+set local session_replication_role = replica;
 update storage.objects set version = 'v2' where name = 'opportunity/8c1/a.pdf';
+set local session_replication_role = origin;
+select is((select o.updated_at from storage.objects o where o.name = 'opportunity/8c1/a.pdf'),
+  (select f.object_updated_at from public.supplier_invitation_files f where f.id = (select v::uuid from pr_ref where k = 'file_a')),
+  'Fixture: only the version changed');
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
 select throws_ok(format($$select public.supplier_portal_file('%s', '%s')$$, (select id from pr_inv where k = 'a'),
   (select v::uuid from pr_ref where k = 'file_a')),
-  'P0001', null, 'A file overwritten after it was sent is refused');
+  'P0001', null, 'A file with a new storage version is refused');
 reset role;
-update storage.objects set version = 'v1' where name = 'opportunity/8c1/a.pdf';
+set local role service_role;
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+select throws_ok(format($$select public._supplier_portal_file_location('%s', '%s', '8c000000-0000-0000-0000-000000000004')$$,
+  (select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a')),
+  'P0001', null, 'And the service gets no location for it');
+reset role;
+set local session_replication_role = replica;
+update storage.objects set version = 'v1', updated_at = updated_at + interval '1 second' where name = 'opportunity/8c1/a.pdf';
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select throws_ok(format($$select public.supplier_portal_file('%s', '%s')$$, (select id from pr_inv where k = 'a'),
+  (select v::uuid from pr_ref where k = 'file_a')),
+  'P0001', null, 'A file rewritten under the same version (a new updated time) is refused');
+reset role;
+set local session_replication_role = replica;
+update storage.objects set updated_at = (select f.object_updated_at from public.supplier_invitation_files f
+                                          where f.id = (select v::uuid from pr_ref where k = 'file_a'))
+ where name = 'opportunity/8c1/a.pdf';
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select lives_ok(format($$select public.supplier_portal_file('%s', '%s')$$, (select id from pr_inv where k = 'a'),
+  (select v::uuid from pr_ref where k = 'file_a')), 'Back to the exact version sent, the file is available again');
+
+-- Still at the supplier, but on a new revision: the old request's files are refused.
+reset role;
+set local session_replication_role = replica;
+update public.pricing_files set boq_revision_id = '8c500003-0000-0000-0000-000000000001' where id = '8c600001-0000-0000-0000-000000000001';
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select throws_ok(format($$select public.supplier_portal_file('%s', '%s')$$, (select id from pr_inv where k = 'a'),
+  (select v::uuid from pr_ref where k = 'file_a')),
+  '42501', null, 'A file still at the supplier but on a new revision is refused');
+reset role;
+set local session_replication_role = replica;
+update public.pricing_files set boq_revision_id = '8c500001-0000-0000-0000-000000000001' where id = '8c600001-0000-0000-0000-000000000001';
+set local session_replication_role = origin;
+
+-- A suspended supplier reads and downloads nothing, and the service gets nothing for it.
+set local session_replication_role = replica;
+update public.profiles set status = 'suspended' where id = '8c000000-0000-0000-0000-000000000004';
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$select * from public.supplier_portal_invitations()$$, '42501', null, 'A suspended supplier reads nothing');
+select throws_ok(format($$select public.supplier_portal_file('%s', '%s')$$, (select id from pr_inv where k = 'a'),
+  (select v::uuid from pr_ref where k = 'file_a')), '42501', null, 'And checks no file');
+reset role;
+set local role service_role;
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+select throws_ok(format($$select public._supplier_portal_file_location('%s', '%s', '8c000000-0000-0000-0000-000000000004')$$,
+  (select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a')),
+  '42501', null, 'And the service gets no location for a suspended supplier');
+reset role;
+set local session_replication_role = replica;
+update public.profiles set status = 'active' where id = '8c000000-0000-0000-0000-000000000004';
+set local session_replication_role = origin;
+
 update public.documents set deleted_at = now(), deleted_by = '8c000000-0000-0000-0000-000000000001' where id = '8c700001-0000-0000-0000-000000000001';
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
@@ -162,6 +290,15 @@ select is((select jsonb_array_length(j->'lines') + jsonb_array_length(j->'files'
   'A closed request shows no lines, prices or files');
 select throws_ok(format($$select public.supplier_portal_file('%s', '%s')$$, (select id from pr_inv where k = 'a'),
   (select v::uuid from pr_ref where k = 'file_a')), '42501', null, 'And no file downloads once the file left the supplier');
+reset role;
+set local session_replication_role = replica;
+update public.supplier_invitations set status = 'reopened', return_message = 'pr-return-note'
+ where id = (select id from pr_inv where k = 'a');
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select is((public.supplier_portal_invitation((select id from pr_inv where k = 'a')))->>'return_message', null,
+  'A returned request whose file moved on shows no return message');
 select set_config('request.jwt.claims','{"sub":"8c000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select lives_ok(format($$select public.pricing_cancel_invitation('%s', 'Sent by mistake')$$, (select id from pr_inv where k = 'b')),
   'The pricer cancels vendor B''s request');

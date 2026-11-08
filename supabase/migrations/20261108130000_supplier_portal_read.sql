@@ -10,21 +10,40 @@
 -- supplier, or an internal id other than the request's own.
 -- =============================================================================
 
--- The caller's request, or 42501 with the same message for "not yours" and "unknown".
-CREATE OR REPLACE FUNCTION public._supplier_invitation_for_session(_invitation_id uuid)
+-- The vendor of an active supplier account, without the session's MFA level:
+-- only for the service-role path below, where sales-os-api has already
+-- required aal2 of this user (resolveCaller) and called supplier_portal_file as
+-- them. Same conditions as _supplier_session_vendor() otherwise.
+CREATE OR REPLACE FUNCTION public._supplier_account_vendor(_user_id uuid)
+RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT p.vendor_id FROM public.profiles p
+   WHERE p.id = _user_id AND p.status = 'active' AND p.vendor_id IS NOT NULL
+     AND public.is_supplier_account(p.id);
+$$;
+REVOKE ALL ON FUNCTION public._supplier_account_vendor(uuid) FROM PUBLIC, anon, authenticated;
+
+-- The vendor's request, or 42501 with the same message for "not yours" and "unknown".
+CREATE OR REPLACE FUNCTION public._supplier_invitation_for_vendor(_invitation_id uuid, _vendor_id uuid)
 RETURNS public.supplier_invitations LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
-DECLARE v uuid := public._supplier_session_vendor(); inv public.supplier_invitations;
+DECLARE inv public.supplier_invitations;
 BEGIN
-  IF v IS NULL THEN
+  IF _vendor_id IS NULL THEN
     RAISE EXCEPTION 'Sign in to the supplier portal with two-step verification. | سجّل الدخول لبوابة المورد بالتحقق بخطوتين.' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO inv FROM public.supplier_invitations i
-   WHERE i.id = _invitation_id AND i.vendor_id = v AND i.status <> 'cancelled';
+   WHERE i.id = _invitation_id AND i.vendor_id = _vendor_id AND i.status <> 'cancelled';
   IF NOT FOUND THEN
     RAISE EXCEPTION 'This request is not available. | هذا الطلب غير متاح.' USING ERRCODE = '42501';
   END IF;
   RETURN inv;
 END $$;
+REVOKE ALL ON FUNCTION public._supplier_invitation_for_vendor(uuid, uuid) FROM PUBLIC, anon, authenticated;
+
+-- The caller's request (active supplier, linked vendor, aal2).
+CREATE OR REPLACE FUNCTION public._supplier_invitation_for_session(_invitation_id uuid)
+RETURNS public.supplier_invitations LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT public._supplier_invitation_for_vendor(_invitation_id, public._supplier_session_vendor());
+$$;
 REVOKE ALL ON FUNCTION public._supplier_invitation_for_session(uuid) FROM PUBLIC, anon, authenticated;
 
 -- The request's file is still at the supplier on the revision that was sent. An
@@ -89,6 +108,11 @@ BEGIN
   IF inv.status = 'sent' AND ed THEN
     UPDATE public.supplier_invitations SET status = 'opened', opened_at = now(), updated_at = now()
      WHERE id = inv.id RETURNING * INTO inv;
+    INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, before_value, after_value)
+    SELECT auth.uid(), 'user', 'supplier_portal.opened', 'opportunity', f.opportunity_id,
+           jsonb_build_object('status', 'sent'),
+           jsonb_build_object('invitation_id', inv.id, 'file_id', inv.file_id, 'status', 'opened')
+      FROM public.pricing_files f WHERE f.id = inv.file_id;
   END IF;
   -- The supplier's own live quote on this revision (theirs, whoever typed it).
   SELECT * INTO q FROM public.supplier_quotes sq
@@ -100,7 +124,7 @@ BEGIN
     'reply_by', inv.reply_by,
     'sent_at', inv.sent_at,
     'instructions', inv.instructions,
-    'return_message', CASE WHEN inv.status = 'reopened' THEN inv.return_message END,
+    'return_message', CASE WHEN inv.status = 'reopened' AND lv THEN inv.return_message END,
     'status', public._supplier_portal_status(inv),
     'editable', ed,
     'terms', jsonb_build_object('lead_time_days', q.lead_time_days, 'payment_terms', q.payment_terms,
@@ -128,31 +152,64 @@ END $$;
 REVOKE ALL ON FUNCTION public.supplier_portal_invitation(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.supplier_portal_invitation(uuid) TO authenticated;
 
--- Where a sent file's bytes are, for sales-os-api to sign a short download link
--- (the supplier has no storage access of its own). Only the exact version sent:
--- a document deleted since, or a storage object overwritten since, is refused.
-CREATE OR REPLACE FUNCTION public.supplier_portal_file(_invitation_id uuid, _file_id uuid)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE inv public.supplier_invitations := public._supplier_invitation_for_session(_invitation_id);
-        sf public.supplier_invitation_files; opp uuid;
+-- One sent file of a request, if it may still be downloaded: the request is
+-- live (file at the supplier on the revision sent), the document is not deleted,
+-- and the storage object is the exact one sent (same version and updated time;
+-- NULL on both sides matches). 42501 when not the request's or not live, P0001
+-- when the bytes changed or went.
+CREATE OR REPLACE FUNCTION public._supplier_portal_file_checked(_inv public.supplier_invitations, _file_id uuid)
+RETURNS public.supplier_invitation_files LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE sf public.supplier_invitation_files;
 BEGIN
-  SELECT * INTO sf FROM public.supplier_invitation_files f WHERE f.id = _file_id AND f.invitation_id = inv.id;
-  IF NOT FOUND OR NOT public._supplier_invitation_live(inv) THEN
+  SELECT * INTO sf FROM public.supplier_invitation_files f WHERE f.id = _file_id AND f.invitation_id = _inv.id;
+  IF NOT FOUND OR NOT public._supplier_invitation_live(_inv) THEN
     RAISE EXCEPTION 'This request is not available. | هذا الطلب غير متاح.' USING ERRCODE = '42501';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM public.documents d WHERE d.id = sf.document_id AND d.deleted_at IS NULL)
      OR NOT EXISTS (SELECT 1 FROM storage.objects o
                      WHERE o.bucket_id = sf.storage_bucket AND o.name = sf.storage_path
-                       AND coalesce(o.version, '') = coalesce(sf.object_version, '')
-                       AND o.updated_at = sf.object_updated_at) THEN
+                       AND o.version IS NOT DISTINCT FROM sf.object_version
+                       AND o.updated_at IS NOT DISTINCT FROM sf.object_updated_at) THEN
     RAISE EXCEPTION 'This file changed or was removed after it was sent; ask PHC to send the request again. | تغيّر هذا الملف أو حُذف بعد إرساله؛ اطلب من PHC إعادة إرسال الطلب.'
       USING ERRCODE = 'P0001';
   END IF;
-  SELECT f.opportunity_id INTO opp FROM public.pricing_files f WHERE f.id = inv.file_id;
-  INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
-  VALUES (auth.uid(), 'user', 'supplier_portal.file_downloaded', 'opportunity', opp,
-          jsonb_build_object('invitation_id', inv.id, 'file_id', sf.id, 'document_id', sf.document_id));
-  RETURN jsonb_build_object('bucket', sf.storage_bucket, 'path', sf.storage_path, 'name', sf.display_name);
+  RETURN sf;
+END $$;
+REVOKE ALL ON FUNCTION public._supplier_portal_file_checked(public.supplier_invitations, uuid) FROM PUBLIC, anon, authenticated;
+
+-- The supplier's check before a download (sales-os-api calls it as the
+-- supplier). It answers which file under its neutral name, never where the
+-- bytes are: no bucket, path, document id or original file name, all of which
+-- can carry the deal id or the client's name.
+CREATE OR REPLACE FUNCTION public.supplier_portal_file(_invitation_id uuid, _file_id uuid)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE sf public.supplier_invitation_files :=
+  public._supplier_portal_file_checked(public._supplier_invitation_for_session(_invitation_id), _file_id);
+BEGIN
+  RETURN jsonb_build_object('ok', true, 'file_id', sf.id, 'name', sf.display_name,
+                            'mime_type', sf.mime_type, 'size_bytes', sf.size_bytes);
 END $$;
 REVOKE ALL ON FUNCTION public.supplier_portal_file(uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.supplier_portal_file(uuid, uuid) TO authenticated;
+
+-- Where the bytes are, for sales-os-api's service client only: it re-runs the
+-- same checks for the supplier user sales-os-api authenticated (active supplier,
+-- linked vendor; aal2 was required of that session), audits the download, and
+-- the bytes are streamed back by the service under the neutral name. Never
+-- callable by a signed-in account.
+CREATE OR REPLACE FUNCTION public._supplier_portal_file_location(_invitation_id uuid, _file_id uuid, _supplier_user uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE inv public.supplier_invitations :=
+          public._supplier_invitation_for_vendor(_invitation_id, public._supplier_account_vendor(_supplier_user));
+        sf public.supplier_invitation_files := public._supplier_portal_file_checked(inv, _file_id);
+        opp uuid;
+BEGIN
+  SELECT f.opportunity_id INTO opp FROM public.pricing_files f WHERE f.id = inv.file_id;
+  INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
+  VALUES (_supplier_user, 'user', 'supplier_portal.file_downloaded', 'opportunity', opp,
+          jsonb_build_object('invitation_id', inv.id, 'file_id', sf.id, 'document_id', sf.document_id));
+  RETURN jsonb_build_object('bucket', sf.storage_bucket, 'path', sf.storage_path, 'name', sf.display_name,
+                            'mime_type', sf.mime_type);
+END $$;
+REVOKE ALL ON FUNCTION public._supplier_portal_file_location(uuid, uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._supplier_portal_file_location(uuid, uuid, uuid) TO service_role;

@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS public.supplier_invitation_files (
   size_bytes        bigint,
   checksum          text,
   object_version    text,
-  object_updated_at timestamptz NOT NULL,
+  object_updated_at timestamptz,
   CONSTRAINT sif_one_per_document UNIQUE (invitation_id, document_id)
 );
 
@@ -230,7 +230,8 @@ BEGIN
            o.version AS object_version, o.updated_at AS object_updated_at, x.ord,
            -- The hash of the bytes actually sent: the storage object's own ETag,
            -- never the documents row (which may describe other bytes). NULL when
-           -- storage reports none. Task 3's re-check compares version + updated_at.
+           -- storage reports none. Task 3's re-check compares version + updated_at
+           -- as sent (NULL stays NULL and matches NULL; never now(), which nothing could match).
            nullif(btrim(o.metadata->>'eTag', '"'), '') AS object_checksum
       FROM unnest(_document_ids) WITH ORDINALITY AS x(id, ord)
       JOIN public.documents dd ON dd.id = x.id
@@ -242,7 +243,7 @@ BEGIN
                                                   mime_type, size_bytes, checksum, object_version, object_updated_at)
     VALUES (inv.id, d.id, code || '-' || lpad(d.ord::text, 2, '0') || coalesce('.' || ext, ''),
             d.storage_bucket, d.storage_path, d.mime_type, d.size_bytes, d.object_checksum, d.object_version,
-            coalesce(d.object_updated_at, now()));
+            d.object_updated_at);
   END LOOP;
 
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
