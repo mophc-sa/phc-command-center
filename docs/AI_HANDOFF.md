@@ -73,6 +73,8 @@ No secrets. Settings to confirm with Zayed and Kalas after release: the fallback
 - In-file edits: the propose gate now refuses direct changes of a built in-file price's figure (`proposed_price`, `estimation_id`, `below_floor_justification`) outside build/propose. Tighten other in-file direct edits further in PR 4 if review needs it (for example columns the approval or return moves touch).
 
 **Carried minor items (not done; pick up in PR 3/PR 4 or a clean-up):**
+- PR 1's `pricing_settings_audit` trigger still writes full rate rows (installation, catalog, logistics) to `audit_log`, which platform admins read without being cost readers. Strip the values or gate the audit read.
+- A pricing file with no revision now creates its own BOQ, so a deal can hold several BOQs. Anything that reads "the deal's current revision" must pick by BOQ, or the latest.
 - Link helper reads `estimations` unlocked (TOCTOU on `boq_revision_id`); lock order should be estimation, price, file.
 - `pricing_decide_extra` (PR 1) has no upper bound on quantity or rate; no index on `pricing_file_extras.boq_revision_id`.
 - `current_date` for "in force since" is UTC, so it lags Riyadh by 3 hours (00:00–03:00).

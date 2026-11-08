@@ -3,7 +3,7 @@
 -- Test user UUIDs use the 6a… prefix. Every session carries aal2.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(39);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -193,6 +193,8 @@ select is((select count(*)::int from public.pricing_queue where opportunity_id::
   'A salesperson holding delegated GM authority sees no file on another rep''s deal');
 select is((select quotation_value from public.pricing_queue where opportunity_id = '6a210001-0000-0000-0000-000000000001'), 150000::numeric,
   'He sees the file on his own deal, with its value');
+select is(public.pricing_my_rights()->'can_set_margins', 'false'::jsonb,
+  'A delegate with no cost access cannot change the margin settings');
 reset role;
 select ok(exists (select 1 from public.audit_log where action = 'pricing_file.revision_attached'
                    and entity_id = '6a200001-0000-0000-0000-000000000001'),

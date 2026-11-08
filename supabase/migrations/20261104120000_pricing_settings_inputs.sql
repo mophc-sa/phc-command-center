@@ -30,14 +30,17 @@
 CREATE OR REPLACE FUNCTION public.can_set_pricing_margins(_user_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   -- coalesce: belt and braces; has_app_access itself now fails closed (0b below).
+  -- Cost access too: a price-authority delegate can be a salesperson, and the
+  -- margin settings must stay with people who see the cost they apply to.
   SELECT coalesce(_user_id IS NOT NULL
+     AND public.can_read_commercial_cost(_user_id)
      AND (public.can_approve_final_price(_user_id)
           OR public.has_role(_user_id, 'finance_manager'::public.app_role)), false);
 $$;
 REVOKE ALL ON FUNCTION public.can_set_pricing_margins(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.can_set_pricing_margins(uuid) TO authenticated;
 COMMENT ON FUNCTION public.can_set_pricing_margins IS
-  'Who may change the global default margin and the margin floor: the GM (or a price-authority delegate) and finance (Mo, 2026-11-03). An estimation-only pricer may not; a file''s own default margin stays the GM''s.';
+  'Who may change the global default margin and the margin floor: the GM (or a price-authority delegate who can read cost) and finance (Mo, 2026-11-03). An estimation-only pricer may not; a file''s own default margin stays the GM''s.';
 
 -- 0b. Fail closed. has_app_access was NULL, not false, for an MFA-role user whose
 -- JWT carries no aal claim (auth.jwt()->>'aal' is NULL), and every predicate built
