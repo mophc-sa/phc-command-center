@@ -5921,6 +5921,7 @@ export type Database = {
           status: Database["public"]["Enums"]["user_status"]
           is_display_account: boolean
           updated_at: string
+          vendor_id: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -5933,6 +5934,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["user_status"]
           is_display_account?: boolean
           updated_at?: string
+          vendor_id?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -5945,6 +5947,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["user_status"]
           is_display_account?: boolean
           updated_at?: string
+          vendor_id?: string | null
         }
         Relationships: []
       }

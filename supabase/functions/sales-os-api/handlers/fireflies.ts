@@ -53,7 +53,7 @@ async function fireflies_connect(payload: Record<string, unknown>, ctx: SalesOsC
   // The first pull now, so the person sees their meetings straight away. A
   // failure here is not a failed connection: the scheduled pull retries.
   const { data: members } = await ctx.svc
-    .from("profiles").select("id, email, full_name").eq("status", "active").eq("is_display_account", false);
+    .from("profiles").select("id, email, full_name").eq("status", "active").eq("is_display_account", false).is("vendor_id", null);
   const first = await pullAccount(ctx.svc, apiKey, pullSince(null, Date.now()), (members ?? []) as TeamMember[], ctx.caller.userId);
   await ctx.svc.rpc("mark_fireflies_connection", {
     _user: ctx.caller.userId,

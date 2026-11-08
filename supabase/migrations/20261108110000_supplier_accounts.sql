@@ -10,23 +10,49 @@
 -- the caller. A supplier now fails it, so it reads and writes nothing through
 -- PostgREST. The portal (later migrations) is SECURITY DEFINER functions that
 -- start from _supplier_session_vendor() instead.
+--
+-- What makes an account a supplier is profiles.vendor_id, the guarded column
+-- (set only by supplier_account_activate or the service role, never by a
+-- client), not the supplier role row: a role row can be deleted, the link
+-- cannot be dropped from a live account. The role row is kept as a second
+-- marker (either one closes the boundary), and it cannot be removed while the
+-- link is set. Suppliers are also nobody to staff: is_active_user and
+-- has_any_role are false about them, so no task, notification or assignment
+-- reaches them.
 -- =============================================================================
 
 -- 1. The vendor a supplier account prices for.
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS vendor_id uuid REFERENCES public.vendors(id) ON DELETE RESTRICT;
 CREATE INDEX IF NOT EXISTS profiles_vendor ON public.profiles (vendor_id) WHERE vendor_id IS NOT NULL;
 COMMENT ON COLUMN public.profiles.vendor_id IS
-  'Supplier accounts only: the vendor this account prices for. Set by supplier_account_activate; nobody edits it directly.';
+  'Supplier accounts only: the vendor this account prices for, and what makes the account a supplier. Set by supplier_account_activate; only the service role clears it, and only on a suspended account.';
 
--- Only supplier_account_activate sets it (transaction-local flag naming the profile).
+-- Never from a client session. supplier_account_activate sets it (transaction-
+-- local flag naming the profile, inside the definer function); the service role
+-- may also set or clear it. A staff account (any other role) is never linked,
+-- and a link is cleared only once the account is no longer active. The lock is
+-- the one user_roles_supplier_guard takes, so a link and a role grant for the
+-- same account cannot race past each other.
+-- Not SECURITY DEFINER on purpose: current_user is the caller's role here.
 CREATE OR REPLACE FUNCTION public.profiles_vendor_link_guard()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
-  IF ((TG_OP = 'INSERT' AND NEW.vendor_id IS NOT NULL)
-      OR (TG_OP = 'UPDATE' AND NEW.vendor_id IS DISTINCT FROM OLD.vendor_id))
-     AND coalesce(current_setting('phc.supplier_account_link', true), '') <> NEW.id::text THEN
-    RAISE EXCEPTION 'A supplier account''s vendor is set when the account is created. | يُحدَّد مورد الحساب عند إنشائه.'
-      USING ERRCODE = '42501';
+  IF (TG_OP = 'INSERT' AND NEW.vendor_id IS NOT NULL)
+     OR (TG_OP = 'UPDATE' AND NEW.vendor_id IS DISTINCT FROM OLD.vendor_id) THEN
+    IF current_user IN ('authenticated', 'anon')
+       OR NOT (current_user = 'service_role'
+               OR coalesce(current_setting('phc.supplier_account_link', true), '') = NEW.id::text) THEN
+      RAISE EXCEPTION 'A supplier account''s vendor is set when the account is created. | يُحدَّد مورد الحساب عند إنشائه.'
+        USING ERRCODE = '42501';
+    END IF;
+    PERFORM pg_advisory_xact_lock(hashtext('public.user_roles'), hashtext(NEW.id::text));
+    IF NEW.vendor_id IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = NEW.id AND r.role <> 'supplier') THEN
+      RAISE EXCEPTION 'A staff account cannot be linked to a supplier. | لا يُربط حساب موظف بمورد.' USING ERRCODE = '23514';
+    END IF;
+    IF TG_OP = 'UPDATE' AND NEW.vendor_id IS NULL AND NEW.status = 'active' THEN
+      RAISE EXCEPTION 'Suspend the supplier account before unlinking it. | أوقف حساب المورد قبل فك ربطه.' USING ERRCODE = '23514';
+    END IF;
   END IF;
   RETURN NEW;
 END $$;
@@ -34,11 +60,28 @@ DROP TRIGGER IF EXISTS profiles_vendor_link_guard ON public.profiles;
 CREATE TRIGGER profiles_vendor_link_guard BEFORE INSERT OR UPDATE OF vendor_id ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.profiles_vendor_link_guard();
 
+-- A supplier edits nothing on its own profile but its language: its name is the
+-- contact's name as PHC recorded it. (Staff keep editing their own profiles.)
+CREATE OR REPLACE FUNCTION public.profiles_supplier_self_guard()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF OLD.vendor_id IS NOT NULL AND OLD.id = auth.uid() AND current_user IN ('authenticated', 'anon')
+     AND (to_jsonb(NEW) - 'language' - 'updated_at') IS DISTINCT FROM (to_jsonb(OLD) - 'language' - 'updated_at') THEN
+    RAISE EXCEPTION 'A supplier account''s details are kept by PHC. | بيانات حساب المورد تحفظها PHC.' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS profiles_supplier_self_guard ON public.profiles;
+CREATE TRIGGER profiles_supplier_self_guard BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.profiles_supplier_self_guard();
+
 -- 2. Who is a supplier, and which vendor the current session prices for.
+-- Keyed on the guarded link; the role row is a second marker, never the only one.
 CREATE OR REPLACE FUNCTION public.is_supplier_account(_user_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT _user_id IS NOT NULL AND EXISTS (
-    SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = 'supplier'::public.app_role);
+  SELECT _user_id IS NOT NULL AND (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = _user_id AND vendor_id IS NOT NULL)
+    OR EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = 'supplier'::public.app_role));
 $$;
 REVOKE ALL ON FUNCTION public.is_supplier_account(uuid) FROM PUBLIC, anon, authenticated;
 
@@ -53,11 +96,12 @@ RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
 $$;
 REVOKE ALL ON FUNCTION public._supplier_session_vendor() FROM PUBLIC, anon, authenticated;
 
--- 3. A supplier never has app access. Same body as 20261104120000 plus the supplier line.
+-- 3. A supplier never has app access. Same body as 20261104120000 plus the
+-- supplier conditions: the vendor link (the key) and the role row (a second marker).
 CREATE OR REPLACE FUNCTION public.has_app_access(_user_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT coalesce(
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = _user_id AND status = 'active')
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = _user_id AND status = 'active' AND vendor_id IS NULL)
     AND NOT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role = 'supplier')
     AND (NOT EXISTS (
       SELECT 1 FROM public.user_roles WHERE user_id = _user_id
@@ -67,10 +111,58 @@ $$;
 REVOKE ALL ON FUNCTION public.has_app_access(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.has_app_access(uuid) TO authenticated, service_role;
 
--- 4. The supplier role stands alone and always has its vendor.
+-- A supplier is nobody staff can work with, also when staff ask about it (an
+-- assignee, a recipient): same bodies as 20260928100000 plus vendor_id IS NULL.
+-- emit_notification and every assignment check go through these.
+CREATE OR REPLACE FUNCTION public.is_active_user(_user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS(SELECT 1 FROM public.profiles WHERE id=_user_id AND status='active' AND vendor_id IS NULL)
+    AND (auth.uid() IS DISTINCT FROM _user_id OR public.has_app_access(_user_id));
+$$;
+
+CREATE OR REPLACE FUNCTION public.has_any_role(_user_id uuid, _roles public.app_role[])
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.user_roles r JOIN public.profiles p ON p.id = r.user_id
+    WHERE r.user_id = _user_id AND r.role = ANY(_roles) AND p.status = 'active' AND p.vendor_id IS NULL)
+    -- Looking up an assignee's roles is not checking that assignee's session.
+    AND (auth.uid() IS DISTINCT FROM _user_id OR public.has_app_access(_user_id));
+$$;
+
+-- No task is owned by a supplier, whichever path writes it (create_task and
+-- decide_meeting_action_item check only that the owner is active).
+CREATE OR REPLACE FUNCTION public.tasks_owner_not_supplier()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NEW.owner_id IS NOT NULL AND public.is_supplier_account(NEW.owner_id) THEN
+    RAISE EXCEPTION 'A supplier account cannot hold a task. | لا تُسند مهمة إلى حساب مورد.' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS tasks_owner_not_supplier ON public.tasks;
+CREATE TRIGGER tasks_owner_not_supplier BEFORE INSERT OR UPDATE OF owner_id ON public.tasks
+  FOR EACH ROW EXECUTE FUNCTION public.tasks_owner_not_supplier();
+
+-- 4. The supplier role stands alone, always has its vendor, and stays while the
+-- link is set. A vendor-linked profile holds no other role. To retire a supplier
+-- account, suspend it (Admin settings); the service role may then unlink it.
+-- Deleting the sign-in account (auth.users) removes the role with it. One
+-- writer per account at a time (the lock profiles_vendor_link_guard also takes).
 CREATE OR REPLACE FUNCTION public.user_roles_supplier_guard()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
+  IF TG_OP IN ('UPDATE', 'DELETE') AND OLD.role = 'supplier'
+     AND (TG_OP = 'DELETE' OR NEW.user_id IS DISTINCT FROM OLD.user_id OR NEW.role IS DISTINCT FROM OLD.role) THEN
+    PERFORM pg_advisory_xact_lock(hashtext('public.user_roles'), hashtext(OLD.user_id::text));
+    IF EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = OLD.user_id AND p.vendor_id IS NOT NULL)
+       AND EXISTS (SELECT 1 FROM auth.users u WHERE u.id = OLD.user_id) THEN
+      RAISE EXCEPTION 'A supplier account keeps its supplier role; suspend the account instead. | حساب المورد يحتفظ بدوره؛ أوقف الحساب بدلاً من ذلك.'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('public.user_roles'), hashtext(NEW.user_id::text));
   IF NEW.role = 'supplier' THEN
     IF EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = NEW.user_id AND r.role <> 'supplier') THEN
       RAISE EXCEPTION 'A supplier account holds no other role. | حساب المورد لا يحمل دوراً آخر.' USING ERRCODE = '23514';
@@ -79,19 +171,29 @@ BEGIN
       RAISE EXCEPTION 'Supplier accounts are created from the pricing file, linked to a supplier. | حسابات الموردين تُنشأ من ملف التسعير مربوطة بمورد.'
         USING ERRCODE = '23514';
     END IF;
-  ELSIF EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = NEW.user_id AND r.role = 'supplier') THEN
+  ELSIF EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = NEW.user_id AND r.role = 'supplier')
+     OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = NEW.user_id AND p.vendor_id IS NOT NULL) THEN
     RAISE EXCEPTION 'A supplier account holds no other role. | حساب المورد لا يحمل دوراً آخر.' USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
 END $$;
 DROP TRIGGER IF EXISTS user_roles_supplier_guard ON public.user_roles;
-CREATE TRIGGER user_roles_supplier_guard BEFORE INSERT OR UPDATE OF role, user_id ON public.user_roles
+CREATE TRIGGER user_roles_supplier_guard BEFORE INSERT OR UPDATE OR DELETE ON public.user_roles
   FOR EACH ROW EXECUTE FUNCTION public.user_roles_supplier_guard();
 
 -- 5. auth.users takes a non-PHC address only for a supplier account that the
 -- supplier-account action (sales-os-api) is creating right now: a pricer's
--- request row (supplier_account_prepare), named in app_metadata, which only
--- the service role can set. A sign-up from the app cannot set app_metadata.
+-- request row (supplier_account_prepare) for that address, named in
+-- app_metadata, which only the service role can set. A sign-up from the app
+-- cannot set app_metadata.
+--
+-- GoTrue's admin createUser (observed on the local auth container, 2026-11-08)
+-- INSERTs the row with app_metadata {"provider","providers"} only, then writes
+-- the custom app_metadata in a later UPDATE of the same transaction. So the
+-- BEFORE INSERT check admits a non-PHC address only while an open request for
+-- it exists, and a deferred check at commit requires the request's id in
+-- app_metadata. A public sign-up for that address in the 15-minute window
+-- fails at commit.
 CREATE TABLE IF NOT EXISTS public.supplier_account_invites (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   vendor_id   uuid NOT NULL REFERENCES public.vendors(id) ON DELETE RESTRICT,
@@ -117,13 +219,21 @@ BEGIN
   IF TG_OP = 'UPDATE' AND NEW.email IS NOT DISTINCT FROM OLD.email THEN
     RETURN NEW;
   END IF;
+  -- A supplier account keeps the address it was created with (never a PHC one).
+  IF TG_OP = 'UPDATE' AND (
+       EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = NEW.id AND p.vendor_id IS NOT NULL)
+       OR EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = NEW.id AND r.role = 'supplier')
+       OR OLD.raw_app_meta_data ? 'phc_supplier_invite') THEN
+    RAISE EXCEPTION 'A supplier account keeps its email address'
+      USING ERRCODE = 'check_violation';
+  END IF;
   IF NEW.email IS NOT NULL AND NEW.email !~* '@phc-sa\.com$' THEN
     IF TG_OP = 'INSERT' AND EXISTS (
          SELECT 1 FROM public.supplier_account_invites i
-          WHERE i.id::text = coalesce(NEW.raw_app_meta_data->>'phc_supplier_invite', '')
-            AND i.email = lower(NEW.email)
-            AND i.consumed_at IS NULL AND i.expires_at > now()) THEN
-      RETURN NEW;
+          WHERE i.email = lower(NEW.email)
+            AND i.consumed_at IS NULL AND i.expires_at > now()
+            AND coalesce(NEW.raw_app_meta_data->>'phc_supplier_invite', i.id::text) = i.id::text) THEN
+      RETURN NEW;  -- the deferred check below decides at commit
     END IF;
     RAISE EXCEPTION 'Account email must be an @phc-sa.com address'
       USING ERRCODE = 'check_violation';
@@ -131,6 +241,35 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- At commit: a non-PHC account must carry, in app_metadata, the id of an open
+-- request for its address (or the request activated for it in this transaction).
+CREATE OR REPLACE FUNCTION public.enforce_supplier_account_invite()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE meta jsonb; mail text;
+BEGIN
+  SELECT u.raw_app_meta_data, u.email INTO meta, mail FROM auth.users u WHERE u.id = NEW.id;
+  IF NOT FOUND OR mail IS NULL OR mail ~* '@phc-sa\.com$' THEN
+    RETURN NULL;  -- gone again, or no longer a non-PHC address (the email trigger rules on changes)
+  END IF;
+  IF NOT EXISTS (
+       SELECT 1 FROM public.supplier_account_invites i
+        WHERE i.id::text = coalesce(meta->>'phc_supplier_invite', '')
+          AND i.email = lower(mail)
+          AND i.expires_at > now()
+          AND (i.consumed_at IS NULL OR i.user_id = NEW.id)) THEN
+    RAISE EXCEPTION 'Account email must be an @phc-sa.com address'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.enforce_supplier_account_invite() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS phc_supplier_invite_check ON auth.users;
+CREATE CONSTRAINT TRIGGER phc_supplier_invite_check AFTER INSERT ON auth.users
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW WHEN (NEW.email IS NOT NULL AND NEW.email !~* '@phc-sa\.com$')
+  EXECUTE FUNCTION public.enforce_supplier_account_invite();
 
 -- 6. Account RPCs. Pricers (Zayed) and the system administrator manage supplier accounts.
 CREATE OR REPLACE FUNCTION public._supplier_account_manager(_user_id uuid)
@@ -248,6 +387,8 @@ ALTER VIEW public.vendor_duplicate_candidates SET (security_invoker = true);
 ALTER VIEW public.automation_health SET (security_invoker = true);
 
 -- The margin floor is commercial; a supplier gets NULL. Same body as Phase 8 plus one line.
+-- Phase 8 never revoked it, so anon could read it. Signed-in callers keep it:
+-- pricing_selling_totals and the floor guard call it with the caller's rights.
 CREATE OR REPLACE FUNCTION public.current_margin_floor()
 RETURNS numeric LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
   SELECT p.min_margin_pct FROM public.margin_policies p
@@ -255,6 +396,79 @@ RETURNS numeric LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, p
      AND (p.effective_to IS NULL OR now() < p.effective_to)
      AND NOT public.is_supplier_account(auth.uid())
    ORDER BY p.effective_from DESC LIMIT 1;
+$$;
+REVOKE ALL ON FUNCTION public.current_margin_floor() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.current_margin_floor() TO authenticated, service_role;
+
+-- The cost basis of any estimation, by id: anon could call it, and so could any
+-- signed-in account. Same body as Phase 8 plus the caller check. It stays
+-- granted to authenticated because estimation_cost_reconciliation calls it with
+-- the caller's rights (that view already shows only cost readers). The margin
+-- trigger (internal_price_compute_margin) still gets the figure for a caller who
+-- cannot read cost, as Phase 8 intends: it runs inside a trigger.
+CREATE OR REPLACE FUNCTION public.estimation_cost_basis(_estimation_id UUID)
+RETURNS NUMERIC
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+AS $$
+DECLARE
+  _e         RECORD;
+  _supplier  NUMERIC;
+  _material  NUMERIC;
+  _subtotal  NUMERIC;
+BEGIN
+  IF auth.uid() IS NOT NULL AND pg_trigger_depth() = 0
+     AND NOT coalesce(public.can_read_commercial_cost(auth.uid()), false) THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT e.cost_total, e.wastage_pct, e.installation_cost, e.overhead_pct, e.boq_revision_id
+    INTO _e
+    FROM public.estimations e WHERE e.id = _estimation_id;
+  IF NOT FOUND THEN RETURN NULL; END IF;
+
+  -- What the selected suppliers actually cost, if any have been chosen.
+  SELECT sum(l.line_cost)
+    INTO _supplier
+    FROM public.supplier_quote_lines l
+    JOIN public.supplier_quotes q ON q.id = l.supplier_quote_id
+   WHERE l.is_selected
+     AND q.boq_revision_id = _e.boq_revision_id;
+
+  _material := coalesce(_supplier, _e.cost_total, 0);
+  _subtotal := _material
+             + (_material * coalesce(_e.wastage_pct, 0) / 100)
+             + coalesce(_e.installation_cost, 0);
+
+  RETURN round(_subtotal + (_subtotal * coalesce(_e.overhead_pct, 0) / 100), 2);
+END; $$;
+REVOKE ALL ON FUNCTION public.estimation_cost_basis(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.estimation_cost_basis(uuid) TO authenticated, service_role;
+
+-- Three RPCs answered from auth.uid() alone. Same bodies as 20261006100000 and
+-- 20261028100000 plus has_app_access on the caller: a supplier (or a session
+-- without its required MFA) gets nothing.
+CREATE OR REPLACE FUNCTION public.my_day(_day date)
+RETURNS TABLE (kind text, id uuid, title text, due_date date, done boolean, overdue boolean,
+               bucket text, opportunity_id uuid, opportunity_name text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT i.kind, i.id, i.title, i.due_date, i.done, i.overdue AND NOT i.done, i.bucket,
+         i.opportunity_id, o.project_name
+    FROM public.day_items((SELECT auth.uid()), _day) i
+    LEFT JOIN public.opportunities o ON o.id = i.opportunity_id
+   WHERE public.has_app_access((SELECT auth.uid()))
+   ORDER BY i.done, i.overdue DESC, i.due_date, i.title;
+$$;
+
+CREATE OR REPLACE FUNCTION public.meeting_review_queue()
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT CASE WHEN public.has_app_access(auth.uid()) THEN public.meeting_review_queue_for(auth.uid()) END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.my_fireflies_connection()
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT jsonb_build_object('email', fireflies_email, 'status', status, 'connected_at', connected_at,
+                            'last_synced_at', last_synced_at, 'last_error', last_error)
+    FROM public.fireflies_connections WHERE user_id = auth.uid() AND public.has_app_access(auth.uid());
 $$;
 
 -- The session boundary on every public table that does not have it yet

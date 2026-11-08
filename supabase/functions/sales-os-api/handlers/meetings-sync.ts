@@ -35,7 +35,8 @@ async function meetings_sync(_payload: Record<string, unknown>, ctx: SalesOsCont
     .from("profiles")
     .select("id, email, full_name")
     .eq("status", "active")
-    .eq("is_display_account", false);
+    .eq("is_display_account", false)
+    .is("vendor_id", null);
   if (memErr) return err("Could not load the team.", 500);
 
   const since = pullSince(null, Date.now());

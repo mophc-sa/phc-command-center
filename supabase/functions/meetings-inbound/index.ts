@@ -100,7 +100,8 @@ export async function handleMeetingWebhook(req: Request): Promise<Response> {
     .from("profiles")
     .select("id, email, full_name")
     .eq("status", "active")
-    .eq("is_display_account", false);
+    .eq("is_display_account", false)
+    .is("vendor_id", null);
   if (memErr) {
     log("error", { stage: "members" });
     return text(500, "error");
@@ -134,7 +135,7 @@ export async function handleScheduledPull(req: Request): Promise<Response> {
       return typeof data === "string" && data ? data : null;
     },
     members: async () => {
-      const { data } = await svc.from("profiles").select("id, email, full_name").eq("status", "active").eq("is_display_account", false);
+      const { data } = await svc.from("profiles").select("id, email, full_name").eq("status", "active").eq("is_display_account", false).is("vendor_id", null);
       return (data ?? []) as TeamMember[];
     },
     mark: async (userId, status, error) => {

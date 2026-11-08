@@ -75,7 +75,7 @@ Each has a default. The tasks are written with the default, so nothing waits on 
 | File | Responsibility |
 |---|---|
 | `supabase/migrations/20261108100000_supplier_role.sql` | `app_role` gains `supplier` (alone: a new enum value cannot be used in its own transaction) |
-| `supabase/migrations/20261108110000_supplier_accounts.sql` | `profiles.vendor_id` + guard; `is_supplier_account`, `_supplier_session_vendor`; `has_app_access` refuses suppliers; supplier role exclusive; non-PHC email exception (`supplier_account_invites`); `supplier_account_prepare` / `_activate` / `_email`, `pricing_supplier_accounts`; two owner-run views made invoker; `current_margin_floor` hides the floor from suppliers; session boundary on every public table |
+| `supabase/migrations/20261108110000_supplier_accounts.sql` | `profiles.vendor_id` + guard (the supplier key); `is_supplier_account`, `_supplier_session_vendor`; `has_app_access`, `is_active_user`, `has_any_role` refuse vendor-linked profiles; supplier role exclusive and undeletable while linked; no task owned by a supplier; a supplier edits only its language; non-PHC email exception (`supplier_account_invites`, deferred check at commit); `supplier_account_prepare` / `_activate` / `_email`, `pricing_supplier_accounts`; two owner-run views made invoker; `current_margin_floor` hides the floor from suppliers and is closed to anon; `estimation_cost_basis` closed to anon and to non-cost-readers; `my_day`, `meeting_review_queue`, `my_fireflies_connection` check `has_app_access`; session boundary on every public table |
 | `supabase/migrations/20261108120000_supplier_invitations.sql` | `supplier_invitations`, `_lines`, `_files`; `_pricing_today`; `pricing_send_to_supplier` (incl. the second supplier's earlier quote), `pricing_cancel_invitation`, `pricing_extend_invitation` |
 | `supabase/migrations/20261108130000_supplier_portal_read.sql` | `_supplier_invitation_for_session`, `_supplier_invitation_editable`, `_supplier_portal_status`; `supplier_portal_invitations`, `supplier_portal_invitation`, `supplier_portal_file` |
 | `supabase/migrations/20261108140000_supplier_portal_submit.sql` | `supplier_quotes.source` / `source_document_id`; `supplier_invitation_submissions`; `supplier_portal_confirmation`; `supplier_portal_submit`; `pricing_enter_supplier_quote` follows the request and keeps the supplier's file |
@@ -101,6 +101,8 @@ Each has a default. The tasks are written with the default, so nothing waits on 
 ---
 ### Task 1: The supplier role and the account boundary (SQL + role lists)
 
+> **Fix round 1 (2026-11-08):** the code blocks below are the first version. The branch's `20261108110000_supplier_accounts.sql` and `supplier_accounts.test.sql` are authoritative: the boundary is keyed on `profiles.vendor_id`; the email check is a BEFORE INSERT check plus a deferred constraint trigger `auth.phc_supplier_invite_check` (GoTrue writes `app_metadata` after the INSERT); `current_margin_floor` / `estimation_cost_basis` are closed to anon; `my_day`, `meeting_review_queue`, `my_fireflies_connection` check `has_app_access`. See `.superpowers/sdd/task-1-report.md`, "Fix round 1".
+
 **Files:**
 - Create: `supabase/migrations/20261108100000_supplier_role.sql`
 - Create: `supabase/migrations/20261108110000_supplier_accounts.sql`
@@ -110,10 +112,11 @@ Each has a default. The tasks are written with the default, so nothing waits on 
 **Interfaces:**
 - Consumes: `public.has_app_access(uuid)` (20261104120000 body), `public.is_pricer(uuid)`, `public.has_role(uuid, app_role)`, `public.can_read_commercial_cost(uuid)`, `public.enforce_signup_email_domain()` (trigger `trg_enforce_signup_email_domain` on `auth.users`, BEFORE INSERT OR UPDATE OF email), `public.current_margin_floor()` (Phase 8), views `vendor_duplicate_candidates`, `automation_health`.
 - Produces:
-  - `app_role` value `'supplier'`; column `public.profiles.vendor_id uuid` (FK `vendors`), changed only inside `supplier_account_activate` (flag `phc.supplier_account_link` = the profile id).
-  - `public.is_supplier_account(_user_id uuid) → boolean` (internal).
+  - `app_role` value `'supplier'`; column `public.profiles.vendor_id uuid` (FK `vendors`), never changed by a client: set inside `supplier_account_activate` (flag `phc.supplier_account_link` = the profile id) or by the service role; cleared only by the service role on a non-active account. **It is what makes an account a supplier** (fix round 1); the role row is a second marker and cannot be deleted while the link is set.
+  - `public.is_supplier_account(_user_id uuid) → boolean` (internal): `vendor_id IS NOT NULL` or the supplier role row.
+  - `public.is_active_user(uuid)` and `public.has_any_role(uuid, app_role[])` are false for a vendor-linked profile, also when staff ask about it (assignees, recipients); `emit_notification` therefore skips suppliers, and a trigger refuses a task owned by a supplier.
   - `public._supplier_session_vendor() → uuid` (internal): the caller's vendor when the caller is an active supplier with a vendor and `aal2`, else NULL.
-  - `public.has_app_access(uuid)` is false for any supplier account.
+  - `public.has_app_access(uuid)` is false for any supplier account (vendor-linked profile or supplier role row).
   - Table `public.supplier_account_invites(id, vendor_id, email, full_name, created_by, created_at, expires_at, user_id, consumed_at)` (service role only).
   - `public.supplier_account_prepare(_vendor_id uuid, _email text, _full_name text) → uuid` (pricer or system admin; the invite id).
   - `public.supplier_account_activate(_invite_id uuid, _user_id uuid) → jsonb {"user_id","vendor_id"}` (service role only).
@@ -2529,8 +2532,10 @@ insert into sw_ref select 'inv_b', public.pricing_send_to_supplier('8f600002-000
   current_date + 7, array['8f700002-0000-0000-0000-000000000001']::uuid[])->>'invitation_id';
 reset role;
 insert into sw_ref select 'code_a', project_code from public.opportunities where id = '8f200001-0000-0000-0000-000000000001';
-select public.emit_notification('8f000000-0000-0000-0000-000000000003', 'mention', 'opportunity', '8f200001-0000-0000-0000-000000000001',
-  'sw-title', 'sw-body', 'info', 'sw', 'sw-1');
+-- Inserted directly: emit_notification skips supplier accounts (Task 1 fix round 1).
+insert into public.notifications (recipient_user_id, notification_type, entity_type, entity_id, title, body, severity, source_event, dedupe_key)
+values ('8f000000-0000-0000-0000-000000000003', 'mention', 'opportunity', '8f200001-0000-0000-0000-000000000001',
+        'sw-title', 'sw-body', 'info', 'sw', 'sw-1');
 
 -- 1. Every table and view, as supplier A: nothing but its own profile and the static state map.
 create temp table sw_seen (rel text, n bigint);
@@ -2572,8 +2577,8 @@ select is((select array_agg(distinct p.proname::text order by p.proname::text)
               and has_function_privilege('authenticated', p.oid, 'EXECUTE')
               and p.prosrc !~* '(has_app_access|is_active_user|has_role|has_any_role|can_[a-z_]+\(|is_pricer|is_pipeline_operator|is_platform_admin|is_[a-z_]+_manager|_assert_|_supplier_session_vendor|_supplier_invitation_for_session|_supplier_account_manager|is_supplier_account)'),
   array['ai_knowledge_source_current','ai_output_entity_still_owned','boq_revision_is_frozen','current_sla_days',
-        'estimation_cost_basis','has_app_access','historical_collision_class','historical_quote_number',
-        'is_display_account','meeting_review_queue','my_day','my_fireflies_connection','next_sales_code',
+        'has_app_access','historical_collision_class','historical_quote_number',
+        'is_display_account','next_sales_code',
         'pricing_file_propose','project_has_valid_boq','source_is_approved_for_agents'],
   'Every SECURITY DEFINER function a client can call checks the caller, or is reviewed (id-keyed, own-data or a boolean)');
 
@@ -2894,6 +2899,18 @@ export async function resolveCaller(
 and replace
 
 ```ts
+  const { data: profile, error: profileError } = await svc.from("profiles").select("status").eq("id", userData.user.id).single();
+```
+
+with (Task 1 fix round 1: `profiles.vendor_id` is what makes an account a supplier; the role row is a second marker)
+
+```ts
+  const { data: profile, error: profileError } = await svc.from("profiles").select("status, vendor_id").eq("id", userData.user.id).single();
+```
+
+and replace
+
+```ts
   const roles = (roleRows ?? []).map((r: { role: AppRole }) => r.role);
   if (requiresMfa(roles)) {
 ```
@@ -2902,6 +2919,7 @@ with
 
 ```ts
   const roles = (roleRows ?? []).map((r: { role: AppRole }) => r.role);
+  if (profile.vendor_id && !roles.includes("supplier")) roles.push("supplier");
   if (roles.includes("supplier") && !options.allowSupplier) {
     throw { status: 403, message: "Supplier accounts use the supplier portal only" };
   }
@@ -5724,9 +5742,9 @@ with
 ## 2026-11-08 — Supplier portal (Commercial & Finance part 1, PR 3; not deployed)
 
 - Migrations `20261108100000`–`20261108150000`:
-  - `app_role` gains `supplier`; `profiles.vendor_id`, set only by `supplier_account_activate`. The supplier role holds no other role.
-  - `has_app_access` is false for supplier accounts, so the session boundary and every role predicate close the schema to them. The restrictive `audit_session_boundary` policy is now on every public table (PR 1's pricing tables and others made after 2026-09-28 lacked it). `vendor_duplicate_candidates` and `automation_health` run as invoker. `current_margin_floor` returns nothing to a supplier.
-  - `auth.users` accepts a non-PHC address only for an account the supplier-account action is creating (`supplier_account_invites`, named in `app_metadata`).
+  - `app_role` gains `supplier`; `profiles.vendor_id`, set only by `supplier_account_activate` (or the service role), is what makes an account a supplier. The supplier role holds no other role and cannot be removed while the account is linked (suspend it instead).
+  - `has_app_access` is false for supplier accounts, so the session boundary and every role predicate close the schema to them. `is_active_user` and `has_any_role` are false about a supplier for staff too: no task, notification or picker reaches one. `my_day`, `meeting_review_queue` and `my_fireflies_connection` check `has_app_access`; `current_margin_floor` and `estimation_cost_basis` are closed to anon, and `estimation_cost_basis` answers only cost readers outside the margin trigger. The restrictive `audit_session_boundary` policy is now on every public table (PR 1's pricing tables and others made after 2026-09-28 lacked it). `vendor_duplicate_candidates` and `automation_health` run as invoker. `current_margin_floor` returns nothing to a supplier.
+  - `auth.users` accepts a non-PHC address only for an account the supplier-account action is creating: an open `supplier_account_invites` row for the address at INSERT, and its id in `app_metadata` at commit (deferred trigger; GoTrue writes `app_metadata` after the INSERT). A supplier account keeps its address.
   - `supplier_account_prepare`, `supplier_account_activate` (service role), `supplier_account_email`, `pricing_supplier_accounts`.
   - `supplier_invitations` (+ lines, files with the exact storage version, submissions); `pricing_send_to_supplier` (cancels another supplier's earlier quote and clears 7B selections on the pricer's confirmation), `pricing_cancel_invitation`, `pricing_extend_invitation`.
   - Portal functions `supplier_portal_invitations`, `supplier_portal_invitation`, `supplier_portal_file`, `supplier_portal_submit` (a new `supplier_quotes` revision; `supplier_quotes.source` and `source_document_id`), `supplier_portal_confirmation`.
@@ -5763,8 +5781,8 @@ Plan `docs/superpowers/plans/2026-11-08-pricing-supplier-portal.md`. PR 3 of 5: 
 
 **Release (Mo runs; nothing here was pushed or deployed):**
 1. Merge once CI is green.
-2. `supabase db push` from `~/dev/phc-command-center` on `main` (six migrations). Check `select jobname, schedule from cron.job where jobname = 'pricing-supplier-overdue';` → one row.
-3. `supabase functions deploy sales-os-api`, then `ai-orchestrator` and `import-pipeline` (they carry the supplier refusal). No new secret; `APP_URL` defaults to `https://agent.phc-sa.com`. `https://agent.phc-sa.com/reset-password` must stay in Auth's redirect allow-list (forgot-password already uses it).
+2. Deploy the Edge functions' `resolveCaller` supplier refusal together with, or before, `db push`: `supabase functions deploy ai-orchestrator` and `import-pipeline` first, then `supabase db push` from `~/dev/phc-command-center` on `main` (six migrations), then at once `supabase functions deploy sales-os-api` (its new actions call the new SQL). **No supplier account may be created before both the migrations and all three functions are live.** Check `select jobname, schedule from cron.job where jobname = 'pricing-supplier-overdue';` → one row.
+3. No new secret; `APP_URL` defaults to `https://agent.phc-sa.com`. `https://agent.phc-sa.com/reset-password` must stay in Auth's redirect allow-list (forgot-password already uses it).
 4. Cloudflare canary → Production Readiness → production.
 
 **Canary walk-through (real accounts: Zayed, Kalas, and a supplier test account on a mailbox Mo controls, never the factory's):**
@@ -5778,7 +5796,7 @@ Plan `docs/superpowers/plans/2026-11-08-pricing-supplier-portal.md`. PR 3 of 5: 
 
 **Local checks (2026-11-08):** DB suite (`dbtest-sup.sh`: 45 files ok, `<total>` tests), `bun run verify`, `bun run test:deno`, `bun audit --audit-level=high`. Replace `<total>` with the number Step 6 prints.
 
-**Behaviour that changes outside the portal** (DECISIONS 2026-11-08): the session boundary on every public table; `vendor_duplicate_candidates` and `automation_health` as invoker; `current_margin_floor` hidden from suppliers; `enforce_signup_email_domain` admits a non-PHC address for supplier accounts only and ignores updates that keep the address; `resolveCaller` refuses suppliers; `pricing_enter_supplier_quote` gains `_document_id` and the request rules; staff routes send suppliers to `/supplier`.
+**Behaviour that changes outside the portal** (DECISIONS 2026-11-08): the session boundary on every public table; `vendor_duplicate_candidates` and `automation_health` as invoker; `current_margin_floor` hidden from suppliers and closed to anon; `estimation_cost_basis` closed to anon and answering only cost readers outside the margin trigger; `my_day`, `meeting_review_queue` and `my_fireflies_connection` empty without `has_app_access` (also staff on an aal1 session whose role needs MFA); `is_active_user` / `has_any_role` false about suppliers; the user_roles guard refuses deleting a linked supplier's role (Admin settings → suspend instead); staff pickers and the Fireflies/meetings attendee match skip vendor-linked profiles; `enforce_signup_email_domain` admits a non-PHC address for supplier accounts only (plus a deferred commit check) and ignores updates that keep the address; `resolveCaller` refuses suppliers; `pricing_enter_supplier_quote` gains `_document_id` and the request rules; staff routes send suppliers to `/supplier`.
 
 **PR 3 contract items (AI_HANDOFF 2026-11-04), closed:** `is_selected` never set (send clears 7B selections); one current quote per vendor (submission supersedes); the portal's own entry path keeps the file-at-supplier condition (PR 2's flag); a second vendor's pre-freeze quote (cancelled on the pricer's confirmation); returned lines reopen alone; `supplier_invitations`, the role, `profiles.vendor_id`, the supplier's original file on an on-behalf quote; notifications for supplier steps. Several BOQs per deal: every request binds to the file's own `boq_revision_id`, never the deal's current revision. PR 1's tables now carry `audit_session_boundary`.
 
@@ -5791,7 +5809,6 @@ Plan `docs/superpowers/plans/2026-11-08-pricing-supplier-portal.md`. PR 3 of 5: 
 - `pricing_settings_audit` still writes full rate rows to `audit_log`: not a supplier exposure (suppliers fail the session boundary on `audit_log`); fixing it rewrites PR 1 assertions and needs Mo's choice (strip values or gate the read). Clean-up PR.
 - Automated email: no transactional provider yet. When Postmark or custom SMTP is live, send the two messages from the system.
 - AI quote review and its notice to the supplier: PR 5.
-- Staff people-pickers may list supplier accounts (they read nothing; a follow-up can filter `is_supplier_account`).
 - Server-side drafts in the portal: the form keeps typed values until submit; a refresh loses them.
 - Carried minor items from PR 2 (lock-order TOCTOU on `estimations`, extras bounds, UTC `current_date` for "in force since", direct writes to `installation_rates`, settings UI rough edges) are unchanged.
 ```
@@ -5828,13 +5845,13 @@ git commit -m "docs: supplier portal (user guide, changelog, decisions, handoff,
 Mo approves and runs every step; nothing in this plan pushes or deploys.
 
 1. Merge the PR once CI ("Supabase migrations and database tests", verify) is green.
-2. `supabase db push` from `~/dev/phc-command-center` on `main`: applies `20261108100000`–`20261108150000`. Check the cron job `pricing-supplier-overdue` exists.
-3. Deploy functions, after the push (the new actions call the new SQL): `supabase functions deploy sales-os-api`, then `supabase functions deploy ai-orchestrator` and `supabase functions deploy import-pipeline`. No new secret.
+2. Deploy the Edge functions' `resolveCaller` supplier refusal **together with or before** `db push`: `supabase functions deploy ai-orchestrator` and `supabase functions deploy import-pipeline` (refusal only), then `supabase db push` from `~/dev/phc-command-center` on `main` (applies `20261108100000`–`20261108150000`; check the cron job `pricing-supplier-overdue` exists), then straight away `supabase functions deploy sales-os-api` (its new actions call the new SQL). No new secret.
+3. **No supplier account may be created before both are live** (the migrations and all three functions): until then a supplier's token would reach Edge functions that do not yet refuse it.
 4. Cloudflare canary, with the supplier test account walk-through (Task 10, AI_HANDOFF entry). Create the test supplier account on a mailbox Mo controls; suspend it from Admin settings after the walk-through.
 5. Production Readiness, then production.
 6. Create the factory's real portal account only after production, from the Supplier tab of a real file.
 
-**Rollback:** suspend supplier accounts (Admin settings); `select cron.unschedule('pricing-supplier-overdue');`; redeploy the three functions from the previous `main`. The migrations add tables, columns and functions; the redefined functions (`has_app_access`, `enforce_signup_email_domain`, `current_margin_floor`, `pricing_enter_supplier_quote`) would need a new migration restoring their PR 2 bodies, which is only needed if the supplier boundary itself misbehaves.
+**Rollback:** suspend supplier accounts (Admin settings); `select cron.unschedule('pricing-supplier-overdue');`; redeploy the three functions from the previous `main`. The migrations add tables, columns and functions; the redefined functions (`has_app_access`, `is_active_user`, `has_any_role`, `enforce_signup_email_domain` and the deferred `auth.phc_supplier_invite_check`, `current_margin_floor`, `estimation_cost_basis`, `my_day`, `meeting_review_queue`, `my_fireflies_connection`, `pricing_enter_supplier_quote`) would need a new migration restoring their PR 2 bodies, which is only needed if the supplier boundary itself misbehaves.
 
 ## Not in PR 3 (each with its reason)
 
