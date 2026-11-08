@@ -115,7 +115,7 @@ export function findHeaderRow(rows: readonly (readonly unknown[])[]): number {
   return best;
 }
 
-/** Western digits from Arabic-Indic (U+0660–0669) and extended (U+06F0–06F9); drops thousands separators. */
+/** Western digits from Arabic-Indic (U+0660–0669) and extended (U+06F0–06F9); U+066B is the decimal mark, U+066C is dropped, U+060C becomes a comma. */
 function westernDigits(s: string): string {
   let out = "";
   for (const ch of s) {
@@ -123,17 +123,36 @@ function westernDigits(s: string): string {
     if (c >= 0x0660 && c <= 0x0669) out += String(c - 0x0660);
     else if (c >= 0x06f0 && c <= 0x06f9) out += String(c - 0x06f0);
     else if (c === 0x066b) out += ".";
-    else if (c === 0x066c || ch === ",") continue;
+    else if (c === 0x066c) continue;
+    else if (c === 0x060c) out += ",";
     else out += ch;
   }
   return out;
 }
 
+export type NumberResult = { ok: true; value: number | null } | { ok: false; reason: "not_a_number" | "ambiguous" };
+
+/**
+ * A number from a cell. Empty is null. A comma followed by exactly three digits
+ * (repeating) is a thousands separator; any other comma is ambiguous ("1,5" could
+ * be 1.5 or 15) and is refused rather than guessed. Text after the number ("12 pcs") is ignored.
+ */
+export function parseNumberResult(v: unknown): NumberResult {
+  if (v == null || v === "") return { ok: true, value: null };
+  if (typeof v === "number") return Number.isFinite(v) ? { ok: true, value: v } : { ok: false, reason: "not_a_number" };
+  const s = westernDigits(String(v)).trim();
+  if (s === "") return { ok: true, value: null };
+  const m = s.match(/^-?\d+(?:,\d+)*(?:\.\d+)?/);
+  if (!m) return { ok: false, reason: "not_a_number" };
+  const tok = m[0];
+  if (tok.includes(",") && !/^-?\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(tok)) return { ok: false, reason: "ambiguous" };
+  return { ok: true, value: Number(tok.replace(/,/g, "")) };
+}
+
+/** Like parseNumberResult, but a cell that is not a clean number is null. mapRows uses parseNumberResult so it can report them. */
 export function parseNumber(v: unknown): number | null {
-  if (v == null || v === "") return null;
-  if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  const m = westernDigits(String(v)).trim().match(/^-?\d+(?:\.\d+)?/);
-  return m ? Number(m[0]) : null;
+  const r = parseNumberResult(v);
+  return r.ok ? r.value : null;
 }
 
 export function parseBool(v: unknown): boolean | null {
@@ -160,13 +179,25 @@ export function parseInstallType(v: unknown): InstallType | null {
   return null;
 }
 
-/** "1200 x 600 mm", "120x60cm", "1.2 × 0.6 m" → millimetres. */
-export function parseDimensions(v: unknown): { width_mm: number; height_mm: number } | null {
+/**
+ * "1200 x 600 mm", "120x60cm", "1.2 × 0.6 m" → millimetres. With no unit the numbers are taken as
+ * millimetres, and likelyMetres is set when both are under 20 so the caller can warn.
+ */
+export function parseDimensions(v: unknown): { width_mm: number; height_mm: number; likelyMetres?: true } | null {
   const s = westernDigits(String(v ?? "")).toLowerCase();
-  const m = s.match(/(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)/);
+  const n = "(\\d+(?:,\\d{3})*(?:\\.\\d+)?)";
+  const m = s.match(new RegExp(`${n}\\s*[x×*]\\s*${n}`));
   if (!m) return null;
+  const a = Number(m[1].replace(/,/g, ""));
+  const b = Number(m[2].replace(/,/g, ""));
+  const hasUnit = /mm|cm|\d\s*m\b|\sm\b/.test(s);
   const factor = /mm/.test(s) ? 1 : /cm/.test(s) ? 10 : /\d\s*m\b|\sm\b/.test(s) ? 1000 : 1;
-  return { width_mm: Math.round(Number(m[1]) * factor * 10) / 10, height_mm: Math.round(Number(m[2]) * factor * 10) / 10 };
+  const out: { width_mm: number; height_mm: number; likelyMetres?: true } = {
+    width_mm: Math.round(a * factor * 10) / 10,
+    height_mm: Math.round(b * factor * 10) / 10,
+  };
+  if (!hasUnit && a < 20 && b < 20) out.likelyMetres = true;
+  return out;
 }
 
 export type RowError = { row: number; message: Bi };
@@ -174,12 +205,19 @@ export type RowError = { row: number; message: Bi };
 /** pricing_boq_import takes at most this many lines at a time. */
 export const MAX_IMPORT_LINES = 2000;
 
-/** A mounting height above this is taken to be millimetres (a sheet that says 2700 means 2.7 m). */
-const MOUNT_HEIGHT_MM_ABOVE = 30;
-export function parseMountHeightM(v: unknown): number | null {
+/** The unit a sheet's mount-height column is in, and the unit its width/height columns are in. Chosen by the user, applied as stated. */
+export type ImportUnits = { mountHeight: "m" | "mm"; size: "mm" | "cm" | "m" };
+export const DEFAULT_UNITS: ImportUnits = { mountHeight: "m", size: "mm" };
+const SIZE_FACTOR = { mm: 1, cm: 10, m: 1000 } as const;
+
+/** A mount height above this many metres is shown as a warning: the column may be in millimetres. */
+export const MOUNT_HEIGHT_WARN_ABOVE_M = 30;
+
+/** Mount height in metres from a cell, in the stated unit. No guessing. */
+export function parseMountHeightM(v: unknown, unit: "m" | "mm" = "m"): number | null {
   const n = parseNumber(v);
   if (n == null) return null;
-  return Math.round((n > MOUNT_HEIGHT_MM_ABOVE ? n / 1000 : n) * 100) / 100;
+  return Math.round((unit === "mm" ? n / 1000 : n) * 100) / 100;
 }
 
 /** The longest text pricing_boq_import accepts, per field. */
@@ -188,16 +226,28 @@ const TEXT_CAP: Partial<Record<BoqField, number>> = {
   illumination: 120, finish: 120, location: 120, unit: 120,
 };
 
+/** Numeric columns, as pricing_boq_import's _pricing_boq_line_problem bounds them: decimals kept, must be above zero, exclusive upper bound. */
+const NUM_RULE = {
+  quantity: { scale: 3, positive: true, below: 1e11 },
+  width_mm: { scale: 1, positive: true, below: 1e9 },
+  height_mm: { scale: 1, positive: true, below: 1e9 },
+  weight_kg: { scale: 2, positive: false, below: 1e8 },
+  mount_height_m: { scale: 2, positive: false, below: 1e4 },
+} as const;
+type NumField = keyof typeof NUM_RULE;
+
 const TOTAL_WORDS = ["total", "grand total", "subtotal", "المجموع", "الإجمالي"];
 
-/** rows: the sheet as arrays; headerRow: 0-based; errors carry 1-based spreadsheet row numbers. */
+/** rows: the sheet as arrays; headerRow: 0-based; errors and warnings carry 1-based spreadsheet row numbers. */
 export function mapRows(
   rows: readonly (readonly unknown[])[],
   headerRow: number,
   mapping: ColumnMapping,
-): { lines: BoqImportLine[]; errors: RowError[]; skipped: number } {
+  units: ImportUnits = DEFAULT_UNITS,
+): { lines: BoqImportLine[]; errors: RowError[]; warnings: RowError[]; skipped: number } {
   const lines: BoqImportLine[] = [];
   const errors: RowError[] = [];
+  const warnings: RowError[] = [];
   let skipped = 0;
   for (let i = headerRow + 1; i < rows.length; i++) {
     const r = rows[i] ?? [];
@@ -217,56 +267,110 @@ export function mapRows(
       continue;
     }
     const row = i + 1;
+    const fail = (message: Bi) => errors.push({ row, message });
+    const rowWarnings: RowError[] = [];
+    const warn = (message: Bi) => rowWarnings.push({ row, message });
     if (!sign) {
-      errors.push({ row, message: { en: "No sign type or description", ar: "لا يوجد نوع لوحة أو وصف" } });
+      fail({ en: "No sign type or description", ar: "لا يوجد نوع لوحة أو وصف" });
       continue;
     }
     const tooLong = (Object.keys(TEXT_CAP) as BoqField[]).find((f) => (text(f)?.length ?? 0) > (TEXT_CAP[f] as number));
     if (tooLong) {
       const cap = TEXT_CAP[tooLong];
-      errors.push({
-        row,
-        message: {
-          en: `${BOQ_FIELD_LABEL[tooLong].en} is longer than ${cap} characters`,
-          ar: `${BOQ_FIELD_LABEL[tooLong].ar} أطول من ${cap} حرفاً`,
-        },
+      fail({
+        en: `${BOQ_FIELD_LABEL[tooLong].en} is longer than ${cap} characters`,
+        ar: `${BOQ_FIELD_LABEL[tooLong].ar} أطول من ${cap} حرفاً`,
       });
       continue;
     }
-    const qty = parseNumber(cell("quantity"));
-    if (qty == null || qty <= 0 || qty >= 1e11) {
-      errors.push({ row, message: { en: "Quantity missing or not above zero", ar: "الكمية غير موجودة أو ليست أكبر من صفر" } });
+    if (sign.length > (TEXT_CAP.sign_type as number)) {
+      fail({
+        en: `Sign type (the description is used when it is empty) is longer than ${TEXT_CAP.sign_type} characters`,
+        ar: `نوع اللوحة (يُستخدم الوصف إن كان فارغاً) أطول من ${TEXT_CAP.sign_type} حرفاً`,
+      });
       continue;
     }
+
+    // Numbers: a cell that is not a number is an error, an empty cell is null.
+    const prob: { v: Bi | null } = { v: null };
+    const bad = (m: Bi) => { prob.v ??= m; };
+    const num = (f: NumField, raw: unknown, scale = 1): number | null => {
+      const rule = NUM_RULE[f];
+      const label = BOQ_FIELD_LABEL[f];
+      const p = parseNumberResult(raw);
+      if (!p.ok) {
+        bad(p.reason === "ambiguous"
+          ? { en: `${label.en}: ambiguous number (comma). Use a point for decimals`, ar: `${label.ar}: رقم غامض (فاصلة). استخدم النقطة للكسور` }
+          : { en: `${label.en} is not a number`, ar: `${label.ar} ليس رقماً` });
+        return null;
+      }
+      if (p.value == null) return null;
+      const k = 10 ** rule.scale;
+      const v = Math.round(p.value * scale * k) / k;
+      if (v < 0) bad({ en: `${label.en} cannot be negative`, ar: `${label.ar} لا يكون سالباً` });
+      else if (rule.positive && v === 0) bad({ en: `${label.en} must be above zero`, ar: `${label.ar} يجب أن يكون أكبر من صفر` });
+      else if (v >= rule.below) bad({ en: `${label.en} must be below ${rule.below}`, ar: `${label.ar} يجب أن يكون أقل من ${rule.below}` });
+      return v;
+    };
+
+    const qty = num("quantity", cell("quantity"));
+    if (qty == null) bad({ en: "Quantity missing or not above zero", ar: "الكمية غير موجودة أو ليست أكبر من صفر" });
+    const sizeFactor = SIZE_FACTOR[units.size];
+    const wCol = num("width_mm", cell("width_mm"), sizeFactor);
+    const hCol = num("height_mm", cell("height_mm"), sizeFactor);
+    const rawDims = text("dimensions");
+    const dims = parseDimensions(rawDims);
+    if (dims && (wCol == null || hCol == null)) {
+      if (dims.likelyMetres) {
+        warn({
+          en: `Size "${rawDims}" has no unit and both numbers are under 20: read as millimetres. Check whether it is metres`,
+          ar: `المقاس "${rawDims}" بلا وحدة ورقماه أقل من 20: قُرئ بالمليمتر. تحقق إن كان بالمتر`,
+        });
+      }
+      const dimBad = (v: number) => v <= 0 || v >= NUM_RULE.width_mm.below;
+      if (dimBad(dims.width_mm) || dimBad(dims.height_mm)) bad({ en: "Size is outside the accepted range", ar: "المقاس خارج المدى المقبول" });
+    }
+    const weight = num("weight_kg", cell("weight_kg"));
+    const mountRaw = num("mount_height_m", cell("mount_height_m"), units.mountHeight === "mm" ? 0.001 : 1);
+    if (mountRaw != null && mountRaw > MOUNT_HEIGHT_WARN_ABOVE_M && mountRaw < NUM_RULE.mount_height_m.below) {
+      warn({
+        en: `Mount height ${mountRaw} m: check, over ${MOUNT_HEIGHT_WARN_ABOVE_M} m. Is this column in millimetres?`,
+        ar: `ارتفاع التركيب ${mountRaw} م: تحقق، أكثر من ${MOUNT_HEIGHT_WARN_ABOVE_M} م. هل العمود بالمليمتر؟`,
+      });
+    }
+    if (prob.v) {
+      fail(prob.v);
+      continue;
+    }
+
     const rawInstall = text("install_type");
     const install = parseInstallType(rawInstall);
     if (rawInstall && !install) {
-      errors.push({ row, message: { en: `Install type not recognised: ${rawInstall}`, ar: `نوع التركيب غير معروف: ${rawInstall}` } });
+      fail({ en: `Install type not recognised: ${rawInstall}`, ar: `نوع التركيب غير معروف: ${rawInstall}` });
       continue;
     }
-    const dims = parseDimensions(text("dimensions"));
-    const positive = (n: number | null) => (n != null && n > 0 ? n : null);
+    warnings.push(...rowWarnings);
     lines.push({
       sign_type: sign,
       description: text("description"),
-      quantity: qty,
+      quantity: qty as number,
       unit: text("unit"),
-      dimensions: text("dimensions"),
+      dimensions: rawDims,
       material: text("material"),
       mounting: text("mounting"),
       illumination: text("illumination"),
       finish: text("finish"),
       location: text("location"),
       install_type: install,
-      width_mm: positive(parseNumber(cell("width_mm"))) ?? dims?.width_mm ?? null,
-      height_mm: positive(parseNumber(cell("height_mm"))) ?? dims?.height_mm ?? null,
-      weight_kg: parseNumber(cell("weight_kg")),
-      mount_height_m: parseMountHeightM(cell("mount_height_m")),
+      width_mm: wCol ?? dims?.width_mm ?? null,
+      height_mm: hCol ?? dims?.height_mm ?? null,
+      weight_kg: weight,
+      mount_height_m: mountRaw,
       has_screen: parseBool(cell("has_screen")) ?? false,
       needs_floor_cut: parseBool(cell("needs_floor_cut")) ?? false,
     });
   }
-  return { lines, errors, skipped };
+  return { lines, errors, warnings, skipped };
 }
 
 /** Every sheet as rows of cells. SheetJS is loaded on demand so it stays out of the main bundle. */

@@ -9,7 +9,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, formatNumber } from "@/lib/i18n";
 import { answerNeedsInfo, askNeedsInfo, attachRevision, deleteBoqLine, freezeBoq, listBoqLines, listDealRevisions } from "@/lib/pricing-actions";
-import { canEditPackage } from "@/lib/pricing-access";
+import { canAnswerNeedsInfo, canEditPackage } from "@/lib/pricing-access";
 import { asError, dbMessage, pick, type Bi } from "@/lib/pricing-text";
 import { BoqImportDialog } from "@/components/phc/pricing/BoqImportDialog";
 import { BoqLineForm } from "@/components/phc/pricing/BoqLineForm";
@@ -55,7 +55,7 @@ const TEXT = {
   partial: { en: "Partially verified", ar: "متحقق جزئياً" },
   note: { en: "Note", ar: "ملاحظة" },
   noteDefault: { en: "Checked against the drawings and the location plan; files complete.", ar: "طوبقت مع الرسومات ومخطط المواقع؛ الملفات مكتملة." },
-  frozenNote: { en: "This revision is frozen. Importing or adding a line opens a new revision (selling prices are not carried over).", ar: "هذا الإصدار مجمّد. الاستيراد أو إضافة بند يفتح إصداراً جديداً (لا تُنقل أسعار البيع)." },
+  frozenNote: { en: "This revision is frozen. Adding a typed line opens a new revision that carries the earlier lines forward. Importing a spreadsheet opens a new revision with ONLY the imported lines: the frozen lines are not carried over. Selling prices are not carried over either.", ar: "هذا الإصدار مجمّد. إضافة بند يدوي تفتح إصداراً جديداً يحمل البنود السابقة. أما استيراد جدول فيفتح إصداراً جديداً يحوي البنود المستوردة فقط: البنود المجمّدة لا تُنقل. ولا تُنقل أسعار البيع أيضاً." },
   freezeNeedsChecks: { en: "Tick the three checks to freeze.", ar: "علّم البنود الثلاثة للتجميد." },
   done: { en: "Saved", ar: "تم الحفظ" },
 } satisfies Record<string, Bi>;
@@ -107,7 +107,7 @@ export function PackageTab({ file, rights, onChanged }: PricingTabProps) {
 
       {file.state === "needs_info" ? (
         <Panel title={pick(TEXT.needsTitle, lang)} tone="attention"
-          action={rights.is_pricer ? <Button size="sm" onClick={() => setAnswerOpen(true)}>{pick(TEXT.answer, lang)}</Button> : undefined}>
+          action={canAnswerNeedsInfo(file.state, rights) ? <Button size="sm" onClick={() => setAnswerOpen(true)}>{pick(TEXT.answer, lang)}</Button> : undefined}>
           <ul className="list-disc space-y-1 ps-5 text-sm">
             {file.needs_info_items.map((it) => <li key={it}>{it}</li>)}
           </ul>
@@ -197,7 +197,7 @@ export function PackageTab({ file, rights, onChanged }: PricingTabProps) {
         </div>
       ) : null}
 
-      <BoqImportDialog open={importOpen} onOpenChange={setImportOpen} fileId={file.file_id} onDone={onChanged} />
+      <BoqImportDialog open={importOpen} onOpenChange={setImportOpen} fileId={file.file_id} frozen={frozen} onDone={onChanged} />
 
       <ActionDialog
         open={askOpen}

@@ -110,6 +110,8 @@ export function daysWaiting(since: string, now: Date = new Date()): number {
 
 /** pricing_boq_import / _line_delete / _attach_revision / _freeze_boq / needs info. */
 export const canEditPackage = (s: PricingState, r: PricingRights): boolean => r.is_pricer && s === "package_review";
+/** pricing_answer_needs_info: a pricer records the rep's answer while the file is waiting on information. */
+export const canAnswerNeedsInfo = (s: PricingState, r: PricingRights): boolean => r.is_pricer && s === "needs_info";
 /** pricing_file_set_inputs (cost keys). */
 export const canEditFileInputs = (s: PricingState, r: PricingRights): boolean =>
   (r.is_pricer || r.is_gm) && ["boq_frozen", "at_supplier", "supplier_priced", "selling_build"].includes(s);
