@@ -127,14 +127,14 @@ async function supplier_file_download(payload: Record<string, unknown>, ctx: Sal
 
   // 1. As the supplier (its session, aal2): its own request and file, the version sent.
   const { data: checked, error: checkError } = await ctx.asCaller.rpc("supplier_portal_file", args);
-  if (checkError || !checked) return dbError(checkError, "This file is not available");
+  if (checkError || !checked) return dbError(checkError, "This file is not available. | هذا الملف غير متاح.");
 
   // 2. As the service, for the same user: where the bytes are (and the audit row).
   const { data: located, error: locateError } = await ctx.svc.rpc("_supplier_portal_file_location", {
     ...args,
     _supplier_user: ctx.caller.userId,
   });
-  if (locateError || !located) return dbError(locateError, "This file is not available");
+  if (locateError || !located) return dbError(locateError, "This file is not available. | هذا الملف غير متاح.");
   const file = located as { bucket: string; path: string; name: string; size_bytes: number | null };
   // The object is held in memory before it is streamed back. The size is storage's own;
   // an unknown size is refused rather than trusted.
@@ -144,7 +144,7 @@ async function supplier_file_download(payload: Record<string, unknown>, ctx: Sal
 
   // 3. The bytes, read with the service client and streamed back: never a link, never the path.
   const { data: blob, error: downloadError } = await ctx.svc.storage.from(file.bucket).download(file.path);
-  if (downloadError || !blob) return err("Could not prepare the download", 502);
+  if (downloadError || !blob) return err("Could not prepare the download. | تعذّر تجهيز التنزيل.", 502);
   return new Response(blob.stream(), {
     status: 200,
     headers: {

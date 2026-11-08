@@ -34,7 +34,7 @@ export async function downloadPortalFile(invitationId: string, fileId: string): 
   });
   if (error) {
     // Same as callBackend: surface the server's message (errors are JSON {error}).
-    let message = error.message;
+    let message = error.message || "Could not download the file. | تعذّر تنزيل الملف.";
     try {
       const ctx = (error as { context?: Response }).context;
       const parsed = ctx ? await ctx.json() : null;
@@ -44,6 +44,6 @@ export async function downloadPortalFile(invitationId: string, fileId: string): 
     }
     throw new Error(message);
   }
-  if (!(data instanceof Blob)) throw new Error("Could not download the file");
+  if (!(data instanceof Blob)) throw new Error("Could not download the file. | تعذّر تنزيل الملف.");
   return data;
 }

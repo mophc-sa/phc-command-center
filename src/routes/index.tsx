@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { isSystemAdmin, isExecutive, isSalesManager, isBdOrSalesOps, isSalesperson, type AppRole } from "@/lib/roles";
+import { isSystemAdmin, isExecutive, isSalesManager, isBdOrSalesOps, isSalesperson, isSupplier, type AppRole } from "@/lib/roles";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -21,6 +21,7 @@ export const Route = createFileRoute("/")({
 //   executive | sales_mgr  → /command-center (org-wide, incl. team target)
 //   bd | sales_ops         → /lead-tender-inbox
 //   salesperson            → /my-workspace (personal target/pipeline)
+//   supplier               → /supplier (the supplier portal, pricing loop PR 3)
 //   viewer                  → /command-center
 //   no roles               → /pending-approval
 function LandingRedirect() {
@@ -85,7 +86,9 @@ function LandingRedirect() {
 
     const r: AppRole[] = roles ?? [];
 
-    if (isSystemAdmin(r)) {
+    if (isSupplier(r)) {
+      void navigate({ to: "/supplier", replace: true });
+    } else if (isSystemAdmin(r)) {
       void navigate({ to: "/admin-settings", replace: true });
     } else if (isExecutive(r) || isSalesManager(r)) {
       void navigate({ to: "/command-center", replace: true });
