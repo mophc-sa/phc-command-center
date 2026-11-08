@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 8e prefix. Every session carries aal2.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(39);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -79,6 +79,12 @@ select public.supplier_portal_submit((select v::uuid from rt_ref where k = 'inv'
 select set_config('request.jwt.claims','{"sub":"8e000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2"}',true);
 select throws_ok($$select public.pricing_return_lines_to_supplier('8e600001-0000-0000-0000-000000000001',
   array['8e510001-0000-0000-0000-000000000001']::uuid[], current_date + 3, 'Missing screen price')$$, '42501', null, 'A rep cannot send lines back');
+select set_config('request.jwt.claims','{"sub":"8e000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$select public.pricing_return_lines_to_supplier('8e600001-0000-0000-0000-000000000001',
+  array['8e510001-0000-0000-0000-000000000001']::uuid[], current_date + 3, 'Missing screen price')$$, '42501', null, 'Nor can the GM');
+select set_config('request.jwt.claims','{"sub":"8e000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$select public.pricing_return_lines_to_supplier('8e600001-0000-0000-0000-000000000001',
+  array['8e510001-0000-0000-0000-000000000001']::uuid[], current_date + 3, 'Missing screen price')$$, '42501', null, 'Nor the supplier');
 select set_config('request.jwt.claims','{"sub":"8e000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select throws_ok($$select public.pricing_return_lines_to_supplier('8e600001-0000-0000-0000-000000000001',
   array['8e510001-0000-0000-0000-000000000001']::uuid[], current_date + 3, '  ')$$, '23514', null, 'Sending lines back needs a reason');
@@ -88,6 +94,9 @@ select throws_ok($$select public.pricing_return_lines_to_supplier('8e600001-0000
   array['8e510003-0000-0000-0000-000000000001']::uuid[], current_date + 3, 'Missing screen price')$$, '23514', null, 'A line outside the request is refused');
 select throws_ok($$select public.pricing_return_lines_to_supplier('8e600001-0000-0000-0000-000000000001',
   array[]::uuid[], current_date + 3, 'Missing screen price')$$, '23514', null, 'At least one line goes back');
+select throws_ok($$select public.pricing_return_lines_to_supplier('8e600001-0000-0000-0000-000000000001',
+  array['8e510001-0000-0000-0000-000000000001']::uuid[], current_date + 3, 'Missing screen price', repeat('m', 1001))$$, '23514', null,
+  'The message to the supplier is at most 1000 characters');
 select throws_ok($$select public.pricing_return_lines_to_supplier('8e600003-0000-0000-0000-000000000001',
   array['8e510004-0000-0000-0000-000000000001']::uuid[], current_date + 3, 'Missing screen price')$$, 'P0001', null,
   'A file priced without a portal request is sent back with a plain note instead');
@@ -96,11 +105,12 @@ select throws_ok($$select public.pricing_return_lines_to_supplier('8e600002-0000
   'Lines go back only from cost review or price review');
 select is((public.pricing_return_lines_to_supplier('8e600001-0000-0000-0000-000000000001',
   array['8e510001-0000-0000-0000-000000000001']::uuid[], current_date + 3, 'Line 1 has no screen price; margin too thin without it',
-  'Please add the price with the screen for the pylon.'))->>'lines', '1', 'Zayed sends one line back');
+  E'Please add the price\x07 with the screen\nfor the pylon.\x1b '))->>'lines', '1', 'Zayed sends one line back');
 reset role;
 select is((select state::text from public.pricing_files where id = '8e600001-0000-0000-0000-000000000001'), 'at_supplier', 'The file is back at the supplier');
 select is((select status || '/' || reply_by::text || '/' || return_message from public.supplier_invitations where id = (select v::uuid from rt_ref where k = 'inv')),
-  'reopened/' || (current_date + 3)::text || '/Please add the price with the screen for the pylon.', 'The request reopens with a new date and the message');
+  'reopened/' || (current_date + 3)::text || E'/Please add the price with the screen\nfor the pylon.',
+  'The request reopens with a new date and the message (control characters stripped, the newline kept)');
 select is((select string_agg(state, ',' order by boq_line_id) from public.supplier_invitation_lines where invitation_id = (select v::uuid from rt_ref where k = 'inv')),
   'reopened,submitted', 'Only the returned line reopens');
 select is((select cost_note from public.pricing_file_events where file_id = '8e600001-0000-0000-0000-000000000001' and from_state = 'supplier_priced'),
@@ -113,7 +123,7 @@ select set_config('request.jwt.claims','{"sub":"8e000000-0000-0000-0000-00000000
 create temp table rt_doc (j jsonb);
 grant all on rt_doc to authenticated;
 insert into rt_doc select public.supplier_portal_invitation((select v::uuid from rt_ref where k = 'inv'));
-select is((select j->>'status' || '/' || (j->>'return_message') from rt_doc), 'returned/Please add the price with the screen for the pylon.',
+select is((select j->>'status' || '/' || (j->>'return_message') from rt_doc), E'returned/Please add the price with the screen\nfor the pylon.',
   'The supplier sees the request returned, with PHC''s message');
 select is((select string_agg(l->>'editable', ',' order by (l->>'line_number')::int) from rt_doc, jsonb_array_elements(j->'lines') l), 'true,false',
   'Only the returned line takes a price');
@@ -152,6 +162,11 @@ select is((select metadata->>'pricing_file_id' || '/' || title from public.notif
 select is((select count(*)::int from public.notifications where notification_type = 'pricing_supplier_overdue'
              and recipient_user_id in ('8e000000-0000-0000-0000-000000000001','8e000000-0000-0000-0000-000000000003')), 0,
   'The rep and the GM are not reminded');
+set local session_replication_role = replica;
+update public.pricing_files set state = 'boq_frozen' where id = '8e600002-0000-0000-0000-000000000001';
+set local session_replication_role = origin;
+update public.supplier_invitations set reply_by = current_date - 3 where id = (select v::uuid from rt_ref where k = 'inv2');
+select is(public.pricing_notify_overdue_suppliers(), 0, 'A late request whose file is no longer at the supplier is skipped');
 
 -- Returning lines from price review also returns the GM's price (PR 1's move).
 select set_config('request.jwt.claims','',true);
@@ -186,6 +201,14 @@ select is((select return_message from public.supplier_invitations where id = (se
   'No message was given, so the supplier is shown none');
 select is((select count(*)::int from public.notifications where recipient_user_id = '8e000000-0000-0000-0000-000000000004'), 0,
   'The supplier account gets no notification row');
+
+-- A reopened request that runs late is reminded too, and a new reply-by date is a new reminder.
+select set_config('request.jwt.claims','',true);
+update public.supplier_invitations set reply_by = current_date - 1 where id = (select v::uuid from rt_ref where k = 'inv4');
+select is(public.pricing_notify_overdue_suppliers(), 1, 'A late reopened request reminds Zayed');
+select is(public.pricing_notify_overdue_suppliers(), 0, 'Once');
+update public.supplier_invitations set reply_by = current_date - 2 where id = (select v::uuid from rt_ref where k = 'inv4');
+select is(public.pricing_notify_overdue_suppliers(), 1, 'A changed reply-by date gives a fresh reminder');
 
 select * from finish();
 rollback;
