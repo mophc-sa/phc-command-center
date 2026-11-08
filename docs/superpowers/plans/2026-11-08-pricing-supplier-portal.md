@@ -1648,7 +1648,7 @@ git commit -m "feat(pricing): supplier portal reads its own requests, lines and 
   - Columns `public.supplier_quotes.source text` ∈ `internal|portal|on_behalf` (default `internal`) and `source_document_id uuid` (FK `documents`).
   - Table `public.supplier_invitation_submissions(id, invitation_id, supplier_quote_id, source ∈ portal|on_behalf, submitted_by, submitted_at, confirmation_text, confirmation_lang ∈ en|ar, confirmed_files jsonb, lines)`. Readable by pricers and cost readers.
   - `public.supplier_portal_confirmation(_lang text) → text` (`en`/`ar`; the spec's sentence; NULL otherwise).
-  - `public.supplier_portal_submit(_invitation_id uuid, _lines jsonb, _terms jsonb, _confirm_lang text) → jsonb {"supplier_quote_id","lines"}`. `_lines`: `[{"line_id": <supplier_invitation_lines.id>, "unit_cost": num|string|null, "unit_cost_with_screen": …, "spec_difference": text|null}]`, exactly the open lines. `_terms`: `{"lead_time_days": int, "payment_terms": text, "valid_until": "YYYY-MM-DD"}`, all required.
+  - `public.supplier_portal_submit(_invitation_id uuid, _lines jsonb, _terms jsonb, _confirm_lang text) → jsonb {"lines"}` (the supplier gets no quote id back). `_lines`: `[{"line_id": <supplier_invitation_lines.id>, "unit_cost": num|string|null, "unit_cost_with_screen": …, "spec_difference": text|null}]`, exactly the open lines. `_terms`: `{"lead_time_days": int, "payment_terms": text, "valid_until": "YYYY-MM-DD"}`, all required.
   - Notification type `pricing_supplier_submitted` (entity `opportunity`, metadata `{"pricing_file_id"}`).
   - `public.pricing_enter_supplier_quote(_file_id uuid, _vendor_id uuid, _lines jsonb, _terms jsonb DEFAULT '{}', _document_id uuid DEFAULT NULL) → jsonb` (the 4-argument version is dropped; positional 4-argument calls still resolve).
 
@@ -2087,7 +2087,7 @@ BEGIN
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (u, 'user', 'supplier_portal.submitted', 'opportunity', f.opportunity_id,
           jsonb_build_object('file_id', f.id, 'invitation_id', inv.id, 'supplier_quote_id', q.id, 'lines', open_count));
-  RETURN jsonb_build_object('supplier_quote_id', q.id, 'lines', open_count);
+  RETURN jsonb_build_object('lines', open_count);
 END $$;
 REVOKE ALL ON FUNCTION public.supplier_portal_submit(uuid, jsonb, jsonb, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.supplier_portal_submit(uuid, jsonb, jsonb, text) TO authenticated;
@@ -3711,7 +3711,7 @@ export const getPortalInvitation = (invitationId: string) =>
   call<PortalInvitation>("supplier_portal_invitation", { _invitation_id: invitationId });
 
 export const submitPortalQuote = (invitationId: string, lines: SubmissionLine[], terms: SubmissionTerms, lang: Lang) =>
-  call<{ supplier_quote_id: string; lines: number }>("supplier_portal_submit", {
+  call<{ lines: number }>("supplier_portal_submit", {
     _invitation_id: invitationId,
     _lines: lines,
     _terms: terms,

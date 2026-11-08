@@ -150,8 +150,18 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.vendors v WHERE v.id = _vendor_id) THEN
     RAISE EXCEPTION 'Unknown supplier. | المورد غير موجود.' USING ERRCODE = '23514';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.boq_lines l WHERE l.revision_id = f.boq_revision_id) THEN
+  SELECT count(*) INTO n_lines FROM public.boq_lines l WHERE l.revision_id = f.boq_revision_id;
+  IF n_lines = 0 THEN
     RAISE EXCEPTION 'The BOQ has no lines to price. | لا بنود في الكميات للتسعير.' USING ERRCODE = 'P0001';
+  END IF;
+  -- The supplier submits at most 2000 lines in one go (supplier_portal_submit); a request it could never answer is not sent.
+  IF n_lines > 2000 THEN
+    RAISE EXCEPTION 'A supplier request covers up to 2000 lines; this BOQ has %. Split the BOQ first. | يشمل طلب المورد حتى 2000 بند؛ لهذه الكميات %. قسّم الكميات أولاً.', n_lines, n_lines USING ERRCODE = 'P0001';
+  END IF;
+  -- The portal prices in SAR only (supplier_portal_submit writes SAR; the 7B guard needs it to match the BOQ).
+  IF EXISTS (SELECT 1 FROM public.boq_revisions r JOIN public.boqs b ON b.id = r.boq_id
+              WHERE r.id = f.boq_revision_id AND b.currency IS DISTINCT FROM 'SAR') THEN
+    RAISE EXCEPTION 'Pricing in this release is in SAR only; this BOQ is in another currency. | التسعير في هذا الإصدار بالريال السعودي (SAR) فقط؛ عملة هذه الكميات مختلفة.' USING ERRCODE = 'P0001';
   END IF;
   -- Each file: a live document attached to this deal or its RFQ, its bytes in storage.
   IF EXISTS (SELECT 1 FROM unnest(_document_ids) x
@@ -224,7 +234,6 @@ BEGIN
   RETURNING * INTO inv;
   INSERT INTO public.supplier_invitation_lines (invitation_id, boq_line_id)
   SELECT inv.id, l.id FROM public.boq_lines l WHERE l.revision_id = f.boq_revision_id;
-  GET DIAGNOSTICS n_lines = ROW_COUNT;
   FOR d IN
     SELECT dd.id, dd.original_filename, dd.storage_bucket, dd.storage_path, dd.mime_type, dd.size_bytes,
            o.version AS object_version, o.updated_at AS object_updated_at, x.ord,

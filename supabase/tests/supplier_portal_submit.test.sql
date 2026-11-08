@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 8d prefix. Sessions carry aal2 unless they say otherwise.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(60);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -61,6 +61,55 @@ insert into storage.objects (bucket_id, name, owner, version) values
   ('attachments','opportunity/8d1/a.pdf','8d000000-0000-0000-0000-000000000001','v1'),
   ('attachments','opportunity/8d2/b.pdf','8d000000-0000-0000-0000-000000000001','v1');
 
+-- Fix round 1 fixtures: deals 3 (file moves off), 4 (cancelled), 5 (stale request on an earlier revision),
+-- 6 (2001 lines), 7 (USD BOQ), 8 (price x quantity overflow).
+insert into public.opportunities (id, project_name, owner_id, created_by, sales_stage)
+select ('8d20000' || n || '-0000-0000-0000-000000000001')::uuid, 'ps-deal-' || n,
+       '8d000000-0000-0000-0000-000000000001','8d000000-0000-0000-0000-000000000001','rfq_received'
+  from generate_series(3,8) n;
+insert into public.boqs (id, related_opportunity_id, title)
+select ('8d40000' || n || '-0000-0000-0000-000000000001')::uuid, ('8d20000' || n || '-0000-0000-0000-000000000001')::uuid, 'ps-boq-' || n
+  from generate_series(3,8) n;
+update public.boqs set currency = 'USD' where id = '8d400007-0000-0000-0000-000000000001';
+insert into public.boq_revisions (id, boq_id, revision_number)
+select ('8d50000' || n || '-0000-0000-0000-000000000001')::uuid, ('8d40000' || n || '-0000-0000-0000-000000000001')::uuid, 1
+  from generate_series(3,8) n;
+update public.boq_revisions set is_current = false where id = '8d500005-0000-0000-0000-000000000001';
+insert into public.boq_revisions (id, boq_id, revision_number, is_current) values
+  ('8d500015-0000-0000-0000-000000000001','8d400005-0000-0000-0000-000000000001',2, true);
+insert into public.boq_lines (id, revision_id, line_number, sign_type, quantity) values
+  ('8d520003-0000-0000-0000-000000000001','8d500003-0000-0000-0000-000000000001',1,'Pylon P3',1),
+  ('8d520004-0000-0000-0000-000000000001','8d500004-0000-0000-0000-000000000001',1,'Pylon P4',1),
+  ('8d520005-0000-0000-0000-000000000001','8d500005-0000-0000-0000-000000000001',1,'Pylon P5',1),
+  ('8d520015-0000-0000-0000-000000000001','8d500015-0000-0000-0000-000000000001',1,'Pylon P5',1),
+  ('8d520007-0000-0000-0000-000000000001','8d500007-0000-0000-0000-000000000001',1,'Pylon P7',1),
+  ('8d520008-0000-0000-0000-000000000001','8d500008-0000-0000-0000-000000000001',1,'Pylon P8',100000);
+insert into public.boq_lines (id, revision_id, line_number, sign_type, quantity)
+select format('8d53%s-0000-0000-0000-000000000001', lpad(i::text, 4, '0'))::uuid, '8d500006-0000-0000-0000-000000000001', i, 'Bulk', 1
+  from generate_series(1,2001) i;
+update public.boq_revisions set frozen_at = now(), frozen_by = '8d000000-0000-0000-0000-000000000002', status = 'verified'
+ where id in (select ('8d50000' || n || '-0000-0000-0000-000000000001')::uuid from generate_series(3,8) n)
+    or id = '8d500015-0000-0000-0000-000000000001';
+insert into public.pricing_files (id, opportunity_id, state, boq_revision_id)
+select ('8d60000' || n || '-0000-0000-0000-000000000001')::uuid, ('8d20000' || n || '-0000-0000-0000-000000000001')::uuid,
+       case when n = 5 then 'at_supplier' else 'boq_frozen' end::public.pricing_file_state,
+       case when n = 5 then '8d500015-0000-0000-0000-000000000001' else '8d50000' || n || '-0000-0000-0000-000000000001' end::uuid
+  from generate_series(3,8) n;
+insert into public.documents (id, storage_bucket, storage_path, original_filename, mime_type, size_bytes, checksum, doc_type, uploaded_by)
+select ('8d70001' || n || '-0000-0000-0000-000000000001')::uuid, 'attachments', 'opportunity/8d' || n || '/f.pdf', 'f' || n || '.pdf',
+       'application/pdf', 1000, repeat('d',64), 'drawing', '8d000000-0000-0000-0000-000000000001'
+  from generate_series(3,8) n;
+insert into public.document_links (document_id, entity_type, entity_id, linked_by)
+select ('8d70001' || n || '-0000-0000-0000-000000000001')::uuid, 'opportunity', ('8d20000' || n || '-0000-0000-0000-000000000001')::uuid,
+       '8d000000-0000-0000-0000-000000000001' from generate_series(3,8) n;
+insert into storage.objects (bucket_id, name, owner, version)
+select 'attachments', 'opportunity/8d' || n || '/f.pdf', '8d000000-0000-0000-0000-000000000001', 'v1' from generate_series(3,8) n;
+-- Deal 5: a stale open request for another supplier on the EARLIER revision (the file has since moved to revision 2).
+insert into public.supplier_invitations (id, file_id, boq_revision_id, vendor_id, project_code, reply_by, status)
+select '8d900005-0000-0000-0000-000000000001', '8d600005-0000-0000-0000-000000000001', '8d500005-0000-0000-0000-000000000001',
+       '8d100002-0000-0000-0000-000000000001', o.project_code, current_date + 7, 'sent'
+  from public.opportunities o where o.id = '8d200005-0000-0000-0000-000000000001';
+
 create temp table ps_ref (k text, v text);
 grant all on ps_ref to authenticated;
 set local role authenticated;
@@ -69,7 +118,25 @@ insert into ps_ref select 'inv_a', public.pricing_send_to_supplier('8d600001-000
   current_date + 7, array['8d700001-0000-0000-0000-000000000001']::uuid[])->>'invitation_id';
 insert into ps_ref select 'inv_2', public.pricing_send_to_supplier('8d600002-0000-0000-0000-000000000001','8d100001-0000-0000-0000-000000000001',
   current_date + 7, array['8d700002-0000-0000-0000-000000000001']::uuid[])->>'invitation_id';
+-- Send refusals (fix round 1): a BOQ over 2000 lines, and a BOQ that is not in SAR.
+select throws_ok($$select public.pricing_send_to_supplier('8d600006-0000-0000-0000-000000000001','8d100001-0000-0000-0000-000000000001',
+  current_date + 7, array['8d700016-0000-0000-0000-000000000001']::uuid[])$$, 'P0001', null, 'A BOQ over 2000 lines is not sent');
+select throws_like($$select public.pricing_send_to_supplier('8d600006-0000-0000-0000-000000000001','8d100001-0000-0000-0000-000000000001',
+  current_date + 7, array['8d700016-0000-0000-0000-000000000001']::uuid[])$$, 'A supplier request covers up to 2000 lines; this BOQ has 2001.%', 'The message says why');
+select throws_ok($$select public.pricing_send_to_supplier('8d600007-0000-0000-0000-000000000001','8d100001-0000-0000-0000-000000000001',
+  current_date + 7, array['8d700017-0000-0000-0000-000000000001']::uuid[])$$, 'P0001', null, 'A BOQ that is not in SAR is not sent (the portal prices in SAR only)');
+select throws_like($$select public.pricing_send_to_supplier('8d600007-0000-0000-0000-000000000001','8d100001-0000-0000-0000-000000000001',
+  current_date + 7, array['8d700017-0000-0000-0000-000000000001']::uuid[])$$, 'Pricing in this release is in SAR only%', 'The message names the rule');
+insert into ps_ref select 'inv_3', public.pricing_send_to_supplier('8d600003-0000-0000-0000-000000000001','8d100001-0000-0000-0000-000000000001',
+  current_date + 7, array['8d700013-0000-0000-0000-000000000001']::uuid[])->>'invitation_id';
+insert into ps_ref select 'inv_4', public.pricing_send_to_supplier('8d600004-0000-0000-0000-000000000001','8d100001-0000-0000-0000-000000000001',
+  current_date + 7, array['8d700014-0000-0000-0000-000000000001']::uuid[])->>'invitation_id';
+insert into ps_ref select 'inv_8', public.pricing_send_to_supplier('8d600008-0000-0000-0000-000000000001','8d100001-0000-0000-0000-000000000001',
+  current_date + 7, array['8d700018-0000-0000-0000-000000000001']::uuid[])->>'invitation_id';
 reset role;
+insert into ps_ref select 'line_3', l.id::text from public.supplier_invitation_lines l where l.invitation_id = (select v::uuid from ps_ref where k = 'inv_3');
+insert into ps_ref select 'line_4', l.id::text from public.supplier_invitation_lines l where l.invitation_id = (select v::uuid from ps_ref where k = 'inv_4');
+insert into ps_ref select 'line_8', l.id::text from public.supplier_invitation_lines l where l.invitation_id = (select v::uuid from ps_ref where k = 'inv_8');
 insert into ps_ref select 'line1', l.id::text from public.supplier_invitation_lines l
   where l.invitation_id = (select v::uuid from ps_ref where k = 'inv_a') and l.boq_line_id = '8d510001-0000-0000-0000-000000000001';
 insert into ps_ref select 'line2', l.id::text from public.supplier_invitation_lines l
@@ -137,6 +204,15 @@ select is((public.supplier_portal_invitation((select v::uuid from ps_ref where k
   'The supplier sees it as submitted');
 select is((public.supplier_portal_invitation((select v::uuid from ps_ref where k = 'inv_a')))->'lines'->0->>'spec_difference',
   'Aluminium face instead of acrylic', 'The supplier still reads its own prices and notes');
+-- After the submit the file is off the supplier: no files, no return message, even if PHC wrote one.
+reset role;
+update public.supplier_invitations set return_message = 'Please recheck line 1' where id = (select v::uuid from ps_ref where k = 'inv_a');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"8d000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select is((public.supplier_portal_invitation((select v::uuid from ps_ref where k = 'inv_a')))->'files', '[]'::jsonb,
+  'After submitting, the supplier no longer reads the files');
+select ok((public.supplier_portal_invitation((select v::uuid from ps_ref where k = 'inv_a')))->>'return_message' is null,
+  'And no return message');
 reset role;
 select is((select state::text from public.pricing_files where id = '8d600001-0000-0000-0000-000000000001'), 'supplier_priced',
   'The file goes to the GM');
@@ -161,6 +237,14 @@ select is((select count(*)::int from public.notifications where recipient_user_i
              and notification_type = 'pricing_supplier_submitted'), 0, 'The rep is not');
 select ok(exists (select 1 from public.audit_log where action = 'supplier_portal.submitted' and actor_id = '8d000000-0000-0000-0000-000000000004'),
   'The submission is audited');
+select is((select count(*)::int from public.notifications where recipient_user_id in ('8d000000-0000-0000-0000-000000000004','8d000000-0000-0000-0000-000000000005')),
+  0, 'The supplier receives no notification');
+select is((select count(*)::int from public.audit_log a, jsonb_object_keys(a.after_value) k
+            where a.actor_id = '8d000000-0000-0000-0000-000000000004' and k ~* '(cost|price|total|amount)'),
+  0, 'The supplier''s audit rows carry no price keys');
+select is((select count(*)::int from public.notifications n, jsonb_object_keys(n.metadata) k
+            where n.notification_type = 'pricing_supplier_submitted' and k ~* '(cost|price|total|amount)'),
+  0, 'Nor does the notification');
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"8d000000-0000-0000-0000-000000000003","role":"authenticated","aal":"aal2"}',true);
 select is((select unit_cost::text || '/' || unit_cost_with_screen::text || '/' || quotes_count from public.pricing_selling_grid
@@ -209,6 +293,50 @@ select is((select string_agg(source || ':' || status || ':' || is_current, ',' o
   'The portal quote is superseded by the entry, and kept');
 select is((select count(*)::int from public.supplier_quotes where boq_revision_id = '8d500001-0000-0000-0000-000000000001' and is_current
              and status not in ('cancelled','superseded')), 1, 'Still one live quote');
+
+-- Fix round 1: submit refusals the request rules produce.
+-- (a) The request is still open, but its file has moved off at_supplier.
+set local session_replication_role = replica;
+update public.pricing_files set state = 'supplier_priced' where id = '8d600003-0000-0000-0000-000000000001';
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"8d000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select throws_ok(format($$select public.supplier_portal_submit('%s', '[{"line_id":"%s","unit_cost":10}]', '%s', 'en')$$,
+  (select v from ps_ref where k = 'inv_3'), (select v from ps_ref where k = 'line_3'), (select v from ps_ref where k = 'terms')),
+  'P0001', null, 'An open request whose file has left the supplier cannot be submitted');
+-- (b) The pricer cancelled the request.
+select set_config('request.jwt.claims','{"sub":"8d000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select lives_ok(format($$select public.pricing_cancel_invitation('%s', 'Wrong supplier')$$, (select v from ps_ref where k = 'inv_4')),
+  'The pricer cancels the request');
+select set_config('request.jwt.claims','{"sub":"8d000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select throws_ok(format($$select public.supplier_portal_submit('%s', '[{"line_id":"%s","unit_cost":10}]', '%s', 'en')$$,
+  (select v from ps_ref where k = 'inv_4'), (select v from ps_ref where k = 'line_4'), (select v from ps_ref where k = 'terms')),
+  '42501', null, 'A cancelled request cannot be submitted');
+-- (c) Price times quantity that does not fit line_cost numeric(16,2).
+select throws_ok(format($$select public.supplier_portal_submit('%s', '[{"line_id":"%s","unit_cost":999999999999}]', '%s', 'en')$$,
+  (select v from ps_ref where k = 'inv_8'), (select v from ps_ref where k = 'line_8'), (select v from ps_ref where k = 'terms')),
+  '23514', null, 'A price times quantity too large for a line is refused');
+select throws_like(format($$select public.supplier_portal_submit('%s', '[{"line_id":"%s","unit_cost":999999999999}]', '%s', 'en')$$,
+  (select v from ps_ref where k = 'inv_8'), (select v from ps_ref where k = 'line_8'), (select v from ps_ref where k = 'terms')),
+  'Line 1: the price times the quantity is too large.%', 'The message names the line');
+reset role;
+select is((select state::text || '/' || (select status from public.supplier_invitations where id = (select v::uuid from ps_ref where k = 'inv_8'))
+            from public.pricing_files where id = '8d600008-0000-0000-0000-000000000001'), 'at_supplier/sent',
+  'The refused submit changed nothing');
+
+-- (d) A stale open request on an earlier revision neither blocks nor closes entry on behalf for the current revision.
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"8d000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select lives_ok($$select public.pricing_enter_supplier_quote('8d600005-0000-0000-0000-000000000001','8d100001-0000-0000-0000-000000000001',
+  '[{"boq_line_id":"8d520015-0000-0000-0000-000000000001","unit_cost":120}]')$$,
+  'Entry on behalf for the current revision is not blocked by a stale request on an earlier one');
+reset role;
+select is((select status from public.supplier_invitations where id = '8d900005-0000-0000-0000-000000000001'), 'sent',
+  'The stale request is left alone, not closed');
+select is((select count(*)::int from public.supplier_invitation_submissions where invitation_id = '8d900005-0000-0000-0000-000000000001'), 0,
+  'And gets no submission');
+select is((select count(*)::int from public.supplier_quotes where boq_revision_id = '8d500015-0000-0000-0000-000000000001' and is_current and source = 'on_behalf'),
+  1, 'The entry landed on the current revision');
 
 select * from finish();
 rollback;

@@ -66,7 +66,7 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE u uuid := auth.uid(); v uuid := public._supplier_session_vendor();
         inv public.supplier_invitations; f public.pricing_files; old_q public.supplier_quotes; q public.supplier_quotes;
         today date := public._pricing_today(); vday date; lead integer; pay text; bad_ord bigint;
-        open_count integer; n integer; conf text; files jsonb; price_id uuid;
+        open_count integer; conf text; files jsonb; price_id uuid;
 BEGIN
   IF v IS NULL THEN
     RAISE EXCEPTION 'Sign in to the supplier portal with two-step verification. | سجّل الدخول لبوابة المورد بالتحقق بخطوتين.' USING ERRCODE = '42501';
@@ -149,6 +149,18 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 
+  -- line_cost is numeric(16,2): refuse a price times quantity that would not fit, naming the line.
+  SELECT coalesce(bl.line_number, 0) INTO bad_ord FROM jsonb_array_elements(_lines) x(v)
+    JOIN public.supplier_invitation_lines il ON il.id = (x.v->>'line_id')::uuid AND il.invitation_id = inv.id
+    JOIN public.boq_lines bl ON bl.id = il.boq_line_id
+   WHERE nullif(x.v->>'unit_cost','') IS NOT NULL
+     AND abs(round(nullif(x.v->>'unit_cost','')::numeric * bl.quantity, 2)) >= 100000000000000
+   ORDER BY bl.line_number NULLS LAST LIMIT 1;
+  IF FOUND THEN
+    RAISE EXCEPTION 'Line %: the price times the quantity is too large. | السطر %: السعر × الكمية أكبر من المسموح.', bad_ord, bad_ord
+      USING ERRCODE = '23514';
+  END IF;
+
   SELECT coalesce(jsonb_agg(jsonb_build_object('file_id', sf.id, 'document_id', sf.document_id, 'name', sf.display_name,
                                                'checksum', sf.checksum, 'object_version', sf.object_version,
                                                'object_updated_at', sf.object_updated_at) ORDER BY sf.display_name), '[]'::jsonb)
@@ -190,7 +202,6 @@ BEGIN
                ON prev.supplier_quote_id = old_q.id AND prev.boq_line_id = il.boq_line_id
               AND old_q.status NOT IN ('cancelled','superseded')
        WHERE il.invitation_id = inv.id) s;
-  GET DIAGNOSTICS n = ROW_COUNT;
   PERFORM set_config('phc.pricing_supplier_entry', '', true);
 
   UPDATE public.supplier_invitation_lines SET state = 'submitted' WHERE invitation_id = inv.id AND state IN ('open','reopened');
@@ -211,7 +222,7 @@ BEGIN
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (u, 'user', 'supplier_portal.submitted', 'opportunity', f.opportunity_id,
           jsonb_build_object('file_id', f.id, 'invitation_id', inv.id, 'supplier_quote_id', q.id, 'lines', open_count));
-  RETURN jsonb_build_object('supplier_quote_id', q.id, 'lines', open_count);
+  RETURN jsonb_build_object('lines', open_count);
 END $$;
 REVOKE ALL ON FUNCTION public.supplier_portal_submit(uuid, jsonb, jsonb, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.supplier_portal_submit(uuid, jsonb, jsonb, text) TO authenticated;
@@ -355,7 +366,8 @@ BEGIN
   END IF;
   -- PR 3: the open request names the file's supplier.
   SELECT * INTO inv FROM public.supplier_invitations i
-   WHERE i.file_id = f.id AND i.status IN ('sent','opened','reopened') FOR UPDATE;
+   WHERE i.file_id = f.id AND i.boq_revision_id = f.boq_revision_id
+     AND i.status IN ('sent','opened','reopened') FOR UPDATE;
   IF FOUND AND inv.vendor_id <> _vendor_id THEN
     RAISE EXCEPTION 'This file was sent to another supplier through the portal; cancel that request first. | أُرسل هذا الملف لمورد آخر عبر البوابة؛ ألغِ ذلك الطلب أولاً.' USING ERRCODE = 'P0001';
   END IF;
