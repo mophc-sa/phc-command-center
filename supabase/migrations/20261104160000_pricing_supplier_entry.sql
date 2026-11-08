@@ -37,7 +37,13 @@ BEGIN
   -- Set only by propagate_freeze_to_supplier_quotes(), transaction-local.
   _propagating := coalesce(current_setting('phc.freezing_boq_revision', true), '') = 'on';
   -- Set only by pricing_enter_supplier_quote(), for one revision, while its file is at the supplier.
-  _entry := public._pricing_supplier_entry_open(_rev);
+  -- The helper is revoked from authenticated, and Postgres checks a function's ACL when the
+  -- expression is initialised, so it is only reached inside this IF: a direct write has an
+  -- empty flag and never calls it (Phase 7B then behaves exactly as before).
+  _entry := false;
+  IF coalesce(current_setting('phc.pricing_supplier_entry', true), '') <> '' THEN
+    _entry := public._pricing_supplier_entry_open(_rev);
+  END IF;
 
   IF NOT _propagating AND (
        NEW.frozen_at IS DISTINCT FROM (CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.frozen_at END)
@@ -67,7 +73,7 @@ END; $$;
 -- Phase 7B's line guard, verbatim except for the entry exception.
 CREATE OR REPLACE FUNCTION public.supplier_quote_line_guard()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE _q RECORD; _line_rev UUID;
+DECLARE _q RECORD; _line_rev UUID; _entry BOOLEAN;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     RAISE EXCEPTION 'Supplier quote lines cannot be deleted. | لا تُحذف بنود عرض المورّد.'
@@ -77,10 +83,16 @@ BEGIN
   SELECT q.boq_revision_id, q.is_current, q.status INTO _q
     FROM public.supplier_quotes q WHERE q.id = NEW.supplier_quote_id;
 
-  IF public.boq_revision_is_frozen(_q.boq_revision_id)
-     AND NOT public._pricing_supplier_entry_open(_q.boq_revision_id) THEN
-    RAISE EXCEPTION 'The BOQ revision is frozen; its supplier lines cannot change.'
-      USING ERRCODE = 'insufficient_privilege';
+  IF public.boq_revision_is_frozen(_q.boq_revision_id) THEN
+    -- Same rule as the quote guard: the revoked helper is only called when the flag is set.
+    _entry := false;
+    IF coalesce(current_setting('phc.pricing_supplier_entry', true), '') <> '' THEN
+      _entry := public._pricing_supplier_entry_open(_q.boq_revision_id);
+    END IF;
+    IF NOT _entry THEN
+      RAISE EXCEPTION 'The BOQ revision is frozen; its supplier lines cannot change.'
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
   END IF;
 
   -- The line must price a line of the SAME revision.
@@ -120,7 +132,7 @@ REVOKE ALL ON FUNCTION public._pricing_supplier_num_ok(text, integer, integer) F
 CREATE OR REPLACE FUNCTION public.pricing_enter_supplier_quote(_file_id uuid, _vendor_id uuid, _lines jsonb, _terms jsonb DEFAULT '{}'::jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE u uuid := auth.uid(); f public.pricing_files; q public.supplier_quotes; old_q public.supplier_quotes;
-        ccy text; code text; n integer := 0; e record; bad_ord bigint; vday date; ccy_in text;
+        code text; n integer := 0; e record; bad_ord bigint; vday date; ccy_in text;
 BEGIN
   IF NOT public.is_pricer(u) THEN
     RAISE EXCEPTION 'Only estimation or finance enter supplier prices. | أسعار المورد يُدخلها التقدير أو المالية.' USING ERRCODE = '42501';
@@ -191,7 +203,6 @@ BEGIN
     RAISE EXCEPTION 'This file already has another supplier''s prices; one supplier per file in this release. | لهذا الملف أسعار مورد آخر؛ مورد واحد لكل ملف في هذا الإصدار.' USING ERRCODE = 'P0001';
   END IF;
 
-  SELECT b.currency INTO ccy FROM public.boq_revisions r JOIN public.boqs b ON b.id = r.boq_id WHERE r.id = f.boq_revision_id;
   SELECT o.project_code INTO code FROM public.opportunities o WHERE o.id = f.opportunity_id;
   -- Flag value = the one revision this call may write to.
   PERFORM set_config('phc.pricing_supplier_entry', f.boq_revision_id::text, true);
