@@ -4598,6 +4598,7 @@ export type Database = {
       logistics_rates: {
         Row: {
           currency: string
+          effective_from: string
           key: string
           note: string | null
           updated_at: string
@@ -4606,6 +4607,7 @@ export type Database = {
         }
         Insert: {
           currency?: string
+          effective_from?: string
           key: string
           note?: string | null
           updated_at?: string
@@ -4614,6 +4616,7 @@ export type Database = {
         }
         Update: {
           currency?: string
+          effective_from?: string
           key?: string
           note?: string | null
           updated_at?: string
@@ -5523,10 +5526,12 @@ export type Database = {
           code: string
           created_at: string
           default_rate: number
+          effective_from: string
           id: string
           name_ar: string
           name_en: string
           suggest_for: Database["public"]["Enums"]["install_type"][]
+          suggest_if_cinema: boolean
           suggest_min_height_m: number | null
           unit: Database["public"]["Enums"]["pricing_extra_unit"]
         }
@@ -5535,10 +5540,12 @@ export type Database = {
           code: string
           created_at?: string
           default_rate?: number
+          effective_from?: string
           id?: string
           name_ar: string
           name_en: string
           suggest_for?: Database["public"]["Enums"]["install_type"][]
+          suggest_if_cinema?: boolean
           suggest_min_height_m?: number | null
           unit: Database["public"]["Enums"]["pricing_extra_unit"]
         }
@@ -5547,10 +5554,12 @@ export type Database = {
           code?: string
           created_at?: string
           default_rate?: number
+          effective_from?: string
           id?: string
           name_ar?: string
           name_en?: string
           suggest_for?: Database["public"]["Enums"]["install_type"][]
+          suggest_if_cinema?: boolean
           suggest_min_height_m?: number | null
           unit?: Database["public"]["Enums"]["pricing_extra_unit"]
         }
@@ -5599,6 +5608,7 @@ export type Database = {
       }
       pricing_file_extras: {
         Row: {
+          boq_revision_id: string
           catalog_id: string
           created_at: string
           decided_at: string | null
@@ -5612,6 +5622,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          boq_revision_id?: string
           catalog_id: string
           created_at?: string
           decided_at?: string | null
@@ -5625,6 +5636,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          boq_revision_id?: string
           catalog_id?: string
           created_at?: string
           decided_at?: string | null
@@ -5638,6 +5650,13 @@ export type Database = {
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pricing_file_extras_boq_revision_id_fkey"
+            columns: ["boq_revision_id"]
+            isOneToOne: false
+            referencedRelation: "boq_revisions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pricing_file_extras_catalog_id_fkey"
             columns: ["catalog_id"]
@@ -5657,6 +5676,107 @@ export type Database = {
             columns: ["source_line_id"]
             isOneToOne: false
             referencedRelation: "boq_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_file_inputs: {
+        Row: {
+          clearing: boolean
+          containers: number
+          default_margin_pct: number | null
+          delivery: string
+          file_id: string
+          is_cinema: boolean
+          overhead_pct: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          clearing?: boolean
+          containers?: number
+          default_margin_pct?: number | null
+          delivery?: string
+          file_id: string
+          is_cinema?: boolean
+          overhead_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          clearing?: boolean
+          containers?: number
+          default_margin_pct?: number | null
+          delivery?: string
+          file_id?: string
+          is_cinema?: boolean
+          overhead_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_file_inputs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: true
+            referencedRelation: "pricing_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_file_lines: {
+        Row: {
+          boq_line_id: string
+          built_at: string | null
+          built_cost: number | null
+          built_selling_price: number | null
+          file_id: string
+          install_type: Database["public"]["Enums"]["install_type"] | null
+          margin_pct: number | null
+          selling_price: number | null
+          updated_at: string
+          updated_by: string | null
+          use_screen_price: boolean | null
+        }
+        Insert: {
+          boq_line_id: string
+          built_at?: string | null
+          built_cost?: number | null
+          built_selling_price?: number | null
+          file_id: string
+          install_type?: Database["public"]["Enums"]["install_type"] | null
+          margin_pct?: number | null
+          selling_price?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          use_screen_price?: boolean | null
+        }
+        Update: {
+          boq_line_id?: string
+          built_at?: string | null
+          built_cost?: number | null
+          built_selling_price?: number | null
+          file_id?: string
+          install_type?: Database["public"]["Enums"]["install_type"] | null
+          margin_pct?: number | null
+          selling_price?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          use_screen_price?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_file_lines_boq_line_id_fkey"
+            columns: ["boq_line_id"]
+            isOneToOne: false
+            referencedRelation: "boq_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pricing_file_lines_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_files"
             referencedColumns: ["id"]
           },
         ]
@@ -8999,6 +9119,90 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_queue: {
+        Row: {
+          closed_reason: string | null
+          contract_value: number | null
+          created_at: string | null
+          due_at: string | null
+          estimated_value_max: number | null
+          estimation_id: string | null
+          file_id: string | null
+          internal_price_id: string | null
+          needs_info_due: string | null
+          needs_info_items: string[] | null
+          opportunity_id: string | null
+          owner_id: string | null
+          project_code: string | null
+          project_name: string | null
+          quotation_value: number | null
+          boq_revision_id: string | null
+          state: Database["public"]["Enums"]["pricing_file_state"] | null
+          state_changed_at: string | null
+        }
+        Relationships: []
+      }
+      pricing_selling_grid: {
+        Row: {
+          alternate_spec: string | null
+          boq_line_id: string | null
+          built_cost: number | null
+          built_selling_price: number | null
+          currency_mismatch: boolean | null
+          default_margin_pct: number | null
+          description: string | null
+          extras_alloc: number | null
+          extras_total: number | null
+          file_id: string | null
+          has_screen: boolean | null
+          install_basis: string | null
+          install_type: Database["public"]["Enums"]["install_type"] | null
+          installation: number | null
+          line_cost: number | null
+          line_margin_pct: number | null
+          line_number: number | null
+          logistics_alloc: number | null
+          logistics_total: number | null
+          margin_pct: number | null
+          materials: number | null
+          overhead_pct: number | null
+          quantity: number | null
+          quotes_count: number | null
+          screen_price_missing: boolean | null
+          selling_price: number | null
+          sign_type: string | null
+          supplier_quote_line_id: string | null
+          typed_selling_price: number | null
+          unit: string | null
+          unit_cost: number | null
+          unit_cost_with_screen: number | null
+          unpriced: boolean | null
+          use_screen_price: boolean | null
+        }
+        Relationships: []
+      }
+      pricing_selling_totals: {
+        Row: {
+          below_floor: boolean | null
+          extras_total: number | null
+          file_id: string | null
+          floor_pct: number | null
+          installation_total: number | null
+          line_count: number | null
+          logistics_total: number | null
+          margin_pct: number | null
+          margin_value: number | null
+          materials_total: number | null
+          multi_quote_lines: number | null
+          non_sar_lines: number | null
+          overhead_pct: number | null
+          screen_price_missing_lines: number | null
+          total_cost: number | null
+          total_selling: number | null
+          unpriced_lines: number | null
+        }
+        Relationships: []
+      }
       quotation_current_revision: {
         Row: {
           approved_at: string | null
@@ -9312,6 +9516,7 @@ export type Database = {
         Returns: boolean
       }
       can_read_commercial_cost: { Args: { _user_id: string }; Returns: boolean }
+      can_set_pricing_margins: { Args: { _user_id: string }; Returns: boolean }
       can_read_contract: {
         Args: {
           _created_by: string
@@ -9545,6 +9750,23 @@ export type Database = {
           variant: string
         }[]
       }
+      pricing_add_extra: {
+        Args: {
+          _catalog_id: string
+          _file_id: string
+          _quantity: number
+          _rate?: number
+        }
+        Returns: Json
+      }
+      pricing_boq_import: {
+        Args: { _file_id: string; _lines: Json; _replace?: boolean }
+        Returns: Json
+      }
+      pricing_boq_line_delete: {
+        Args: { _file_id: string; _line_id: string }
+        Returns: undefined
+      }
       pricing_decide_extra: {
         Args: {
           _accept: boolean
@@ -9559,6 +9781,15 @@ export type Database = {
         Args: { _file_id: string; _note: string }
         Returns: Json
       }
+      pricing_file_attach_revision: {
+        Args: { _file_id: string; _revision_id: string }
+        Returns: Json
+      }
+      pricing_file_build_price: { Args: { _file_id: string }; Returns: Json }
+      pricing_file_freeze_boq: {
+        Args: { _file_id: string; _note?: string; _status?: string }
+        Returns: Json
+      }
       pricing_file_move: {
         Args: {
           _file_id: string
@@ -9570,6 +9801,23 @@ export type Database = {
       pricing_file_open_suggestions: {
         Args: { _file_id: string }
         Returns: number
+      }
+      pricing_file_propose: {
+        Args: {
+          _expected_total: number
+          _expected_total_cost: number
+          _file_id: string
+          _justification?: string
+        }
+        Returns: Json
+      }
+      pricing_file_set_inputs: {
+        Args: { _file_id: string; _inputs: Json }
+        Returns: Json
+      }
+      pricing_file_set_line: {
+        Args: { _boq_line_id: string; _choice: Json; _file_id: string }
+        Returns: Json
       }
       pricing_file_set_needs_info: {
         Args: { _due: string; _file_id: string; _items: string[] }
@@ -9584,6 +9832,26 @@ export type Database = {
           _weight_kg: number
         }
         Returns: number
+      }
+      pricing_my_rights: { Args: never; Returns: Json }
+      pricing_set_installation_rate: {
+        Args: {
+          _base_rate: number
+          _crane_add?: number
+          _floor_cut_add?: number
+          _from: string
+          _height_threshold_m?: number
+          _per_kg_over?: number
+          _per_m_over?: number
+          _scaffold_add?: number
+          _type: Database["public"]["Enums"]["install_type"]
+          _weight_threshold_kg?: number
+        }
+        Returns: Json
+      }
+      pricing_set_margin_floor: {
+        Args: { _min_margin_pct: number; _rationale: string }
+        Returns: Json
       }
       pricing_suggest_extras: { Args: { _file_id: string }; Returns: number }
       project_has_valid_boq: { Args: { _project_id: string }; Returns: boolean }

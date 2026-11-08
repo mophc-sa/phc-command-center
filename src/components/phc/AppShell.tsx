@@ -10,6 +10,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { badgeLabel, unreadCount } from "@/lib/notifications";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { requiresMfa } from "@/lib/roles";
+import { canSeePricingNav } from "@/lib/pricing-access";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { NotificationCenter } from "@/components/phc/NotificationCenter";
 import { NewIntakeDialog } from "@/components/phc/NewIntakeDialog";
@@ -66,6 +67,9 @@ import {
   Plus,
   ChevronDown,
   Pin,
+  Calculator,
+  FileText,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -87,6 +91,8 @@ type NavLink = {
   key: string;
   icon: LucideIcon;
   requireAdmin?: boolean;
+  /** Shown only when this returns true for the user's roles (SQL still decides access). */
+  showIf?: (roles: readonly AppRole[]) => boolean;
 };
 
 type NavButton = {
@@ -182,6 +188,19 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // Commercial & Finance, part 1 (spec 2026-11-03-pricing-loop-design §4):
+    // the pricing loop. /quotations, which left Sales in Phase 1 to wait for
+    // this section, is back here. Queue and settings show to cost readers; a
+    // GM delegate without a cost role reaches /pricing by link.
+    key: "navgroup_pricing_finance",
+    fallback: "Pricing & Finance",
+    items: [
+      { kind: "link", to: "/pricing", key: "nav_pricing_queue", icon: Calculator, showIf: canSeePricingNav },
+      { kind: "link", to: "/quotations", key: "nav_quotations", icon: FileText },
+      { kind: "link", to: "/pricing/settings", key: "nav_pricing_settings", icon: SlidersHorizontal, showIf: canSeePricingNav },
+    ],
+  },
+  {
     // Targets left this group in Phase 1. It was never a destination people
     // browsed to — the number that matters shows up in My Workspace, Command
     // Center and Admin Settings, next to the work it judges. /targets still
@@ -223,6 +242,12 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
 ];
+
+// Every sidebar path, so a link is not lit when a longer one under it is
+// (/pricing must not light up on /pricing/settings).
+const NAV_LINK_PATHS: string[] = NAV_GROUPS.flatMap((g) =>
+  g.items.flatMap((i) => (i.kind === "link" ? [String(i.to)] : [])),
+);
 
 // Admin routes — used to auto-open the admin group when the user is on one
 const ADMIN_ROUTE_PREFIXES = [
@@ -360,7 +385,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     const filterMatches = n.search
       ? currentStage === (n.search.stage ?? "")
       : currentStage === "" || currentStage === "all";
-    const active = isActive(n.to ?? "") && filterMatches;
+    const deeper = NAV_LINK_PATHS.some(
+      (p) => p !== String(n.to) && p.startsWith(String(n.to) + "/") && isActive(p),
+    );
+    const active = isActive(n.to ?? "") && filterMatches && !deeper;
     return (
       <Link
         key={n.key}
@@ -460,7 +488,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         {NAV_GROUPS.map((g) => {
           const visibleItems = g.items.filter(
             (n) =>
-              !(n.kind === "link" && n.requireAdmin) || canAdmin,
+              (!(n.kind === "link" && n.requireAdmin) || canAdmin) &&
+              !(n.kind === "link" && n.showIf && !n.showIf(roles as AppRole[])),
           );
           if (visibleItems.length === 0) return null;
 

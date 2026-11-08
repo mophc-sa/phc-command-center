@@ -87,7 +87,8 @@ insert into public.boq_lines (id, revision_id, sign_type, quantity, install_type
 update public.pricing_files set boq_revision_id = '5d500000-0000-0000-0000-000000000002' where id = '5d600000-0000-0000-0000-000000000001';
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"5d000000-0000-0000-0000-000000000003","role":"authenticated"}',true);
-select is(public.pricing_suggest_extras('5d600000-0000-0000-0000-000000000001'), 0, 'Re-suggesting on the new revision adds nothing new');
+-- 2026-11-04 (PR 2): a new revision is a new round, so the 7 m ceiling suggests the scaffold again.
+select is(public.pricing_suggest_extras('5d600000-0000-0000-0000-000000000001'), 1, 'A new revision is a new round: the scaffold is suggested again');
 select is((select count(*)::int from public.pricing_file_extras x join public.pricing_extras_catalog c on c.id = x.catalog_id where c.code = 'concrete_base'), 0,
   'The undecided pylon suggestion from the old revision is gone');
 select is((select count(*)::int from public.pricing_file_extras x join public.pricing_extras_catalog c on c.id = x.catalog_id where c.code = 'scaffold_hire' and x.status = 'accepted'), 1,

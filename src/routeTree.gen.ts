@@ -60,6 +60,9 @@ import { Route as AuthenticatedMeetingsIdRouteImport } from './routes/_authentic
 import { Route as AuthenticatedOpportunitiesIndexRouteImport } from './routes/_authenticated/opportunities.index'
 import { Route as AuthenticatedOpportunitiesIdRouteImport } from './routes/_authenticated/opportunities.$id'
 import { Route as AuthenticatedPCodeRouteImport } from './routes/_authenticated/p.$code'
+import { Route as AuthenticatedPricingIndexRouteImport } from './routes/_authenticated/pricing.index'
+import { Route as AuthenticatedPricingIdRouteImport } from './routes/_authenticated/pricing.$id'
+import { Route as AuthenticatedPricingSettingsRouteImport } from './routes/_authenticated/pricing.settings'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects.index'
 import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects.$id'
 
@@ -336,6 +339,23 @@ const AuthenticatedPCodeRoute = AuthenticatedPCodeRouteImport.update({
   path: '/p/$code',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPricingIndexRoute =
+  AuthenticatedPricingIndexRouteImport.update({
+    id: '/pricing/',
+    path: '/pricing/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPricingIdRoute = AuthenticatedPricingIdRouteImport.update({
+  id: '/pricing/$id',
+  path: '/pricing/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPricingSettingsRoute =
+  AuthenticatedPricingSettingsRouteImport.update({
+    id: '/pricing/settings',
+    path: '/pricing/settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProjectsIndexRoute =
   AuthenticatedProjectsIndexRouteImport.update({
     id: '/projects/',
@@ -395,11 +415,14 @@ export interface FileRoutesByFullPath {
   '/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/p/$code': typeof AuthenticatedPCodeRoute
+  '/pricing/$id': typeof AuthenticatedPricingIdRoute
+  '/pricing/settings': typeof AuthenticatedPricingSettingsRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/data-import/': typeof AuthenticatedDataImportIndexRoute
   '/meetings/': typeof AuthenticatedMeetingsIndexRoute
   '/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
+  '/pricing/': typeof AuthenticatedPricingIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -447,11 +470,14 @@ export interface FileRoutesByTo {
   '/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/p/$code': typeof AuthenticatedPCodeRoute
+  '/pricing/$id': typeof AuthenticatedPricingIdRoute
+  '/pricing/settings': typeof AuthenticatedPricingSettingsRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/accounts': typeof AuthenticatedAccountsIndexRoute
   '/data-import': typeof AuthenticatedDataImportIndexRoute
   '/meetings': typeof AuthenticatedMeetingsIndexRoute
   '/opportunities': typeof AuthenticatedOpportunitiesIndexRoute
+  '/pricing': typeof AuthenticatedPricingIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
 }
 export interface FileRoutesById {
@@ -503,11 +529,14 @@ export interface FileRoutesById {
   '/_authenticated/meetings/$id': typeof AuthenticatedMeetingsIdRoute
   '/_authenticated/opportunities/$id': typeof AuthenticatedOpportunitiesIdRoute
   '/_authenticated/p/$code': typeof AuthenticatedPCodeRoute
+  '/_authenticated/pricing/$id': typeof AuthenticatedPricingIdRoute
+  '/_authenticated/pricing/settings': typeof AuthenticatedPricingSettingsRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
   '/_authenticated/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/_authenticated/data-import/': typeof AuthenticatedDataImportIndexRoute
   '/_authenticated/meetings/': typeof AuthenticatedMeetingsIndexRoute
   '/_authenticated/opportunities/': typeof AuthenticatedOpportunitiesIndexRoute
+  '/_authenticated/pricing/': typeof AuthenticatedPricingIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
 }
 export interface FileRouteTypes {
@@ -559,11 +588,14 @@ export interface FileRouteTypes {
     | '/meetings/$id'
     | '/opportunities/$id'
     | '/p/$code'
+    | '/pricing/$id'
+    | '/pricing/settings'
     | '/projects/$id'
     | '/accounts/'
     | '/data-import/'
     | '/meetings/'
     | '/opportunities/'
+    | '/pricing/'
     | '/projects/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -611,11 +643,14 @@ export interface FileRouteTypes {
     | '/meetings/$id'
     | '/opportunities/$id'
     | '/p/$code'
+    | '/pricing/$id'
+    | '/pricing/settings'
     | '/projects/$id'
     | '/accounts'
     | '/data-import'
     | '/meetings'
     | '/opportunities'
+    | '/pricing'
     | '/projects'
   id:
     | '__root__'
@@ -666,11 +701,14 @@ export interface FileRouteTypes {
     | '/_authenticated/meetings/$id'
     | '/_authenticated/opportunities/$id'
     | '/_authenticated/p/$code'
+    | '/_authenticated/pricing/$id'
+    | '/_authenticated/pricing/settings'
     | '/_authenticated/projects/$id'
     | '/_authenticated/accounts/'
     | '/_authenticated/data-import/'
     | '/_authenticated/meetings/'
     | '/_authenticated/opportunities/'
+    | '/_authenticated/pricing/'
     | '/_authenticated/projects/'
   fileRoutesById: FileRoutesById
 }
@@ -1048,6 +1086,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPCodeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/pricing/': {
+      id: '/_authenticated/pricing/'
+      path: '/pricing'
+      fullPath: '/pricing/'
+      preLoaderRoute: typeof AuthenticatedPricingIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pricing/$id': {
+      id: '/_authenticated/pricing/$id'
+      path: '/pricing/$id'
+      fullPath: '/pricing/$id'
+      preLoaderRoute: typeof AuthenticatedPricingIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pricing/settings': {
+      id: '/_authenticated/pricing/settings'
+      path: '/pricing/settings'
+      fullPath: '/pricing/settings'
+      preLoaderRoute: typeof AuthenticatedPricingSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/projects/': {
       id: '/_authenticated/projects/'
       path: '/projects'
@@ -1130,9 +1189,12 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMeetingsIdRoute: typeof AuthenticatedMeetingsIdRoute
   AuthenticatedOpportunitiesIdRoute: typeof AuthenticatedOpportunitiesIdRoute
   AuthenticatedPCodeRoute: typeof AuthenticatedPCodeRoute
+  AuthenticatedPricingIdRoute: typeof AuthenticatedPricingIdRoute
+  AuthenticatedPricingSettingsRoute: typeof AuthenticatedPricingSettingsRoute
   AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
   AuthenticatedMeetingsIndexRoute: typeof AuthenticatedMeetingsIndexRoute
   AuthenticatedOpportunitiesIndexRoute: typeof AuthenticatedOpportunitiesIndexRoute
+  AuthenticatedPricingIndexRoute: typeof AuthenticatedPricingIndexRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
 
@@ -1170,9 +1232,12 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMeetingsIdRoute: AuthenticatedMeetingsIdRoute,
   AuthenticatedOpportunitiesIdRoute: AuthenticatedOpportunitiesIdRoute,
   AuthenticatedPCodeRoute: AuthenticatedPCodeRoute,
+  AuthenticatedPricingIdRoute: AuthenticatedPricingIdRoute,
+  AuthenticatedPricingSettingsRoute: AuthenticatedPricingSettingsRoute,
   AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
   AuthenticatedMeetingsIndexRoute: AuthenticatedMeetingsIndexRoute,
   AuthenticatedOpportunitiesIndexRoute: AuthenticatedOpportunitiesIndexRoute,
+  AuthenticatedPricingIndexRoute: AuthenticatedPricingIndexRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }
 

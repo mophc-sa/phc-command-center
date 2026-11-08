@@ -1,5 +1,28 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-04 — Pricing loop screens (Commercial & Finance part 1, PR 2; not deployed)
+
+- Migrations `20261104100000`–`20261104160000`:
+  - `pricing_my_rights`; `pricing_queue` view.
+  - `pricing_file_attach_revision`, and `_pricing_file_link_price` with the PR 2 contract checks (revision in deal, estimation in revision, price in estimation, price at most `internal_price_proposed`).
+  - `open_pricing_file` checks the RFQ is the deal's. An RFQ moved to another deal re-points the old file.
+  - The estimation behind an in-file price under review or approved is frozen.
+  - `pricing_boq_import` (JSON lines with structured attributes, into a draft revision), `pricing_boq_line_delete`, `pricing_file_freeze_boq` (7A freeze + move + suggestions).
+  - `logistics_rates` gains `install_fallback_pct` (10) and `default_margin_pct` (25) and an in-force date. The catalog gains `suggest_if_cinema` and an in-force date.
+  - `pricing_set_installation_rate`, `pricing_set_margin_floor`, `pricing_file_inputs` + `pricing_file_set_inputs`. `can_set_pricing_margins` (GM or finance) governs the global default margin and the margin floor. `INSERT`/`UPDATE` on `margin_policies` are revoked from `authenticated`: the floor changes only through `pricing_set_margin_floor`.
+  - `has_app_access` now fails closed (`coalesce(..., false)`); no change for production users.
+  - Extras belong to a BOQ revision (round). Suggest and the propose check lock the file. Cinema suggestion. `pricing_add_extra`.
+  - `pricing_file_lines` + `pricing_file_set_line` (cost choices: pricer or GM; margin and typed price: GM; either needs cost access).
+  - Cost-gated views `pricing_selling_grid` and `pricing_selling_totals` (margin on price; total cost = Phase 8 `estimation_cost_basis` on the built estimation).
+  - `pricing_file_build_price` and `pricing_file_propose` (GM). In a pricing file a price reaches review only through propose (trigger `internal_prices_a_propose_gate`); propose rebuilds and checks the expected total and total cost. The justification is written only by the GM at propose.
+  - Final review (2026-11-08): a pricing file never supersedes a revision it did not attach. A file with no revision gets a BOQ of its own (revision 1), starting from the deal's current lines when appending and from the imported lines alone when replacing; the deal's Phase 7A revision stays current and untouched. `pricing_file_set_line` and `pricing_file_set_inputs` need cost access (a GM delegate may be sales staff); `pricing_file_set_line` returns only the choice columns, and `pricing_decide_extra` (PR 1, redefined) returns the rate only to a cost reader. No cost, margin, rate or input values in the `audit_log` rows these functions write. In a built file the price's figure changes only through build and propose (the propose gate also refuses direct edits of `proposed_price`, `estimation_id` and `below_floor_justification`).
+  - `20261104160000`: the Phase 7B supplier-quote guards admit an on-behalf entry on a frozen revision only inside `pricing_enter_supplier_quote` while the file is at the supplier (transaction-local flag `phc.pricing_supplier_entry`); `pricing_enter_supplier_quote` overwrites prices in place.
+- Tests changed outside the new files: `supabase/tests/pricing_calc.test.sql` (a new round suggests again) and `pricing_rates.test.sql` (logistics keys) from PR 1; `daily_task_completion.test.sql` (the sales manager session now carries `aal2`, because of the fail-closed `has_app_access`).
+- UI:
+  - Sidebar group "التسعير والمالية / Pricing & Finance": `/pricing`, `/quotations` (back in the sidebar), `/pricing/settings`.
+  - `/pricing/$id` with Package (Excel import with column mapping via SheetJS 0.20.3, loaded on demand), Supplier (entry on behalf), Cost review and Selling price tabs.
+- `src/lib`: `pricing-text`, `pricing-access`, `pricing-grid` (mirror + contract test), `boq-import`; `pricing-actions` extended.
+
 ## 2026-11-03 — Pricing loop foundation (Commercial & Finance part 1, PR 1; not deployed)
 
 - Migrations `20261103100000`–`20261103150000`: `pricing_files` + `pricing_file_events` (one open file per deal, auto-opened when an RFQ is saved on a deal or linked to one; race-safe; existing RFQs are not backfilled, a pricer opens their files with `open_pricing_file`), the enforced path (`pricing_file_move`, needs-info RPCs), `installation_rates` by `install_type` with weight/height/cut/scaffold modifiers, `pricing_extras_catalog` + `pricing_file_extras` with auto-suggestions that must be decided, `logistics_rates` (seeded from the meeting, unclear figures marked), structured `boq_lines` attributes, `supplier_quote_lines.unit_cost_with_screen` (cost-revoked). Kalas (GM) sets and proposes the price (`internal_price_proposed → gm_pending`, floor guard runs) and Zayed (finance) reviews and approves it (`gm_pending → gm_approved` only for a price the GM proposed, never his own and never a figure he typed, `internal_prices.figure_set_by`; the price is frozen under review); the file follows its price. Notes on moves out of cost stages go to `pricing_file_events.cost_note`, read through the cost-gated `pricing_file_cost_notes`; the return reason is not copied into the file's events. `can_read_commercial_cost` gains `sales_manager`.

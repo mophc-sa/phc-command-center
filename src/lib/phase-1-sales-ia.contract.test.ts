@@ -64,7 +64,7 @@ describe("Sales navigation carries exactly the four PRD destinations", () => {
 });
 
 describe("surfaces removed from primary business navigation", () => {
-  const REMOVED = ["/quotations", "/follow-ups", "/targets", "/award-queue", "/tender-conversion"];
+  const REMOVED = ["/follow-ups", "/targets", "/award-queue", "/tender-conversion"];
 
   test.each(REMOVED)("%s is not a sidebar destination", (path) => {
     expect(navPaths()).not.toContain(path);
@@ -83,6 +83,18 @@ describe("surfaces removed from primary business navigation", () => {
 
   test.each(REMOVED)("%s stays reachable from the command palette", (path) => {
     expect(PALETTE).toContain(`to: "${path}"`);
+  });
+
+  test("/quotations is back, in Pricing & Finance (the section it was waiting for)", () => {
+    const group = APP_SHELL.slice(
+      APP_SHELL.indexOf('key: "navgroup_pricing_finance"'),
+      APP_SHELL.indexOf('key: "navgroup_reports"'),
+    );
+    expect(group).toContain('to: "/pricing"');
+    expect(group).toContain('to: "/quotations"');
+    expect(group).toContain('to: "/pricing/settings"');
+    expect(PALETTE).toContain('to: "/quotations"');
+    expect(PALETTE).toContain('to: "/pricing"');
   });
 
   test("AI Configuration and AI Audit live under Admin, out of the business groups", () => {

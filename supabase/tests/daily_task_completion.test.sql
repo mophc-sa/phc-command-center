@@ -1,5 +1,5 @@
 -- Daily task completion: who writes tasks, and what a day's list counts.
--- Test user UUIDs use the 3d… prefix; everything rolls back.
+-- Test user UUIDs use the 3d… prefix; everything rolls back. The sales manager (an MFA role) carries aal2.
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(16);
@@ -45,7 +45,7 @@ select throws_ok($$select public.set_task_status('3d100000-0000-0000-0000-000000
 select throws_ok($$select public.daily_completion('2026-10-06')$$,
   '42501', null, 'A rep cannot read the team''s completion');
 
-select set_config('request.jwt.claims','{"sub":"3d000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"3d000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2"}',true);
 select isnt(public.create_task('Send revised price', '2026-10-06', null, '3d000000-0000-0000-0000-000000000003'), null,
   'A manager assigns a task');
 reset role;
@@ -59,7 +59,7 @@ select is((select source from public.tasks where title = 'Send revised price'), 
 update public.tasks set due_date = '2026-12-31', created_at = '2026-12-31' where title = 'Call the PM';
 
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"3d000000-0000-0000-0000-000000000001","role":"authenticated"}',true);
+select set_config('request.jwt.claims','{"sub":"3d000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2"}',true);
 select results_eq(
   $$select done, open_due, overdue from public.daily_completion('2026-10-06') where user_id = '3d000000-0000-0000-0000-000000000002'$$,
   $$values (1, 1, 1)$$,
