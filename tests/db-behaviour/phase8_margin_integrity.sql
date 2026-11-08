@@ -11,22 +11,23 @@
 
 DO $$
 DECLARE
-  est UUID; fin UUID; gm UUID; sm UUID; vw UUID; s1 UUID; ven UUID;
+  est UUID; fin UUID; gm UUID; sm UUID; bd UUID; vw UUID; s1 UUID; ven UUID;
   o1 UUID; b1 UUID; r1 UUID; l1 UUID; l2 UUID; e1 UUID; sq UUID;
 BEGIN
   INSERT INTO auth.users (email) VALUES
     ('m8_est@phc-sa.com'),('m8_fin@phc-sa.com'),('m8_gm@phc-sa.com'),
-    ('m8_sm@phc-sa.com'),('m8_vw@phc-sa.com'),('m8_s1@phc-sa.com');
+    ('m8_sm@phc-sa.com'),('m8_bd@phc-sa.com'),('m8_vw@phc-sa.com'),('m8_s1@phc-sa.com');
   SELECT id INTO est FROM auth.users WHERE email='m8_est@phc-sa.com';
   SELECT id INTO fin FROM auth.users WHERE email='m8_fin@phc-sa.com';
   SELECT id INTO gm  FROM auth.users WHERE email='m8_gm@phc-sa.com';
   SELECT id INTO sm  FROM auth.users WHERE email='m8_sm@phc-sa.com';
+  SELECT id INTO bd  FROM auth.users WHERE email='m8_bd@phc-sa.com';
   SELECT id INTO vw  FROM auth.users WHERE email='m8_vw@phc-sa.com';
   SELECT id INTO s1  FROM auth.users WHERE email='m8_s1@phc-sa.com';
-  UPDATE public.profiles SET status='active' WHERE id IN (est,fin,gm,sm,vw,s1);
+  UPDATE public.profiles SET status='active' WHERE id IN (est,fin,gm,sm,bd,vw,s1);
   INSERT INTO public.user_roles (user_id, role) VALUES
     (est,'estimation_manager'),(fin,'finance_manager'),(gm,'general_manager'),
-    (sm,'sales_manager'),(vw,'viewer'),(s1,'salesperson');
+    (sm,'sales_manager'),(bd,'bd_manager'),(vw,'viewer'),(s1,'salesperson');
 
   INSERT INTO public.opportunities (project_name, owner_id) VALUES ('M8 deal', s1) RETURNING id INTO o1;
   INSERT INTO public.boqs (related_opportunity_id,title,status,source_confidence,currency,created_by)
@@ -61,9 +62,10 @@ SET ROLE rls_tester;
 DO $$
 DECLARE
   n INT; v NUMERIC; e1 UUID; p1 UUID;
-  est UUID; fin UUID; gm UUID; sm UUID; vw UUID; s1 UUID;
+  est UUID; fin UUID; gm UUID; sm UUID; bd UUID; vw UUID; s1 UUID;
 BEGIN
   SELECT t.e1 INTO e1 FROM m8 t;
+  SELECT id INTO bd  FROM auth.users WHERE email='m8_bd@phc-sa.com';
   SELECT id INTO est FROM auth.users WHERE email='m8_est@phc-sa.com';
   SELECT id INTO fin FROM auth.users WHERE email='m8_fin@phc-sa.com';
   SELECT id INTO gm  FROM auth.users WHERE email='m8_gm@phc-sa.com';
@@ -107,9 +109,10 @@ BEGIN
   RAISE NOTICE '% 6. the typed estimate is reported 30%% under the suppliers (expect 30.00, got %)',
     CASE WHEN v = 30.00 THEN 'PASS' ELSE 'FAIL' END, v;
 
-  PERFORM set_config('test.uid', sm::text, TRUE);
+  -- sales_manager reads cost since 2026-11-03 (management); bd_manager keeps the old answer.
+  PERFORM set_config('test.uid', bd::text, TRUE);
   SELECT count(*) INTO n FROM public.estimation_cost_reconciliation WHERE estimation_id=e1;
-  RAISE NOTICE '% 7. sales_manager sees no cost reconciliation (expect 0, got %)',
+  RAISE NOTICE '% 7. bd_manager sees no cost reconciliation (expect 0, got %)',
     CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
   PERFORM set_config('test.uid', vw::text, TRUE);
   SELECT count(*) INTO n FROM public.estimation_cost_reconciliation WHERE estimation_id=e1;

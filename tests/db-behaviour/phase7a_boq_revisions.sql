@@ -121,9 +121,10 @@ BEGIN
   PERFORM set_config('test.uid', gm::text, false);
   SELECT count(*) INTO n FROM public.boq_line_costs;
   RAISE NOTICE '% 12. GM reads cost (expect 1, got %)', CASE WHEN n=1 THEN 'PASS' ELSE 'FAIL' END, n;
-  PERFORM set_config('test.uid', sm::text, false);
+  -- sales_manager reads cost since 2026-11-03 (management); bd_manager keeps the old answer.
+  PERFORM set_config('test.uid', bd::text, false);
   SELECT count(*) INTO n FROM public.boq_line_costs;
-  RAISE NOTICE '% 13. sales_manager reads NO cost (expect 0, got %)', CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
+  RAISE NOTICE '% 13. bd_manager reads NO cost (expect 0, got %)', CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;
   PERFORM set_config('test.uid', bd::text, false);
   SELECT count(*) INTO n FROM public.boq_line_costs;
   RAISE NOTICE '% 14. bd_manager reads NO cost (expect 0, got %)', CASE WHEN n=0 THEN 'PASS' ELSE 'FAIL' END, n;

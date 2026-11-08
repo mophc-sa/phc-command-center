@@ -54,9 +54,9 @@ export function BoqPanel() {
   // reads directly any more. `select("*")` therefore returns the BOQ without
   // them, and the two numbers this panel needs come from views that gate
   // themselves: boq_sales_totals for the selling headline (anyone who may see
-  // the BOQ) and boq_item_costs for the rate column (estimation, finance,
-  // MD/GM/CEO only). For everyone else boq_item_costs is simply empty, so the
-  // rate column renders as "—" rather than erroring.
+  // the BOQ) and boq_item_costs for the rate column (estimation, finance, the
+  // sales manager, MD/GM/CEO only). For everyone else boq_item_costs is simply
+  // empty, so the rate column renders as "—" rather than erroring.
   const { data: boqs = [], isLoading } = useQuery({
     queryKey: ["boqs"],
     queryFn: async () =>
