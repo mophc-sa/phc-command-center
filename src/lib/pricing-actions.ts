@@ -527,13 +527,18 @@ export type SubmissionRow = {
   submitted_by: string | null;
   submitted_at: string;
   confirmation_text: string | null;
+  /** The file versions the supplier confirmed (portal only): neutral names plus version stamps. */
+  confirmed_files: ConfirmedFile[] | null;
   lines: number;
+  /** The quote's currency; null when RLS hides the quote (a reader without cost access). */
+  supplier_quotes: { currency: string | null } | null;
 };
+export type ConfirmedFile = { file_id?: string; name?: string; checksum?: string | null; object_version?: string | null; object_updated_at?: string | null };
 export const listInvitationSubmissions = (invitationId: string) =>
   rows<SubmissionRow>(
     db
       .from("supplier_invitation_submissions")
-      .select("id, invitation_id, supplier_quote_id, source, submitted_by, submitted_at, confirmation_text, lines")
+      .select("id, invitation_id, supplier_quote_id, source, submitted_by, submitted_at, confirmation_text, confirmed_files, lines, supplier_quotes(currency)")
       .eq("invitation_id", invitationId)
       .order("submitted_at", { ascending: false }),
   );

@@ -187,3 +187,19 @@ export function supplierGate(i: GateInput, next: string): { redirect: PortalRedi
   if (i.aal?.nextLevel === "aal2" && i.aal.currentLevel !== "aal2") return { redirect: { to: "/mfa-verify" }, signOut: false };
   return { redirect: null, signOut: false };
 }
+
+/** A reply-by date, `n` days after `day` (both YYYY-MM-DD). */
+export const addDays = (day: string, n: number): string => {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+/** The server is the rule; this only stops the obvious mistakes before the round trip. */
+export const MAX_REPLY_DAYS = 180;
+export const REPLY_BY_PROBLEM: { empty: Bi; far: Bi } = {
+  empty: { en: "Choose a reply-by date.", ar: "اختر موعد الرد." },
+  far: { en: "The reply-by date can be at most 180 days away.", ar: "يجب ألا يتجاوز موعد الرد 180 يوماً من اليوم." },
+};
+export const replyByProblem = (replyBy: string, today: string): "empty" | "far" | null =>
+  !replyBy ? "empty" : replyBy > addDays(today, MAX_REPLY_DAYS) ? "far" : null;

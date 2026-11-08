@@ -38,6 +38,7 @@ const TEXT = {
   requestSupplier: { en: "The file was sent to this supplier through the portal; entering here closes that request.", ar: "أُرسل الملف لهذا المورد عبر البوابة؛ الإدخال هنا يغلق ذلك الطلب." },
   original: { en: "The supplier's own file (Excel or PDF)", ar: "ملف المورد الأصلي (Excel أو PDF)" },
   noOriginal: { en: "None attached", ar: "لا ملف مرفق" },
+  originalFailed: { en: "The deal's files could not be loaded, so the supplier's own file cannot be linked now. You can still enter the prices.", ar: "تعذر تحميل ملفات الفرصة، فلا يمكن ربط ملف المورد الآن. يمكنك إدخال الأسعار مع ذلك." },
   originalHint: { en: "Attach it to the deal on the Package tab first.", ar: "أرفقه بالفرصة من تبويب الباكيج أولاً." },
 } satisfies Record<string, Bi>;
 
@@ -72,9 +73,9 @@ export function SupplierEntryForm({ file, onChanged, lockedVendorId }: PricingTa
   const [busy, setBusy] = useState(false);
   const [documentId, setDocumentId] = useState("");
 
-  if (vendors.isLoading || lines.isLoading || costs.isLoading || docs.isLoading) return <SkeletonTable />;
-  if (vendors.isError || lines.isError || costs.isError || docs.isError) {
-    return <QueryFailure retry={() => { void vendors.refetch(); void lines.refetch(); void costs.refetch(); void docs.refetch(); }} />;
+  if (vendors.isLoading || lines.isLoading || costs.isLoading) return <SkeletonTable />;
+  if (vendors.isError || lines.isError || costs.isError) {
+    return <QueryFailure retry={() => { void vendors.refetch(); void lines.refetch(); void costs.refetch(); }} />;
   }
 
   const chosen = lockedVendorId ?? current?.vendor_id ?? vendorId;
@@ -156,14 +157,18 @@ export function SupplierEntryForm({ file, onChanged, lockedVendorId }: PricingTa
           {lockedVendorId ? <span className="block text-xs text-muted-foreground">{pick(TEXT.requestSupplier, lang)}</span>
             : current ? <span className="block text-xs text-muted-foreground">{pick(TEXT.oneSupplier, lang)}</span> : null}
         </label>
-        <label className="block max-w-sm space-y-1">
-          <span>{pick(TEXT.original, lang)}</span>
-          <select className={FIELD} value={documentId} disabled={busy} onChange={(e) => setDocumentId(e.target.value)}>
-            <option value="">{pick(TEXT.noOriginal, lang)}</option>
-            {(docs.data ?? []).filter((d) => !d.superseded_by).map((d) => <option key={d.id} value={d.id}>{d.title || d.original_filename}</option>)}
-          </select>
-          <span className="block text-xs text-muted-foreground">{pick(TEXT.originalHint, lang)}</span>
-        </label>
+        {docs.isError ? (
+          <p role="note" className="max-w-sm text-xs text-amber-light">{pick(TEXT.originalFailed, lang)}</p>
+        ) : (
+          <label className="block max-w-sm space-y-1">
+            <span>{pick(TEXT.original, lang)}</span>
+            <select className={FIELD} value={documentId} disabled={busy || docs.isLoading} onChange={(e) => setDocumentId(e.target.value)}>
+              <option value="">{pick(TEXT.noOriginal, lang)}</option>
+              {(docs.data ?? []).filter((d) => !d.superseded_by).map((d) => <option key={d.id} value={d.id}>{d.title || d.original_filename}</option>)}
+            </select>
+            <span className="block text-xs text-muted-foreground">{pick(TEXT.originalHint, lang)}</span>
+          </label>
+        )}
         <Table>
           <TableHeader>
             <TableRow>

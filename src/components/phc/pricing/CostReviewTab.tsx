@@ -59,6 +59,8 @@ const TEXT = {
   },
   backed: { en: "Sent back to the supplier", ar: "أُرجع للمورد" },
   backedPr: { en: "Sent back to the supplier; the selling price was returned too", ar: "أُرجع للمورد وأُعيد سعر البيع أيضاً" },
+  requestsLoading: { en: "Checking the supplier request…", ar: "جارٍ التحقق من طلب المورد…" },
+  requestsFailed: { en: "The supplier request could not be loaded, so lines cannot be sent back now.", ar: "تعذر تحميل طلب المورد، فلا يمكن إرجاع البنود الآن." },
   noLines: { en: "This BOQ has no lines.", ar: "لا بنود في هذه الكميات." },
 } satisfies Record<string, Bi>;
 
@@ -136,6 +138,8 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
     rights.is_pricer &&
     ((file.state === "supplier_priced" && canPricerMove("supplier_priced", "at_supplier")) ||
       (file.state === "price_review" && canPricerMove("price_review", "at_supplier")));
+  // PR 2's whole-file send-back must not open while the request list is unknown.
+  const requestsKnown = !invitations.isLoading && !invitations.isError;
   const portalRequest = (invitations.data ?? []).find((i) => i.status === "submitted" && i.boq_revision_id === revisionId) ?? null;
 
   return (
@@ -223,7 +227,8 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
       </Panel>
 
       <div className="flex flex-wrap gap-2">
-        {canSendBack ? <Button variant="outline" disabled={busy} onClick={() => (portalRequest ? setReturnOpen(true) : setBackOpen(true))}>{pick(fromPriceReview ? TEXT.backPr : TEXT.back, lang)}</Button> : null}
+        {canSendBack && invitations.isError ? <p role="alert" className="text-sm text-destructive">{pick(TEXT.requestsFailed, lang)}</p> : null}
+        {canSendBack ? <Button variant="outline" disabled={busy || !requestsKnown} title={invitations.isLoading ? pick(TEXT.requestsLoading, lang) : undefined} onClick={() => (portalRequest ? setReturnOpen(true) : setBackOpen(true))}>{pick(fromPriceReview ? TEXT.backPr : TEXT.back, lang)}</Button> : null}
         {rights.is_gm && file.state === "supplier_priced" && canGmMove("supplier_priced", "selling_build") ? (
           <Button disabled={busy} onClick={() => void startSelling()}>{pick(TEXT.start, lang)}</Button>
         ) : null}

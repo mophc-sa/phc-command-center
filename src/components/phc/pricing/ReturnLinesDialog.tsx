@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useI18n } from "@/lib/i18n";
 import { returnLinesToSupplier } from "@/lib/pricing-actions";
-import { riyadhToday } from "@/lib/supplier-portal";
+import { addDays, REPLY_BY_PROBLEM, replyByProblem, riyadhToday } from "@/lib/supplier-portal";
 import { dbMessage, pick, type Bi } from "@/lib/pricing-text";
 
 const TEXT = {
@@ -20,17 +20,13 @@ const TEXT = {
   cancel: { en: "Cancel", ar: "إلغاء" },
   done: { en: "Lines returned to the supplier", ar: "أُرجعت البنود للمورد" },
   pickLine: { en: "Tick at least one line.", ar: "اختر بنداً واحداً على الأقل." },
+  all: { en: "Select all", ar: "اختر الكل" },
+  none: { en: "Clear", ar: "امسح الاختيار" },
   needNote: { en: "Say why the lines go back.", ar: "اذكر سبب إرجاع البنود." },
 } satisfies Record<string, Bi>;
 
 const FIELD =
   "w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60";
-
-const addDays = (day: string, n: number): string => {
-  const d = new Date(`${day}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 
 export function ReturnLinesDialog({
   open, onOpenChange, fileId, fromPriceReview, lines, onDone,
@@ -44,10 +40,19 @@ export function ReturnLinesDialog({
 }) {
   const { lang } = useI18n();
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [replyBy, setReplyBy] = useState(() => addDays(riyadhToday(), 3));
+  const [replyBy, setReplyBy] = useState("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fresh each time the dialog opens: the default date is three days from that moment, not from page load.
+  useEffect(() => {
+    if (!open) return;
+    setReplyBy(addDays(riyadhToday(), 3));
+    setPicked(new Set());
+    setError(null);
+  }, [open]);
 
   function toggle(id: string) {
     const next = new Set(picked);
@@ -58,8 +63,11 @@ export function ReturnLinesDialog({
 
   async function submit() {
     if (busy) return;
-    if (picked.size === 0) { toast.error(pick(TEXT.pickLine, lang)); return; }
-    if (!note.trim()) { toast.error(pick(TEXT.needNote, lang)); return; }
+    setError(null);
+    if (picked.size === 0) { setError(pick(TEXT.pickLine, lang)); return; }
+    const problem = replyByProblem(replyBy, riyadhToday());
+    if (problem) { setError(pick(REPLY_BY_PROBLEM[problem], lang)); return; }
+    if (!note.trim()) { setError(pick(TEXT.needNote, lang)); return; }
     setBusy(true);
     try {
       await returnLinesToSupplier(fileId, [...picked], replyBy, note.trim(), message.trim() || null);
@@ -70,7 +78,7 @@ export function ReturnLinesDialog({
       onOpenChange(false);
       onDone();
     } catch (e) {
-      toast.error(dbMessage(e, lang));
+      setError(dbMessage(e, lang));
     } finally {
       setBusy(false);
     }
@@ -86,6 +94,10 @@ export function ReturnLinesDialog({
         <div className="space-y-3 text-sm">
           <fieldset className="max-h-56 space-y-1 overflow-y-auto">
             <legend className="mb-1">{pick(TEXT.lines, lang)}</legend>
+            <div className="mb-1 flex gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => setPicked(new Set(lines.map((l) => l.id)))}>{pick(TEXT.all, lang)}</Button>
+              <Button type="button" size="sm" variant="outline" disabled={busy || picked.size === 0} onClick={() => setPicked(new Set())}>{pick(TEXT.none, lang)}</Button>
+            </div>
             {lines.map((l) => (
               <label key={l.id} className="flex items-center gap-2">
                 <input type="checkbox" disabled={busy} checked={picked.has(l.id)} onChange={() => toggle(l.id)} />
@@ -95,7 +107,7 @@ export function ReturnLinesDialog({
           </fieldset>
           <label className="block space-y-1">
             <span>{pick(TEXT.replyBy, lang)}</span>
-            <input type="date" className={FIELD} min={riyadhToday()} disabled={busy} value={replyBy} onChange={(e) => setReplyBy(e.target.value)} />
+            <input type="date" className={FIELD} min={riyadhToday()} max={addDays(riyadhToday(), 180)} disabled={busy} value={replyBy} onChange={(e) => setReplyBy(e.target.value)} />
           </label>
           <label className="block space-y-1">
             <span>{pick(TEXT.note, lang)}</span>
@@ -105,6 +117,7 @@ export function ReturnLinesDialog({
             <span>{pick(TEXT.message, lang)}</span>
             <textarea className={FIELD} rows={2} maxLength={1000} disabled={busy} value={message} onChange={(e) => setMessage(e.target.value)} />
           </label>
+          {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         </div>
         <DialogFooter>
           <Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>{pick(TEXT.cancel, lang)}</Button>

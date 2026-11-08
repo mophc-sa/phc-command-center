@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/phc/Panel";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { QueryFailure } from "@/components/phc/QueryFailure";
-import { useI18n } from "@/lib/i18n";
+import { formatNumber, useI18n } from "@/lib/i18n";
 import { formatBytes, listEntityDocuments } from "@/lib/document-actions";
 import { listEarlierQuotes, listVendors, sendToSupplier } from "@/lib/pricing-actions";
-import { riyadhToday } from "@/lib/supplier-portal";
+import { addDays, REPLY_BY_PROBLEM, replyByProblem, riyadhToday } from "@/lib/supplier-portal";
 import { dbMessage, pick, type Bi } from "@/lib/pricing-text";
 import { SupplierAccountsPanel } from "@/components/phc/pricing/SupplierAccountsPanel";
 import type { PricingTabProps } from "@/components/phc/pricing/types";
@@ -24,6 +24,7 @@ const TEXT = {
   replyBy: { en: "Reply by", ar: "موعد الرد" },
   files: { en: "Files to send", ar: "الملفات المرسلة" },
   noFiles: { en: "No file is attached to this deal. Attach the drawings and the location plan on the Package tab first.", ar: "لا ملفات مرفقة بهذه الفرصة. أرفق الرسومات ومخطط المواقع من تبويب الباكيج أولاً." },
+  noneTicked: { en: "No file is ticked yet. Tick only the files the supplier needs.", ar: "لم يُختر أي ملف بعد. اختر الملفات التي يحتاجها المورد فقط." },
   renamed: { en: "The supplier sees each file under the project code (e.g. code-01.pdf), not its name here.", ar: "يرى المورد كل ملف باسم رمز المشروع (مثل code-01.pdf) لا باسمه هنا." },
   note: { en: "Note to the supplier (optional, no client names)", ar: "ملاحظة للمورد (اختيارية، دون أسماء العملاء)" },
   earlier: { en: "This BOQ already has prices from before the freeze from:", ar: "لهذه الكميات أسعار من قبل التجميد من:" },
@@ -43,21 +44,18 @@ const TEXT = {
   },
 } satisfies Record<string, Bi>;
 
-/** dbMessage plus the server's DETAIL (e.g. the estimation ids that depend on a cleared selection). */
+/** dbMessage plus the SQL DETAIL, only when it is ours ("estimations: …", the ids that depend on a cleared selection). */
 function sendError(e: unknown, lang: "en" | "ar"): string {
   const detail = e && typeof e === "object" && "details" in e ? (e as { details?: unknown }).details : null;
   const msg = dbMessage(e, lang);
-  return typeof detail === "string" && detail.trim() && !msg.includes(detail.trim()) ? `${msg} (${detail.trim()})` : msg;
+  return typeof detail === "string" && detail.trim().startsWith("estimations:") && !msg.includes(detail.trim())
+    ? `${msg} (${detail.trim()})`
+    : msg;
 }
+const LONG_TOAST_MS = 15_000;
 
 const FIELD =
   "w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60";
-
-const addDays = (day: string, n: number): string => {
-  const d = new Date(`${day}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 
 /** boq_frozen (or at_supplier with no open request): one supplier, a reply-by date, the files. */
 export function SendToSupplierPanel({ file, onChanged }: Pick<PricingTabProps, "file" | "onChanged">) {
@@ -81,9 +79,9 @@ export function SendToSupplierPanel({ file, onChanged }: Pick<PricingTabProps, "
     return <QueryFailure retry={() => { void vendors.refetch(); void docs.refetch(); void earlier.refetch(); }} />;
   }
 
-  // The latest version of each file; every one is ticked until the pricer changes it.
+  // The latest version of each file. None is ticked until the pricer chooses: deal files can hold contracts and quotes.
   const current = (docs.data ?? []).filter((d) => !d.superseded_by);
-  const chosen = picked ?? new Set(current.map((d) => d.id));
+  const chosen = picked ?? new Set<string>();
   const live = (earlier.data ?? []).filter((q) => q.status !== "cancelled" && q.status !== "superseded");
   const others = [...new Set(live.filter((q) => q.vendor_id !== vendorId).map((q) => q.vendor_name))];
   const selected = live.some((q) => q.is_selected);
@@ -99,15 +97,17 @@ export function SendToSupplierPanel({ file, onChanged }: Pick<PricingTabProps, "
   async function send() {
     if (busy) return;
     if (!vendorId) { toast.error(pick(TEXT.chooseVendor, lang)); return; }
+    const problem = replyByProblem(replyBy, riyadhToday());
+    if (problem) { toast.error(pick(REPLY_BY_PROBLEM[problem], lang)); return; }
     if (chosen.size === 0) { toast.error(pick(TEXT.chooseFiles, lang)); return; }
     if (needsConfirm && !replace) { toast.error(pick(TEXT.confirmEarlier, lang)); return; }
     setBusy(true);
     try {
       const r = await sendToSupplier(file.file_id, vendorId, replyBy, [...chosen], note.trim() || null, replace);
-      toast.success(`${pick(TEXT.sent, lang)} · ${r.lines} ${pick(TEXT.lines, lang)} · ${r.files} ${pick(TEXT.filesSent, lang)}`);
+      toast.success(`${pick(TEXT.sent, lang)} · ${formatNumber(r.lines, lang)} ${pick(TEXT.lines, lang)} · ${formatNumber(r.files, lang)} ${pick(TEXT.filesSent, lang)}`);
       onChanged();
     } catch (e) {
-      toast.error(sendError(e, lang));
+      toast.error(sendError(e, lang), { duration: LONG_TOAST_MS });
     } finally {
       setBusy(false);
     }
@@ -129,7 +129,7 @@ export function SendToSupplierPanel({ file, onChanged }: Pick<PricingTabProps, "
           </label>
           <label className="space-y-1">
             <span>{pick(TEXT.replyBy, lang)}</span>
-            <input type="date" className={FIELD} disabled={busy} min={riyadhToday()} value={replyBy} onChange={(e) => setReplyBy(e.target.value)} />
+            <input type="date" className={FIELD} disabled={busy} min={riyadhToday()} max={addDays(riyadhToday(), 180)} value={replyBy} onChange={(e) => setReplyBy(e.target.value)} />
           </label>
         </div>
 
@@ -143,6 +143,7 @@ export function SendToSupplierPanel({ file, onChanged }: Pick<PricingTabProps, "
               <span className="text-xs text-muted-foreground">{formatBytes(d.size_bytes)}</span>
             </label>
           ))}
+          {current.length > 0 && chosen.size === 0 ? <p className="text-xs text-muted-foreground">{pick(TEXT.noneTicked, lang)}</p> : null}
           {current.length > 0 ? <p className="text-xs text-muted-foreground">{pick(TEXT.renamed, lang)}</p> : null}
         </fieldset>
 
@@ -166,7 +167,7 @@ export function SendToSupplierPanel({ file, onChanged }: Pick<PricingTabProps, "
           {pick(busy ? TEXT.sending : TEXT.send, lang)}
         </Button>
 
-        {vendorId ? <SupplierAccountsPanel vendorId={vendorId} /> : null}
+        {vendorId ? <SupplierAccountsPanel key={vendorId} vendorId={vendorId} /> : null}
       </div>
     </Panel>
   );

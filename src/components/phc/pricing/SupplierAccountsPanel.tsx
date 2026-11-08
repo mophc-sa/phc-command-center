@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -39,6 +39,8 @@ export function SupplierAccountsPanel({ vendorId }: { vendorId: string }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The one-time link belongs to the vendor it was made for: never carry it to another.
+  useEffect(() => { setMessage(null); }, [vendorId]);
   const signIn = `${window.location.origin}/auth`;
 
   function showLink(url: string | null, again = false) {
@@ -52,6 +54,7 @@ export function SupplierAccountsPanel({ vendorId }: { vendorId: string }) {
   async function create() {
     if (busy) return;
     setBusy(true);
+    setMessage(null);
     try {
       const r = await createSupplierAccount(vendorId, email.trim(), name.trim());
       await qc.invalidateQueries({ queryKey: ["pricing-supplier-accounts", vendorId] });
@@ -69,6 +72,7 @@ export function SupplierAccountsPanel({ vendorId }: { vendorId: string }) {
   async function reissue(userId: string) {
     if (busy) return;
     setBusy(true);
+    setMessage(null);
     try {
       showLink((await newSupplierPasswordLink(userId)).set_password_url, true);
     } catch (e) {

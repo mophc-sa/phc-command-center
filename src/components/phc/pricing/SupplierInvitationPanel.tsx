@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/phc/Panel";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog } from "@/components/phc/ActionDialog";
-import { useI18n, localeFor } from "@/lib/i18n";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { formatNumber, useI18n, localeFor } from "@/lib/i18n";
 import {
   cancelInvitation, extendInvitation, listInvitationFiles, listInvitationSubmissions, listVendors,
   OPEN_INVITATION, type InvitationRow, type InvitationStatus,
@@ -31,6 +32,8 @@ const TEXT = {
   byPortal: { en: "Submitted by the supplier", ar: "أرسله المورد" },
   onBehalf: { en: "Entered on the supplier's behalf", ar: "أُدخل نيابة عن المورد" },
   confirmed: { en: "Confirmed:", ar: "أكّد:" },
+  confirmedFiles: { en: "Files confirmed (version)", ar: "الملفات المؤكَّدة (الإصدار)" },
+  currency: { en: "Currency", ar: "العملة" },
   linesWord: { en: "lines", ar: "بنود" },
   message: { en: "Message to send the supplier (your email or WhatsApp)", ar: "الرسالة المرسلة للمورد (بريدك أو واتساب)" },
   extend: { en: "Change the reply-by date", ar: "غيّر موعد الرد" },
@@ -63,6 +66,8 @@ export function SupplierInvitationPanel({
   invitation, rights, onChanged,
 }: { invitation: InvitationRow; rights: PricingRights; onChanged: () => void }) {
   const { lang } = useI18n();
+  const { hasRole } = useAuth();
+  const canManageAccounts = rights.is_pricer || hasRole("system_admin"); // SQL: _supplier_account_manager
   const vendors = useQuery({ queryKey: ["pricing-vendors"], queryFn: listVendors });
   const files = useQuery({ queryKey: ["pricing-invitation-files", invitation.id], queryFn: () => listInvitationFiles(invitation.id) });
   const answers = useQuery({ queryKey: ["pricing-invitation-submissions", invitation.id], queryFn: () => listInvitationSubmissions(invitation.id) });
@@ -86,9 +91,9 @@ export function SupplierInvitationPanel({
           <p>
             {pick(TEXT.replyBy, lang)} {new Date(`${invitation.reply_by}T00:00:00`).toLocaleDateString(localeFor(lang))} ·{" "}
             {left < 0 ? (
-              <StatusPill tone="danger">{pick(TEXT.overdue, lang)} {-left} {pick(TEXT.days, lang)}</StatusPill>
+              <StatusPill tone="danger">{pick(TEXT.overdue, lang)} {formatNumber(-left, lang)} {pick(TEXT.days, lang)}</StatusPill>
             ) : (
-              <span>{left} {pick(TEXT.left, lang)}</span>
+              <span>{formatNumber(left, lang)} {pick(TEXT.left, lang)}</span>
             )}{" "}
             · {invitation.opened_at ? `${pick(TEXT.opened, lang)} ${when(invitation.opened_at)}` : pick(TEXT.notOpened, lang)}
           </p>
@@ -107,9 +112,23 @@ export function SupplierInvitationPanel({
             {(answers.data ?? []).map((s) => (
               <div key={s.id} className="rounded-md border border-border p-2">
                 <p>
-                  {pick(s.source === "portal" ? TEXT.byPortal : TEXT.onBehalf, lang)} · {when(s.submitted_at)} · {s.lines} {pick(TEXT.linesWord, lang)}
+                  {pick(s.source === "portal" ? TEXT.byPortal : TEXT.onBehalf, lang)} · {when(s.submitted_at)} · {formatNumber(s.lines, lang)} {pick(TEXT.linesWord, lang)}
+                  {s.supplier_quotes?.currency ? ` · ${pick(TEXT.currency, lang)} ${s.supplier_quotes.currency}` : ""}
                 </p>
                 {s.confirmation_text ? <p className="text-xs text-muted-foreground">{pick(TEXT.confirmed, lang)} {s.confirmation_text}</p> : null}
+                {(s.confirmed_files ?? []).length > 0 ? (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    <p>{pick(TEXT.confirmedFiles, lang)}</p>
+                    <ul className="list-disc ps-5">
+                      {(s.confirmed_files ?? []).map((f, i) => (
+                        <li key={f.file_id ?? i} dir="ltr" className="text-start">
+                          {f.name ?? "—"}
+                          {f.object_updated_at ? ` · ${when(f.object_updated_at)}` : f.object_version ? ` · ${f.object_version}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -123,7 +142,7 @@ export function SupplierInvitationPanel({
             <Button variant="outline" onClick={() => setDialog("cancel")}>{pick(TEXT.cancel, lang)}</Button>
           </div>
         ) : null}
-        {isOpen && rights.is_pricer ? <SupplierAccountsPanel vendorId={invitation.vendor_id} /> : null}
+        {isOpen && canManageAccounts ? <SupplierAccountsPanel key={invitation.vendor_id} vendorId={invitation.vendor_id} /> : null}
       </div>
 
       <ActionDialog
