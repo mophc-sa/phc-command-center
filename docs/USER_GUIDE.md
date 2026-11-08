@@ -654,7 +654,7 @@ of something else, an action inside a record, or they belong to a section not bu
 
 | Page | Where it went |
 |---|---|
-| **Quotations** `/quotations` | Moves to Commercial & Finance when that section exists. Until then: ⌘K or the direct link. All three tabs (Quotations, RFQ & JIH, BOQ) still work. |
+| **Quotations** `/quotations` | Back in the sidebar since 2026-11-04, under **Pricing & Finance — التسعير والمالية**. All three tabs (Quotations, RFQ & JIH, BOQ) work as before. |
 | **Follow-ups** `/follow-ups` | A follow-up is an action on a record. It appears in My Workspace, on the opportunity, and in Action Required. Also in the header's quick-actions menu. |
 | **Targets** `/targets` | The number belongs next to the work it judges — My Workspace, Command Center, Admin Settings. |
 | **Award & Contract Queue** `/award-queue` | Replaced in the sidebar by **Awarded Projects**, the filtered Opportunities view. The page itself still works. |
@@ -678,6 +678,55 @@ of something else, an action inside a record, or they belong to a section not bu
 
 A project is created automatically when an opportunity is won. A second win on the same
 project does **not** create a duplicate.
+
+### Pricing & Finance — التسعير والمالية *(2026-11-04)*
+
+Estimation, finance, the sales manager, the GM, MD and CEO see this group. Reps and the BD manager never see cost; they will see where a price is on the deal in the next release.
+
+| Page | What it is for |
+|---|---|
+| **Pricing queue** `/pricing` | Every open pricing file: its state, who owes the next step, days waiting and the deal's value. Zayed opens on *Estimation & finance*, Kalas on *Set selling price (GM)*. A pricer can open a file by hand for a deal whose RFQ came in before pricing files existed. |
+| **Pricing file** `/pricing/<id>` | One file per deal. Four tabs follow the work: Package, Supplier, Cost review, Selling price. The history at the bottom lists every move. |
+| **Quotations** `/quotations` | Unchanged. |
+| **Pricing settings** `/pricing/settings` | Installation rate card (by type, with a start date), logistics rates, the installation fallback % (10% of materials until changed) and the default margin (25% on price until changed), the margin floor, and the extras catalog. Estimation and finance edit the rates and the catalog. The default margin and the margin floor are changed by Kalas or finance. Everyone else here reads. |
+
+**The pricing file, tab by tab**
+
+1. **Package (Zayed).**
+   - Press *Start package review*, then tick the checklist: BOQ against the drawings, against the location plan, files complete.
+   - The deal's files are on the same tab. Enter the BOQ in one of three ways:
+     - **Import from Excel:** choose the sheet, check which column is which, and see the rows with problems before anything is saved.
+     - **Add lines by hand.**
+     - **Use a revision already on the deal.**
+   - If something is missing, **Ask sales for missing items** with a due date; the rep sees the list. Until reps can answer from their own screen, record their answer with *Record the rep's answer*.
+   - **Freeze the BOQ** when it is complete. Freezing is one-way: a later quantity change opens a new revision.
+   - Freezing also suggests extras: a pylon or floor sign suggests a concrete base, a high ceiling a scaffold, a cinema project acoustic insulation.
+2. **Supplier (Zayed).**
+   - The supplier portal is not ready yet. Send the frozen BOQ and the files to the supplier as you do today, then *Mark as sent to the supplier*.
+   - When the supplier answers, enter their prices on their behalf: normal and with-screen price, and any difference from the spec, per line. Entering again overwrites the prices in place; the history does not keep the earlier figures.
+   - When the prices are in, press *The supplier has priced*. The file goes to Kalas.
+3. **Cost review (Zayed and Kalas).**
+   - Each line shows the supplier's price, the with-screen price, and flags for no price, a missing screen price or a spec difference.
+   - Zayed chooses the normal or the with-screen price, and can correct a line's install type.
+   - Zayed can **send lines back to the supplier**. The note is a cost note; sales do not see it.
+   - Kalas presses **Start the selling price**.
+4. **Selling price (Kalas sets it; Zayed sets the cost choices).**
+   - Logistics inputs: containers, inland delivery, clearing agent, overhead %, cinema project.
+   - Extras belong to the round (the BOQ revision): accept each suggestion (with its quantity and rate) or dismiss it with a reason, and add any catalog item by hand.
+   - The grid gives each line's cost: materials, installation, and its share of the extras and logistics by value (materials plus installation). Customs is a % of all materials; overhead is added once, before the margin. Kalas sets a margin % or types a selling price per line.
+   - A quote not in SAR is not priced yet: the line stays unpriced and the totals say how many. While any line is unpriced, the margin and the floor check show nothing.
+   - The totals show cost, selling price, margin and the floor.
+   - **Build price** writes the internal price. **Propose price** rebuilds it, checks that the total and the total cost are what Kalas saw, and sends it to Zayed's review.
+   - Propose needs every expected extra of the round decided (a missing or undecided one blocks it), and a justification when the margin is below the floor. Only the GM writes that justification, at Propose.
+
+**Rules the system enforces:**
+- Margin is on price: 20% means 20% of what the client pays.
+- Totals and the overall margin are computed by the system; nobody types them.
+- Only Kalas (or his delegate) sets a line's margin or selling price. Kalas or finance changes the default margin and the margin floor.
+- In a pricing file a price reaches review only through Propose.
+- Zayed cannot approve a price whose figures he set.
+- The cost behind a price under review cannot change.
+- One supplier per file in this release.
 
 ### Reports & Analysis — التقارير والتحليل
 
@@ -887,6 +936,7 @@ opportunity page with the follow-up already scheduled. Don't go looking for the 
 - **Estimation:** cost approval on BAFO requests; BOQ verification.
 - **Finance:** finance approval on BAFO; you are one of only two roles that can set
   **Total Value**.
+- **Pricing (2026-11-04):** `/pricing` on *Estimation & finance*: package review and BOQ entry, missing items, freeze, sending to the supplier, entering the supplier's prices, cost review (normal or with-screen price), logistics and extras. Settings at `/pricing/settings`; finance also changes the default margin and the margin floor there.
 
 ### General Manager / Managing Director
 
@@ -894,6 +944,7 @@ opportunity page with the follow-up already scheduled. Don't go looking for the 
 2. Final approval on BAFO requests.
 3. Approve `won` — this is the moment revenue is recognised in the system.
 4. **Reports** and the AI Weekly Report.
+5. **Pricing (GM):** `/pricing` on *Set selling price (GM)*: start the selling price, set margins or selling prices per line, decide extras, **Build price** and **Propose price**. You set the margin floor and the default margin in `/pricing/settings`.
 
 ### System Admin
 
@@ -945,6 +996,33 @@ A project now has a responsible salesperson, shown at the top of the project pag
   unassigned project's budget stays closed until someone owns it — cost figures are not
   open to whoever happens to be looking.
 - Every claim and reassignment is recorded with who did it and when.
+
+### Samples, drawings and client reminders (2026-10-22)
+
+- **Samples and drawings** live on the deal page (see *Inside an opportunity*) and in the list
+  **Samples & drawings** under Production. A sample request notifies the sales manager and the
+  GM; their decision notifies whoever asked; a client's answer notifies the deal owner if someone
+  else recorded it.
+- **Sales records every step.** Ammar in production and the designer do not need a login: the step
+  names them, and the person who recorded it is kept too.
+- **Client reminders.** A client's page (**Accounts → the client**) has **Client reminders**: pick
+  the date, once / every month / every year, who to remind, and what it is for. They appear on
+  Follow-ups and in My Workspace, and count in the day's tasks.
+- **A follow-up due today notifies its owner** in the bell, at the 07:00 run. Before this a due
+  follow-up only appeared as an Action Center item.
+
+## 10. Current limitations
+
+### Pricing loop screens (2026-11-04)
+
+- Zayed's review of a proposed price (approve, return, return lines to the supplier) and the quotation from the approved price come in the next release. Until then a proposed price waits in *Price review*.
+- Reps do not see the pricing state on the deal yet, and cannot answer missing items from their own screen: Zayed records their answer.
+- No notifications are sent yet for any pricing step.
+- The supplier portal is not ready. Zayed enters the supplier's prices on their behalf. The supplier's original file is not attached in the system yet, and entering again overwrites the prices without keeping the earlier ones in the history.
+- One supplier per file. A line priced by two suppliers stops the build.
+- A quote not in SAR is not priced yet.
+- A client revision after a quotation (new quantities) comes in the next release.
+- The default margin (25%) and the installation fallback (10%) are starting values to confirm with Zayed and Kalas.
 
 ### Samples, drawings and client reminders (2026-10-22)
 
@@ -1556,3 +1634,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-10-23 · info@ mailbox: requests from email, router list, Newsletters & spam, Not sorted, Source email panel, Mention (deal readers only) · branch feat/info-mailbox, not deployed · previous: Today's actions, 2026-10-20 -->
 
 <!-- last reviewed 2026-11-03 · pricing loop foundation: database only, no screens yet (limitations note) · branch feat/pricing-loop-foundation, not deployed · previous: info@ mailbox, 2026-10-23 -->
+
+<!-- last reviewed 2026-11-04 · pricing loop screens: Pricing & Finance group, /pricing queue, pricing file (package, supplier, cost review, selling price), /pricing/settings · branch feat/pricing-loop-screens, not deployed · previous: pricing loop foundation, 2026-11-03 -->

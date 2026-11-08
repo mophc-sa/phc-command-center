@@ -1,5 +1,91 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-04 — Pricing loop screens (branch `feat/pricing-loop-screens`, worktree `~/dev/phc-pricing-ui`, stacked on PR #365)
+
+Plan `docs/superpowers/plans/2026-11-03-pricing-loop-screens.md`. PR 2 of 5: Zayed's and Kalas's screens up to Propose, plus settings, plus entry of the supplier's prices on their behalf (Task 14, moved here from PR 3 by Mo on 2026-11-03).
+- Migrations `20261104100000`–`20261104160000`.
+- UI: `/pricing`, `/pricing/$id`, `/pricing/settings`, and the sidebar group "Pricing & Finance" with `/quotations` back in the sidebar.
+- No Edge Function change.
+
+**Release (Mo runs; nothing here was pushed or deployed):**
+1. Merge PR #365, then this PR, once CI is green.
+2. `supabase db push` from `~/dev/phc-command-center` on `main`. It applies PR 1's six migrations and PR 2's seven.
+3. Cloudflare canary.
+4. Production Readiness.
+5. Production.
+
+No secrets. Settings to confirm with Zayed and Kalas after release: the fallback % (10), the default margin (25), the logistics values seeded in PR 1, the first installation rates, the extras catalog, and the margin floor (none set: no justification is asked for until one is set).
+
+**Canary walk-through (to do with real accounts: Zayed, Kalas, Omar, and a rep):**
+- A rep sees no Pricing links except Quotations, and `/pricing` says no access.
+- Zayed: one file from received through package, freeze, sent to the supplier, entry on behalf, *The supplier has priced*.
+- Kalas: start the selling price, margins, extras, Build, Propose.
+- Omar: `/pricing` and settings read-only.
+- Use a real Excel BOQ for the import, and also a CSV saved without a BOM: check that Arabic decodes (open point from Task 9).
+- Both languages, desktop and phone width.
+
+**Local checks (2026-11-04):** `bun run verify`, `bun audit --audit-level=high`, and the DB suite (`dbtest-ui.sh`: 39 files, 939 tests, PASS). No browser walk-through on a local stack was run in this task; the canary above covers it.
+
+**Behaviour that changes outside pricing files** (all recorded in DECISIONS 2026-11-04):
+- `has_app_access` fails closed (hardening; no production change). `daily_task_completion.test.sql` needed `aal2` for it.
+- `margin_policies` INSERT/UPDATE are revoked from `authenticated`. The Phase 8 INSERT/UPDATE policies are now unreachable and `phase8-schema.contract.test` still pins the old policy text. The floor changes only through `pricing_set_margin_floor`.
+- The Phase 7B supplier-quote guards admit a write on a frozen revision only inside `pricing_enter_supplier_quote` (transaction-local flag `phc.pricing_supplier_entry`, set for that revision, and the file `at_supplier`). The guards call the helper only when the flag is set, because the helper is revoked from `authenticated`.
+- The estimation freeze under review and the propose gate apply only to prices linked to a pricing file.
+- PR 1 tests edited here: `pricing_calc.test.sql` (Task 4) and `pricing_rates.test.sql` (Task 3).
+
+**PR 1 deferred items, closed here:**
+- suggest/propose race (file lock in both);
+- rounds (extras per `boq_revision_id`);
+- fallback % store;
+- `open_pricing_file` RFQ check;
+- cost basis frozen under review (in-file prices only, `gm_pending` and `gm_approved`);
+- RFQ moved to another deal (re-point, never auto-close);
+- Zayed as the only finance manager (selling inputs are the GM's, and the selling screen says who reviews);
+- placeholder RFQ (kept, a pricer closes it);
+- no backfill (`/pricing` "Open a pricing file for a deal").
+
+**Open point to confirm with Zayed:** extras and logistics are allocated to lines by materials + installation. Freight and customs could follow materials only. Totals do not change; per-line figures in the quotation do.
+
+**Known trade-offs:**
+- Re-entering a supplier's prices overwrites them in place; the audit has no price history.
+- A non-SAR quote is left unpriced; margin and `below_floor` are NULL while any line is unpriced.
+- Finance changing the global default margin moves lines priced by default; propose's stale check (total and total cost) protects Kalas.
+
+**Contract for PR 3 (supplier portal):**
+- Never set `supplier_quote_lines.is_selected` in pricing files: `pricing_file_build_price` refuses a revision with a selected line.
+- The grid takes the latest current, non-cancelled quote per line and refuses a line with two (`multi_quote_lines`).
+- The 7B exception for a frozen revision exists only inside `pricing_enter_supplier_quote`. The portal needs its own entry path (same flag pattern, or a supplier-role policy) and must keep the file-at-supplier condition.
+- Returned lines reopen (spec §2) and are not built yet. `supplier_invitations`, the `supplier` role, `profiles.vendor_id`, and attaching the supplier's original file are PR 3.
+- Notifications for supplier steps.
+
+**Contract for PR 4 (review, quotation, sales status, client rounds):**
+- Zayed approves with the existing in-file move (`internal_prices.status gm_pending → gm_approved`). PR 1's guard already checks finance, the GM's proposal, never his own and never his figure.
+- The approved per-line figures are `pricing_file_lines.built_selling_price` / `built_cost` from the last build. The quotation subtotal must equal `internal_prices.proposed_price`, which equals Σ `built_selling_price`.
+- Returning *selected* lines from `price_review`: PR 1's `pricing_file_move(…, 'at_supplier', note)` returns the price. Choosing the lines and reopening only them is PR 4.
+- Client round (`quoted → boq_frozen`):
+  - `pricing_boq_import`, `pricing_boq_line_delete`, `pricing_file_attach_revision` and `pricing_file_freeze_boq` accept `package_review` only. PR 4 adds the quoted-round entry: a new draft revision while `quoted`, frozen through `pricing_file_move(…, 'boq_frozen')`, whose check needs a revision frozen after the last quote.
+  - Extras then start a new round by themselves.
+- The opportunity page's pricing state for sales: reps cannot read `pricing_queue` (cost readers only). Read `pricing_files` (readable with the deal, no cost) and `pricing_file_events` with listed columns.
+- The rep answering missing items from their own screen (PR 2 has the pricer record it), and the Approval and Quotations tabs.
+- Notifications for review, return and quotation steps.
+
+**Carried minor items (not done; pick up in PR 3/PR 4 or a clean-up):**
+- Link helper reads `estimations` unlocked (TOCTOU on `boq_revision_id`); lock order should be estimation, price, file.
+- `pricing_decide_extra` (PR 1) has no upper bound on quantity or rate; no index on `pricing_file_extras.boq_revision_id`.
+- `current_date` for "in force since" is UTC, so it lags Riyadh by 3 hours (00:00–03:00).
+- Pricers can still write `installation_rates` directly (audited; the future-date rule is RPC-only).
+- `pricing_file_set_line` lets a GM delegate without cost access set margins on a grid they cannot see.
+- `canSuggestExtras` helper in `src/lib/pricing-access.ts` is not wired everywhere it could be.
+- Settings: a rights-query error shows "no access" (use `QueryFailure`); the catalog Save is silently disabled for a short or Arabic-only code, and a duplicate code shows a raw 23505.
+- Checklist ticks on the Package tab are local to the browser.
+- `BoqLineForm` typed path uses plain `Number()`.
+- Propose gate applies to prices linked to a file with built lines; a hand-linked never-built fixture bypasses it (unreachable in production: Build is the only linker).
+- `sellingFromMargin` returns null for a margin of −100 or below (SQL computes it; the database never stores it).
+
+**Follow-ups found while planning (not done):**
+- PR 1's pricing tables (`pricing_files`, `pricing_file_events`, `installation_rates`, `pricing_extras_catalog`, `logistics_rates`, `pricing_file_extras`) lack the restrictive `audit_session_boundary` policy that later tables carry. PR 2's new tables have it.
+- `estimations_frozen_under_review` does not lock the price row, so an estimation edit at the exact moment of a propose is not serialized. The propose recomputes from what is stored.
+
 ## 2026-11-03 — Pricing loop foundation (branch `feat/pricing-loop-foundation`, worktree `~/dev/phc-pricing`)
 
 Spec `docs/superpowers/specs/2026-11-03-pricing-loop-design.md`; plan `docs/superpowers/plans/2026-11-03-pricing-loop-foundation.md`. Commercial & Finance part 1, PR 1 of 5: **database foundation only, no screens**. Migrations `20261103100000` (`pricing_files`, events, one open file per deal, auto-opened from its RFQ), `20261103110000` (enforced path, needs-info RPCs), `20261103120000` (installation rates, extras catalog, logistics rates, structured BOQ attributes, `unit_cost_with_screen`), `20261103130000` (cost calculation), `20261103140000` (Kalas sets the price, Zayed reviews it; guard rewrite), `20261103150000` (`can_read_commercial_cost` gains `sales_manager`). pgTAP per migration; `src/lib/pricing.ts` mirror, `pricing.contract.test.ts`, `pricing-actions.ts` (SQL RPC wrappers). Actions are SQL RPCs, not `sales-os-api`, so **no function deploy**.
