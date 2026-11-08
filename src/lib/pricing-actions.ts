@@ -456,3 +456,26 @@ export async function getMarginFloor(): Promise<MarginFloorRow | null> {
 }
 export const setMarginFloor = (pct: number, rationale: string) =>
   call("pricing_set_margin_floor", { _min_margin_pct: pct, _rationale: rationale });
+
+// ---- Entry on behalf of the supplier (Task 14) ---------------------------------
+
+export const listVendors = () => rows<{ id: string; name: string }>(db.from("vendors").select("id, name").order("name"));
+
+export type SupplierPriceInput = {
+  boq_line_id: string;
+  unit_cost: number | null;
+  unit_cost_with_screen: number | null;
+  alternate_spec: string | null;
+};
+export const enterSupplierQuote = (
+  fileId: string,
+  vendorId: string,
+  lines: SupplierPriceInput[],
+  terms: { lead_time_days?: number | null; payment_terms?: string | null; valid_until?: string | null; currency?: string | null },
+) =>
+  call<{ supplier_quote_id: string; lines: number }>("pricing_enter_supplier_quote", {
+    _file_id: fileId,
+    _vendor_id: vendorId,
+    _lines: lines,
+    _terms: terms,
+  });

@@ -12,12 +12,13 @@ import { canPricerMove } from "@/lib/pricing";
 import { listBoqLines, listSupplierCosts, movePricingFile, type BoqLineRow, type SupplierCostRow } from "@/lib/pricing-actions";
 import { daysWaiting } from "@/lib/pricing-access";
 import { dbMessage, pick, type Bi } from "@/lib/pricing-text";
+import { SupplierEntryForm } from "@/components/phc/pricing/SupplierEntryForm";
 import type { PricingTabProps } from "@/components/phc/pricing/types";
 
 const TEXT = {
   title: { en: "Supplier", ar: "المورد" },
   notYet: { en: "The BOQ is frozen first, on the Package tab.", ar: "تُجمَّد الكميات أولاً من تبويب الباكيج." },
-  howToday: { en: "The supplier portal is not ready yet. Send the frozen BOQ and the files to the supplier as you do today, then mark it sent here. The supplier sees the project code only.", ar: "بوابة المورد ليست جاهزة بعد. أرسل الكميات المجمّدة والملفات للمورد كما تفعل اليوم، ثم سجّل الإرسال هنا. يرى المورد رمز المشروع فقط." },
+  howToday: { en: "The supplier portal is not ready yet. Send the frozen BOQ and the files to the supplier as you do today, mark it sent here, then enter the supplier's prices on their behalf when they answer. The supplier sees the project code only.", ar: "بوابة المورد ليست جاهزة بعد. أرسل الكميات المجمّدة والملفات للمورد كما تفعل اليوم، وسجّل الإرسال هنا، ثم أدخل أسعار المورد نيابة عنه حين يرد. يرى المورد رمز المشروع فقط." },
   send: { en: "Mark as sent to the supplier", ar: "سجّل الإرسال للمورد" },
   sent: { en: "Marked as sent", ar: "سُجّل الإرسال" },
   atSupplier: { en: "At the supplier since", ar: "عند المورد منذ" },
@@ -180,7 +181,9 @@ export function SupplierTab({ file, rights, onChanged }: PricingTabProps) {
                   ) : null}
                 </>
               ) : null}
-              {/* Task 14: SupplierEntryForm */}
+              {rights.is_pricer && rights.can_read_cost && revisionId != null ? (
+                <SupplierEntryForm file={file} rights={rights} onChanged={onChanged} />
+              ) : null}
               {rights.is_pricer && canPricerMove("at_supplier", "supplier_priced") ? (
                 confirming ? (
                   <div className="flex flex-wrap items-center gap-2">
