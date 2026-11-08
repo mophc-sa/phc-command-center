@@ -12,7 +12,7 @@ const phcLogo = { url: "/phc-logo.png" };
 export const Route = createFileRoute("/mfa-verify")({
   validateSearch: (s: Record<string, unknown>): { next?: string } => ({
     // Same rule as /auth: only a same-site path survives.
-    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") && !s.next.startsWith("/\\") ? s.next : undefined,
   }),
   head: () => ({
     meta: [

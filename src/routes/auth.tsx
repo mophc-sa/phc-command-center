@@ -12,7 +12,7 @@ const phcLogo = { url: "/phc-logo.png" };
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>) => ({
-    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : "",
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") && !s.next.startsWith("/\\") ? s.next : "",
   }),
   head: () => ({
     meta: [

@@ -33,7 +33,7 @@ async function enrollTotpFactor() {
 export const Route = createFileRoute("/mfa-setup")({
   validateSearch: (s: Record<string, unknown>): { next?: string } => ({
     // Same rule as /auth: only a same-site path survives.
-    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") && !s.next.startsWith("/\\") ? s.next : undefined,
   }),
   head: () => ({
     meta: [
