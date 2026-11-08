@@ -4,21 +4,22 @@
 -- deletable supplier role row: 8a..07 is a vendor-linked profile with no role row.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(83);
+select plan(92);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 select '00000000-0000-0000-0000-000000000000', ('8a000000-0000-0000-0000-00000000000' || n)::uuid,
        'authenticated','authenticated', r || '+test@phc-sa.com', now(),
        '{"provider":"email","providers":["email"]}','{}', now(), now()
-  from (values (1,'sa-rep'),(2,'sa-pricer'),(3,'sa-gm'),(4,'sa-supplier'),(5,'sa-admin'),(6,'sa-new'),(7,'sa-linked')) v(n, r);
+  from (values (1,'sa-rep'),(2,'sa-pricer'),(3,'sa-gm'),(4,'sa-supplier'),(5,'sa-admin'),(6,'sa-new'),(7,'sa-linked'),(8,'sa-bd'),(9,'sa-staff')) v(n, r);
 update public.profiles set status = 'active' where id::text like '8a000000-%' and id <> '8a000000-0000-0000-0000-000000000006';
 insert into public.user_roles (user_id, role) values
   ('8a000000-0000-0000-0000-000000000001','salesperson'),
   ('8a000000-0000-0000-0000-000000000002','estimation_manager'),
   ('8a000000-0000-0000-0000-000000000002','finance_manager'),
   ('8a000000-0000-0000-0000-000000000003','general_manager'),
-  ('8a000000-0000-0000-0000-000000000005','system_admin');
+  ('8a000000-0000-0000-0000-000000000005','system_admin'),
+  ('8a000000-0000-0000-0000-000000000008','bd_manager');
 insert into public.vendors (id, name) values
   ('8a100001-0000-0000-0000-000000000001','sa Vendor One Co'),
   ('8a100002-0000-0000-0000-000000000001','SA VENDOR ONE co.');
@@ -40,6 +41,10 @@ insert into public.tasks (title, owner_id, due_date, status, source, created_by)
 set local session_replication_role = origin;
 insert into public.opportunities (id, project_name, owner_id, created_by, sales_stage) values
   ('8a200001-0000-0000-0000-000000000001','sa-deal-1','8a000000-0000-0000-0000-000000000001','8a000000-0000-0000-0000-000000000001','rfq_received');
+insert into public.boqs (id, related_opportunity_id, title) values ('8a400001-0000-0000-0000-000000000001','8a200001-0000-0000-0000-000000000001','sa-boq');
+insert into public.boq_revisions (id, boq_id, revision_number) values ('8a500001-0000-0000-0000-000000000001','8a400001-0000-0000-0000-000000000001',1);
+insert into public.estimations (id, boq_revision_id, cost_total) values ('8a700001-0000-0000-0000-000000000001','8a500001-0000-0000-0000-000000000001',1000);
+insert into public.internal_prices (id, estimation_id, proposed_price, status) values ('8a800001-0000-0000-0000-000000000001','8a700001-0000-0000-0000-000000000001',2000,'internal_price_proposed');
 insert into public.automation_runs (trigger) values ('sa-probe');
 insert into public.margin_policies (min_margin_pct, effective_from, rationale) values (12, now() - interval '1 day', 'sa-floor');
 
@@ -242,11 +247,42 @@ select is(public.supplier_account_email('8a000000-0000-0000-0000-00000000000a'),
 select throws_ok($$select public.supplier_account_email('8a000000-0000-0000-0000-000000000001')$$,
   '23514', null, 'No set-password link for a staff account through this path');
 
+-- The cost basis: a signed-in account that cannot read cost gets nothing; the
+-- Phase 8 margin trigger still computes it for a pipeline user without cost rights.
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"8a000000-0000-0000-0000-000000000001","role":"authenticated","aal":"aal2"}',true);
+select is(public.estimation_cost_basis('8a700001-0000-0000-0000-000000000001'), null::numeric,
+  'A signed-in rep gets no cost basis');
+select set_config('request.jwt.claims','{"sub":"8a000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select isnt(public.estimation_cost_basis('8a700001-0000-0000-0000-000000000001'), null::numeric,
+  'A cost reader gets it (the rep''s NULL is the gate, not a missing estimation)');
+reset role;
+select set_config('request.jwt.claims','{"sub":"8a000000-0000-0000-0000-000000000008","role":"authenticated","aal":"aal2"}',true);
+update public.internal_prices set proposed_price = 2500 where id = '8a800001-0000-0000-0000-000000000001';
+select is((select margin_percentage from public.internal_prices where id = '8a800001-0000-0000-0000-000000000001'),
+  60.00::numeric,  -- (2500 - cost 1000) / 2500
+  'A pipeline user without cost rights (bd_manager) still gets the margin computed by the trigger');
+select isnt((select margin_percentage from public.internal_prices where id = '8a800001-0000-0000-0000-000000000001'), null::numeric,
+  'The margin is a figure, not NULL');
+
 -- Retiring an account: suspend and unlink (service role), or delete the sign-in account.
 set local role service_role;
 select set_config('request.jwt.claims','',true);
 select lives_ok($$update public.profiles set status = 'suspended', vendor_id = null where id = '8a000000-0000-0000-0000-000000000007'$$,
   'A suspended account can be unlinked');
+-- An unlinked ex-supplier does not become staff, suspended or reactivated.
+select lives_ok($$update public.profiles set status = 'suspended', vendor_id = null where id = '8a000000-0000-0000-0000-00000000000a'$$,
+  'The activated account is suspended and unlinked');
+-- With the supplier role row gone too, only the supplier history remains to stop it.
+select lives_ok($$delete from public.user_roles where user_id = '8a000000-0000-0000-0000-00000000000a'$$,
+  'An unlinked account''s supplier role can be removed');
+select throws_ok($$insert into public.user_roles (user_id, role) values ('8a000000-0000-0000-0000-00000000000a','salesperson')$$,
+  '23514', null, 'An unlinked ex-supplier cannot be given a staff role');
+update public.profiles set status = 'active' where id = '8a000000-0000-0000-0000-00000000000a';
+select throws_ok($$insert into public.user_roles (user_id, role) values ('8a000000-0000-0000-0000-00000000000a','general_manager')$$,
+  '23514', null, 'Nor once it is reactivated');
+select lives_ok($$insert into public.user_roles (user_id, role) values ('8a000000-0000-0000-0000-000000000009','salesperson')$$,
+  'A normal staff account is given a role as before');
 reset role;  -- as GoTrue's admin delete does it
 select lives_ok($$delete from auth.users where id = '8a000000-0000-0000-0000-00000000000a'$$,
   'Deleting a supplier''s sign-in account removes its role with it');

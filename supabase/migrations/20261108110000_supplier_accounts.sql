@@ -174,6 +174,14 @@ BEGIN
   ELSIF EXISTS (SELECT 1 FROM public.user_roles r WHERE r.user_id = NEW.user_id AND r.role = 'supplier')
      OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = NEW.user_id AND p.vendor_id IS NOT NULL) THEN
     RAISE EXCEPTION 'A supplier account holds no other role. | حساب المورد لا يحمل دوراً آخر.' USING ERRCODE = '23514';
+  ELSIF EXISTS (
+          -- Ever a supplier: an account request was activated for this user, or
+          -- one names this non-PHC address. Unlinking does not make it staff.
+          SELECT 1 FROM public.supplier_account_invites i
+           WHERE i.user_id = NEW.user_id
+              OR i.email = (SELECT lower(u.email) FROM auth.users u
+                             WHERE u.id = NEW.user_id AND u.email !~* '@phc-sa\.com$')) THEN
+    RAISE EXCEPTION 'A former supplier account cannot become staff. | حساب مورد سابق لا يصبح حساب موظف.' USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
 END $$;
