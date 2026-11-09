@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 8b prefix. Every session carries aal2.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(63);
+select plan(68);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -78,21 +78,28 @@ insert into public.documents (id, storage_bucket, storage_path, original_filenam
   ('8b700003-0000-0000-0000-000000000001','attachments','opportunity/8b1/missing.pdf','missing.pdf','application/pdf',1000,repeat('c',64),'drawing','8b000000-0000-0000-0000-000000000001'),
   ('8b700004-0000-0000-0000-000000000001','attachments','opportunity/8b3/plan.dwg','plan.dwg','application/octet-stream',1000,repeat('d',64),'drawing','8b000000-0000-0000-0000-000000000001'),
   ('8b700005-0000-0000-0000-000000000001','attachments','opportunity/8b4/plan.pdf','four.pdf','application/pdf',1000,repeat('e',64),'drawing','8b000000-0000-0000-0000-000000000001'),
-  ('8b700006-0000-0000-0000-000000000001','attachments','opportunity/8b5/plan.pdf','five.pdf','application/pdf',1000,repeat('f',64),'drawing','8b000000-0000-0000-0000-000000000001');
+  ('8b700006-0000-0000-0000-000000000001','attachments','opportunity/8b5/plan.pdf','five.pdf','application/pdf',1000,repeat('f',64),'drawing','8b000000-0000-0000-0000-000000000001'),
+  ('8b700007-0000-0000-0000-000000000001','attachments','opportunity/8b1/huge.pdf','huge.pdf','application/pdf',1000,repeat('7',64),'drawing','8b000000-0000-0000-0000-000000000001'),
+  ('8b700008-0000-0000-0000-000000000001','attachments','opportunity/8b1/nosize.pdf','nosize.pdf','application/pdf',1000,repeat('8',64),'drawing','8b000000-0000-0000-0000-000000000001');
 insert into public.document_links (document_id, entity_type, entity_id, linked_by) values
   ('8b700001-0000-0000-0000-000000000001','opportunity','8b200001-0000-0000-0000-000000000001','8b000000-0000-0000-0000-000000000001'),
   ('8b700002-0000-0000-0000-000000000001','opportunity','8b200002-0000-0000-0000-000000000001','8b000000-0000-0000-0000-000000000001'),
   ('8b700003-0000-0000-0000-000000000001','opportunity','8b200001-0000-0000-0000-000000000001','8b000000-0000-0000-0000-000000000001'),
   ('8b700004-0000-0000-0000-000000000001','opportunity','8b200003-0000-0000-0000-000000000001','8b000000-0000-0000-0000-000000000001'),
   ('8b700005-0000-0000-0000-000000000001','opportunity','8b200004-0000-0000-0000-000000000001','8b000000-0000-0000-0000-000000000001'),
-  ('8b700006-0000-0000-0000-000000000001','opportunity','8b200005-0000-0000-0000-000000000001','8b000000-0000-0000-0000-000000000001');
+  ('8b700006-0000-0000-0000-000000000001','opportunity','8b200005-0000-0000-0000-000000000001','8b000000-0000-0000-0000-000000000001'),
+  ('8b700007-0000-0000-0000-000000000001','opportunity','8b200001-0000-0000-0000-000000000001','8b000000-0000-0000-0000-000000000001'),
+  ('8b700008-0000-0000-0000-000000000001','opportunity','8b200001-0000-0000-0000-000000000001','8b000000-0000-0000-0000-000000000001');
 -- The first file's storage object reports its own ETag, different from the documents row's checksum.
 insert into storage.objects (bucket_id, name, owner, version, metadata) values
-  ('attachments','opportunity/8b1/plan.pdf','8b000000-0000-0000-0000-000000000001','v1','{"eTag":"\"etag-of-the-bytes-sent\""}'),
-  ('attachments','opportunity/8b2/plan.pdf','8b000000-0000-0000-0000-000000000001','v1',null),
-  ('attachments','opportunity/8b3/plan.dwg','8b000000-0000-0000-0000-000000000001','v1',null),
-  ('attachments','opportunity/8b4/plan.pdf','8b000000-0000-0000-0000-000000000001','v1',null),
-  ('attachments','opportunity/8b5/plan.pdf','8b000000-0000-0000-0000-000000000001','v1',null);
+  ('attachments','opportunity/8b1/plan.pdf','8b000000-0000-0000-0000-000000000001','v1','{"eTag":"\"etag-of-the-bytes-sent\"","size":1000}'),
+  ('attachments','opportunity/8b2/plan.pdf','8b000000-0000-0000-0000-000000000001','v1','{"size":1000}'),
+  ('attachments','opportunity/8b3/plan.dwg','8b000000-0000-0000-0000-000000000001','v1','{"size":1000}'),
+  ('attachments','opportunity/8b4/plan.pdf','8b000000-0000-0000-0000-000000000001','v1','{"size":1000}'),
+  ('attachments','opportunity/8b5/plan.pdf','8b000000-0000-0000-0000-000000000001','v1','{"size":1000}'),
+  -- Item 5: larger than the 25 MB download cap, and a size storage did not report.
+  ('attachments','opportunity/8b1/huge.pdf','8b000000-0000-0000-0000-000000000001','v1','{"size":26214401}'),
+  ('attachments','opportunity/8b1/nosize.pdf','8b000000-0000-0000-0000-000000000001','v1','{"eTag":"\"x\""}');
 -- Riyadh's date, read once as the owner (the helper is internal).
 create temp table si_today (d date);
 insert into si_today select public._pricing_today();
@@ -114,6 +121,12 @@ select throws_ok($$select public.pricing_send_to_supplier('8b600001-0000-0000-00
   current_date + 7, array['8b700002-0000-0000-0000-000000000001']::uuid[])$$, '23514', null, 'Another deal''s file is refused');
 select throws_ok($$select public.pricing_send_to_supplier('8b600001-0000-0000-0000-000000000001','8b100001-0000-0000-0000-000000000001',
   current_date + 7, array['8b700003-0000-0000-0000-000000000001']::uuid[])$$, '23514', null, 'A file missing from storage is refused');
+select throws_ok($$select public.pricing_send_to_supplier('8b600001-0000-0000-0000-000000000001','8b100001-0000-0000-0000-000000000001',
+  current_date + 7, array['8b700001-0000-0000-0000-000000000001','8b700007-0000-0000-0000-000000000001']::uuid[])$$, '23514', null,
+  'A file over 25 MB (the download cap) is refused');
+select throws_ok($$select public.pricing_send_to_supplier('8b600001-0000-0000-0000-000000000001','8b100001-0000-0000-0000-000000000001',
+  current_date + 7, array['8b700008-0000-0000-0000-000000000001']::uuid[])$$, '23514', null,
+  'A file whose storage size is unknown is refused');
 select throws_ok($$select public.pricing_send_to_supplier('8b600002-0000-0000-0000-000000000001','8b100001-0000-0000-0000-000000000001',
   current_date + 7, array['8b700002-0000-0000-0000-000000000001']::uuid[])$$, 'P0001', null, 'A file still in package review cannot be sent');
 select throws_ok($$select public.pricing_send_to_supplier('8b600001-0000-0000-0000-000000000001','8b10000f-0000-0000-0000-000000000001',
@@ -282,9 +295,14 @@ set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"8b000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
 select throws_ok(format($$select public.pricing_extend_invitation('%s', current_date + 3)$$, (select id from si_five)),
   'P0001', null, 'The reply-by date of a closed file''s request cannot be changed');
-select throws_ok(format($$select public.pricing_cancel_invitation('%s', 'tidy up')$$, (select id from si_five)),
-  'P0001', null, 'A closed file''s request cannot be cancelled either');
-select is(((select status from public.supplier_invitations where id = (select id from si_five))), 'sent', 'It stays as it was (task 3 hides it from the supplier)');
+select is((public.pricing_cancel_invitation((select id from si_five), 'tidy up'))->>'status', 'cancelled',
+  'A closed file''s stale open request can still be cancelled');
+reset role;
+select ok(exists (select 1 from public.audit_log where action = 'pricing_file.supplier_request_cancelled'
+  and after_value->>'invitation_id' = (select id::text from si_five) and after_value->>'live' = 'false'),
+  'and the audit row says it was no longer live');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"8b000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
 -- The date limits of an extension.
 select lives_ok(format($$select public.pricing_extend_invitation('%s', '%s'::date)$$, (select id from public.supplier_invitations where file_id = '8b600001-0000-0000-0000-000000000001' and status = 'sent'), (select d from si_today)),
   'Today in Riyadh is a valid new reply-by date');
@@ -292,6 +310,23 @@ select lives_ok(format($$select public.pricing_extend_invitation('%s', '%s'::dat
   'and so is 180 days out');
 select throws_ok(format($$select public.pricing_extend_invitation('%s', '%s'::date)$$, (select id from public.supplier_invitations where file_id = '8b600001-0000-0000-0000-000000000001' and status = 'sent'), (select d + 181 from si_today)),
   '23514', null, 'but 181 days is not');
+
+-- A stale open request (its file moved back to boq_frozen, e.g. a client round) never blocks the next send.
+create temp table si_one (id uuid);
+insert into si_one select id from public.supplier_invitations where file_id = '8b600001-0000-0000-0000-000000000001' and status = 'sent';
+grant select on si_one to authenticated;
+reset role;
+set local session_replication_role = replica;
+update public.pricing_files set state = 'boq_frozen' where id = '8b600001-0000-0000-0000-000000000001';
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"8b000000-0000-0000-0000-000000000002","role":"authenticated","aal":"aal2"}',true);
+select throws_ok($$select public.pricing_send_to_supplier('8b600001-0000-0000-0000-000000000001','8b100001-0000-0000-0000-000000000001',
+  current_date + 7, array['8b700001-0000-0000-0000-000000000001']::uuid[])$$, 'P0001', null, 'The stale open request still blocks a send');
+select is((public.pricing_cancel_invitation((select id from si_one), 'Client round'))->>'status', 'cancelled',
+  'The pricer cancels the stale request although its file is no longer at the supplier');
+select lives_ok($$select public.pricing_send_to_supplier('8b600001-0000-0000-0000-000000000001','8b100001-0000-0000-0000-000000000001',
+  current_date + 7, array['8b700001-0000-0000-0000-000000000001']::uuid[])$$, 'and the file can be sent again');
 
 select * from finish();
 rollback;

@@ -52,8 +52,8 @@ insert into public.document_links (document_id, entity_type, entity_id, linked_b
 select ('8e70000' || n || '-0000-0000-0000-000000000001')::uuid, 'opportunity', ('8e20000' || n || '-0000-0000-0000-000000000001')::uuid,
        '8e000000-0000-0000-0000-000000000001'
   from generate_series(1,4) n;
-insert into storage.objects (bucket_id, name, owner, version)
-select 'attachments', 'opportunity/8e' || n || '/a.pdf', '8e000000-0000-0000-0000-000000000001', 'v1' from generate_series(1,4) n;
+insert into storage.objects (bucket_id, name, owner, version, metadata)
+select 'attachments', 'opportunity/8e' || n || '/a.pdf', '8e000000-0000-0000-0000-000000000001', 'v1', '{"size": 1000}' from generate_series(1,4) n;
 
 create temp table rt_ref (k text, v text);
 grant all on rt_ref to authenticated;

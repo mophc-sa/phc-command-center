@@ -57,9 +57,9 @@ insert into public.document_links (document_id, entity_type, entity_id, linked_b
   ('8d700001-0000-0000-0000-000000000001','opportunity','8d200001-0000-0000-0000-000000000001','8d000000-0000-0000-0000-000000000001'),
   ('8d700002-0000-0000-0000-000000000001','opportunity','8d200002-0000-0000-0000-000000000001','8d000000-0000-0000-0000-000000000001'),
   ('8d700003-0000-0000-0000-000000000001','opportunity','8d200002-0000-0000-0000-000000000001','8d000000-0000-0000-0000-000000000002');
-insert into storage.objects (bucket_id, name, owner, version) values
-  ('attachments','opportunity/8d1/a.pdf','8d000000-0000-0000-0000-000000000001','v1'),
-  ('attachments','opportunity/8d2/b.pdf','8d000000-0000-0000-0000-000000000001','v1');
+insert into storage.objects (bucket_id, name, owner, version, metadata) values
+  ('attachments','opportunity/8d1/a.pdf','8d000000-0000-0000-0000-000000000001','v1','{"size": 1000}'),
+  ('attachments','opportunity/8d2/b.pdf','8d000000-0000-0000-0000-000000000001','v1','{"size": 1000}');
 
 -- Fix round 1 fixtures: deals 3 (file moves off), 4 (cancelled), 5 (stale request on an earlier revision),
 -- 6 (2001 lines), 7 (USD BOQ), 8 (price x quantity overflow).
@@ -102,8 +102,8 @@ select ('8d70001' || n || '-0000-0000-0000-000000000001')::uuid, 'attachments', 
 insert into public.document_links (document_id, entity_type, entity_id, linked_by)
 select ('8d70001' || n || '-0000-0000-0000-000000000001')::uuid, 'opportunity', ('8d20000' || n || '-0000-0000-0000-000000000001')::uuid,
        '8d000000-0000-0000-0000-000000000001' from generate_series(3,8) n;
-insert into storage.objects (bucket_id, name, owner, version)
-select 'attachments', 'opportunity/8d' || n || '/f.pdf', '8d000000-0000-0000-0000-000000000001', 'v1' from generate_series(3,8) n;
+insert into storage.objects (bucket_id, name, owner, version, metadata)
+select 'attachments', 'opportunity/8d' || n || '/f.pdf', '8d000000-0000-0000-0000-000000000001', 'v1', '{"size": 1000}' from generate_series(3,8) n;
 -- Deal 5: a stale open request for another supplier on the EARLIER revision (the file has since moved to revision 2).
 insert into public.supplier_invitations (id, file_id, boq_revision_id, vendor_id, project_code, reply_by, status)
 select '8d900005-0000-0000-0000-000000000001', '8d600005-0000-0000-0000-000000000001', '8d500005-0000-0000-0000-000000000001',

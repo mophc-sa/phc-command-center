@@ -16,8 +16,9 @@
 -- at_supplier by then, which the flag requires).
 --
 -- An open request stays 'sent'/'opened' if its file later moves past at_supplier
--- or closes: the portal functions (Task 3) filter on the file's state, and
--- cancel/extend refuse a file that is no longer at the supplier.
+-- or closes: the portal functions (Task 3) filter on the file's state, extend
+-- refuses a file that is no longer at the supplier, and cancel accepts any open
+-- request whatever the file's state, so a stale one never blocks the next send.
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS public.supplier_invitations (
@@ -178,6 +179,14 @@ BEGIN
                                  WHERE o.bucket_id = dd.storage_bucket AND o.name = dd.storage_path)) THEN
     RAISE EXCEPTION 'A file is missing from storage; upload it again. | أحد الملفات غير موجود في التخزين؛ ارفعه مجدداً.' USING ERRCODE = '23514';
   END IF;
+  -- The supplier download (sales-os-api) loads the bytes into memory and refuses
+  -- an object over 25 MB or of unknown size; a file it could never serve is not sent.
+  IF EXISTS (SELECT 1 FROM unnest(_document_ids) x JOIN public.documents dd ON dd.id = x
+               JOIN storage.objects o ON o.bucket_id = dd.storage_bucket AND o.name = dd.storage_path
+              WHERE CASE WHEN o.metadata->>'size' ~ '^[0-9]{1,18}$'
+                         THEN (o.metadata->>'size')::bigint > 26214400 ELSE true END) THEN
+    RAISE EXCEPTION 'A file is over 25 MB, or storage does not report its size; the supplier could not download it. Send a smaller file. | أحد الملفات أكبر من 25 ميغابايت أو حجمه غير معروف في التخزين؛ لن يستطيع المورد تنزيله. أرسل ملفاً أصغر.' USING ERRCODE = '23514';
+  END IF;
   SELECT o.project_code INTO code FROM public.opportunities o WHERE o.id = f.opportunity_id;
   IF code IS NULL THEN
     RAISE EXCEPTION 'The deal has no project code; the supplier sees the project code only. | لا رمز مشروع للفرصة؛ المورد يرى رمز المشروع فقط.' USING ERRCODE = 'P0001';
@@ -268,7 +277,8 @@ GRANT EXECUTE ON FUNCTION public.pricing_send_to_supplier(uuid, uuid, date, uuid
 
 CREATE OR REPLACE FUNCTION public.pricing_cancel_invitation(_invitation_id uuid, _reason text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE u uuid := auth.uid(); inv public.supplier_invitations; fid uuid; opp uuid; fstate public.pricing_file_state; r text := btrim(coalesce(_reason, ''));
+DECLARE u uuid := auth.uid(); inv public.supplier_invitations; fid uuid; opp uuid; fstate public.pricing_file_state;
+        frev uuid; was_live boolean; r text := btrim(coalesce(_reason, ''));
 BEGIN
   IF NOT public.is_pricer(u) THEN
     RAISE EXCEPTION 'Only estimation or finance cancel a supplier request. | إلغاء طلب المورد للتقدير أو المالية.' USING ERRCODE = '42501';
@@ -281,20 +291,21 @@ BEGIN
     RAISE EXCEPTION 'Unknown supplier request. | طلب المورد غير موجود.' USING ERRCODE = '23514';
   END IF;
   -- Lock order: the file, then its request.
-  SELECT f.opportunity_id, f.state INTO opp, fstate FROM public.pricing_files f WHERE f.id = fid FOR UPDATE;
+  SELECT f.opportunity_id, f.state, f.boq_revision_id INTO opp, fstate, frev FROM public.pricing_files f WHERE f.id = fid FOR UPDATE;
   SELECT * INTO inv FROM public.supplier_invitations WHERE id = _invitation_id FOR UPDATE;
-  IF fstate <> 'at_supplier' THEN
-    RAISE EXCEPTION 'The file is no longer at the supplier. | الملف لم يعد عند المورد.' USING ERRCODE = 'P0001';
-  END IF;
   IF inv.status NOT IN ('sent','opened','reopened') THEN
     RAISE EXCEPTION 'Only an open request can be cancelled. | يُلغى الطلب المفتوح فقط.' USING ERRCODE = 'P0001';
   END IF;
+  -- Any open request may be cancelled, live or not: one whose file moved past the
+  -- supplier or closed (or went to another revision) would otherwise block the
+  -- file's next send for ever (one open request per file).
+  was_live := fstate = 'at_supplier' AND frev IS NOT DISTINCT FROM inv.boq_revision_id;
   UPDATE public.supplier_invitations
      SET status = 'cancelled', cancelled_by = u, cancelled_at = now(), cancel_reason = r, updated_at = now()
    WHERE id = inv.id RETURNING * INTO inv;
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (u, 'user', 'pricing_file.supplier_request_cancelled', 'opportunity', opp,
-          jsonb_build_object('file_id', fid, 'invitation_id', inv.id));
+          jsonb_build_object('file_id', fid, 'invitation_id', inv.id, 'live', was_live));
   RETURN jsonb_build_object('invitation_id', inv.id, 'status', inv.status);
 END $$;
 REVOKE ALL ON FUNCTION public.pricing_cancel_invitation(uuid, text) FROM PUBLIC, anon;

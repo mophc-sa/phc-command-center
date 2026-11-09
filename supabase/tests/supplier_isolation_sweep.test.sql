@@ -71,8 +71,8 @@ insert into public.document_links (document_id, entity_type, entity_id, linked_b
 select ('8f70000' || n || '-0000-0000-0000-000000000001')::uuid, 'opportunity', ('8f20000' || n || '-0000-0000-0000-000000000001')::uuid,
        '8f000000-0000-0000-0000-000000000001'
   from generate_series(1,2) n;
-insert into storage.objects (bucket_id, name, owner, version)
-select 'attachments', 'opportunity/8f' || n || '/a.pdf', '8f000000-0000-0000-0000-000000000001', 'v1' from generate_series(1,2) n;
+insert into storage.objects (bucket_id, name, owner, version, metadata)
+select 'attachments', 'opportunity/8f' || n || '/a.pdf', '8f000000-0000-0000-0000-000000000001', 'v1', '{"size": 1000}' from generate_series(1,2) n;
 -- The pricer sends file 1 to supplier A and file 2 to supplier B; a notification and an audit row exist.
 create temp table sw_ref (k text, v text);
 grant all on sw_ref to authenticated;
