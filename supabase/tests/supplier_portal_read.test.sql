@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 8c prefix. Sessions carry aal2 unless they say otherwise.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(57);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -192,7 +192,15 @@ select throws_ok(format($$select public._supplier_portal_file_location('%s', '%s
 select is((public._supplier_portal_file_location((select id from pr_inv where k = 'b'), (select v::uuid from pr_ref where k = 'file_b'),
   '8c000000-0000-0000-0000-000000000005'))->>'path', 'opportunity/8c2/b.pdf',
   'A file whose storage object had no updated time still downloads');
+select ok((select s->>'version' = l->>'object_version' and s->>'updated_at' = l->>'object_updated_at'
+             from (select public._supplier_portal_object_state((select v::uuid from pr_ref where k = 'file_a')) s,
+                          public._supplier_portal_file_location((select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a'),
+                                                                '8c000000-0000-0000-0000-000000000004') l) x),
+  'The re-read after a download matches the version and time the location checked');
 reset role;
+select ok(not has_function_privilege('authenticated', 'public._supplier_portal_object_state(uuid)', 'execute')
+          and not has_function_privilege('anon', 'public._supplier_portal_object_state(uuid)', 'execute'),
+  'The object re-read is for the service only');
 select ok(exists (select 1 from public.audit_log where action = 'supplier_portal.file_downloaded'
   and actor_id = '8c000000-0000-0000-0000-000000000004'), 'A download is audited');
 
@@ -214,6 +222,8 @@ select set_config('request.jwt.claims','{"role":"service_role"}',true);
 select throws_ok(format($$select public._supplier_portal_file_location('%s', '%s', '8c000000-0000-0000-0000-000000000004')$$,
   (select id from pr_inv where k = 'a'), (select v::uuid from pr_ref where k = 'file_a')),
   'P0001', null, 'And the service gets no location for it');
+select is(public._supplier_portal_object_state((select v::uuid from pr_ref where k = 'file_a'))->>'version', 'v2',
+  'The re-read sees the replaced object, so bytes read after a swap are refused');
 reset role;
 set local session_replication_role = replica;
 update storage.objects set version = 'v1', updated_at = updated_at + interval '1 second' where name = 'opportunity/8c1/a.pdf';

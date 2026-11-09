@@ -212,8 +212,25 @@ BEGIN
   INSERT INTO public.audit_log (actor_id, actor_type, action, entity_type, entity_id, after_value)
   VALUES (_supplier_user, 'user', 'supplier_portal.file_downloaded', 'opportunity', opp,
           jsonb_build_object('invitation_id', inv.id, 'file_id', sf.id, 'document_id', sf.document_id));
+  -- object_version / object_updated_at: what was just checked (equal to the object now);
+  -- sales-os-api compares them with _supplier_portal_object_state after reading the bytes.
   RETURN jsonb_build_object('bucket', sf.storage_bucket, 'path', sf.storage_path, 'name', sf.display_name,
-                            'mime_type', sf.mime_type, 'size_bytes', sz);
+                            'mime_type', sf.mime_type, 'size_bytes', sz,
+                            'object_version', sf.object_version, 'object_updated_at', sf.object_updated_at);
 END $$;
 REVOKE ALL ON FUNCTION public._supplier_portal_file_location(uuid, uuid, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._supplier_portal_file_location(uuid, uuid, uuid) TO service_role;
+
+-- The storage object's version and time now, at the path a request file was sent
+-- from (NULL when it is gone). sales-os-api reads it after downloading the bytes:
+-- if the object was replaced between the check and the read, the bytes are not
+-- served. Service role only; it answers no path and no name.
+CREATE OR REPLACE FUNCTION public._supplier_portal_object_state(_file_id uuid)
+RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT jsonb_build_object('version', o.version, 'updated_at', o.updated_at)
+    FROM public.supplier_invitation_files sf
+    JOIN storage.objects o ON o.bucket_id = sf.storage_bucket AND o.name = sf.storage_path
+   WHERE sf.id = _file_id;
+$$;
+REVOKE ALL ON FUNCTION public._supplier_portal_object_state(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._supplier_portal_object_state(uuid) TO service_role;

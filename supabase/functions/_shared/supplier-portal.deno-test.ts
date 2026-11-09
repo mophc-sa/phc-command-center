@@ -173,3 +173,87 @@ Deno.test("password_link: refused for an MFA-enrolled supplier unless system_adm
   assertEquals(failed.status, 502);
   assertEquals(failed.audits.length, 0);
 });
+
+// A fake sales-os-api context for the supplier-portal handlers: rpc answers by function name.
+type Answer = { data: unknown; error: { code?: string; message?: string } | null };
+function fakeContext(opts: {
+  roles: string[];
+  caller?: Record<string, Answer>;
+  service?: Record<string, Answer>;
+  download?: () => { data: Blob | null; error: unknown };
+  log?: string[];
+}) {
+  const log = opts.log ?? [];
+  const answer = (table: Record<string, Answer> | undefined, fn: string): Answer => {
+    log.push(fn);
+    return table?.[fn] ?? { data: null, error: { code: "XX000", message: `no fake for ${fn}` } };
+  };
+  return {
+    caller: { userId: "caller-1", roles: opts.roles },
+    asCaller: { rpc: async (fn: string) => answer(opts.caller, fn) },
+    svc: {
+      rpc: async (fn: string) => answer(opts.service, fn),
+      storage: { from: () => ({ download: async () => { log.push("download"); return opts.download?.() ?? { data: null, error: { message: "x" } }; } }) },
+      auth: { admin: { createUser: async () => ({ data: null, error: { message: "unused" } }) } },
+    },
+    audit: async () => ({ error: null }),
+  };
+}
+
+const NOT_AVAILABLE = "This file is not available. | هذا الملف غير متاح.";
+
+Deno.test("supplier-portal dbError: a supplier never gets Postgres' text; unknown codes get the fixed bilingual message", async () => {
+  const { supplierPortalModule, UNKNOWN_DB_ERROR } = await import("../sales-os-api/handlers/supplier-portal.ts");
+  const download = async (error: Answer["error"]) => {
+    const ctx = fakeContext({ roles: ["supplier"], caller: { supplier_portal_file: { data: null, error } } });
+    // deno-lint-ignore no-explicit-any
+    const res = await supplierPortalModule.handlers.supplier_file_download({ invitationId: "i", fileId: "f" }, ctx as any);
+    return { status: res.status, body: await res.json() };
+  };
+  // A rule the database raised for this supplier: the status follows the code, the text is the fixed one.
+  assertEquals(await download({ code: "42501", message: "relation supplier_invitations: secret detail" }), { status: 403, body: { error: NOT_AVAILABLE } });
+  assertEquals(await download({ code: "P0001", message: "This file changed or was removed after it was sent (bucket opportunity/123)" }), { status: 409, body: { error: NOT_AVAILABLE } });
+  assertEquals(await download({ code: "XX000", message: "could not open relation pg_toast_1234" }), { status: 409, body: { error: NOT_AVAILABLE } });
+  // Staff: the database's own bilingual rule text for the known codes, the fixed message for anything else.
+  const create = async (error: Answer["error"]) => {
+    const ctx = fakeContext({ roles: ["estimation_manager"], caller: { supplier_account_prepare: { data: null, error } } });
+    // deno-lint-ignore no-explicit-any
+    const res = await supplierPortalModule.handlers.supplier_account_create({ vendorId: "v", email: "s@factory.example", fullName: "S" }, ctx as any);
+    return { status: res.status, body: await res.json() };
+  };
+  assertEquals(await create({ code: "P0001", message: "This supplier already has an account. | لهذا المورد حساب." }),
+    { status: 409, body: { error: "This supplier already has an account. | لهذا المورد حساب." } });
+  assertEquals(await create({ code: "XX000", message: "deadlock detected on relation 12345" }), { status: 409, body: { error: UNKNOWN_DB_ERROR } });
+  assertEquals(await create({ code: undefined, message: "fetch failed: secret host" }), { status: 409, body: { error: UNKNOWN_DB_ERROR } });
+  assertEquals(UNKNOWN_DB_ERROR.includes(" | "), true);
+});
+
+Deno.test("supplier_file_download refuses bytes whose storage object changed after the check", async () => {
+  const { supplierPortalModule } = await import("../sales-os-api/handlers/supplier-portal.ts");
+  const located = { bucket: "attachments", path: "opportunity/x/a.pdf", name: "PR-26-0001-01.pdf", size_bytes: 3,
+                    object_version: "v1", object_updated_at: "2026-11-09T08:00:00+00:00" };
+  const run = async (state: Answer) => {
+    const log: string[] = [];
+    const ctx = fakeContext({
+      roles: ["supplier"],
+      log,
+      caller: { supplier_portal_file: { data: { ok: true }, error: null } },
+      service: { _supplier_portal_file_location: { data: located, error: null }, _supplier_portal_object_state: state },
+      download: () => ({ data: new Blob(["abc"]), error: null }),
+    });
+    // deno-lint-ignore no-explicit-any
+    const res = await supplierPortalModule.handlers.supplier_file_download({ invitationId: "i", fileId: "f" }, ctx as any);
+    const body = res.status === 200 ? await res.text() : (await res.json()).error;
+    return { status: res.status, body, log };
+  };
+  const same = await run({ data: { version: "v1", updated_at: "2026-11-09T08:00:00+00:00" }, error: null });
+  assertEquals(same.status, 200);
+  assertEquals(same.body, "abc");
+  // The re-read comes after the bytes were read.
+  assertEquals(same.log, ["supplier_portal_file", "_supplier_portal_file_location", "download", "_supplier_portal_object_state"]);
+  const changed = "This file changed while it was being prepared; try again. | تغيّر هذا الملف أثناء تجهيزه؛ أعد المحاولة.";
+  assertEquals(await run({ data: { version: "v2", updated_at: "2026-11-09T08:00:00+00:00" }, error: null }).then((r) => [r.status, r.body]), [409, changed]);
+  assertEquals(await run({ data: { version: "v1", updated_at: "2026-11-09T08:00:01+00:00" }, error: null }).then((r) => [r.status, r.body]), [409, changed]);
+  assertEquals(await run({ data: null, error: null }).then((r) => [r.status, r.body]), [409, changed]);
+  assertEquals(await run({ data: null, error: { code: "XX000", message: "x" } }).then((r) => [r.status, r.body]), [409, changed]);
+});
