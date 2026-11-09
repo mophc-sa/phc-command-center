@@ -272,7 +272,7 @@ jobs:
 
       - name: Preserve verified canary receipt
         if: env.DEPLOY_TARGET == 'canary'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: canary-deployed-${{ github.sha }}
           path: ${{ runner.temp }}/canary-sha.txt
@@ -299,7 +299,7 @@ jobs:
 
       - name: Preserve production DNS rollback snapshot
         if: env.DEPLOY_TARGET == 'production'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: agent-dns-before-${{ github.run_id }}
           path: ${{ runner.temp }}/agent-dns-before.json
