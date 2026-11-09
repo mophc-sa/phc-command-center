@@ -3,7 +3,7 @@
 ## 2026-11-08 — Supplier portal (branch `feat/pricing-supplier-portal`, worktree `~/dev/phc-pricing-supplier`)
 
 Plan `docs/superpowers/plans/2026-11-08-pricing-supplier-portal.md`. PR 3 of 5: the `supplier` role and accounts, sending a frozen file to one supplier, the portal (`/supplier`), submission into a 7B quote revision, returned lines, notifications on submit and overdue.
-- Migrations `20261108100000`–`20261108150000`. Functions: `sales-os-api` (new module `supplier-portal`), and the shared `resolveCaller` change for `ai-orchestrator` and `import-pipeline`. Task 2 (send) and Task 4 (submit / on-behalf entry) must ship together: they do, in this PR.
+- Migrations `20261108100000`–`20261108150000`. Functions: `sales-os-api` (new module `supplier-portal`), the shared `resolveCaller` change for `ai-orchestrator` and `import-pipeline`, and `meetings-inbound` (attendee match skips vendor-linked profiles). Task 2 (send) and Task 4 (submit / on-behalf entry) must ship together: they do, in this PR.
 
 **PENDING MO SIGN-OFF (also in the PR text and the CHANGELOG):** a pricer can impersonate a NEW supplier account by setting its password through the copied set-password link (no email provider yet). Mitigations in place: each issued link is audited with its issuer (`link_issued`); no new link for a supplier who has enrolled MFA unless the issuer is system_admin. Lasting fix: switch to a GoTrue recovery email once email is approved; show "link issued by / MFA enrolled at" on the Supplier tab.
 **MO TO CONFIRM:** production exposed API schemas = `public` + `graphql_public` only (Supabase dashboard, API settings).
@@ -12,7 +12,7 @@ Plan `docs/superpowers/plans/2026-11-08-pricing-supplier-portal.md`. PR 3 of 5: 
 
 **Release (Mo runs; nothing here was pushed or deployed):**
 1. Merge once CI is green.
-2. Order: deploy `ai-orchestrator` and `import-pipeline` first (they carry the `resolveCaller` supplier refusal: `supabase functions deploy ai-orchestrator`, `... import-pipeline`), then `supabase db push` from `~/dev/phc-command-center` on `main` (six migrations), then immediately `supabase functions deploy sales-os-api` (its new actions call the new SQL). **No supplier account may be created before the migrations and all three functions are live.** Check `select jobname, schedule from cron.job where jobname = 'pricing-supplier-overdue';` returns one row.
+2. Order: `supabase db push` **first**, from `~/dev/phc-command-center` on `main` (six migrations). They are additive: the functions now live keep working on the new schema. **Then** deploy `ai-orchestrator`, `import-pipeline`, `sales-os-api` and `meetings-inbound` (`supabase functions deploy <name>` for each). Never the other way round: the new `_shared` `resolveCaller` selects `profiles.vendor_id` and `meetings-inbound` filters on it, so either deployed before the migration fails with 42703 (every staff call to the three `resolveCaller` functions would get 403). Check `select jobname, schedule from cron.job where jobname = 'pricing-supplier-overdue';` returns one row. **No supplier account may be created before the migrations and all four functions are live** (and the canary below has passed).
 3. No new secret; `APP_URL` defaults to `https://agent.phc-sa.com`. `https://agent.phc-sa.com/reset-password` must stay in Auth's redirect allow-list (forgot-password already uses it).
 4. Cloudflare canary with a supplier test account, then Production Readiness, then production. Suspend the test account after the walk-through.
 

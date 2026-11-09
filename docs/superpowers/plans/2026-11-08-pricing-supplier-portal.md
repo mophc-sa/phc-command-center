@@ -2767,7 +2767,7 @@ git commit -m "feat(pricing): returned lines reopen alone, overdue reminder, sup
     - `supplier_account_create` payload `{vendorId, email, fullName}` → `{ok, user_id, set_password_url}` (`set_password_url` may be null if the link could not be made).
     - `supplier_account_password_link` payload `{userId}` → `{ok, set_password_url}`.
     - `supplier_file_download` payload `{invitationId, fileId}` → the file's bytes (`200`, `Content-Type: application/octet-stream`, `Content-Disposition: attachment` with the neutral name), streamed by the function with the service client; errors are JSON `{error}`. Never a signed URL or a storage path. The only action a supplier may call.
-  - Function deploys at release: `sales-os-api` (required), `ai-orchestrator` and `import-pipeline` (carry the shared supplier refusal).
+  - Function deploys at release, all after `db push`: `sales-os-api` (required), `ai-orchestrator` and `import-pipeline` (carry the shared supplier refusal), `meetings-inbound` (filters on `profiles.vendor_id`).
 
 - [ ] **Step 1: Write the failing Deno test**
 
@@ -5871,11 +5871,11 @@ with
 ## 2026-11-08 — Supplier portal (branch `feat/pricing-supplier-portal`, worktree `~/dev/phc-pricing-supplier`)
 
 Plan `docs/superpowers/plans/2026-11-08-pricing-supplier-portal.md`. PR 3 of 5: the `supplier` role and accounts, sending a frozen file to one supplier, the portal (`/supplier`), submission into a 7B quote revision, returned lines, notifications on submit and overdue.
-- Migrations `20261108100000`–`20261108150000`. Functions: `sales-os-api` (new module `supplier-portal`), and the shared `resolveCaller` change for `ai-orchestrator` and `import-pipeline`.
+- Migrations `20261108100000`–`20261108150000`. Functions: `sales-os-api` (new module `supplier-portal`), the shared `resolveCaller` change for `ai-orchestrator` and `import-pipeline`, and `meetings-inbound`.
 
 **Release (Mo runs; nothing here was pushed or deployed):**
 1. Merge once CI is green.
-2. Deploy the Edge functions' `resolveCaller` supplier refusal together with, or before, `db push`: `supabase functions deploy ai-orchestrator` and `import-pipeline` first, then `supabase db push` from `~/dev/phc-command-center` on `main` (six migrations), then at once `supabase functions deploy sales-os-api` (its new actions call the new SQL). **No supplier account may be created before both the migrations and all three functions are live.** Check `select jobname, schedule from cron.job where jobname = 'pricing-supplier-overdue';` → one row.
+2. `supabase db push` **first**, from `~/dev/phc-command-center` on `main` (six migrations; additive, the live functions keep working), **then** `supabase functions deploy` `ai-orchestrator`, `import-pipeline`, `sales-os-api` and `meetings-inbound` (the new `resolveCaller` and `meetings-inbound` select `profiles.vendor_id`: before the migration they fail with 42703, a 403 for every staff call). **No supplier account may be created before the migrations and all four functions are live.** Check `select jobname, schedule from cron.job where jobname = 'pricing-supplier-overdue';` → one row.
 3. No new secret; `APP_URL` defaults to `https://agent.phc-sa.com`. `https://agent.phc-sa.com/reset-password` must stay in Auth's redirect allow-list (forgot-password already uses it).
 4. Cloudflare canary → Production Readiness → production.
 
@@ -5912,7 +5912,7 @@ Plan `docs/superpowers/plans/2026-11-08-pricing-supplier-portal.md`. PR 3 of 5: 
 ```markdown
 ## بند فعّال — حلقة التسعير، PR 3 (بوابة المورد، 2026-11-08)
 
-الفرع `feat/pricing-supplier-portal` (worktree `~/dev/phc-pricing-supplier`) من `main` بعد PR 1 وPR 2. دور المورد وحساباته بالتحقق بخطوتين، وإرسال الملف المجمّد لمورد واحد، والبوابة `/supplier`، والإرسال إلى مراجعة عرض جديدة، وإرجاع بنود بعينها، وتنبيهات الإرسال والتأخر. المتبقي: مراجعة نهائية، فتح الـPR، CI، دمج، ثم `db push` ونشر `sales-os-api` و`ai-orchestrator` و`import-pipeline` بموافقة، ثم كناري بحساب مورد تجريبي وإنتاج بيد Mo. التالي: PR 4 (مراجعة زايد وعرض السعر). التفاصيل في أعلى `docs/AI_HANDOFF.md`.
+الفرع `feat/pricing-supplier-portal` (worktree `~/dev/phc-pricing-supplier`) من `main` بعد PR 1 وPR 2. دور المورد وحساباته بالتحقق بخطوتين، وإرسال الملف المجمّد لمورد واحد، والبوابة `/supplier`، والإرسال إلى مراجعة عرض جديدة، وإرجاع بنود بعينها، وتنبيهات الإرسال والتأخر. المتبقي: مراجعة نهائية، فتح الـPR، CI، دمج، ثم `db push` أولاً، ثم نشر `ai-orchestrator` و`import-pipeline` و`sales-os-api` و`meetings-inbound` بموافقة، ثم كناري بحساب مورد تجريبي وإنتاج بيد Mo. التالي: PR 4 (مراجعة زايد وعرض السعر). التفاصيل في أعلى `docs/AI_HANDOFF.md`.
 ```
 
 - [ ] **Step 6: Full verification**
@@ -5939,13 +5939,13 @@ git commit -m "docs: supplier portal (user guide, changelog, decisions, handoff,
 Mo approves and runs every step; nothing in this plan pushes or deploys.
 
 1. Merge the PR once CI ("Supabase migrations and database tests", verify) is green.
-2. Deploy the Edge functions' `resolveCaller` supplier refusal **together with or before** `db push`: `supabase functions deploy ai-orchestrator` and `supabase functions deploy import-pipeline` (refusal only), then `supabase db push` from `~/dev/phc-command-center` on `main` (applies `20261108100000`–`20261108150000`; check the cron job `pricing-supplier-overdue` exists), then straight away `supabase functions deploy sales-os-api` (its new actions call the new SQL). No new secret.
-3. **No supplier account may be created before both are live** (the migrations and all three functions): until then a supplier's token would reach Edge functions that do not yet refuse it.
+2. `supabase db push` **first**, from `~/dev/phc-command-center` on `main` (applies `20261108100000`–`20261108150000`; check the cron job `pricing-supplier-overdue` exists). The migrations are additive, so the functions now live keep working. **Then** deploy `ai-orchestrator`, `import-pipeline`, `sales-os-api` and `meetings-inbound` (`supabase functions deploy <name>`). Never before the migration: the new `_shared` `resolveCaller` selects `profiles.vendor_id` and `meetings-inbound` filters on it, so they would fail with 42703 (a 403 for every staff call). No new secret.
+3. **No supplier account may be created before all of these are live** (the migrations and all four functions): until then a supplier's token would reach Edge functions that do not yet refuse it.
 4. Cloudflare canary, with the supplier test account walk-through (Task 10, AI_HANDOFF entry). Create the test supplier account on a mailbox Mo controls; suspend it from Admin settings after the walk-through.
 5. Production Readiness, then production.
 6. Create the factory's real portal account only after production, from the Supplier tab of a real file.
 
-**Rollback:** suspend supplier accounts (Admin settings); `select cron.unschedule('pricing-supplier-overdue');`; redeploy the three functions from the previous `main`. The migrations add tables, columns and functions; the redefined functions (`has_app_access`, `is_active_user`, `has_any_role`, `enforce_signup_email_domain` and the deferred `auth.phc_supplier_invite_check`, `current_margin_floor`, `estimation_cost_basis`, `my_day`, `meeting_review_queue`, `my_fireflies_connection`, `pricing_enter_supplier_quote`) would need a new migration restoring their PR 2 bodies, which is only needed if the supplier boundary itself misbehaves.
+**Rollback:** suspend supplier accounts (Admin settings); `select cron.unschedule('pricing-supplier-overdue');`; redeploy the four functions from the previous `main` (the old code runs on the new schema). The migrations add tables, columns and functions; the redefined functions (`has_app_access`, `is_active_user`, `has_any_role`, `enforce_signup_email_domain` and the deferred `auth.phc_supplier_invite_check`, `current_margin_floor`, `estimation_cost_basis`, `my_day`, `meeting_review_queue`, `my_fireflies_connection`, `pricing_enter_supplier_quote`) would need a new migration restoring their PR 2 bodies, which is only needed if the supplier boundary itself misbehaves.
 
 ## Not in PR 3 (each with its reason)
 
