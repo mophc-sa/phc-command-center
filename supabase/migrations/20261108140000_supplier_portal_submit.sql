@@ -254,10 +254,14 @@ BEGIN
            jsonb_build_object('invitation_id', inv.id, 'file_id', inv.file_id, 'status', 'opened')
       FROM public.pricing_files f WHERE f.id = inv.file_id;
   END IF;
-  -- The supplier's own live quote on this revision (theirs, whoever typed it).
+  -- The supplier's own live quote for THIS request: one linked to a submission of
+  -- this invitation (the portal's, or PHC's entry on its behalf for it). Never a
+  -- pre-freeze Phase 7B quote PHC typed for the same vendor on the same revision.
   SELECT * INTO q FROM public.supplier_quotes sq
    WHERE rd AND sq.boq_revision_id = inv.boq_revision_id AND sq.vendor_id = inv.vendor_id
-     AND sq.is_current AND sq.status NOT IN ('cancelled','superseded');
+     AND sq.is_current AND sq.status NOT IN ('cancelled','superseded')
+     AND EXISTS (SELECT 1 FROM public.supplier_invitation_submissions s
+                  WHERE s.invitation_id = inv.id AND s.supplier_quote_id = sq.id);
   RETURN jsonb_build_object(
     'invitation_id', inv.id,
     'project_code', inv.project_code,
@@ -300,7 +304,7 @@ CREATE OR REPLACE FUNCTION public.pricing_enter_supplier_quote(_file_id uuid, _v
   _terms jsonb DEFAULT '{}'::jsonb, _document_id uuid DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE u uuid := auth.uid(); f public.pricing_files; q public.supplier_quotes; old_q public.supplier_quotes;
-        inv public.supplier_invitations; code text; n integer := 0; e record; bad_ord bigint; vday date; ccy_in text;
+        carry public.supplier_quotes; inv public.supplier_invitations; code text; n integer := 0; e record; bad_ord bigint; vday date; ccy_in text;
 BEGIN
   IF NOT public.is_pricer(u) THEN
     RAISE EXCEPTION 'Only estimation or finance enter supplier prices. | أسعار المورد يُدخلها التقدير أو المالية.' USING ERRCODE = '42501';
@@ -392,7 +396,12 @@ BEGIN
   SELECT * INTO old_q FROM public.supplier_quotes
    WHERE boq_revision_id = f.boq_revision_id AND vendor_id = _vendor_id AND is_current FOR UPDATE;
   -- A dead quote is retired; a portal quote is superseded so the supplier's own submission stays on record.
+  -- The supplier's own terms (lead time, payment terms, validity) carry forward
+  -- from that portal quote unless the pricer gives new ones.
   IF FOUND AND (old_q.status IN ('cancelled','superseded') OR old_q.source = 'portal') THEN
+    IF old_q.source = 'portal' AND old_q.status NOT IN ('cancelled','superseded') THEN
+      carry := old_q;
+    END IF;
     UPDATE public.supplier_quotes
        SET is_current = false,
            status = CASE WHEN status IN ('cancelled','superseded') THEN status ELSE 'superseded'::public.supplier_quote_status END
@@ -405,8 +414,9 @@ BEGIN
                                         lead_time_days, payment_terms, valid_until, notes, created_by,
                                         revision_number, supersedes_id, source, source_document_id)
     VALUES (f.boq_revision_id, _vendor_id, code, 'responses_received', now(), coalesce(ccy_in, 'SAR'),
-            nullif(_terms->>'lead_time_days','')::integer, nullif(btrim(coalesce(_terms->>'payment_terms','')), ''),
-            vday, 'Entered on behalf of the supplier', u,
+            coalesce(nullif(_terms->>'lead_time_days','')::integer, carry.lead_time_days),
+            coalesce(nullif(btrim(coalesce(_terms->>'payment_terms','')), ''), carry.payment_terms),
+            coalesce(vday, carry.valid_until), 'Entered on behalf of the supplier', u,
             coalesce((SELECT max(s.revision_number) + 1 FROM public.supplier_quotes s
                        WHERE s.boq_revision_id = f.boq_revision_id AND s.vendor_id = _vendor_id), 1),
             (SELECT s.id FROM public.supplier_quotes s

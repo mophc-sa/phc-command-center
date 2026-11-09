@@ -2,7 +2,7 @@
 -- Test user UUIDs use the 8d prefix. Sessions carry aal2 unless they say otherwise.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(60);
+select plan(63);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -195,6 +195,9 @@ select throws_ok(format($$select public.supplier_portal_submit('%s', '[{"line_id
   (select v from ps_ref where k = 'inv_a'), (select v from ps_ref where k = 'line1'), (select v from ps_ref where k = 'line2'), (select v from ps_ref where k = 'terms')),
   '23514', null, 'At least one line must be priced');
 
+-- Vendor A's pre-freeze internal quote (line 2 at 50) is not this request's: the portal shows no price from it.
+select ok((public.supplier_portal_invitation((select v::uuid from ps_ref where k = 'inv_a')))->'lines'->1->>'unit_cost' is null,
+  'Before submitting, the portal shows no price from the vendor''s pre-freeze internal quote');
 select is((public.supplier_portal_submit((select v::uuid from ps_ref where k = 'inv_a'), (select v::jsonb from ps_ref where k = 'good'),
   (select v::jsonb from ps_ref where k = 'terms'), 'ar'))->>'lines', '2', 'The supplier submits both lines');
 select throws_ok(format($$select public.supplier_portal_submit('%s', '%s', '%s', 'en')$$,
@@ -276,6 +279,8 @@ select is((select state::text from public.pricing_files where id = '8d600002-000
   'Entry on behalf still leaves the move to the pricer');
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"8d000000-0000-0000-0000-000000000004","role":"authenticated","aal":"aal2"}',true);
+select is((public.supplier_portal_invitation((select v::uuid from ps_ref where k = 'inv_2')))->'lines'->0->>'unit_cost', '900.00',
+  'The supplier reads the prices PHC entered on its behalf for this request');
 select is((public.supplier_portal_invitation((select v::uuid from ps_ref where k = 'inv_2')))->>'editable', 'false',
   'The supplier cannot price a request PHC entered on its behalf');
 
@@ -284,9 +289,14 @@ select set_config('request.jwt.claims','{"sub":"8d000000-0000-0000-0000-00000000
 select lives_ok($$select public.pricing_file_move('8d600001-0000-0000-0000-000000000001','at_supplier','Fix line 1')$$,
   'The pricer sends the file back to the supplier (the plain move)');
 select lives_ok($$select public.pricing_enter_supplier_quote('8d600001-0000-0000-0000-000000000001','8d100001-0000-0000-0000-000000000001',
-  '[{"boq_line_id":"8d510001-0000-0000-0000-000000000001","unit_cost":4800},{"boq_line_id":"8d510002-0000-0000-0000-000000000001","unit_cost":700.5}]')$$,
+  '[{"boq_line_id":"8d510001-0000-0000-0000-000000000001","unit_cost":4800},{"boq_line_id":"8d510002-0000-0000-0000-000000000001","unit_cost":700.5}]',
+  '{"lead_time_days":45}')$$,
   'And corrects the prices on the supplier''s behalf');
 reset role;
+select is((select lead_time_days || '/' || payment_terms || '/' || valid_until from public.supplier_quotes
+            where boq_revision_id = '8d500001-0000-0000-0000-000000000001' and is_current),
+  '45/30% advance, 70% before shipping/2099-12-31',
+  'The entry carries the supplier''s payment terms and validity forward, and takes the lead time the pricer gave');
 select is((select string_agg(source || ':' || status || ':' || is_current, ',' order by revision_number)
              from public.supplier_quotes where boq_revision_id = '8d500001-0000-0000-0000-000000000001'),
   'internal:superseded:false,portal:superseded:false,on_behalf:responses_received:true',

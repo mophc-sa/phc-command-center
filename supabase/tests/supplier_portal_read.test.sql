@@ -42,7 +42,7 @@ insert into public.boq_lines (id, revision_id, line_number, sign_type, descripti
   ('8c510001-0000-0000-0000-000000000001','8c500001-0000-0000-0000-000000000001',1,'Pylon P1','Double-sided pylon',2,'pcs','pr-site-secret',true),
   ('8c510002-0000-0000-0000-000000000001','8c500001-0000-0000-0000-000000000001',2,'Wall W1','Channel letters',4,'pcs',null,false),
   ('8c510003-0000-0000-0000-000000000001','8c500002-0000-0000-0000-000000000001',1,'Ceiling C1','Hanging sign',1,'pcs',null,false);
--- Vendor A's own quote from before the freeze: its prices show in its portal.
+-- Vendor A's own quote from before the freeze (Phase 7B, typed by PHC): not this request's, so the portal never shows it.
 insert into public.supplier_quotes (id, boq_revision_id, vendor_id, currency, lead_time_days) values
   ('8c800001-0000-0000-0000-000000000001','8c500001-0000-0000-0000-000000000001','8c100001-0000-0000-0000-000000000001','SAR',21);
 insert into public.supplier_quote_lines (supplier_quote_id, boq_line_id, quantity, unit_cost) values
@@ -114,8 +114,9 @@ select is((select j->>'status' || '/' || (j->>'editable') from pr_doc), 'open/tr
 select is((select jsonb_array_length(j->'lines') from pr_doc), 2, 'It carries both lines');
 select is((select j->'lines'->0->>'sign_type' || '/' || (j->'lines'->0->>'quantity') || '/' || (j->'lines'->0->>'has_screen') from pr_doc),
   'Pylon P1/2.000/true', 'A line shows its sign type, quantity and screen');
-select is((select (j->'lines'->0->>'unit_cost')::numeric from pr_doc), 100.00::numeric, 'The supplier sees its own earlier price');
-select is((select (j->'terms'->>'lead_time_days')::int from pr_doc), 21, 'And its own earlier lead time');
+select ok((select j->'lines'->0->>'unit_cost' is null from pr_doc),
+  'A pre-freeze internal quote for the same vendor is not shown: own prices come only from this request''s submissions');
+select ok((select j->'terms'->>'lead_time_days' is null from pr_doc), 'Nor its lead time');
 select is((select count(*)::int from pr_doc, jsonb_array_elements(j->'lines') e
              where (e->>'unit_cost')::numeric = 777), 0,
   'Vendor B''s price on the same revision never reaches vendor A');
