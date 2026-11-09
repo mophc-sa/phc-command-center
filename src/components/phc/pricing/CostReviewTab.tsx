@@ -11,6 +11,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatNumber } from "@/lib/i18n";
 import { canGmMove, canPricerMove, type InstallType } from "@/lib/pricing";
 import {
+  listFileInvitations,
   listSellingGrid,
   listSupplierCosts,
   movePricingFile,
@@ -22,6 +23,7 @@ import { canEditLineCost } from "@/lib/pricing-access";
 import { INSTALL_TYPES, INSTALL_TYPE_LABEL } from "@/lib/boq-import";
 import { asError, dbMessage, pick, type Bi } from "@/lib/pricing-text";
 import type { PricingTabProps } from "@/components/phc/pricing/types";
+import { ReturnLinesDialog } from "@/components/phc/pricing/ReturnLinesDialog";
 
 const TEXT = {
   title: { en: "Supplier prices against the BOQ", ar: "أسعار المورد مقابل الكميات" },
@@ -57,6 +59,8 @@ const TEXT = {
   },
   backed: { en: "Sent back to the supplier", ar: "أُرجع للمورد" },
   backedPr: { en: "Sent back to the supplier; the selling price was returned too", ar: "أُرجع للمورد وأُعيد سعر البيع أيضاً" },
+  requestsLoading: { en: "Checking the supplier request…", ar: "جارٍ التحقق من طلب المورد…" },
+  requestsFailed: { en: "The supplier request could not be loaded, so lines cannot be sent back now.", ar: "تعذر تحميل طلب المورد، فلا يمكن إرجاع البنود الآن." },
   noLines: { en: "This BOQ has no lines.", ar: "لا بنود في هذه الكميات." },
 } satisfies Record<string, Bi>;
 
@@ -77,8 +81,15 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
     queryFn: () => listSupplierCosts(revisionId as string),
     enabled: revisionId != null && costOk,
   });
+  // PR 3: a file the supplier answered through the portal reopens only the lines Zayed picks.
+  const invitations = useQuery({
+    queryKey: ["pricing-invitations", file.file_id],
+    queryFn: () => listFileInvitations(file.file_id),
+    enabled: costOk,
+  });
   const editable = canEditLineCost(file.state, rights);
   const [backOpen, setBackOpen] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const money = (n: number | null) => (n == null ? "—" : formatNumber(n, lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
@@ -127,6 +138,9 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
     rights.is_pricer &&
     ((file.state === "supplier_priced" && canPricerMove("supplier_priced", "at_supplier")) ||
       (file.state === "price_review" && canPricerMove("price_review", "at_supplier")));
+  // PR 2's whole-file send-back must not open while the request list is unknown.
+  const requestsKnown = !invitations.isLoading && !invitations.isError;
+  const portalRequest = (invitations.data ?? []).find((i) => i.status === "submitted" && i.boq_revision_id === revisionId) ?? null;
 
   return (
     <div className="space-y-4">
@@ -213,7 +227,8 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
       </Panel>
 
       <div className="flex flex-wrap gap-2">
-        {canSendBack ? <Button variant="outline" disabled={busy} onClick={() => setBackOpen(true)}>{pick(fromPriceReview ? TEXT.backPr : TEXT.back, lang)}</Button> : null}
+        {canSendBack && invitations.isError ? <p role="alert" className="text-sm text-destructive">{pick(TEXT.requestsFailed, lang)}</p> : null}
+        {canSendBack ? <Button variant="outline" disabled={busy || !requestsKnown} title={invitations.isLoading ? pick(TEXT.requestsLoading, lang) : undefined} onClick={() => (portalRequest ? setReturnOpen(true) : setBackOpen(true))}>{pick(fromPriceReview ? TEXT.backPr : TEXT.back, lang)}</Button> : null}
         {rights.is_gm && file.state === "supplier_priced" && canGmMove("supplier_priced", "selling_build") ? (
           <Button disabled={busy} onClick={() => void startSelling()}>{pick(TEXT.start, lang)}</Button>
         ) : null}
@@ -236,6 +251,14 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
             throw asError(e, lang);
           }
         }}
+      />
+      <ReturnLinesDialog
+        open={returnOpen}
+        onOpenChange={setReturnOpen}
+        fileId={file.file_id}
+        fromPriceReview={fromPriceReview}
+        lines={gridRows.map((g) => ({ id: g.boq_line_id, label: `${g.line_number ?? ""} ${g.sign_type}`.trim() }))}
+        onDone={onChanged}
       />
     </div>
   );

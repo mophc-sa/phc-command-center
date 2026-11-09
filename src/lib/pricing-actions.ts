@@ -7,6 +7,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { InstallType, PricingState } from "@/lib/pricing";
 import { NO_RIGHTS, type PricingRights } from "@/lib/pricing-access";
+import { callBackend } from "@/lib/backend";
 
 const db = supabase as unknown as { from: (t: string) => any };
 
@@ -467,15 +468,124 @@ export type SupplierPriceInput = {
   unit_cost_with_screen: number | null;
   alternate_spec: string | null;
 };
+/** `documentId`: the supplier's own Excel or PDF, attached to the deal (PR 3). */
 export const enterSupplierQuote = (
   fileId: string,
   vendorId: string,
   lines: SupplierPriceInput[],
   terms: { lead_time_days?: number | null; payment_terms?: string | null; valid_until?: string | null; currency?: string | null },
+  documentId?: string | null,
 ) =>
   call<{ supplier_quote_id: string; lines: number }>("pricing_enter_supplier_quote", {
     _file_id: fileId,
     _vendor_id: vendorId,
     _lines: lines,
     _terms: terms,
+    _document_id: documentId ?? null,
   });
+
+// ---- PR 3: requests to the supplier (pricer side) -------------------------------
+
+export type InvitationStatus = "sent" | "opened" | "submitted" | "reopened" | "cancelled";
+export const OPEN_INVITATION: readonly InvitationStatus[] = ["sent", "opened", "reopened"];
+export type InvitationRow = {
+  id: string;
+  file_id: string;
+  boq_revision_id: string;
+  vendor_id: string;
+  project_code: string;
+  status: InvitationStatus;
+  reply_by: string;
+  instructions: string | null;
+  return_message: string | null;
+  sent_by: string | null;
+  sent_at: string;
+  opened_at: string | null;
+  submitted_at: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+};
+/** Newest first. Readable by pricers and cost readers only. */
+export const listFileInvitations = (fileId: string) =>
+  rows<InvitationRow>(db.from("supplier_invitations").select("id, file_id, boq_revision_id, vendor_id, project_code, status, reply_by, instructions, return_message, sent_by, sent_at, opened_at, submitted_at, cancelled_at, cancel_reason").eq("file_id", fileId).order("sent_at", { ascending: false }));
+
+export type InvitationLineRow = { id: string; invitation_id: string; boq_line_id: string; state: "open" | "submitted" | "reopened" };
+export const listInvitationLines = (invitationId: string) =>
+  rows<InvitationLineRow>(db.from("supplier_invitation_lines").select("id, invitation_id, boq_line_id, state").eq("invitation_id", invitationId));
+
+export type InvitationFileRow = { id: string; invitation_id: string; document_id: string; display_name: string; size_bytes: number | null };
+export const listInvitationFiles = (invitationId: string) =>
+  rows<InvitationFileRow>(
+    db.from("supplier_invitation_files").select("id, invitation_id, document_id, display_name, size_bytes").eq("invitation_id", invitationId).order("display_name"),
+  );
+
+export type SubmissionRow = {
+  id: string;
+  invitation_id: string;
+  supplier_quote_id: string;
+  source: "portal" | "on_behalf";
+  submitted_by: string | null;
+  submitted_at: string;
+  confirmation_text: string | null;
+  /** The file versions the supplier confirmed (portal only): neutral names plus version stamps. */
+  confirmed_files: ConfirmedFile[] | null;
+  lines: number;
+  /** The quote's currency; null when RLS hides the quote (a reader without cost access). */
+  supplier_quotes: { currency: string | null } | null;
+};
+export type ConfirmedFile = { file_id?: string; name?: string; checksum?: string | null; object_version?: string | null; object_updated_at?: string | null };
+export const listInvitationSubmissions = (invitationId: string) =>
+  rows<SubmissionRow>(
+    db
+      .from("supplier_invitation_submissions")
+      .select("id, invitation_id, supplier_quote_id, source, submitted_by, submitted_at, confirmation_text, confirmed_files, lines, supplier_quotes(currency)")
+      .eq("invitation_id", invitationId)
+      .order("submitted_at", { ascending: false }),
+  );
+
+/** Live supplier prices already on this revision (Phase 7B, before the freeze), for the send warning. */
+export type EarlierQuoteRow = { vendor_id: string; vendor_name: string; status: string; is_selected: boolean };
+export const listEarlierQuotes = (revisionId: string) =>
+  rows<EarlierQuoteRow>(
+    db.from("supplier_quote_costs").select("vendor_id, vendor_name, status, is_selected").eq("boq_revision_id", revisionId).eq("is_current", true),
+  );
+
+/** boq_frozen -> at_supplier with a request; `replaceEarlier` confirms cancelling other suppliers' earlier prices. */
+export const sendToSupplier = (
+  fileId: string,
+  vendorId: string,
+  replyBy: string,
+  documentIds: string[],
+  instructions: string | null,
+  replaceEarlier: boolean,
+) =>
+  call<{ invitation_id: string; lines: number; files: number }>("pricing_send_to_supplier", {
+    _file_id: fileId,
+    _vendor_id: vendorId,
+    _reply_by: replyBy,
+    _document_ids: documentIds,
+    _instructions: instructions,
+    _replace_earlier: replaceEarlier,
+  });
+export const cancelInvitation = (invitationId: string, reason: string) =>
+  call("pricing_cancel_invitation", { _invitation_id: invitationId, _reason: reason });
+export const extendInvitation = (invitationId: string, replyBy: string) =>
+  call("pricing_extend_invitation", { _invitation_id: invitationId, _reply_by: replyBy });
+/** supplier_priced or price_review -> at_supplier: only these lines reopen. `note` stays internal; `message` is for the supplier. */
+export const returnLinesToSupplier = (fileId: string, boqLineIds: string[], replyBy: string, note: string, message: string | null) =>
+  call<{ invitation_id: string; lines: number }>("pricing_return_lines_to_supplier", {
+    _file_id: fileId,
+    _boq_line_ids: boqLineIds,
+    _reply_by: replyBy,
+    _note: note,
+    _message: message,
+  });
+
+export type SupplierAccountRow = { user_id: string; full_name: string | null; email: string | null; status: string; created_at: string };
+export const listSupplierAccounts = (vendorId: string) =>
+  call<SupplierAccountRow[]>("pricing_supplier_accounts", { _vendor_id: vendorId });
+/** Creates the portal account (sales-os-api) and returns a one-time set-password link to send. */
+export const createSupplierAccount = (vendorId: string, email: string, fullName: string) =>
+  callBackend<{ ok: boolean; user_id: string; set_password_url: string | null }>("supplier_account_create", { vendorId, email, fullName });
+export const newSupplierPasswordLink = (userId: string) =>
+  callBackend<{ ok: boolean; set_password_url: string | null }>("supplier_account_password_link", { userId });

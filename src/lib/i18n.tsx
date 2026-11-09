@@ -1028,6 +1028,7 @@ export const strings = {
   role_estimation_manager: { en: "Estimation Manager", ar: "مدير التقدير" },
   role_salesperson: { en: "Salesperson", ar: "مندوب مبيعات" },
   role_viewer: { en: "Viewer", ar: "قارئ" },
+  role_supplier: { en: "Supplier (portal)", ar: "مورد (البوابة)" },
   toast_role_granted: { en: "Role granted", ar: "تم منح الدور" },
   toast_role_revoked: { en: "Role revoked", ar: "تم سحب الدور" },
 
@@ -1945,6 +1946,8 @@ export const strings = {
   notif_type_sample_decided: { en: "Sample decision", ar: "قرار العينة" },
   notif_type_submittal_client_response: { en: "Client response", ar: "رد العميل" },
   notif_type_follow_up_due: { en: "Follow-up due", ar: "متابعة مستحقة" },
+  notif_type_pricing_supplier_submitted: { en: "Supplier prices in", ar: "وصلت أسعار المورد" },
+  notif_type_pricing_supplier_overdue: { en: "Supplier late", ar: "تأخر المورد" },
 
   // ---- Action Center (Phase 4 unified queue) ----
   ac_scope_mine: { en: "Mine", ar: "مهامي" },

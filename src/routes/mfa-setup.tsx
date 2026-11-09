@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { useI18n } from "@/lib/i18n";
+import { currentOrigin, safeNextPath } from "@/lib/safe-next-path";
 import { toast } from "sonner";
 import { Loader2, ShieldCheck } from "lucide-react";
 
@@ -31,6 +32,10 @@ async function enrollTotpFactor() {
 }
 
 export const Route = createFileRoute("/mfa-setup")({
+  validateSearch: (s: Record<string, unknown>): { next?: string } => ({
+    // Same rule as /auth: only a same-site path survives.
+    next: safeNextPath(s.next, currentOrigin()),
+  }),
   head: () => ({
     meta: [
       { title: "Set up two-factor authentication — PHC Command Center" },
@@ -44,6 +49,7 @@ function MfaSetupPage() {
   const { user, loading } = useAuth();
   const { lang, setLang, dir } = useI18n();
   const nav = useNavigate();
+  const { next } = Route.useSearch();
 
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
@@ -90,7 +96,9 @@ function MfaSetupPage() {
       const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
       if (error) throw error;
       toast.success(lang === "ar" ? "تم تفعيل التحقق بخطوتين" : "Two-factor authentication enabled");
-      nav({ to: "/", replace: true });
+      const target = safeNextPath(next, window.location.origin);
+      if (target) window.location.replace(target);
+      else nav({ to: "/", replace: true });
     } catch (err: unknown) {
       const msg = authErrorMessage(err, lang);
       toast.error(msg);

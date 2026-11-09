@@ -123,3 +123,30 @@ describe("resolveTarget", () => {
     });
   });
 });
+
+describe("a pricing notice (PR 3)", () => {
+  const notice = { entity_type: "opportunity", entity_id: "opp-1", metadata: { pricing_file_id: "pf-1" } };
+  it("opens the pricing file, not the deal", () => {
+    expect(targetFor(notice, null)).toEqual({ to: "/pricing/pf-1" });
+    expect(targetFor(notice, "opp-1")).toEqual({ to: "/pricing/pf-1" });
+  });
+  it("reads nothing first", async () => {
+    let reads = 0;
+    const target = await resolveTarget(notice, async () => {
+      reads += 1;
+      return null;
+    });
+    expect(target).toEqual({ to: "/pricing/pf-1" });
+    expect(reads).toBe(0);
+  });
+  it("reads nothing even when the entity would otherwise need a lookup", async () => {
+    const approval = { entity_type: "approval", entity_id: "ap-1", metadata: { pricing_file_id: "pf-1" } };
+    let reads = 0;
+    const target = await resolveTarget(approval, async () => {
+      reads += 1;
+      return "opp-1";
+    });
+    expect(target).toEqual({ to: "/pricing/pf-1" });
+    expect(reads).toBe(0);
+  });
+});

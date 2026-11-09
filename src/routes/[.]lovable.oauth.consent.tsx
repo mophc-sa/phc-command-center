@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isSupplierSession, SUPPLIER_REFUSED_TEXT } from "@/lib/supplier-refusal";
 
 type OAuthClient = { name?: string; client_name?: string; logo_uri?: string };
 type AuthorizationDetails = {
@@ -38,6 +39,8 @@ export const Route = createFileRoute("/.lovable/oauth/consent")({
       const next = location.pathname + location.searchStr;
       throw redirect({ to: "/auth", search: { next } as never });
     }
+    // A supplier account never authorises a third-party app (defence in depth).
+    if (await isSupplierSession(supabase, data.session.user.id)) throw new Error(SUPPLIER_REFUSED_TEXT);
   },
   loader: async ({ location }) => {
     const authorizationId = new URLSearchParams(location.search).get("authorization_id")!;

@@ -21,7 +21,8 @@ export type AppRole =
   | "finance_manager"
   | "estimation_manager"
   | "salesperson"
-  | "viewer";
+  | "viewer"
+  | "supplier"; // external: a factory pricing through the supplier portal (pricing loop PR 3)
 
 // Canonical ordered list — MUST match src/lib/roles.ts ALL_ROLES exactly.
 export const ALL_ROLES: AppRole[] = [
@@ -36,6 +37,7 @@ export const ALL_ROLES: AppRole[] = [
   "estimation_manager",
   "salesperson",
   "viewer",
+  "supplier",
 ];
 
 export const ROLE_GROUPS = {
@@ -47,6 +49,7 @@ export const ROLE_GROUPS = {
   estimationManager: ["estimation_manager"] as AppRole[],
   salesperson: ["salesperson"] as AppRole[],
   viewer: ["viewer"] as AppRole[],
+  supplier: ["supplier"] as AppRole[],
 } as const;
 
 type RoleInput = AppRole | readonly AppRole[] | null | undefined;
@@ -69,6 +72,7 @@ export const isFinanceManager = (r: RoleInput) => inGroup(r, ROLE_GROUPS.finance
 export const isEstimationManager = (r: RoleInput) => inGroup(r, ROLE_GROUPS.estimationManager);
 export const isSalesperson = (r: RoleInput) => inGroup(r, ROLE_GROUPS.salesperson);
 export const isViewer = (r: RoleInput) => inGroup(r, ROLE_GROUPS.viewer);
+export const isSupplier = (r: RoleInput) => inGroup(r, ROLE_GROUPS.supplier);
 
 const COMMERCIAL_MANAGERS: AppRole[] = [...ROLE_GROUPS.executive, ...ROLE_GROUPS.salesManager];
 const PIPELINE_OPERATORS: AppRole[] = [
@@ -172,5 +176,6 @@ export const MFA_REQUIRED_ROLES: AppRole[] = [
   "sales_manager",
   "system_admin",
   "managing_director",
+  "supplier",
 ];
 export const requiresMfa = (r: RoleInput) => inGroup(r, MFA_REQUIRED_ROLES);

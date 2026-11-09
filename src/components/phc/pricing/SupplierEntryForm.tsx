@@ -8,6 +8,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { QueryFailure } from "@/components/phc/QueryFailure";
 import { useI18n, formatNumber } from "@/lib/i18n";
 import { enterSupplierQuote, listBoqLines, listSupplierCosts, listVendors, type SupplierPriceInput } from "@/lib/pricing-actions";
+import { listEntityDocuments } from "@/lib/document-actions";
 import { parseDraft, draftText, type DraftRules } from "@/lib/pricing-input";
 import { dbMessage, draftError, pick, type Bi } from "@/lib/pricing-text";
 import type { PricingTabProps } from "@/components/phc/pricing/types";
@@ -34,6 +35,11 @@ const TEXT = {
   saved: { en: "lines saved", ar: "بنداً حُفظ" },
   fixErrors: { en: "Some boxes need fixing before saving.", ar: "بعض الحقول تحتاج تصحيحاً قبل الحفظ." },
   chooseSupplier: { en: "Choose the supplier first.", ar: "اختر المورد أولاً." },
+  requestSupplier: { en: "The file was sent to this supplier through the portal; entering here closes that request.", ar: "أُرسل الملف لهذا المورد عبر البوابة؛ الإدخال هنا يغلق ذلك الطلب." },
+  original: { en: "The supplier's own file (Excel or PDF)", ar: "ملف المورد الأصلي (Excel أو PDF)" },
+  noOriginal: { en: "None attached", ar: "لا ملف مرفق" },
+  originalFailed: { en: "The deal's files could not be loaded, so the supplier's own file cannot be linked now. You can still enter the prices.", ar: "تعذر تحميل ملفات الفرصة، فلا يمكن ربط ملف المورد الآن. يمكنك إدخال الأسعار مع ذلك." },
+  originalHint: { en: "Attach it to the deal on the Package tab first.", ar: "أرفقه بالفرصة من تبويب الباكيج أولاً." },
 } satisfies Record<string, Bi>;
 
 const FIELD =
@@ -46,13 +52,18 @@ const LEAD: DraftRules = { min: 0, max: 9999, integer: true };
 type CellKey = "unit_cost" | "unit_cost_with_screen" | "alternate_spec";
 type Cells = Partial<Record<CellKey, string>>;
 
-export function SupplierEntryForm({ file, onChanged }: PricingTabProps) {
+/** `lockedVendorId`: the open portal request's supplier (PR 3); entry on behalf is for that supplier only. */
+export function SupplierEntryForm({ file, onChanged, lockedVendorId }: PricingTabProps & { lockedVendorId?: string | null }) {
   const { lang } = useI18n();
   const qc = useQueryClient();
   const revisionId = file.boq_revision_id as string;
   const vendors = useQuery({ queryKey: ["pricing-vendors"], queryFn: listVendors });
   const lines = useQuery({ queryKey: ["pricing-lines", revisionId], queryFn: () => listBoqLines(revisionId) });
   const costs = useQuery({ queryKey: ["pricing-supplier-costs", revisionId], queryFn: () => listSupplierCosts(revisionId) });
+  const docs = useQuery({
+    queryKey: ["pricing-deal-documents", file.opportunity_id],
+    queryFn: () => listEntityDocuments({ type: "opportunity", id: file.opportunity_id }),
+  });
   const live = (costs.data ?? []).filter((c) => c.status !== "cancelled" && c.status !== "superseded");
   const current = live[0];
   const [vendorId, setVendorId] = useState("");
@@ -60,13 +71,14 @@ export function SupplierEntryForm({ file, onChanged }: PricingTabProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [terms, setTerms] = useState({ lead: "", payment: "", valid: "", currency: "" });
   const [busy, setBusy] = useState(false);
+  const [documentId, setDocumentId] = useState("");
 
   if (vendors.isLoading || lines.isLoading || costs.isLoading) return <SkeletonTable />;
   if (vendors.isError || lines.isError || costs.isError) {
     return <QueryFailure retry={() => { void vendors.refetch(); void lines.refetch(); void costs.refetch(); }} />;
   }
 
-  const chosen = current?.vendor_id ?? vendorId;
+  const chosen = lockedVendorId ?? current?.vendor_id ?? vendorId;
   const currency = terms.currency || current?.currency || "SAR";
   const saved = (lineId: string) => live.find((c) => c.boq_line_id === lineId);
   const val = (lineId: string, k: CellKey): string => {
@@ -109,11 +121,12 @@ export function SupplierEntryForm({ file, onChanged }: PricingTabProps) {
         payment_terms: terms.payment.trim() || null,
         valid_until: terms.valid || null,
         currency: terms.currency || (current ? null : "SAR"),
-      });
+      }, documentId || null);
       // Drop the typed text only once the saved prices are back, so no box flashes its old value.
       await qc.invalidateQueries({ queryKey: ["pricing-supplier-costs", revisionId] });
       setCells({});
       setTerms({ lead: "", payment: "", valid: "", currency: "" });
+      setDocumentId("");
       toast.success(`${r.lines} ${pick(TEXT.saved, lang)}`);
       onChanged();
     } catch (e) {
@@ -137,12 +150,25 @@ export function SupplierEntryForm({ file, onChanged }: PricingTabProps) {
       <div className="space-y-3 text-sm">
         <label className="block max-w-sm space-y-1">
           <span>{pick(TEXT.supplier, lang)}</span>
-          <select className={FIELD} value={chosen} disabled={busy || !!current} onChange={(e) => setVendorId(e.target.value)}>
+          <select className={FIELD} value={chosen} disabled={busy || !!current || !!lockedVendorId} onChange={(e) => setVendorId(e.target.value)}>
             <option value="">{pick(TEXT.pick, lang)}</option>
             {(vendors.data ?? []).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
-          {current ? <span className="block text-xs text-muted-foreground">{pick(TEXT.oneSupplier, lang)}</span> : null}
+          {lockedVendorId ? <span className="block text-xs text-muted-foreground">{pick(TEXT.requestSupplier, lang)}</span>
+            : current ? <span className="block text-xs text-muted-foreground">{pick(TEXT.oneSupplier, lang)}</span> : null}
         </label>
+        {docs.isError ? (
+          <p role="note" className="max-w-sm text-xs text-amber-light">{pick(TEXT.originalFailed, lang)}</p>
+        ) : (
+          <label className="block max-w-sm space-y-1">
+            <span>{pick(TEXT.original, lang)}</span>
+            <select className={FIELD} value={documentId} disabled={busy || docs.isLoading} onChange={(e) => setDocumentId(e.target.value)}>
+              <option value="">{pick(TEXT.noOriginal, lang)}</option>
+              {(docs.data ?? []).filter((d) => !d.superseded_by).map((d) => <option key={d.id} value={d.id}>{d.title || d.original_filename}</option>)}
+            </select>
+            <span className="block text-xs text-muted-foreground">{pick(TEXT.originalHint, lang)}</span>
+          </label>
+        )}
         <Table>
           <TableHeader>
             <TableRow>

@@ -46,15 +46,20 @@ import { requiresMfa } from "./roles.ts";
 
 // Resolve the caller: their user id and roles. Throws a 401-style error object
 // if the JWT is missing or invalid.
+//
+// A supplier account (pricing loop PR 3) is refused with 403 unless the function
+// passes allowSupplier: a supplier reaches the supplier portal and nothing else.
+// sales-os-api opts in and then admits only its supplier actions.
 export async function resolveCaller(
   authHeader: string | null,
+  options: { allowSupplier?: boolean } = {},
 ): Promise<{ userId: string; roles: AppRole[] }> {
   if (!authHeader) throw { status: 401, message: "Missing Authorization header" };
   const uc = userClient(authHeader);
   const { data: userData, error } = await uc.auth.getUser();
   if (error || !userData.user) throw { status: 401, message: "Not authenticated" };
   const svc = serviceClient();
-  const { data: profile, error: profileError } = await svc.from("profiles").select("status").eq("id", userData.user.id).single();
+  const { data: profile, error: profileError } = await svc.from("profiles").select("status, vendor_id").eq("id", userData.user.id).single();
   if (profileError || profile?.status !== "active") throw { status: 403, message: "Active account required" };
   const { data: roleRows, error: roleError } = await svc
     .from("user_roles")
@@ -62,6 +67,10 @@ export async function resolveCaller(
     .eq("user_id", userData.user.id);
   if (roleError) throw { status: 503, message: "Unable to verify account permissions" };
   const roles = (roleRows ?? []).map((r: { role: AppRole }) => r.role);
+  if (profile.vendor_id && !roles.includes("supplier")) roles.push("supplier");
+  if (roles.includes("supplier") && !options.allowSupplier) {
+    throw { status: 403, message: "Supplier accounts use the supplier portal only" };
+  }
   if (requiresMfa(roles)) {
     // getUser above verifies the token with Auth; getClaims verifies its AAL.
     const { data: claimsData, error: claimsError } = await uc.auth.getClaims(authHeader.replace(/^Bearer\s+/i, ""));

@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/phc/AppShell";
-import { requiresMfa, type AppRole } from "@/lib/roles";
+import { isSupplier, requiresMfa, type AppRole } from "@/lib/roles";
 
 /**
  * Where beforeLoad decided this request should go instead.
@@ -15,7 +15,8 @@ type Redirect =
   | { to: "/auth"; search: { next: string } }
   | { to: "/pending-approval" }
   | { to: "/mfa-setup" }
-  | { to: "/mfa-verify" };
+  | { to: "/mfa-verify" }
+  | { to: "/supplier" };
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -86,6 +87,10 @@ export const Route = createFileRoute("/_authenticated")({
     // (force the verify challenge).
     const { data: rolesRows } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id);
     const roleList = (rolesRows ?? []).map((r) => r.role as AppRole);
+    // A supplier account (pricing loop PR 3) never gets the staff app: it has its own portal and guard.
+    if (isSupplier(roleList)) {
+      return { user: null, redirectTo: { to: "/supplier" } };
+    }
     if (requiresMfa(roleList)) {
       const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (aal?.nextLevel === "aal1") {

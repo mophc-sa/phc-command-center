@@ -5921,6 +5921,7 @@ export type Database = {
           status: Database["public"]["Enums"]["user_status"]
           is_display_account: boolean
           updated_at: string
+          vendor_id: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -5933,6 +5934,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["user_status"]
           is_display_account?: boolean
           updated_at?: string
+          vendor_id?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -5945,6 +5947,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["user_status"]
           is_display_account?: boolean
           updated_at?: string
+          vendor_id?: string | null
         }
         Relationships: []
       }
@@ -9949,6 +9952,7 @@ export type Database = {
         | "sales_ops"
         | "finance_manager"
         | "estimation_manager"
+        | "supplier"
       approval_recommendation: "proceed" | "management_review" | "do_not_quote"
       approval_status: "pending" | "approved" | "returned" | "escalated"
       artifact_status: "draft" | "awaiting_review" | "approved" | "rejected"
@@ -10458,6 +10462,7 @@ export const Constants = {
         "sales_ops",
         "finance_manager",
         "estimation_manager",
+        "supplier",
       ],
       approval_recommendation: ["proceed", "management_review", "do_not_quote"],
       approval_status: ["pending", "approved", "returned", "escalated"],

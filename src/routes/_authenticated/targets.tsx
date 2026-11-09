@@ -142,7 +142,7 @@ function TargetsPage() {
     queryKey: ["team-members"],
     queryFn: async () =>
       (
-        await supabase.from("profiles").select("id, full_name, email").order("full_name", { ascending: true, nullsFirst: false })
+        await supabase.from("profiles").select("id, full_name, email").is("vendor_id", null).order("full_name", { ascending: true, nullsFirst: false })
       ).data ?? [],
   });
 

@@ -1,5 +1,63 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-08 — Supplier portal (branch `feat/pricing-supplier-portal`, worktree `~/dev/phc-pricing-supplier`)
+
+Plan `docs/superpowers/plans/2026-11-08-pricing-supplier-portal.md`. PR 3 of 5: the `supplier` role and accounts, sending a frozen file to one supplier, the portal (`/supplier`), submission into a 7B quote revision, returned lines, notifications on submit and overdue.
+- Migrations `20261108100000`–`20261108150000`. Functions: `sales-os-api` (new module `supplier-portal`), the shared `resolveCaller` change for `ai-orchestrator` and `import-pipeline`, and `meetings-inbound` (attendee match skips vendor-linked profiles). Task 2 (send) and Task 4 (submit / on-behalf entry) must ship together: they do, in this PR.
+
+**PENDING MO SIGN-OFF (also in the PR text and the CHANGELOG):** until email activation exists, the pricer who creates a supplier account holds its first way in. A pricer (or system_admin) can **intercept the copied set-password link** (set the password and enrol MFA before the supplier does), or **create the account on an address they control** (the address is typed by the pricer, nothing proves it is the supplier's). Either way a portal submission is **not proof that the supplier sent it**: it proves only that someone holding that account did. Mitigations in place: the account's creation (`supplier_account.created`, with the creator) and every issued link (`supplier_account.link_issued`, with the issuer and whether MFA was already enrolled) are audited; no new link for a supplier who has enrolled MFA unless the issuer is system_admin; the supplier role holds no other role and reads nothing outside its own requests. Procedural until the fix: the address must be one the supplier gave in writing, and the pricer confirms with the supplier (by a channel the supplier already uses) that it set the password itself and can see the request. Lasting fix: the account is activated by a GoTrue recovery email sent to the supplier's own address (no link passes through PHC staff), once an email provider is approved; also show "created by / link issued by / MFA enrolled at" on the Supplier tab.
+**MO TO CONFIRM:** production exposed API schemas = `public` + `graphql_public` only (Supabase dashboard, API settings), and `scripts/supplier-preflight.sql` returns zero rows on production (see "Before the first supplier account").
+
+**Plan defaults applied (Mo did not answer the open questions; all changeable):** copy-link invite (no email provider); pricers and system_admin create supplier accounts; the supplier role cannot combine with others; a second vendor's pre-freeze quote is cancelled on explicit confirmation; the supplier sees specs, quantity and the screen flag only (no location, no other prices; files renamed `<code>-NN.ext`); terms required on submit; overdue reminder 08:15 Riyadh to estimation + finance; returned lines carry an optional supplier message plus an internal cost note.
+
+**Release (Mo runs; nothing here was pushed or deployed):**
+1. Merge once CI is green.
+2. Order: `supabase db push` **first**, from `~/dev/phc-command-center` on `main` (six migrations). They are additive: the functions now live keep working on the new schema. **Then** deploy `ai-orchestrator`, `import-pipeline`, `sales-os-api` and `meetings-inbound` (`supabase functions deploy <name>` for each). Never the other way round: the new `_shared` `resolveCaller` selects `profiles.vendor_id` and `meetings-inbound` filters on it, so either deployed before the migration fails with 42703 (every staff call to the three `resolveCaller` functions would get 403). Check `select jobname, schedule from cron.job where jobname = 'pricing-supplier-overdue';` returns one row. **No supplier account (the canary test account included) may be created before the migrations and all four functions are live and the checks under "Before the first supplier account" are clean.**
+3. No new secret; `APP_URL` defaults to `https://agent.phc-sa.com`. `https://agent.phc-sa.com/reset-password` must stay in Auth's redirect allow-list (forgot-password already uses it).
+4. Cloudflare canary with a supplier test account, then Production Readiness, then production. Suspend the test account after the walk-through.
+
+**Before the first supplier account (the canary test account included):**
+- Run `scripts/supplier-preflight.sql` read-only against production (one read-only SELECT with all four sections in one result: `supabase db query --linked -f scripts/supplier-preflight.sql` from `~/dev/phc-command-center`, `psql -f`, or the SQL editor). Expect **zero rows in every section**: (1) tables with row security off, (2) tables without the restrictive `audit_session_boundary`, (3) owner-run views selectable by `authenticated`/`anon` that do not filter on the caller and are not reviewed, (4) SECURITY DEFINER functions callable by `authenticated`/`anon`/PUBLIC that check no caller and are not on the sweep's reviewed list or the five `supplier_portal_*` functions. Any row: stop, review it, and fix it in a migration before creating the account. Local DB 2026-11-09: zero rows in all four (and a planted table, view and function each showed up).
+- Supabase dashboard, API settings: exposed schemas are only `public` and `graphql_public`. Any other exposed schema has no session boundary and must be removed first.
+
+**Canary walk-through (real accounts: Zayed, Kalas, and a supplier test account on a mailbox Mo controls, never the factory's):**
+- Zayed: a test deal's file to `boq_frozen`; Supplier tab, create the portal account for a test vendor; copy the set-password message.
+- Supplier test account: set the password, set up two-step verification, land on `/supplier`; open the request; download a file; check no client name or site shows; submit with the confirmation.
+- Kalas and Zayed: the notification opens the pricing file; the file is at *Supplier priced*; Cost review shows the portal prices.
+- Zayed: return one line with a message; the supplier sees only that line open; re-submits; the other line kept its price.
+- The supplier account opening `/command-center`, `/pricing` or `/opportunities` lands back on `/supplier`; with its access token, `GET /rest/v1/opportunities?select=id` and `/rest/v1/vendors?select=id` return `[]`.
+- Entry on behalf on a second test file: pick the supplier's own file; the request closes as entered on behalf.
+- Both languages, desktop and phone width.
+
+**Local checks (2026-11-08):** DB suite (`dbtest-sup.sh`): 45 files, 1291 tests, PASS; `bun run verify` green; `bun run test:deno` 134 passed, 0 failed; `bun audit --audit-level=high` exit 0. After the final whole-branch review fixes (2026-11-09, `.superpowers/sdd/final-fix-report.md`): 45 files, 1302 tests, PASS; verify green (3337 bun tests); deno 136 passed; audit exit 0; `scripts/supplier-preflight.sql` zero rows on the local DB. A browser walk-through on a local stack was not run; the canary walk-through above covers it.
+
+**Behaviour that changes outside the portal** (DECISIONS 2026-11-08): the session boundary on every public table; `vendor_duplicate_candidates` and `automation_health` as invoker; `current_margin_floor` hidden from suppliers and closed to anon; `estimation_cost_basis` closed to anon and NULL for non-cost callers outside the margin trigger; `next_sales_code` revoked; historical helpers gated; `my_day`, `meeting_review_queue` and `my_fireflies_connection` empty without `has_app_access` (also staff on an aal1 session whose role needs MFA); `is_active_user` / `has_any_role` false about suppliers; the user_roles guard refuses deleting a linked supplier's role (Admin settings: suspend instead) and ex-suppliers cannot get staff roles; staff pickers and the Fireflies/meetings attendee match skip vendor-linked profiles; `enforce_signup_email_domain` admits a non-PHC address for supplier accounts only (plus a deferred commit check) and ignores updates that keep the address; `resolveCaller` refuses suppliers; OAuth consent and MCP tools refuse suppliers; `next` redirects go through `safeNextPath` (same origin only; control characters and `\` refused); `pricing_enter_supplier_quote` gains `_document_id` and the request rules; staff routes send suppliers to `/supplier`.
+
+**Residual risk:** client names inside line descriptions, specs or drawings' title blocks reach the supplier; this relies on the pricer (amber warning on send). The PR text must say so.
+
+**The PR text must include:** (1) the sign-off item above (impersonation by link interception or by an address the pricer controls; a submission is not proof the supplier sent it; mitigations; lasting fix) and that **Mo signs it off before merge**; (2) the residual risk of client names in lines, specs and drawings, which relies on the pricer and the amber warning on send; (3) the two checks before the first supplier account: exposed API schemas are only `public` and `graphql_public` (dashboard), and `scripts/supplier-preflight.sql` returns zero rows on production; (4) the release order (`db push` first, then the four functions).
+
+**PR 3 contract items (AI_HANDOFF 2026-11-04), closed:** `is_selected` never set (send clears 7B selections); one current quote per vendor (submission supersedes); the portal's own entry path keeps the file-at-supplier condition (PR 2's flag); a second vendor's pre-freeze quote (cancelled on the pricer's confirmation); returned lines reopen alone; `supplier_invitations`, the role, `profiles.vendor_id`, the supplier's original file on an on-behalf quote; notifications for supplier steps. Several BOQs per deal: every request binds to the file's own `boq_revision_id`, never the deal's current revision. PR 1's tables now carry `audit_session_boundary`.
+
+**Contract for PR 4:**
+- Returning *selected* lines from `price_review` already works in SQL (`pricing_return_lines_to_supplier` accepts `price_review` and returns the price through `pricing_file_move`). PR 4's Approval tab calls it; without a portal request it falls back to `pricing_file_move` with a note.
+- A client round (`quoted -> boq_frozen`) needs a new request: the old request belongs to the old revision and is never reused.
+- Read requests with listed columns from `supplier_invitations` (pricers and cost readers only; reps must not see which supplier).
+
+**Carried Minor items (PR 4/5 or a clean-up PR):**
+- T1: the floor guard's error text reveals the margin to anyone moving to `gm_pending` (pre-existing); `profiles_supplier_self_guard` checks `current_user` only; staff on an aal1 session get an empty My Day.
+- T2: open invitations are not reconciled when the file moves past `at_supplier` (manual cancel on a client round).
+- T4: the staff on-behalf RPC has no `line_cost` overflow bound (raw 22003); the price lock in submit is unnecessary but harmless.
+- T8: add bun tests for `addDays` / `replyByProblem` in `src/lib/supplier-portal.ts`; a system_admin without pricing rights cannot reach the account-creation UI (SQL allows it).
+- Show "link issued by / MFA enrolled at" on the Supplier tab.
+
+**Not done (each with its reason):**
+- `pricing_settings_audit` still writes full rate rows to `audit_log`: not a supplier exposure (suppliers fail the session boundary on `audit_log`); fixing it rewrites PR 1 assertions and needs Mo's choice (strip values or gate the read). Clean-up PR.
+- Automated email: no transactional provider yet. When Postmark or custom SMTP is live, send the two messages from the system.
+- AI quote review and its notice to the supplier: PR 5.
+- Server-side drafts in the portal: the form keeps typed values until submit; a refresh loses them.
+- Carried minor items from PR 2 (lock-order TOCTOU on `estimations`, extras bounds, UTC `current_date` for "in force since", direct writes to `installation_rates`, settings UI rough edges) are unchanged.
+
 ## 2026-11-04 — Pricing loop screens (branch `feat/pricing-loop-screens`, worktree `~/dev/phc-pricing-ui`, stacked on PR #365)
 
 Plan `docs/superpowers/plans/2026-11-03-pricing-loop-screens.md`. PR 2 of 5: Zayed's and Kalas's screens up to Propose, plus settings, plus entry of the supplier's prices on their behalf (Task 14, moved here from PR 3 by Mo on 2026-11-03).

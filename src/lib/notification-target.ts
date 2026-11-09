@@ -77,6 +77,10 @@ export function lookupFor(n: NotificationLike): Lookup | null {
  * the parameter is no worse off than before.
  */
 export function targetFor(n: NotificationLike, opportunityId: string | null): Target {
+  // Pricing notices (supplier submitted, supplier overdue; PR 3) open the pricing
+  // file. They are about cost, so they never send a reader to the deal instead.
+  const pricingFile = metaString(n, "pricing_file_id");
+  if (pricingFile) return { to: `/pricing/${pricingFile}` };
   const opp = opportunityId ?? metadataOpportunityId(n);
   if (opp) return { to: `/opportunities/${opp}` };
   if (!n.entity_id) return { to: "/action-center" };
@@ -115,7 +119,7 @@ export type ReadRow = (table: string, columns: string, id: string) => Promise<Re
  * request, and by the time they click it is a deal.
  */
 export async function resolveTarget(n: NotificationLike, read: ReadRow): Promise<Target> {
-  if (metadataOpportunityId(n) || !n.entity_id) return targetFor(n, null);
+  if (metaString(n, "pricing_file_id") || metadataOpportunityId(n) || !n.entity_id) return targetFor(n, null);
 
   if (n.entity_type === "inbox_item") {
     const row = await read("inbox_items", "converted_record_type, converted_record_id", n.entity_id);

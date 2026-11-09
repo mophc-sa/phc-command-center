@@ -9,23 +9,27 @@ import { QueryFailure } from "@/components/phc/QueryFailure";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, localeFor, formatNumber } from "@/lib/i18n";
 import { canPricerMove } from "@/lib/pricing";
-import { listBoqLines, listSupplierCosts, movePricingFile, type BoqLineRow, type SupplierCostRow } from "@/lib/pricing-actions";
+import {
+  listBoqLines, listFileInvitations, listSupplierCosts, movePricingFile, OPEN_INVITATION,
+  type BoqLineRow, type SupplierCostRow,
+} from "@/lib/pricing-actions";
 import { daysWaiting } from "@/lib/pricing-access";
 import { dbMessage, pick, type Bi } from "@/lib/pricing-text";
 import { SupplierEntryForm } from "@/components/phc/pricing/SupplierEntryForm";
+import { SendToSupplierPanel } from "@/components/phc/pricing/SendToSupplierPanel";
+import { SupplierInvitationPanel } from "@/components/phc/pricing/SupplierInvitationPanel";
 import type { PricingTabProps } from "@/components/phc/pricing/types";
 
 const TEXT = {
   title: { en: "Supplier", ar: "المورد" },
   notYet: { en: "The BOQ is frozen first, on the Package tab.", ar: "تُجمَّد الكميات أولاً من تبويب الباكيج." },
-  howToday: { en: "The supplier portal is not ready yet. Send the frozen BOQ and the files to the supplier as you do today, mark it sent here, then enter the supplier's prices on their behalf when they answer. The supplier sees the project code only.", ar: "بوابة المورد ليست جاهزة بعد. أرسل الكميات المجمّدة والملفات للمورد كما تفعل اليوم، وسجّل الإرسال هنا، ثم أدخل أسعار المورد نيابة عنه حين يرد. يرى المورد رمز المشروع فقط." },
-  send: { en: "Mark as sent to the supplier", ar: "سجّل الإرسال للمورد" },
-  sent: { en: "Marked as sent", ar: "سُجّل الإرسال" },
+  waitingSend: { en: "Estimation sends the frozen BOQ to the supplier.", ar: "يرسل التقدير الكميات المجمّدة للمورد." },
   atSupplier: { en: "At the supplier since", ar: "عند المورد منذ" },
   days: { en: "days", ar: "يوم" },
   pricedCount: { en: "lines have a supplier price", ar: "بنداً لها سعر مورد" },
   of: { en: "of", ar: "من" },
   nonSar: { en: "lines are quoted in another currency; they stay unpriced until the quote is in SAR.", ar: "بنداً مسعّرة بعملة أخرى؛ تبقى بلا سعر حتى يصبح عرض المورد بالريال." },
+  noRequest: { en: "No portal request is open for this file. Send one, or enter the supplier's prices on their behalf.", ar: "لا طلب مفتوح في البوابة لهذا الملف. أرسل طلباً، أو أدخل أسعار المورد نيابة عنه." },
   priced: { en: "The supplier has priced", ar: "سعّر المورد" },
   confirm: { en: "Confirm: the supplier's prices are in and go to the GM", ar: "تأكيد: أسعار المورد وصلت وتذهب للمدير العام" },
   cancel: { en: "Cancel", ar: "إلغاء" },
@@ -112,11 +116,17 @@ function QuotesTable({ lines, costs }: { lines: BoqLineRow[]; costs: SupplierCos
 export function SupplierTab({ file, rights, onChanged }: PricingTabProps) {
   const { lang } = useI18n();
   const revisionId = file.boq_revision_id;
+  const readsRequests = rights.is_pricer || rights.can_read_cost;
   const lines = useQuery({ queryKey: ["pricing-lines", revisionId], queryFn: () => listBoqLines(revisionId as string), enabled: revisionId != null });
   const costs = useQuery({
     queryKey: ["pricing-supplier-costs", revisionId],
     queryFn: () => listSupplierCosts(revisionId as string),
     enabled: revisionId != null && rights.can_read_cost,
+  });
+  const invitations = useQuery({
+    queryKey: ["pricing-invitations", file.file_id],
+    queryFn: () => listFileInvitations(file.file_id),
+    enabled: readsRequests,
   });
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -125,13 +135,17 @@ export function SupplierTab({ file, rights, onChanged }: PricingTabProps) {
   const sarPriced = new Set(costRows.filter((c) => c.unit_cost != null && c.currency === "SAR").map((c) => c.boq_line_id)).size;
   const nonSar = new Set(costRows.filter((c) => c.currency !== "SAR").map((c) => c.boq_line_id)).size;
   const lineCount = lines.data?.length ?? 0;
+  // Newest first: the open request, else the last one this BOQ had.
+  const requests = (invitations.data ?? []).filter((i) => i.boq_revision_id === revisionId);
+  const open = requests.find((i) => OPEN_INVITATION.includes(i.status)) ?? null;
+  const latest = open ?? requests.find((i) => i.status !== "cancelled") ?? null;
 
-  async function move(to: "at_supplier" | "supplier_priced", ok: Bi) {
+  async function markPriced() {
     if (busy) return;
     setBusy(true);
     try {
-      await movePricingFile(file.file_id, to);
-      toast.success(pick(ok, lang));
+      await movePricingFile(file.file_id, "supplier_priced");
+      toast.success(pick(TEXT.movedOn, lang));
       setConfirming(false);
       onChanged();
     } catch (e) {
@@ -141,9 +155,19 @@ export function SupplierTab({ file, rights, onChanged }: PricingTabProps) {
     }
   }
 
-  if (revisionId != null && (lines.isLoading || (rights.can_read_cost && costs.isLoading))) return <SkeletonTable />;
-  if (lines.isError || (rights.can_read_cost && costs.isError)) {
-    return <QueryFailure retry={() => { void lines.refetch(); if (rights.can_read_cost) void costs.refetch(); }} />;
+  if (revisionId != null && (lines.isLoading || (rights.can_read_cost && costs.isLoading) || (readsRequests && invitations.isLoading))) {
+    return <SkeletonTable />;
+  }
+  if (lines.isError || (rights.can_read_cost && costs.isError) || (readsRequests && invitations.isError)) {
+    return (
+      <QueryFailure
+        retry={() => {
+          void lines.refetch();
+          if (rights.can_read_cost) void costs.refetch();
+          if (readsRequests) void invitations.refetch();
+        }}
+      />
+    );
   }
 
   const before = ["received", "package_review", "needs_info"].includes(file.state);
@@ -153,15 +177,7 @@ export function SupplierTab({ file, rights, onChanged }: PricingTabProps) {
       <Panel title={pick(TEXT.title, lang)}>
         <div className="space-y-4 text-sm">
           {before ? <p className="text-muted-foreground">{pick(TEXT.notYet, lang)}</p> : null}
-
-          {file.state === "boq_frozen" ? (
-            <>
-              <p className="text-muted-foreground">{pick(TEXT.howToday, lang)}</p>
-              {rights.is_pricer && canPricerMove("boq_frozen", "at_supplier") ? (
-                <Button disabled={busy} onClick={() => void move("at_supplier", TEXT.sent)}>{pick(TEXT.send, lang)}</Button>
-              ) : null}
-            </>
-          ) : null}
+          {file.state === "boq_frozen" && !rights.is_pricer ? <p className="text-muted-foreground">{pick(TEXT.waitingSend, lang)}</p> : null}
 
           {file.state === "at_supplier" ? (
             <>
@@ -181,14 +197,13 @@ export function SupplierTab({ file, rights, onChanged }: PricingTabProps) {
                   ) : null}
                 </>
               ) : null}
-              {rights.is_pricer && rights.can_read_cost && revisionId != null ? (
-                <SupplierEntryForm file={file} rights={rights} onChanged={onChanged} />
-              ) : null}
-              {rights.is_pricer && canPricerMove("at_supplier", "supplier_priced") ? (
+              {!open && readsRequests ? <p className="text-muted-foreground">{pick(TEXT.noRequest, lang)}</p> : null}
+              {/* With a request open, the supplier's submission (or entry on behalf) moves the file on. */}
+              {!open && rights.is_pricer && canPricerMove("at_supplier", "supplier_priced") ? (
                 confirming ? (
                   <div className="flex flex-wrap items-center gap-2">
                     {sarPriced === 0 && rights.can_read_cost && costsReady ? <p className="w-full text-amber-light">{pick(TEXT.noPrices, lang)}</p> : null}
-                    <Button disabled={busy} onClick={() => void move("supplier_priced", TEXT.movedOn)}>{pick(TEXT.confirm, lang)}</Button>
+                    <Button disabled={busy} onClick={() => void markPriced()}>{pick(TEXT.confirm, lang)}</Button>
                     <Button variant="outline" disabled={busy} onClick={() => setConfirming(false)}>{pick(TEXT.cancel, lang)}</Button>
                   </div>
                 ) : (
@@ -204,6 +219,14 @@ export function SupplierTab({ file, rights, onChanged }: PricingTabProps) {
           ) : null}
         </div>
       </Panel>
+
+      {latest ? <SupplierInvitationPanel invitation={latest} rights={rights} onChanged={onChanged} /> : null}
+      {rights.is_pricer && revisionId != null && (file.state === "boq_frozen" || (file.state === "at_supplier" && !open)) ? (
+        <SendToSupplierPanel file={file} onChanged={onChanged} />
+      ) : null}
+      {file.state === "at_supplier" && rights.is_pricer && rights.can_read_cost && revisionId != null ? (
+        <SupplierEntryForm file={file} rights={rights} onChanged={onChanged} lockedVendorId={open?.vendor_id ?? null} />
+      ) : null}
       {showQuotes && lines.data ? <QuotesTable lines={lines.data} costs={costRows} /> : null}
     </div>
   );

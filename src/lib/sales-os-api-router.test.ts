@@ -5,6 +5,7 @@ import {
   type SalesOsHandler,
 } from "../../supabase/functions/sales-os-api/contracts";
 import { createSalesOsRequestHandler } from "../../supabase/functions/sales-os-api/router";
+import { callerMayUseAction } from "../../supabase/functions/_shared/supplier-portal";
 
 const caller = { userId: "user-1", roles: ["salesperson" as const] };
 const audit = async () => ({ error: null });
@@ -26,6 +27,7 @@ function makeRouter(handler?: SalesOsHandler) {
       authCalls += 1;
       return caller;
     },
+    authorizeAction: (who, action) => callerMayUseAction(who.roles, action),
     createContext: (resolvedCaller, authorization) =>
       createSalesOsContext(
         resolvedCaller,
@@ -175,4 +177,27 @@ test("the caller-scoped client is lazy, cached, and built from the caller's own 
   expect(userCreations).toBe(1);
   expect(seenAuth).toBe("Bearer real-caller-jwt");
   expect(context.asCaller).not.toBe(context.svc);
+});
+
+test("router lets authorizeAction refuse a caller before the handler runs", async () => {
+  let ran = 0;
+  const route = createSalesOsRequestHandler({
+    handlers: { known: async () => { ran += 1; return new Response("ran"); } },
+    corsHeaders: {},
+    errorResponse,
+    resolveCaller: async () => ({ userId: "supplier-1", roles: ["supplier"] }),
+    authorizeAction: (who, action) => !who.roles.includes("supplier") || action === "supplier_file_download",
+    createContext: (resolvedCaller, authorization) =>
+      createSalesOsContext(resolvedCaller, authorization, () => ({}) as never, () => ({}) as never, audit as never),
+  });
+  const response = await route(
+    new Request("https://example.test", {
+      method: "POST",
+      headers: { authorization: "Bearer test" },
+      body: JSON.stringify({ action: "known" }),
+    }),
+  );
+  expect(response.status).toBe(403);
+  expect(await response.json()).toEqual({ error: "This account cannot use this action" });
+  expect(ran).toBe(0);
 });
