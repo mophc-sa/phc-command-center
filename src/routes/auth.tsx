@@ -7,12 +7,13 @@ import { useI18n } from "@/lib/i18n";
 import { toast } from "sonner";
 import { Loader2, Clock, MailCheck } from "lucide-react";
 import { Turnstile } from "@/components/phc/Turnstile";
+import { currentOrigin, safeNextPath } from "@/lib/safe-next-path";
 const phcLogo = { url: "/phc-logo.png" };
 
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>) => ({
-    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") && !s.next.startsWith("/\\") ? s.next : "",
+    next: safeNextPath(s.next, currentOrigin()) ?? "",
   }),
   head: () => ({
     meta: [
@@ -38,8 +39,9 @@ function AuthPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      if (next) {
-        window.location.replace(next);
+      const target = safeNextPath(next, window.location.origin);
+      if (target) {
+        window.location.replace(target);
       } else {
         // Let the root landing route resolve the user's role-specific home.
         nav({ to: "/", replace: true });
