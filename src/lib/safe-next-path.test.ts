@@ -11,6 +11,10 @@ describe("safeNextPath", () => {
 
   it.each([
     ["//evil"],
+    ["/..//evil.com"],
+    ["/.//evil.com"],
+    ["/a/..//evil.com"],
+    ["/%2e%2e//evil.com"],
     ["/\\evil"],
     ["/\t/evil"],
     ["/\n/evil"],

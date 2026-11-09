@@ -19,6 +19,9 @@ export function safeNextPath(next: unknown, origin: string): string | undefined 
     return undefined;
   }
   if (url.origin !== origin) return undefined;
+  // Dot segments collapse during parsing ("/..//evil" becomes "//evil"), and a path
+  // starting with "//" is read as another host when navigated to.
+  if (url.pathname.startsWith("//")) return undefined;
   return url.pathname + url.search + url.hash;
 }
 

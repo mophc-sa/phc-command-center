@@ -5912,7 +5912,7 @@ Plan `docs/superpowers/plans/2026-11-08-pricing-supplier-portal.md`. PR 3 of 5: 
 ```markdown
 ## بند فعّال — حلقة التسعير، PR 3 (بوابة المورد، 2026-11-08)
 
-الفرع `feat/pricing-supplier-portal` (worktree `~/dev/phc-pricing-supplier`) من `main` بعد PR 1 وPR 2. دور المورد وحساباته بالتحقق بخطوتين، وإرسال الملف المجمّد لمورد واحد، والبوابة `/supplier`، والإرسال إلى مراجعة عرض جديدة، وإرجاع بنود بعينها، وتنبيهات الإرسال والتأخر. المتبقي: مراجعة نهائية، فتح الـPR، CI، دمج، ثم `db push` أولاً، ثم نشر `ai-orchestrator` و`import-pipeline` و`sales-os-api` و`meetings-inbound` بموافقة، ثم كناري بحساب مورد تجريبي وإنتاج بيد Mo. التالي: PR 4 (مراجعة زايد وعرض السعر). التفاصيل في أعلى `docs/AI_HANDOFF.md`.
+الفرع `feat/pricing-supplier-portal` (worktree `~/dev/phc-pricing-supplier`) من `main` بعد PR 1 وPR 2. دور المورد وحساباته بالتحقق بخطوتين، وإرسال الملف المجمّد لمورد واحد، والبوابة `/supplier`، والإرسال إلى مراجعة عرض جديدة، وإرجاع بنود بعينها، وتنبيهات الإرسال والتأخر. المتبقي: مراجعة نهائية، فتح الـPR، CI، دمج، ثم `db push` أولاً، ثم نشر `ai-orchestrator` و`import-pipeline` و`sales-os-api` و`meetings-inbound` بموافقة، ولا يُنشأ أي حساب مورد قبل أن تعمل كلها، ثم كناري بحساب مورد تجريبي وإنتاج بيد Mo. التالي: PR 4 (مراجعة زايد وعرض السعر). التفاصيل في أعلى `docs/AI_HANDOFF.md`.
 ```
 
 - [ ] **Step 6: Full verification**
