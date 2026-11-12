@@ -7,10 +7,12 @@ import {
   currentBafoStep,
   fromBafo,
   fromIntakeApproval,
+  fromPricingReview,
   fromRecordApproval,
   sortApprovals,
   type BafoRowIn,
   type IntakeApprovalRowIn,
+  type PricingReviewRowIn,
   type RecordApprovalRowIn,
 } from "@/lib/approvals-center";
 import type { AppRole } from "@/lib/roles";
@@ -231,5 +233,28 @@ describe("queue ordering", () => {
     expect(ageDays("2026-08-20T00:00:00Z", now)).toBe(0);
     expect(ageDays(null, now)).toBeNull();
     expect(ageDays("not a date", now)).toBeNull();
+  });
+});
+
+describe("pricing reviews (PR 4)", () => {
+  const row: PricingReviewRowIn = {
+    file_id: "f1",
+    opportunity_id: "o1",
+    project_name: "Test deal",
+    project_code: "FA-26-0001",
+    state_changed_at: "2026-11-09T08:00:00Z",
+  };
+  it("a pricing file in price review is a pending finance decision that opens the Approval tab", () => {
+    const a = fromPricingReview(row);
+    expect(a.kind).toBe("pricing");
+    expect(a.state).toBe("pending");
+    expect(a.requiredRole).toBe("finance_manager");
+    expect(a.href).toBe("/pricing/f1?tab=approval");
+    expect(a.entityId).toBe("o1");
+    expect(a.entityLabel).toBe("FA-26-0001 · Test deal");
+    expect(a.submittedAt).toBe(row.state_changed_at);
+  });
+  it("the decision is made on the pricing file, not from the list", () => {
+    expect(canDecide(fromPricingReview(row), ["finance_manager"])).toBe(false);
   });
 });

@@ -68,6 +68,7 @@ import { Route as AuthenticatedPricingIdRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPricingSettingsRouteImport } from './routes/_authenticated/pricing.settings'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects.index'
 import { Route as AuthenticatedProjectsIdRouteImport } from './routes/_authenticated/projects.$id'
+import { Route as AuthenticatedQuotationPrintRevisionIdRouteImport } from './routes/_authenticated/quotation-print.$revisionId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -385,6 +386,12 @@ const AuthenticatedProjectsIdRoute = AuthenticatedProjectsIdRouteImport.update({
   path: '/projects/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedQuotationPrintRevisionIdRoute =
+  AuthenticatedQuotationPrintRevisionIdRouteImport.update({
+    id: '/quotation-print/$revisionId',
+    path: '/quotation-print/$revisionId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -439,6 +446,7 @@ export interface FileRoutesByFullPath {
   '/pricing/$id': typeof AuthenticatedPricingIdRoute
   '/pricing/settings': typeof AuthenticatedPricingSettingsRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
+  '/quotation-print/$revisionId': typeof AuthenticatedQuotationPrintRevisionIdRoute
   '/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/data-import/': typeof AuthenticatedDataImportIndexRoute
   '/meetings/': typeof AuthenticatedMeetingsIndexRoute
@@ -496,6 +504,7 @@ export interface FileRoutesByTo {
   '/pricing/$id': typeof AuthenticatedPricingIdRoute
   '/pricing/settings': typeof AuthenticatedPricingSettingsRoute
   '/projects/$id': typeof AuthenticatedProjectsIdRoute
+  '/quotation-print/$revisionId': typeof AuthenticatedQuotationPrintRevisionIdRoute
   '/accounts': typeof AuthenticatedAccountsIndexRoute
   '/data-import': typeof AuthenticatedDataImportIndexRoute
   '/meetings': typeof AuthenticatedMeetingsIndexRoute
@@ -558,6 +567,7 @@ export interface FileRoutesById {
   '/_authenticated/pricing/$id': typeof AuthenticatedPricingIdRoute
   '/_authenticated/pricing/settings': typeof AuthenticatedPricingSettingsRoute
   '/_authenticated/projects/$id': typeof AuthenticatedProjectsIdRoute
+  '/_authenticated/quotation-print/$revisionId': typeof AuthenticatedQuotationPrintRevisionIdRoute
   '/_authenticated/accounts/': typeof AuthenticatedAccountsIndexRoute
   '/_authenticated/data-import/': typeof AuthenticatedDataImportIndexRoute
   '/_authenticated/meetings/': typeof AuthenticatedMeetingsIndexRoute
@@ -620,6 +630,7 @@ export interface FileRouteTypes {
     | '/pricing/$id'
     | '/pricing/settings'
     | '/projects/$id'
+    | '/quotation-print/$revisionId'
     | '/accounts/'
     | '/data-import/'
     | '/meetings/'
@@ -677,6 +688,7 @@ export interface FileRouteTypes {
     | '/pricing/$id'
     | '/pricing/settings'
     | '/projects/$id'
+    | '/quotation-print/$revisionId'
     | '/accounts'
     | '/data-import'
     | '/meetings'
@@ -738,6 +750,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pricing/$id'
     | '/_authenticated/pricing/settings'
     | '/_authenticated/projects/$id'
+    | '/_authenticated/quotation-print/$revisionId'
     | '/_authenticated/accounts/'
     | '/_authenticated/data-import/'
     | '/_authenticated/meetings/'
@@ -1177,6 +1190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjectsIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/quotation-print/$revisionId': {
+      id: '/_authenticated/quotation-print/$revisionId'
+      path: '/quotation-print/$revisionId'
+      fullPath: '/quotation-print/$revisionId'
+      preLoaderRoute: typeof AuthenticatedQuotationPrintRevisionIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -1248,6 +1268,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPricingIdRoute: typeof AuthenticatedPricingIdRoute
   AuthenticatedPricingSettingsRoute: typeof AuthenticatedPricingSettingsRoute
   AuthenticatedProjectsIdRoute: typeof AuthenticatedProjectsIdRoute
+  AuthenticatedQuotationPrintRevisionIdRoute: typeof AuthenticatedQuotationPrintRevisionIdRoute
   AuthenticatedMeetingsIndexRoute: typeof AuthenticatedMeetingsIndexRoute
   AuthenticatedOpportunitiesIndexRoute: typeof AuthenticatedOpportunitiesIndexRoute
   AuthenticatedPricingIndexRoute: typeof AuthenticatedPricingIndexRoute
@@ -1291,6 +1312,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPricingIdRoute: AuthenticatedPricingIdRoute,
   AuthenticatedPricingSettingsRoute: AuthenticatedPricingSettingsRoute,
   AuthenticatedProjectsIdRoute: AuthenticatedProjectsIdRoute,
+  AuthenticatedQuotationPrintRevisionIdRoute:
+    AuthenticatedQuotationPrintRevisionIdRoute,
   AuthenticatedMeetingsIndexRoute: AuthenticatedMeetingsIndexRoute,
   AuthenticatedOpportunitiesIndexRoute: AuthenticatedOpportunitiesIndexRoute,
   AuthenticatedPricingIndexRoute: AuthenticatedPricingIndexRoute,

@@ -128,7 +128,7 @@ do $$ declare r record; c bigint; k integer := 0; begin
   end loop;
   insert into sw_cov values ('tables and views', k);
 end $$;
-select is((select array_agg(rel || '=' || n order by rel) from sw_seen), array['pricing_file_transitions=14','profiles=1','user_roles=1'],
+select is((select array_agg(rel || '=' || n order by rel) from sw_seen), array['pricing_file_transitions=15','profiles=1','user_roles=1'],
   'A supplier reads only its own profile and role, and the static state map, in every table and view');
 select is((select count(*)::int from storage.objects), 0, 'A supplier reads no stored file');
 
@@ -311,7 +311,7 @@ select is((select array_agg(project_code) from public.supplier_portal_invitation
   array[(select v from sw_ref where k = 'code_a')], 'Through the portal it sees its own request only');
 select throws_ok(format($$select public.supplier_portal_invitation('%s')$$, (select v from sw_ref where k = 'inv_b')), '42501', null,
   'And not the other supplier''s');
-select is(public.pricing_my_rights(), '{"is_gm": false, "is_pricer": false, "can_read_cost": false, "can_set_margins": false}'::jsonb,
+select is(public.pricing_my_rights(), '{"is_gm": false, "is_pricer": false, "can_read_cost": false, "can_set_margins": false, "is_finance": false, "can_issue_quotation": false}'::jsonb,
   'The pricing rights call grants a supplier nothing');
 select is(public.current_margin_floor(), null::numeric, 'Nor the margin floor');
 

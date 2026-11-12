@@ -1,5 +1,31 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-09 — Pricing loop PR 4: Zayed's review, the quotation, sales status, client rounds (branch `feat/pricing-review-quotation`, worktree `~/dev/phc-pricing-review`)
+
+Plan `docs/superpowers/plans/2026-11-09-pricing-review-quotation.md`. Migrations `20261110100000`–`20261110120000`. No function changes.
+- Finance reviews (`pricing_file_review`); notifications from a trigger on `pricing_file_events`; the BD or sales manager issues the quotation (`pricing_issue_quotation`, line snapshot `quotation_revision_lines`, approved by the issue through the transaction-local flag `pricing.issuing`), prints it (`/quotation-print/$revisionId`) and marks it sent; a pricer opens a client round (`pricing_file_client_round`).
+- **Defaults applied (Mo to confirm, DECISIONS 2026-11-09):** no second GM signature on an in-file quotation; line prices on the PDF; BD + sales manager issue; a client round goes back through the supplier.
+
+**Release (Mo runs):** merge once CI is green → `supabase db push` (three additive migrations) → no function deploy → Cloudflare canary → Production Readiness → production.
+
+**Canary walk-through (real accounts):**
+1. Kalas proposes on a test file → Zayed is notified; `/approvals` shows *Review selling price*.
+2. Zayed returns it with a reason → Kalas is notified; the reason is on the file, not in the notice.
+3. Kalas proposes again; Zayed approves → Marie and the rep are notified.
+4. Marie, on the deal page, issues with terms → the print page opens; print to PDF in Arabic and English; totals and VAT match.
+5. Marie marks it sent. The rep sees the state, the quotation and its lines, and no cost (`GET /rest/v1/pricing_file_lines?select=built_cost` with the rep's token returns `[]`).
+6. Zayed presses *Client changes* → the file is at Package on BOQ Rev 2.
+
+**Local checks (2026-11-09):** pgTAP 49 files, 1369 tests, PASS (local stack on the 563xx ports); `bun run verify` green (3371 bun tests, typecheck, lint 0 errors, build). Browser walk-through not run locally (MFA roles); the canary covers it.
+
+**Contract for PR 5 (AI reviews):** notify through `emit_notification*` as `_pricing_notify_event` does; the quote review runs when a file reaches `supplier_priced`, the package review at `package_review`; agents only notify and list (spec decision 8), never move a file or a price.
+
+**Not in PR 4:**
+- Carrying supplier prices forward for unchanged lines in a client round (needs Zayed's rule for "unchanged").
+- Emailing the PDF (no transactional email provider; Postmark parked).
+- Quotation numbering beyond the deal code (`project_code`, else `Q-<id>`); confirm Marie's format.
+- The GM's below-floor justification on the Approval tab (`internal_prices.below_floor_justification` has no column grant; expose it through a finance-gated view in a clean-up PR).
+
 ## 2026-11-08 — Supplier portal (branch `feat/pricing-supplier-portal`, worktree `~/dev/phc-pricing-supplier`)
 
 Plan `docs/superpowers/plans/2026-11-08-pricing-supplier-portal.md`. PR 3 of 5: the `supplier` role and accounts, sending a frozen file to one supplier, the portal (`/supplier`), submission into a 7B quote revision, returned lines, notifications on submit and overdue.

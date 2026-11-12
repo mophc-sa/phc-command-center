@@ -26,6 +26,8 @@ import { PackageTab } from "@/components/phc/pricing/PackageTab";
 import { SupplierTab } from "@/components/phc/pricing/SupplierTab";
 import { CostReviewTab } from "@/components/phc/pricing/CostReviewTab";
 import { SellingPriceTab } from "@/components/phc/pricing/SellingPriceTab";
+import { ApprovalTab } from "@/components/phc/pricing/ApprovalTab";
+import { QuotationsTab } from "@/components/phc/pricing/QuotationsTab";
 
 export const Route = createFileRoute("/_authenticated/pricing/$id")({
   validateSearch: (s: Record<string, unknown>): { tab?: PricingTab } => ({ tab: parsePricingTab(s.tab) }),
@@ -140,6 +142,8 @@ function PricingFilePage() {
         <TabsContent value="supplier"><SupplierTab {...props} /></TabsContent>
         {tabs.includes("cost") ? <TabsContent value="cost"><CostReviewTab {...props} /></TabsContent> : null}
         {tabs.includes("selling") ? <TabsContent value="selling"><SellingPriceTab {...props} /></TabsContent> : null}
+        {tabs.includes("approval") ? <TabsContent value="approval"><ApprovalTab {...props} /></TabsContent> : null}
+        <TabsContent value="quotations"><QuotationsTab {...props} /></TabsContent>
       </Tabs>
 
       <Panel title={pick(TEXT.history, lang)}>
