@@ -128,7 +128,7 @@ do $$ declare r record; c bigint; k integer := 0; begin
   end loop;
   insert into sw_cov values ('tables and views', k);
 end $$;
-select is((select array_agg(rel || '=' || n order by rel) from sw_seen), array['pricing_file_transitions=14','profiles=1','user_roles=1'],
+select is((select array_agg(rel || '=' || n order by rel) from sw_seen), array['pricing_file_transitions=15','profiles=1','user_roles=1'],
   'A supplier reads only its own profile and role, and the static state map, in every table and view');
 select is((select count(*)::int from storage.objects), 0, 'A supplier reads no stored file');
 
