@@ -711,6 +711,7 @@ Estimation, finance, the sales manager, the GM, MD and CEO see the whole group. 
 3. **Cost review (Zayed and Kalas).**
    - Each line shows the supplier's price, the with-screen price, and flags for no price, a missing screen price or a spec difference.
    - Zayed chooses the normal or the with-screen price, and can correct a line's install type.
+   - **Quote check** *(2026-11-12)*: when the supplier's prices arrive, the system checks every line and tells Zayed how many need attention. At the top of the tab it lists them: no price, the price with the screen missing, a quantity different from the BOQ, or a spec difference the supplier wrote. *Return these lines to the supplier* ticks the lines the supplier must fix and writes the message (line numbers and sign types, English and Arabic); read it before sending. A written spec difference is Zayed's call: accept it, or return the line. Nothing goes to the supplier by itself.
    - Zayed can **send lines back to the supplier**. If the supplier answered through the portal, tick the lines that go back, give a new reply-by date, the reason (a cost note: sales and the supplier do not see it) and, if you want, a message the supplier sees. Only those lines reopen in the portal; the others keep their prices.
    - Kalas presses **Start the selling price**.
 4. **Selling price (Kalas sets it; Zayed sets the cost choices).**
@@ -1051,6 +1052,7 @@ A project now has a responsible salesperson, shown at the top of the project pag
 - The system does not email the quotation: print it to PDF and send it yourself, then mark it as sent (2026-11-09).
 - The GM's below-floor justification is not shown on the Approval tab yet; the tab says the price is below the floor (2026-11-09).
 - A client round sends every line to the supplier again; prices of unchanged lines are not carried forward yet (2026-11-09).
+- The quote check compares the BOQ with the supplier's quote as data; it does not read drawings or the location plan. Checking a package's files for missing items is still Zayed's (2026-11-12).
 - No email is sent by the system yet: Zayed copies the account and request messages into his own email or WhatsApp.
 - Entering a supplier's prices on their behalf again overwrites that entry in place (a supplier's own portal submission is always kept as its own revision).
 - One supplier per file. A line priced by two suppliers stops the build.
@@ -1673,3 +1675,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-08 · supplier portal: supplier accounts with MFA, send to the supplier, /supplier portal, returned lines, notifications on submit and overdue · branch feat/pricing-supplier-portal, not deployed · previous: pricing loop screens, 2026-11-04 -->
 
 <!-- last reviewed 2026-11-09 · pricing loop PR 4: Approval and Quotations tabs, deal pricing card (state, missing items, issue quotation), /quotation-print, client rounds, review notifications, Review selling price on /approvals · branch feat/pricing-review-quotation, not deployed · previous: supplier portal, 2026-11-08 -->
+
+<!-- last reviewed 2026-11-12 · pricing loop PR 5: supplier quote check on Cost review, notice to estimation and finance, prepared return to the supplier · branch feat/pricing-quote-check, not deployed · previous: pricing loop PR 4, 2026-11-09 -->

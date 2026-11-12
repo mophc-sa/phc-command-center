@@ -1,5 +1,13 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-12 — Supplier quote check (Commercial & Finance part 1, PR 5; not deployed)
+
+- Mo, 2026-11-12: the review compares the frozen BOQ with the supplier's quote as data; it does not read drawings. Its checks are fixed rules, so they are SQL, not a model (no provider, no function deploy).
+- Migration `20261111100000`: `_pricing_quote_issues` (internal) and `pricing_quote_check` (pricers and cost readers who can read the deal): per BOQ line, `no_price`, `screen_price_missing`, `quantity_differs`, `spec_differs`, with both quantities and the supplier's note; no price column. `_pricing_notify_event` gains `supplier_priced`: notice `pricing_quote_check` to estimation and finance with the counts.
+- UI: *Quote check* at the top of Cost review (supplier priced and price review), with *Return these lines to the supplier*: the return dialog opens with the lines to fix ticked and a bilingual message (line numbers and sign types; a long list falls back to line numbers per issue within the portal's 1000 characters). `ReturnLinesDialog` takes an optional preset.
+- Tests: `pricing_quote_check` (pgTAP); `quote-check` (bun).
+- Release: `supabase db push` (one migration) after PR 4's, no function deploy.
+
 ## 2026-11-09 — Zayed's review, the quotation, sales status, client rounds (Commercial & Finance part 1, PR 4; not deployed)
 
 - Migrations `20261110100000`–`20261110120000`:

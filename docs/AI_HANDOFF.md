@@ -1,5 +1,12 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-12 — Pricing loop PR 5: the supplier quote check (branch `feat/pricing-quote-check`, stacked on PR 4 #372)
+
+Mo chose a data comparison over reading drawings (DECISIONS 2026-11-12). Migration `20261111100000`: `pricing_quote_check` (rules: no price, screen price missing, quantity differs, spec differs), a notice to estimation and finance on `supplier_priced`, and *Quote check* on Cost review with a prepared return (lines ticked, bilingual message) that Zayed sends himself. No function change.
+**Release:** after PR 4: merge, `supabase db push` (one migration), canary: a supplier submits with a missing screen price → Zayed gets "Quote check: 1 lines need attention…", the panel lists the line, *Return these lines* opens with it ticked and the message filled, the supplier sees only that line reopened with the message.
+**Local checks (2026-11-12):** pgTAP 50 files, 1381 tests, PASS; `bun run verify` green (3380 tests).
+**Not done:** the package review of drawings and location plans (needs vision input in `ai-providers.ts`, a function deploy, and Zayed checking quality on real files first).
+
 ## 2026-11-09 — Pricing loop PR 4: Zayed's review, the quotation, sales status, client rounds (branch `feat/pricing-review-quotation`, worktree `~/dev/phc-pricing-review`)
 
 Plan `docs/superpowers/plans/2026-11-09-pricing-review-quotation.md`. Migrations `20261110100000`–`20261110120000`. No function changes.

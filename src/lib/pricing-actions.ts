@@ -9,6 +9,7 @@ import type { InstallType, PricingState } from "@/lib/pricing";
 import { NO_RIGHTS, type PricingRights } from "@/lib/pricing-access";
 import { callBackend } from "@/lib/backend";
 import type { QuoteRevisionStatus } from "@/lib/quotation-doc";
+import type { QuoteIssueRow } from "@/lib/quote-check";
 
 const db = supabase as unknown as { from: (t: string) => any };
 
@@ -671,3 +672,8 @@ export const getQuotationHeader = (quotationId: string) =>
 export type QuoteDeal = { id: string; project_name: string; client: string | null; project_code: string | null };
 export const getQuoteDeal = (opportunityId: string) =>
   one<QuoteDeal>(db.from("opportunities").select("id, project_name, client, project_code").eq("id", opportunityId).maybeSingle());
+
+// ---- PR 5: the supplier quote check -------------------------------------------------
+
+/** Lines of the file's current BOQ revision whose supplier quote needs attention (rules in SQL; no prices). */
+export const checkQuote = (fileId: string) => call<QuoteIssueRow[]>("pricing_quote_check", { _file_id: fileId });

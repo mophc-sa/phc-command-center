@@ -24,6 +24,7 @@ import { INSTALL_TYPES, INSTALL_TYPE_LABEL } from "@/lib/boq-import";
 import { asError, dbMessage, pick, type Bi } from "@/lib/pricing-text";
 import type { PricingTabProps } from "@/components/phc/pricing/types";
 import { ReturnLinesDialog } from "@/components/phc/pricing/ReturnLinesDialog";
+import { QuoteCheckPanel } from "@/components/phc/pricing/QuoteCheckPanel";
 
 const TEXT = {
   title: { en: "Supplier prices against the BOQ", ar: "أسعار المورد مقابل الكميات" },
@@ -90,6 +91,7 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
   const editable = canEditLineCost(file.state, rights);
   const [backOpen, setBackOpen] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
+  const [returnPreset, setReturnPreset] = useState<{ lines: string[]; message: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const money = (n: number | null) => (n == null ? "—" : formatNumber(n, lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
@@ -144,6 +146,14 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
 
   return (
     <div className="space-y-4">
+      {file.state === "supplier_priced" || file.state === "price_review" ? (
+        <QuoteCheckPanel
+          fileId={file.file_id}
+          revisionId={revisionId}
+          portalRequest={portalRequest != null}
+          onReturn={canSendBack && requestsKnown ? (preset) => { setReturnPreset(preset); setReturnOpen(true); } : undefined}
+        />
+      ) : null}
       <Panel title={pick(TEXT.title, lang)} subtitle={pick(TEXT.sub, lang)}>
         <Table>
           <TableHeader>
@@ -228,7 +238,7 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
 
       <div className="flex flex-wrap gap-2">
         {canSendBack && invitations.isError ? <p role="alert" className="text-sm text-destructive">{pick(TEXT.requestsFailed, lang)}</p> : null}
-        {canSendBack ? <Button variant="outline" disabled={busy || !requestsKnown} title={invitations.isLoading ? pick(TEXT.requestsLoading, lang) : undefined} onClick={() => (portalRequest ? setReturnOpen(true) : setBackOpen(true))}>{pick(fromPriceReview ? TEXT.backPr : TEXT.back, lang)}</Button> : null}
+        {canSendBack ? <Button variant="outline" disabled={busy || !requestsKnown} title={invitations.isLoading ? pick(TEXT.requestsLoading, lang) : undefined} onClick={() => { setReturnPreset(null); if (portalRequest) setReturnOpen(true); else setBackOpen(true); }}>{pick(fromPriceReview ? TEXT.backPr : TEXT.back, lang)}</Button> : null}
         {rights.is_gm && file.state === "supplier_priced" && canGmMove("supplier_priced", "selling_build") ? (
           <Button disabled={busy} onClick={() => void startSelling()}>{pick(TEXT.start, lang)}</Button>
         ) : null}
@@ -259,6 +269,7 @@ export function CostReviewTab({ file, rights, onChanged }: PricingTabProps) {
         fromPriceReview={fromPriceReview}
         lines={gridRows.map((g) => ({ id: g.boq_line_id, label: `${g.line_number ?? ""} ${g.sign_type}`.trim() }))}
         onDone={onChanged}
+        preset={returnPreset}
       />
     </div>
   );
