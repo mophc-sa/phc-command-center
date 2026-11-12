@@ -822,7 +822,13 @@ function BoardPage() {
     const annual = [...targets.values()].reduce((a, v) => a + v, 0) || null;
     const intel = opps as unknown as IntelOpp[];
     const weighted = weightedPipeline(intel);
+    // Win rate this year: deals closed this year, won over won-plus-lost. Read
+    // from the close dates, so a deal won in 2024 and synced today is not
+    // counted as this year's decision.
+    const wonThisYear = intel.filter((o) => canonicalStageOf(o as never) === "won" && (o.won_at ?? "").startsWith(year)).length;
+    const lostThisYear = intel.filter((o) => canonicalStageOf(o as never) === "lost" && (o.lost_at ?? "").startsWith(year)).length;
     return {
+      winRate: { won: wonThisYear, lost: lostThisYear, ratio: wonThisYear + lostThisYear > 0 ? wonThisYear / (wonThisYear + lostThisYear) : null },
       pulse,
       standing,
       team: computeTeam(opps, targets, labels, nowDate, null, true),
@@ -892,6 +898,9 @@ function BoardPage() {
     });
   }, [model, data]);
 
+  const anyProb = !!model?.hot.some((h) => h.probability !== null);
+  const emptyStages = model?.standing.composition.filter((c) => c.count === 0) ?? [];
+
   const fmtTime = (d: Date) =>
     new Intl.DateTimeFormat(localeFor(lang), { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }).format(d);
   const fmtDate = (d: Date) =>
@@ -900,7 +909,10 @@ function BoardPage() {
     }).format(d);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden" style={{ background: "color-mix(in srgb, var(--info) 4%, var(--muted))" }}>
+    // The board's own language decides its direction, not the app's toggle:
+    // English text laid out right-to-left mirrored every row and put the
+    // clock's "AM" and the slogan's full stop on the wrong end.
+    <div dir={lang === "ar" ? "rtl" : "ltr"} lang={lang} className="flex h-screen w-screen flex-col overflow-hidden" style={{ background: "color-mix(in srgb, var(--info) 4%, var(--muted))" }}>
       <header className="flex shrink-0 items-center justify-between border-b border-border bg-card px-[1.5vw] py-[1.1vh]">
         <div className="flex items-center gap-[1.2vw]">
           {/* The real wordmark, not the letters. `brightness-0` renders the
@@ -982,15 +994,13 @@ function BoardPage() {
             />
             <Kpi
               icon={Target} tone="info" lang={lang}
-              ar="الهدف السنوي" en="Annual target"
-              value={splitCompact(model.year.target, lang)?.n ?? null}
-              unit={splitCompact(model.year.target, lang)?.unit}
+              ar="نسبة الفوز هذا العام" en="Win rate this year"
+              value={model.winRate.ratio === null ? null : `${formatNumber(Math.round(model.winRate.ratio * 100), lang)}%`}
+              unit={lang === "ar" ? "من الصفقات المُغلقة" : "of deals closed"}
               foot={
-                model.year.target === null
-                  ? lang === "ar" ? "لم يُضبط هدف" : "no target set"
-                  : lang === "ar"
-                    ? `مضى ${formatNumber(Math.round(model.year.yearElapsed * 100), lang)}% من السنة`
-                    : `${Math.round(model.year.yearElapsed * 100)}% of the year elapsed`
+                lang === "ar"
+                  ? `${formatNumber(model.winRate.won, lang)} فوز · ${formatNumber(model.winRate.lost, lang)} خسارة`
+                  : `${model.winRate.won} won · ${model.winRate.lost} lost`
               }
             />
             <KpiFigure
@@ -1029,13 +1039,15 @@ function BoardPage() {
               icon={PieChart}
               tone={model.year.ratio !== null && model.year.ratio >= model.year.yearElapsed ? "won" : "amber"}
               lang={lang}
-              ar="نسبة تحقيق الهدف" en="Target achievement"
+              ar="تحقيق الهدف السنوي" en="Annual target"
               value={model.year.ratio === null ? null : `${formatNumber(Math.round(model.year.ratio * 100), lang)}%`}
-              unit={model.year.target ? (lang === "ar" ? `من ${compactValue(model.year.target, lang)}` : `of ${compactValue(model.year.target, lang)}`) : null}
+              unit={model.year.target
+                ? (lang === "ar" ? `محقّق من ${compactValue(model.year.target, lang)}` : `achieved of ${compactValue(model.year.target, lang)}`)
+                : (lang === "ar" ? "لم يُضبط هدف لهذا العام" : "No target set for this year")}
               gauge={model.year.ratio}
               foot={
                 model.year.ratio === null
-                  ? lang === "ar" ? "لم يُضبط هدف" : "no target set"
+                  ? lang === "ar" ? "يُضبط من الإدارة ← الأهداف" : "Set it in Admin → Targets"
                   : model.year.ratio >= model.year.yearElapsed
                     ? lang === "ar" ? "أمام المعدّل المطلوب" : "ahead of required pace"
                     : lang === "ar" ? "أقل من المعدّل المطلوب" : "below required pace"
@@ -1098,7 +1110,9 @@ function BoardPage() {
           holding a third of the width to show them. */}
           <div className="grid min-h-0 grid-cols-[1.7fr_1.1fr_0.8fr] gap-[0.7vw]">
             <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon={Flame} tone="amber" lang={lang}
-                   note={lang === "ar" ? "أعلى 20 حسب القيمة" : "top 20 by value"}>
+                   note={anyProb
+                     ? (lang === "ar" ? "أعلى 20 حسب القيمة" : "Top 20 by value")
+                     : (lang === "ar" ? "أعلى 20 حسب القيمة · لا احتمالية مسجّلة بعد" : "Top 20 by value · no probability entered yet")}>
               {/* Same fix as the pipeline below: the table stacked to its natural
                   height and pushed the total 12px past the card edge. Flexed
                   rows share whatever the panel has. */}
@@ -1106,7 +1120,7 @@ function BoardPage() {
                 <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.8vw, 20px)" }}>
                   <span className="min-w-0 flex-1">{lang === "ar" ? "المشروع" : "Project"}</span>
                   <span className="shrink-0 text-end" style={{ width: "5.6vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "5.2vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span>
+                  {anyProb ? <span className="shrink-0 text-end" style={{ width: "5.2vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span> : null}
                 </div>
 
                 <AutoScroll className="flex min-h-0 flex-1 flex-col">
@@ -1125,7 +1139,7 @@ function BoardPage() {
                           was already cramming project names against their
                           values, and the list is sorted by value -- the order
                           IS the rank, and printing it twice bought nothing. */}
-                      <span className="min-w-0 flex-1 truncate text-foreground">
+                      <span className="min-w-0 flex-1 truncate text-foreground" title={h.projectName}>
                         {h.projectName}
                       </span>
                       <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "5.6vw" }} data-tabular="true">
@@ -1134,9 +1148,11 @@ function BoardPage() {
                       {/* Empty on every row today. A dash is the honest cell, and
                           the column stays so the first entered figure lands in
                           its place without a code change. */}
-                      <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "5.2vw" }} data-tabular="true">
-                        {h.probability === null ? "—" : `${formatNumber(h.probability, lang)}%`}
-                      </span>
+                      {anyProb ? (
+                        <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "5.2vw" }} data-tabular="true">
+                          {h.probability === null ? "—" : `${formatNumber(h.probability, lang)}%`}
+                        </span>
+                      ) : null}
                     </div>
                   ))}
                 </AutoScroll>
@@ -1165,21 +1181,21 @@ function BoardPage() {
                 </div>
 
                 <div className="flex min-h-0 flex-1 flex-col">
-                  {model.standing.composition.map((c, i) => (
+                  {/* Empty stages fold into one line under the rows. Six rows of
+                      "0 · —" squeezed the two stages holding the money into
+                      unreadable type; the count of empty ones keeps the fact. */}
+                  {model.standing.composition.map((c, i) => c.count === 0 ? null : (
                     <div
                       key={c.stage}
-                      className="flex min-h-0 flex-1 items-center gap-[0.5vw] border-t border-border/50"
-                      // An empty stage is real information, so it stays -- but it
-                      // must not compete with the stages holding the money.
-                      style={{ opacity: c.count === 0 ? 0.5 : 1 }}
+                      className="flex min-h-0 max-h-[5vh] flex-1 items-center gap-[0.5vw] border-t border-border/50"
                     >
-                      <span className="min-w-0 flex-1 truncate text-foreground" style={{ fontSize: "clamp(12px, 0.88vw, 23px)" }}>
+                      <span className="min-w-0 flex-1 truncate text-foreground" style={{ fontSize: "clamp(13px, 1vw, 26px)" }}>
                         {STAGE_LABEL[c.stage]?.[lang === "ar" ? 0 : 1] ?? c.stage}
                       </span>
-                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ fontSize: "clamp(12px, 0.9vw, 23px)", width: "2.6vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ fontSize: "clamp(13px, 1vw, 26px)", width: "2.6vw" }} data-tabular="true">
                         {formatNumber(c.count, lang)}
                       </span>
-                      <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "clamp(12px, 0.88vw, 23px)", width: "5vw" }} data-tabular="true">
+                      <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "clamp(13px, 1vw, 26px)", width: "5vw" }} data-tabular="true">
                         {c.value > 0 ? compactValue(c.value, lang) : "—"}
                       </span>
                       <span className="flex shrink-0 items-center gap-[0.35vw]" style={{ width: "7.4vw" }}>
@@ -1194,15 +1210,22 @@ function BoardPage() {
                             <span className="absolute inset-y-0 start-0" style={{ width: "0.35vw", background: c.stage === "on_hold" ? "var(--muted-foreground)" : `var(--stage-${i + 1})`, opacity: 0.55 }} />
                           ) : null}
                         </span>
-                        <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "clamp(12px, 0.78vw, 20px)", width: "2vw" }} data-tabular="true">
+                        <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "clamp(12px, 0.85vw, 22px)", width: "2.4vw" }} data-tabular="true">
                           {Math.round(c.share * 100)}%
                         </span>
                       </span>
                     </div>
                   ))}
+                  {emptyStages.length > 0 ? (
+                    <span className="mt-auto pt-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.75vw, 19px)" }}>
+                      {lang === "ar"
+                        ? `بلا فرص حاليًا: ${emptyStages.map((c) => STAGE_LABEL[c.stage]?.[0] ?? c.stage).join("، ")}`
+                        : `No deals now: ${emptyStages.map((c) => STAGE_LABEL[c.stage]?.[1] ?? c.stage).join(", ")}`}
+                    </span>
+                  ) : null}
                 </div>
 
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "clamp(12px, 0.9vw, 23px)" }}>
+                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "clamp(13px, 1vw, 26px)" }}>
                   <span className="font-semibold text-foreground">{lang === "ar" ? "الإجمالي" : "Total"}</span>
                   <span className="num font-bold text-foreground" data-tabular="true">
                     {formatNumber(model.standing.openCount, lang)} · {money(model.standing.openTotal)}
@@ -1226,10 +1249,8 @@ function BoardPage() {
                 <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.5vh]" style={{ fontSize: "clamp(12px, 0.82vw, 21px)" }}>
                   <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الفريق" : "Team"}</span>
                   <span className="num font-bold text-teal-on-tint" data-tabular="true">
-                    {money(salesTeam.reduce((a, p) => a + p.won, 0))} · {money(salesTeam.reduce((a, p) => a + p.open, 0))}
-                    {" · "}{formatRate(rate(
-                      salesTeam.reduce((a, p) => a + p.done, 0),
-                      salesTeam.reduce((a, p) => a + p.openDue, 0)), lang)}
+                    {lang === "ar" ? "الشهر " : "MTD "}{money(salesTeam.reduce((a, p) => a + p.won, 0)) ?? "—"}
+                    {lang === "ar" ? " · المسار " : " · Pipeline "}{money(salesTeam.reduce((a, p) => a + p.open, 0)) ?? "—"}
                   </span>
                 </div>
               </div>
@@ -1368,8 +1389,8 @@ function Wire({ items, lang }: { items: string[]; lang: "ar" | "en" }) {
 const CHIP_ROW_H = "9.9vh";
 /** One type scale for both panels, for the same reason as the height. */
 const CHIP_FIGURE = "1.6vw";
-const CHIP_LABEL = "0.64vw";
-const CHIP_NOTE = "0.58vw";
+const CHIP_LABEL = "clamp(12px, 0.74vw, 19px)";
+const CHIP_NOTE = "clamp(12px, 0.66vw, 17px)";
 /** The kicker slot above the chips. Fixed, so the row below it cannot drift. */
 const CHIP_KICKER_H = "1.5vh";
 /* Both widths come from measuring the real strings at 1920x1080, not from
@@ -1583,20 +1604,19 @@ function Pulse({
   );
 
   return (
-    <div className="flex min-h-0 flex-1 items-start gap-[0.7vw] overflow-hidden">
-      <span aria-hidden="true" className="shrink-0 leading-none text-violet" style={{ fontSize: "clamp(16px, 1.6vw, 41px)" }}>
-        &ldquo;
-      </span>
+    <div className="flex min-h-0 flex-1 items-center overflow-hidden">
       {/* A briefing, not an inventory: the chips beside this panel already carry
           the counts, and a paragraph can say what they mean together. Composed
           from measured figures -- see pulseSentences for the clauses it will
           not write. */}
-      <p className="min-w-0 flex-1 self-center text-foreground" style={{ fontSize: "clamp(12px, 0.86vw, 22px)", lineHeight: 1.75 }}>
-        {lines.join(" ")}
-      </p>
-      <span aria-hidden="true" className="shrink-0 self-end leading-none text-violet" style={{ fontSize: "clamp(16px, 1.6vw, 41px)" }}>
-        &rdquo;
-      </span>
+      <ul className="min-w-0 flex-1 space-y-[0.6vh] text-foreground" style={{ fontSize: "clamp(13px, 0.95vw, 25px)", lineHeight: 1.5 }}>
+        {lines.map((l) => (
+          <li key={l} className="flex gap-[0.5vw]">
+            <span aria-hidden="true" className="mt-[0.55em] h-[0.4em] w-[0.4em] shrink-0 rounded-full bg-violet" />
+            <span className="min-w-0">{l}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -1680,6 +1700,14 @@ function Horizons({
       caption: lang === "ar" ? "مرجّح تراكمي" : "Cumulative weighted" },
   ];
   const shared = sharedReason([h.d30, h.d60, h.d90], lang);
+  // The same deals are left out of all three windows, so say it once, in a
+  // sentence, instead of "Partial · 345 omitted" under every figure.
+  const omitted = Math.max(h.d30.missing ?? 0, h.d60.missing ?? 0, h.d90.missing ?? 0);
+  const coverage = !shared && omitted > 0
+    ? (lang === "ar"
+      ? `${formatNumber(omitted, lang)} فرصة مفتوحة بلا تاريخ إغلاق متوقّع أو احتمالية — غير داخلة في التوقّع`
+      : `${omitted} open deals have no expected close date or probability and are not in the forecast`)
+    : null;
 
   return (
     <ChipRow
@@ -1687,10 +1715,10 @@ function Horizons({
       // that keeps this row level with the two panels beside it.
       kicker={lang === "ar" ? "متوقّع الإغلاق خلال" : "Expected to close within"}
       footer={
-        shared ? (
+        shared || coverage ? (
           <span className="flex items-start gap-[0.35vw]">
-            <span aria-hidden="true" style={{ fontSize: "clamp(12px, 0.62vw, 16px)" }}>ⓘ</span>
-            <span className="min-w-0 text-muted-foreground" style={{ fontSize: "clamp(12px, 0.62vw, 16px)" }}>{shared}</span>
+            <span aria-hidden="true" style={{ fontSize: "clamp(12px, 0.72vw, 18px)" }}>ⓘ</span>
+            <span className="min-w-0 leading-snug text-muted-foreground" style={{ fontSize: "clamp(12px, 0.72vw, 18px)" }}>{shared ?? coverage}</span>
           </span>
         ) : (
           // Only when the horizons fail for DIFFERENT reasons -- then one line
@@ -1710,7 +1738,8 @@ function Horizons({
       }
     >
       {cols.map((c) => {
-        const ok = c.f.state === "ok" && c.f.value !== null;
+        // A zero built from almost no inputs is not a measured zero.
+        const ok = c.f.state === "ok" && c.f.value !== null && !(c.f.value === 0 && (c.f.missing ?? 0) > 0);
         const state = c.f.state === "not_configured"
           ? lang === "ar" ? "يحتاج إعدادًا" : "Setup required"
           : c.f.state === "not_applicable"
@@ -1722,7 +1751,7 @@ function Horizons({
           // one row on the board that is read as a series -- 30 to 60 to 90 --
           // and three bordered boxes read as three separate facts.
           <div key={c.key} className="flex min-w-0 flex-col items-center justify-center overflow-hidden text-center">
-            <span className={`font-semibold ${TONE[c.tone].text}`} style={{ fontSize: "clamp(12px, 0.7vw, 18px)" }}>
+            <span className={`font-semibold ${TONE[c.tone].text}`} style={{ fontSize: "clamp(12px, 0.82vw, 21px)" }}>
               {lang === "ar" ? c.ar : c.en}
             </span>
             {ok ? (
@@ -1739,8 +1768,8 @@ function Horizons({
                 —
               </span>
             )}
-            <span className="mt-[0.2vh] w-full truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.6vw, 15px)" }}>
-              {ok ? (c.f.missing ? (lang === "ar" ? `جزئي · ${c.f.missing} غير محسوبة` : `Partial · ${c.f.missing} omitted`) : c.caption) : state}
+            <span className="mt-[0.2vh] w-full truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.7vw, 18px)" }}>
+              {ok ? (c.f.missing ? (lang === "ar" ? "جزئي" : "Partial") : c.caption) : c.f.state === "ok" ? (lang === "ar" ? "لا صفقات مؤرّخة" : "No dated deals") : state}
             </span>
           </div>
         );
@@ -1768,7 +1797,7 @@ function Kpi({
   return (
     <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
-        <span className="min-w-0 truncate font-semibold text-foreground" style={{ fontSize: "clamp(12px, 0.88vw, 23px)" }}>
+        <span className="min-w-0 font-semibold leading-tight text-foreground" style={{ fontSize: "clamp(13px, 0.95vw, 25px)" }}>
           {lang === "ar" ? ar : en}
         </span>
         <Icon
@@ -1792,7 +1821,7 @@ function Kpi({
             {value ?? "\u2014"}
           </span>
           {unit ? (
-            <span className="mt-[0.7vh] w-full truncate text-center text-muted-foreground" style={{ fontSize: "clamp(12px, 0.78vw, 20px)" }}>
+            <span className="mt-[0.6vh] w-full text-center leading-snug text-muted-foreground" style={{ fontSize: "clamp(12px, 0.8vw, 21px)" }}>
               {unit}
             </span>
           ) : null}
@@ -1805,7 +1834,9 @@ function Kpi({
         {gauge !== undefined && gauge !== null ? <Gauge value={gauge} tone={tone} /> : null}
       </div>
 
-      <span className="mt-[0.7vh] text-center text-muted-foreground" style={{ fontSize: "clamp(12px, 0.72vw, 18px)" }}>
+      {/* Two lines allowed, never clipped: the footnote is what makes the
+          figure mean something, and half a sentence means nothing. */}
+      <span className="mt-[0.5vh] line-clamp-2 text-center leading-snug text-muted-foreground" style={{ fontSize: "clamp(12px, 0.78vw, 20px)" }} title={foot ?? en}>
         {foot ?? en}
       </span>
     </div>
@@ -1858,7 +1889,7 @@ function KpiFigure({
   return (
     <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1vh] shadow-sm ${bandClass(band)}`}>
       <div className="flex items-start justify-between">
-        <span className="font-semibold text-foreground" style={{ fontSize: "clamp(12px, 0.88vw, 23px)" }}>
+        <span className="min-w-0 font-semibold leading-tight text-foreground" style={{ fontSize: "clamp(13px, 0.95vw, 25px)" }}>
           {lang === "ar" ? ar : en}
         </span>
         <Icon
@@ -1870,7 +1901,7 @@ function KpiFigure({
       </div>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <FigureValue f={f} lang={lang} format={(n) => money(n)} size="3.2vw" />
-        {f.state === "ok" && !!f.missing ? <span className="mt-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.65vw, 17px)" }}>{lang === "ar" ? `جزئي · ${f.missing} فرصة بلا مدخلات كافية` : `Partial · ${f.missing} deals missing inputs`}</span> : null}
+        {f.state === "ok" && !!f.missing ? <span className="mt-[0.5vh] leading-snug text-muted-foreground" style={{ fontSize: "clamp(12px, 0.78vw, 20px)" }}>{lang === "ar" ? `جزئي · ${formatNumber(f.missing, lang)} فرصة بلا احتمالية` : `Partial · ${f.missing} deals have no probability`}</span> : null}
       </div>
       {/* The other four cards carry a line saying what the number means next
           to. This one used to carry its own English title instead, which is
@@ -1904,12 +1935,12 @@ function RepCard({ p, lang }: { p: SalesCardRow; lang: "ar" | "en" }) {
   const stat = (label: string, value: string, warn = false) => (
     <div className="flex min-w-0 flex-col items-center">
       <span className={`num font-semibold ${warn ? "text-destructive-on-tint" : "text-foreground"}`} style={{ fontSize: "clamp(12px, 0.95vw, 24px)" }} data-tabular="true">{value}</span>
-      <span className="truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.6vw, 15px)" }}>{label}</span>
+      <span className="truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.68vw, 17px)" }}>{label}</span>
     </div>
   );
   return (
     <article
-      className="flex min-h-0 flex-1 flex-col justify-center gap-[0.8vh] rounded-[0.6vw] border border-border/70 px-[0.8vw] py-[0.9vh]"
+      className="flex shrink-0 flex-col justify-center gap-[0.5vh] rounded-[0.6vw] border border-border/70 px-[0.8vw] py-[0.6vh]"
       style={{ background: TONE.teal.wash }}
     >
       <div className="flex items-center gap-[0.7vw]">
@@ -1927,7 +1958,7 @@ function RepCard({ p, lang }: { p: SalesCardRow; lang: "ar" | "en" }) {
             <span className="num" data-tabular="true">{total > 0 ? `${formatNumber(p.done, lang)}/${formatNumber(total, lang)}` : "—"}</span>
           </div>
         </div>
-        <div className="relative shrink-0" style={{ width: "3.6vw", height: "3.6vw" }}>
+        <div className="relative shrink-0" style={{ width: "3vw", height: "3vw" }}>
           <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90" aria-hidden="true">
             <circle cx="18" cy="18" r={R} fill="none" stroke="var(--border)" strokeWidth="3.2" />
             {r != null ? (
@@ -1941,7 +1972,7 @@ function RepCard({ p, lang }: { p: SalesCardRow; lang: "ar" | "en" }) {
           </span>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-[0.4vw] border-t border-border/70 pt-[0.6vh]">
+      <div className="grid grid-cols-3 gap-[0.4vw] border-t border-border/70 pt-[0.4vh]">
         {stat(lang === "ar" ? "محقّق الشهر" : "Won MTD", compactValue(p.won, lang) ?? "—")}
         {stat(lang === "ar" ? "المسار" : "Pipeline", compactValue(p.open, lang) ?? "—")}
         {stat(lang === "ar" ? "متابعات متأخّرة" : "Overdue", formatNumber(p.late, lang), p.late > 0)}
