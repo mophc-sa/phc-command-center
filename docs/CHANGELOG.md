@@ -1,5 +1,10 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-12 — Master list sync applied to production; two rules added
+
+- Run `62029641` (*PHC Quotation List - SEPT 2026*, as of 2026-11-03) applied: 551 deals updated, 49 created, 96 duplicates archived, 17 weekly notes; Mo's instruction "follow the file": the 12 system-newer and 2 won-vs-open rows took the file's stage, rows without a code were created. Follow-ups: 120 submitted quotations moved from RFQ received to JIH, 86 open deals of legacy owners (BA, AD, AN, AH, MB) assigned to the sales manager, 11 `_x000D_` duplicates archived, 4 win dates before submission corrected, 17 open quotations with a DEAD follow-up closed as lost. Every change is in `data_sync_changes` and the run can be undone.
+- Migration `20261113110000`: the code normaliser drops Excel's `_x000D_`; a DEAD follow-up plans an open quotation as lost.
+
 ## 2026-11-12 — Master list sync (not deployed)
 
 - Design `docs/superpowers/specs/2026-11-12-data-sync-design.md`. Comparing *PHC Quotation List - SEPT 2026* (722 quotations to 2026-11-03) with production: 658 already deals, 146 sales codes on more than one deal, 27 new; the archive-activation plan would have doubled the duplicates, so the mechanism is a sync by sales code.

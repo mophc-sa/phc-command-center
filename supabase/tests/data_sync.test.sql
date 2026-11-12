@@ -2,7 +2,7 @@
 -- Users: 1 rep (FA), 2 sales manager.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(25);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 select '00000000-0000-0000-0000-000000000000', ('9e000000-0000-0000-0000-00000000000' || n)::uuid, 'authenticated','authenticated',
@@ -22,7 +22,8 @@ insert into public.opportunities (id, project_name, owner_id, sales_stage, stage
   ('9e200003-0000-0000-0000-000000000001','ds-b', '9e000000-0000-0000-0000-000000000001','jih','quotation',200, now(), '{"sales_code":"FA25002"}'),
   ('9e200004-0000-0000-0000-000000000001','ds-c', '9e000000-0000-0000-0000-000000000001','won','quotation',300, now(), '{"sales_code":"FA25003"}'),
   ('9e200005-0000-0000-0000-000000000001','ds-d', '9e000000-0000-0000-0000-000000000001','jih','quotation',400, now(), '{"sales_code":"FA25004"}'),
-  ('9e200006-0000-0000-0000-000000000001','ds-e', null,'jih','quotation',500, now(), '{"sales_code":"FA25005"}');
+  ('9e200006-0000-0000-0000-000000000001','ds-e', null,'jih','quotation',500, now(), '{"sales_code":"FA25005"}'),
+  ('9e200007-0000-0000-0000-000000000001','ds-f', '9e000000-0000-0000-0000-000000000001','jih','quotation',600, now(), '{"sales_code":"FA25010"}');
 insert into public.stage_transition_history (record_type, record_id, to_stage, created_at)
 values ('opportunity','9e200005-0000-0000-0000-000000000001','jih', '2026-10-15');
 
@@ -38,6 +39,7 @@ insert into public.data_sync_rows (run_id, sheet, row_no, payload) values
   ('9e900001-0000-0000-0000-000000000001','quotations',7,'{"code":"BA24001","status":"LOST","amount":50,"project":"ds-legacy","last_update":"2024-05-01"}'),
   ('9e900001-0000-0000-0000-000000000001','quotations',8,'{"code":null,"status":"SUBMITTED","project":"no code"}'),
   ('9e900001-0000-0000-0000-000000000001','quotations',9,'{"code":"FA25009","status":"MAYBE","project":"odd"}'),
+  ('9e900001-0000-0000-0000-000000000001','quotations',10,'{"code":"FA25010_x000D_","status":"SUBMITTED","follow_up":"DEAD","submitted":"2025-01-01","last_update":"2025-03-01"}'),
   ('9e900001-0000-0000-0000-000000000001','weekly',1,'{"code":"FA25002","notes":"Called, they chose another vendor","last_update":"2026-10-11"}');
 
 -- ===== Nobody but the server runs it =====
@@ -62,6 +64,10 @@ select is((select (detail->>'needs_owner')::boolean from public.data_sync_rows w
 select is((select reason from public.data_sync_rows where row_no = 8 and sheet = 'quotations'), 'No sales code', 'No code: review');
 select is((select reason from public.data_sync_rows where payload->>'code' = 'FA25009'), 'Unknown status: MAYBE', 'Unknown status: review');
 
+select is(public.data_sync_norm_code('OM23011-R8_x000D_'), 'OM23011-R8', 'The Excel carriage-return marker is not part of the code');
+select is((select action || '/' || (detail->'changes'->>'sales_stage') from public.data_sync_rows where payload->>'code' = 'FA25010_x000D_'),
+  'update/lost', 'A submitted quotation whose follow-up is DEAD is planned as lost');
+
 -- ===== Apply =====
 select lives_ok($$select public.data_sync_apply('9e900001-0000-0000-0000-000000000001')$$, 'The server applies the run');
 select is((select stage::text || '/' || exclusion_reason::text from public.opportunities where id = '9e200002-0000-0000-0000-000000000001'),
@@ -76,6 +82,8 @@ select is((select owner_id from public.opportunities where id = '9e200006-0000-0
   '9e000000-0000-0000-0000-000000000001'::uuid, 'The owner comes from the code prefix');
 select is((select sales_stage::text || '/' || won_at::date::text || '/' || quotation_value::text from public.opportunities
             where extra_data->>'sales_code' = 'FA26099'), 'won/2026-10-30/9000.00', 'The new won deal, with its date and value');
+select is((select loss_reason from public.opportunities where id = '9e200007-0000-0000-0000-000000000001'),
+  'Dead (master list follow-up)', 'With its reason');
 select is((select extra_data->'weekly_update'->>'note' from public.opportunities where id = '9e200003-0000-0000-0000-000000000001'),
   'Called, they chose another vendor', 'The weekly note is on the deal');
 select is((select count(*)::int from public.notifications where notification_type = 'stage_changed'
