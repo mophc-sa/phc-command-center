@@ -528,6 +528,11 @@ After the quotation is sent, the deal page shows **Contract terms and payments**
 - **Lateness:** the day after an invoice's due date the rep is told to claim it; at 30 days the sales manager; at 60 days the GM ("needs escalation"). Once each. Finance is told about a due past its date that nobody invoiced.
 - **Collections** `/collections` (finance, sales manager, MD, GM, CEO; Pricing & Finance group): every open invoice across deals, most late first, with the totals outstanding, late, and due but not invoiced.
 
+**Variations and executed quantities** *(B4, 2026-11-12)*
+- **Any sign beyond the contract needs a variation before it is made**, or the client's finance will not accept its invoice. On the approved contract press *Open a variation* and say what is added. It becomes a pricing file of its own, *VO-1, VO-2…*, with its own BOQ: estimation, the supplier, the GM and finance price it exactly like a quotation, and the BD manager issues its quotation (numbered `<deal code>-VO1`).
+- When the client accepts, press *Client accepted* (date, the client's reference, the file): the variation's value is added to the contract as **its own payment**, and its lines join the contract quantities. Record its approval when it is delivered or installed (B2) to make it due.
+- **Executed quantities:** at close-out, enter what was actually installed per contract line (the contract quantity by default). Less than the contract reduces the final payment by the value not executed; more needs a variation. Do it before the final payment's approval. The card shows the contract value, the variations, the executed value and what was not executed.
+
 ### Step 8 — Award and handover
 
 Once at `won`, the opportunity:
@@ -1708,3 +1713,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-12 · Phase B, B2: execution approvals (drawings, MIR, WIR, partial shares), dues, consultant delay · branch feat/contract-approvals, not deployed · previous: B1 contract terms, 2026-11-12 -->
 
 <!-- last reviewed 2026-11-12 · Phase B, B3: invoices against dues, receipts, claims, lateness tiers, /collections · branch feat/contract-billing, not deployed · previous: B2 execution approvals, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-12 · Phase B, B4: variation orders through the pricing loop, client acceptance into the contract, executed quantities · branch feat/contract-variations, not deployed · previous: B3 billing and collection, 2026-11-12 -->

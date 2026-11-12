@@ -92,9 +92,11 @@ export type QueueRow = {
   estimation_id: string | null;
   internal_price_id: string | null;
   closed_reason: string | null;
+  /** B4: set on a variation's file (VO-n). */
+  variation_number: number | null;
 };
 const QUEUE_COLUMNS =
-  "file_id, state, state_changed_at, created_at, due_at, needs_info_items, needs_info_due, opportunity_id, project_name, project_code, owner_id, contract_value, quotation_value, estimated_value_max, boq_revision_id, estimation_id, internal_price_id, closed_reason";
+  "file_id, state, state_changed_at, created_at, due_at, needs_info_items, needs_info_due, opportunity_id, project_name, project_code, owner_id, contract_value, quotation_value, estimated_value_max, boq_revision_id, estimation_id, internal_price_id, closed_reason, variation_number";
 
 export const listPricingQueue = () =>
   rows<QueueRow>(db.from("pricing_queue").select(QUEUE_COLUMNS).neq("state", "closed").order("state_changed_at", { ascending: true }).limit(500));
@@ -625,10 +627,19 @@ export type DealPricingFile = {
   needs_info_items: string[] | null;
   needs_info_due: string | null;
 };
+/** The deal's open main file (B4: variation files are open beside it). */
 export const getDealPricingFile = (opportunityId: string) =>
   one<DealPricingFile>(
     db.from("pricing_files").select("id, state, state_changed_at, needs_info_items, needs_info_due")
-      .eq("opportunity_id", opportunityId).neq("state", "closed").maybeSingle(),
+      .eq("opportunity_id", opportunityId).neq("state", "closed").is("variation_contract_id", null).maybeSingle(),
+  );
+
+/** B4: a contract's variation files. */
+export type VariationFile = DealPricingFile & { variation_number: number; variation_accepted_at: string | null };
+export const listContractVariations = (contractId: string) =>
+  rows<VariationFile>(
+    db.from("pricing_files").select("id, state, state_changed_at, needs_info_items, needs_info_due, variation_number, variation_accepted_at")
+      .eq("variation_contract_id", contractId).order("variation_number"),
   );
 
 export type QuoteRevisionRow = {

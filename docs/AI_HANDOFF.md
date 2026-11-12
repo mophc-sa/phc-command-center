@@ -1,5 +1,11 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-12 — Phase B, B4: variations and executed quantities (branch `feat/contract-variations`, stacked on B3 #376)
+
+Migration `20261112130000` (changes the one-open-file index to the main file only; replaces `_pricing_file_open` and `pricing_issue_quotation`); no function change. **Release (Mo):** after #376: `supabase db push`; canary: open VO-1 on an approved test contract, price it through the loop, issue its quotation (`…-VO1`), *Client accepted* → contract value and a VO-1 payment; record executed quantities below the contract → the final payment drops.
+**Local checks (2026-11-12):** pgTAP 54 files, 1483 tests, PASS (clean reset); `bun run verify` green (3442).
+**Next, B5 (costs and project profit).**
+
 ## 2026-11-12 — Phase B, B3: invoices, receipts, claims, lateness (branch `feat/contract-billing`, stacked on B2 #375)
 
 Migration `20261112120000` (adds pg_cron job `contract-collections-escalate`); no function change. **Release (Mo):** after #375: `supabase db push`; check `select jobname, schedule from cron.job where jobname = 'contract-collections-escalate';` returns one row; canary: record an invoice for the advance due (number from the accounting system), a partial receipt, a claim; `/collections` lists it.

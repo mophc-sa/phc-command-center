@@ -22,6 +22,7 @@ import {
 import { revisionLabel } from "@/lib/quotation-doc";
 import { ContractExecution } from "@/components/phc/contracts/ContractExecution";
 import { ContractBilling } from "@/components/phc/contracts/ContractBilling";
+import { ContractVariations } from "@/components/phc/contracts/ContractVariations";
 import { asError, dbMessage, pick, type Bi } from "@/lib/pricing-text";
 
 // B1 (2026-11-12): the contract's terms and payment schedule on the deal page.
@@ -155,6 +156,7 @@ export function ContractTermsCard({ opportunityId, ownerId }: { opportunityId: s
                 onChanged={refresh}
               />
               <ContractBilling contractId={c.id} isFinance={isFinance} canClaim={canRecord} onChanged={refresh} />
+              <ContractVariations contractId={c.id} opportunityId={opportunityId} canRecord={canRecord} onChanged={refresh} />
             </>
           ) : (
           <Table>

@@ -9,7 +9,7 @@ import { Panel } from "@/components/phc/Panel";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n } from "@/lib/i18n";
 import { PRICING_STATE_LABEL } from "@/lib/pricing";
-import { answerNeedsInfo, getDealPricingFile, issueQuotation } from "@/lib/pricing-actions";
+import { answerNeedsInfo, getDealPricingFile, issueQuotation, type DealPricingFile } from "@/lib/pricing-actions";
 import { canIssue, canMarkSent, daysWaiting, nextOwner, NEXT_OWNER_LABEL } from "@/lib/pricing-access";
 import { addDays, riyadhToday } from "@/lib/supplier-portal";
 import { asError, pick, type Bi } from "@/lib/pricing-text";
@@ -41,17 +41,22 @@ const TEXT = {
   approvedNote: { en: "The selling price is approved; the BD manager issues the quotation.", ar: "اعتُمد سعر البيع؛ يصدر مدير تطوير الأعمال عرض السعر." },
 } satisfies Record<string, Bi>;
 
-export function DealPricingCard({ opportunityId }: { opportunityId: string }) {
+/** The deal's main pricing file, or (B4) a given variation file with its own title. */
+export function DealPricingCard({ opportunityId, file: given, title }: { opportunityId: string; file?: DealPricingFile; title?: string }) {
   const { lang } = useI18n();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [answerOpen, setAnswerOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
   const rights = usePricingRights();
-  const file = useQuery({ queryKey: ["pricing-deal-file", opportunityId], queryFn: () => getDealPricingFile(opportunityId) });
+  const file = useQuery({
+    queryKey: ["pricing-deal-file", opportunityId],
+    queryFn: () => getDealPricingFile(opportunityId),
+    enabled: !given,
+  });
   const onChanged = () => void qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith("pricing-") });
 
-  const f = file.data;
+  const f = given ?? file.data;
   if (!f || !rights.data) return null;
   const r = rights.data;
   const owner = nextOwner(f.state);
@@ -60,7 +65,7 @@ export function DealPricingCard({ opportunityId }: { opportunityId: string }) {
 
   return (
     <Panel
-      title={pick(TEXT.title, lang)}
+      title={title ?? pick(TEXT.title, lang)}
       action={canIssue(f.state, r) ? <Button onClick={() => setIssueOpen(true)}>{pick(TEXT.issue, lang)}</Button> : undefined}
     >
       <div className="flex flex-wrap items-center gap-2 text-sm">

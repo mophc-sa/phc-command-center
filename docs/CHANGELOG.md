@@ -1,5 +1,12 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-12 — Variation orders and executed quantities (Commercial & Finance part 2, B4; not deployed)
+
+- Design `docs/superpowers/specs/2026-11-12-contract-variations-design.md`.
+- Migration `20261112130000`: `pricing_files.variation_contract_id`, `variation_number`, `variation_accepted_at`; one open **main** file per deal (index `pricing_files_one_open_main_per_deal`, `_pricing_file_open` follows it); `pricing_issue_quotation` finds the header by the file (a variation gets `<code>-VO<n>`); `contract_payments.kind` gains `variation`, `variation_file_id`, `amount_before_executed`; `contract_lines.variation_file_id`, `executed_quantity`. RPCs `contract_variation_open`, `contract_variation_accept`, `contract_executed_record`; view `contract_execution_summary`; `contract_billing_summary.left_to_invoice` follows the payments; `pricing_queue` gains `variation_number`, `variation_contract_id`.
+- UI: *Variations and executed quantities* on the approved contract card (each variation's pricing card, *Client accepted*, *Executed quantities*); the pricing queue and file header show VO-n.
+- Tests: `contract_variations` (pgTAP, 19); `pricing_files` pins the new index predicate.
+
 ## 2026-11-12 — Invoices, receipts, claims and lateness (Commercial & Finance part 2, B3; not deployed)
 
 - Design `docs/superpowers/specs/2026-11-12-contract-billing-design.md`.

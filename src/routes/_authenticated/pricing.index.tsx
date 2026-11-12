@@ -148,7 +148,11 @@ function PricingQueuePage() {
                     <Link to="/pricing/$id" params={{ id: row.file_id }} search={{}} className="font-medium text-foreground hover:underline">
                       {row.project_name ?? "—"}
                     </Link>
-                    {row.project_code ? <div className="text-xs text-muted-foreground">{row.project_code}</div> : null}
+                    {row.project_code || row.variation_number ? (
+                      <div className="text-xs text-muted-foreground">
+                        {[row.project_code, row.variation_number ? `VO-${row.variation_number}` : null].filter(Boolean).join(" · ")}
+                      </div>
+                    ) : null}
                   </TableCell>
                   <TableCell>
                     <StatusPill tone={overdue ? "danger" : "neutral"}>{pick(PRICING_STATE_LABEL[row.state], lang)}</StatusPill>

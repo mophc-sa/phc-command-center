@@ -72,11 +72,19 @@ export async function listContractPayments(contractId: string): Promise<Contract
 export type CurrentQuote = { revision_id: string; revision_number: number; subtotal_excl_vat: number; status: string };
 /** The client's current quotation for the deal (what the contract starts from). */
 export async function getCurrentQuote(opportunityId: string): Promise<CurrentQuote | null> {
-  const { data, error } = await db.from("quotation_current_revision")
-    .select("revision_id, revision_number, subtotal_excl_vat, status").eq("related_opportunity_id", opportunityId)
-    .in("status", ["approved", "submitted"]).order("revision_number", { ascending: false }).limit(1);
+  // B4: a variation's quotation is not the contract's; skip the files tagged as variations.
+  const [{ data, error }, { data: vos, error: e2 }] = await Promise.all([
+    db.from("quotation_revisions").select("id, revision_number, subtotal_excl_vat, status, pricing_file_id, quotations!inner(related_opportunity_id)")
+      .eq("quotations.related_opportunity_id", opportunityId).eq("is_current", true).in("status", ["approved", "submitted"])
+      .order("created_at", { ascending: false }),
+    db.from("pricing_files").select("id").eq("opportunity_id", opportunityId).not("variation_contract_id", "is", null),
+  ]);
   if (error) throw error;
-  return ((data ?? [])[0] ?? null) as CurrentQuote | null;
+  if (e2) throw e2;
+  const vo = new Set(((vos ?? []) as { id: string }[]).map((v) => v.id));
+  const r = ((data ?? []) as { id: string; revision_number: number; subtotal_excl_vat: number; status: string; pricing_file_id: string | null }[])
+    .find((x) => !x.pricing_file_id || !vo.has(x.pricing_file_id));
+  return r ? { revision_id: r.id, revision_number: r.revision_number, subtotal_excl_vat: r.subtotal_excl_vat, status: r.status } : null;
 }
 
 // ---- B2: execution approvals and dues ----------------------------------------------
@@ -180,4 +188,32 @@ export async function listClaims(contractId: string): Promise<ClaimRow[]> {
     .eq("contract_id", contractId).order("claimed_on", { ascending: false });
   if (error) throw error;
   return (data ?? []) as ClaimRow[];
+}
+
+// ---- B4: variations and executed quantities ----------------------------------------
+
+export const openVariation = (contractId: string, reason: string) =>
+  call<{ id: string }>("contract_variation_open", { _contract_id: contractId, _reason: reason });
+export const acceptVariation = (fileId: string, acceptedOn: string, clientReference: string | null, documentPath: string | null) =>
+  call("contract_variation_accept", { _file_id: fileId, _accepted_on: acceptedOn, _client_reference: clientReference, _document_path: documentPath });
+export const recordExecuted = (contractId: string, lines: { line_id: string; executed: number }[]) =>
+  call("contract_executed_record", { _contract_id: contractId, _lines: lines });
+
+export type ContractLineRow = {
+  id: string; line_number: number; description: string; quantity: number; unit: string | null; line_total: number;
+  executed_quantity: number | null; variation_file_id: string | null;
+};
+export async function listContractLines(contractId: string): Promise<ContractLineRow[]> {
+  const { data, error } = await db.from("contract_lines")
+    .select("id, line_number, description, quantity, unit, line_total, executed_quantity, variation_file_id")
+    .eq("contract_id", contractId).order("line_number");
+  if (error) throw error;
+  return (data ?? []) as ContractLineRow[];
+}
+export type ExecutionSummary = { contract_id: string; contract_value: number; executed_value: number; shortfall: number; variations_value: number; executed_recorded: boolean | null };
+export async function getExecutionSummary(contractId: string): Promise<ExecutionSummary | null> {
+  const { data, error } = await db.from("contract_execution_summary")
+    .select("contract_id, contract_value, executed_value, shortfall, variations_value, executed_recorded").eq("contract_id", contractId).maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as ExecutionSummary | null;
 }
