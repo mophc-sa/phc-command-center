@@ -29,3 +29,19 @@ export function gauges(s: { contract_value: number; invoiced_excl_vat: number; i
   const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 1000) / 10 : 0);
   return { invoicedPct: pct(Number(s.invoiced_excl_vat), Number(s.contract_value)), collectedPct: pct(Number(s.received), Number(s.invoiced_incl_vat)) };
 }
+
+/** B5: cost categories and entry kinds. */
+export const COST_CATEGORY_LABEL: Record<"manufacturing" | "installation" | "logistics" | "extras" | "other", Bi> = {
+  manufacturing: { en: "Manufacturing", ar: "التصنيع" },
+  installation: { en: "Installation", ar: "التركيب" },
+  logistics: { en: "Shipping and clearing", ar: "الشحن والتخليص" },
+  extras: { en: "Extras", ar: "بنود إضافية" },
+  other: { en: "Other", ar: "أخرى" },
+};
+export const COST_ENTRY_LABEL: Record<"actual_cost" | "planned_payment" | "payment", Bi> = {
+  actual_cost: { en: "Supplier invoice", ar: "فاتورة المورد" },
+  planned_payment: { en: "Planned payment", ar: "دفعة مخططة" },
+  payment: { en: "Payment made", ar: "دفعة مسددة" },
+};
+/** Margin on price, to one decimal; null without a price. */
+export const marginPct = (profit: number, sold: number): number | null => (sold > 0 ? Math.round((profit / sold) * 1000) / 10 : null);

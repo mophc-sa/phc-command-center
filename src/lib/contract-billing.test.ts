@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { CHANNEL_LABEL, COLLECTIONS_ROLES, TIER_LABEL, canSeeCollections, gauges } from "@/lib/contract-billing";
+import { CHANNEL_LABEL, COLLECTIONS_ROLES, COST_CATEGORY_LABEL, COST_ENTRY_LABEL, TIER_LABEL, canSeeCollections, gauges, marginPct } from "@/lib/contract-billing";
 
 describe("contract billing", () => {
   it("the two meeting gauges: share of the contract invoiced, share of the invoiced collected", () => {
@@ -16,6 +16,19 @@ describe("contract billing", () => {
   });
   it("labels exist in both languages", () => {
     for (const l of [...Object.values(CHANNEL_LABEL), ...Object.values(TIER_LABEL)]) {
+      expect(l.en.length).toBeGreaterThan(0);
+      expect(l.ar.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("B5 profit", () => {
+  it("margin on price, to one decimal", () => {
+    expect(marginPct(12116.46, 53200)).toBe(22.8);
+    expect(marginPct(10, 0)).toBeNull();
+  });
+  it("cost labels exist in both languages", () => {
+    for (const l of [...Object.values(COST_CATEGORY_LABEL), ...Object.values(COST_ENTRY_LABEL)]) {
       expect(l.en.length).toBeGreaterThan(0);
       expect(l.ar.length).toBeGreaterThan(0);
     }

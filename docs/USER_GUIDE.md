@@ -533,6 +533,11 @@ After the quotation is sent, the deal page shows **Contract terms and payments**
 - When the client accepts, press *Client accepted* (date, the client's reference, the file): the variation's value is added to the contract as **its own payment**, and its lines join the contract quantities. Record its approval when it is delivered or installed (B2) to make it due.
 - **Executed quantities:** at close-out, enter what was actually installed per contract line (the contract quantity by default). Less than the contract reduces the final payment by the value not executed; more needs a variation. Do it before the final payment's approval. The card shows the contract value, the variations, the executed value and what was not executed.
 
+**Costs and profit** *(B5, 2026-11-12; finance and management only, never shown to sales)*
+- When finance approves the contract, the cost of the approved price becomes its budget: manufacturing (the supplier's materials), installation, shipping and clearing, extras. *Reload from pricing* adds accepted variations. Finance can add another item.
+- Per item, finance records the supplier's or workshop's **invoice** (it replaces the planned figure in the expected cost), **planned payments** with their dates (e.g. the factory's 30/40/30) and **payments made**: money out beside money in.
+- **Project profit** `/project-profit` (Pricing & Finance): per contract, sold (or executed), expected cost, gross profit, the **cost of late collection** (finance's monthly rate, 1% by default, on each late amount from its due date until it is paid), net profit, collected and late; with the totals. Finance sets the rate on the same page.
+
 ### Step 8 — Award and handover
 
 Once at `won`, the opportunity:
@@ -1082,6 +1087,7 @@ A project now has a responsible salesperson, shown at the top of the project pag
 - The GM's below-floor justification is not shown on the Approval tab yet; the tab says the price is below the floor (2026-11-09).
 - A client round sends every line to the supplier again; prices of unchanged lines are not carried forward yet (2026-11-09).
 - Invoices are recorded here, not issued: the tax invoice comes from the accounting system (2026-11-12).
+- Project profit counts direct costs only; indirect costs (salaries, office, cars) and the link to the accounting system's cost centres come later (2026-11-12).
 - The quote check compares the BOQ with the supplier's quote as data; it does not read drawings or the location plan. Checking a package's files for missing items is still Zayed's (2026-11-12).
 - No email is sent by the system yet: Zayed copies the account and request messages into his own email or WhatsApp.
 - Entering a supplier's prices on their behalf again overwrites that entry in place (a supplier's own portal submission is always kept as its own revision).
@@ -1715,3 +1721,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-12 · Phase B, B3: invoices against dues, receipts, claims, lateness tiers, /collections · branch feat/contract-billing, not deployed · previous: B2 execution approvals, 2026-11-12 -->
 
 <!-- last reviewed 2026-11-12 · Phase B, B4: variation orders through the pricing loop, client acceptance into the contract, executed quantities · branch feat/contract-variations, not deployed · previous: B3 billing and collection, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-12 · Phase B, B5: project costs from pricing, money out, /project-profit with the cost of late collection · branch feat/contract-costs, not deployed · previous: B4 variations, 2026-11-12 -->

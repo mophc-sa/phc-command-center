@@ -1,5 +1,12 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-12 — Project costs and profit (Commercial & Finance part 2, B5; not deployed)
+
+- Design `docs/superpowers/specs/2026-11-12-contract-costs-design.md`.
+- Migration `20261112140000`: `finance_settings` (`late_financing_pct_month` = 1) and `finance_setting_set`; `contract_cost_items` (from pricing on finance's approval of the terms, variations on reload, or by hand) and `contract_cost_entries` (actual invoice, planned payment, payment; void), cost readers only; `contract_costs_load`, `contract_cost_item_add`, `contract_cost_entry_record`/`_void`; view `contract_profit` (owner-run, gated on cost readers): sold, executed, planned and expected cost, gross profit, financing cost of late collection, net profit, collection, money out.
+- UI: *Costs and profit* on the approved contract card (cost readers); `/project-profit` with the rate setting for finance; sidebar link.
+- Tests: `contract_costs` (pgTAP, 15, on the PR 2 worked example); `contract-billing` (bun) extended.
+
 ## 2026-11-12 — Variation orders and executed quantities (Commercial & Finance part 2, B4; not deployed)
 
 - Design `docs/superpowers/specs/2026-11-12-contract-variations-design.md`.

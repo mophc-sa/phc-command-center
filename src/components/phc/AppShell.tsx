@@ -72,6 +72,7 @@ import {
   FileText,
   SlidersHorizontal,
   Wallet,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -202,6 +203,8 @@ const NAV_GROUPS: NavGroup[] = [
       { kind: "link", to: "/pricing/settings", key: "nav_pricing_settings", icon: SlidersHorizontal, showIf: canSeePricingNav },
       // B3 (2026-11-12): open invoices across deals, for finance and management.
       { kind: "link", to: "/collections", key: "nav_collections", icon: Wallet, showIf: canSeeCollections },
+      // B5 (2026-11-12): sold, cost, collected, late and profit per contract; cost readers only.
+      { kind: "link", to: "/project-profit", key: "nav_project_profit", icon: TrendingUp, showIf: canSeePricingNav },
     ],
   },
   {

@@ -217,3 +217,51 @@ export async function getExecutionSummary(contractId: string): Promise<Execution
   if (error) throw error;
   return (data ?? null) as ExecutionSummary | null;
 }
+
+// ---- B5: costs and profit (cost readers only) ------------------------------------------
+
+export type CostCategory = "manufacturing" | "installation" | "logistics" | "extras" | "other";
+export type CostEntryKind = "actual_cost" | "planned_payment" | "payment";
+export const loadCosts = (contractId: string) => call<number>("contract_costs_load", { _contract_id: contractId });
+export const addCostItem = (contractId: string, category: CostCategory, label: string, planned: number) =>
+  call<string>("contract_cost_item_add", { _contract_id: contractId, _category: category, _label: label, _planned: planned });
+export const recordCostEntry = (itemId: string, kind: CostEntryKind, entryOn: string, amount: number, reference: string | null, note: string | null) =>
+  call<string>("contract_cost_entry_record", { _item_id: itemId, _kind: kind, _entry_on: entryOn, _amount: amount, _reference: reference, _note: note });
+export const voidCostEntry = (entryId: string, reason: string) => call("contract_cost_entry_void", { _entry_id: entryId, _reason: reason });
+export const setFinanceSetting = (key: "late_financing_pct_month", value: number) => call("finance_setting_set", { _key: key, _value: value });
+
+export type CostItemRow = { id: string; category: CostCategory; source: string; label: string | null; planned_amount: number };
+export type CostEntryRow = { id: string; item_id: string; kind: CostEntryKind; entry_on: string; amount: number; reference: string | null; voided_at: string | null };
+export async function listCostItems(contractId: string): Promise<{ items: CostItemRow[]; entries: CostEntryRow[] }> {
+  const [a, b] = await Promise.all([
+    db.from("contract_cost_items").select("id, category, source, label, planned_amount").eq("contract_id", contractId).order("category"),
+    db.from("contract_cost_entries").select("id, item_id, kind, entry_on, amount, reference, voided_at").eq("contract_id", contractId).order("entry_on"),
+  ]);
+  if (a.error) throw a.error;
+  if (b.error) throw b.error;
+  return { items: (a.data ?? []) as CostItemRow[], entries: (b.data ?? []) as CostEntryRow[] };
+}
+
+export type ProfitRow = {
+  contract_id: string; opportunity_id: string; project_name: string | null; project_code: string | null;
+  sold: number; executed_value: number | null; planned_cost: number; expected_cost: number; actual_cost_recorded: number;
+  gross_profit_planned: number; gross_profit_expected: number; financing_cost: number; net_profit: number;
+  received: number | null; outstanding: number | null; late_outstanding: number | null; cash_out_paid: number; cash_out_planned: number;
+};
+const PROFIT_COLUMNS =
+  "contract_id, opportunity_id, project_name, project_code, sold, executed_value, planned_cost, expected_cost, actual_cost_recorded, gross_profit_planned, gross_profit_expected, financing_cost, net_profit, received, outstanding, late_outstanding, cash_out_paid, cash_out_planned";
+export async function listProfit(): Promise<ProfitRow[]> {
+  const { data, error } = await db.from("contract_profit").select(PROFIT_COLUMNS).order("net_profit").limit(1000);
+  if (error) throw error;
+  return (data ?? []) as ProfitRow[];
+}
+export async function getProfit(contractId: string): Promise<ProfitRow | null> {
+  const { data, error } = await db.from("contract_profit").select(PROFIT_COLUMNS).eq("contract_id", contractId).maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as ProfitRow | null;
+}
+export async function getLateFinancingRate(): Promise<number | null> {
+  const { data, error } = await db.from("finance_settings").select("value").eq("key", "late_financing_pct_month").maybeSingle();
+  if (error) throw error;
+  return data ? Number((data as { value: number }).value) : null;
+}

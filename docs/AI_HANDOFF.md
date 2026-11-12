@@ -1,5 +1,12 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-12 — Phase B, B5: project costs and profit (branch `feat/contract-costs`, stacked on B4 #377). Phase B complete.
+
+Migration `20261112140000`; no function change. **Release (Mo):** after #377: `supabase db push`; canary: approve a test contract built from a pricing file → its cost items appear (cost readers only); record a factory invoice and payments; a late-paid invoice shows its financing cost on `/project-profit`; a rep's session sees no cost (`GET /rest/v1/contract_cost_items` returns `[]`).
+**Local checks (2026-11-12):** pgTAP 55 files, 1498 tests, PASS (clean reset); `bun run verify` green (3462).
+**Phase B is built (B1–B5, PRs #374–#378), all stacked on PR 4 (#372) and PR 5 (#373).** Merge in order, retargeting each to `main`; one `db push` after the last merge applies all eight migrations in order.
+**Not done (next):** indirect costs and cost centres in the accounting system (the meeting's "later" phase); emailing claims and quotations (no email provider); AI review of drawings (vision input); carrying supplier prices forward in a client round.
+
 ## 2026-11-12 — Phase B, B4: variations and executed quantities (branch `feat/contract-variations`, stacked on B3 #376)
 
 Migration `20261112130000` (changes the one-open-file index to the main file only; replaces `_pricing_file_open` and `pricing_issue_quotation`); no function change. **Release (Mo):** after #376: `supabase db push`; canary: open VO-1 on an approved test contract, price it through the loop, issue its quotation (`…-VO1`), *Client accepted* → contract value and a VO-1 payment; record executed quantities below the contract → the final payment drops.
