@@ -526,7 +526,7 @@ After the quotation is sent, the deal page shows **Contract terms and payments**
 - **The two measures** on the card: how much of the contract is invoiced and how much is left to invoice; how much of what was invoiced is collected, outstanding, and late.
 - **Claims:** the rep (or finance) logs each claim to the client: date, how (email, letter, call, meeting), a note and the follow-up date.
 - **Lateness:** the day after an invoice's due date the rep is told to claim it; at 30 days the sales manager; at 60 days the GM ("needs escalation"). Once each. Finance is told about a due past its date that nobody invoiced.
-- **Collections** `/collections` (finance, sales manager, MD, GM, CEO; Pricing & Finance group): every open invoice across deals, most late first, with the totals outstanding, late, and due but not invoiced.
+- **Collections** `/collections` (finance, sales manager, MD, GM, CEO; Pricing & Finance group): first, every due **waiting to be invoiced** across deals (finance's to-do: issue the tax invoice in the accounting system, then record it on the deal); then every open invoice, most late first; with the totals outstanding, late, and due but not invoiced.
 
 **Variations and executed quantities** *(B4, 2026-11-12)*
 - **Any sign beyond the contract needs a variation before it is made**, or the client's finance will not accept its invoice. On the approved contract press *Open a variation* and say what is added. It becomes a pricing file of its own, *VO-1, VO-2…*, with its own BOQ: estimation, the supplier, the GM and finance price it exactly like a quotation, and the BD manager issues its quotation (numbered `<deal code>-VO1`).

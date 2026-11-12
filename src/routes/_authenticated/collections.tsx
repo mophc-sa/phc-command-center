@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { useI18n, formatNumber } from "@/lib/i18n";
 import { TIER_LABEL, canSeeCollections } from "@/lib/contract-billing";
-import { listBillingSummaries, listReceivables } from "@/lib/contract-terms-actions";
+import { listAllDuesToInvoice, listBillingSummaries, listContractDeals, listReceivables } from "@/lib/contract-terms-actions";
 import { pick, type Bi } from "@/lib/pricing-text";
 
 // B3 (2026-11-12): every open invoice across deals, most late first, for
@@ -34,6 +34,11 @@ const TEXT = {
   dueOn: { en: "Due", ar: "الاستحقاق" },
   status: { en: "Status", ar: "الحالة" },
   none: { en: "No open invoices.", ar: "لا توجد فواتير مفتوحة." },
+  toInvoice: { en: "Due, waiting to be invoiced", ar: "مستحق بانتظار الفوترة" },
+  toInvoiceHint: { en: "Issue the tax invoice in the accounting system, then record it on the deal.", ar: "أصدر الفاتورة الضريبية من النظام المحاسبي ثم سجّلها في الصفقة." },
+  amountExcl: { en: "Amount (excl. VAT)", ar: "المبلغ (بدون ضريبة)" },
+  overdue: { en: "Past its date", ar: "تجاوز تاريخه" },
+  openInvoices: { en: "Open invoices", ar: "الفواتير المفتوحة" },
 } satisfies Record<string, Bi>;
 const TONE = { 0: "neutral", 1: "attention", 2: "danger", 3: "danger" } as const;
 
@@ -43,7 +48,14 @@ function CollectionsPage() {
   const allowed = canSeeCollections(roles);
   const rec = useQuery({ queryKey: ["contract-collections"], queryFn: () => listReceivables(), enabled: allowed });
   const sums = useQuery({ queryKey: ["contract-collections-sums"], queryFn: listBillingSummaries, enabled: allowed });
-  const ids = [...new Set((rec.data ?? []).map((r) => r.opportunity_id))];
+  const dues = useQuery({ queryKey: ["contract-collections-dues"], queryFn: listAllDuesToInvoice, enabled: allowed });
+  const dueContracts = [...new Set((dues.data ?? []).map((d) => d.contract_id))];
+  const dueDeals = useQuery({
+    queryKey: ["contract-collections-due-deals", dueContracts.join(",")],
+    queryFn: () => listContractDeals(dueContracts),
+    enabled: dueContracts.length > 0,
+  });
+  const ids = [...new Set([...(rec.data ?? []).map((r) => r.opportunity_id), ...(dueDeals.data?.values() ?? [])])];
   const names = useQuery({
     queryKey: ["contract-collections-deals", ids.join(",")],
     enabled: ids.length > 0,
@@ -73,6 +85,39 @@ function CollectionsPage() {
           </div>
         ))}
       </dl>
+      {(dues.data ?? []).length > 0 ? (
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold">{pick(TEXT.toInvoice, lang)}</h2>
+          <p className="text-sm text-muted-foreground">{pick(TEXT.toInvoiceHint, lang)}</p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{pick(TEXT.deal, lang)}</TableHead>
+                <TableHead>{pick(TEXT.dueOn, lang)}</TableHead>
+                <TableHead className="text-end">{pick(TEXT.amountExcl, lang)}</TableHead>
+                <TableHead>{pick(TEXT.status, lang)}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(dues.data ?? []).map((d) => {
+                const opp = dueDeals.data?.get(d.contract_id);
+                const today = new Date().toISOString().slice(0, 10);
+                return (
+                  <TableRow key={d.id}>
+                    <TableCell>
+                      {opp ? <Link to="/opportunities/$id" params={{ id: opp }} className="hover:underline">{names.data?.get(opp) ?? "—"}</Link> : "—"}
+                    </TableCell>
+                    <TableCell className="tabular-nums">{d.due_on}</TableCell>
+                    <TableCell className="text-end tabular-nums">{money(Number(d.amount))}</TableCell>
+                    <TableCell>{d.due_on < today ? <StatusPill tone="attention">{pick(TEXT.overdue, lang)}</StatusPill> : null}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </section>
+      ) : null}
+      <h2 className="text-base font-semibold">{pick(TEXT.openInvoices, lang)}</h2>
       {rows.length === 0 ? (
         <EmptyState title={pick(TEXT.none, lang)} />
       ) : (

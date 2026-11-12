@@ -265,3 +265,22 @@ export async function getLateFinancingRate(): Promise<number | null> {
   if (error) throw error;
   return data ? Number((data as { value: number }).value) : null;
 }
+
+/** Finance's to-do across deals: open dues past or near their date with no live invoice. */
+export type DueToInvoiceRow = OpenDueRow & { contract_id: string };
+export async function listAllDuesToInvoice(): Promise<DueToInvoiceRow[]> {
+  const [{ data: dues, error: e1 }, { data: links, error: e2 }] = await Promise.all([
+    db.from("contract_dues").select("id, contract_id, payment_id, amount, share_pct, event_on, due_on").eq("status", "open").order("due_on").limit(1000),
+    db.from("contract_invoice_dues").select("due_id, live").eq("live", true),
+  ]);
+  if (e1) throw e1;
+  if (e2) throw e2;
+  const invoiced = new Set(((links ?? []) as { due_id: string }[]).map((l) => l.due_id));
+  return ((dues ?? []) as DueToInvoiceRow[]).filter((d) => !invoiced.has(d.id));
+}
+export async function listContractDeals(contractIds: string[]): Promise<Map<string, string>> {
+  if (contractIds.length === 0) return new Map();
+  const { data, error } = await db.from("contracts").select("id, opportunity_id").in("id", contractIds);
+  if (error) throw error;
+  return new Map(((data ?? []) as { id: string; opportunity_id: string }[]).map((c) => [c.id, c.opportunity_id]));
+}
