@@ -681,12 +681,12 @@ project does **not** create a duplicate.
 
 ### Pricing & Finance — التسعير والمالية *(2026-11-04)*
 
-Estimation, finance, the sales manager, the GM, MD and CEO see the whole group. Reps and the BD manager see only **Quotations** in it, and never see cost; they will see where a price is on the deal in the next release.
+Estimation, finance, the sales manager, the GM, MD and CEO see the whole group. Reps and the BD manager see only **Quotations** in it, and never see cost. Since 2026-11-09 they see where the price is on the deal itself (see *On the deal page* below).
 
 | Page | What it is for |
 |---|---|
 | **Pricing queue** `/pricing` | Every open pricing file: its state, who owes the next step, days waiting and the deal's value. Zayed opens on *Estimation & finance*, Kalas on *Set selling price (GM)*. A pricer can open a file by hand for a deal whose RFQ came in before pricing files existed. |
-| **Pricing file** `/pricing/<id>` | One file per deal. Four tabs follow the work: Package, Supplier, Cost review, Selling price. The history at the bottom lists every move. |
+| **Pricing file** `/pricing/<id>` | One file per deal. Six tabs follow the work: Package, Supplier, Cost review, Selling price, Approval, Quotations. The history at the bottom lists every move. |
 | **Quotations** `/quotations` | Unchanged. |
 | **Pricing settings** `/pricing/settings` | Installation rate card (by type, with a start date), logistics rates, the installation fallback % (10% of materials until changed) and the default margin (25% on price until changed), the margin floor (whatever floor the system already holds from the margin rules; changed here), and the extras catalog (empty until filled). Estimation and finance edit the rates and the catalog. The default margin and the margin floor are changed by Kalas or finance. Everyone else here reads. |
 
@@ -722,6 +722,22 @@ Estimation, finance, the sales manager, the GM, MD and CEO see the whole group. 
    - **Build price** writes the internal price. **Propose price** rebuilds it, checks that the total and the total cost are what Kalas saw, and sends it to Zayed's review.
    - Propose needs every expected extra of the round decided (a missing or undecided one blocks it), and a justification when the margin is below the floor. Only the GM writes that justification, at Propose.
 
+5. **Approval (Zayed reviews Kalas's price).** *(2026-11-09)*
+   - When Kalas proposes, Zayed gets a notification and the price appears on `/approvals` as *Review selling price*. The tab shows the selling price, the total cost, the margin and the floor (and says so when the price is below the floor; Kalas justified it at Propose).
+   - **Approve:** the price is final and goes to the quotation as it is. The BD manager and the rep are told.
+   - **Return to the GM:** with a reason. Kalas gets a notification, the reason stays on the file (not in the notification), and he builds and proposes again.
+   - **Return lines to the supplier:** the same as on Cost review; it also returns Kalas's price.
+   - Zayed cannot approve a price he set the figures of; only finance approves.
+6. **Quotations.** *(2026-11-09)*
+   - Every quotation issued from the file: Rev 0 first, then Rev 1, 2… Each shows its status (ready to send, sent, replaced), the amount with and without VAT, and its validity, with *Open / print*.
+   - **Client changes (Zayed):** when the client changes quantities after a quotation, press *Client changes* and say what changed. A new copy of the BOQ opens at Package: edit it, freeze it and send it to the supplier again. The client's current quotation stays valid until the next one replaces it. A discount without quantity changes goes through BAFO on the deal page.
+
+**On the deal page (reps, the BD manager, the sales manager).** *(2026-11-09)*
+- The *Pricing* card shows the file's state, how many days it has waited and who owes the next step. It never shows cost.
+- **Missing items:** when estimation asks for something, the rep gets a notification and the card lists the items with their due date. Press *Answer* and say what you sent; the file goes back to estimation.
+- **Issue quotation (BD or sales manager):** once Zayed approves, press *Issue quotation*, set the validity (30 days by default), the payment terms (e.g. 30% advance, 40% on delivery (MIR), 30% on installation (WIR)), the delivery period and the scope. The quotation carries the approved price and its lines plus 15% VAT; the print page opens.
+- **Print / Save as PDF:** the quotation prints on the PHC letterhead in the language you are using. Send the PDF to the client yourself, then press **Mark as sent** on the card. A sent quotation cannot be edited: a change needs a client round.
+
 **Rules the system enforces:**
 - Margin is on price: 20% means 20% of what the client pays.
 - Totals and the overall margin are computed by the system; nobody types them.
@@ -731,6 +747,7 @@ Estimation, finance, the sales manager, the GM, MD and CEO see the whole group. 
 - Zayed cannot approve a price whose figures he set.
 - The cost behind a price under review cannot change.
 - One supplier per file in this release.
+- A quotation from a pricing file carries exactly the price Zayed approved; its lines add up to it. It is approved when it is issued: no second GM signature (the GM set the price). Only the BD or sales manager issues it and marks it sent.
 
 ### Supplier portal — بوابة الموردين *(2026-11-08)*
 
@@ -1031,14 +1048,13 @@ A project now has a responsible salesperson, shown at the top of the project pag
 
 ### Pricing loop screens (2026-11-04)
 
-- Zayed's review of a proposed price (approve, return, return lines to the supplier) and the quotation from the approved price come in the next release. Until then a proposed price waits in *Price review*.
-- Reps do not see the pricing state on the deal yet, and cannot answer missing items from their own screen: Zayed records their answer.
-- Notifications: the supplier's submission and a late supplier only (2026-11-08). Price review, return and quotation notifications come with the next release.
+- The system does not email the quotation: print it to PDF and send it yourself, then mark it as sent (2026-11-09).
+- The GM's below-floor justification is not shown on the Approval tab yet; the tab says the price is below the floor (2026-11-09).
+- A client round sends every line to the supplier again; prices of unchanged lines are not carried forward yet (2026-11-09).
 - No email is sent by the system yet: Zayed copies the account and request messages into his own email or WhatsApp.
 - Entering a supplier's prices on their behalf again overwrites that entry in place (a supplier's own portal submission is always kept as its own revision).
 - One supplier per file. A line priced by two suppliers stops the build.
 - A quote not in SAR is not priced yet.
-- A client revision after a quotation (new quantities) comes in the next release.
 - The default margin (25%) and the installation fallback (10%) are starting values to confirm with Zayed and Kalas.
 
 ### Samples, drawings and client reminders (2026-10-22)
@@ -1655,3 +1671,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-04 · pricing loop screens: Pricing & Finance group, /pricing queue, pricing file (package, supplier, cost review, selling price), /pricing/settings · branch feat/pricing-loop-screens, not deployed · previous: pricing loop foundation, 2026-11-03 -->
 
 <!-- last reviewed 2026-11-08 · supplier portal: supplier accounts with MFA, send to the supplier, /supplier portal, returned lines, notifications on submit and overdue · branch feat/pricing-supplier-portal, not deployed · previous: pricing loop screens, 2026-11-04 -->
+
+<!-- last reviewed 2026-11-09 · pricing loop PR 4: Approval and Quotations tabs, deal pricing card (state, missing items, issue quotation), /quotation-print, client rounds, review notifications, Review selling price on /approvals · branch feat/pricing-review-quotation, not deployed · previous: supplier portal, 2026-11-08 -->

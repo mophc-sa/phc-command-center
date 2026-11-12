@@ -1,5 +1,16 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-09 — Zayed's review, the quotation, sales status, client rounds (Commercial & Finance part 1, PR 4; not deployed)
+
+- Migrations `20261110100000`–`20261110120000`:
+  - `pricing_file_review` (finance approves the GM's price or returns it with a reason; the price guard still decides who may; the file follows its price). `can_issue_quotation` (BD and sales manager). `pricing_my_rights` gains `is_finance` and `can_issue_quotation`.
+  - Notifications from one trigger on `pricing_file_events`: `pricing_price_review` (finance), `pricing_price_returned` (GM), `pricing_price_approved` (BD manager and the rep), `pricing_needs_info` (the rep). No cost, margin or return reason in any text.
+  - `quotation_revisions.pricing_file_id`; `quotation_revision_lines` (selling line totals, frozen, readable with the quotation); `pricing_issue_quotation` (new revision at the approved price, line snapshot, supersedes the client's current one, approved by the issue itself, file to *quoted*); `pricing_mark_quotation_sent`. `quotation_revision_guard`: only the issue RPC (a transaction-local flag) may write or approve a revision that claims a pricing file; outside pricing files the GM gate is unchanged.
+  - `pricing_file_client_round`: a fresh unfrozen copy of the BOQ supersedes the quoted one and the file returns to package review (new rpc-only transition `quoted → package_review`).
+- UI: pricing file tabs *Approval* and *Quotations*; *Pricing* card on the deal page (state, days waiting, missing items with *Answer*, *Issue quotation*, revisions, *Mark as sent*); `/quotation-print/$revisionId` (letterhead, lines, VAT, terms; browser print to PDF); *Review selling price* on `/approvals`.
+- Tests: `pricing_review`, `pricing_quotation`, `pricing_client_round` (pgTAP); `pricing_file_links` and the supplier sweep updated for the new rights keys and the 15th transition; `pricing-access`, `quotation-doc`, `approvals-center`, `approval-labels` (bun).
+- Release: `supabase db push` (three migrations), no function deploy, then canary, Production Readiness and production.
+
 ## 2026-11-08 — Supplier portal (Commercial & Finance part 1, PR 3; not deployed)
 
 - **PENDING MO SIGN-OFF:** until email activation exists, a pricer (or system_admin) creates a supplier account and copies a one-time set-password link to the supplier by hand. The pricer can therefore intercept that link, or create the account on an address they control, and act as the supplier: a portal submission is not proof that the supplier sent it. Mitigations: account creation and every issued link are audited with who did it; no new link for a supplier who has enrolled MFA unless the issuer is system_admin; the address must be one the supplier gave in writing and the pricer confirms with the supplier that it set the password itself. Lasting fix: activation by a GoTrue recovery email sent to the supplier's own address once an email provider is approved.
