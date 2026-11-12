@@ -6,7 +6,7 @@
 // =============================================================================
 
 import { supabase } from "@/integrations/supabase/client";
-import { fromBafo, type BafoRowIn, type UnifiedApproval } from "@/lib/approvals-center";
+import { fromBafo, fromPricingReview, type BafoRowIn, type PricingReviewRowIn, type UnifiedApproval } from "@/lib/approvals-center";
 
 const BAFO_LIMIT = 200;
 
@@ -40,4 +40,20 @@ export async function fetchBafoApprovals(
   }
 
   return { rows, list: rows.map((b) => fromBafo(b, b.opportunity_id ? names.get(b.opportunity_id) : null)) };
+}
+
+/**
+ * Selling prices waiting for finance's review (PR 4). pricing_queue returns rows
+ * only to pricers, the GM and cost readers, so everyone else gets an empty list.
+ */
+export async function fetchPricingReviews(): Promise<UnifiedApproval[]> {
+  const db = supabase as unknown as { from: (t: string) => any };
+  const { data, error } = await db
+    .from("pricing_queue")
+    .select("file_id, opportunity_id, project_name, project_code, state_changed_at")
+    .eq("state", "price_review")
+    .order("state_changed_at", { ascending: true })
+    .limit(100);
+  if (error) throw error;
+  return ((data ?? []) as PricingReviewRowIn[]).map(fromPricingReview);
 }

@@ -33,7 +33,7 @@ import {
   canReviewIntake,
 } from "@/lib/roles";
 
-export type ApprovalKind = "record" | "bafo" | "intake";
+export type ApprovalKind = "record" | "bafo" | "intake" | "pricing";
 
 export type UnifiedApproval = {
   id: string;
@@ -268,6 +268,39 @@ export function fromIntakeApproval(o: IntakeApprovalRowIn): UnifiedApproval {
   };
 }
 
+// ---- Pricing: a selling price waiting for finance's review (PR 4) ------------
+
+/** A pricing_queue row in price_review. No cost: the figures are on the pricing file. */
+export type PricingReviewRowIn = {
+  file_id: string;
+  opportunity_id: string;
+  project_name: string | null;
+  project_code: string | null;
+  state_changed_at: string;
+};
+
+export function fromPricingReview(r: PricingReviewRowIn): UnifiedApproval {
+  return {
+    id: `pricing:${r.file_id}`,
+    kind: "pricing",
+    sourceRecordId: r.file_id,
+    approvalType: "price_review",
+    step: null,
+    entityLabel: [r.project_code, r.project_name].filter(Boolean).join(" · ") || null,
+    entityId: r.opportunity_id,
+    clientContext: null,
+    requesterId: null,
+    requiredRole: "finance_manager",
+    state: "pending",
+    submittedAt: r.state_changed_at,
+    decidedAt: null,
+    notes: null,
+    evidence: null,
+    // Approve, return and return-lines live on the file, where the figures are.
+    href: `/pricing/${r.file_id}?tab=approval`,
+  };
+}
+
 // ---- Viewer capability ------------------------------------------------------
 
 /**
@@ -285,6 +318,9 @@ export function canDecide(
       return canApproveCommercialAction(roles);
     case "intake":
       return canReviewIntake(roles);
+    case "pricing":
+      // Decided on the pricing file (the list links there), not from the list.
+      return false;
     case "bafo": {
       const step = rawBafo ? currentBafoStep(rawBafo) : null;
       return step ? canDecideBafoStep(step, roles) : false;

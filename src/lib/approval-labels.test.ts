@@ -35,3 +35,11 @@ describe("approval names", () => {
     expect(approvalRoleLabel("unknown_role", "en")).toBe("unknown_role");
   });
 });
+
+describe("price review (PR 4)", () => {
+  it("is a manager decision with a label in both languages", () => {
+    expect(isManagerDecision("pricing", "price_review")).toBe(true);
+    expect(approvalTypeLabel("price_review", "en")).toBe("Review selling price");
+    expect(approvalTypeLabel("price_review", "ar")).toBe("مراجعة سعر البيع");
+  });
+});
