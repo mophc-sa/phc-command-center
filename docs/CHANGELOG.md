@@ -1,5 +1,12 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-12 — Invoices, receipts, claims and lateness (Commercial & Finance part 2, B3; not deployed)
+
+- Design `docs/superpowers/specs/2026-11-12-contract-billing-design.md`.
+- Migration `20261112120000`: `contract_invoices` (the accounting system's number and date; amount = the dues it covers; VAT generated; due `credit_days` after the invoice), `contract_invoice_dues`, `contract_receipts`, `contract_claims`, `contract_escalations`; RPCs `contract_invoice_record`/`_void`, `contract_receipt_record`/`_void` (finance), `contract_claim_record` (deal owner, pipeline operator, finance); views `contract_receivables` (received, outstanding, days late, tier) and `contract_billing_summary` (the two gauges, late, dues not invoiced); `contract_collections_escalate` with pg_cron `contract-collections-escalate` (05:30 UTC = 08:30 Riyadh): rep at day 1, sales manager at 30, GM at 60, finance for dues past their date not invoiced. An approval whose due is invoiced cannot be voided.
+- UI: *Billing and collection* on the approved contract card; `/collections` page and its sidebar link.
+- Tests: `contract_billing` (pgTAP, 28); `contract-billing` (bun).
+
 ## 2026-11-12 — Execution approvals and dues (Commercial & Finance part 2, B2; not deployed)
 
 - Design `docs/superpowers/specs/2026-11-12-contract-approvals-design.md`.

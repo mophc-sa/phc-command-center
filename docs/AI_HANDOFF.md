@@ -1,5 +1,11 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-12 — Phase B, B3: invoices, receipts, claims, lateness (branch `feat/contract-billing`, stacked on B2 #375)
+
+Migration `20261112120000` (adds pg_cron job `contract-collections-escalate`); no function change. **Release (Mo):** after #375: `supabase db push`; check `select jobname, schedule from cron.job where jobname = 'contract-collections-escalate';` returns one row; canary: record an invoice for the advance due (number from the accounting system), a partial receipt, a claim; `/collections` lists it.
+**Local checks (2026-11-12):** pgTAP 53 files, 1464 tests, PASS (clean reset); `bun run verify` green (3429).
+**Next, B4 (variations):** a variation order before extra work; executed vs contract value. Needs Mo's answers.
+
 ## 2026-11-12 — Phase B, B2: execution approvals and dues (branch `feat/contract-approvals`, stacked on B1 #374)
 
 Migration `20261112110000`; no function change. **Release (Mo):** after #374: `supabase db push`; canary: approve a test contract → the advance shows due; record the drawings approval with a late consultant (submitted and approved 13 days apart for 5 allowed) → MIR and WIR expected dates move by 8 days; record MIR at 40% then the rest; finance voids one.

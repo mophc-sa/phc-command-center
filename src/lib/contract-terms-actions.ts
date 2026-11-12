@@ -115,3 +115,69 @@ export async function listContractApprovals(contractId: string): Promise<Approva
   if (error) throw error;
   return (data ?? []) as ApprovalRow[];
 }
+
+// ---- B3: invoices, receipts, claims ------------------------------------------------
+
+export const recordInvoice = (contractId: string, number: string, invoiceDate: string, dueIds: string[], note: string | null) =>
+  call<string>("contract_invoice_record", { _contract_id: contractId, _number: number, _invoice_date: invoiceDate, _due_ids: dueIds, _note: note });
+export const voidInvoice = (invoiceId: string, reason: string) => call("contract_invoice_void", { _invoice_id: invoiceId, _reason: reason });
+export const recordReceipt = (invoiceId: string, receivedOn: string, amount: number, reference: string | null, note: string | null) =>
+  call<string>("contract_receipt_record", { _invoice_id: invoiceId, _received_on: receivedOn, _amount: amount, _reference: reference, _note: note });
+export const voidReceipt = (receiptId: string, reason: string) => call("contract_receipt_void", { _receipt_id: receiptId, _reason: reason });
+export const recordClaim = (c: { contractId: string; invoiceId: string | null; claimedOn: string; channel: string; note: string; followUpOn: string | null }) =>
+  call<string>("contract_claim_record", {
+    _contract_id: c.contractId, _invoice_id: c.invoiceId, _claimed_on: c.claimedOn, _channel: c.channel, _note: c.note, _follow_up_on: c.followUpOn,
+  });
+
+export type BillingSummary = {
+  contract_id: string; opportunity_id: string; contract_value: number; invoiced_excl_vat: number; left_to_invoice: number;
+  invoiced_incl_vat: number; received: number; outstanding: number; late_outstanding: number;
+  dues_not_invoiced: number; amount_not_invoiced: number;
+};
+const SUMMARY_COLUMNS =
+  "contract_id, opportunity_id, contract_value, invoiced_excl_vat, left_to_invoice, invoiced_incl_vat, received, outstanding, late_outstanding, dues_not_invoiced, amount_not_invoiced";
+export async function getBillingSummary(contractId: string): Promise<BillingSummary | null> {
+  const { data, error } = await db.from("contract_billing_summary").select(SUMMARY_COLUMNS).eq("contract_id", contractId).maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as BillingSummary | null;
+}
+export async function listBillingSummaries(): Promise<BillingSummary[]> {
+  const { data, error } = await db.from("contract_billing_summary").select(SUMMARY_COLUMNS).limit(1000);
+  if (error) throw error;
+  return (data ?? []) as BillingSummary[];
+}
+
+export type ReceivableRow = {
+  invoice_id: string; contract_id: string; opportunity_id: string; invoice_number: string; invoice_date: string; due_on: string;
+  amount_excl_vat: number; total_incl_vat: number; received: number; outstanding: number; days_late: number; tier: 0 | 1 | 2 | 3;
+};
+const RECEIVABLE_COLUMNS =
+  "invoice_id, contract_id, opportunity_id, invoice_number, invoice_date, due_on, amount_excl_vat, total_incl_vat, received, outstanding, days_late, tier";
+export async function listReceivables(contractId?: string): Promise<ReceivableRow[]> {
+  let q = db.from("contract_receivables").select(RECEIVABLE_COLUMNS);
+  q = contractId ? q.eq("contract_id", contractId) : q.gt("outstanding", 0);
+  const { data, error } = await q.order("days_late", { ascending: false }).order("due_on").limit(1000);
+  if (error) throw error;
+  return (data ?? []) as ReceivableRow[];
+}
+
+export type OpenDueRow = { id: string; payment_id: string; amount: number; share_pct: number; event_on: string; due_on: string };
+/** Open dues not yet on a live invoice: what finance can invoice now. */
+export async function listDuesToInvoice(contractId: string): Promise<OpenDueRow[]> {
+  const [{ data: dues, error: e1 }, { data: links, error: e2 }] = await Promise.all([
+    db.from("contract_dues").select("id, payment_id, amount, share_pct, event_on, due_on").eq("contract_id", contractId).eq("status", "open").order("due_on"),
+    db.from("contract_invoice_dues").select("due_id, live").eq("live", true),
+  ]);
+  if (e1) throw e1;
+  if (e2) throw e2;
+  const invoiced = new Set(((links ?? []) as { due_id: string }[]).map((l) => l.due_id));
+  return ((dues ?? []) as OpenDueRow[]).filter((d) => !invoiced.has(d.id));
+}
+
+export type ClaimRow = { id: string; invoice_id: string | null; claimed_on: string; channel: string; note: string; follow_up_on: string | null };
+export async function listClaims(contractId: string): Promise<ClaimRow[]> {
+  const { data, error } = await db.from("contract_claims").select("id, invoice_id, claimed_on, channel, note, follow_up_on")
+    .eq("contract_id", contractId).order("claimed_on", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ClaimRow[];
+}

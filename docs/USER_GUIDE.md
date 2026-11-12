@@ -520,6 +520,14 @@ After the quotation is sent, the deal page shows **Contract terms and payments**
 - **Record an approval** (the deal owner, the sales or BD manager) when the consultant approves: choose the payment, the approval date, the share of the work it covers (MIR and WIR often come in batches: 40% now, the rest later; the next one defaults to what is left), the consultant's reference and the approval file. For the drawings, also the date they were submitted: days beyond the contract's drawings days are the consultant's delay. The share falls due the contract's credit period after the approval date; finance is told.
 - **Void** (finance only, with a reason) cancels an approval entered by mistake and its due.
 
+**Billing and collection** *(B3, 2026-11-12)*
+- **Invoices come from the accounting system** (the ZATCA-compliant tax invoice). Finance then presses *Record invoice* on the deal: the invoice number and date, and the dues it covers (tick them). Its amount is their total; VAT 15% is added. It is due the contract's credit period after the invoice date.
+- **Receipts:** finance records each payment received against its invoice (including VAT; part payments are fine). An invoice with nothing received can be voided with a reason (its dues can then be invoiced again). An approval whose due is invoiced cannot be voided: void the invoice first.
+- **The two measures** on the card: how much of the contract is invoiced and how much is left to invoice; how much of what was invoiced is collected, outstanding, and late.
+- **Claims:** the rep (or finance) logs each claim to the client: date, how (email, letter, call, meeting), a note and the follow-up date.
+- **Lateness:** the day after an invoice's due date the rep is told to claim it; at 30 days the sales manager; at 60 days the GM ("needs escalation"). Once each. Finance is told about a due past its date that nobody invoiced.
+- **Collections** `/collections` (finance, sales manager, MD, GM, CEO; Pricing & Finance group): every open invoice across deals, most late first, with the totals outstanding, late, and due but not invoiced.
+
 ### Step 8 — Award and handover
 
 Once at `won`, the opportunity:
@@ -1068,6 +1076,7 @@ A project now has a responsible salesperson, shown at the top of the project pag
 - The system does not email the quotation: print it to PDF and send it yourself, then mark it as sent (2026-11-09).
 - The GM's below-floor justification is not shown on the Approval tab yet; the tab says the price is below the floor (2026-11-09).
 - A client round sends every line to the supplier again; prices of unchanged lines are not carried forward yet (2026-11-09).
+- Invoices are recorded here, not issued: the tax invoice comes from the accounting system (2026-11-12).
 - The quote check compares the BOQ with the supplier's quote as data; it does not read drawings or the location plan. Checking a package's files for missing items is still Zayed's (2026-11-12).
 - No email is sent by the system yet: Zayed copies the account and request messages into his own email or WhatsApp.
 - Entering a supplier's prices on their behalf again overwrites that entry in place (a supplier's own portal submission is always kept as its own revision).
@@ -1697,3 +1706,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-12 · Phase B, B1: contract terms and payment schedule on the deal page, finance review, Review contract on /approvals · branch feat/contract-terms, not deployed · previous: pricing loop PR 5, 2026-11-12 -->
 
 <!-- last reviewed 2026-11-12 · Phase B, B2: execution approvals (drawings, MIR, WIR, partial shares), dues, consultant delay · branch feat/contract-approvals, not deployed · previous: B1 contract terms, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-12 · Phase B, B3: invoices against dues, receipts, claims, lateness tiers, /collections · branch feat/contract-billing, not deployed · previous: B2 execution approvals, 2026-11-12 -->
