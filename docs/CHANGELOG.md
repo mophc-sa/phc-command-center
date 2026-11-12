@@ -1,5 +1,12 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-12 — Master list sync (not deployed)
+
+- Design `docs/superpowers/specs/2026-11-12-data-sync-design.md`. Comparing *PHC Quotation List - SEPT 2026* (722 quotations to 2026-11-03) with production: 658 already deals, 146 sales codes on more than one deal, 27 new; the archive-activation plan would have doubled the duplicates, so the mechanism is a sync by sales code.
+- Migration `20261113100000`: `data_sync_runs`, `data_sync_rows`, `data_sync_changes` (commercial managers read; the server writes); `data_sync_plan` / `data_sync_apply` / `data_sync_undo` (service role only; the opportunity guards let server writes through), view `data_sync_review`; `notify_opportunity_events` skips per-deal notices while a sync runs (`phc.data_sync`), and each owner gets one summary.
+- UI: `/data-sync` (runs and the review list), sidebar link for sales leadership.
+- Tests: `data_sync` (pgTAP, 22).
+
 ## 2026-11-12 — Project costs and profit (Commercial & Finance part 2, B5; not deployed)
 
 - Design `docs/superpowers/specs/2026-11-12-contract-costs-design.md`.

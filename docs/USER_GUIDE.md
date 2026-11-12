@@ -795,6 +795,18 @@ For the factory, not for PHC staff. A supplier account is linked to one supplier
 
 **Submitting:** tick *"My prices are based only on the files attached to this request; any material or spec difference is written on its line."* and press *Submit prices*. The prices lock. If PHC returns lines, only those lines open again, with PHC's message.
 
+### Master list sync — مزامنة القائمة الرئيسية *(2026-11-12)*
+
+Marie's *PHC Quotation List* is the master record of every quotation. The system syncs from it by **sales code**:
+- **Duplicates** (one code on several deals, left by earlier imports) are merged: one deal is kept, the others are archived as *duplicate* (out of every dashboard; nothing is deleted).
+- **Existing deals** take the file's status (won / lost with its date, or open), value, last update, update log and follow-up. When a person moved the deal's stage in the system after the file's last update, the system is kept and the row goes to review.
+- **New codes** become deals.
+- **Missing data** is filled where it is certain: the owner from the code prefix (OM, FA, AB; NI goes to Faisal), the company by name (created *pending review* when new), the expected contract date of open deals (submission + 90 days). The project code follows the owner.
+- DECLINE is recorded as lost (*Declined (master list)*); NOT SUBMITTED older than 90 days as lost (*Not submitted*), otherwise RFQ received.
+- Each owner gets one summary notification, not one per deal.
+- **`/data-sync`** (sales leadership): the runs and **what needs a person**: no sales code, unknown status, a won deal the file shows open, a stage changed in the system after the file, no owner (legacy prefixes BA, AD, AN, AH, MB have no account), no numeric amount. Open the deal to complete it.
+- The whole run can be undone.
+
 ### Reports & Analysis — التقارير والتحليل
 
 | Page | Use it for |
@@ -1087,6 +1099,7 @@ A project now has a responsible salesperson, shown at the top of the project pag
 - The GM's below-floor justification is not shown on the Approval tab yet; the tab says the price is below the floor (2026-11-09).
 - A client round sends every line to the supplier again; prices of unchanged lines are not carried forward yet (2026-11-09).
 - Invoices are recorded here, not issued: the tax invoice comes from the accounting system (2026-11-12).
+- The master list sync loads the quotation list and the weekly report; the sales target, client relations, project references and ProTenders sheets are not loaded yet. The vendor-portal sheet (passwords) is never read (2026-11-12).
 - Project profit counts direct costs only; indirect costs (salaries, office, cars) and the link to the accounting system's cost centres come later (2026-11-12).
 - The quote check compares the BOQ with the supplier's quote as data; it does not read drawings or the location plan. Checking a package's files for missing items is still Zayed's (2026-11-12).
 - No email is sent by the system yet: Zayed copies the account and request messages into his own email or WhatsApp.
@@ -1723,3 +1736,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-12 · Phase B, B4: variation orders through the pricing loop, client acceptance into the contract, executed quantities · branch feat/contract-variations, not deployed · previous: B3 billing and collection, 2026-11-12 -->
 
 <!-- last reviewed 2026-11-12 · Phase B, B5: project costs from pricing, money out, /project-profit with the cost of late collection · branch feat/contract-costs, not deployed · previous: B4 variations, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-12 · master list sync: duplicates merged, deals updated and created from the master list, missing data filled, /data-sync review list · branch feat/data-sync, not deployed · previous: B5 costs, 2026-11-12 -->

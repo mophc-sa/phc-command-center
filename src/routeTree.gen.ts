@@ -34,6 +34,7 @@ import { Route as AuthenticatedCollectionsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedCommandCenterRouteImport } from './routes/_authenticated/command-center'
 import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticated/contacts'
 import { Route as AuthenticatedDataImportRouteImport } from './routes/_authenticated/data-import'
+import { Route as AuthenticatedDataSyncRouteImport } from './routes/_authenticated/data-sync'
 import { Route as AuthenticatedDiscoveryRouteImport } from './routes/_authenticated/discovery'
 import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authenticated/follow-ups'
 import { Route as AuthenticatedKnowledgeRouteImport } from './routes/_authenticated/knowledge'
@@ -201,6 +202,11 @@ const AuthenticatedContactsRoute = AuthenticatedContactsRouteImport.update({
 const AuthenticatedDataImportRoute = AuthenticatedDataImportRouteImport.update({
   id: '/data-import',
   path: '/data-import',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDataSyncRoute = AuthenticatedDataSyncRouteImport.update({
+  id: '/data-sync',
+  path: '/data-sync',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDiscoveryRoute = AuthenticatedDiscoveryRouteImport.update({
@@ -432,6 +438,7 @@ export interface FileRoutesByFullPath {
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
   '/data-import': typeof AuthenticatedDataImportRouteWithChildren
+  '/data-sync': typeof AuthenticatedDataSyncRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
@@ -492,6 +499,7 @@ export interface FileRoutesByTo {
   '/collections': typeof AuthenticatedCollectionsRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
+  '/data-sync': typeof AuthenticatedDataSyncRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
@@ -557,6 +565,7 @@ export interface FileRoutesById {
   '/_authenticated/command-center': typeof AuthenticatedCommandCenterRoute
   '/_authenticated/contacts': typeof AuthenticatedContactsRoute
   '/_authenticated/data-import': typeof AuthenticatedDataImportRouteWithChildren
+  '/_authenticated/data-sync': typeof AuthenticatedDataSyncRoute
   '/_authenticated/discovery': typeof AuthenticatedDiscoveryRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
   '/_authenticated/knowledge': typeof AuthenticatedKnowledgeRoute
@@ -622,6 +631,7 @@ export interface FileRouteTypes {
     | '/command-center'
     | '/contacts'
     | '/data-import'
+    | '/data-sync'
     | '/discovery'
     | '/follow-ups'
     | '/knowledge'
@@ -682,6 +692,7 @@ export interface FileRouteTypes {
     | '/collections'
     | '/command-center'
     | '/contacts'
+    | '/data-sync'
     | '/discovery'
     | '/follow-ups'
     | '/knowledge'
@@ -746,6 +757,7 @@ export interface FileRouteTypes {
     | '/_authenticated/command-center'
     | '/_authenticated/contacts'
     | '/_authenticated/data-import'
+    | '/_authenticated/data-sync'
     | '/_authenticated/discovery'
     | '/_authenticated/follow-ups'
     | '/_authenticated/knowledge'
@@ -976,6 +988,13 @@ declare module '@tanstack/react-router' {
       path: '/data-import'
       fullPath: '/data-import'
       preLoaderRoute: typeof AuthenticatedDataImportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/data-sync': {
+      id: '/_authenticated/data-sync'
+      path: '/data-sync'
+      fullPath: '/data-sync'
+      preLoaderRoute: typeof AuthenticatedDataSyncRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/discovery': {
@@ -1286,6 +1305,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCommandCenterRoute: typeof AuthenticatedCommandCenterRoute
   AuthenticatedContactsRoute: typeof AuthenticatedContactsRoute
   AuthenticatedDataImportRoute: typeof AuthenticatedDataImportRouteWithChildren
+  AuthenticatedDataSyncRoute: typeof AuthenticatedDataSyncRoute
   AuthenticatedDiscoveryRoute: typeof AuthenticatedDiscoveryRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
   AuthenticatedKnowledgeRoute: typeof AuthenticatedKnowledgeRoute
@@ -1332,6 +1352,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCommandCenterRoute: AuthenticatedCommandCenterRoute,
   AuthenticatedContactsRoute: AuthenticatedContactsRoute,
   AuthenticatedDataImportRoute: AuthenticatedDataImportRouteWithChildren,
+  AuthenticatedDataSyncRoute: AuthenticatedDataSyncRoute,
   AuthenticatedDiscoveryRoute: AuthenticatedDiscoveryRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
   AuthenticatedKnowledgeRoute: AuthenticatedKnowledgeRoute,

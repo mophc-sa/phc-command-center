@@ -1,5 +1,11 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-12 — Master list sync (branch `feat/data-sync`)
+
+Migration `20261113100000`; no function change. The run is staged from the file by a local script (two sheets only; never VENDOR PORTALS), planned and applied as the server (management API as postgres), and can be undone with `select public.data_sync_undo('<run>')`. **Release:** merge, `supabase db push`, frontend deploy (canary → readiness → production), then stage → plan → show Mo the plan → apply.
+**Not loaded yet:** SALES TARGET, CLIENT RELATIONS, PHC PROJECT REFERENCE, PROTENDERS NEW LEADS, SEVEN statuses beyond their codes.
+**Security:** the workbook's VENDOR PORTALS sheet holds portal and mailbox passwords and is shared by link; Mo was told to rotate them.
+
 ## 2026-11-12 — Phase B, B5: project costs and profit (branch `feat/contract-costs`, stacked on B4 #377). Phase B complete.
 
 Migration `20261112140000`; no function change. **Release (Mo):** after #377: `supabase db push`; canary: approve a test contract built from a pricing file → its cost items appear (cost readers only); record a factory invoice and payments; a late-paid invoice shows its financing cost on `/project-profit`; a rep's session sees no cost (`GET /rest/v1/contract_cost_items` returns `[]`).

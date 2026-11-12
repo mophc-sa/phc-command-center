@@ -59,6 +59,7 @@ export const strings = {
   nav_pricing_queue: { en: "Pricing queue", ar: "قائمة التسعير" },
   nav_pricing_settings: { en: "Pricing settings", ar: "إعدادات التسعير" },
   nav_collections: { en: "Collections", ar: "التحصيل" },
+  nav_data_sync: { en: "Master list sync", ar: "مزامنة القائمة الرئيسية" },
   nav_project_profit: { en: "Project profit", ar: "ربحية المشاريع" },
 
   // Sales stages (RFQ/JIH flow)
