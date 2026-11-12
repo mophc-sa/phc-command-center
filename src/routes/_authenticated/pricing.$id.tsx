@@ -98,7 +98,7 @@ function PricingFilePage() {
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
-        eyebrow={f.project_code ? `${pick(TEXT.eyebrow, lang)} · ${f.project_code}` : pick(TEXT.eyebrow, lang)}
+        eyebrow={[pick(TEXT.eyebrow, lang), f.project_code, f.variation_number ? `VO-${f.variation_number}` : null].filter(Boolean).join(" · ")}
         title={f.project_name ?? "—"}
         description={
           <span className="flex flex-wrap items-center gap-2">

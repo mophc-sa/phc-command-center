@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ShieldCheck, Clock, CheckCircle2, AlertTriangle, Inbox, Percent, Calculator } from "lucide-react";
+import { ShieldCheck, Clock, CheckCircle2, AlertTriangle, Inbox, Percent, Calculator, FileSignature } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiRow } from "@/components/phc/KpiRow";
@@ -30,7 +30,7 @@ import {
   type RecordApprovalRowIn,
   type UnifiedApproval,
 } from "@/lib/approvals-center";
-import { fetchBafoApprovals, fetchPricingReviews } from "@/lib/approvals-loader";
+import { fetchBafoApprovals, fetchContractReviews, fetchPricingReviews } from "@/lib/approvals-loader";
 import { approvalRoleLabel, approvalTypeLabel, isManagerDecision } from "@/lib/approval-labels";
 
 export const Route = createFileRoute("/_authenticated/approvals")({
@@ -45,7 +45,7 @@ type DecideTarget =
   | { kind: "bafo"; id: string; step: string; decision: "approved" | "rejected" }
   | { kind: "intake"; id: string; decision: "approve" | "reject" | "info" };
 
-const KIND_ICON = { record: ShieldCheck, bafo: Percent, intake: Inbox, pricing: Calculator } as const;
+const KIND_ICON = { record: ShieldCheck, bafo: Percent, intake: Inbox, pricing: Calculator, contract: FileSignature } as const;
 
 // The manager's own decisions come first and alone; routine requests (intake
 // triage, AI suggestions, mentions, delete requests) sit one tab over so they
@@ -65,7 +65,7 @@ function ApprovalsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["approvals-unified", filter],
     queryFn: async () => {
-      const [recs, bafo, pricing, intake] = await Promise.all([
+      const [recs, bafo, pricing, contractsInReview, intake] = await Promise.all([
         supabase
           .from("approvals")
           .select("*, opportunities(id, project_name, client)")
@@ -75,6 +75,8 @@ function ApprovalsPage() {
         fetchBafoApprovals().catch(() => ({ rows: [], list: [] })),
         // Finance's price reviews (PR 4); the desk keeps working if the queue cannot be read.
         fetchPricingReviews().catch(() => [] as UnifiedApproval[]),
+        // Contract terms waiting for finance (B1).
+        fetchContractReviews().catch(() => [] as UnifiedApproval[]),
         supabase
           .from("inbox_items")
           .select(
@@ -91,6 +93,7 @@ function ApprovalsPage() {
           ...((recs.data ?? []) as unknown as RecordApprovalRowIn[]).map(fromRecordApproval),
           ...bafo.list,
           ...pricing,
+          ...contractsInReview,
           ...((intake.data ?? []) as unknown as IntakeApprovalRowIn[]).map(fromIntakeApproval),
         ]),
         // kept so canDecide can resolve which BAFO step is live

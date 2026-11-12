@@ -1,5 +1,48 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-12 — Project costs and profit (Commercial & Finance part 2, B5; not deployed)
+
+- Design `docs/superpowers/specs/2026-11-12-contract-costs-design.md`.
+- Migration `20261112140000`: `finance_settings` (`late_financing_pct_month` = 1) and `finance_setting_set`; `contract_cost_items` (from pricing on finance's approval of the terms, variations on reload, or by hand) and `contract_cost_entries` (actual invoice, planned payment, payment; void), cost readers only; `contract_costs_load`, `contract_cost_item_add`, `contract_cost_entry_record`/`_void`; view `contract_profit` (owner-run, gated on cost readers): sold, executed, planned and expected cost, gross profit, financing cost of late collection, net profit, collection, money out.
+- UI: *Costs and profit* on the approved contract card (cost readers); `/project-profit` with the rate setting for finance; sidebar link.
+- Tests: `contract_costs` (pgTAP, 15, on the PR 2 worked example); `contract-billing` (bun) extended.
+
+## 2026-11-12 — Variation orders and executed quantities (Commercial & Finance part 2, B4; not deployed)
+
+- Design `docs/superpowers/specs/2026-11-12-contract-variations-design.md`.
+- Migration `20261112130000`: `pricing_files.variation_contract_id`, `variation_number`, `variation_accepted_at`; one open **main** file per deal (index `pricing_files_one_open_main_per_deal`, `_pricing_file_open` follows it); `pricing_issue_quotation` finds the header by the file (a variation gets `<code>-VO<n>`); `contract_payments.kind` gains `variation`, `variation_file_id`, `amount_before_executed`; `contract_lines.variation_file_id`, `executed_quantity`. RPCs `contract_variation_open`, `contract_variation_accept`, `contract_executed_record`; view `contract_execution_summary`; `contract_billing_summary.left_to_invoice` follows the payments; `pricing_queue` gains `variation_number`, `variation_contract_id`.
+- UI: *Variations and executed quantities* on the approved contract card (each variation's pricing card, *Client accepted*, *Executed quantities*); the pricing queue and file header show VO-n.
+- Tests: `contract_variations` (pgTAP, 19); `pricing_files` pins the new index predicate.
+
+## 2026-11-12 — Invoices, receipts, claims and lateness (Commercial & Finance part 2, B3; not deployed)
+
+- Design `docs/superpowers/specs/2026-11-12-contract-billing-design.md`.
+- Migration `20261112120000`: `contract_invoices` (the accounting system's number and date; amount = the dues it covers; VAT generated; due `credit_days` after the invoice), `contract_invoice_dues`, `contract_receipts`, `contract_claims`, `contract_escalations`; RPCs `contract_invoice_record`/`_void`, `contract_receipt_record`/`_void` (finance), `contract_claim_record` (deal owner, pipeline operator, finance); views `contract_receivables` (received, outstanding, days late, tier) and `contract_billing_summary` (the two gauges, late, dues not invoiced); `contract_collections_escalate` with pg_cron `contract-collections-escalate` (05:30 UTC = 08:30 Riyadh): rep at day 1, sales manager at 30, GM at 60, finance for dues past their date not invoiced. An approval whose due is invoiced cannot be voided.
+- UI: *Billing and collection* on the approved contract card; `/collections` page and its sidebar link.
+- Tests: `contract_billing` (pgTAP, 28); `contract-billing` (bun).
+
+## 2026-11-12 — Execution approvals and dues (Commercial & Finance part 2, B2; not deployed)
+
+- Design `docs/superpowers/specs/2026-11-12-contract-approvals-design.md`.
+- Migration `20261112110000`: `contract_approvals` (payment, date, share of work, drawings submitted date, reference, file, void), `contract_dues` (one per approval and for the advance on approval of the terms; share of the payment with the remainder on the one that completes it; `due_on = event_on + credit_days`), `contracts.consultant_delay_days`, view `contract_payment_schedule` (expected date shifted by the consultant delay for MIR and WIR; share and amount due; next due date). `contract_approval_record` (deal owner or pipeline operator, approved terms), `contract_approval_void` (finance, with a reason). Notice `contract_due` to finance.
+- UI: the approved contract card shows the schedule, *Record an approval*, the approvals and *Void*.
+- Tests: `contract_approvals` (pgTAP, 24); `contract-terms` (bun) extended.
+
+## 2026-11-12 — Contract terms and payment schedule (Commercial & Finance part 2, B1; not deployed)
+
+- Design `docs/superpowers/specs/2026-11-12-contract-terms-design.md` (Phase B in five parts; B1 first).
+- Migration `20261112100000`: `contracts` gains the terms (quotation revision, `terms_status`, value difference reason, signing date, execution and credit periods, who saved, submitted and reviewed, return reason, document). `contract_payments` (kind, %, amount computed with the remainder on the last, expected date from the period; `event_on`/`due_on` for B2) and `contract_lines` (the quotation's lines). `contract_terms_save` (deal owner or pipeline operator), `contract_terms_submit`, `contract_terms_review` (finance, never the author). Guards keep the terms and both child tables to these RPCs; approved terms are frozen; one open terms record per deal. Notifications `contract_review` (finance), `contract_returned` / `contract_approved` (the rep).
+- UI: *Contract terms and payments* card on the deal page (form pre-filled from the quotation, payment table with live amounts and expected dates, difference against the quotation, send, approve/return); *Review contract* on `/approvals`.
+- Tests: `contract_terms` (pgTAP, 31); `contract-terms` (bun); approvals tests extended; the actions contract test covers `contract-terms-actions.ts`.
+
+## 2026-11-12 — Supplier quote check (Commercial & Finance part 1, PR 5; not deployed)
+
+- Mo, 2026-11-12: the review compares the frozen BOQ with the supplier's quote as data; it does not read drawings. Its checks are fixed rules, so they are SQL, not a model (no provider, no function deploy).
+- Migration `20261111100000`: `_pricing_quote_issues` (internal) and `pricing_quote_check` (pricers and cost readers who can read the deal): per BOQ line, `no_price`, `screen_price_missing`, `quantity_differs`, `spec_differs`, with both quantities and the supplier's note; no price column. `_pricing_notify_event` gains `supplier_priced`: notice `pricing_quote_check` to estimation and finance with the counts.
+- UI: *Quote check* at the top of Cost review (supplier priced and price review), with *Return these lines to the supplier*: the return dialog opens with the lines to fix ticked and a bilingual message (line numbers and sign types; a long list falls back to line numbers per issue within the portal's 1000 characters). `ReturnLinesDialog` takes an optional preset.
+- Tests: `pricing_quote_check` (pgTAP); `quote-check` (bun).
+- Release: `supabase db push` (one migration) after PR 4's, no function deploy.
+
 ## 2026-11-09 — Zayed's review, the quotation, sales status, client rounds (Commercial & Finance part 1, PR 4; not deployed)
 
 - Migrations `20261110100000`–`20261110120000`:

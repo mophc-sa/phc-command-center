@@ -29,7 +29,7 @@ const FIELD =
   "w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60";
 
 export function ReturnLinesDialog({
-  open, onOpenChange, fileId, fromPriceReview, lines, onDone,
+  open, onOpenChange, fileId, fromPriceReview, lines, onDone, preset,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -37,6 +37,8 @@ export function ReturnLinesDialog({
   fromPriceReview: boolean;
   lines: { id: string; label: string }[];
   onDone: () => void;
+  /** PR 5: the quote check's lines and message, ticked and filled in; Zayed edits them before sending. */
+  preset?: { lines: string[]; message: string } | null;
 }) {
   const { lang } = useI18n();
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -50,8 +52,11 @@ export function ReturnLinesDialog({
   useEffect(() => {
     if (!open) return;
     setReplyBy(addDays(riyadhToday(), 3));
-    setPicked(new Set());
+    setPicked(new Set(preset?.lines ?? []));
+    if (preset) setMessage(preset.message);
     setError(null);
+    // The preset is read when the dialog opens, not on every render of the parent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   function toggle(id: string) {

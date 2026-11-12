@@ -43,3 +43,10 @@ describe("price review (PR 4)", () => {
     expect(approvalTypeLabel("price_review", "ar")).toBe("مراجعة سعر البيع");
   });
 });
+
+describe("contract review (B1)", () => {
+  it("is a manager decision with a label in both languages", () => {
+    expect(isManagerDecision("contract", "contract_review")).toBe(true);
+    expect(approvalTypeLabel("contract_review", "ar")).toBe("مراجعة العقد");
+  });
+});

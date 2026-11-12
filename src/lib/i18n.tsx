@@ -58,6 +58,8 @@ export const strings = {
   navgroup_pricing_finance: { en: "Pricing & Finance", ar: "التسعير والمالية" },
   nav_pricing_queue: { en: "Pricing queue", ar: "قائمة التسعير" },
   nav_pricing_settings: { en: "Pricing settings", ar: "إعدادات التسعير" },
+  nav_collections: { en: "Collections", ar: "التحصيل" },
+  nav_project_profit: { en: "Project profit", ar: "ربحية المشاريع" },
 
   // Sales stages (RFQ/JIH flow)
   sstage_rfq_received: { en: "RFQ Received", ar: "استلام طلب عرض سعر" },

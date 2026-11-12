@@ -7,11 +7,13 @@ import {
   currentBafoStep,
   fromBafo,
   fromIntakeApproval,
+  fromContractReview,
   fromPricingReview,
   fromRecordApproval,
   sortApprovals,
   type BafoRowIn,
   type IntakeApprovalRowIn,
+  type ContractReviewRowIn,
   type PricingReviewRowIn,
   type RecordApprovalRowIn,
 } from "@/lib/approvals-center";
@@ -256,5 +258,21 @@ describe("pricing reviews (PR 4)", () => {
   });
   it("the decision is made on the pricing file, not from the list", () => {
     expect(canDecide(fromPricingReview(row), ["finance_manager"])).toBe(false);
+  });
+});
+
+describe("contract reviews (B1)", () => {
+  const row: ContractReviewRowIn = {
+    id: "c1", opportunity_id: "o1", contract_name: "Test deal", contract_reference_number: "PO-1",
+    submitted_at: "2026-11-12T08:00:00Z", submitted_by: "u1",
+  };
+  it("a contract sent to finance is a pending finance decision that opens the deal", () => {
+    const a = fromContractReview(row);
+    expect(a.kind).toBe("contract");
+    expect(a.approvalType).toBe("contract_review");
+    expect(a.requiredRole).toBe("finance_manager");
+    expect(a.href).toBe("/opportunities/o1");
+    expect(a.entityLabel).toBe("Test deal · PO-1");
+    expect(canDecide(a, ["finance_manager"])).toBe(false);
   });
 });

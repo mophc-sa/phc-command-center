@@ -51,9 +51,10 @@ select is((select count(*)::int from public.pricing_files where opportunity_id =
 -- Final review M1: two openers racing on one deal must not abort the RFQ
 -- insert. The loser's insert skips the conflict and returns the winner's file.
 -- A race cannot be staged inside one pgTAP transaction, so the insert is pinned
--- to the exact partial unique index predicate.
+-- to the exact partial unique index predicate (B4, 2026-11-12: the deal's main
+-- file; variation files are open beside it).
 select ok(pg_get_functiondef('public._pricing_file_open(uuid,uuid,uuid)'::regprocedure)
-            ~ 'ON CONFLICT \(opportunity_id\) WHERE state <> ''closed''\s+DO NOTHING',
+            ~ 'ON CONFLICT \(opportunity_id\) WHERE state <> ''closed'' AND variation_contract_id IS NULL\s+DO NOTHING',
   'A racing open skips the conflicting insert instead of raising');
 
 -- Final review I3: an RFQ linked to a deal after it was saved opens the file then.

@@ -504,6 +504,40 @@ The order is enforced by the database. Step 3 cannot happen before step 2.
 Steps 2 and 3 are both Ahmed Zaid, who holds Finance and Estimation. The independent
 check is step 4.
 
+### Step 7b — Contract terms and payments *(2026-11-12)*
+
+After the quotation is sent, the deal page shows **Contract terms and payments**.
+
+- **Record the contract** (the deal owner, the sales manager or the BD manager): the form starts from the client's current quotation (its value excl. VAT, and its lines become the contract quantities). Enter the contract or PO reference, the signing date, the execution period (drawings approval 5 days, supply and installation 45, testing and handover 10: change them to the contract's), the credit period after an invoice (30 days), and the payments.
+- **Payments** start from the usual sequence: advance, after drawing approval, after supply (MIR), final after installation (WIR), 30/20/30/20. Change the percentages, remove a payment or add another; the total must be 100%. The system computes each amount (the last one takes any rounding) and its expected date from the signing date and the period.
+- A contract value different from the quotation needs a reason; finance sees the difference.
+- **Send to finance.** Finance gets a notification and sees *Review contract* on `/approvals`; on the deal it approves or returns with a reason. Nobody reviews a contract they recorded. Approved terms are final: the reference for invoicing and collection (next releases). A change after approval will go through a variation.
+- The panel below it still keeps the signature stage and the contract file.
+
+**After approval: approvals make payments due** *(B2, 2026-11-12)*
+- The card shows each payment: its amount, its expected date (MIR and WIR move later by the consultant's delay on the drawings), what is due so far and its due date.
+- **The advance** falls due when finance approves the contract (signing date + the credit period).
+- **Record an approval** (the deal owner, the sales or BD manager) when the consultant approves: choose the payment, the approval date, the share of the work it covers (MIR and WIR often come in batches: 40% now, the rest later; the next one defaults to what is left), the consultant's reference and the approval file. For the drawings, also the date they were submitted: days beyond the contract's drawings days are the consultant's delay. The share falls due the contract's credit period after the approval date; finance is told.
+- **Void** (finance only, with a reason) cancels an approval entered by mistake and its due.
+
+**Billing and collection** *(B3, 2026-11-12)*
+- **Invoices come from the accounting system** (the ZATCA-compliant tax invoice). Finance then presses *Record invoice* on the deal: the invoice number and date, and the dues it covers (tick them). Its amount is their total; VAT 15% is added. It is due the contract's credit period after the invoice date.
+- **Receipts:** finance records each payment received against its invoice (including VAT; part payments are fine). An invoice with nothing received can be voided with a reason (its dues can then be invoiced again). An approval whose due is invoiced cannot be voided: void the invoice first.
+- **The two measures** on the card: how much of the contract is invoiced and how much is left to invoice; how much of what was invoiced is collected, outstanding, and late.
+- **Claims:** the rep (or finance) logs each claim to the client: date, how (email, letter, call, meeting), a note and the follow-up date.
+- **Lateness:** the day after an invoice's due date the rep is told to claim it; at 30 days the sales manager; at 60 days the GM ("needs escalation"). Once each. Finance is told about a due past its date that nobody invoiced.
+- **Collections** `/collections` (finance, sales manager, MD, GM, CEO; Pricing & Finance group): first, every due **waiting to be invoiced** across deals (finance's to-do: issue the tax invoice in the accounting system, then record it on the deal); then every open invoice, most late first; with the totals outstanding, late, and due but not invoiced.
+
+**Variations and executed quantities** *(B4, 2026-11-12)*
+- **Any sign beyond the contract needs a variation before it is made**, or the client's finance will not accept its invoice. On the approved contract press *Open a variation* and say what is added. It becomes a pricing file of its own, *VO-1, VO-2…*, with its own BOQ: estimation, the supplier, the GM and finance price it exactly like a quotation, and the BD manager issues its quotation (numbered `<deal code>-VO1`).
+- When the client accepts, press *Client accepted* (date, the client's reference, the file): the variation's value is added to the contract as **its own payment**, and its lines join the contract quantities. Record its approval when it is delivered or installed (B2) to make it due.
+- **Executed quantities:** at close-out, enter what was actually installed per contract line (the contract quantity by default). Less than the contract reduces the final payment by the value not executed; more needs a variation. Do it before the final payment's approval. The card shows the contract value, the variations, the executed value and what was not executed.
+
+**Costs and profit** *(B5, 2026-11-12; finance and management only, never shown to sales)*
+- When finance approves the contract, the cost of the approved price becomes its budget: manufacturing (the supplier's materials), installation, shipping and clearing, extras. *Reload from pricing* adds accepted variations. Finance can add another item.
+- Per item, finance records the supplier's or workshop's **invoice** (it replaces the planned figure in the expected cost), **planned payments** with their dates (e.g. the factory's 30/40/30) and **payments made**: money out beside money in.
+- **Project profit** `/project-profit` (Pricing & Finance): per contract, sold (or executed), expected cost, gross profit, the **cost of late collection** (finance's monthly rate, 1% by default, on each late amount from its due date until it is paid), net profit, collected and late; with the totals. Finance sets the rate on the same page.
+
 ### Step 8 — Award and handover
 
 Once at `won`, the opportunity:
@@ -711,6 +745,7 @@ Estimation, finance, the sales manager, the GM, MD and CEO see the whole group. 
 3. **Cost review (Zayed and Kalas).**
    - Each line shows the supplier's price, the with-screen price, and flags for no price, a missing screen price or a spec difference.
    - Zayed chooses the normal or the with-screen price, and can correct a line's install type.
+   - **Quote check** *(2026-11-12)*: when the supplier's prices arrive, the system checks every line and tells Zayed how many need attention. At the top of the tab it lists them: no price, the price with the screen missing, a quantity different from the BOQ, or a spec difference the supplier wrote. *Return these lines to the supplier* ticks the lines the supplier must fix and writes the message (line numbers and sign types, English and Arabic); read it before sending. A written spec difference is Zayed's call: accept it, or return the line. Nothing goes to the supplier by itself.
    - Zayed can **send lines back to the supplier**. If the supplier answered through the portal, tick the lines that go back, give a new reply-by date, the reason (a cost note: sales and the supplier do not see it) and, if you want, a message the supplier sees. Only those lines reopen in the portal; the others keep their prices.
    - Kalas presses **Start the selling price**.
 4. **Selling price (Kalas sets it; Zayed sets the cost choices).**
@@ -1051,6 +1086,9 @@ A project now has a responsible salesperson, shown at the top of the project pag
 - The system does not email the quotation: print it to PDF and send it yourself, then mark it as sent (2026-11-09).
 - The GM's below-floor justification is not shown on the Approval tab yet; the tab says the price is below the floor (2026-11-09).
 - A client round sends every line to the supplier again; prices of unchanged lines are not carried forward yet (2026-11-09).
+- Invoices are recorded here, not issued: the tax invoice comes from the accounting system (2026-11-12).
+- Project profit counts direct costs only; indirect costs (salaries, office, cars) and the link to the accounting system's cost centres come later (2026-11-12).
+- The quote check compares the BOQ with the supplier's quote as data; it does not read drawings or the location plan. Checking a package's files for missing items is still Zayed's (2026-11-12).
 - No email is sent by the system yet: Zayed copies the account and request messages into his own email or WhatsApp.
 - Entering a supplier's prices on their behalf again overwrites that entry in place (a supplier's own portal submission is always kept as its own revision).
 - One supplier per file. A line priced by two suppliers stops the build.
@@ -1673,3 +1711,15 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-08 · supplier portal: supplier accounts with MFA, send to the supplier, /supplier portal, returned lines, notifications on submit and overdue · branch feat/pricing-supplier-portal, not deployed · previous: pricing loop screens, 2026-11-04 -->
 
 <!-- last reviewed 2026-11-09 · pricing loop PR 4: Approval and Quotations tabs, deal pricing card (state, missing items, issue quotation), /quotation-print, client rounds, review notifications, Review selling price on /approvals · branch feat/pricing-review-quotation, not deployed · previous: supplier portal, 2026-11-08 -->
+
+<!-- last reviewed 2026-11-12 · pricing loop PR 5: supplier quote check on Cost review, notice to estimation and finance, prepared return to the supplier · branch feat/pricing-quote-check, not deployed · previous: pricing loop PR 4, 2026-11-09 -->
+
+<!-- last reviewed 2026-11-12 · Phase B, B1: contract terms and payment schedule on the deal page, finance review, Review contract on /approvals · branch feat/contract-terms, not deployed · previous: pricing loop PR 5, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-12 · Phase B, B2: execution approvals (drawings, MIR, WIR, partial shares), dues, consultant delay · branch feat/contract-approvals, not deployed · previous: B1 contract terms, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-12 · Phase B, B3: invoices against dues, receipts, claims, lateness tiers, /collections · branch feat/contract-billing, not deployed · previous: B2 execution approvals, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-12 · Phase B, B4: variation orders through the pricing loop, client acceptance into the contract, executed quantities · branch feat/contract-variations, not deployed · previous: B3 billing and collection, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-12 · Phase B, B5: project costs from pricing, money out, /project-profit with the cost of late collection · branch feat/contract-costs, not deployed · previous: B4 variations, 2026-11-12 -->

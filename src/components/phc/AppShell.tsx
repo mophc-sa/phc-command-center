@@ -11,6 +11,7 @@ import { badgeLabel, unreadCount } from "@/lib/notifications";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
 import { requiresMfa } from "@/lib/roles";
 import { canSeePricingNav } from "@/lib/pricing-access";
+import { canSeeCollections } from "@/lib/contract-billing";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { NotificationCenter } from "@/components/phc/NotificationCenter";
 import { NewIntakeDialog } from "@/components/phc/NewIntakeDialog";
@@ -70,6 +71,8 @@ import {
   Calculator,
   FileText,
   SlidersHorizontal,
+  Wallet,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -198,6 +201,10 @@ const NAV_GROUPS: NavGroup[] = [
       { kind: "link", to: "/pricing", key: "nav_pricing_queue", icon: Calculator, showIf: canSeePricingNav },
       { kind: "link", to: "/quotations", key: "nav_quotations", icon: FileText },
       { kind: "link", to: "/pricing/settings", key: "nav_pricing_settings", icon: SlidersHorizontal, showIf: canSeePricingNav },
+      // B3 (2026-11-12): open invoices across deals, for finance and management.
+      { kind: "link", to: "/collections", key: "nav_collections", icon: Wallet, showIf: canSeeCollections },
+      // B5 (2026-11-12): sold, cost, collected, late and profit per contract; cost readers only.
+      { kind: "link", to: "/project-profit", key: "nav_project_profit", icon: TrendingUp, showIf: canSeePricingNav },
     ],
   },
   {

@@ -1,5 +1,44 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-12 — Phase B, B5: project costs and profit (branch `feat/contract-costs`, stacked on B4 #377). Phase B complete.
+
+Migration `20261112140000`; no function change. **Release (Mo):** after #377: `supabase db push`; canary: approve a test contract built from a pricing file → its cost items appear (cost readers only); record a factory invoice and payments; a late-paid invoice shows its financing cost on `/project-profit`; a rep's session sees no cost (`GET /rest/v1/contract_cost_items` returns `[]`).
+**Local checks (2026-11-12):** pgTAP 55 files, 1498 tests, PASS (clean reset); `bun run verify` green (3462).
+**Phase B is built (B1–B5, PRs #374–#378), all stacked on PR 4 (#372) and PR 5 (#373).** Merge in order, retargeting each to `main`; one `db push` after the last merge applies all eight migrations in order.
+**Not done (next):** indirect costs and cost centres in the accounting system (the meeting's "later" phase); emailing claims and quotations (no email provider); AI review of drawings (vision input); carrying supplier prices forward in a client round.
+
+## 2026-11-12 — Phase B, B4: variations and executed quantities (branch `feat/contract-variations`, stacked on B3 #376)
+
+Migration `20261112130000` (changes the one-open-file index to the main file only; replaces `_pricing_file_open` and `pricing_issue_quotation`); no function change. **Release (Mo):** after #376: `supabase db push`; canary: open VO-1 on an approved test contract, price it through the loop, issue its quotation (`…-VO1`), *Client accepted* → contract value and a VO-1 payment; record executed quantities below the contract → the final payment drops.
+**Local checks (2026-11-12):** pgTAP 54 files, 1483 tests, PASS (clean reset); `bun run verify` green (3442).
+**Next, B5 (costs and project profit).**
+
+## 2026-11-12 — Phase B, B3: invoices, receipts, claims, lateness (branch `feat/contract-billing`, stacked on B2 #375)
+
+Migration `20261112120000` (adds pg_cron job `contract-collections-escalate`); no function change. **Release (Mo):** after #375: `supabase db push`; check `select jobname, schedule from cron.job where jobname = 'contract-collections-escalate';` returns one row; canary: record an invoice for the advance due (number from the accounting system), a partial receipt, a claim; `/collections` lists it.
+**Local checks (2026-11-12):** pgTAP 53 files, 1464 tests, PASS (clean reset); `bun run verify` green (3429).
+**Next, B4 (variations):** a variation order before extra work; executed vs contract value. Needs Mo's answers.
+
+## 2026-11-12 — Phase B, B2: execution approvals and dues (branch `feat/contract-approvals`, stacked on B1 #374)
+
+Migration `20261112110000`; no function change. **Release (Mo):** after #374: `supabase db push`; canary: approve a test contract → the advance shows due; record the drawings approval with a late consultant (submitted and approved 13 days apart for 5 allowed) → MIR and WIR expected dates move by 8 days; record MIR at 40% then the rest; finance voids one.
+**Local checks (2026-11-12):** pgTAP 52 files, 1436 tests, PASS; `bun run verify` green (3408).
+**Next, B3 (invoices and collection):** invoices against `contract_dues` (one or several dues per invoice; deducted from the contract balance), receipts, claim letters, lateness from `due_on`, escalation; `contract_approval_void` must refuse a due already invoiced. Needs Mo's answers: who issues invoices (finance?), whether the invoice is made in the system or in the accounting system and only recorded here, and when lateness escalates.
+
+## 2026-11-12 — Phase B, B1: contract terms and payment schedule (branch `feat/contract-terms`, stacked on PR 5 #373)
+
+Design `docs/superpowers/specs/2026-11-12-contract-terms-design.md`; Phase B order B1 → B5 (DECISIONS 2026-11-12). Migration `20261112100000`; no function change.
+**Release (Mo):** after #372 and #373: merge, `supabase db push`, canary: on a quoted test deal the rep records the contract (change the value → a reason is required), sends it; finance sees *Review contract*, returns it, the rep edits and sends again, finance approves; the terms are then read-only; another rep cannot read the payments.
+**Local checks (2026-11-12):** pgTAP 51 files, 1412 tests, PASS; `bun run verify` green (3399 tests).
+**Next, B2:** execution approvals (shop drawings, MIR, WIR) set `contract_payments.event_on` and `due_on = event_on + credit_days`; consultant delays push the expected dates. Needs Mo's answers: who records each approval, and how a consultant delay is recorded.
+
+## 2026-11-12 — Pricing loop PR 5: the supplier quote check (branch `feat/pricing-quote-check`, stacked on PR 4 #372)
+
+Mo chose a data comparison over reading drawings (DECISIONS 2026-11-12). Migration `20261111100000`: `pricing_quote_check` (rules: no price, screen price missing, quantity differs, spec differs), a notice to estimation and finance on `supplier_priced`, and *Quote check* on Cost review with a prepared return (lines ticked, bilingual message) that Zayed sends himself. No function change.
+**Release:** after PR 4: merge, `supabase db push` (one migration), canary: a supplier submits with a missing screen price → Zayed gets "Quote check: 1 lines need attention…", the panel lists the line, *Return these lines* opens with it ticked and the message filled, the supplier sees only that line reopened with the message.
+**Local checks (2026-11-12):** pgTAP 50 files, 1381 tests, PASS; `bun run verify` green (3380 tests).
+**Not done:** the package review of drawings and location plans (needs vision input in `ai-providers.ts`, a function deploy, and Zayed checking quality on real files first).
+
 ## 2026-11-09 — Pricing loop PR 4: Zayed's review, the quotation, sales status, client rounds (branch `feat/pricing-review-quotation`, worktree `~/dev/phc-pricing-review`)
 
 Plan `docs/superpowers/plans/2026-11-09-pricing-review-quotation.md`. Migrations `20261110100000`–`20261110120000`. No function changes.

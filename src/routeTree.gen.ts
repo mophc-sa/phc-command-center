@@ -30,6 +30,7 @@ import { Route as AuthenticatedAwardQueueRouteImport } from './routes/_authentic
 import { Route as AuthenticatedBoardRouteImport } from './routes/_authenticated/board'
 import { Route as AuthenticatedBoqRouteImport } from './routes/_authenticated/boq'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
+import { Route as AuthenticatedCollectionsRouteImport } from './routes/_authenticated/collections'
 import { Route as AuthenticatedCommandCenterRouteImport } from './routes/_authenticated/command-center'
 import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticated/contacts'
 import { Route as AuthenticatedDataImportRouteImport } from './routes/_authenticated/data-import'
@@ -38,6 +39,7 @@ import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedKnowledgeRouteImport } from './routes/_authenticated/knowledge'
 import { Route as AuthenticatedLeadTenderInboxRouteImport } from './routes/_authenticated/lead-tender-inbox'
 import { Route as AuthenticatedMyWorkspaceRouteImport } from './routes/_authenticated/my-workspace'
+import { Route as AuthenticatedProjectProfitRouteImport } from './routes/_authenticated/project-profit'
 import { Route as AuthenticatedQuotationsRouteImport } from './routes/_authenticated/quotations'
 import { Route as AuthenticatedReferenceLibraryRouteImport } from './routes/_authenticated/reference-library'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
@@ -179,6 +181,12 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCollectionsRoute =
+  AuthenticatedCollectionsRouteImport.update({
+    id: '/collections',
+    path: '/collections',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCommandCenterRoute =
   AuthenticatedCommandCenterRouteImport.update({
     id: '/command-center',
@@ -220,6 +228,12 @@ const AuthenticatedMyWorkspaceRoute =
   AuthenticatedMyWorkspaceRouteImport.update({
     id: '/my-workspace',
     path: '/my-workspace',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProjectProfitRoute =
+  AuthenticatedProjectProfitRouteImport.update({
+    id: '/project-profit',
+    path: '/project-profit',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedQuotationsRoute = AuthenticatedQuotationsRouteImport.update({
@@ -414,6 +428,7 @@ export interface FileRoutesByFullPath {
   '/board': typeof AuthenticatedBoardRoute
   '/boq': typeof AuthenticatedBoqRoute
   '/calendar': typeof AuthenticatedCalendarRoute
+  '/collections': typeof AuthenticatedCollectionsRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
   '/data-import': typeof AuthenticatedDataImportRouteWithChildren
@@ -422,6 +437,7 @@ export interface FileRoutesByFullPath {
   '/knowledge': typeof AuthenticatedKnowledgeRoute
   '/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
   '/my-workspace': typeof AuthenticatedMyWorkspaceRoute
+  '/project-profit': typeof AuthenticatedProjectProfitRoute
   '/quotations': typeof AuthenticatedQuotationsRoute
   '/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -473,6 +489,7 @@ export interface FileRoutesByTo {
   '/board': typeof AuthenticatedBoardRoute
   '/boq': typeof AuthenticatedBoqRoute
   '/calendar': typeof AuthenticatedCalendarRoute
+  '/collections': typeof AuthenticatedCollectionsRoute
   '/command-center': typeof AuthenticatedCommandCenterRoute
   '/contacts': typeof AuthenticatedContactsRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
@@ -480,6 +497,7 @@ export interface FileRoutesByTo {
   '/knowledge': typeof AuthenticatedKnowledgeRoute
   '/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
   '/my-workspace': typeof AuthenticatedMyWorkspaceRoute
+  '/project-profit': typeof AuthenticatedProjectProfitRoute
   '/quotations': typeof AuthenticatedQuotationsRoute
   '/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/reports': typeof AuthenticatedReportsRoute
@@ -535,6 +553,7 @@ export interface FileRoutesById {
   '/_authenticated/board': typeof AuthenticatedBoardRoute
   '/_authenticated/boq': typeof AuthenticatedBoqRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
+  '/_authenticated/collections': typeof AuthenticatedCollectionsRoute
   '/_authenticated/command-center': typeof AuthenticatedCommandCenterRoute
   '/_authenticated/contacts': typeof AuthenticatedContactsRoute
   '/_authenticated/data-import': typeof AuthenticatedDataImportRouteWithChildren
@@ -543,6 +562,7 @@ export interface FileRoutesById {
   '/_authenticated/knowledge': typeof AuthenticatedKnowledgeRoute
   '/_authenticated/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
   '/_authenticated/my-workspace': typeof AuthenticatedMyWorkspaceRoute
+  '/_authenticated/project-profit': typeof AuthenticatedProjectProfitRoute
   '/_authenticated/quotations': typeof AuthenticatedQuotationsRoute
   '/_authenticated/reference-library': typeof AuthenticatedReferenceLibraryRoute
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
@@ -598,6 +618,7 @@ export interface FileRouteTypes {
     | '/board'
     | '/boq'
     | '/calendar'
+    | '/collections'
     | '/command-center'
     | '/contacts'
     | '/data-import'
@@ -606,6 +627,7 @@ export interface FileRouteTypes {
     | '/knowledge'
     | '/lead-tender-inbox'
     | '/my-workspace'
+    | '/project-profit'
     | '/quotations'
     | '/reference-library'
     | '/reports'
@@ -657,6 +679,7 @@ export interface FileRouteTypes {
     | '/board'
     | '/boq'
     | '/calendar'
+    | '/collections'
     | '/command-center'
     | '/contacts'
     | '/discovery'
@@ -664,6 +687,7 @@ export interface FileRouteTypes {
     | '/knowledge'
     | '/lead-tender-inbox'
     | '/my-workspace'
+    | '/project-profit'
     | '/quotations'
     | '/reference-library'
     | '/reports'
@@ -718,6 +742,7 @@ export interface FileRouteTypes {
     | '/_authenticated/board'
     | '/_authenticated/boq'
     | '/_authenticated/calendar'
+    | '/_authenticated/collections'
     | '/_authenticated/command-center'
     | '/_authenticated/contacts'
     | '/_authenticated/data-import'
@@ -726,6 +751,7 @@ export interface FileRouteTypes {
     | '/_authenticated/knowledge'
     | '/_authenticated/lead-tender-inbox'
     | '/_authenticated/my-workspace'
+    | '/_authenticated/project-profit'
     | '/_authenticated/quotations'
     | '/_authenticated/reference-library'
     | '/_authenticated/reports'
@@ -924,6 +950,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/collections': {
+      id: '/_authenticated/collections'
+      path: '/collections'
+      fullPath: '/collections'
+      preLoaderRoute: typeof AuthenticatedCollectionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/command-center': {
       id: '/_authenticated/command-center'
       path: '/command-center'
@@ -978,6 +1011,13 @@ declare module '@tanstack/react-router' {
       path: '/my-workspace'
       fullPath: '/my-workspace'
       preLoaderRoute: typeof AuthenticatedMyWorkspaceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/project-profit': {
+      id: '/_authenticated/project-profit'
+      path: '/project-profit'
+      fullPath: '/project-profit'
+      preLoaderRoute: typeof AuthenticatedProjectProfitRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/quotations': {
@@ -1242,6 +1282,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBoardRoute: typeof AuthenticatedBoardRoute
   AuthenticatedBoqRoute: typeof AuthenticatedBoqRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
+  AuthenticatedCollectionsRoute: typeof AuthenticatedCollectionsRoute
   AuthenticatedCommandCenterRoute: typeof AuthenticatedCommandCenterRoute
   AuthenticatedContactsRoute: typeof AuthenticatedContactsRoute
   AuthenticatedDataImportRoute: typeof AuthenticatedDataImportRouteWithChildren
@@ -1250,6 +1291,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedKnowledgeRoute: typeof AuthenticatedKnowledgeRoute
   AuthenticatedLeadTenderInboxRoute: typeof AuthenticatedLeadTenderInboxRoute
   AuthenticatedMyWorkspaceRoute: typeof AuthenticatedMyWorkspaceRoute
+  AuthenticatedProjectProfitRoute: typeof AuthenticatedProjectProfitRoute
   AuthenticatedQuotationsRoute: typeof AuthenticatedQuotationsRoute
   AuthenticatedReferenceLibraryRoute: typeof AuthenticatedReferenceLibraryRoute
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
@@ -1286,6 +1328,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBoardRoute: AuthenticatedBoardRoute,
   AuthenticatedBoqRoute: AuthenticatedBoqRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
+  AuthenticatedCollectionsRoute: AuthenticatedCollectionsRoute,
   AuthenticatedCommandCenterRoute: AuthenticatedCommandCenterRoute,
   AuthenticatedContactsRoute: AuthenticatedContactsRoute,
   AuthenticatedDataImportRoute: AuthenticatedDataImportRouteWithChildren,
@@ -1294,6 +1337,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedKnowledgeRoute: AuthenticatedKnowledgeRoute,
   AuthenticatedLeadTenderInboxRoute: AuthenticatedLeadTenderInboxRoute,
   AuthenticatedMyWorkspaceRoute: AuthenticatedMyWorkspaceRoute,
+  AuthenticatedProjectProfitRoute: AuthenticatedProjectProfitRoute,
   AuthenticatedQuotationsRoute: AuthenticatedQuotationsRoute,
   AuthenticatedReferenceLibraryRoute: AuthenticatedReferenceLibraryRoute,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
