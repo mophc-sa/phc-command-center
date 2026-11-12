@@ -90,11 +90,10 @@ export function DealPricingCard({ opportunityId }: { opportunityId: string }) {
         <p className="mt-3 text-sm text-muted-foreground">{pick(TEXT.approvedNote, lang)}</p>
       ) : null}
 
-      {f.state === "approved" || f.state === "quoted" || f.state === "package_review" || f.state === "boq_frozen" ? (
-        <div className="mt-4">
-          <QuotationRevisions fileId={f.id} canSend={canMarkSent(r)} onChanged={onChanged} />
-        </div>
-      ) : null}
+      {/* Every round's revisions; the client's current one stays valid during a new round. */}
+      <div className="mt-4">
+        <QuotationRevisions fileId={f.id} canSend={canMarkSent(r)} onChanged={onChanged} />
+      </div>
 
       <ActionDialog
         open={answerOpen}
