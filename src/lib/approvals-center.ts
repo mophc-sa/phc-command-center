@@ -33,7 +33,7 @@ import {
   canReviewIntake,
 } from "@/lib/roles";
 
-export type ApprovalKind = "record" | "bafo" | "intake" | "pricing";
+export type ApprovalKind = "record" | "bafo" | "intake" | "pricing" | "contract";
 
 export type UnifiedApproval = {
   id: string;
@@ -301,6 +301,39 @@ export function fromPricingReview(r: PricingReviewRowIn): UnifiedApproval {
   };
 }
 
+// ---- Contracts: terms waiting for finance's review (B1) ----------------------
+
+export type ContractReviewRowIn = {
+  id: string;
+  opportunity_id: string;
+  contract_name: string | null;
+  contract_reference_number: string | null;
+  submitted_at: string | null;
+  submitted_by: string | null;
+};
+
+export function fromContractReview(r: ContractReviewRowIn): UnifiedApproval {
+  return {
+    id: `contract:${r.id}`,
+    kind: "contract",
+    sourceRecordId: r.id,
+    approvalType: "contract_review",
+    step: null,
+    entityLabel: [r.contract_name, r.contract_reference_number].filter(Boolean).join(" · ") || null,
+    entityId: r.opportunity_id,
+    clientContext: null,
+    requesterId: r.submitted_by,
+    requiredRole: "finance_manager",
+    state: "pending",
+    submittedAt: r.submitted_at ?? new Date(0).toISOString(),
+    decidedAt: null,
+    notes: null,
+    evidence: null,
+    // Approve and return live on the deal's contract card, next to the terms.
+    href: `/opportunities/${r.opportunity_id}`,
+  };
+}
+
 // ---- Viewer capability ------------------------------------------------------
 
 /**
@@ -319,7 +352,8 @@ export function canDecide(
     case "intake":
       return canReviewIntake(roles);
     case "pricing":
-      // Decided on the pricing file (the list links there), not from the list.
+    case "contract":
+      // Decided where the figures are (the pricing file, the deal's contract card), not from the list.
       return false;
     case "bafo": {
       const step = rawBafo ? currentBafoStep(rawBafo) : null;

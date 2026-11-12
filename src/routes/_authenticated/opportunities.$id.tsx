@@ -49,6 +49,7 @@ import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 import { BafoPanel } from "@/components/phc/BafoPanel";
 import { DealPricingCard } from "@/components/phc/pricing/DealPricingCard";
+import { ContractTermsCard } from "@/components/phc/contracts/ContractTermsCard";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -1812,6 +1813,10 @@ function OpportunityDetail() {
         )}
       </Panel>
       )}
+
+      {/* 6.4. CONTRACT TERMS AND PAYMENTS (B1, 2026-11-12): recorded from the quotation, approved by finance.
+          The panel below keeps the signature stage and the contract file. */}
+      {show("outcome") && <ContractTermsCard opportunityId={o.id} ownerId={o.owner_id ?? null} />}
 
       {/* 6.5. CONTRACT STAGE — replaces the former "Log Outcome" concept:
           the deal's current stage plus its linked contract(s), rendered

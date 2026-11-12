@@ -1,5 +1,12 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-12 — Phase B, B1: contract terms and payment schedule (branch `feat/contract-terms`, stacked on PR 5 #373)
+
+Design `docs/superpowers/specs/2026-11-12-contract-terms-design.md`; Phase B order B1 → B5 (DECISIONS 2026-11-12). Migration `20261112100000`; no function change.
+**Release (Mo):** after #372 and #373: merge, `supabase db push`, canary: on a quoted test deal the rep records the contract (change the value → a reason is required), sends it; finance sees *Review contract*, returns it, the rep edits and sends again, finance approves; the terms are then read-only; another rep cannot read the payments.
+**Local checks (2026-11-12):** pgTAP 51 files, 1412 tests, PASS; `bun run verify` green (3399 tests).
+**Next, B2:** execution approvals (shop drawings, MIR, WIR) set `contract_payments.event_on` and `due_on = event_on + credit_days`; consultant delays push the expected dates. Needs Mo's answers: who records each approval, and how a consultant delay is recorded.
+
 ## 2026-11-12 — Pricing loop PR 5: the supplier quote check (branch `feat/pricing-quote-check`, stacked on PR 4 #372)
 
 Mo chose a data comparison over reading drawings (DECISIONS 2026-11-12). Migration `20261111100000`: `pricing_quote_check` (rules: no price, screen price missing, quantity differs, spec differs), a notice to estimation and finance on `supplier_priced`, and *Quote check* on Cost review with a prepared return (lines ticked, bilingual message) that Zayed sends himself. No function change.

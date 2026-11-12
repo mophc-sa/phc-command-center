@@ -12,7 +12,7 @@ const SQL = readdirSync(dir)
   .map((f) => readFileSync(new URL(f, dir), "utf8").replace(/--[^\n]*/g, ""))
   .join("\n");
 // The supplier portal's wrappers (PR 3) follow the same rules.
-const SRC = ["./pricing-actions.ts", "./supplier-portal-actions.ts"]
+const SRC = ["./pricing-actions.ts", "./supplier-portal-actions.ts", "./contract-terms-actions.ts"]
   .map((f) => readFileSync(new URL(f, import.meta.url), "utf8"))
   .join("\n");
 /** RPCs that take no parameter. */

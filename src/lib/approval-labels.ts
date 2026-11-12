@@ -17,6 +17,7 @@ type Label = { en: string; ar: string };
 const LABELS: Record<string, Label> = {
   bafo: { en: "Final offer / discount (BAFO)", ar: "عرض نهائي وخصم (BAFO)" },
   price_review: { en: "Review selling price", ar: "مراجعة سعر البيع" },
+  contract_review: { en: "Review contract", ar: "مراجعة العقد" },
   discount: { en: "Discount", ar: "اعتماد خصم" },
   below_300k_exception: { en: "Exception: project under SAR 300k", ar: "استثناء: مشروع أقل من 300 ألف" },
   tender_to_jih_approval: { en: "Convert tender to JIH", ar: "تحويل المناقصة إلى JIH" },
@@ -68,8 +69,8 @@ export function approvalTypeLabel(type: string | null | undefined, lang: Lang): 
   return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : lang === "ar" ? "اعتماد" : "Approval";
 }
 
-export function isManagerDecision(kind: "record" | "bafo" | "intake" | "pricing", type: string | null | undefined): boolean {
-  if (kind === "bafo" || kind === "pricing") return true;
+export function isManagerDecision(kind: "record" | "bafo" | "intake" | "pricing" | "contract", type: string | null | undefined): boolean {
+  if (kind === "bafo" || kind === "pricing" || kind === "contract") return true;
   if (kind === "intake") return false;
   return MANAGER_DECISIONS.has(norm(type));
 }

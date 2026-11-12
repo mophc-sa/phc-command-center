@@ -6,7 +6,7 @@
 // =============================================================================
 
 import { supabase } from "@/integrations/supabase/client";
-import { fromBafo, fromPricingReview, type BafoRowIn, type PricingReviewRowIn, type UnifiedApproval } from "@/lib/approvals-center";
+import { fromBafo, fromContractReview, fromPricingReview, type BafoRowIn, type ContractReviewRowIn, type PricingReviewRowIn, type UnifiedApproval } from "@/lib/approvals-center";
 
 const BAFO_LIMIT = 200;
 
@@ -56,4 +56,17 @@ export async function fetchPricingReviews(): Promise<UnifiedApproval[]> {
     .limit(100);
   if (error) throw error;
   return ((data ?? []) as PricingReviewRowIn[]).map(fromPricingReview);
+}
+
+/** Contract terms waiting for finance's review (B1). Rows only for readers of the contract (can_read_contract). */
+export async function fetchContractReviews(): Promise<UnifiedApproval[]> {
+  const db = supabase as unknown as { from: (t: string) => any };
+  const { data, error } = await db
+    .from("contracts")
+    .select("id, opportunity_id, contract_name, contract_reference_number, submitted_at, submitted_by")
+    .eq("terms_status", "in_review")
+    .order("submitted_at", { ascending: true })
+    .limit(100);
+  if (error) throw error;
+  return ((data ?? []) as ContractReviewRowIn[]).map(fromContractReview);
 }

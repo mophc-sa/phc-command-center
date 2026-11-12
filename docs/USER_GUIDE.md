@@ -504,6 +504,16 @@ The order is enforced by the database. Step 3 cannot happen before step 2.
 Steps 2 and 3 are both Ahmed Zaid, who holds Finance and Estimation. The independent
 check is step 4.
 
+### Step 7b — Contract terms and payments *(2026-11-12)*
+
+After the quotation is sent, the deal page shows **Contract terms and payments**.
+
+- **Record the contract** (the deal owner, the sales manager or the BD manager): the form starts from the client's current quotation (its value excl. VAT, and its lines become the contract quantities). Enter the contract or PO reference, the signing date, the execution period (drawings approval 5 days, supply and installation 45, testing and handover 10: change them to the contract's), the credit period after an invoice (30 days), and the payments.
+- **Payments** start from the usual sequence: advance, after drawing approval, after supply (MIR), final after installation (WIR), 30/20/30/20. Change the percentages, remove a payment or add another; the total must be 100%. The system computes each amount (the last one takes any rounding) and its expected date from the signing date and the period.
+- A contract value different from the quotation needs a reason; finance sees the difference.
+- **Send to finance.** Finance gets a notification and sees *Review contract* on `/approvals`; on the deal it approves or returns with a reason. Nobody reviews a contract they recorded. Approved terms are final: the reference for invoicing and collection (next releases). A change after approval will go through a variation.
+- The panel below it still keeps the signature stage and the contract file.
+
 ### Step 8 — Award and handover
 
 Once at `won`, the opportunity:
@@ -1677,3 +1687,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-09 · pricing loop PR 4: Approval and Quotations tabs, deal pricing card (state, missing items, issue quotation), /quotation-print, client rounds, review notifications, Review selling price on /approvals · branch feat/pricing-review-quotation, not deployed · previous: supplier portal, 2026-11-08 -->
 
 <!-- last reviewed 2026-11-12 · pricing loop PR 5: supplier quote check on Cost review, notice to estimation and finance, prepared return to the supplier · branch feat/pricing-quote-check, not deployed · previous: pricing loop PR 4, 2026-11-09 -->
+
+<!-- last reviewed 2026-11-12 · Phase B, B1: contract terms and payment schedule on the deal page, finance review, Review contract on /approvals · branch feat/contract-terms, not deployed · previous: pricing loop PR 5, 2026-11-12 -->

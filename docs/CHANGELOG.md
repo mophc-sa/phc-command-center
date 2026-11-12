@@ -1,5 +1,12 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-12 — Contract terms and payment schedule (Commercial & Finance part 2, B1; not deployed)
+
+- Design `docs/superpowers/specs/2026-11-12-contract-terms-design.md` (Phase B in five parts; B1 first).
+- Migration `20261112100000`: `contracts` gains the terms (quotation revision, `terms_status`, value difference reason, signing date, execution and credit periods, who saved, submitted and reviewed, return reason, document). `contract_payments` (kind, %, amount computed with the remainder on the last, expected date from the period; `event_on`/`due_on` for B2) and `contract_lines` (the quotation's lines). `contract_terms_save` (deal owner or pipeline operator), `contract_terms_submit`, `contract_terms_review` (finance, never the author). Guards keep the terms and both child tables to these RPCs; approved terms are frozen; one open terms record per deal. Notifications `contract_review` (finance), `contract_returned` / `contract_approved` (the rep).
+- UI: *Contract terms and payments* card on the deal page (form pre-filled from the quotation, payment table with live amounts and expected dates, difference against the quotation, send, approve/return); *Review contract* on `/approvals`.
+- Tests: `contract_terms` (pgTAP, 31); `contract-terms` (bun); approvals tests extended; the actions contract test covers `contract-terms-actions.ts`.
+
 ## 2026-11-12 — Supplier quote check (Commercial & Finance part 1, PR 5; not deployed)
 
 - Mo, 2026-11-12: the review compares the frozen BOQ with the supplier's quote as data; it does not read drawings. Its checks are fixed rules, so they are SQL, not a model (no provider, no function deploy).
