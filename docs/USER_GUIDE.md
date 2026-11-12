@@ -514,6 +514,12 @@ After the quotation is sent, the deal page shows **Contract terms and payments**
 - **Send to finance.** Finance gets a notification and sees *Review contract* on `/approvals`; on the deal it approves or returns with a reason. Nobody reviews a contract they recorded. Approved terms are final: the reference for invoicing and collection (next releases). A change after approval will go through a variation.
 - The panel below it still keeps the signature stage and the contract file.
 
+**After approval: approvals make payments due** *(B2, 2026-11-12)*
+- The card shows each payment: its amount, its expected date (MIR and WIR move later by the consultant's delay on the drawings), what is due so far and its due date.
+- **The advance** falls due when finance approves the contract (signing date + the credit period).
+- **Record an approval** (the deal owner, the sales or BD manager) when the consultant approves: choose the payment, the approval date, the share of the work it covers (MIR and WIR often come in batches: 40% now, the rest later; the next one defaults to what is left), the consultant's reference and the approval file. For the drawings, also the date they were submitted: days beyond the contract's drawings days are the consultant's delay. The share falls due the contract's credit period after the approval date; finance is told.
+- **Void** (finance only, with a reason) cancels an approval entered by mistake and its due.
+
 ### Step 8 — Award and handover
 
 Once at `won`, the opportunity:
@@ -1689,3 +1695,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-12 · pricing loop PR 5: supplier quote check on Cost review, notice to estimation and finance, prepared return to the supplier · branch feat/pricing-quote-check, not deployed · previous: pricing loop PR 4, 2026-11-09 -->
 
 <!-- last reviewed 2026-11-12 · Phase B, B1: contract terms and payment schedule on the deal page, finance review, Review contract on /approvals · branch feat/contract-terms, not deployed · previous: pricing loop PR 5, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-12 · Phase B, B2: execution approvals (drawings, MIR, WIR, partial shares), dues, consultant delay · branch feat/contract-approvals, not deployed · previous: B1 contract terms, 2026-11-12 -->

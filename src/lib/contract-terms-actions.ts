@@ -46,9 +46,10 @@ export type ContractTermsRow = {
   submitted_by: string | null;
   return_reason: string | null;
   reviewed_at: string | null;
+  consultant_delay_days: number;
 };
 const TERMS_COLUMNS =
-  "id, opportunity_id, terms_status, contract_value, contract_reference_number, quotation_revision_id, value_difference_reason, signed_on, drawings_days, supply_install_days, handover_days, credit_days, terms_saved_by, submitted_by, return_reason, reviewed_at";
+  "id, opportunity_id, terms_status, contract_value, contract_reference_number, quotation_revision_id, value_difference_reason, signed_on, drawings_days, supply_install_days, handover_days, credit_days, terms_saved_by, submitted_by, return_reason, reviewed_at, consultant_delay_days";
 /** The deal's newest contract with terms (open, or the approved one). */
 export async function getDealContractTerms(opportunityId: string): Promise<ContractTermsRow | null> {
   const { data, error } = await db.from("contracts").select(TERMS_COLUMNS).eq("opportunity_id", opportunityId)
@@ -76,4 +77,41 @@ export async function getCurrentQuote(opportunityId: string): Promise<CurrentQuo
     .in("status", ["approved", "submitted"]).order("revision_number", { ascending: false }).limit(1);
   if (error) throw error;
   return ((data ?? [])[0] ?? null) as CurrentQuote | null;
+}
+
+// ---- B2: execution approvals and dues ----------------------------------------------
+
+export const recordContractApproval = (a: {
+  contractId: string; paymentId: string; approvedOn: string; sharePct: number;
+  submittedOn: string | null; reference: string | null; documentPath: string | null; note: string | null;
+}) =>
+  call<string>("contract_approval_record", {
+    _contract_id: a.contractId, _payment_id: a.paymentId, _approved_on: a.approvedOn, _share_pct: a.sharePct,
+    _submitted_on: a.submittedOn, _reference: a.reference, _document_path: a.documentPath, _note: a.note,
+  });
+export const voidContractApproval = (approvalId: string, reason: string) =>
+  call("contract_approval_void", { _approval_id: approvalId, _reason: reason });
+
+export type ScheduleRow = {
+  payment_id: string; position: number; kind: PaymentKind; label: string | null; pct: number; amount: number;
+  expected_on: string | null; expected_on_adjusted: string | null; share_due: number; amount_due: number; next_due_on: string | null;
+};
+export async function listPaymentSchedule(contractId: string): Promise<ScheduleRow[]> {
+  const { data, error } = await db.from("contract_payment_schedule")
+    .select("payment_id, position, kind, label, pct, amount, expected_on, expected_on_adjusted, share_due, amount_due, next_due_on")
+    .eq("contract_id", contractId).order("position");
+  if (error) throw error;
+  return (data ?? []) as ScheduleRow[];
+}
+
+export type ApprovalRow = {
+  id: string; payment_id: string; approved_on: string; share_pct: number; submitted_on: string | null;
+  reference: string | null; document_path: string | null; voided_at: string | null; void_reason: string | null;
+};
+export async function listContractApprovals(contractId: string): Promise<ApprovalRow[]> {
+  const { data, error } = await db.from("contract_approvals")
+    .select("id, payment_id, approved_on, share_pct, submitted_on, reference, document_path, voided_at, void_reason")
+    .eq("contract_id", contractId).order("approved_on", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ApprovalRow[];
 }

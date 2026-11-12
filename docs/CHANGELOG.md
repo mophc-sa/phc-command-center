@@ -1,5 +1,12 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-12 — Execution approvals and dues (Commercial & Finance part 2, B2; not deployed)
+
+- Design `docs/superpowers/specs/2026-11-12-contract-approvals-design.md`.
+- Migration `20261112110000`: `contract_approvals` (payment, date, share of work, drawings submitted date, reference, file, void), `contract_dues` (one per approval and for the advance on approval of the terms; share of the payment with the remainder on the one that completes it; `due_on = event_on + credit_days`), `contracts.consultant_delay_days`, view `contract_payment_schedule` (expected date shifted by the consultant delay for MIR and WIR; share and amount due; next due date). `contract_approval_record` (deal owner or pipeline operator, approved terms), `contract_approval_void` (finance, with a reason). Notice `contract_due` to finance.
+- UI: the approved contract card shows the schedule, *Record an approval*, the approvals and *Void*.
+- Tests: `contract_approvals` (pgTAP, 24); `contract-terms` (bun) extended.
+
 ## 2026-11-12 — Contract terms and payment schedule (Commercial & Finance part 2, B1; not deployed)
 
 - Design `docs/superpowers/specs/2026-11-12-contract-terms-design.md` (Phase B in five parts; B1 first).

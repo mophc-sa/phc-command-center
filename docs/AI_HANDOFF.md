@@ -1,5 +1,11 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-12 — Phase B, B2: execution approvals and dues (branch `feat/contract-approvals`, stacked on B1 #374)
+
+Migration `20261112110000`; no function change. **Release (Mo):** after #374: `supabase db push`; canary: approve a test contract → the advance shows due; record the drawings approval with a late consultant (submitted and approved 13 days apart for 5 allowed) → MIR and WIR expected dates move by 8 days; record MIR at 40% then the rest; finance voids one.
+**Local checks (2026-11-12):** pgTAP 52 files, 1436 tests, PASS; `bun run verify` green (3408).
+**Next, B3 (invoices and collection):** invoices against `contract_dues` (one or several dues per invoice; deducted from the contract balance), receipts, claim letters, lateness from `due_on`, escalation; `contract_approval_void` must refuse a due already invoiced. Needs Mo's answers: who issues invoices (finance?), whether the invoice is made in the system or in the accounting system and only recorded here, and when lateness escalates.
+
 ## 2026-11-12 — Phase B, B1: contract terms and payment schedule (branch `feat/contract-terms`, stacked on PR 5 #373)
 
 Design `docs/superpowers/specs/2026-11-12-contract-terms-design.md`; Phase B order B1 → B5 (DECISIONS 2026-11-12). Migration `20261112100000`; no function change.

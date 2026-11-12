@@ -20,6 +20,7 @@ import {
   type ContractTermsRow,
 } from "@/lib/contract-terms-actions";
 import { revisionLabel } from "@/lib/quotation-doc";
+import { ContractExecution } from "@/components/phc/contracts/ContractExecution";
 import { asError, dbMessage, pick, type Bi } from "@/lib/pricing-text";
 
 // B1 (2026-11-12): the contract's terms and payment schedule on the deal page.
@@ -143,6 +144,15 @@ export function ContractTermsCard({ opportunityId, ownerId }: { opportunityId: s
               .replace("{d}", String(c.drawings_days ?? "—")).replace("{s}", String(c.supply_install_days ?? "—"))
               .replace("{h}", String(c.handover_days ?? "—")).replace("{c}", String(c.credit_days ?? "—"))}
           </p>
+          {c.terms_status === "approved" ? (
+            <ContractExecution
+              contractId={c.id}
+              consultantDelayDays={c.consultant_delay_days ?? 0}
+              canRecord={canRecord}
+              isFinance={isFinance}
+              onChanged={refresh}
+            />
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -163,6 +173,7 @@ export function ContractTermsCard({ opportunityId, ownerId }: { opportunityId: s
               ))}
             </TableBody>
           </Table>
+          )}
           <div className="flex flex-wrap gap-2">
             {editable ? (
               <Button

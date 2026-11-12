@@ -69,3 +69,6 @@ export function valueDifference(value: number, quoted: number): { amount: number
   const amount = (cents(value) - cents(quoted)) / 100;
   return { amount, pct: quoted ? Math.round((amount / quoted) * 10000) / 100 : 0 };
 }
+
+/** B2: what is left of a payment's share, to 3 decimals (the default for the next approval). */
+export const shareLeft = (shareDue: number): number => Math.max(0, Math.round((100 - shareDue) * 1000) / 1000);

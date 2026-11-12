@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
-  DEFAULT_PAYMENTS, PAYMENT_KIND_LABEL, TERMS_STATUS_LABEL, expectedDate, paymentAmounts, pctTotal, valueDifference,
+  DEFAULT_PAYMENTS, PAYMENT_KIND_LABEL, TERMS_STATUS_LABEL, expectedDate, paymentAmounts, pctTotal, shareLeft, valueDifference,
 } from "@/lib/contract-terms";
 
 describe("contract terms", () => {
@@ -33,5 +33,13 @@ describe("contract terms", () => {
       expect(l.en.length).toBeGreaterThan(0);
       expect(l.ar.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("B2 shares", () => {
+  it("the next approval defaults to what is left", () => {
+    expect(shareLeft(33.333)).toBe(66.667);
+    expect(shareLeft(100)).toBe(0);
+    expect(shareLeft(0)).toBe(100);
   });
 });
