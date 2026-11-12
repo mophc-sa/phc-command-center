@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { InstallType, PricingState } from "@/lib/pricing";
 import { NO_RIGHTS, type PricingRights } from "@/lib/pricing-access";
 import { callBackend } from "@/lib/backend";
+import type { QuoteRevisionStatus } from "@/lib/quotation-doc";
 
 const db = supabase as unknown as { from: (t: string) => any };
 
@@ -589,3 +590,84 @@ export const createSupplierAccount = (vendorId: string, email: string, fullName:
   callBackend<{ ok: boolean; user_id: string; set_password_url: string | null }>("supplier_account_create", { vendorId, email, fullName });
 export const newSupplierPasswordLink = (userId: string) =>
   callBackend<{ ok: boolean; set_password_url: string | null }>("supplier_account_password_link", { userId });
+
+// ---- PR 4: review, quotation, client round ---------------------------------------
+
+/** Finance approves the GM's price, or returns it to him with a reason (the file follows). */
+export const reviewPrice = (fileId: string, decision: "approve" | "return", reason?: string) =>
+  call("pricing_file_review", { _file_id: fileId, _decision: decision, _reason: reason ?? null });
+
+export type QuotationTerms = { validUntil: string; paymentTerms: string; deliveryTerms: string; scopeSummary: string };
+/** The BD or sales manager issues the quotation from the approved price; returns the new revision's id. */
+export const issueQuotation = (fileId: string, t: QuotationTerms) =>
+  call<string>("pricing_issue_quotation", {
+    _file_id: fileId,
+    _valid_until: t.validUntil,
+    _payment_terms: t.paymentTerms,
+    _delivery_terms: t.deliveryTerms,
+    _scope_summary: t.scopeSummary,
+  });
+
+/** Records that the current approved revision was sent to the client. */
+export const markQuotationSent = (revisionId: string) =>
+  call("pricing_mark_quotation_sent", { _revision_id: revisionId });
+
+/** A client change: a fresh copy of the BOQ and back to package review. */
+export const startClientRound = (fileId: string, note: string) =>
+  call("pricing_file_client_round", { _file_id: fileId, _note: note });
+
+/** The deal's open pricing file, as the deal's people read it (no cost columns exist on it). */
+export type DealPricingFile = {
+  id: string;
+  state: PricingState;
+  state_changed_at: string;
+  needs_info_items: string[] | null;
+  needs_info_due: string | null;
+};
+export const getDealPricingFile = (opportunityId: string) =>
+  one<DealPricingFile>(
+    db.from("pricing_files").select("id, state, state_changed_at, needs_info_items, needs_info_due")
+      .eq("opportunity_id", opportunityId).neq("state", "closed").maybeSingle(),
+  );
+
+export type QuoteRevisionRow = {
+  id: string;
+  quotation_id: string;
+  revision_number: number;
+  status: QuoteRevisionStatus;
+  is_current: boolean;
+  currency: string;
+  subtotal_excl_vat: number;
+  vat_rate: number;
+  vat_amount: number;
+  total_incl_vat: number;
+  valid_until: string | null;
+  payment_terms: string | null;
+  delivery_terms: string | null;
+  scope_summary: string | null;
+  approved_at: string | null;
+  submitted_at: string | null;
+  issued_at: string | null;
+};
+const QUOTE_REVISION_COLUMNS =
+  "id, quotation_id, revision_number, status, is_current, currency, subtotal_excl_vat, vat_rate, vat_amount, total_incl_vat, valid_until, payment_terms, delivery_terms, scope_summary, approved_at, submitted_at, issued_at";
+export const listFileQuotations = (fileId: string) =>
+  rows<QuoteRevisionRow>(
+    db.from("quotation_revisions").select(QUOTE_REVISION_COLUMNS).eq("pricing_file_id", fileId).order("revision_number", { ascending: false }),
+  );
+export const getQuotationRevision = (revisionId: string) =>
+  one<QuoteRevisionRow>(db.from("quotation_revisions").select(QUOTE_REVISION_COLUMNS).eq("id", revisionId).maybeSingle());
+
+export type QuoteLineRow = { line_number: number; description: string; quantity: number; unit: string | null; line_total: number };
+export const listQuotationLines = (revisionId: string) =>
+  rows<QuoteLineRow>(
+    db.from("quotation_revision_lines").select("line_number, description, quantity, unit, line_total").eq("revision_id", revisionId).order("line_number"),
+  );
+
+export type QuotationHeader = { id: string; quote_number: string; related_opportunity_id: string };
+export const getQuotationHeader = (quotationId: string) =>
+  one<QuotationHeader>(db.from("quotations").select("id, quote_number, related_opportunity_id").eq("id", quotationId).maybeSingle());
+
+export type QuoteDeal = { id: string; project_name: string; client: string | null; project_code: string | null };
+export const getQuoteDeal = (opportunityId: string) =>
+  one<QuoteDeal>(db.from("opportunities").select("id, project_name, client, project_code").eq("id", opportunityId).maybeSingle());

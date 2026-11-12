@@ -14,6 +14,7 @@ import {
   setMarginFloor, updateLogisticsRate, type CatalogInput, type CatalogRow, type LogisticsRateKey,
 } from "@/lib/pricing-actions";
 import { INSTALL_TYPES, INSTALL_TYPE_LABEL } from "@/lib/boq-import";
+import { NO_RIGHTS } from "@/lib/pricing-access";
 import { draftText } from "@/lib/pricing-input";
 import {
   canEditLogisticsKey, catalogCodeFrom, emptyRateDraft, parseCatalogMinHeight, parseCatalogRate,
@@ -227,7 +228,7 @@ export function DefaultsCard({ canEditRates, canSetMargins }: { canEditRates: bo
   const [floorForm, setFloorForm] = useState({ pct: "", why: "" });
   const [floorError, setFloorError] = useState("");
   // Rights per row: the default margin follows can_set_margins, the other keys is_pricer.
-  const rights = { is_pricer: canEditRates, is_gm: false, can_read_cost: true, can_set_margins: canSetMargins };
+  const rights = { ...NO_RIGHTS, is_pricer: canEditRates, can_read_cost: true, can_set_margins: canSetMargins };
   const anyEdit = (rates.data ?? []).some((r) => canEditLogisticsKey(r.key, rights));
 
   async function saveRow(key: LogisticsRateKey, current: { value: number; note: string | null }) {

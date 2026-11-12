@@ -48,6 +48,7 @@ import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 import { BafoPanel } from "@/components/phc/BafoPanel";
+import { DealPricingCard } from "@/components/phc/pricing/DealPricingCard";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
@@ -2003,6 +2004,9 @@ function OpportunityDetail() {
         )}
       </Panel>
       )}
+
+      {/* 7c'. PRICING FILE: state, missing items, the quotation (PR 4). No cost. */}
+      {show("decision") && <DealPricingCard opportunityId={o.id} />}
 
       {/* 7d. BAFO / COMMERCIAL DISCOUNT APPROVAL CHAIN */}
       {show("decision") && <BafoPanel opportunityId={o.id} />}
