@@ -1,5 +1,11 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-13 — Master list full detail applied (production data, no code)
+
+Run `4c9cc8c9-c6c8-484a-bc31-7230d8ffb8a1` (`data_sync_runs`, file *PHC-Quotation-List-SEPT-2026.xlsx*, as of 2026-11-03): 651 deal contacts (`stakeholders`), 496 company contacts, 562 history notes (`activities`, "Master list · …": update log, weekly report, client relations feedback), 23 deals given a missing company/client/location, 26 companies created, 65 companies updated from CLIENT RELATIONS (owner, priority, PHC-client flag, feedback, prequalification), 27 target contractors 2027-2030 tagged on companies, 1 reference project, 10 ProTenders leads. Every created id is in the run's `summary->'created'`; deal/company field changes are in `data_sync_changes` with their before values. Staging scripts are local only (scratchpad, `stage.py` + `apply_template.sql`); VENDOR PORTALS never read.
+**Kept:** 2026 target 40M (Mo, 2026-11-13; the file has no 2026 figure). SEVEN sheet shows Exit 15 / Makkah as final negotiation; the quotation list (newer) says won — kept won.
+**Not loadable:** PHC TEAM mobile numbers (profiles have no phone field); code OM25185 has no deal and no data in the file.
+
 ## 2026-11-13 — Wall board readability (PR #381, merged `fe1be25`)
 
 Frontend only. The board renders English and now sets `dir=ltr` itself (it inherited RTL from the app toggle and mirrored every row). KPI row: Won YTD · **Win rate this year** · Weighted forecast · Open pipeline · **Annual target** (the two target tiles merged). Empty pipeline stages fold into one line; the probability column hides until a top deal has one; the forecast shows "—" plus one sentence on omitted deals; pulse is a bulleted list; chips ≥12px.

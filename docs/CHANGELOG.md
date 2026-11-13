@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-13 — Master list full detail applied to production
+
+- Contacts, emails, mobiles, negotiation history, client relations, target contractors, references and ProTenders leads from the master workbook are now in the system (run `4c9cc8c9`). See AI_HANDOFF for counts and how to reverse.
+
 ## 2026-11-13 — Wall board readability (#381)
 
 - `/board` lays out left-to-right (its language), no truncated KPI titles/footnotes, Annual target tiles merged, new Win rate this year tile, empty stages folded, probability column conditional, forecast empty state explained, pulse as bullets. Canary + readiness passed; production deploy pending.
