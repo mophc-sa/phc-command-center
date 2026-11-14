@@ -6,6 +6,14 @@
 - `/agent-activity`: the page description and the radar hint were hard-coded in English and now come from i18n.
 - RTL: the `/projects` pagination arrows and the `/my-workspace` chevrons now flip in RTL. The pagination buttons got aria-labels.
 
+## 2026-11-13 — Master list full detail applied to production
+
+- Contacts, emails, mobiles, negotiation history, client relations, target contractors, references and ProTenders leads from the master workbook are now in the system (run `4c9cc8c9`). See AI_HANDOFF for counts and how to reverse.
+
+## 2026-11-13 — Wall board readability (#381)
+
+- `/board` lays out left-to-right (its language), no truncated KPI titles/footnotes, Annual target tiles merged, new Win rate this year tile, empty stages folded, probability column conditional, forecast empty state explained, pulse as bullets. Canary + readiness passed; production deploy pending.
+
 ## 2026-11-12 — Master list sync applied to production; two rules added
 
 - Run `62029641` (*PHC Quotation List - SEPT 2026*, as of 2026-11-03) applied: 551 deals updated, 49 created, 96 duplicates archived, 17 weekly notes; Mo's instruction "follow the file": the 12 system-newer and 2 won-vs-open rows took the file's stage, rows without a code were created. Follow-ups: 120 submitted quotations moved from RFQ received to JIH, 86 open deals of legacy owners (BA, AD, AN, AH, MB) assigned to the sales manager, 11 `_x000D_` duplicates archived, 4 win dates before submission corrected, 17 open quotations with a DEAD follow-up closed as lost. Every change is in `data_sync_changes` and the run can be undone.
