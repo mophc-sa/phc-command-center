@@ -1,5 +1,16 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-14 — Full system review (main @ fe1be25, review only, no code change)
+
+**Checked:** `bun run verify` green (3465 tests). Live crawl of all 45 authenticated routes on production as Mo: no console errors, no broken pages, no horizontal scroll at 1568 or 606 px, text contrast passes (647 samples).
+**Open findings, nothing fixed yet. Mo was asked whether to fix them in a Draft PR.**
+1. **Bug:** the BOQ tab on `/quotations` will always be empty. [BoqPanel.tsx:60](../src/components/phc/pipeline/BoqPanel.tsx) runs `select *` on `boqs` and `boq_items(*)`, but `authenticated` has no column grant on `boqs.estimated_value` or `boq_items.unit_rate`/`cost_estimate`. The request returns 403, the error is swallowed, and the tab shows nothing. Production has 0 BOQs today. Fix: select the allowed columns by name.
+2. Hard-coded English on `/agent-activity` (lines 220 and 304). The i18n keys already exist in `lib/i18n.tsx`. AI outputs on `/reports` and `/agent-activity` are in English.
+3. Arrows don't flip in RTL: `/projects` pagination (icon-only buttons, no aria-label) and the "view all" chevrons on `/my-workspace`.
+4. Inputs with no label: opportunity detail (7), `/contacts/repair` (70), `/knowledge` search, `/vendors` select, `/reference-library` select.
+5. Lower priority: `window.confirm` is used in 10 places; tap targets are under 32px; the focus ring is 1px.
+**Update (same day):** Mo approved items 1–3, now fixed on branch `fix/review-2026-11-14` (Draft PR, verify green with 3468 tests). Item 1 was broader than it first looked: creating a BOQ, changing its status and adding an item also failed, because `.select()` after insert/update returns every column. Agent outputs staying in English is intended: they are row data (see the comment in `i18n.tsx`). **Release:** frontend only, with no migration. **Next:** Mo reviews and merges, then deploy (canary → readiness → production). Items 4–5 are still open.
+
 ## 2026-11-12 — Master list sync (branch `feat/data-sync`)
 
 Migration `20261113100000`; no function change. The run is staged from the file by a local script (two sheets only; never VENDOR PORTALS), planned and applied as the server (management API as postgres), and can be undone with `select public.data_sync_undo('<run>')`. **Release:** merge, `supabase db push`, frontend deploy (canary → readiness → production), then stage → plan → show Mo the plan → apply.

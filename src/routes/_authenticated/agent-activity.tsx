@@ -217,7 +217,7 @@ function AgentActivityPage() {
       <PageHeader
         eyebrow={t("aa_eyebrow_governance")}
         title={t("nav_agent_activity")}
-        description="Operational intelligence: every agent run, filtered by module, status, and time."
+        description={t("aa_page_desc")}
       />
 
       {canRun ? (
@@ -301,7 +301,7 @@ function AgentActivityPage() {
 
             {!radarRunning && radarAlerts.length === 0 && radarScore === null && (
               <div className="text-xs text-muted-foreground">
-                Click "Scan Pipeline" to run the Project Radar agent.
+                {t("aa_radar_hint")}
               </div>
             )}
           </div>

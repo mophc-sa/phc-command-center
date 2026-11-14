@@ -25,7 +25,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
-import { createBoq, addBoqItem, type BoqStatus } from "@/lib/sales-actions";
+import {
+  createBoq,
+  addBoqItem,
+  BOQ_READ_COLUMNS,
+  BOQ_ITEM_READ_COLUMNS,
+  type BoqStatus,
+} from "@/lib/sales-actions";
 
 const BOQ_STATUSES: BoqStatus[] = [
   "verified",
@@ -63,7 +69,7 @@ export function BoqPanel() {
       (
         await supabase
           .from("boqs")
-          .select("*, opportunities(id, project_name, client), boq_items(*)")
+          .select(`${BOQ_READ_COLUMNS}, opportunities(id, project_name, client), boq_items(${BOQ_ITEM_READ_COLUMNS})`)
           .order("updated_at", { ascending: false })
       ).data ?? [],
   });

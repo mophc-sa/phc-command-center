@@ -214,16 +214,18 @@ function ProjectsPage() {
                 <button
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
+                  aria-label={lang === "ar" ? "الصفحة السابقة" : "Previous page"}
                   className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 disabled:opacity-60 hover:text-foreground disabled:hover:text-muted-foreground"
                 >
-                  <ChevronLeft className="h-3.5 w-3.5" />
+                  <ChevronLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
                 </button>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
+                  aria-label={lang === "ar" ? "الصفحة التالية" : "Next page"}
                   className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 disabled:opacity-60 hover:text-foreground disabled:hover:text-muted-foreground"
                 >
-                  <ChevronRight className="h-3.5 w-3.5" />
+                  <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
                 </button>
               </div>
             </div>
