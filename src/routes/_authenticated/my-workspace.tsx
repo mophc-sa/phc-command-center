@@ -794,7 +794,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             <AlertDialogTitle>{lang === "ar" ? "مسودة المتابعة" : "Follow-up Draft"}</AlertDialogTitle>
             <AlertDialogDescription>{lang === "ar" ? "مسودة مقترحة من الذكاء الاصطناعي — راجعها قبل الإرسال." : "AI-suggested draft — review before sending."}</AlertDialogDescription>
           </AlertDialogHeader>
-          <textarea value={draftContent} onChange={e => setDraftContent(e.target.value)} rows={10} className="mt-2 w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+          <textarea value={draftContent} onChange={e => setDraftContent(e.target.value)} rows={10} className="mt-2 w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           <AlertDialogFooter>
             <AlertDialogCancel>{lang === "ar" ? "إغلاق" : "Close"}</AlertDialogCancel>
             <AlertDialogAction onClick={() => { if (draftContent) navigator.clipboard.writeText(draftContent).then(() => toast.success(lang === "ar" ? "تم النسخ" : "Copied")).catch(() => {}); setDraftOpen(false); }}>{lang === "ar" ? "نسخ" : "Copy"}</AlertDialogAction>
@@ -1246,7 +1246,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
             <AlertDialogTitle>{lang === "ar" ? "مسودة المتابعة" : "Follow-up Draft"}</AlertDialogTitle>
             <AlertDialogDescription>{lang === "ar" ? "مسودة مقترحة من الذكاء الاصطناعي — راجعها قبل الإرسال." : "AI-suggested draft — review before sending."}</AlertDialogDescription>
           </AlertDialogHeader>
-          <textarea value={draftContent} onChange={e => setDraftContent(e.target.value)} rows={10} className="mt-2 w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+          <textarea value={draftContent} onChange={e => setDraftContent(e.target.value)} rows={10} className="mt-2 w-full rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           <AlertDialogFooter>
             <AlertDialogCancel>{lang === "ar" ? "إغلاق" : "Close"}</AlertDialogCancel>
             <AlertDialogAction onClick={() => { if (draftContent) navigator.clipboard.writeText(draftContent).then(() => toast.success(lang === "ar" ? "تم النسخ" : "Copied")).catch(() => {}); setDraftOpen(false); }}>{lang === "ar" ? "نسخ" : "Copy"}</AlertDialogAction>

@@ -449,7 +449,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="px-3 pt-3 pb-1">
         <button
           onClick={() => { setPaletteOpen(true); setMobileOpen(false); }}
-          className="flex w-full items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-start text-sm text-muted-foreground shadow-card transition-all duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex w-full items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-start text-sm text-muted-foreground shadow-card transition-all duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={t("cmd_placeholder")}
         >
           <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -561,7 +561,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               nav_({ to: "/auth", search: { next: "" } });
             }}
             aria-label={t("sign_out")}
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <LogOut className="h-3.5 w-3.5" />
           </button>
@@ -639,7 +639,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex h-12 items-center gap-3 px-4 md:px-8">
             {/* Mobile hamburger */}
             <button
-              className="grid h-9 w-9 place-items-center rounded-full border border-border bg-surface shadow-card text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:hidden"
+              className="grid h-9 w-9 place-items-center rounded-full border border-border bg-surface shadow-card text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label={lang === "ar" ? "فتح القائمة" : "Open navigation"}
             >
@@ -672,7 +672,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   here. Labelled on desktop, icon-only where the bar is tight. */}
               <Link
                 to="/"
-                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-xs font-medium text-muted-foreground shadow-card transition-all duration-150 hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-xs font-medium text-muted-foreground shadow-card transition-all duration-150 hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={t("nav_home")}
                 title={t("nav_home")}
               >
@@ -685,7 +685,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {/* Language toggle */}
               <button
                 onClick={() => setLang(lang === "en" ? "ar" : "en")}
-                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface shadow-card px-2.5 text-xs font-medium text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface shadow-card px-2.5 text-xs font-medium text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={t("language")}
               >
                 <Globe className="h-3.5 w-3.5" />
@@ -711,7 +711,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="grid h-8 w-8 place-items-center rounded-full border border-border bg-surface shadow-card text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="grid h-8 w-8 place-items-center rounded-full border border-border bg-surface shadow-card text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     aria-label={t("nav_quick_actions")}
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -751,7 +751,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               {/* Notification bell */}
               <button
-                className="relative grid h-8 w-8 place-items-center rounded-full border border-border bg-surface shadow-card text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="relative grid h-8 w-8 place-items-center rounded-full border border-border bg-surface shadow-card text-muted-foreground transition-all duration-150 hover:border-border hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => setNotifOpen(true)}
                 aria-label={`${t("notif_title")}${notifCount > 0 ? ` (${notifCount})` : ""}`}
               >

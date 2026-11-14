@@ -376,13 +376,14 @@ function AgentActivityPage() {
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("aa_search_placeholder")}
             aria-label={t("aa_search_placeholder")}
-          className="w-full max-w-xs rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="w-full max-w-xs rounded-md border border-border bg-surface/60 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <div className="flex flex-wrap items-center gap-2">
           <select
+            aria-label={t("aa_all_agents")}
             value={agent}
             onChange={(e) => setAgent(e.target.value)}
-            className="rounded-md border border-border bg-surface/60 px-2.5 py-1.5 text-xs text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="rounded-md border border-border bg-surface/60 px-2.5 py-1.5 text-xs text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="all">{t("aa_all_agents")}</option>
             {agents.map((a) => <option key={a} value={a}>{a}</option>)}

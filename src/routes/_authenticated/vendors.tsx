@@ -112,6 +112,7 @@ function VendorsPage() {
           />
         </div>
         <select
+          aria-label={lang === "ar" ? "الفئة" : "Category"}
           value={scope}
           onChange={(e) => setScope(e.target.value)}
           className="rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-amber/40"

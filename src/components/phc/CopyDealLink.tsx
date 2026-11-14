@@ -32,7 +32,7 @@ export function CopyDealLink({ opportunityId, code }: { opportunityId: string; c
     <button
       type="button"
       onClick={copy}
-      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={label}
       title={label}
     >

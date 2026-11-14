@@ -125,7 +125,7 @@ function LeadIntakePage() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search leads"
             aria-label="Search leads"
-            className="w-full rounded-md border border-border bg-surface/60 py-2 ps-9 pe-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="w-full rounded-md border border-border bg-surface/60 py-2 ps-9 pe-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="flex flex-wrap gap-1.5">

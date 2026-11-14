@@ -187,7 +187,7 @@ function LeadTenderInbox() {
             onChange={(e) => setQuery(e.target.value)}
             aria-label={lang === "ar" ? "بحث في الطلبات" : "Search requests"}
             placeholder={lang === "ar" ? "ابحث بالشركة أو المشروع أو جهة الاتصال" : "Search company, project, contact"}
-            className="w-full rounded-md border border-border bg-surface/60 py-2 ps-9 pe-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="w-full rounded-md border border-border bg-surface/60 py-2 ps-9 pe-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="flex rounded-md border border-border p-0.5">

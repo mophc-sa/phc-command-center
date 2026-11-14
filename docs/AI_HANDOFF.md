@@ -9,7 +9,7 @@
 3. Arrows don't flip in RTL: `/projects` pagination (icon-only buttons, no aria-label) and the "view all" chevrons on `/my-workspace`.
 4. Inputs with no label: opportunity detail (7), `/contacts/repair` (70), `/knowledge` search, `/vendors` select, `/reference-library` select.
 5. Lower priority: `window.confirm` is used in 10 places; tap targets are under 32px; the focus ring is 1px.
-**Update (same day):** Mo approved items 1–3, now fixed on branch `fix/review-2026-11-14` (Draft PR, verify green with 3468 tests). Item 1 was broader than it first looked: creating a BOQ, changing its status and adding an item also failed, because `.select()` after insert/update returns every column. Agent outputs staying in English is intended: they are row data (see the comment in `i18n.tsx`). **Release:** frontend only, with no migration. **Next:** Mo reviews and merges, then deploy (canary → readiness → production). Items 4–5 are still open.
+**Update (same day):** Mo approved items 1–3, now fixed on branch `fix/review-2026-11-14` (Draft PR, verify green with 3468 tests). Item 1 was broader than it first looked: creating a BOQ, changing its status and adding an item also failed, because `.select()` after insert/update returns every column. Agent outputs staying in English is intended: they are row data (see the comment in `i18n.tsx`). **Release:** frontend only, with no migration. **Shipped:** #383 merged (`861bf68`) and deployed to production 2026-11-14, verified live. **Items 4–5:** fixed on branch `fix/a11y-labels-confirm` (Draft PR, verify green with 3470 tests). Release is frontend only, but needs Preview URLs ON for the canary.
 
 ## 2026-11-13 — Master list full detail applied (production data, no code)
 

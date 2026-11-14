@@ -138,7 +138,7 @@ describe("the router list and its helpers", () => {
   });
 
   it("asks before Dismiss and before Dismiss all, and labels unsorted mail", () => {
-    expect(PANEL.match(/window\.confirm\(/g)?.length).toBeGreaterThanOrEqual(3); // forward, dismiss, dismiss all
+    expect(PANEL.match(/confirmAction\(ask\)/g)?.length).toBeGreaterThanOrEqual(3); // forward, dismiss, dismiss all (in-app dialog since 2026-11-14)
     expect(PANEL).toContain("dismissOpenInfoSpam");
     expect(PANEL).toContain("Not sorted — route by hand");
     expect(PANEL).toContain("لم يُفرز — وجّهه يدويًا");

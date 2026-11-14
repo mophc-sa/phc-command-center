@@ -275,12 +275,18 @@ function ContactRepairPage() {
 
                         <input
                           type="text"
+                          aria-label={`${
+                            f === "email" ? (ar ? "البريد" : "Email")
+                              : f === "name" ? (ar ? "الاسم" : "Name")
+                              : f === "title" ? (ar ? "المسمّى" : "Title")
+                              : (ar ? "الجوال" : "Phone")
+                          } — ${r.current.name ?? ""}`}
                           value={valueOf(r, f)}
                           disabled={saved}
                           onChange={(e) =>
                             setEdited((p) => ({ ...p, [r.id]: { ...p[r.id], [f]: e.target.value } }))
                           }
-                          className="w-full rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          className="w-full rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground focus:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />
                       </div>
                     ))}

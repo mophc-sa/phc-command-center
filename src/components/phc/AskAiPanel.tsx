@@ -197,7 +197,7 @@ export function AskAiPanel({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("cmd_placeholder_ai" as never)}
-            className="h-9 min-w-0 flex-1 rounded-md border border-border bg-transparent px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 min-w-0 flex-1 rounded-md border border-border bg-transparent px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <button
             type="submit"

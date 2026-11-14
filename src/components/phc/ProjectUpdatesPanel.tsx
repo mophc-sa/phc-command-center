@@ -29,6 +29,7 @@ import {
   validateUpdate,
 } from "@/lib/project-tracking";
 import { deleteProjectUpdate, listProjectUpdates, postProjectUpdate } from "@/lib/project-update-actions";
+import { confirmAction } from "@/components/phc/ConfirmHost";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -157,7 +158,7 @@ export function ProjectUpdatesPanel({
                       aria-label={ar ? "حذف التحديث" : "Delete update"}
                       className="rounded-md p-1.5 text-muted-foreground hover:text-destructive"
                       onClick={async () => {
-                        if (!window.confirm(ar ? "حذف هذا التحديث؟" : "Delete this update?")) return;
+                        if (!(await confirmAction(ar ? "حذف هذا التحديث؟" : "Delete this update?"))) return;
                         try {
                           await deleteProjectUpdate(u.id);
                           refresh();

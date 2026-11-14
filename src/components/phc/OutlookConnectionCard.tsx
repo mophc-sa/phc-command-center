@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n, type StringKey } from "@/lib/i18n";
 import { disconnectOutlook, getMailStatus, startOutlookConnect } from "@/lib/mail-actions";
+import { confirmAction } from "@/components/phc/ConfirmHost";
 
 const RESULTS: Record<string, { key: StringKey; ok: boolean }> = {
   connected: { key: "outlook_result_connected", ok: true },
@@ -58,7 +59,7 @@ export function OutlookConnectionCard() {
   }
 
   async function disconnect() {
-    if (!window.confirm(t("outlook_disconnect_confirm"))) return;
+    if (!(await confirmAction(t("outlook_disconnect_confirm")))) return;
     setBusy(true);
     try {
       await disconnectOutlook();

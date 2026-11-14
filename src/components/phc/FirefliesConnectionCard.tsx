@@ -19,6 +19,7 @@ import { useI18n, localeFor } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canCreateSalesRecords } from "@/lib/roles";
 import { connectFireflies, disconnectFireflies, getFirefliesConnection } from "@/lib/meetings-actions";
+import { confirmAction } from "@/components/phc/ConfirmHost";
 
 export function FirefliesConnectionCard() {
   const { t, lang } = useI18n();
@@ -56,7 +57,7 @@ export function FirefliesConnectionCard() {
   }
 
   async function disconnect() {
-    if (!window.confirm(t("fireflies_disconnect_confirm"))) return;
+    if (!(await confirmAction(t("fireflies_disconnect_confirm")))) return;
     setBusy(true);
     try {
       await disconnectFireflies();

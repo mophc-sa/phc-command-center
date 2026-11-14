@@ -14,6 +14,7 @@ import {
   countOpenInfoSpam, dismissInfoMail, dismissOpenInfoSpam, forwardInfoMail, listColleagues, listOpenInfoMail, listOpenInfoSpam, markInfoMailRfq,
   type InfoMailRow,
 } from "@/lib/info-mail-actions";
+import { confirmAction } from "@/components/phc/ConfirmHost";
 
 const LABEL: Record<string, { en: string; ar: string }> = {
   unclassified: { en: "Being sorted", ar: "قيد الفرز" },
@@ -96,7 +97,7 @@ export function InfoMailPanel() {
               const name = (people.data ?? []).find((p) => p.id === to);
               e.target.value = "";
               const ask = ar ? `تحويل هذا البريد إلى ${name?.full_name || name?.email}؟` : `Forward this email to ${name?.full_name || name?.email}?`;
-              if (to && window.confirm(ask)) void act(r.id, () => forwardInfoMail(r.id, to), ar ? "حُوِّل البريد" : "Forwarded");
+              if (to) void confirmAction(ask).then((ok) => { if (ok) void act(r.id, () => forwardInfoMail(r.id, to), ar ? "حُوِّل البريد" : "Forwarded"); });
             }}
             className="rounded-md border border-border bg-background px-2 py-1"
           >
@@ -114,7 +115,7 @@ export function InfoMailPanel() {
         <button type="button" disabled={busy === r.id}
           onClick={() => {
             const ask = ar ? "تجاهل هذا البريد؟ لن يظهر هنا مرة أخرى." : "Dismiss this email? It will not be listed again.";
-            if (window.confirm(ask)) void act(r.id, () => dismissInfoMail(r.id), ar ? "أُغلق" : "Dismissed");
+            void confirmAction(ask).then((ok) => { if (ok) void act(r.id, () => dismissInfoMail(r.id), ar ? "أُغلق" : "Dismissed"); });
           }}
           className="rounded-md border border-border px-2 py-1 text-muted-foreground">
           {ar ? "تجاهل" : "Dismiss"}
@@ -146,10 +147,10 @@ export function InfoMailPanel() {
               const ask = ar
                 ? `تجاهل ${formatNumber(spamCount, lang)} رسالة من النشرات والرسائل المزعجة؟`
                 : `Dismiss ${formatNumber(spamCount, lang)} newsletter and spam messages?`;
-              if (window.confirm(ask)) void act("spam", dismissOpenInfoSpam, (n) => {
+              void confirmAction(ask).then((ok) => { if (ok) void act("spam", dismissOpenInfoSpam, (n) => {
                 const count = formatNumber(Number(n) || 0, lang);
                 return ar ? `أُغلق ${count}` : `${count} dismissed`;
-              });
+              }); });
             }}
             className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
             {ar ? "تجاهل الكل" : "Dismiss all"}
