@@ -720,13 +720,13 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             search={{}}
             className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber/40 bg-amber/5 px-5 text-sm font-medium text-amber-light transition-colors hover:bg-amber/10"
           >
-            {lang === "ar" ? "عرض كل الفرص (JIH)" : "View All JIH"} <ChevronRight className="h-3.5 w-3.5" />
+            {lang === "ar" ? "عرض كل الفرص (JIH)" : "View All JIH"} <ChevronRight className="rtl:rotate-180 h-3.5 w-3.5" />
           </Link>
           <Link
             to="/tenders"
             className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-5 text-sm font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
           >
-            {lang === "ar" ? "عرض كل المناقصات" : "View All Tenders"} <ChevronRight className="h-3.5 w-3.5" />
+            {lang === "ar" ? "عرض كل المناقصات" : "View All Tenders"} <ChevronRight className="rtl:rotate-180 h-3.5 w-3.5" />
           </Link>
         </div>
       </section>
@@ -744,7 +744,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                 {lang === "ar" ? "يرجى تأكيد نتيجة المناقصة واتخاذ أحد الإجراءات: تحويل إلى JIH، وضع علامة خاملة، أو إغلاق." : "Confirm the main contract result and take action: convert to JIH, mark dormant, or close."}
               </p>
               <Link to="/tenders" className="mt-2 inline-flex items-center gap-1 text-sm text-amber-light hover:underline">
-                {lang === "ar" ? "مراجعة المناقصات" : "Review Tenders"} <ChevronRight className="h-3 w-3" />
+                {lang === "ar" ? "مراجعة المناقصات" : "Review Tenders"} <ChevronRight className="rtl:rotate-180 h-3 w-3" />
               </Link>
             </div>
           </div>
@@ -1195,10 +1195,10 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         {/* View All buttons */}
         <div className="flex items-center justify-center gap-3 pt-1">
           <Link to="/opportunities" search={{}} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-won-border bg-won-surface px-5 text-sm font-medium text-won transition-colors hover:bg-won-surface/80">
-            {lang === "ar" ? "عرض كل الفرص" : "View All Opportunities"} <ChevronRight className="h-3.5 w-3.5" />
+            {lang === "ar" ? "عرض كل الفرص" : "View All Opportunities"} <ChevronRight className="rtl:rotate-180 h-3.5 w-3.5" />
           </Link>
           <Link to="/tenders" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-5 text-sm font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
-            {lang === "ar" ? "عرض كل المناقصات" : "View All Tenders"} <ChevronRight className="h-3.5 w-3.5" />
+            {lang === "ar" ? "عرض كل المناقصات" : "View All Tenders"} <ChevronRight className="rtl:rotate-180 h-3.5 w-3.5" />
           </Link>
         </div>
       </section>
@@ -1399,7 +1399,7 @@ function StageToggleRow({ id, label, count, value, lang, tone, isOpen, onToggle,
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <span className="num text-base font-medium">{formatCurrency(value, lang, "SAR")}</span>
-          {isOpen ? <ChevronDown className="h-4 w-4 opacity-60" /> : <ChevronRight className="h-4 w-4 opacity-60" />}
+          {isOpen ? <ChevronDown className="h-4 w-4 opacity-60" /> : <ChevronRight className="rtl:rotate-180 h-4 w-4 opacity-60" />}
         </div>
       </button>
       {isOpen && <div id={id} className="border-t border-white/10 bg-background/50 px-5 py-4">{children}</div>}
@@ -1473,7 +1473,7 @@ function PipelineStageBox({
           className="flex shrink-0 items-center justify-center text-muted-foreground"
           style={{ width: ARROW_W }}
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="rtl:rotate-180 h-4 w-4" />
         </div>
       )}
     </div>
@@ -1519,7 +1519,7 @@ function StageDashLink({
       <span>{label}</span>
       <div className="flex items-center gap-2">
         <span className={`rounded-full px-2 py-0.5 text-xs num ${countCls}`}>{count}</span>
-        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+        <ChevronRight className="rtl:rotate-180 h-3.5 w-3.5 text-muted-foreground" />
       </div>
     </Link>
   );

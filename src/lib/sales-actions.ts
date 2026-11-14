@@ -170,6 +170,16 @@ export async function reviseQuotation(input: {
 
 /* ---------------- BOQs ---------------- */
 
+// Columns `authenticated` may read on the BOQ tables. Migration
+// 20260824100000_commercial_read_isolation revoked SELECT on the cost columns
+// (boqs.estimated_value, boq_items.unit_rate / cost_estimate), so a `*` select
+// or a bare `.select()` after insert/update (RETURNING *) fails with 403 for
+// everyone. Costs are read through the gated boq_item_costs view instead.
+export const BOQ_READ_COLUMNS =
+  "id, related_opportunity_id, title, status, source, source_confidence, assumptions, missing_items, currency, file_url, notes, created_by, created_at, updated_at, extra_data";
+export const BOQ_ITEM_READ_COLUMNS =
+  "id, boq_id, sign_type, size, material, quantity, location, mounting, illumination, finish, selling_price, item_source, confidence, sort_order, created_at";
+
 export async function createBoq(input: {
   opportunityId: Uuid;
   title: string;
@@ -198,7 +208,7 @@ export async function createBoq(input: {
       file_url: input.fileUrl ?? null,
       created_by,
     })
-    .select()
+    .select(BOQ_READ_COLUMNS)
     .single();
   if (error) throw error;
   await audit("boq.created", "boq", data.id, null, data);
@@ -219,7 +229,7 @@ export async function updateBoqStatus(input: {
     .from("boqs")
     .update({ status: input.status, notes: input.notes ?? undefined })
     .eq("id", input.boqId)
-    .select()
+    .select(BOQ_READ_COLUMNS)
     .single();
   if (error) throw error;
   await audit(
@@ -254,7 +264,7 @@ export async function addBoqItem(input: {
       unit_rate: input.unitRate ?? null,
       selling_price: input.sellingPrice ?? null,
     })
-    .select()
+    .select(BOQ_ITEM_READ_COLUMNS)
     .single();
   if (error) throw error;
   await audit("boq.item_added", "boq", input.boqId, null, data);

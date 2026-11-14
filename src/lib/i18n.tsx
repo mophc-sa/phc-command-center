@@ -1751,6 +1751,10 @@ export const strings = {
   // output. Agent run summaries stay untranslated on purpose: they are row data
   // written by the agents, not UI strings.
   aa_eyebrow_governance: { en: "Governance", ar: "الحوكمة" },
+  aa_page_desc: {
+    en: "Operational intelligence: every agent run, filtered by module, status, and time.",
+    ar: "رقابة تشغيلية: كل تشغيل للوكلاء، مع تصفية حسب الوحدة والحالة والوقت.",
+  },
   aa_project_radar: { en: "Project Radar", ar: "رادار المشاريع" },
   aa_scan_pipeline: { en: "Scan Pipeline", ar: "افحص خط المبيعات" },
   aa_scanning: { en: "Running…", ar: "جارٍ التشغيل…" },

@@ -1,5 +1,11 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-14 — Review fixes (branch `fix/review-2026-11-14`, Draft PR, not deployed)
+
+- BOQ: the BOQ tab on `/quotations`, creating a BOQ, changing its status and adding an item all failed with 403. Each one selected or returned every column, including the cost columns that `authenticated` may not read. They now list only the allowed columns (`BOQ_READ_COLUMNS` and `BOQ_ITEM_READ_COLUMNS` in `sales-actions.ts`). New contract test: `boq-read-columns`.
+- `/agent-activity`: the page description and the radar hint were hard-coded in English and now come from i18n.
+- RTL: the `/projects` pagination arrows and the `/my-workspace` chevrons now flip in RTL. The pagination buttons got aria-labels.
+
 ## 2026-11-13 — Master list full detail applied to production
 
 - Contacts, emails, mobiles, negotiation history, client relations, target contractors, references and ProTenders leads from the master workbook are now in the system (run `4c9cc8c9`). See AI_HANDOFF for counts and how to reverse.
