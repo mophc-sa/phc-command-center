@@ -25,6 +25,7 @@ import {
   deleteBudgetItem,
   type ProjectBudgetItem,
 } from "@/lib/project-budget-actions";
+import { confirmAction } from "@/components/phc/ConfirmHost";
 
 export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
   const { lang } = useI18n();
@@ -40,7 +41,7 @@ export function ProjectBudget({ projectId, canEdit }: { projectId: string; canEd
   const totalActual = items.reduce((s, i) => s + (i.actual_amount ?? 0), 0);
 
   async function handleDelete(item: ProjectBudgetItem) {
-    if (!confirm(lang === "ar" ? `حذف "${item.category}"؟` : `Delete "${item.category}"?`)) return;
+    if (!(await confirmAction(lang === "ar" ? `حذف "${item.category}"؟` : `Delete "${item.category}"?`))) return;
     try {
       await deleteBudgetItem(item.id);
       invalidate();

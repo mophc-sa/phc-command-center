@@ -154,7 +154,7 @@ export function SectionNav() {
   const ar = lang === "ar";
   const current = Math.max(active, 0);
   const pill =
-    "grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60";
+    "grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60";
 
   return (
     <nav
@@ -173,7 +173,7 @@ export function SectionNav() {
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex h-8 max-w-[14rem] items-center gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="flex h-8 max-w-[14rem] items-center gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={ar ? "كل الأقسام" : "All sections"}
         >
           <List className="h-3.5 w-3.5 shrink-0" />

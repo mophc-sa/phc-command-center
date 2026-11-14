@@ -84,6 +84,7 @@ import { CopyDealLink } from "@/components/phc/CopyDealLink";
 import { DraftRestoredNote } from "@/components/phc/DraftRestoredNote";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { draftPayload } from "@/lib/form-draft";
+import { confirmAction } from "@/components/phc/ConfirmHost";
 
 export const Route = createFileRoute("/_authenticated/opportunities/$id")({
   head: () => ({
@@ -396,7 +397,7 @@ function OpportunityDetail() {
   }
 
   async function handleDeleteDiscussion(postId: string) {
-    if (!confirm(lang === "ar" ? "حذف هذا المنشور؟" : "Delete this post?")) return;
+    if (!(await confirmAction(lang === "ar" ? "حذف هذا المنشور؟" : "Delete this post?"))) return;
     try {
       await deleteDiscussionPost(postId);
       qc.invalidateQueries({ queryKey: ["opp-discussion", id] });
@@ -1340,6 +1341,7 @@ function OpportunityDetail() {
             {canManageContract ? (
               <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
                 <select
+                  aria-label={t("assignment_set_pic")}
                   value={o.person_in_charge_id ?? ""}
                   disabled={savingPic}
                   onChange={(e) => handleSetPersonInCharge(e.target.value || null, o.person_in_charge_note ?? null)}
@@ -1362,6 +1364,7 @@ function OpportunityDetail() {
       {show("assignment") && (
       <Panel title={t("section_technical_notes")}>
         <textarea
+          aria-label={t("section_technical_notes")}
           value={technicalNotesDraft ?? o.technical_notes ?? ""}
           onChange={(e) => setTechnicalNotesDraft(e.target.value)}
           onBlur={() => void saveTechnicalNotes()}
@@ -1663,6 +1666,7 @@ function OpportunityDetail() {
                 <DraftRestoredNote savedAt={discussionRestoredAt} onDiscard={discardDiscussionDraft} />
               ) : null}
               <textarea
+                aria-label={t("discussion_placeholder")}
                 value={discussionDraft}
                 onChange={(e) => setDiscussionDraft(e.target.value)}
                 rows={3}
@@ -1671,6 +1675,7 @@ function OpportunityDetail() {
               />
               <div className="grid gap-2 sm:grid-cols-2">
                 <select
+                  aria-label={t("discussion_person_in_charge")}
                   value={discussionPicId}
                   onChange={(e) => setDiscussionPicId(e.target.value)}
                   className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
@@ -1681,6 +1686,7 @@ function OpportunityDetail() {
                   ))}
                 </select>
                 <input
+                  aria-label={t("discussion_pic_note")}
                   value={discussionPicNote}
                   onChange={(e) => setDiscussionPicNote(e.target.value)}
                   placeholder={t("discussion_pic_note")}
@@ -1689,6 +1695,7 @@ function OpportunityDetail() {
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <select
+                  aria-label={t("discussion_mention_person")}
                   value={discussionMentionUserId}
                   onChange={(e) => setDiscussionMentionUserId(e.target.value)}
                   className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
@@ -1699,6 +1706,7 @@ function OpportunityDetail() {
                   ))}
                 </select>
                 <select
+                  aria-label={t("discussion_mention_purpose")}
                   value={discussionMentionPurpose}
                   disabled={!discussionMentionUserId}
                   onChange={(e) => setDiscussionMentionPurpose(e.target.value as MentionPurpose | "")}

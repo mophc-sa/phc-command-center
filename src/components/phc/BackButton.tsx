@@ -27,7 +27,7 @@ export function BackButton() {
     <button
       type="button"
       onClick={goBack}
-      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-xs font-medium text-muted-foreground shadow-card transition-all duration-150 hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-xs font-medium text-muted-foreground shadow-card transition-all duration-150 hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={t("back")}
       title={t("back")}
     >

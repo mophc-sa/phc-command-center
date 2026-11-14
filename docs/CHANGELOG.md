@@ -1,5 +1,12 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-14 — Accessibility follow-up: labels, confirmations, focus, touch (branch `fix/a11y-labels-confirm`, Draft PR, not deployed)
+
+- Confirmations: the 12 native `window.confirm` boxes are replaced by an in-app dialog (`confirmAction` / `<ConfirmHost />` mounted at the root). It follows RTL, has Arabic buttons and doesn't show the hostname. The question text is unchanged. New contract test: `confirm-dialog`.
+- Labels: aria-labels on every field the review found unlabeled: 7 on the opportunity page, 70 on `/contacts/repair` (field and contact name), the `/knowledge` search, and the `/vendors`, `/reference-library` and `/agent-activity` filters.
+- Focus: every `focus-visible:ring-1` is now `ring-2` (25 files).
+- Touch: on touch screens (`pointer: coarse`), page controls get a 40px minimum hit height and checkboxes 20px. Desktop is unchanged.
+
 ## 2026-11-14 — Review fixes (branch `fix/review-2026-11-14`, Draft PR, not deployed)
 
 - BOQ: the BOQ tab on `/quotations`, creating a BOQ, changing its status and adding an item all failed with 403. Each one selected or returned every column, including the cost columns that `authenticated` may not read. They now list only the allowed columns (`BOQ_READ_COLUMNS` and `BOQ_ITEM_READ_COLUMNS` in `sales-actions.ts`). New contract test: `boq-read-columns`.

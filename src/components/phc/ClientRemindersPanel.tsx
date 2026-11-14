@@ -20,6 +20,7 @@ import { personLabel } from "@/lib/person-label";
 import { isAssignableTeamMember } from "@/lib/team-members";
 import { completeFollowUp, listTeamMembers, scheduleFollowUp } from "@/lib/opportunity-actions";
 import { isRecurrence, nextFollowUpDate, recurrenceLabel, recurrenceOptions } from "@/lib/follow-up-recurrence";
+import { confirmAction } from "@/components/phc/ConfirmHost";
 
 type Reminder = {
   id: string;
@@ -134,7 +135,7 @@ export function ClientRemindersPanel({
                         const q = repeating
                           ? ar ? "إيقاف هذا التذكير المتكرر نهائيًا؟" : "Stop this repeating reminder for good?"
                           : ar ? "إلغاء هذا التذكير؟" : "Cancel this reminder?";
-                        if (!window.confirm(q)) return;
+                        if (!(await confirmAction(q))) return;
                         const { error, count } = await supabase
                           .from("follow_ups")
                           .update({ status: "cancelled" }, { count: "exact" })

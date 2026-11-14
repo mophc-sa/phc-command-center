@@ -355,7 +355,7 @@ function OppList() {
             }}
             placeholder={t("filter_search")}
             aria-label={t("filter_search")}
-            className="h-9 w-full rounded-md bg-transparent pe-3 ps-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 w-full rounded-md bg-transparent pe-3 ps-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         {/* The groups belong here, not only the individual stages. A KPI is
@@ -406,7 +406,7 @@ function OppList() {
             onClick={() => setView("cards")}
             type="button"
             aria-pressed={view === "cards"}
-            className={`grid h-9 w-9 place-items-center rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${view === "cards" ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            className={`grid h-9 w-9 place-items-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${view === "cards" ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             aria-label={lang === "ar" ? "عرض البطاقات" : "Card view"}
           >
             <LayoutGrid className="h-4 w-4" />
@@ -415,7 +415,7 @@ function OppList() {
             onClick={() => setView("table")}
             type="button"
             aria-pressed={view === "table"}
-            className={`grid h-9 w-9 place-items-center rounded transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${view === "table" ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            className={`grid h-9 w-9 place-items-center rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${view === "table" ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"}`}
             aria-label={lang === "ar" ? "عرض الجدول" : "Table view"}
           >
             <Rows3 className="h-4 w-4" />

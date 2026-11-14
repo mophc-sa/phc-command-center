@@ -233,7 +233,7 @@ export function KpiTile({
     "relative overflow-hidden rounded-xl border border-border/70 bg-surface/60 transition-colors " +
     (lead ? "min-h-[140px] bg-surface p-5 sm:min-h-[168px]" : "px-4 py-3");
   const layer =
-    "absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+    "absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
   const interactive = "hover:border-border-strong hover:bg-surface-2/40";
   // Content ignores pointers so the layer beneath receives the click; the info
   // trigger opts back in above.

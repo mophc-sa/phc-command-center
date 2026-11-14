@@ -646,3 +646,17 @@
   outline-offset: 3px;
 }
 [role="dialog"] { overscroll-behavior: contain; }
+
+/* Touch targets (review 2026-11-14). Dense desktop tables keep their compact
+   controls; on touch screens every control in the page body gets at least a
+   40px hit height. Inline text links are unaffected: min-height does not apply
+   to inline elements. */
+@media (pointer: coarse) {
+  #main-content :where(button, select, input:not([type="checkbox"], [type="radio"], [type="range"]), [role="button"], a.inline-flex, a.flex) {
+    min-height: 40px;
+  }
+  #main-content :where(input[type="checkbox"], input[type="radio"]) {
+    min-width: 20px;
+    min-height: 20px;
+  }
+}

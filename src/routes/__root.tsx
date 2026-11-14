@@ -23,6 +23,7 @@ import {
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { AuthProvider } from "@/hooks/useSupabaseAuth";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmHost } from "@/components/phc/ConfirmHost";
 
 function NotFoundComponent() {
   return (
@@ -235,6 +236,7 @@ function RootComponent() {
         <AuthProvider>
           <Outlet />
           <DirectionAwareToaster />
+          <ConfirmHost />
         </AuthProvider>
       </I18nProvider>
     </QueryClientProvider>

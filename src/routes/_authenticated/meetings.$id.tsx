@@ -25,6 +25,7 @@ import {
   type MeetingItem,
   type ReviewRights,
 } from "@/lib/meetings-actions";
+import { confirmAction } from "@/components/phc/ConfirmHost";
 
 export const Route = createFileRoute("/_authenticated/meetings/$id")({
   head: () => ({ meta: [{ title: "Meeting — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -97,8 +98,8 @@ function MeetingPage() {
     }
   }
 
-  function approveAllReady() {
-    if (!window.confirm(t("meetings_approve_all_confirm"))) return;
+  async function approveAllReady() {
+    if (!(await confirmAction(t("meetings_approve_all_confirm")))) return;
     void runBulk(ready, (i) =>
       decideMeetingAction({
         itemId: i.id,

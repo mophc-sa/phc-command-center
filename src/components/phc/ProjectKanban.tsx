@@ -48,6 +48,7 @@ import {
   type ProjectJobStage,
 } from "@/lib/project-jobs-actions";
 import { listTeamMembers } from "@/lib/opportunity-actions";
+import { confirmAction } from "@/components/phc/ConfirmHost";
 
 export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
   const { lang } = useI18n();
@@ -148,7 +149,7 @@ export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEd
   }
 
   async function handleDeleteStage(stage: ProjectJobStage) {
-    if (!confirm(lang === "ar" ? `حذف المرحلة "${stage.name}"؟ سيتم حذف كل البطاقات بداخلها.` : `Delete stage "${stage.name}"? All its cards will be deleted too.`)) return;
+    if (!(await confirmAction(lang === "ar" ? `حذف المرحلة "${stage.name}"؟ سيتم حذف كل البطاقات بداخلها.` : `Delete stage "${stage.name}"? All its cards will be deleted too.`))) return;
     try {
       await deleteJobStage(stage.id);
       invalidate();
@@ -158,7 +159,7 @@ export function ProjectKanban({ projectId, canEdit }: { projectId: string; canEd
   }
 
   async function handleDeleteJob(job: ProjectJob) {
-    if (!confirm(lang === "ar" ? `حذف "${job.title}"؟` : `Delete "${job.title}"?`)) return;
+    if (!(await confirmAction(lang === "ar" ? `حذف "${job.title}"؟` : `Delete "${job.title}"?`))) return;
     try {
       await deleteJob(job.id);
       invalidate();
@@ -416,7 +417,7 @@ function JobCard({
             type="button"
             {...sortable.attributes}
             {...sortable.listeners}
-            className="mt-0.5 shrink-0 cursor-grab rounded text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:text-foreground"
+            className="mt-0.5 shrink-0 cursor-grab rounded text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:text-foreground"
             aria-label={lang === "ar" ? `حرّك ${job.title}` : `Move ${job.title}`}
           >
             <GripVertical className="h-3.5 w-3.5" />
