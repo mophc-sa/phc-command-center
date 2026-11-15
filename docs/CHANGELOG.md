@@ -1,5 +1,19 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-15 — Target-client import `targets-2026-11` (production data, no code)
+
+Source: Google Sheet "نسخة من Data — سجل المخرجات والأبحاث" (243 research records). 130 were excluded: 66 name-only portfolio entries outside KSA, 24 completed or open, 13 in-file duplicates, 4 already active deals (a research note was added to each), and 23 others. **109 leads** (A32/B48/C29 by score) at **56 companies** (27 new; 26 existing companies with no owner now owned by the rep). Each company has one rep: Faisal 28 companies/56 leads, Abdelrahman 28/53. Existing deal history kept the company with its rep; the rest were balanced by priority weight. **224 company follow-ups** run Sun–Thu from 2026-11-15 to 2026-12-10, 3 companies per rep per day, highest score first. Each company has 4 steps (Day 0 email, Day 2 call + LinkedIn, Day 5 follow-up email, Day 14 close), and each step carries the ready AR/EN text in `notes`. 51 contacts. Only 10 of 56 companies have an email in the source; the rest start with finding the buyer. Emails are sent by the rep from Outlook; the system does not send them.
+**Undo:**
+```sql
+DELETE FROM follow_ups WHERE extra_data->>'tag'='targets-2026-11';
+DELETE FROM contacts WHERE source='targets-2026-11';
+DELETE FROM activities WHERE summary LIKE '[targets-2026-11]%';
+UPDATE leads SET archived_at=now(), archive_reason='undo targets-2026-11' WHERE source='targets-2026-11';
+UPDATE companies SET account_owner_id=NULL, extra_data=extra_data-'targets_owner_set' WHERE extra_data->>'targets_owner_set'='targets-2026-11';
+UPDATE companies SET archived_at=now(), archive_reason='undo targets-2026-11' WHERE source='targets-2026-11';
+```
+
+
 ## 2026-11-14 — Accessibility follow-up: labels, confirmations, focus, touch (branch `fix/a11y-labels-confirm`, Draft PR, not deployed)
 
 - Confirmations: the 12 native `window.confirm` boxes are replaced by an in-app dialog (`confirmAction` / `<ConfirmHost />` mounted at the root). It follows RTL, has Arabic buttons and doesn't show the hostname. The question text is unchanged. New contract test: `confirm-dialog`.
