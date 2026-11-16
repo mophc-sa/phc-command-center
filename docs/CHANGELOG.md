@@ -1,5 +1,13 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-16 — Work Queue identity, priority and today's list (branch `fix/actions-identity`, Draft PR, not deployed)
+
+Frontend only, no migration. Action Center, My Workspace "What needs you today", Follow-ups, Calendar and Needs Attention.
+- **Priority vs urgency vs data gaps:** risk flags, approvals and intake items no longer get a forced priority "A" (approvals/intake stay blocking). Deal tier (`opportunities.tier`) is its own pill, separate from the action's priority/cadence and the due date. Needs Attention excludes `data_quality` points from the score and shows a separate "Data gaps (n)" pill; each reason shows its category.
+- **Record identity:** rows/groups are named `project_code · project_name · client` or the company name; never a task title or note. Unlinked tasks read "Unlinked task" and don't link to `/opportunities/`. Company follow-ups link to `/accounts/$id` (Action Center and Calendar). Follow-up title = first line of the note without `[tag]`, max 80 chars.
+- **Today's list:** tasks/follow-ups fetched overdue + next 7 days, ordered, cancelled excluded. `todaysWork` returns `{items,total,stale}`; top 8 + "+N more"; overdue > 30 days shown apart as stale. Ranking: blocking → overdue (most recent first) → due today → deal tier.
+- **i18n/mobile:** "Why" line on every row via i18n keys (no `humanize` of raw codes, no hard-coded "Follow-up due"). NeedsAttentionPanel no longer leaks `src_*` keys. Action buttons drop below the text on phones with labels and 40px targets. Follow-ups default to Mine for non-managers.
+
 ## 2026-11-15 — Target-client import `targets-2026-11` (production data, no code)
 
 Source: Google Sheet "نسخة من Data — سجل المخرجات والأبحاث" (243 research records). 130 were excluded: 66 name-only portfolio entries outside KSA, 24 completed or open, 13 in-file duplicates, 4 already active deals (a research note was added to each), and 23 others. **109 leads** (A32/B48/C29 by score) at **56 companies** (27 new; 26 existing companies with no owner now owned by the rep). Each company has one rep: Faisal 28 companies/56 leads, Abdelrahman 28/53. Existing deal history kept the company with its rep; the rest were balanced by priority weight. **224 company follow-ups** run Sun–Thu from 2026-11-15 to 2026-12-10, 3 companies per rep per day, highest score first. Each company has 4 steps (Day 0 email, Day 2 call + LinkedIn, Day 5 follow-up email, Day 14 close), and each step carries the ready AR/EN text in `notes`. 51 contacts. Only 10 of 56 companies have an email in the source; the rest start with finding the buyer. Emails are sent by the rep from Outlook; the system does not send them.

@@ -15,8 +15,9 @@ import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions"
 import { EmailComposeButton } from "@/components/phc/EmailComposeButton";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { humanize } from "@/lib/utils";
 import { recurrenceLabel } from "@/lib/follow-up-recurrence";
+import { canManageSalesPipeline } from "@/lib/roles";
+import { riyadhDay } from "@/lib/daily-tasks";
 
 export const Route = createFileRoute("/_authenticated/follow-ups")({
   head: () => ({ meta: [{ title: "Follow-ups — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -28,12 +29,21 @@ type Bucket = "overdue" | "today" | "upcoming";
 function FollowUpsPage() {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
-  const { roles } = useAuth();
+  const { roles, user } = useAuth();
+  const uid = user?.id ?? "";
+  // A salesperson's page is their own follow-ups; managers keep the team view.
+  const [scopeChoice, setScope] = useState<"mine" | "all" | null>(null);
+  const scope = scopeChoice ?? (canManageSalesPipeline(roles) ? "all" : "mine");
+  /** i18n label when one exists; otherwise the value as recorded. */
+  const label = (key: string, fallback: string) => {
+    const s = t(key as never);
+    return s === key ? fallback : s;
+  };
   const [completeFor, setCompleteFor] = useState<{ id: string; oppId: string } | null>(null);
   const [rescheduleFor, setRescheduleFor] = useState<{ id: string; oppId: string; currentDate: string } | null>(null);
   const [bucket, setBucket] = useState<Bucket | "all">("all");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
 
   const { data = [] } = useQuery({
     queryKey: ["all-followups"],
@@ -41,7 +51,7 @@ function FollowUpsPage() {
       (await supabase
         .from("follow_ups")
         .select("*, opportunities(id, project_name, main_contractor, tier, owner_id), companies(id, name)")
-        .neq("status", "completed")
+        .not("status", "in", "(completed,cancelled)")
         .order("due_date", { ascending: true })
       ).data ?? [],
   });
@@ -49,20 +59,21 @@ function FollowUpsPage() {
   const grouped = useMemo(() => {
     const g = { overdue: [] as any[], today: [] as any[], upcoming: [] as any[] };
     for (const f of data as any[]) {
+      if (scope === "mine" && f.owner_id !== uid) continue;
       const dd = f.due_date as string | null;
       if (f.status === "overdue" || (dd && dd < today)) g.overdue.push(f);
       else if (dd === today) g.today.push(f);
       else g.upcoming.push(f);
     }
     return g;
-  }, [data, today]);
+  }, [data, today, scope, uid]);
 
   const visible = bucket === "all" ? [...grouped.overdue, ...grouped.today, ...grouped.upcoming] : grouped[bucket];
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader
-        eyebrow={lang === "ar" ? "المتابعات" : "Cadence"}
+        eyebrow={t("fu_page_eyebrow" as never)}
         title={t("nav_follow_ups")}
         description={lang === "ar" ? "المتابعات المستحقة والمتأخرة والمجدولة عبر خط الأنابيب." : "Due, overdue, and scheduled follow-ups across the pipeline."}
       />
@@ -73,10 +84,28 @@ function FollowUpsPage() {
         <KpiCard label={lang === "ar" ? "قادم" : "Upcoming"} value={formatNumber(grouped.upcoming.length, lang)} hint={lang === "ar" ? "مجدول لاحقاً" : "Scheduled later"} />
       </KpiRow>
 
-      <div className="mb-4 flex gap-1.5">
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {(["mine", "all"] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            aria-pressed={scope === s}
+            onClick={() => setScope(s)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+              scope === s
+                ? "border-amber/40 bg-amber/10 text-amber-light"
+                : "border-border/70 bg-surface/60 text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t(`ac_scope_${s}` as never)}
+          </button>
+        ))}
+        <span className="mx-1 h-4 w-px self-center bg-border/70" aria-hidden="true" />
         {(["all", "overdue", "today", "upcoming"] as const).map((k) => (
           <button
             key={k}
+            type="button"
+            aria-pressed={bucket === k}
             onClick={() => setBucket(k)}
             className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
               bucket === k
@@ -84,7 +113,7 @@ function FollowUpsPage() {
                 : "border-border/70 bg-surface/60 text-muted-foreground hover:text-foreground"
             }`}
           >
-            {k === "all" ? (lang === "ar" ? "الكل" : "All") : humanize(k)}
+            {t((k === "all" ? "ac_tab_all" : k === "today" ? "ac_urgency_due_today" : `ac_urgency_${k}`) as never)}
           </button>
         ))}
       </div>
@@ -108,11 +137,11 @@ function FollowUpsPage() {
                   <div className="px-5 py-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusPill tone={isOverdue ? "danger" : isToday ? "neutral" : "muted"}>
-                        {isOverdue ? (lang === "ar" ? "متأخر" : "Overdue") : isToday ? (lang === "ar" ? "اليوم" : "Today") : humanize(f.status)}
+                        {isOverdue ? (lang === "ar" ? "متأخر" : "Overdue") : isToday ? (lang === "ar" ? "اليوم" : "Today") : t("ac_urgency_upcoming" as never)}
                       </StatusPill>
-                      {opp?.tier ? <StatusPill tone={opp.tier === "A" ? "attention" : "muted"}>{t("label_tier")} {opp.tier}</StatusPill> : null}
-                      <span className="text-xs text-muted-foreground">{humanize(f.channel)}</span>
-                      {f.cadence_tier ? <span className="text-xs text-muted-foreground">· {t("label_tier")} {f.cadence_tier}</span> : null}
+                      {opp?.tier ? <StatusPill tone={opp.tier === "A" ? "attention" : "muted"}>{t("ac_deal_tier" as never)} {opp.tier}</StatusPill> : null}
+                      {f.channel ? <span className="text-xs text-muted-foreground">{label(`channel_${f.channel}`, f.channel)}</span> : null}
+                      {f.cadence_tier ? <span className="text-xs text-muted-foreground">· {t("ac_cadence" as never)} {f.cadence_tier}</span> : null}
                       {f.recurrence && f.recurrence !== "none" ? (
                         <span className="text-xs text-muted-foreground">· {recurrenceLabel(f.recurrence, lang)}</span>
                       ) : null}
@@ -160,15 +189,19 @@ function FollowUpsPage() {
                       }
                     />
                     <button
+                      type="button"
                       onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: dd ?? "" })}
                       title={lang === "ar" ? "إعادة الجدولة" : "Reschedule"}
+                      aria-label={lang === "ar" ? "إعادة الجدولة" : "Reschedule"}
                       className="grid h-7 w-7 place-items-center rounded-md border border-border/70 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                     >
                       <CalendarClock className="h-3.5 w-3.5" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })}
                       title={lang === "ar" ? "تمت" : "Mark complete"}
+                      aria-label={lang === "ar" ? "تمت" : "Mark complete"}
                       className="grid h-7 w-7 place-items-center rounded-md border border-amber/40 bg-amber/10 text-amber-light transition-colors hover:bg-amber/20"
                     >
                       <CheckCheck className="h-3.5 w-3.5" />

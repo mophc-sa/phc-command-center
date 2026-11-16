@@ -1,8 +1,14 @@
 import { describe, expect, it } from "bun:test";
 import {
   actionHref,
+  actionTypeKey,
   addDays,
   assembleActions,
+  attachRecords,
+  followUpTitle,
+  isStaleOverdue,
+  opportunityLabel,
+  whyText,
   countActions,
   DEFAULT_FILTERS,
   filterActions,
@@ -144,8 +150,9 @@ describe("projections", () => {
     expect(a.status).toBe("open");
   });
 
-  it("ranks a risk flag as tier A even when the column says otherwise", () => {
-    expect(fromFlag(flag({ flag_kind: "risk", priority: "C" })).priority).toBe("A");
+  it("keeps a risk flag's own priority — risk is not promoted to tier A", () => {
+    expect(fromFlag(flag({ flag_kind: "risk", priority: "C" })).priority).toBe("C");
+    expect(fromFlag(flag({ flag_kind: "risk", priority: null })).priority).toBeNull();
   });
 
   it("marks blocked flags as blocking", () => {
@@ -172,10 +179,10 @@ describe("projections", () => {
     expect(fromFollowUp(followUp()).status).toBe("open");
   });
 
-  it("treats a pending approval as blocking tier A", () => {
+  it("treats a pending approval as blocking, with no invented priority", () => {
     const a = fromApproval(approval());
     expect(a.blocking).toBe(true);
-    expect(a.priority).toBe("A");
+    expect(a.priority).toBeNull();
     expect(a.status).toBe("open");
   });
 
@@ -240,8 +247,12 @@ describe("ranking", () => {
   it("breaks ties on due date, then creation, so the order is stable", () => {
     const a = fromFlag(flag({ id: "x", due_date: "2026-08-01", created_at: "2026-01-01T00:00:00Z" }));
     const b = fromFlag(flag({ id: "y", due_date: "2026-08-02", created_at: "2026-01-01T00:00:00Z" }));
-    // both overdue → earlier due date first
-    expect(sortActions([b, a], TODAY).map((x) => x.sourceRecordId)).toEqual(["x", "y"]);
+    // both overdue → the most recently missed first
+    expect(sortActions([a, b], TODAY).map((x) => x.sourceRecordId)).toEqual(["y", "x"]);
+    // both upcoming → the soonest first
+    const u1 = fromFlag(flag({ id: "u1", due_date: "2026-09-01" }));
+    const u2 = fromFlag(flag({ id: "u2", due_date: "2026-09-02" }));
+    expect(sortActions([u2, u1], TODAY).map((x) => x.sourceRecordId)).toEqual(["u1", "u2"]);
 
     const c = fromFlag(flag({ id: "c", due_date: null, created_at: "2026-01-02T00:00:00Z" }));
     const d = fromFlag(flag({ id: "d", due_date: null, created_at: "2026-01-01T00:00:00Z" }));
@@ -388,12 +399,153 @@ describe("assembleActions", () => {
       fromFlag(flag({ id: `f${i}`, action_owner_id: ME, due_date: "2026-08-01" })),
     );
     const out = todaysWork(many, { uid: ME, today: TODAY });
-    expect(out).toHaveLength(8);
-    expect(out.every((a) => a.ownerUserId === ME)).toBe(true);
+    expect(out.items).toHaveLength(8);
+    expect(out.total).toBe(20);
+    expect(out.items.every((a) => a.ownerUserId === ME)).toBe(true);
   });
 
   it("todaysWork excludes other people's work", () => {
     const mixed = [fromFlag(flag({ id: "a", action_owner_id: ME })), fromFlag(flag({ id: "b", action_owner_id: OTHER }))];
-    expect(todaysWork(mixed, { uid: ME, today: TODAY }).map((a) => a.sourceRecordId)).toEqual(["a"]);
+    expect(todaysWork(mixed, { uid: ME, today: TODAY }).items.map((a) => a.sourceRecordId)).toEqual(["a"]);
+  });
+
+  it("todaysWork keeps stale overdue work out of today's count", () => {
+    const fresh = fromFollowUp(followUp({ id: "fresh", due_date: "2026-08-15" }));
+    const old = fromFollowUp(followUp({ id: "old", due_date: "2026-05-01" }));
+    const out = todaysWork([old, fresh], { uid: ME, today: TODAY });
+    expect(out.items.map((a) => a.sourceRecordId)).toEqual(["fresh"]);
+    expect(out.total).toBe(1);
+    expect(out.stale.map((a) => a.sourceRecordId)).toEqual(["old"]);
+  });
+});
+
+// ---- ranking: overdue age, tier, stale ---------------------------------------
+
+describe("ranking by overdue age and deal tier", () => {
+  it("blocking, then recent overdue, then due today, then deal tier A, then stale overdue", () => {
+    const blocking = fromApproval(approval());
+    const recent = fromFlag(flag({ id: "recent", due_date: "2026-08-18" }));
+    const older = fromFlag(flag({ id: "older", due_date: "2026-08-01" }));
+    const today = fromFlag(flag({ id: "today", due_date: TODAY }));
+    const [tierA] = attachRecords([fromFlag(flag({ id: "tierA", priority: "C", linked_record_id: "opp-A" }))], [
+      { id: "opp-A", tier: "A" },
+    ]);
+    const stale = fromFlag(flag({ id: "stale", due_date: "2026-06-01" }));
+    const order = sortActions([stale, tierA, today, older, recent, blocking], TODAY).map((a) => a.sourceRecordId);
+    expect(order).toEqual([blocking.sourceRecordId, "recent", "older", "today", "tierA", "stale"]);
+  });
+
+  it("deal tier outranks the action's own priority among equals", () => {
+    const [dealA, dealC] = attachRecords(
+      [
+        fromTask(task({ id: "dealA", priority: "C", related_opportunity_id: "oA" })),
+        fromTask(task({ id: "dealC", priority: "A", related_opportunity_id: "oC" })),
+      ],
+      [
+        { id: "oA", tier: "A" },
+        { id: "oC", tier: "C" },
+      ],
+    );
+    expect(sortActions([dealC, dealA], TODAY).map((a) => a.sourceRecordId)).toEqual(["dealA", "dealC"]);
+  });
+
+  it("stale means more than 30 days overdue, and never for blocking work", () => {
+    expect(isStaleOverdue(fromFlag(flag({ due_date: "2026-07-20" })), TODAY)).toBe(false); // 30 days
+    expect(isStaleOverdue(fromFlag(flag({ due_date: "2026-07-19" })), TODAY)).toBe(true); // 31 days
+    expect(isStaleOverdue(fromFlag(flag({ due_date: "2026-01-01", status: "blocked" })), TODAY)).toBe(false);
+  });
+});
+
+// ---- record identity --------------------------------------------------------
+
+describe("record identity", () => {
+  const IMPORTED =
+    "[targets-2026-11] Al Rajhi Construction\nالمشاريع:\n• Tower A — façade\n• Tower B — glazing\n" + "x".repeat(1800);
+
+  it("a follow-up's title is the first meaningful line without the import tag, length-limited", () => {
+    expect(followUpTitle(IMPORTED)).toBe("Al Rajhi Construction");
+    expect(followUpTitle("\n\n  • call back about samples")).toBe("call back about samples");
+    const long = followUpTitle("y".repeat(500))!;
+    expect(long.length).toBeLessThanOrEqual(80);
+    expect(long.endsWith("…")).toBe(true);
+    expect(followUpTitle(null)).toBeNull();
+    expect(followUpTitle("[only-a-tag]")).toBeNull();
+  });
+
+  it("never uses the whole note as the title", () => {
+    const a = fromFollowUp(followUp({ notes: IMPORTED }));
+    expect(a.title).toBe("Al Rajhi Construction");
+    expect(a.title.length).toBeLessThan(100);
+  });
+
+  it("a company-level follow-up links to its account and is named by the company", () => {
+    const a = fromFollowUp(
+      followUp({ opportunity_id: null, company_id: "co-1", companies: { id: "co-1", name: "Al Rajhi" }, notes: IMPORTED }),
+    );
+    expect(a.href).toBe("/accounts/co-1");
+    expect(a.recordLabel).toBe("Al Rajhi");
+  });
+
+  it("an empty follow-up note does not become hard-coded English", () => {
+    const a = fromFollowUp(followUp({ notes: null, channel: "email" }));
+    expect(a.title).toBe("");
+    expect(a.why).toEqual({ key: "ac_why_follow_up_channel", params: { channel: "email" } });
+  });
+
+  it("deal identity is code · project · client, falling back to the contractor", () => {
+    expect(opportunityLabel({ project_code: "PHC-101", project_name: "Tower", client: "ROSHN" })).toBe("PHC-101 · Tower · ROSHN");
+    expect(opportunityLabel({ project_name: "Tower", main_contractor: "Nesma" })).toBe("Tower · Nesma");
+    expect(opportunityLabel({})).toBeNull();
+    const [a] = attachRecords([fromTask(task())], [{ id: "opp-2", project_code: "C1", project_name: "P", client: "K", tier: "B" }]);
+    expect(a.recordLabel).toBe("C1 · P · K");
+    expect(a.dealTier).toBe("B");
+    expect(a.title).toBe("Send the quote"); // the task title stays the title, not the record name
+  });
+
+  it("an unlinked task does not link to /opportunities/", () => {
+    const a = fromTask(task({ related_opportunity_id: null }));
+    expect(a.href.startsWith("/opportunities")).toBe(false);
+    expect(a.recordLabel ?? null).toBeNull();
+  });
+
+  it("every projection carries a why", () => {
+    const all = [
+      fromFlag(flag({ reason: null, recommended_action: null })),
+      fromTask(task()),
+      fromFollowUp(followUp()),
+      fromApproval(approval()),
+      fromIntake(intake())!,
+    ];
+    for (const a of all) expect(a.why?.key).toBeTruthy();
+  });
+
+  it("renders the why through i18n and never shows a raw type code", () => {
+    const dict: Record<string, string> = {
+      ac_why_follow_up_channel: "Follow-up · {channel}",
+      channel_email: "Email",
+      ac_why_text: "{text}",
+    };
+    const t = (k: string) => dict[k] ?? k;
+    expect(whyText(fromFollowUp(followUp({ channel: "email" })), t, String)).toBe("Follow-up · Email");
+    expect(whyText(fromFollowUp(followUp({ channel: "fax" })), t, String)).toBe("Follow-up · fax");
+    expect(whyText(fromFlag(flag({ reason: "Chase the client" })), t, String)).toBe("Chase the client");
+    expect(actionTypeKey(fromTask(task()))).toBe("ac_source_task");
+    expect(actionTypeKey(fromFlag(flag({ queue_action_type: "brand_new_code" })))).toBe("ac_source_flag");
+  });
+});
+
+// ---- cancelled handling -----------------------------------------------------
+
+describe("cancelled work", () => {
+  it("a cancelled task is not active work", () => {
+    const a = fromTask(task({ status: "cancelled", due_date: TODAY }));
+    expect(a.status).toBe("dismissed");
+    expect(filterActions([a], DEFAULT_FILTERS, { uid: ME, today: TODAY })).toEqual([]);
+    expect(todaysWork([a], { uid: ME, today: TODAY }).total).toBe(0);
+  });
+
+  it("a cancelled follow-up is not active work", () => {
+    const a = fromFollowUp(followUp({ status: "cancelled", due_date: TODAY }));
+    expect(countActions([a], TODAY).total).toBe(0);
   });
 });

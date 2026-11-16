@@ -17,29 +17,45 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowRight, CheckCircle2, ShieldAlert } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { useI18n } from "@/lib/i18n";
+import { formatNumber, useI18n } from "@/lib/i18n";
 import { approvalTypeLabel } from "@/lib/approval-labels";
+import { formatMessage, msg } from "@/lib/messages";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { canApproveCommercialAction, canReviewIntake } from "@/lib/roles";
+import { riyadhDay } from "@/lib/daily-tasks";
 import {
+  actionTypeKey,
+  addDays,
   assembleActions,
+  attachRecords,
+  filterActions,
+  isUnlinkedTask,
   todaysWork,
   urgencyOf,
+  whyText,
+  DEFAULT_FILTERS,
+  OPPORTUNITY_RECORD_COLUMNS,
   type ApprovalRowIn,
   type FlagRowIn,
   type FollowUpRowIn,
   type IntakeRowIn,
+  type OpportunityRecord,
   type TaskRowIn,
 } from "@/lib/action-center";
-import { humanize } from "@/lib/utils";
 
 export function TodayPanel({ uid }: { uid: string }) {
   const { t, lang } = useI18n();
   const { roles } = useAuth();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
+  // The panel is today's list: overdue plus the coming week, nothing further out.
+  const horizon = addDays(today, 7);
+  const tt = (k: string) => t(k as never);
+  const num = (n: number) => formatNumber(n, lang);
+  const fmt = (key: string, params: Record<string, number>) =>
+    formatMessage(msg(key, params), tt, (v) => (typeof v === "number" ? num(v) : v));
 
   const { data: sources } = useQuery({
-    queryKey: ["today-panel", uid],
+    queryKey: ["today-panel", uid, today],
     enabled: !!uid,
     staleTime: 60_000,
     queryFn: async () => {
@@ -54,15 +70,16 @@ export function TodayPanel({ uid }: { uid: string }) {
           .from("tasks")
           .select("id, title, related_opportunity_id, owner_id, priority, due_date, status, created_at, completed_at")
           .eq("owner_id", uid)
-          .neq("status", "done")
-          .limit(100),
+          .not("status", "in", "(done,cancelled)")
+          .lte("due_date", horizon)
+          .order("due_date", { ascending: true }),
         supabase
           .from("follow_ups")
-          .select("id, opportunity_id, company_id, owner_id, due_date, cadence_tier, channel, status, notes, created_at")
+          .select("id, opportunity_id, company_id, companies(id, name), owner_id, due_date, cadence_tier, channel, status, notes, created_at")
           .eq("owner_id", uid)
-          .neq("status", "completed")
-          .neq("status", "cancelled")
-          .limit(100),
+          .not("status", "in", "(completed,cancelled)")
+          .lte("due_date", horizon)
+          .order("due_date", { ascending: true }),
         supabase
           .from("approvals")
           .select(
@@ -88,24 +105,45 @@ export function TodayPanel({ uid }: { uid: string }) {
     },
   });
 
-  const items = useMemo(() => {
-    const all = assembleActions(
-      sources ?? {},
-      {
-        canReviewIntake: canReviewIntake(roles),
-        canDecideApprovals: canApproveCommercialAction(roles),
-      },
-      today,
-    );
-    return todaysWork(all, { uid, today });
-  }, [sources, roles, uid, today]);
+  const mine = useMemo(
+    () =>
+      filterActions(
+        assembleActions(
+          sources ?? {},
+          {
+            canReviewIntake: canReviewIntake(roles),
+            canDecideApprovals: canApproveCommercialAction(roles),
+          },
+          today,
+        ),
+        { ...DEFAULT_FILTERS, scope: "mine" },
+        { uid, today },
+      ),
+    [sources, roles, uid, today],
+  );
+
+  // Deal identity and tier, so a row names its deal and tier can rank it.
+  const opportunityIds = [...new Set(mine.filter((a) => a.entityType === "opportunity" && a.entityId).map((a) => a.entityId))].sort();
+  const { data: records = [] } = useQuery({
+    queryKey: ["today-panel-records", opportunityIds],
+    enabled: opportunityIds.length > 0,
+    staleTime: 60_000,
+    queryFn: async () =>
+      ((await supabase.from("opportunities").select(OPPORTUNITY_RECORD_COLUMNS).in("id", opportunityIds)).data ?? []) as OpportunityRecord[],
+  });
+
+  const { items, total, stale } = useMemo(
+    () => todaysWork(attachRecords(mine, records), { uid, today }),
+    [mine, records, uid, today],
+  );
 
   return (
     <section className="mt-6 overflow-hidden rounded-xl border border-border/70 bg-surface/60">
       <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-3.5">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-foreground">{t("ws_today_title")}</h2>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{t("ws_today_desc")}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{t("ws_today_desc")}</p>
+          <p className="mt-0.5 text-2xs text-muted-foreground">{tt("ws_today_rule")}</p>
         </div>
         <Link
           to="/action-center"
@@ -144,23 +182,33 @@ export function TodayPanel({ uid }: { uid: string }) {
                     ) : urgency === "due_today" ? (
                       <StatusPill tone="attention">{t("ac_urgency_due_today")}</StatusPill>
                     ) : null}
-                    <span className="truncate text-base font-medium text-foreground">{a.source === "approval" ? approvalTypeLabel(a.type, lang) : a.title}</span>
+                    <span className="line-clamp-2 text-base font-medium text-foreground">
+                      {a.source === "approval" ? approvalTypeLabel(a.type, lang) : a.title || tt(actionTypeKey(a))}
+                    </span>
                   </div>
+                  {/* Which record — never the task title or the note. */}
+                  {a.recordLabel || isUnlinkedTask(a) ? (
+                    <div className="mt-0.5 text-sm text-foreground">{a.recordLabel ?? tt("ac_unlinked_task")}</div>
+                  ) : null}
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                     {/* Why it is here — the PRD requires every row to justify itself. */}
-                    <span>{a.reason ?? humanize(a.type)}</span>
+                    <span>{whyText(a, tt, num)}</span>
                     {a.dueAt ? (
                       <>
                         <span aria-hidden="true">·</span>
                         <span className={`num ${overdue ? "text-destructive" : ""}`} data-tabular="true">
-                          {t("ac_due")}: {a.dueAt}
+                          {t("ac_due")}: {a.dueAt.slice(0, 10)}
                         </span>
                       </>
                     ) : null}
-                    <span aria-hidden="true">·</span>
-                    <span>
-                      {t("label_tier")} {a.priority}
-                    </span>
+                    {a.dealTier ? (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span>
+                          {tt("ac_deal_tier")} {a.dealTier}
+                        </span>
+                      </>
+                    ) : null}
                   </div>
                 </Link>
               </li>
@@ -168,6 +216,20 @@ export function TodayPanel({ uid }: { uid: string }) {
           })}
         </ul>
       )}
+      {total > items.length || stale.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-5 py-2.5 text-xs text-muted-foreground">
+          {stale.length > 0 ? (
+            <span title={tt("ws_today_stale_hint")}>
+              {fmt("ws_today_stale", { n: stale.length })} — {tt("ws_today_stale_hint")}
+            </span>
+          ) : <span />}
+          {total > items.length ? (
+            <Link to="/action-center" className="inline-flex min-h-10 items-center font-medium text-foreground hover:underline sm:min-h-0">
+              {fmt("ws_today_more", { n: total - items.length })}
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }

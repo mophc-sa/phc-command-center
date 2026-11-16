@@ -309,3 +309,31 @@ describe("every recorded date reaches the grid", () => {
     }
   });
 });
+
+describe("a follow-up opens the record it is about", () => {
+  it("a company-level follow-up routes to its account, titled with the company", () => {
+    const [e] = buildCalendar({
+      today: TODAY,
+      followUps: [{
+        id: "fu-1", opportunity_id: null, company_id: "co-1", due_date: "2026-09-01", status: "scheduled",
+        channel: "email", companies: { id: "co-1", name: "Al Rajhi Construction" },
+      }],
+    });
+    expect(e.entityKind).toBe("account");
+    expect(e.entityId).toBe("co-1");
+    expect(e.title).toBe("Al Rajhi Construction");
+  });
+
+  it("a deal follow-up routes to the deal, titled code · project", () => {
+    const [e] = buildCalendar({
+      today: TODAY,
+      followUps: [{
+        id: "fu-2", opportunity_id: "o-1", due_date: "2026-09-01", status: "scheduled", channel: "call",
+        opportunities: { project_code: "PHC-7", project_name: "Tower" }, companies: null,
+      }],
+    });
+    expect(e.entityKind).toBeUndefined();
+    expect(e.entityId).toBe("o-1");
+    expect(e.title).toBe("PHC-7 · Tower");
+  });
+});

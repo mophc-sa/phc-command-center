@@ -680,8 +680,10 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
 
     if (reasons.length === 0) continue;
 
+    // Data gaps are reported (and shown apart in the panel) but never raise
+    // priority: a missing field is a fact about the CRM, not about the deal.
     const score =
-      reasons.reduce((s, r) => s + r.points, 0) +
+      reasons.filter((r) => r.category !== "data_quality").reduce((s, r) => s + r.points, 0) +
       (value !== null ? (VALUE_POINTS.find((v) => value >= v.atLeast)?.points ?? 0) : 0) +
       (stage ? (STAGE_POINTS[stage] ?? 0) : 0);
 
