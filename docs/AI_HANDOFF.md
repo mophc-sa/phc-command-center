@@ -1,5 +1,13 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-16 — One Riyadh "today" + KPI unification (branch `fix/kpi-riyadh`, Draft PR, not deployed)
+
+- **Riyadh day:** new pure `src/lib/riyadh-day.ts` (`riyadhDay`, `addDays`; re-exported from `daily-tasks.ts`). Every business "today" outside the four files owned by parallel work (TodayPanel, follow-ups, action-center, calendar — TODO allowlist in `riyadh-today.contract.test.ts`) now uses it, including browser-local helpers (`targets`, `pricing-queue.localDateString`, `dashboard-helpers.daysUntil`, `DailyEmailBrief.isFromToday`) and board month/year boundaries.
+- **KPIs on `sales-kpis`:** `targetForPeriod` (Sales Management no longer sums all 90M of target rows); targets-metrics places won/lost by `won_at`/`lost_at`, reports unvalued counts, forecast = `weightedPipeline` (0.2 default removed), conversion null when nothing closed; `computeAwardedTotal` uses canonical `isWon`; board win rate = engine `winRate` YTD; board-intel weighted delegates to the engine. `weightedPipeline` returns `not_calculated` + `cav_weighted_partial` when scored value < 50% of open value.
+- **Missing ≠ zero:** `team-dashboard.openPipelineValue` is `number | null`; `computeTeam` keeps `wonUnvalued`/`openUnvalued`; `sumRecorded`/`totalOrDash`/`unvaluedLabel` in `kpi-definitions.ts` replace `?? 0` sums in reports, QuotationsPanel, RfqJihPanel, my-workspace.
+- **Definitions:** `kpi-definitions.ts` (bilingual, keyed by `Kpi.key`) feeds KpiTile's tooltip and new `definition`/`period` props on KpiCard and TargetKpiBox.
+- No migration, no edge function. Frontend only.
+
 ## 2026-11-15 — Target-client import `targets-2026-11` (production data, no code)
 
 Source: Google Sheet "نسخة من Data — سجل المخرجات والأبحاث" (243 research records). 130 were excluded: 66 name-only portfolio entries outside KSA, 24 completed or open, 13 in-file duplicates, 4 already active deals (a research note was added to each), and 23 others. **109 leads** (A32/B48/C29 by score) at **56 companies** (27 new; 26 existing companies with no owner now owned by the rep). Each company has one rep: Faisal 28 companies/56 leads, Abdelrahman 28/53. Existing deal history kept the company with its rep; the rest were balanced by priority weight. **224 company follow-ups** run Sun–Thu from 2026-11-15 to 2026-12-10, 3 companies per rep per day, highest score first. Each company has 4 steps (Day 0 email, Day 2 call + LinkedIn, Day 5 follow-up email, Day 14 close), and each step carries the ready AR/EN text in `notes`. 51 contacts. Only 10 of 56 companies have an email in the source; the rest start with finding the buyer. Emails are sent by the rep from Outlook; the system does not send them.

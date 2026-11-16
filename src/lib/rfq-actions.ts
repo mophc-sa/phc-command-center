@@ -1,3 +1,4 @@
+import { riyadhDay, addDays } from "@/lib/riyadh-day";
 import { supabase } from "@/integrations/supabase/client";
 import { callBackend } from "@/lib/backend";
 import type { ProjectStage } from "@/lib/crm-actions";
@@ -235,12 +236,10 @@ export async function createRfqWithOpportunity(input: {
   }
 
   // 5. Follow-up (3 days out)
-  const followUpDate = new Date();
-  followUpDate.setDate(followUpDate.getDate() + 3);
   await supabase.from("follow_ups").insert({
     opportunity_id: opp.id,
     owner_id: uid,
-    due_date: followUpDate.toISOString().slice(0, 10),
+    due_date: addDays(riyadhDay(), 3),
     channel: "call",
     status: "scheduled" as const,
     // Carries the RFQ number, so the follow-up says which submission it is

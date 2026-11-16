@@ -1,3 +1,4 @@
+import { riyadhDay } from "@/lib/riyadh-day";
 import { SavedOpportunityViews } from "@/components/phc/SavedOpportunityViews";
 import { KpiRow } from "@/components/phc/KpiRow";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -241,8 +242,8 @@ function OppList() {
     queryKey: ["opps-team-target"],
     staleTime: 60_000,
     queryFn: async () => {
-      const annYear = `${new Date().getFullYear()}-01-01`;
-      const monthStart = `${new Date().toISOString().slice(0, 7)}-01`;
+      const annYear = `${riyadhDay().slice(0, 4)}-01-01`;
+      const monthStart = `${riyadhDay().slice(0, 7)}-01`;
       const [annual, monthly] = await Promise.all([
         supabase.from("sales_targets").select("sales_target").eq("period_type", "annual").eq("period_start", annYear),
         supabase.from("sales_targets").select("sales_target").eq("period_type", "monthly").eq("period_start", monthStart),
@@ -261,7 +262,7 @@ function OppList() {
   // Every figure in the strip comes from the shared engine, so "open" here
   // means exactly what "open" means in the number that linked here, and this
   // page computes no metric of its own.
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = riyadhDay();
   const book = useMemo(
     () =>
       commercialBookKpis(

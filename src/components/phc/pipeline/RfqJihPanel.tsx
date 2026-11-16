@@ -16,6 +16,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
+import { sumRecorded, totalOrDash, unvaluedLabel } from "@/lib/kpi-definitions";
 import { invalidateSalesData } from "@/lib/invalidate-sales";
 import { label, LOST_REASONS, ON_HOLD_REASONS, type PresetOption } from "@/lib/entry-presets";
 import { convertRfqToJih } from "@/lib/rfq-actions";
@@ -139,9 +140,9 @@ export function RfqJihPanel() {
     invalidateSalesData(qc);
   };
 
-  const rfqValue = rfqs.reduce((s: number, r: any) => s + (r.estimated_value ?? 0), 0);
+  const rfqValue = sumRecorded(rfqs, (r: any) => r.estimated_value);
   const activeOpps = opps.filter((o: any) => !["won", "lost", "archived"].includes(o.sales_stage));
-  const totalPipeline = sumOpportunityValue(activeOpps as never).total;
+  const totalPipeline = sumOpportunityValue(activeOpps as never);
   const awaitingAward = opps.filter((o: any) => o.sales_stage === "verbally_awarded").length;
   const wonThisPeriod = opps.filter((o: any) => o.sales_stage === "won").length;
 
@@ -162,8 +163,8 @@ export function RfqJihPanel() {
       />
 
       <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label={t("sstage_rfq_received")} value={formatNumber(rfqs.length, lang)} hint={formatCurrency(rfqValue, lang, "SAR")} />
-        <KpiCard label={lang === "ar" ? "خط الأنابيب النشط" : "Active pipeline"} value={formatCurrency(totalPipeline, lang, "SAR")} hint={`${formatNumber(activeOpps.length, lang)} ${lang === "ar" ? "فرصة" : "opportunities"}`} />
+        <KpiCard label={t("sstage_rfq_received")} value={formatNumber(rfqs.length, lang)} hint={[totalOrDash(rfqValue, (n) => formatCurrency(n, lang, "SAR")), unvaluedLabel(rfqValue.unvalued, lang)].filter(Boolean).join(" · ")} />
+        <KpiCard label={lang === "ar" ? "خط الأنابيب النشط" : "Active pipeline"} value={totalOrDash(totalPipeline, (n) => formatCurrency(n, lang, "SAR"))} hint={[`${formatNumber(activeOpps.length, lang)} ${lang === "ar" ? "فرصة" : "opportunities"}`, unvaluedLabel(totalPipeline.unvalued, lang)].filter(Boolean).join(" · ")} />
         <KpiCard label={t("sstage_verbally_awarded")} value={formatNumber(awaitingAward, lang)} hint={lang === "ar" ? "تحتاج توثيق" : "Needs documentation"} trend={awaitingAward > 0 ? "up" : "flat"} />
         <KpiCard label={t("sstage_won")} value={formatNumber(wonThisPeriod, lang)} hint={lang === "ar" ? "المغلقة بنجاح" : "Closed successfully"} />
       </section>
@@ -175,7 +176,7 @@ export function RfqJihPanel() {
             <span className="text-base font-semibold text-foreground">{t("sstage_rfq_received")}</span>
             <StatusPill tone="muted">{formatNumber(rfqs.length, lang)}</StatusPill>
           </div>
-          <span className="num text-xs text-muted-foreground" data-tabular="true">{formatCurrency(rfqValue, lang, "SAR")}</span>
+          <span className="num text-xs text-muted-foreground" data-tabular="true">{totalOrDash(rfqValue, (n) => formatCurrency(n, lang, "SAR"))}</span>
         </div>
         <div className="p-3">
           {rfqs.length === 0 ? (

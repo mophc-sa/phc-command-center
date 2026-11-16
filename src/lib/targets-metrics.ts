@@ -8,7 +8,11 @@ import {
   isOpen as isCanonicallyOpen,
   isWon as isCanonicallyWon,
   isLost as isCanonicallyLost,
-  opportunityValue as canonicalOpportunityValue,
+  opportunityValue,
+  sumOpportunityValue,
+  weightedPipeline,
+  type Kpi,
+  type OppRow,
 } from "@/lib/sales-kpis";
 
 // target_period enum: 'monthly' | 'quarterly' | 'annual'.
@@ -41,6 +45,11 @@ export type OpportunityRow = {
   quotation_value: number | null;
   win_confidence: "low" | "possible" | "strong" | "sure_win" | null;
   updated_at: string;
+  /** Stamped at the transition; the only dates a win or loss is placed by. */
+  won_at?: string | null;
+  lost_at?: string | null;
+  human_win_probability?: number | null;
+  score?: number | null;
 };
 
 export type RfqRow = {
@@ -92,25 +101,9 @@ export type ActionFlagRow = {
 const SENT_QUOTATION_STATUSES = new Set(["submitted", "follow_up", "negotiation", "revised", "won", "lost"]);
 const OPEN_ACTION_STATUSES = new Set<ActionFlagRow["status"]>(["open", "in_progress", "escalated", "blocked"]);
 
-/**
- * The canonical value, wrapped for the one thing these sums need.
- *
- * This file used to define its own `opportunityValue` — same name, different
- * rule: `quotation_value ?? estimated_value_max ?? 0`, with **contract_value
- * missing entirely**, and the column was not even in the query. So a won deal
- * with a signed contract was counted at whatever it had been quoted at, and
- * `wonValue` — the number a salesperson's achievement against target is
- * measured by — was understated for every deal that had been contracted.
- *
- * A local function shadowing an exported one under the same name is the worst
- * version of this: a reader sees the right name and gets a different rule.
- *
- * `?? 0` survives only inside these reducers, where a value that cannot be read
- * must not remove the row from a sum it belongs to. Where the count of
- * unreadable rows matters to the reader, use `sumOpportunityValue`, which
- * reports it.
- */
-const valueOf = (o: OpportunityRow) => canonicalOpportunityValue(o) ?? 0;
+// Values come from the canonical engine. A deal with no recorded value is not
+// added as 0 — sumOpportunityValue adds the valued ones and COUNTS the rest,
+// and that count is reported next to the total (`*Unvalued`).
 
 // ---------------------------------------------------------------------------
 // Period windows (Required Fix 1)
@@ -217,48 +210,30 @@ export function achievementPct(actual: number, target: number): number {
   return Math.round((actual / target) * 100);
 }
 
-// win_confidence -> probability weight, used only for the forecast rollup.
-//
-// Phase-1 business assumption, NOT statistically calibrated against actual
-// historical win/loss outcomes (there isn't enough closed-deal history yet
-// to calibrate against). These are reasonable starting weights chosen for
-// launch; they should be reviewed and replaced with data-derived weights
-// once enough won/lost history exists to compute real conversion rates per
-// confidence tier. Do not change these percentages without explicit product
-// approval — this list is the single source of truth other code should
-// import rather than re-guessing weights locally.
-export const FORECAST_CONFIDENCE_WEIGHTS: Record<NonNullable<OpportunityRow["win_confidence"]>, number> = {
-  low: 0.1,
-  possible: 0.35,
-  strong: 0.65,
-  sure_win: 0.9,
-};
-const DEFAULT_FORECAST_WEIGHT = 0.2; // no confidence set yet — Phase-1 assumption, see above.
-
-// Forecast is a snapshot of currently-open pipeline, not an event that
-// "happened during" any particular period — so it is intentionally NOT
-// period-bounded (same reasoning as openPipeline below).
-export function forecastValue(opportunities: OpportunityRow[]): number {
-  return opportunities
-    .filter(isCanonicallyOpen)
-    .reduce(
-      (sum, o) => sum + valueOf(o) * (o.win_confidence ? FORECAST_CONFIDENCE_WEIGHTS[o.win_confidence] : DEFAULT_FORECAST_WEIGHT),
-      0,
-    );
+// Forecast is the canonical weighted pipeline (sales-kpis.weightedPipeline):
+// manager probability, else AI score, and unscored deals excluded and reported
+// — never weighted at an invented 20%. A snapshot, so not period-bounded.
+export function forecastKpi(opportunities: OpportunityRow[], today: string): Kpi {
+  return weightedPipeline(opportunities as unknown as OppRow[], { today, period: null });
 }
 
 export type SalespersonMetrics = {
   userId: string;
   target: SalesTargetRow;
   wonValue: number;
+  /** Won in the period with no recorded value — not in wonValue. */
+  wonUnvalued: number;
   remaining: number;
   achievement: number;
   openPipeline: number;
+  /** Open deals with no recorded value — not in openPipeline. */
+  openUnvalued: number;
   completedFollowUps: number;
   rfqsReviewed: number;
   tendersFollowed: number;
   quotationsSent: number;
-  conversionRate: number;
+  /** Won ÷ (won + lost) in the period; null when nothing closed. */
+  conversionRate: number | null;
 };
 
 export function computeSalespersonMetrics(
@@ -278,15 +253,17 @@ export function computeSalespersonMetrics(
   // "Won this period" / "lost this period" / activity counts below are all
   // events attributed to the period they occurred in, so they use the full
   // half-open [periodStart, periodEnd) window.
-  const wonValue = myOpps
-    .filter((o) => isCanonicallyWon(o) && inPeriod(o.updated_at, window))
-    .reduce((s, o) => s + valueOf(o), 0);
-  const lostCount = myOpps.filter((o) => isCanonicallyLost(o) && inPeriod(o.updated_at, window)).length;
-  const wonCount = myOpps.filter((o) => isCanonicallyWon(o) && inPeriod(o.updated_at, window)).length;
+  // Placed by won_at / lost_at, never updated_at: any later edit moves
+  // updated_at, which re-dated old wins into the current month.
+  const wonRows = myOpps.filter((o) => isCanonicallyWon(o) && inPeriod(o.won_at, window));
+  const won = sumOpportunityValue(wonRows);
+  const wonValue = won.total;
+  const lostCount = myOpps.filter((o) => isCanonicallyLost(o) && inPeriod(o.lost_at, window)).length;
+  const wonCount = wonRows.length;
 
   // Open pipeline is current state ("what's open right now"), not a
-  // period-scoped event — intentionally unbounded, same as forecastValue.
-  const openPipeline = myOpps.filter(isCanonicallyOpen).reduce((s, o) => s + valueOf(o), 0);
+  // period-scoped event — intentionally unbounded, same as the forecast.
+  const open = sumOpportunityValue(myOpps.filter(isCanonicallyOpen));
 
   const myRfqs = data.rfqs.filter((r) => r.sales_owner_id === userId);
   const rfqsReviewed = myRfqs.filter((r) => r.status !== "open" && inPeriod(r.updated_at, window)).length;
@@ -301,16 +278,18 @@ export function computeSalespersonMetrics(
   const completedFollowUps = myFollowUps.filter((f) => f.status === "completed" && inPeriod(f.last_contact_at, window)).length;
 
   const closed = wonCount + lostCount;
-  const conversionRate = closed > 0 ? Math.round((wonCount / closed) * 100) : 0;
+  const conversionRate = closed > 0 ? Math.round((wonCount / closed) * 100) : null;
 
   const salesTarget = Number(target.sales_target);
   return {
     userId,
     target,
     wonValue,
+    wonUnvalued: won.unvalued,
     remaining: Math.max(0, salesTarget - wonValue),
     achievement: achievementPct(wonValue, salesTarget),
-    openPipeline,
+    openPipeline: open.total,
+    openUnvalued: open.unvalued,
     completedFollowUps,
     rfqsReviewed,
     tendersFollowed,
@@ -327,10 +306,11 @@ export type ManagerMetrics = {
   overdueActionsByOwner: Record<string, number>;
   tierAOpenCount: number;
   tierAOpenValue: number;
+  tierAOpenUnvalued: number;
   rfqConversionPct: number;
   tenderConversionPct: number;
   quotationWinRatePct: number;
-  forecast: number;
+  forecast: Kpi;
 };
 
 export function computeManagerMetrics(
@@ -353,11 +333,11 @@ export function computeManagerMetrics(
   const teamActual = perSalesperson.reduce((s, m) => s + m.wonValue, 0);
 
   // Pipeline by owner is current state, not period-scoped — same reasoning
-  // as openPipeline/forecastValue above.
+  // as openPipeline and the forecast above.
   const pipelineByOwner: Record<string, number> = {};
   for (const o of data.opportunities) {
     if (!o.owner_id || !isCanonicallyOpen(o)) continue;
-    pipelineByOwner[o.owner_id] = (pipelineByOwner[o.owner_id] ?? 0) + valueOf(o);
+    pipelineByOwner[o.owner_id] = (pipelineByOwner[o.owner_id] ?? 0) + (opportunityValue(o) ?? 0); // unvalued adds nothing
   }
 
   // Overdue is inherently a "right now" concept (due_date < today), not
@@ -372,6 +352,7 @@ export function computeManagerMetrics(
 
   // Open Tier A opportunities is a current-state snapshot — unbounded.
   const tierAOpen = data.opportunities.filter((o) => o.tier === "A" && isCanonicallyOpen(o));
+  const tierAValue = sumOpportunityValue(tierAOpen);
 
   // RFQ / tender / quotation conversion rates are lifetime (company-wide,
   // all-time) ratios, not scoped to the current target period — this
@@ -398,10 +379,11 @@ export function computeManagerMetrics(
     pipelineByOwner,
     overdueActionsByOwner,
     tierAOpenCount: tierAOpen.length,
-    tierAOpenValue: tierAOpen.reduce((s, o) => s + valueOf(o), 0),
+    tierAOpenValue: tierAValue.total,
+    tierAOpenUnvalued: tierAValue.unvalued,
     rfqConversionPct,
     tenderConversionPct,
     quotationWinRatePct,
-    forecast: forecastValue(data.opportunities),
+    forecast: forecastKpi(data.opportunities, today),
   };
 }

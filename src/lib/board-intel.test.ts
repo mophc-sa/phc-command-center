@@ -86,12 +86,21 @@ describe("weighted pipeline refuses to be zero", () => {
 
   it("weights by probability once one exists, and reports the rest as missing", () => {
     const w = weightedPipeline([
+      opp({ id: "a", sales_stage: "jih", contract_value: 4000, human_win_probability: 50 }),
+      opp({ id: "b", sales_stage: "jih", contract_value: 1000 }),
+    ]);
+    expect(w.state).toBe("ok");
+    expect(w.value).toBe(2000);
+    expect(w.missing).toBe(1);
+  });
+
+  it("is not presented as a figure when the scored deals cover under half the open value", () => {
+    const w = weightedPipeline([
       opp({ id: "a", sales_stage: "jih", contract_value: 1000, human_win_probability: 50 }),
       opp({ id: "b", sales_stage: "jih", contract_value: 4000 }),
     ]);
-    expect(w.state).toBe("ok");
-    expect(w.value).toBe(500);
-    expect(w.missing).toBe(1);
+    expect(w.value).toBeNull();
+    expect(w.reasonEn).toBe("Based on only 1 of 2 open deals");
   });
 
   it("does not count a won or lost deal as pipeline", () => {

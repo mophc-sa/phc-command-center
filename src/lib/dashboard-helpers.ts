@@ -2,7 +2,8 @@
 // Extracted from the dashboard route so they can be unit-tested in isolation.
 // No Supabase, no React, no side-effects.
 
-import { opportunityValue } from "@/lib/sales-kpis";
+import { riyadhDay } from "@/lib/riyadh-day";
+import { isWon, opportunityValue } from "@/lib/sales-kpis";
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -12,10 +13,9 @@ import { opportunityValue } from "@/lib/sales-kpis";
  */
 export function daysUntil(dateStr: string | null | undefined): number | null {
   if (!dateStr) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const d = new Date(dateStr + "T00:00:00");
-  return Math.round((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  // Calendar days against the Riyadh day, not the browser's midnight.
+  const d = Date.parse(dateStr.slice(0, 10) + "T00:00:00Z");
+  return Math.round((d - Date.parse(riyadhDay() + "T00:00:00Z")) / (1000 * 60 * 60 * 24));
 }
 
 /**
@@ -69,24 +69,25 @@ export type OpportunityStageRow = {
 /**
  * Computes the total officially-awarded value.
  *
- * Only opportunities with `stage = 'won'` (the macro-level opportunity_stage)
- * are counted. Sub-stages such as verbally_awarded, contract_received, or
- * contract_signed do NOT contribute until the official 'won' status is set.
- *
- * Uses `contract_value` when available, falls back to `estimated_value_max`.
+ * Won is the CANONICAL stage (sales-kpis isWon: sales_stage, legacy `stage`
+ * only where sales_stage is empty) — the same rule every other dashboard
+ * uses. It read the legacy column alone, so a deal re-opened in sales_stage
+ * still counted as awarded here. Verbal award and contract stages do NOT
+ * contribute. Deals with no recorded value add nothing (count them with
+ * countUnvalued).
  */
 export function computeAwardedTotal(opps: OpportunityStageRow[]): number {
-  return opps
-    .filter(o => o.stage === "won")
-    .reduce((sum, o) => sum + (opportunityValue(o as never) ?? 0), 0);
+  return filterAwardedOpps(opps).reduce((sum, o) => sum + (opportunityValue(o as never) ?? 0), 0);
 }
 
-/**
- * Returns only the officially-awarded opportunities (stage = 'won').
- * Verbally awarded, contract received/signed are excluded.
- */
+/** Only the officially-won opportunities, by canonical stage. */
 export function filterAwardedOpps(opps: OpportunityStageRow[]): OpportunityStageRow[] {
-  return opps.filter(o => o.stage === "won");
+  return opps.filter((o) => isWon(o as never));
+}
+
+/** How many rows carry no recorded value — what a total above leaves out. */
+export function countUnvalued(rows: ReadonlyArray<Parameters<typeof opportunityValue>[0]>): number {
+  return rows.filter((o) => opportunityValue(o) === null).length;
 }
 
 // ─── Pipeline totals ─────────────────────────────────────────────────────────

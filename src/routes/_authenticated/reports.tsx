@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/table";
 import { SkeletonChart } from "@/components/phc/Skeleton";
 import { useI18n, formatCurrency, formatNumber, localeFor } from "@/lib/i18n";
+import { kpiDefinition, sumRecorded, totalOrDash, unvaluedLabel, type ValueSum } from "@/lib/kpi-definitions";
 import { computeQuotationWinRatePct } from "@/lib/dashboard-helpers";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline, canReviewAiOutput } from "@/lib/roles";
@@ -138,7 +139,7 @@ function ReportsPage() {
           key: s,
           label: t(`quote_status_${s}` as never),
           count: list.length,
-          value: list.reduce((sum: number, q: any) => sum + (q.value ?? 0), 0),
+          value: sumRecorded(list, (q: any) => q.value).total, // unvalued rows add nothing
         };
       }).filter((r) => r.count > 0),
     [quotes, t],
@@ -148,11 +149,13 @@ function ReportsPage() {
   const lostQuotes = quotes.filter((q: any) => q.status === "lost");
   const closed = wonQuotes.length + lostQuotes.length;
   const winRate = computeQuotationWinRatePct(quotes, null);
-  const wonValue = wonQuotes.reduce((s: number, q: any) => s + (q.value ?? 0), 0);
-  const openQuotesValue = quotes
-    .filter((q: any) => !["won", "lost", "expired"].includes(q.status))
-    .reduce((s: number, q: any) => s + (q.value ?? 0), 0);
-  const lostValue = lostQuotes.reduce((s: number, q: any) => s + (q.value ?? 0), 0);
+  const wonValue = sumRecorded(wonQuotes, (q: any) => q.value);
+  const openQuotesValue = sumRecorded(quotes.filter((q: any) => !["won", "lost", "expired"].includes(q.status)), (q: any) => q.value);
+  const lostValue = sumRecorded(lostQuotes, (q: any) => q.value);
+  const valueText = (v: ValueSum) => totalOrDash(v, money);
+  const scopePeriod = scope.from || scope.to
+    ? `${lang === "ar" ? "أُنشئ" : "Created"} ${scope.from || "…"} → ${scope.to || "…"}`
+    : (lang === "ar" ? "كل التواريخ" : "All dates");
   const lostReasons = lostQuotes
     .map((q: any) => q.win_loss_reason)
     .filter(Boolean) as string[];
@@ -208,14 +211,33 @@ function ReportsPage() {
               hint={closed > 0 ? `${formatNumber(wonQuotes.length, lang)} / ${formatNumber(closed, lang)}` : undefined}
               icon={<TrendingUp className="h-3.5 w-3.5" />}
               trend={winRate !== null ? (winRate >= 50 ? "up" : winRate >= 25 ? "flat" : "down") : undefined}
+              definition={kpiDefinition("quotation_win_rate", lang)}
+              period={scopePeriod}
             />
-            <KpiCard label={lang === "ar" ? "قيمة عروض الأسعار الفائزة" : "Won quotation value"} value={money(wonValue)} icon={<Wallet className="h-3.5 w-3.5" />} />
+            <KpiCard
+              label={lang === "ar" ? "قيمة عروض الأسعار الفائزة" : "Won quotation value"}
+              value={valueText(wonValue)}
+              hint={unvaluedLabel(wonValue.unvalued, lang) || undefined}
+              icon={<Wallet className="h-3.5 w-3.5" />}
+              definition={kpiDefinition("quotation_value", lang)}
+              period={scopePeriod}
+            />
             <KpiCard
               label={t("report_open_quotes_value")}
-              value={money(openQuotesValue)}
+              value={valueText(openQuotesValue)}
+              hint={unvaluedLabel(openQuotesValue.unvalued, lang) || undefined}
               icon={<AlertCircle className="h-3.5 w-3.5" />}
+              definition={kpiDefinition("quotation_value", lang)}
+              period={scopePeriod}
             />
-            <KpiCard label={lang === "ar" ? "قيمة عروض الأسعار الخاسرة" : "Lost quotation value"} value={money(lostValue)} icon={<XCircle className="h-3.5 w-3.5" />} />
+            <KpiCard
+              label={lang === "ar" ? "قيمة عروض الأسعار الخاسرة" : "Lost quotation value"}
+              value={valueText(lostValue)}
+              hint={unvaluedLabel(lostValue.unvalued, lang) || undefined}
+              icon={<XCircle className="h-3.5 w-3.5" />}
+              definition={kpiDefinition("quotation_value", lang)}
+              period={scopePeriod}
+            />
           </KpiRow>
 
           <div className="grid gap-4 lg:grid-cols-2">

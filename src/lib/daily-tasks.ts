@@ -29,15 +29,7 @@ export type RepDay = {
   buckets: Partial<Record<Bucket, { done: number; total: number }>>;
 };
 
-export function riyadhDay(d: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
-}
-
-export function addDays(day: string, n: number): string {
-  const d = new Date(`${day}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
+export { riyadhDay, addDays } from "@/lib/riyadh-day";
 
 export function rate(done: number, openDue: number): number | null {
   const total = done + openDue;

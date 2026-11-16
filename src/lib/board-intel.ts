@@ -27,7 +27,8 @@
 // Pure. `now` is passed in; nothing here reads a clock.
 // =============================================================================
 
-import { canonicalStageOf, OPEN_STAGES } from "@/lib/sales-kpis";
+import { riyadhDay, addDays } from "@/lib/riyadh-day";
+import { canonicalStageOf, isOpen, OPEN_STAGES, weightedPipeline as engineWeightedPipeline } from "@/lib/sales-kpis";
 import type { CanonicalStage } from "@/lib/stage-canonical";
 import { opportunityValue, sumOpportunityValue } from "@/lib/opportunity-value";
 
@@ -139,37 +140,38 @@ function hasProbability(o: IntelOpp): boolean {
 }
 
 /**
- * Probability-weighted pipeline.
+ * Probability-weighted pipeline — the canonical engine's figure
+ * (sales-kpis.weightedPipeline), so the board and Command Center cannot
+ * disagree. An out-of-range probability is treated as absent.
  *
  * Returns `no_data` rather than a number when no open deal carries a
- * probability -- which is every deal, today. A weighted pipeline of "SAR 0"
- * would read as "nothing is likely to close", and the truth is "nobody has said
- * how likely anything is".
+ * probability, and when the scored deals cover under half the open value: a
+ * weighted figure over a sliver of the book reads as the whole book.
  */
 export function weightedPipeline(opps: readonly IntelOpp[]): Figure {
-  const openStages: readonly string[] = OPEN_STAGES;
-  const open = opps.filter((o) => {
-    const st = canonicalStageOf(o as never);
-    return !!st && openStages.includes(st);
-  });
+  const rows = opps.map((o) => (hasProbability(o) ? o : { ...o, human_win_probability: null }));
+  const open = rows.filter((o) => isOpen(o as never));
   if (open.length === 0) return { value: null, state: "no_data", reasonAr: "لا فرص مفتوحة", reasonEn: "no open deals" };
 
-  const withProb = open.filter(hasProbability);
-  if (withProb.length === 0) {
+  const k = engineWeightedPipeline(rows as never, { today: "", period: null });
+  const scored = new Set(k.recordIds);
+  if (scored.size === 0) {
     return missing(
       open.length,
       `لا احتمالية مُدخَلة على أي من ${open.length} فرصة مفتوحة`,
       `No probability entered on any of ${open.length} open deals`,
     );
   }
-
-  const valued = withProb.filter((o) => opportunityValue(o) !== null);
-  if (valued.length === 0) return missing(open.length, "لا قيمة مسجّلة للفرص ذات الاحتمالية", "No value entered on deals with a probability");
-  const total = valued.reduce((sum, o) => {
-    const v = opportunityValue(o as never);
-    return v === null ? sum : sum + v * ((o.human_win_probability as number) / 100);
-  }, 0);
-  return { ...ok(total), missing: open.length - valued.length };
+  const valued = open.filter((o) => scored.has(o.id) && opportunityValue(o) !== null).length;
+  if (valued === 0) return missing(open.length, "لا قيمة مسجّلة للفرص ذات الاحتمالية", "No value entered on deals with a probability");
+  if (k.caveat?.key === "cav_weighted_partial" || k.value === null) {
+    return missing(
+      open.length - scored.size,
+      `مبني على ${scored.size} من ${open.length} فرصة مفتوحة فقط`,
+      `Based on only ${scored.size} of ${open.length} open deals`,
+    );
+  }
+  return { ...ok(k.value), missing: open.length - valued };
 }
 
 /**
@@ -254,7 +256,7 @@ export function attentionItems(
 ): AttentionItem[] {
   const stalledAfter = opts.stalledAfterDays ?? 10;
   const dayMs = 86_400_000;
-  const today = now.toISOString().slice(0, 10);
+  const today = riyadhDay(now);
 
   const overdueByOpp = new Map<string, { count: number; oldestDays: number }>();
   for (const f of followUps) {
@@ -402,9 +404,8 @@ export function horizonForecast(
     return { d30: f, d60: f, d90: f };
   }
 
-  const day = 86_400_000;
-  const at = (days: number) => new Date(now.getTime() + days * day).toISOString().slice(0, 10);
-  const today = now.toISOString().slice(0, 10);
+  const today = riyadhDay(now);
+  const at = (days: number) => addDays(today, days);
 
   /**
    * Weighted value of everything expected to close by `to`.
