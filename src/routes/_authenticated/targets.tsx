@@ -31,6 +31,7 @@ import {
   type FollowUpRow,
   type ActionFlagRow,
 } from "@/lib/targets-metrics";
+import { QUOTE_DEAL_STAGE, liveQuotes } from "@/lib/live-quotes";
 
 export const Route = createFileRoute("/_authenticated/targets")({
   head: () => ({
@@ -162,11 +163,13 @@ function TargetsPage() {
   const { data: quotations = [] } = useQuery({
     queryKey: ["quotes-for-targets"],
     queryFn: async () =>
-      (
-        (await supabase.from("quotations").select("id, owner_id, status, value, updated_at")) as {
-          data: QuotationRow[] | null;
-        }
-      ).data ?? [],
+      liveQuotes(
+        (
+          (await supabase.from("quotations").select(`id, owner_id, status, value, updated_at, ${QUOTE_DEAL_STAGE}`)) as {
+            data: QuotationRow[] | null;
+          }
+        ).data,
+      ),
   });
 
   const { data: followUps = [] } = useQuery({
