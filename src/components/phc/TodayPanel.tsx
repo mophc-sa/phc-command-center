@@ -11,6 +11,7 @@
 // belong on Command Center and Reports.
 // =============================================================================
 
+import { localizeFlagText } from "@/lib/flag-text";
 import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -183,7 +184,7 @@ export function TodayPanel({ uid }: { uid: string }) {
                       <StatusPill tone="attention">{t("ac_urgency_due_today")}</StatusPill>
                     ) : null}
                     <span className="line-clamp-2 text-base font-medium text-foreground">
-                      {a.source === "approval" ? approvalTypeLabel(a.type, lang) : a.title || tt(actionTypeKey(a))}
+                      {a.source === "approval" ? approvalTypeLabel(a.type, lang) : localizeFlagText(a.title, lang) || tt(actionTypeKey(a))}
                     </span>
                   </div>
                   {/* Which record — never the task title or the note. */}
@@ -192,7 +193,7 @@ export function TodayPanel({ uid }: { uid: string }) {
                   ) : null}
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                     {/* Why it is here — the PRD requires every row to justify itself. */}
-                    <span>{whyText(a, tt, num)}</span>
+                    <span>{whyText(a, tt, num, lang)}</span>
                     {a.dueAt ? (
                       <>
                         <span aria-hidden="true">·</span>

@@ -15,6 +15,7 @@
 // calendar through a private subscription link. It writes no record.
 // =============================================================================
 
+import { localizeFlagText } from "@/lib/flag-text";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -337,7 +338,7 @@ function CalendarPage() {
                       params={{ id: e.entityId }}
                       className="block text-sm text-foreground hover:underline"
                     >
-                      {e.title || e.context || e.entityId.slice(0, 8)}
+                      {localizeFlagText(e.title || e.context, lang) || e.entityId.slice(0, 8)}
                     </Link>
                     {e.context && e.title ? (
                       <span className="text-2xs text-muted-foreground">{e.context}</span>
