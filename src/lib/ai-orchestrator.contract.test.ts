@@ -172,7 +172,8 @@ test("index.ts only calls request claiming, bounded AI usage reservation and the
   expect(rpcCalls.length).toBeGreaterThan(0);
   for (const name of rpcCalls) {
     // outlook_sync_key_matches: the info@ service caller's Vault key check (STABLE, returns a boolean).
-    expect(["claim_ai_agent_request", "reserve_ai_usage", "outlook_sync_key_matches"]).toContain(name);
+    // store_ai_agent_output: writes ai_agent_outputs only (supersede + insert, 20261116150100).
+    expect(["claim_ai_agent_request", "reserve_ai_usage", "outlook_sync_key_matches", "store_ai_agent_output"]).toContain(name);
   }
 });
 

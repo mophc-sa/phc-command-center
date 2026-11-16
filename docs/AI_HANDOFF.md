@@ -1,5 +1,12 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-16 — AI audit fixes + Riyadh days (branch `fix/ai-audit-riyadh`, Draft PR, not deployed)
+
+Migrations `20261116150000`–`20261116150300`. Functions changed: `ai-orchestrator` and `sales-os-api` (intelligence handler). Frontend: opportunity AI panels, correspondence panel, intake review queue, and the Command Center brief call. See CHANGELOG for details.
+**Release (Mo approves each step):** merge → `supabase db push` (4 migrations; the 150100 backfill marks ~535 production pending outputs as superseded) → deploy `ai-orchestrator` and `sales-os-api` → frontend deploy. **Order matters:** deploy `ai-orchestrator` right after the db push. The old function inserts directly, and with the new unique index a second run on the same record fails with AI_OUTPUT_PERSIST_FAILED until the new version is live.
+**Post-release checks:** `select agent_key, count(*) from ai_agent_outputs where status='pending_review' group by 1` has at most one row per key; reload the Command Center twice, and `sales_report_insights` outputs for the day stay at 1; after the next info@ intake, `ai_extracted_fields` is filled.
+**Not done:** `src/integrations/supabase/types.ts` is generated from production (`bun run gen:types`); regenerate after the db push. No UI yet to set `verification_status` on deals/companies (columns only).
+
 ## 2026-11-15 — Target-client import `targets-2026-11` (production data, no code)
 
 Source: Google Sheet "نسخة من Data — سجل المخرجات والأبحاث" (243 research records). 130 were excluded: 66 name-only portfolio entries outside KSA, 24 completed or open, 13 in-file duplicates, 4 already active deals (a research note was added to each), and 23 others. **109 leads** (A32/B48/C29 by score) at **56 companies** (27 new; 26 existing companies with no owner now owned by the rep). Each company has one rep: Faisal 28 companies/56 leads, Abdelrahman 28/53. Existing deal history kept the company with its rep; the rest were balanced by priority weight. **224 company follow-ups** run Sun–Thu from 2026-11-15 to 2026-12-10, 3 companies per rep per day, highest score first. Each company has 4 steps (Day 0 email, Day 2 call + LinkedIn, Day 5 follow-up email, Day 14 close), and each step carries the ready AR/EN text in `notes`. 51 contacts. Only 10 of 56 companies have an email in the source; the rest start with finding the buyer. Emails are sent by the rep from Outlook; the system does not send them.

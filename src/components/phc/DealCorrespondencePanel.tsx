@@ -103,6 +103,8 @@ export function DealCorrespondencePanel({ opportunityId }: { opportunityId: stri
 
   const sources = (ids: string[]) => (
     <span className="ms-1 inline-flex flex-wrap gap-1 align-middle">
+      {/* The orchestrator already removed citations of email the AI was not shown;
+          this only hides sources older than the 40 listed here. */}
       {ids.filter((id) => byId.has(id)).map((id) => (
         <button
           key={id}
@@ -149,7 +151,7 @@ export function DealCorrespondencePanel({ opportunityId }: { opportunityId: stri
             <section className="space-y-3 rounded-lg border border-border/70 bg-muted/30 p-4">
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <StatusPill tone="muted">{t("corr_ai_label")}</StatusPill>
-                <span>{t("corr_made")} {fmt(output!.created_at)}</span>
+                <span>{t("corr_made")} {fmt(output!.created_at)}{output!.model ? <> · <span dir="ltr">{output!.model}</span></> : null}</span>
                 {newer > 0 ? <StatusPill tone="attention">{newer} {t("corr_newer")}</StatusPill> : null}
               </div>
               <p dir="auto" className="text-sm text-foreground">{summary.current_status}</p>

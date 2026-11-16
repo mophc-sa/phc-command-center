@@ -115,9 +115,17 @@ async function run_duplicate_detection(
   const companies = await readAll((from,to) => svc.from("companies")
     .select("id, name, website_domain, cr_number, phone, email").order("id").range(from,to));
   const groups = findDuplicateGroups((companies ?? []) as DupRecord[], "company");
+  // A group still open from an earlier scan is not re-created; its
+  // recommendation is refreshed instead (create_ai_recommendation upserts).
+  const memberKey = (ids: string[]) => [...ids].sort().join(",");
+  const { data: openGroups } = await svc.from("duplicate_groups")
+    .select("id, duplicate_group_members(entity_id)").eq("entity_type", "company").eq("status", "open").throwOnError();
+  const existing = new Set((openGroups ?? []).map((og) =>
+    memberKey(((og as { duplicate_group_members: { entity_id: string }[] }).duplicate_group_members ?? []).map((m) => m.entity_id))));
   let created = 0;
   for (const g of groups) {
-    const { data: grp } = await svc
+    const isNew = !existing.has(memberKey(g.members.map((m) => m.entity_id)));
+    const { data: grp } = !isNew ? { data: null } : await svc
       .from("duplicate_groups")
       .insert({
         entity_type: g.entity_type,
@@ -128,8 +136,8 @@ async function run_duplicate_detection(
       })
       .select("id")
       .single().throwOnError();
-    if (!grp) continue;
-    await svc.from("duplicate_group_members").insert(
+    if (isNew && !grp) continue;
+    if (grp) await svc.from("duplicate_group_members").insert(
       g.members.map((m) => ({
         group_id: (grp as { id: string }).id,
         entity_type: g.entity_type,
@@ -160,7 +168,7 @@ async function run_duplicate_detection(
         weight: g.confidence * 100,
       })),
     );
-    created++;
+    if (isNew) created++;
   }
   await finishAgentRun(svc, runId, {
     status: "completed",

@@ -16,7 +16,7 @@ import type { AgentKey } from "./ai-schemas.ts";
 // Bump this whenever ANY prompt's wording changes, even for one agent — it is
 // recorded in ai_agent_trace_events.metadata so a bad prompt revision can be
 // correlated with a spike in AI_OUTPUT_VALIDATION_FAILED / AI_GUARDRAIL_REJECTED.
-export const PROMPT_VERSION = "phc-ai.v5";
+export const PROMPT_VERSION = "phc-ai.v6";
 
 // Shared preamble every agent prompt starts with. States, in order: (1) the
 // agent never acts, only recommends: (2) untrusted-content handling; (3)
@@ -66,7 +66,9 @@ Return a JSON object with exactly these fields:
 - overall_score: number, 0-100
 - qualification: "low" | "medium" | "high"
 - recommended_priority: "low" | "medium" | "high" | "critical"
-- win_likelihood: number, 0-100 (percent)
+- win_likelihood: number, 0-100 (percent), or null when the CONTEXT lacks
+  commercial signals (no quotation, value, client response or stage evidence)
+  — never guess a percentage
 - rationale: short string explaining the score
 - strengths: string[] (what is working in this opportunity's favor)
 - risks: string[] (what could cause it to stall or be lost)

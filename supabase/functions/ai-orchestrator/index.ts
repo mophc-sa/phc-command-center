@@ -40,7 +40,7 @@ import { json, err } from "../_shared/respond.ts";
 import { resolveCaller, serviceClient, type AppRole } from "../_shared/supabase.ts";
 import { isSystemAdmin } from "../_shared/roles.ts";
 import { OrchestratorRequestSchema, type AiErrorCode, type AgentKey, type EntityType } from "../_shared/ai-schemas.ts";
-import { AGENT_REGISTRY } from "../_shared/ai-agent-registry.ts";
+import { AGENT_REGISTRY, stripUncitedSources } from "../_shared/ai-agent-registry.ts";
 import {
   isAllowedAgent,
   isEntityAllowedForAgent,
@@ -524,33 +524,48 @@ async function handleRequest(req: Request): Promise<Response> {
     });
   }
 
+  // ---- 14b. Post-validate citations --------------------------------------------------------
+  // A source_ids entry must be a record the agent was shown; anything else is
+  // removed here and recorded in source_refs, never just hidden by the screen.
+  const droppedSourceIds = contextResult.sourceIds
+    ? stripUncitedSources(structuredOutput, new Set(contextResult.sourceIds))
+    : [];
+
   // ---- 15. Insert ai_agent_outputs (pending_review) ----------------------------------------
+  // store_ai_agent_output() (20261116150100) supersedes this key's previous
+  // pending row in the same transaction: one live suggestion per
+  // (agent, entity, requester), with the model and sources that produced it.
   const outputCharacterCount = JSON.stringify(structuredOutput).length;
   const rationale = typeof structuredOutput.rationale === "string" ? structuredOutput.rationale : null;
-  const { data: outputRow, error: outputError } = await svc
-    .from("ai_agent_outputs")
-    .insert({
+  const { data: outputId, error: outputError } = await svc.rpc("store_ai_agent_output", {
+    _row: {
       trace_id: traceId,
       agent_key: request.agent,
       output_type: agentDef.outputType,
       entity_type: entityType,
       entity_id: entityId,
       requested_by: caller.userId,
-      status: "pending_review",
       structured_output: structuredOutput,
       summary: rationale ? rationale.slice(0, 300) : null,
       client_request_id: request.clientRequestId ?? null,
-    })
-    .select("id")
-    .single();
+      model: config.model,
+      provider: config.provider,
+      prompt_version: PROMPT_VERSION,
+      source_refs: {
+        record_counts: contextResult.manifest.record_counts,
+        source_entity_types: contextResult.manifest.source_entity_types,
+        ...(contextResult.sourceIds ? { source_ids: contextResult.sourceIds } : {}),
+        ...(droppedSourceIds.length ? { dropped_source_ids: droppedSourceIds } : {}),
+      },
+    },
+  });
 
-  if (outputError || !outputRow) {
+  if (outputError || typeof outputId !== "string") {
     return await fail("AI_OUTPUT_PERSIST_FAILED", "The recommendation could not be saved.", 500, {
       provider: config.provider,
       model: config.model,
     });
   }
-  const outputId = (outputRow as { id: string }).id;
 
   // ---- 16. Mark claim succeeded + mark trace succeeded ---------------------------------------
   // Required Fix 3: the output already exists at this point and is NEVER
@@ -575,7 +590,7 @@ async function handleRequest(req: Request): Promise<Response> {
     inputTokenCount: providerResult.usage?.inputTokens ?? null,
     outputTokenCount: providerResult.usage?.outputTokens ?? null,
     contextManifest: contextResult.manifest,
-    metadata: { promptVersion: PROMPT_VERSION },
+    metadata: { promptVersion: PROMPT_VERSION, droppedSourceIds: droppedSourceIds.length },
   });
 
   if (!succeededTrace.ok || !claimUpdate.ok) {

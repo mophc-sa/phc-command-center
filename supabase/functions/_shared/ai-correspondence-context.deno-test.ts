@@ -4,7 +4,7 @@
 // =============================================================================
 
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { AGENT_REGISTRY, loadDealCorrespondenceContext } from "./ai-agent-registry.ts";
+import { AGENT_REGISTRY, loadDealCorrespondenceContext, stripUncitedSources } from "./ai-agent-registry.ts";
 import { MAX_CONTEXT_CHARS } from "./ai-guardrails.ts";
 
 type Row = Record<string, unknown>;
@@ -64,4 +64,23 @@ Deno.test("fifteen long emails still fit the context budget", async () => {
   if (!r.ok) return;
   assert(r.contextText.length <= MAX_CONTEXT_CHARS, `context ${r.contextText.length} chars`);
   assert(r.recordCount <= AGENT_REGISTRY.deal_correspondence_summary.maxContextRecords);
+});
+
+Deno.test("the context lists the emails the AI may cite", async () => {
+  const r = await loadDealCorrespondenceContext(fakeDb(OPP, [email(2), email(1)]) as never, "opportunities", "opp", {});
+  assert(r.ok);
+  if (!r.ok) return;
+  assertEquals(r.sourceIds, [email(1).id, email(2).id]);
+});
+
+Deno.test("a citation of an email the AI was not shown is removed and reported", () => {
+  const out = {
+    client_asked: [{ text: "BOQ", source_ids: ["a", "ghost"] }],
+    we_owe: [],
+    next_step: { text: "Call", source_ids: ["ghost2"] },
+  };
+  const dropped = stripUncitedSources(out, new Set(["a"]));
+  assertEquals(dropped, ["ghost", "ghost2"]);
+  assertEquals(out.client_asked[0].source_ids, ["a"]);
+  assertEquals(out.next_step.source_ids, []);
 });

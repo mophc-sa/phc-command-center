@@ -806,6 +806,7 @@ Marie's *PHC Quotation List* is the master record of every quotation. The system
 - Each owner gets one summary notification, not one per deal.
 - **`/data-sync`** (sales leadership): the runs and **what needs a person**: no sales code, unknown status, a won deal the file shows open, a stage changed in the system after the file, no owner (legacy prefixes BA, AD, AN, AH, MB have no account), no numeric amount. Open the deal to complete it.
 - The whole run can be undone.
+- **A person's edit wins (2026-11-16).** When applying, the system checks each deal again. If its stage, value or loss reason changed after the plan was made, or anyone changed it on or after the file's last update, the deal is left as it is and the row goes to `/data-sync` review as *Changed in the system after the master list: quotation_value* (or whichever field). Undo also puts a field back only if it still holds the value the sync wrote. A value someone changed after the sync is kept.
 
 ### Reports & Analysis — التقارير والتحليل
 
@@ -970,6 +971,12 @@ report insights; follow-up drafting.
 
 All 18 agents run through a single governed backend service. **AI never writes to a record
 on its own** — it proposes, you apply.
+
+**Where a suggestion came from (2026-11-16).** Under the Risk Assessment and Opportunity Evaluation on a deal you now see *أُنشئ / Made* with the date, the model, and its sources (for example "12 activities, 1 opportunities"). If an email, call or meeting was added to the deal after the suggestion was made, it shows **توجد مستجدات بعد هذه التوصية / New activity since this recommendation**. Run it again before relying on it. The correspondence summary shows the model too, and a cited email the AI was never shown is removed before the summary is saved.
+- **Win likelihood** shows **غير محدد / Not enough data** when the deal has no commercial signal (no quotation, value, client reply or stage evidence). The AI no longer guesses a percentage.
+- **Only the latest suggestion waits for review.** Running an agent again on the same record replaces the earlier pending suggestion; the old one is kept as *superseded*. The Command Center brief runs once per Riyadh day per language. Refreshing the page reuses it.
+- **Intake from info@:** in the review queue, a field the AI read from the email carries **اقتراح AI — تحقّق / AI suggestion — verify**. Check it against the email before approving.
+- **Dates are Riyadh days.** "Due today", "overdue" and the nightly reminders follow the Riyadh calendar. Before this, between 9 pm and midnight they still showed the previous day.
 
 ---
 
@@ -1738,3 +1745,5 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-12 · Phase B, B5: project costs from pricing, money out, /project-profit with the cost of late collection · branch feat/contract-costs, not deployed · previous: B4 variations, 2026-11-12 -->
 
 <!-- last reviewed 2026-11-12 · master list sync: duplicates merged, deals updated and created from the master list, missing data filled, /data-sync review list · branch feat/data-sync, not deployed · previous: B5 costs, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-16 · AI provenance (model, date, sources, new-activity notice), one pending suggestion per record, win likelihood 'Not enough data', AI-filled intake fields labelled, Riyadh days in SQL, data sync keeps a person's edit · branch fix/ai-audit-riyadh, not deployed · previous: master list sync, 2026-11-12 -->

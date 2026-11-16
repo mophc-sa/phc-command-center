@@ -66,12 +66,21 @@ import {
 export function IntakeDetail({ r }: { r: any }) {
   const { t, lang } = useI18n();
   const dash = t("rev_details_none");
+  // Columns the AI read out of the source email (info_mail_create_intake).
+  const aiFields: string[] = Array.isArray(r.ai_extracted_fields) ? r.ai_extracted_fields : [];
 
-  const Field = ({ label, value }: { label: string; value: unknown }) => {
+  const Field = ({ label, value, name }: { label: string; value: unknown; name?: string }) => {
     const empty = value === null || value === undefined || String(value).trim() === "";
     return (
       <div className="min-w-0">
-        <div className="text-2xs tracking-[0.02em] text-muted-foreground">{label}</div>
+        <div className="text-2xs tracking-[0.02em] text-muted-foreground">
+          {label}
+          {!empty && name && aiFields.includes(name) ? (
+            <span className="ms-1.5 rounded border border-amber/35 bg-amber/[0.08] px-1 text-amber-light">
+              {lang === "ar" ? "اقتراح AI — تحقّق" : "AI suggestion — verify"}
+            </span>
+          ) : null}
+        </div>
         <div className={`text-sm ${empty ? "text-muted-foreground italic" : "text-foreground"}`}>
           {empty ? dash : String(value)}
         </div>
@@ -103,14 +112,14 @@ export function IntakeDetail({ r }: { r: any }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Group title={t("rev_details_scope")}>
-        <Field label={t("ibx_scope")} value={r.scope} />
+        <Field label={t("ibx_scope")} value={r.scope} name="scope" />
         <Field
           label={t("ibx_scope_type")}
           value={r.scope_type ? t(`ibx_scope_${r.scope_type}` as never) : null}
         />
-        <Field label={t("ibx_estimated_value")} value={money(r.estimated_value)} />
+        <Field label={t("ibx_estimated_value")} value={money(r.estimated_value)} name="estimated_value" />
         <Field label={t("ibx_project_number")} value={r.project_number} />
-        <Field label={t("ibx_client_rfq_ref")} value={r.client_rfq_reference} />
+        <Field label={t("ibx_client_rfq_ref")} value={r.client_rfq_reference} name="client_rfq_reference" />
       </Group>
 
       <Group title={t("rev_details_docs")}>
@@ -141,7 +150,7 @@ export function IntakeDetail({ r }: { r: any }) {
         ) : (
           <Field label={t("ibx_evidence_url")} value={r.evidence_url} />
         )}
-        <Field label={t("ibx_deadline")} value={r.deadline} />
+        <Field label={t("ibx_deadline")} value={r.deadline} name="deadline" />
       </Group>
 
       <Group title={t("rev_details_parties")}>
@@ -151,11 +160,11 @@ export function IntakeDetail({ r }: { r: any }) {
         />
         <Field label={t("ibx_main_contractor")} value={r.main_contractor} />
         <Field label={t("ibx_consultant")} value={r.consultant} />
-        <Field label={t("ibx_contact_name")} value={r.contact_name} />
+        <Field label={t("ibx_contact_name")} value={r.contact_name} name="contact_name" />
         <Field label={t("ibx_contact_title")} value={r.contact_title} />
-        <Field label={t("ibx_email")} value={r.email} />
-        <Field label={t("ibx_phone")} value={r.phone} />
-        <Field label={t("ibx_location_city")} value={r.location_city || r.location} />
+        <Field label={t("ibx_email")} value={r.email} name="email" />
+        <Field label={t("ibx_phone")} value={r.phone} name="phone" />
+        <Field label={t("ibx_location_city")} value={r.location_city || r.location} name="location" />
       </Group>
 
       <Group title={t("rev_details_origin")}>
@@ -220,7 +229,7 @@ export function IntakeReviewPanel({ selectedId, items, loading, failed, retry, r
             "scope, scope_type, estimated_value, contact_name, contact_title, email, phone, " +
             "main_contractor, consultant, client_type, location, location_city, " +
             "notes, evidence_url, client_rfq_reference, internal_rfq_reference, " +
-            "project_number, date_received, source_name, project_type, source_type",
+            "project_number, date_received, source_name, project_type, source_type, ai_extracted_fields",
           )
           .in("review_state", ["pending_review", "need_information"])
           .order("created_at", { ascending: true })

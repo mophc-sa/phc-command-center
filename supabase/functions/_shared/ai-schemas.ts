@@ -180,7 +180,8 @@ export const OpportunityEvaluationOutputSchema = z
     overall_score: z.number().min(0).max(100),
     qualification: z.enum(QUALIFICATION_LEVELS),
     recommended_priority: z.enum(PRIORITY_LEVELS),
-    win_likelihood: z.number().min(0).max(100),
+    // null when the CONTEXT holds no commercial signal — a number there would be invented.
+    win_likelihood: z.number().min(0).max(100).nullable(),
     rationale: z.string().min(1).max(2000),
     strengths: z.array(z.string().min(1).max(300)).max(10),
     risks: z.array(z.string().min(1).max(300)).max(10),

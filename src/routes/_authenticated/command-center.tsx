@@ -43,6 +43,7 @@ import {
   type CommentaryState,
 } from "@/lib/sales-ai";
 import { AGGREGATE_ENTITY_ID, runAiAgent } from "@/lib/ai-orchestrator-actions";
+import { riyadhDay } from "@/lib/daily-tasks";
 import { Callout } from "@/components/phc/Callout";
 import { ExecutiveBrief } from "@/components/phc/ExecutiveBrief";
 import { DataQualityPanel } from "@/components/phc/DataQualityPanel";
@@ -545,6 +546,9 @@ function CommandCenter() {
         entityType: "reports",
         entityId: AGGREGATE_ENTITY_ID,
         input: { language: lang },
+        // One brief per Riyadh day and language: the 15-minute refresh gets the
+        // stored answer back from the orchestrator instead of re-running the model.
+        clientRequestId: `sales_report_insights:${riyadhDay()}:${lang}`,
       });
       return res.ok ? res : null;
     },
