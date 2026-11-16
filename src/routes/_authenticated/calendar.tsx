@@ -32,6 +32,7 @@ import { OutlookCalendarDialog } from "@/components/phc/OutlookCalendarDialog";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { formatMessage } from "@/lib/messages";
 import { scheduleFollowUp } from "@/lib/opportunity-actions";
+import { riyadhDay } from "@/lib/daily-tasks";
 import {
   buildCalendar,
   byDay,
@@ -66,7 +67,7 @@ function CalendarPage() {
 
   // Read once, here, rather than inside the engine — the engine stays pure and
   // testable against any date.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
   const [cursor, setCursor] = useState(() => ({
     y: Number(today.slice(0, 4)),
     m: Number(today.slice(5, 7)),
@@ -87,7 +88,7 @@ function CalendarPage() {
       const dated = (col: string) => `${col}.not.is.null`;
       const [followUps, rfqs, opps, inbox, flags, commitments, tasks, quotations, projects, tenders] =
         await Promise.all([
-          supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel")
+          supabase.from("follow_ups").select("id, opportunity_id, company_id, due_date, status, channel, opportunities(project_name, project_code), companies(id, name)")
             .not("due_date", "is", null),
           supabase.from("rfqs").select("id, rfq_number, response_due_date, status, opportunity_id")
             .not("response_due_date", "is", null),
@@ -332,7 +333,7 @@ function CalendarPage() {
                       ) : null}
                     </div>
                     <Link
-                      to="/opportunities/$id"
+                      to={e.entityKind === "account" ? "/accounts/$id" : "/opportunities/$id"}
                       params={{ id: e.entityId }}
                       className="block text-sm text-foreground hover:underline"
                     >

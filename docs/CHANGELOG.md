@@ -1,5 +1,13 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-16 — Work Queue identity, priority and today's list (branch `fix/actions-identity`, Draft PR, not deployed)
+
+Frontend only, no migration. Action Center, My Workspace "What needs you today", Follow-ups, Calendar and Needs Attention.
+- **Priority vs urgency vs data gaps:** risk flags, approvals and intake items no longer get a forced priority "A" (approvals/intake stay blocking). Deal tier (`opportunities.tier`) is its own pill, separate from the action's priority/cadence and the due date. Needs Attention excludes `data_quality` points from the score and shows a separate "Data gaps (n)" pill; each reason shows its category.
+- **Record identity:** rows/groups are named `project_code · project_name · client` or the company name; never a task title or note. Unlinked tasks read "Unlinked task" and don't link to `/opportunities/`. Company follow-ups link to `/accounts/$id` (Action Center and Calendar). Follow-up title = first line of the note without `[tag]`, max 80 chars.
+- **Today's list:** tasks/follow-ups fetched overdue + next 7 days, ordered, cancelled excluded. `todaysWork` returns `{items,total,stale}`; top 8 + "+N more"; overdue > 30 days shown apart as stale. Ranking: blocking → overdue (most recent first) → due today → deal tier.
+- **i18n/mobile:** "Why" line on every row via i18n keys (no `humanize` of raw codes, no hard-coded "Follow-up due"). NeedsAttentionPanel no longer leaks `src_*` keys. Action buttons drop below the text on phones with labels and 40px targets. Follow-ups default to Mine for non-managers.
+
 ## 2026-11-16 — One Riyadh "today" + KPI unification (branch `fix/kpi-riyadh`, Draft PR, not deployed)
 
 - **Riyadh day:** new pure `src/lib/riyadh-day.ts` (`riyadhDay`, `addDays`; re-exported from `daily-tasks.ts`). Every business "today" outside the four files owned by parallel work (TodayPanel, follow-ups, action-center, calendar — TODO allowlist in `riyadh-today.contract.test.ts`) now uses it, including browser-local helpers (`targets`, `pricing-queue.localDateString`, `dashboard-helpers.daysUntil`, `DailyEmailBrief.isFromToday`) and board month/year boundaries.

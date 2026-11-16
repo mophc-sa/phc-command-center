@@ -982,6 +982,39 @@ on its own** — it proposes, you apply.
 
 ---
 
+### 7c. Reading a Work Queue row *(2026-11-16)*
+
+Every row in the **Work Queue** (Action Center) and in **What needs you today** (My Workspace) now
+answers three separate questions with three separate labels:
+
+- **Which record?** The group header and the line under the title name the record:
+  `deal code · project · client` for a deal, or the company name for a client follow-up. A task
+  title or a follow-up note is never used as the record name. A task with no deal shows
+  **مهمة غير مرتبطة / Unlinked task** and has no deal link. A client follow-up opens the account.
+- **How important is the deal?** **Deal tier A/B/C** is the deal's own tier. It is a different pill
+  from the action's **Priority** (or **Cadence** for a follow-up) and from the due date.
+  A risk flag or an approval is no longer shown as tier A just because it is a risk or an approval;
+  a pending approval is marked **Blocking** instead.
+- **Why is it here?** Every row has a **Why** line in your language, plus "N days overdue" when late.
+
+A follow-up's title is the first line of its note without the import tag (for example
+`[targets-2026-11]`), shortened. The full note is still on the row, in two lines.
+
+**What needs you today** shows your overdue work and the next 7 days only, ranked:
+blocking → overdue (most recent first) → due today → deal tier. It shows the top 8 and a
+**+N more** link to the Work Queue. Anything more than 30 days late is counted apart as
+**متأخرة قديمة / Stale overdue** so old work doesn't push today's work off the list.
+Cancelled tasks and follow-ups are not shown.
+
+**Follow-ups** opens on **Mine** for salespeople and **All** for managers; switch with the
+toggle. Cancelled follow-ups are no longer listed. In the **Calendar**, a client follow-up opens
+the account and shows the company name.
+
+**Needs Attention** (Command Center): missing data (no value, no owner, no client, no probability,
+no decision maker, no contact history) no longer raises a deal's priority. It is counted in a
+separate **بيانات ناقصة (n) / Data gaps (n)** pill, and each reason in the drill-down is labelled
+with its kind (Risk, Follow-through, Data gap, Engagement).
+
 ## 8. Your daily routine by role
 
 ### Salesperson — مندوب مبيعات
@@ -1752,5 +1785,7 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-12 · Phase B, B5: project costs from pricing, money out, /project-profit with the cost of late collection · branch feat/contract-costs, not deployed · previous: B4 variations, 2026-11-12 -->
 
 <!-- last reviewed 2026-11-12 · master list sync: duplicates merged, deals updated and created from the master list, missing data filled, /data-sync review list · branch feat/data-sync, not deployed · previous: B5 costs, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-16 · Work Queue identity: record names, deal tier vs priority vs urgency, why on every row, today's top 8 with stale overdue apart, data gaps out of priority · branch fix/actions-identity, not deployed · previous: master list sync, 2026-11-12 -->
 
 <!-- last reviewed 2026-11-16 · one Riyadh "today", KPIs on the canonical engine, missing values shown as — with a count, bilingual KPI definitions · branch fix/kpi-riyadh, not deployed · previous: master list sync, 2026-11-12 -->

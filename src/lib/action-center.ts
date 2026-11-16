@@ -25,6 +25,8 @@
 // without a database. See action-center.test.ts.
 // =============================================================================
 
+import { formatMessage, msg, type MessageRef } from "@/lib/messages";
+
 export type ActionSource =
   | "flag"
   | "task"
@@ -53,11 +55,22 @@ export type UnifiedAction = {
   entityType: ActionEntityType;
   entityId: string;
   title: string;
-  /** Why this item is on the list — shown verbatim to the user. */
+  /** Raw source text explaining the item (a flag's reason), when there is one. */
   reason: string | null;
+  /** Why this item is on the list, rendered in the reader's language. Every projection sets it. */
+  why?: MessageRef;
   context: string | null;
   ownerUserId: string | null;
-  priority: ActionPriority;
+  /**
+   * The action's OWN priority (task priority, flag priority, follow-up
+   * cadence). Null when the source records none. Not the deal's tier and not
+   * urgency — those are `dealTier` and the due date.
+   */
+  priority: ActionPriority | null;
+  /** opportunities.tier of the deal the action is about, once attached. */
+  dealTier?: ActionPriority | null;
+  /** "code · project · client", or the company name. Never a task title or a note. */
+  recordLabel?: string | null;
   dueAt: string | null;
   status: ActionStatus;
   createdAt: string;
@@ -107,6 +120,7 @@ export type FollowUpRowIn = {
   opportunity_id: string | null;
   /** A reminder about a client rather than a deal (group 5). */
   company_id?: string | null;
+  companies?: { id: string; name: string | null } | null;
   owner_id: string | null;
   due_date: string | null;
   cadence_tier: string | null;
@@ -161,9 +175,108 @@ function flagStatus(s: string): ActionStatus {
   return "open";
 }
 
-/** priority_tier is A/B/C across the schema; anything else ranks lowest. */
-function normalizePriority(p: string | null | undefined): ActionPriority {
-  return p === "A" || p === "B" || p === "C" ? p : "C";
+/** priority_tier is A/B/C across the schema; anything else is "none recorded". */
+function normalizePriority(p: string | null | undefined): ActionPriority | null {
+  return p === "A" || p === "B" || p === "C" ? p : null;
+}
+
+/** Free text from a source row, carried through the translation layer untouched. */
+const text = (t: string): MessageRef => msg("ac_why_text", { text: t });
+
+/**
+ * A follow-up's title: the first meaningful line of its note, without a
+ * leading import tag like "[targets-2026-11]", capped. Imported notes run to
+ * ~1,900 characters and must never become a row title whole.
+ */
+export function followUpTitle(notes: string | null | undefined, max = 80): string | null {
+  for (const raw of (notes ?? "").split(/\r?\n/)) {
+    const line = raw.replace(/^\s*\[[^\]]*\]\s*/, "").replace(/^[\s•\-–*]+/, "").trim();
+    if (!line) continue;
+    return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line;
+  }
+  return null;
+}
+
+/** The identity line for a deal: "code · project · client". */
+export function opportunityLabel(o: {
+  project_code?: string | null;
+  project_name?: string | null;
+  client?: string | null;
+  main_contractor?: string | null;
+}): string | null {
+  const parts = [o.project_code, o.project_name, o.client || o.main_contractor]
+    .map((p) => p?.trim())
+    .filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+/** Columns the UI fetches to attach deal identity and tier to actions. */
+export const OPPORTUNITY_RECORD_COLUMNS = "id, project_name, project_code, client, main_contractor, tier";
+
+export type OpportunityRecord = {
+  id: string;
+  project_name?: string | null;
+  project_code?: string | null;
+  client?: string | null;
+  main_contractor?: string | null;
+  tier?: string | null;
+};
+
+/** Attach deal identity + tier. Pure; actions not about a known deal are returned unchanged. */
+export function attachRecords(actions: UnifiedAction[], opportunities: OpportunityRecord[]): UnifiedAction[] {
+  const byId = new Map(opportunities.map((o) => [o.id, o]));
+  return actions.map((a) => {
+    const o = a.entityType === "opportunity" && a.entityId ? byId.get(a.entityId) : undefined;
+    return o ? { ...a, recordLabel: opportunityLabel(o) ?? a.recordLabel ?? null, dealTier: normalizePriority(o.tier) } : a;
+  });
+}
+
+/** True for a task that is not about any deal — it has no record to open. */
+export const isUnlinkedTask = (a: UnifiedAction) => a.source === "task" && !a.entityId;
+
+const TYPE_KEY: Record<string, string> = {
+  follow_up_due: "acty_follow_up_due",
+  follow_up_overdue: "acty_follow_up_overdue",
+  missing_data: "acty_missing_data",
+  rfq_review_needed: "acty_rfq_review_needed",
+  tender_review_needed: "acty_tender_review_needed",
+  approval_needed: "acty_approval_needed",
+  quotation_follow_up: "acty_quotation_follow_up",
+  no_next_action: "acty_no_next_action",
+  inactive_tier_a_opportunity: "acty_inactive_tier_a_opportunity",
+  contract_evidence_missing: "acty_contract_evidence_missing",
+  submission_pending_on: "acty_submission_pending_on",
+  intake_review: "acty_intake_review",
+  intake_need_information: "acty_intake_need_information",
+};
+
+export const SOURCE_KEY: Record<ActionSource, string> = {
+  flag: "ac_source_flag",
+  task: "ac_source_task",
+  follow_up: "ac_source_follow_up",
+  approval: "ac_source_approval",
+  intake_review: "ac_source_intake_review",
+};
+
+/**
+ * The "why" line in the reader's language. `t` follows the i18n contract of
+ * returning the key itself when there is no translation, so a string slot is
+ * translated only when a channel label exists and otherwise shown as written.
+ */
+export function whyText(a: UnifiedAction, t: (k: string) => string, num: (n: number) => string): string {
+  return (
+    formatMessage(a.why ?? msg(actionTypeKey(a)), t, (v) => {
+      if (typeof v === "number") return num(v);
+      const key = `channel_${v}`;
+      const label = t(key);
+      return label === key ? v : label;
+    }) ?? ""
+  );
+}
+
+/** i18n key for an action's type; unknown codes fall back to the source label, never the raw code. */
+export function actionTypeKey(a: Pick<UnifiedAction, "type" | "source">): string {
+  return TYPE_KEY[a.type] ?? SOURCE_KEY[a.source];
 }
 
 // ---- Deep links -------------------------------------------------------------
@@ -214,11 +327,13 @@ export function fromFlag(f: FlagRowIn): UnifiedAction {
     entityId: f.linked_record_id,
     title: f.reason ?? f.recommended_action ?? f.queue_action_type ?? "Action required",
     reason: f.reason,
+    why: f.reason ? text(f.reason) : f.recommended_action ? text(f.recommended_action) : msg("ac_why_queue"),
     context: f.recommended_action,
     ownerUserId: f.action_owner_id,
-    // A risk flag is not a chore — rank it with the top tier regardless of the
-    // priority column, which automations often leave unset on risk rows.
-    priority: f.flag_kind === "risk" ? "A" : normalizePriority(f.priority),
+    // The flag's own priority column. A risk flag is NOT promoted to "A" here:
+    // urgency comes from the due date and blocking from status, and inventing
+    // a priority made every risk row read as top-tier work.
+    priority: normalizePriority(f.priority),
     dueAt: f.due_date,
     status,
     createdAt: f.created_at,
@@ -239,14 +354,20 @@ export function fromTask(t: TaskRowIn): UnifiedAction {
     entityId,
     title: t.title,
     reason: null,
+    why: msg(entityId ? "ac_why_task" : "ac_why_task_unlinked"),
     context: null,
     ownerUserId: t.owner_id,
     priority: normalizePriority(t.priority),
     dueAt: t.due_date,
-    status: t.status === "done" ? "done" : t.status === "in_progress" ? "in_progress" : "open",
+    status:
+      t.status === "done" ? "done"
+      : t.status === "cancelled" ? "dismissed"
+      : t.status === "in_progress" ? "in_progress"
+      : "open",
     createdAt: t.created_at,
     resolvedAt: t.completed_at ?? null,
-    href: actionHref("opportunity", entityId),
+    // An unlinked task has no deal to open; /opportunities/ with an empty id is a dead page.
+    href: entityId ? actionHref("opportunity", entityId) : "/my-workspace",
     blocking: false,
   };
 }
@@ -261,9 +382,11 @@ export function fromFollowUp(f: FollowUpRowIn): UnifiedAction {
     sourceRecordId: f.id,
     entityType: "opportunity",
     entityId,
-    title: f.notes ?? "Follow-up due",
-    reason: f.channel ? `Follow-up · ${f.channel}` : "Follow-up",
+    title: followUpTitle(f.notes) ?? "",
+    reason: null,
+    why: f.channel ? msg("ac_why_follow_up_channel", { channel: f.channel }) : msg("ac_why_follow_up"),
     context: f.notes,
+    recordLabel: !f.opportunity_id && f.companies?.name ? f.companies.name : null,
     ownerUserId: f.owner_id,
     priority: normalizePriority(f.cadence_tier),
     dueAt: f.due_date,
@@ -290,10 +413,12 @@ export function fromApproval(a: ApprovalRowIn): UnifiedAction {
     entityId,
     title: a.approval_type ?? "Approval",
     reason: pending ? "Awaiting decision" : null,
+    why: msg(pending ? "ac_why_approval_pending" : "ac_why_approval"),
     context: null,
     ownerUserId: a.assigned_approver,
-    // A pending decision blocks whoever is waiting on it downstream.
-    priority: pending ? "A" : "C",
+    // An approval has no priority of its own. A pending one is BLOCKING (below),
+    // which already ranks it first — it is not also "tier A".
+    priority: null,
     dueAt: null,
     status: pending ? "open" : a.status === "escalated" ? "blocked" : "done",
     createdAt: a.created_at,
@@ -324,11 +449,13 @@ export function fromIntake(o: IntakeRowIn): UnifiedAction | null {
       entityId: o.id,
       title: label,
       reason: "Awaiting intake review",
+      why: msg("ac_why_intake_review"),
+      recordLabel: label,
       context: o.request_type,
       // Reviewer is role-derived, not a column. Left null so the item counts as
       // unowned-and-blocking, which is what puts it in every reviewer's queue.
       ownerUserId: null,
-      priority: "A",
+      priority: null,
       dueAt: null,
       status: "open",
       createdAt: o.created_at,
@@ -347,9 +474,11 @@ export function fromIntake(o: IntakeRowIn): UnifiedAction | null {
       entityId: o.id,
       title: label,
       reason: "Information requested",
+      why: msg("ac_why_intake_info"),
+      recordLabel: label,
       context: o.request_type,
       ownerUserId: o.info_responsible_id ?? o.assigned_owner_id ?? o.created_by ?? null,
-      priority: "A",
+      priority: null,
       dueAt: o.info_due_date,
       status: "open",
       createdAt: o.created_at,
@@ -382,11 +511,29 @@ export function addDays(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Whole days past due, or null when not overdue. */
+export function overdueDays(dueAt: string | null, today: string): number | null {
+  if (!dueAt || urgencyOf(dueAt, today) !== "overdue") return null;
+  return Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${dueAt.slice(0, 10)}T00:00:00Z`)) / 86_400_000);
+}
+
+/**
+ * Overdue for longer than this is "stale": still owed, but no longer today's
+ * work. 224 imported company follow-ups landed months overdue at once; ranking
+ * them as today's top items buried everything actually due.
+ */
+export const STALE_OVERDUE_DAYS = 30;
+
+export const isStaleOverdue = (a: UnifiedAction, today: string) =>
+  !a.blocking && (overdueDays(a.dueAt, today) ?? 0) > STALE_OVERDUE_DAYS;
+
 // ---- Ranking ----------------------------------------------------------------
 // PRD Phase 4 §2 order:
-//   1 critical/blocking · 2 overdue · 3 due today · 4 high business impact
-//   5 upcoming
-// Ties break on due date then creation, so the list is stable across renders.
+//   1 critical/blocking · 2 overdue (most recent first) · 3 due today
+//   4 deal tier A · 5 upcoming · 6 stale overdue (> STALE_OVERDUE_DAYS)
+// "Tier" is the deal's tier, falling back to the action's own priority when
+// the action is not about a deal. Ties break on tier, due date, then creation,
+// so the list is stable across renders.
 
 const URGENCY_RANK: Record<Urgency, number> = {
   overdue: 0,
@@ -396,14 +543,19 @@ const URGENCY_RANK: Record<Urgency, number> = {
   none: 4,
 };
 
-const PRIORITY_RANK: Record<ActionPriority, number> = { A: 0, B: 1, C: 2 };
+const TIER_RANK: Record<ActionPriority, number> = { A: 0, B: 1, C: 2 };
+const tierOf = (a: UnifiedAction) => a.dealTier ?? a.priority;
+const tierRank = (a: UnifiedAction) => {
+  const t = tierOf(a);
+  return t ? TIER_RANK[t] : 3;
+};
 
 export function rankOf(a: UnifiedAction, today: string): number {
   if (a.blocking) return 0;
   const u = urgencyOf(a.dueAt, today);
-  if (u === "overdue") return 1;
+  if (u === "overdue") return isStaleOverdue(a, today) ? 9 : 1;
   if (u === "due_today") return 2;
-  if (a.priority === "A") return 3;
+  if (tierOf(a) === "A") return 3;
   return 4 + URGENCY_RANK[u];
 }
 
@@ -411,9 +563,12 @@ export function sortActions(actions: UnifiedAction[], today: string): UnifiedAct
   return [...actions].sort((a, b) => {
     const r = rankOf(a, today) - rankOf(b, today);
     if (r !== 0) return r;
-    const p = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+    const p = tierRank(a) - tierRank(b);
     if (p !== 0) return p;
-    if (a.dueAt && b.dueAt && a.dueAt !== b.dueAt) return a.dueAt < b.dueAt ? -1 : 1;
+    // Overdue: the most recently missed first — yesterday's miss is still
+    // recoverable, a two-month-old one will keep. Everything else: soonest first.
+    const late = urgencyOf(a.dueAt, today) === "overdue" ? -1 : 1;
+    if (a.dueAt && b.dueAt && a.dueAt !== b.dueAt) return a.dueAt < b.dueAt ? -late : late;
     if (a.dueAt && !b.dueAt) return -1;
     if (!a.dueAt && b.dueAt) return 1;
     return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
@@ -511,15 +666,22 @@ export function countActions(actions: UnifiedAction[], today: string): ActionCou
 /**
  * The "what do I need to do today" slice for My Workspace — the personal queue
  * only, already ranked, capped so the panel stays a to-do list and not a
- * second Action Center.
+ * second Action Center. `total` is everything that would have been shown
+ * uncapped (for "+N more"); stale overdue work is returned apart so it does not
+ * inflate today.
  */
 export function todaysWork(
   actions: UnifiedAction[],
   ctx: { uid: string; today: string },
   limit = 8,
-): UnifiedAction[] {
-  const mine = filterActions(actions, { ...DEFAULT_FILTERS, scope: "mine" }, ctx);
-  return sortActions(mine, ctx.today).slice(0, limit);
+): { items: UnifiedAction[]; total: number; stale: UnifiedAction[] } {
+  const mine = sortActions(filterActions(actions, { ...DEFAULT_FILTERS, scope: "mine" }, ctx), ctx.today);
+  const current = mine.filter((a) => !isStaleOverdue(a, ctx.today));
+  return {
+    items: current.slice(0, limit),
+    total: current.length,
+    stale: mine.filter((a) => isStaleOverdue(a, ctx.today)),
+  };
 }
 
 // ---- Role-aware assembly ----------------------------------------------------

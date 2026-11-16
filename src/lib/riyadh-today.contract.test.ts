@@ -19,14 +19,7 @@ import { addDays, riyadhDay } from "@/lib/riyadh-day";
 
 const ROOT = join(import.meta.dir, "..");
 
-// TODO: owned by parallel work at the time of writing; move each to the Riyadh
-// day and delete it from this list.
-const ALLOW = new Set([
-  "components/phc/TodayPanel.tsx",
-  "routes/_authenticated/follow-ups.tsx",
-  "routes/_authenticated/action-center.tsx",
-  "routes/_authenticated/calendar.tsx",
-]);
+const ALLOW = new Set<string>([]);
 
 // UTC "today" (or now ± n) cut down to a day.
 const UTC_TODAY =

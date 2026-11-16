@@ -60,6 +60,8 @@ export type CalendarEvent = {
   title: string;
   /** The record to open. */
   entityId: string;
+  /** Which page `entityId` opens; absent means an opportunity. */
+  entityKind?: "account";
   /** Deal or client context, when the row carries one. */
   context: string | null;
   /**
@@ -81,6 +83,9 @@ export type CalendarInput = {
     status: string | null;
     channel?: string | null;
     opportunityName?: string | null;
+    company_id?: string | null;
+    opportunities?: { project_name?: string | null; project_code?: string | null } | null;
+    companies?: { id: string; name?: string | null } | null;
   }>;
   rfqs?: Array<{
     id: string;
@@ -187,12 +192,17 @@ export function buildCalendar(input: CalendarInput): CalendarEvent[] {
     if (!f.due_date) continue;
     const done = DONE_FOLLOW_UP.has((f.status ?? "").toLowerCase());
     if (done) continue;
+    // A company-level follow-up (no deal) opens its account, titled with the
+    // company — not the channel name on a /opportunities/<follow-up id> link.
+    const company = !f.opportunity_id && f.companies?.id ? f.companies : null;
+    const deal = [f.opportunities?.project_code, f.opportunities?.project_name].filter(Boolean).join(" · ");
     out.push({
       id: `follow_up:${f.id}`,
       source: "follow_up",
       date: dayOf(f.due_date),
-      title: f.opportunityName ?? f.channel ?? "",
-      entityId: f.opportunity_id ?? f.id,
+      title: company ? (company.name ?? "") : (f.opportunityName ?? (deal || f.channel) ?? ""),
+      entityId: f.opportunity_id ?? company?.id ?? f.id,
+      ...(company ? { entityKind: "account" as const } : {}),
       context: f.channel ?? null,
       state: stateFor(dayOf(f.due_date), today, done),
       label: msg("cal_follow_up"),

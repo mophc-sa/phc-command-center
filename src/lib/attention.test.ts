@@ -139,9 +139,27 @@ describe("priority is deterministic and value-aware", () => {
   it("the score is exactly the sum of the reasons that fired, plus value and stage", () => {
     // §9: a band nobody can take apart is a black box wearing a number.
     for (const i of items) {
-      const fromReasons = i.reasons.reduce((s, r) => s + r.points, 0);
+      const fromReasons = i.reasons.filter((r) => r.category !== "data_quality").reduce((s, r) => s + r.points, 0);
       expect([i.opportunityId, i.score >= fromReasons]).toEqual([i.opportunityId, true]);
     }
+  });
+
+  it("data gaps never raise the priority score", () => {
+    // Same deal, same follow-up; one record is missing value/owner/client.
+    const complete = opp({ id: "complete", quotation_value: 100_000, owner_id: "u1", client: "ROSHN" });
+    const gappy = opp({ id: "gappy", quotation_value: 100_000, owner_id: null, client: null, main_contractor: null });
+    const [a, b] = ["complete", "gappy"].map(
+      (id) =>
+        buildAttention({
+          opportunities: [id === "complete" ? complete : gappy],
+          followUps: [fu(`f-${id}`, id, "2026-08-16")],
+          today: TODAY,
+        })[0],
+    );
+    expect(b.reasons.filter((r) => r.category === "data_quality").length).toBeGreaterThan(
+      a.reasons.filter((r) => r.category === "data_quality").length,
+    );
+    expect(b.score).toBe(a.score);
   });
 
   it("no AI is consulted — the engine takes only rows and a date", () => {
