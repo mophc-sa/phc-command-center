@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { localizeFlagText } from "@/lib/flag-text";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -469,7 +470,7 @@ function ActionRow({
   const actionable = a.source === "flag" && (["open", "in_progress", "blocked"] as string[]).includes(a.status);
   const tt = (k: string) => t(k as never);
   const num = (n: number) => formatNumber(n, lang);
-  const title = a.source === "approval" ? approvalTypeLabel(a.type, lang) : a.title || typeLabel(a, t, lang);
+  const title = a.source === "approval" ? approvalTypeLabel(a.type, lang) : localizeFlagText(a.title, lang) || typeLabel(a, t, lang);
   // Text label on phones (≥40px target), icon-only beside the text from sm up.
   const btn = "inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 text-xs transition-colors sm:h-7 sm:w-7 sm:px-0";
   const neutral = `${btn} border-border/70 bg-background/40 text-muted-foreground hover:border-border-strong hover:text-foreground`;
@@ -530,11 +531,11 @@ function ActionRow({
 
           {/* Why this is on the list — required by PRD §2, on every row. */}
           <div className="mt-1 text-sm text-muted-foreground">
-            <span className="text-amber-light">{tt("ac_why")}:</span> {whyText(a, tt, num)}
+            <span className="text-amber-light">{tt("ac_why")}:</span> {whyText(a, tt, num, lang)}
             {lateDays ? <> · {formatMessage(msg("ac_overdue_days", { days: lateDays }), tt, (v) => typeof v === "number" ? num(v) : v)}</> : null}
           </div>
           {a.context && a.context !== a.reason && a.context !== a.title ? (
-            <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.context}</div>
+            <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{localizeFlagText(a.context, lang)}</div>
           ) : null}
           <div className="mt-1 text-xs text-muted-foreground">
             {tt("ac_owner")}: {ownerName ?? tt("ac_unassigned")}

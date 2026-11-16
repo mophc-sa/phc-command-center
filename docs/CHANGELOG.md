@@ -1,5 +1,10 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-16 — Automation alerts in Arabic (branch `fix/flag-text-i18n`)
+
+- `run_sales_automations` stores flag reasons and actions as fixed English sentences, so the Arabic UI showed "Pending quotation_approval approval", "Follow-up due today" and similar. `src/lib/flag-text.ts` (`localizeFlagText`) maps each known sentence, with its date or approval type, to the reader's language at display time; unknown text is shown as written. Used in Action Center (title, why, context), Today panel, My Workspace "Action required", and Calendar. Frontend only. A test fails if a new English literal is added to `run_sales_automations` without a translation.
+
+
 ## 2026-11-16 — AI provenance and dedupe, Riyadh days in SQL, field audit, data sync respects edits (branch `fix/ai-audit-riyadh`, Draft PR, not deployed)
 
 - **Riyadh days** (`20261116150000`): the views `opportunity_next_action`, `overdue_commitments` and `sla_breaches`, and the functions `notify_due_follow_ups`, `notify_overdue_items` and `run_sales_automations`, use `riyadh_date(now())` instead of `CURRENT_DATE`. `commercial_review_queue` and `team_performance` are unchanged because they measure elapsed time. Contract and pricing functions are left as they are (listed in the migration).

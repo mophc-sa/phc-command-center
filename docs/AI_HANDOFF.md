@@ -1,5 +1,10 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-16 — Automation alerts in Arabic (branch `fix/flag-text-i18n`)
+
+- `run_sales_automations` stores flag reasons and actions as fixed English sentences, so the Arabic UI showed "Pending quotation_approval approval", "Follow-up due today" and similar. `src/lib/flag-text.ts` (`localizeFlagText`) maps each known sentence, with its date or approval type, to the reader's language at display time; unknown text is shown as written. Used in Action Center (title, why, context), Today panel, My Workspace "Action required", and Calendar. Frontend only. A test fails if a new English literal is added to `run_sales_automations` without a translation.
+
+
 ## 2026-11-16 — AI audit fixes + Riyadh days (branch `fix/ai-audit-riyadh`, Draft PR, not deployed)
 
 Migrations `20261116150000`–`20261116150300`. Functions changed: `ai-orchestrator` and `sales-os-api` (intelligence handler). Frontend: opportunity AI panels, correspondence panel, intake review queue, and the Command Center brief call. See CHANGELOG for details.

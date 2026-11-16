@@ -25,6 +25,8 @@
 // without a database. See action-center.test.ts.
 // =============================================================================
 
+import { localizeFlagText } from "@/lib/flag-text";
+import type { Lang } from "@/lib/i18n";
 import { formatMessage, msg, type MessageRef } from "@/lib/messages";
 
 export type ActionSource =
@@ -263,10 +265,12 @@ export const SOURCE_KEY: Record<ActionSource, string> = {
  * returning the key itself when there is no translation, so a string slot is
  * translated only when a channel label exists and otherwise shown as written.
  */
-export function whyText(a: UnifiedAction, t: (k: string) => string, num: (n: number) => string): string {
+export function whyText(a: UnifiedAction, t: (k: string) => string, num: (n: number) => string, lang: Lang = "en"): string {
   return (
     formatMessage(a.why ?? msg(actionTypeKey(a)), t, (v) => {
       if (typeof v === "number") return num(v);
+      const flagText = localizeFlagText(v, lang);
+      if (flagText !== v) return flagText ?? v;
       const key = `channel_${v}`;
       const label = t(key);
       return label === key ? v : label;

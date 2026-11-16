@@ -1,4 +1,5 @@
 import { riyadhDay, addDays } from "@/lib/riyadh-day";
+import { localizeFlagText } from "@/lib/flag-text";
 import { thisMonth, yearToDate, inPeriod, wonDate } from "@/lib/sales-kpis";
 import { createFileRoute, Link, useNavigate, type LinkProps } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
@@ -1212,7 +1213,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
                 <TableBody>
                   {(missingDataFlags as any[]).slice(0, 6).map((f: any) => (
                     <TableRow key={f.id}>
-                      <TableCell className="min-w-[160px] whitespace-normal text-foreground">{f.reason ?? humanize(f.flag_kind)}</TableCell>
+                      <TableCell className="min-w-[160px] whitespace-normal text-foreground">{localizeFlagText(f.reason, lang) ?? humanize(f.flag_kind)}</TableCell>
                       <TableCell><StatusPill tone={f.flag_kind === "risk" ? "danger" : "attention"}>{humanize(f.priority ?? f.flag_kind)}</StatusPill></TableCell>
                     </TableRow>
                   ))}
