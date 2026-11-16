@@ -16,6 +16,7 @@ import { ActionDialog } from "@/components/phc/ActionDialog";
 import { AiRiskAssessment } from "@/components/phc/AiRiskAssessment";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
+import { sumRecorded, totalOrDash, unvaluedLabel } from "@/lib/kpi-definitions";
 import {
   updateQuotationStatus,
   type QuotationStatus,
@@ -76,12 +77,12 @@ export function QuotationsPanel() {
 
   const kpis = useMemo(() => {
     const open = quotes.filter((q: any) => !CLOSED.includes(q.status));
-    const openValue = open.reduce((s: number, q: any) => s + (q.value ?? 0), 0);
+    const openValue = sumRecorded(open, (q: any) => q.value);
     const expiring = open.filter(
       (q: any) => q.valid_until && new Date(q.valid_until) >= now && new Date(q.valid_until) < soon,
     ).length;
     const won = quotes.filter((q: any) => q.status === "won");
-    const wonValue = won.reduce((s: number, q: any) => s + (q.value ?? 0), 0);
+    const wonValue = sumRecorded(won, (q: any) => q.value);
     return { openCount: open.length, openValue, expiring, wonValue, wonCount: won.length };
   }, [quotes]);
 
@@ -105,9 +106,9 @@ export function QuotationsPanel() {
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label={lang === "ar" ? "مفتوحة" : "Open quotations"} value={kpis.openCount} icon={<FileText className="h-3.5 w-3.5" />} />
-        <KpiCard label={lang === "ar" ? "قيمة المفتوحة" : "Open value"} value={formatCurrency(kpis.openValue, lang)} icon={<Wallet className="h-3.5 w-3.5" />} />
+        <KpiCard label={lang === "ar" ? "قيمة المفتوحة" : "Open value"} value={totalOrDash(kpis.openValue, (n) => formatCurrency(n, lang))} hint={unvaluedLabel(kpis.openValue.unvalued, lang) || undefined} icon={<Wallet className="h-3.5 w-3.5" />} />
         <KpiCard label={t("expiring_soon")} value={kpis.expiring} icon={<AlertTriangle className="h-3.5 w-3.5" />} />
-        <KpiCard label={lang === "ar" ? "قيمة الفائزة" : "Won value"} value={formatCurrency(kpis.wonValue, lang)} hint={`${kpis.wonCount}`} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
+        <KpiCard label={lang === "ar" ? "قيمة الفائزة" : "Won value"} value={totalOrDash(kpis.wonValue, (n) => formatCurrency(n, lang))} hint={[`${kpis.wonCount}`, unvaluedLabel(kpis.wonValue.unvalued, lang)].filter(Boolean).join(" · ")} icon={<CheckCircle2 className="h-3.5 w-3.5" />} />
       </div>
 
       <div className="mb-4 flex gap-2">

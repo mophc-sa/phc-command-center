@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import { KpiDefinition } from "@/components/phc/KpiDefinition";
 
 export type KpiTrend = "up" | "down" | "flat";
 
@@ -13,6 +14,8 @@ export function KpiCard({
   icon,
   footer,
   className,
+  definition,
+  period,
 }: {
   label: string;
   value: ReactNode;
@@ -22,6 +25,10 @@ export function KpiCard({
   icon?: ReactNode;
   footer?: ReactNode;
   className?: string;
+  /** What the number counts, in the reader's language. Shown behind an info icon. */
+  definition?: string;
+  /** The window the number covers, shown under it ("This month", "Snapshot"). */
+  period?: string;
 }) {
   const pillColor =
     trend === "up"
@@ -63,7 +70,10 @@ export function KpiCard({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="section-label">{label}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="section-label">{label}</span>
+          {definition ? <KpiDefinition label={label} definition={definition} period={period} /> : null}
+        </span>
         {icon ? (
           // The icon sat in a filled circle, which made it a second focal point
           // competing with the number for the eye. It is an aid to scanning a
@@ -88,6 +98,7 @@ export function KpiCard({
       {hint ? (
         <div className="mt-1.5 text-sm text-muted-foreground">{hint}</div>
       ) : null}
+      {period ? <div className="mt-1 text-xs text-muted-foreground">{period}</div> : null}
       {footer ? <div className="mt-4 border-t border-border pt-3">{footer}</div> : null}
     </div>
   );

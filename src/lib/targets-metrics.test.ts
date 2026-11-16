@@ -2,7 +2,7 @@
 import { test, expect } from "bun:test";
 import {
   achievementPct,
-  forecastValue,
+  forecastKpi,
   periodWindow,
   inPeriod,
   validateConversionTarget,
@@ -47,6 +47,8 @@ function opp(over: Partial<OpportunityRow> = {}): OpportunityRow {
     quotation_value: null,
     win_confidence: null,
     updated_at: "2026-07-05",
+    won_at: "2026-07-05",
+    lost_at: "2026-07-05",
     ...over,
   };
 }
@@ -60,15 +62,16 @@ test("achievementPct rounds to nearest percent", () => {
   expect(achievementPct(150, 100)).toBe(150); // can exceed 100, callers decide how to display it
 });
 
-test("forecastValue weights open opportunities by win_confidence, skips closed ones", () => {
+test("forecast is the canonical weighted pipeline — unscored deals excluded, never weighted at 20%", () => {
   const opps: OpportunityRow[] = [
-    opp({ stage: "discovery", estimated_value_max: 100000, win_confidence: "sure_win" }), // 90,000
-    opp({ stage: "quotation", estimated_value_max: 100000, win_confidence: "low" }), // 10,000
-    opp({ stage: "quotation", estimated_value_max: 100000, win_confidence: null }), // 20,000 (default weight)
-    opp({ stage: "won", estimated_value_max: 999999, win_confidence: "sure_win" }), // excluded (closed)
-    opp({ stage: "lost", estimated_value_max: 999999, win_confidence: "sure_win" }), // excluded (closed)
+    opp({ id: "a", stage: "discovery", estimated_value_max: 100000, human_win_probability: 90 }), // 90,000
+    opp({ id: "b", stage: "quotation", estimated_value_max: 100000, score: 10 }), // 10,000
+    opp({ id: "c", stage: "quotation", estimated_value_max: 100000, win_confidence: "strong" }), // unscored: excluded
+    opp({ id: "d", stage: "won", estimated_value_max: 999999, human_win_probability: 90 }), // closed
   ];
-  expect(forecastValue(opps)).toBe(90000 + 10000 + 20000);
+  const f = forecastKpi(opps, "2026-07-11");
+  expect(f.value).toBe(100000);
+  expect(f.caveat?.params?.count).toBe(1);
 });
 
 // ---------------------------------------------------------------------------
@@ -127,11 +130,35 @@ test("inPeriod: invalid or missing dates are safely excluded, not thrown", () =>
 
 test("computeSalespersonMetrics excludes a next-month win from this month's wonValue (regression for the unbounded-window bug)", () => {
   const opps: OpportunityRow[] = [
-    opp({ id: "o1", stage: "won", estimated_value_max: 60000, updated_at: "2026-07-15" }),
-    opp({ id: "o2", stage: "won", estimated_value_max: 999999, updated_at: "2026-08-01T00:00:00.000Z" }), // next month, must be excluded
+    opp({ id: "o1", stage: "won", estimated_value_max: 60000, won_at: "2026-07-15" }),
+    opp({ id: "o2", stage: "won", estimated_value_max: 999999, won_at: "2026-08-01T00:00:00.000Z" }), // next month, must be excluded
   ];
   const m = computeSalespersonMetrics(target(), { opportunities: opps, rfqs: [], tenders: [], quotations: [], followUps: [] });
   expect(m.wonValue).toBe(60000);
+});
+
+test("won and lost are placed by won_at / lost_at, not by the last edit", () => {
+  const opps: OpportunityRow[] = [
+    // Won in March, re-saved in July: not a July win.
+    opp({ id: "o1", stage: "won", estimated_value_max: 60000, won_at: "2026-03-10", updated_at: "2026-07-15" }),
+    opp({ id: "o2", stage: "lost", estimated_value_max: 10000, lost_at: "2026-03-10", updated_at: "2026-07-15" }),
+  ];
+  const m = computeSalespersonMetrics(target(), { opportunities: opps, rfqs: [], tenders: [], quotations: [], followUps: [] });
+  expect(m.wonValue).toBe(0);
+  expect(m.conversionRate).toBeNull(); // nothing closed in July — not 0%
+});
+
+test("unvalued deals are counted, not added as zero", () => {
+  const opps: OpportunityRow[] = [
+    opp({ id: "o1", stage: "won", estimated_value_max: 60000 }),
+    opp({ id: "o2", stage: "won", estimated_value_max: null }),
+    opp({ id: "o3", stage: "quotation", estimated_value_max: null }),
+  ];
+  const m = computeSalespersonMetrics(target(), { opportunities: opps, rfqs: [], tenders: [], quotations: [], followUps: [] });
+  expect(m.wonValue).toBe(60000);
+  expect(m.wonUnvalued).toBe(1);
+  expect(m.openPipeline).toBe(0);
+  expect(m.openUnvalued).toBe(1);
 });
 
 test("computeSalespersonMetrics: openPipeline is NOT period-bounded (current-state snapshot)", () => {
@@ -330,7 +357,7 @@ test("sales_stage wins over the legacy column when they disagree", () => {
 test("a legacy won row with no sales_stage still counts as won", () => {
   const opps = [
     { id: "old", owner_id: "u1", stage: "won", tier: "B",
-      estimated_value_max: 700, quotation_value: null, win_confidence: null, updated_at: "2026-08-05" },
+      estimated_value_max: 700, quotation_value: null, win_confidence: null, updated_at: "2026-08-05", won_at: "2026-08-05" },
   ] as never;
 
   const target = {

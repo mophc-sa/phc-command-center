@@ -1,3 +1,4 @@
+import { riyadhDay, addDays } from "@/lib/riyadh-day";
 import { thisMonth, yearToDate, inPeriod, wonDate } from "@/lib/sales-kpis";
 import { createFileRoute, Link, useNavigate, type LinkProps } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
@@ -19,6 +20,7 @@ import { PageHeader } from "@/components/phc/PageHeader";
 import { TodayPanel } from "@/components/phc/TodayPanel";
 import { ChartFrame } from "@/components/phc/ChartFrame";
 import { KpiCard } from "@/components/phc/KpiCard";
+import { KpiDefinition } from "@/components/phc/KpiDefinition";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonChart } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
@@ -40,8 +42,10 @@ import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions"
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { humanize } from "@/lib/utils";
+import { kpiDefinition, sumRecorded, totalOrDash, unvaluedLabel, type ValueSum } from "@/lib/kpi-definitions";
 import { sumOpportunityValue ,
-  opportunityValue
+  opportunityValue,
+  isOpen as isOpenDeal,
 } from "@/lib/sales-kpis";
 import {
   daysUntil, daysSince, urgencyTone, urgencyLabel,
@@ -57,11 +61,14 @@ export const Route = createFileRoute("/_authenticated/my-workspace")({
 
 const ACTIVITY_TYPES: ActivityType[] = ["call", "visit", "meeting", "note", "email_draft", "whatsapp_draft"];
 
-function monthStart() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-}
-function yearStart() { return `${new Date().getFullYear()}-01-01`; }
+function monthStart() { return `${riyadhDay().slice(0, 7)}-01`; }
+function yearStart() { return `${riyadhDay().slice(0, 4)}-01-01`; }
+
+/** "—" when nothing has a value, never SAR 0 — missing is not zero. */
+const moneyOrDash = (s: ValueSum, lang: Lang) => totalOrDash(s, (n) => formatCurrency(n, lang, "SAR"));
+/** The total plus "N no value recorded" when it leaves rows out. */
+const moneyText = (s: ValueSum, lang: Lang) => [moneyOrDash(s, lang), unvaluedLabel(s.unvalued, lang)].filter(Boolean).join(" · ");
+const tenderSum = (rows: Array<{ estimated_project_value?: number | null }>) => sumRecorded(rows, (r) => r.estimated_project_value);
 
 // Phase 1 — canonical stage.
 //
@@ -193,7 +200,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
     [teamForMap],
   );
   const navigate = useNavigate();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
 
   // Dialog state
   const [logOpen, setLogOpen] = useState(false);
@@ -224,7 +231,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
   const { data: annualTarget } = useQuery({
     queryKey: ["ws-annual-target", uid], enabled: !!uid,
     queryFn: async () => {
-      const annYear = `${new Date().getFullYear()}-01-01`;
+      const annYear = yearStart();
       const ann = await supabase.from("sales_targets").select("*").eq("user_id", uid).eq("period_type", "annual").eq("period_start", annYear).maybeSingle();
       if (ann.data) return ann.data;
       const mon = await supabase.from("sales_targets").select("*").eq("user_id", uid).eq("period_type", "monthly").eq("period_start", monthStart()).maybeSingle();
@@ -260,12 +267,11 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
   const { data: urgentRfqs = [] } = useQuery({
     queryKey: ["ws-urgent-rfqs", uid], enabled: !!uid,
     queryFn: async () => {
-      const sevenDaysOut = new Date(); sevenDaysOut.setDate(sevenDaysOut.getDate() + 7);
-      // Spec §16 wants project name and client on this table, not just a code —
+            // Spec §16 wants project name and client on this table, not just a code —
       // and the row has to open the record (§9 "Open full opportunity"). Pull
       // opportunity_id so the row knows where to navigate, plus the related
       // project/company names so the user recognises the deal at a glance.
-      const result = await supabase.from("rfqs").select("id, rfq_number, response_due_date, estimated_value, status, opportunity_id, projects(name), companies(name)").eq("sales_owner_id", uid).eq("status", "open").not("response_due_date", "is", null).lte("response_due_date", sevenDaysOut.toISOString().slice(0, 10)).order("response_due_date", { ascending: true });
+      const result = await supabase.from("rfqs").select("id, rfq_number, response_due_date, estimated_value, status, opportunity_id, projects(name), companies(name)").eq("sales_owner_id", uid).eq("status", "open").not("response_due_date", "is", null).lte("response_due_date", addDays(riyadhDay(), 7)).order("response_due_date", { ascending: true });
       if (result.error) throw result.error;
       const rows = result.data ?? [];
       const ids = [...new Set(rows.map(r => r.opportunity_id).filter((id): id is string => !!id))];
@@ -296,7 +302,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   const displayName = (profile as any)?.full_name ?? user?.email?.split("@")[0] ?? "—";
   const tgt = annualTarget;
-  const awardPeriod = tgt?.period_type === "monthly" ? thisMonth(new Date().toISOString().slice(0,10)) : yearToDate(new Date().toISOString().slice(0,10));
+  const awardPeriod = tgt?.period_type === "monthly" ? thisMonth(riyadhDay()) : yearToDate(riyadhDay());
   const awardedOpps = allAwardedOpps.filter(o => inPeriod(wonDate(o), awardPeriod));
   const undatedAwards = allAwardedOpps.filter(o => !wonDate(o)).length;
 
@@ -308,6 +314,12 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
   const tenderValue = computeTenderPipelineTotal(activeTenders as any[]);
   const totalPipeline = jihValue + tenderValue;
   const jihSharePct = totalPipeline > 0 ? Math.round((jihValue / totalPipeline) * 100) : 0;
+  const awardedSum = sumOpportunityValue(awardedOpps as never);
+  const jihSum = sumOpportunityValue(jihPipeline as never);
+  const tenderTotals = tenderSum(activeTenders as never);
+  const awardPeriodLabel = tgt?.period_type === "monthly"
+    ? (lang === "ar" ? `شهر ${awardPeriod.from.slice(0, 7)}` : `Month ${awardPeriod.from.slice(0, 7)}`)
+    : (lang === "ar" ? `سنة ${awardPeriod.from.slice(0, 4)}` : `Year ${awardPeriod.from.slice(0, 4)}`);
   const verballyAwardedOpps = (stageOpps as any[]).filter(o => o.sales_stage === "verbally_awarded");
   const contractOpps = (stageOpps as any[]).filter(o => o.sales_stage === "contract_received" || o.sales_stage === "contract_signed");
 
@@ -497,18 +509,24 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                   label={lang === "ar" ? "المبلغ المستهدف" : "Target Amount"}
                   value={salesTarget > 0 ? formatCurrency(salesTarget, lang, "SAR") : "—"}
                   sub={tgt?.period_type === "annual" ? (lang === "ar" ? "هدف سنوي" : "Annual target") : (lang === "ar" ? "هدف شهري" : "Monthly target")}
+                  definition={kpiDefinition("target", lang)}
+                  period={awardPeriodLabel}
                 />
                 <TargetKpiBox
                   label={lang === "ar" ? "ترسيات رسمية" : "Awarded Contracts"}
-                  value={formatCurrency(awardedValue, lang, "SAR")}
-                  sub={`${awardedOpps.length} ${lang === "ar" ? "مشروع" : "projects"}`}
+                  value={moneyOrDash(awardedSum, lang)}
+                  sub={[`${awardedOpps.length} ${lang === "ar" ? "مشروع" : "projects"}`, unvaluedLabel(awardedSum.unvalued, lang)].filter(Boolean).join(" · ")}
                   tone="positive"
+                  definition={kpiDefinition("won_value", lang)}
+                  period={awardPeriodLabel}
                 />
                 {remainingTarget !== null && (
                   <TargetKpiBox
                     label={lang === "ar" ? "المتبقي من الهدف" : "Remaining Target"}
                     value={formatCurrency(remainingTarget, lang, "SAR")}
                     tone={remainingTarget < salesTarget * 0.3 ? "positive" : "attention"}
+                    definition={kpiDefinition("target_gap", lang)}
+                    period={awardPeriodLabel}
                   />
                 )}
               </div>
@@ -572,7 +590,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                   <div className="text-xs text-muted-foreground">{lang === "ar" ? "إجمالي JIH" : "Total JIH"}</div>
                   <div className="text-xs text-muted-foreground">{jihPipeline.length} {lang === "ar" ? "فرصة" : "opportunities"}</div>
                 </div>
-                <span className="num text-lg font-bold text-amber-light">{formatCurrency(jihValue, lang, "SAR")}</span>
+                <span className="num text-lg font-bold text-amber-light">{moneyText(jihSum, lang)}</span>
               </div>
               <div className="h-px bg-border/30" />
               <div className="flex items-center justify-between">
@@ -580,7 +598,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                   <div className="text-xs text-muted-foreground">{lang === "ar" ? "إجمالي المناقصات" : "Total Tenders"}</div>
                   <div className="text-xs text-muted-foreground">{activeTenders.length} {lang === "ar" ? "مناقصة" : "tenders"}</div>
                 </div>
-                <span className="num text-lg font-bold text-foreground">{formatCurrency(tenderValue, lang, "SAR")}</span>
+                <span className="num text-lg font-bold text-foreground">{moneyText(tenderTotals, lang)}</span>
               </div>
             </div>
           </div>
@@ -599,7 +617,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             <div className="flex items-center justify-between border-b border-won-border/60 px-4 py-3">
               <div>
                 <div className="text-base font-semibold text-won">{lang === "ar" ? "الترسيات الرسمية" : "Awarded Projects"}</div>
-                <div className="text-xs text-muted-foreground">{formatCurrency(awardedValue, lang, "SAR")}</div>
+                <div className="text-xs text-muted-foreground">{moneyText(awardedSum, lang)}</div>
               </div>
               <span className="rounded-full bg-won-surface/80 px-2 py-0.5 text-xs num text-won">{awardedOpps.length}</span>
             </div>
@@ -636,7 +654,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             <div className="flex items-center justify-between border-b border-amber/15 px-4 py-3">
               <div>
                 <div className="text-base font-semibold text-amber-light">{lang === "ar" ? "التفاوض النهائي" : "Final Negotiation"}</div>
-                <div className="text-xs text-muted-foreground">{formatCurrency(sumOpportunityValue(contractOpps as never).total, lang, "SAR")}</div>
+                <div className="text-xs text-muted-foreground">{moneyText(sumOpportunityValue(contractOpps as never), lang)}</div>
               </div>
               <span className="rounded-full bg-amber/15 px-2 py-0.5 text-xs num text-amber-light">{contractOpps.length}</span>
             </div>
@@ -673,7 +691,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
               <div>
                 <div className="text-base font-semibold text-foreground">{lang === "ar" ? "ترسية شفهية" : "Verbally Awarded"}</div>
-                <div className="text-xs text-muted-foreground">{formatCurrency(sumOpportunityValue(verballyAwardedOpps as never).total, lang, "SAR")}</div>
+                <div className="text-xs text-muted-foreground">{moneyText(sumOpportunityValue(verballyAwardedOpps as never), lang)}</div>
               </div>
               <span className="rounded-full bg-surface-2/60 px-2 py-0.5 text-xs num text-foreground">{verballyAwardedOpps.length}</span>
             </div>
@@ -813,7 +831,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
   const { t, lang } = useI18n();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
   const [logOpen, setLogOpen] = useState(false);
   const [tab, setTab] = useState("today");
   const [completeFor, setCompleteFor] = useState<{ id: string; oppId: string } | null>(null);
@@ -831,7 +849,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
         supabase.from("sales_targets").select("*").eq("user_id", uid).eq("period_start", monthStart()).maybeSingle(),
         supabase.from("companies").select("id, name, company_type, account_status").eq("account_owner_id", uid).order("updated_at", { ascending: false }),
         supabase.from("opportunities").select("id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_max, currency, owner_id").eq("owner_id", uid).order("updated_at", { ascending: false }),
-        supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, notes, companies(id, name)").eq("owner_id", uid).neq("status", "completed").order("due_date", { ascending: true }),
+        supabase.from("follow_ups").select("id, opportunity_id, due_date, status, channel, cadence_tier, notes, companies(id, name), opportunities(sales_stage, stage)").eq("owner_id", uid).neq("status", "completed").order("due_date", { ascending: true }),
         supabase.from("tasks").select("id, title, due_date, status").eq("owner_id", uid).neq("status", "done").order("due_date", { ascending: true }),
         supabase.from("activities").select("id, activity_type, summary, occurred_at, related_opportunity_id").eq("owner_id", uid).order("occurred_at", { ascending: false }).limit(12),
         supabase.from("approvals").select("*").eq("status", "pending"),
@@ -846,10 +864,10 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
   const { data: flags = [] } = useQuery({ queryKey: ["ws-flags", uid, myOppIds.length], enabled: !!uid && myOppIds.length > 0, queryFn: async () => (await supabase.from("opportunity_flags").select("*").in("status", ACTIVE_FLAG_STATUSES).eq("linked_record_type", "opportunity").in("linked_record_id", myOppIds).order("created_at", { ascending: false })).data ?? [] });
   const { data: myRfqs = [] } = useQuery({ queryKey: ["ws-rfqs", uid], enabled: !!uid, queryFn: async () => (await supabase.from("rfqs").select("id, rfq_number, status, estimated_value, response_due_date").eq("sales_owner_id", uid).eq("status", "open").order("response_due_date", { ascending: true })).data ?? [] });
   const { data: myTenders = [] } = useQuery({ queryKey: ["ws-tenders", uid], enabled: !!uid, queryFn: async () => (await supabase.from("tenders").select("id, tender_name, tender_stage, tender_priority_classification, estimated_project_value, expected_award_date").eq("tender_owner_id", uid).not("tender_stage", "in", "(converted_to_jih,tender_lost_or_archived)").order("expected_award_date", { ascending: true })).data ?? [] });
-  const { data: awardedOpps = [] } = useQuery({ queryKey: ["ws-awarded", uid], enabled: !!uid, queryFn: async () => ((await supabase.from("opportunities").select("id, project_name, estimated_value_max, contract_value, currency, sales_stage, stage, updated_at").eq("owner_id", uid).gte("updated_at", yearStart()).order("updated_at", { ascending: false })).data ?? []).filter(isCanonicallyWon) });
+  const { data: awardedOpps = [] } = useQuery({ queryKey: ["ws-awarded", uid], enabled: !!uid, queryFn: async () => ((await supabase.from("opportunities").select("id, project_name, estimated_value_max, contract_value, quotation_value, currency, sales_stage, stage, updated_at, won_at").eq("owner_id", uid).gte("won_at", yearStart()).order("won_at", { ascending: false })).data ?? []).filter(isCanonicallyWon) });
   const { data: urgentQuotations = [] } = useQuery({
     queryKey: ["ws-urgent-quotations", uid], enabled: !!uid,
-    queryFn: async () => { const sevenDaysOut = new Date(); sevenDaysOut.setDate(sevenDaysOut.getDate() + 7); return (await supabase.from("quotations").select("id, related_opportunity_id, status, valid_until, value, currency").eq("owner_id", uid).in("status", ["approved_for_submission", "submitted", "follow_up"]).lte("valid_until", sevenDaysOut.toISOString().slice(0, 10)).order("valid_until", { ascending: true })).data ?? []; },
+    queryFn: async () => { return (await supabase.from("quotations").select("id, related_opportunity_id, status, valid_until, value, currency").eq("owner_id", uid).in("status", ["approved_for_submission", "submitted", "follow_up"]).lte("valid_until", addDays(riyadhDay(), 7)).order("valid_until", { ascending: true })).data ?? []; },
   });
   const { data: jihOpps = [] } = useQuery({ queryKey: ["ws-jih", uid], enabled: !!uid, queryFn: async () => (await supabase.from("opportunities").select("id, project_name, stage, sales_stage, estimated_value_max, quotation_value, contract_value, currency, win_confidence").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [] });
 
@@ -860,7 +878,12 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
   const salesTargetValue = tg?.sales_target ? Number(tg.sales_target) : 0;
   const awardedValue = computeAwardedTotal(awardedOpps as any[]);
   const achievementPct = targetAchievementPct(awardedValue, salesTargetValue);
-  const overdueFU = data.followups.filter((f: any) => f.status === "overdue" || (f.due_date && f.due_date < today));
+  // Overdue = still to do (not completed/cancelled) on an open deal or a
+  // company-level follow-up. A follow-up on a won or lost deal is not work.
+  const overdueFU = data.followups.filter((f: any) =>
+    f.status !== "completed" && f.status !== "cancelled" &&
+    (!f.opportunity_id || (f.opportunities && isOpenDeal(f.opportunities))) &&
+    (f.status === "overdue" || (f.due_date && f.due_date < today)));
   const todayFU = data.followups.filter((f: any) => f.due_date === today);
   const upcomingFU = data.followups.filter((f: any) => f.due_date && f.due_date > today);
   const overdueTasks = data.tasks.filter((tk: any) => tk.due_date && tk.due_date < today);
@@ -892,6 +915,8 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
   const tenderValue = computeTenderPipelineTotal(myTenders as any[]);
   const salesTarget = salesTargetValue;
   const remainingTarget = computeRemainingTarget(awardedValue, salesTarget);
+  const awardedSum = sumOpportunityValue(awardedOpps as never);
+  const ytdLabel = lang === "ar" ? `سنة ${yearStart().slice(0, 4)}` : `Year ${yearStart().slice(0, 4)}`;
   const displayName = user?.email?.split("@")[0] ?? "—";
 
   return (
@@ -939,18 +964,23 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
                 label={lang === "ar" ? "المبلغ المستهدف" : "Target Amount"}
                 value={salesTarget > 0 ? formatCurrency(salesTarget, lang, "SAR") : "—"}
                 sub={tg?.period_type === "annual" ? (lang === "ar" ? "هدف سنوي" : "Annual target") : (lang === "ar" ? "هدف شهري" : "Monthly target")}
+                definition={kpiDefinition("target", lang)}
               />
               <TargetKpiBox
                 label={lang === "ar" ? "ترسيات رسمية" : "Awarded Contracts"}
-                value={formatCurrency(awardedValue, lang, "SAR")}
-                sub={`${awardedOpps.length} ${lang === "ar" ? "مشروع" : "projects"}`}
+                value={moneyOrDash(awardedSum, lang)}
+                sub={[`${awardedOpps.length} ${lang === "ar" ? "مشروع" : "projects"}`, unvaluedLabel(awardedSum.unvalued, lang)].filter(Boolean).join(" · ")}
                 tone="positive"
+                definition={kpiDefinition("won_value", lang)}
+                period={ytdLabel}
               />
               {remainingTarget !== null && (
                 <TargetKpiBox
                   label={lang === "ar" ? "المتبقي من الهدف" : "Remaining Target"}
                   value={formatCurrency(remainingTarget, lang, "SAR")}
                   tone={remainingTarget < salesTarget * 0.3 ? "positive" : "attention"}
+                  definition={kpiDefinition("target_gap", lang)}
+                  period={ytdLabel}
                 />
               )}
             </div>
@@ -983,7 +1013,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
                 <div className="text-xs text-muted-foreground">{lang === "ar" ? "إجمالي JIH" : "Total JIH"}</div>
                 <div className="text-xs text-muted-foreground">{jihOpps.length} {lang === "ar" ? "فرصة" : "opportunities"}</div>
               </div>
-              <span className="num text-lg font-bold text-amber-light">{formatCurrency(jihValue, lang, "SAR")}</span>
+              <span className="num text-lg font-bold text-amber-light">{moneyText(sumOpportunityValue(jihOpps as never), lang)}</span>
             </div>
             <div className="h-px bg-border/30" />
             <div className="flex items-center justify-between">
@@ -991,7 +1021,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
                 <div className="text-xs text-muted-foreground">{lang === "ar" ? "إجمالي المناقصات" : "Total Tenders"}</div>
                 <div className="text-xs text-muted-foreground">{myTenders.length} {lang === "ar" ? "مناقصة" : "tenders"}</div>
               </div>
-              <span className="num text-lg font-bold text-foreground">{formatCurrency(tenderValue, lang, "SAR")}</span>
+              <span className="num text-lg font-bold text-foreground">{moneyText(tenderSum(myTenders as never), lang)}</span>
             </div>
           </div>
         </div>
@@ -1094,7 +1124,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
             <div className="flex items-center justify-between border-b border-won-border/60 px-4 py-3">
               <div>
                 <div className="text-base font-semibold text-won">{lang === "ar" ? "فرص الفئة A" : "Tier A Opportunities"}</div>
-                <div className="text-xs text-muted-foreground">{formatCurrency(sumOpportunityValue(tierAOpps as never).total, lang, "SAR")}</div>
+                <div className="text-xs text-muted-foreground">{moneyText(sumOpportunityValue(tierAOpps as never), lang)}</div>
               </div>
               <span className="rounded-full bg-won-surface/80 px-2 py-0.5 text-xs num text-won">{tierAOpps.length}</span>
             </div>
@@ -1374,14 +1404,18 @@ function RadialProgress({ pct, size = 128 }: { pct: number; size?: number }) {
   );
 }
 
-function TargetKpiBox({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "positive" | "attention" }) {
+function TargetKpiBox({ label, value, sub, tone, definition, period }: { label: string; value: string; sub?: string; tone?: "positive" | "attention"; definition?: string; period?: string }) {
   const cls = tone === "positive" ? "border-won/20 bg-won/[0.05]" : tone === "attention" ? "border-amber/20 bg-amber/5" : "border-border/60 bg-surface-2/30";
   const valCls = tone === "positive" ? "text-won" : tone === "attention" ? "text-amber-light" : "text-foreground";
   return (
     <div className={`rounded-lg border p-4 ${cls}`}>
-      <div className="text-xs font-medium tracking-[0.02em] text-muted-foreground">{label}</div>
+      <div className="flex items-center gap-1.5 text-xs font-medium tracking-[0.02em] text-muted-foreground">
+        {label}
+        {definition ? <KpiDefinition label={label} definition={definition} period={period} /> : null}
+      </div>
       <div className={`num mt-2 text-xl font-bold ${valCls}`}>{value}</div>
       {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
+      {period && <div className="mt-0.5 text-xs text-muted-foreground">{period}</div>}
     </div>
   );
 }

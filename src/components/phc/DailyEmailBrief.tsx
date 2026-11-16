@@ -12,6 +12,7 @@
 // brief is private to its owner (ai_agent_outputs is readable by its requester).
 // =============================================================================
 
+import { riyadhDay } from "@/lib/riyadh-day";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -59,11 +60,10 @@ async function hasNewClientEmail(uid: string, since: string): Promise<boolean> {
   return false;
 }
 
-/** The brief was made on the viewer's current calendar day. */
+/** The brief was made on the current Riyadh calendar day. */
 export function isFromToday(iso: string | null | undefined, now = new Date()): boolean {
   if (!iso) return false;
-  const d = new Date(iso);
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return riyadhDay(new Date(iso)) === riyadhDay(now);
 }
 
 export function DailyEmailBriefSection() {

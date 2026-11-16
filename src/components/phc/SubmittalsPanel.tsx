@@ -7,6 +7,7 @@
 // name such as Ammar in production. The approval is the manager's: other people
 // see that it is waiting, not a button that would be refused.
 // =============================================================================
+import { riyadhDay } from "@/lib/riyadh-day";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -89,7 +90,7 @@ export function SubmittalsPanel({
   };
 
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(localeFor(lang), { dateStyle: "medium" });
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
 
   // ---- The step form, shared by "new item" and "next step" ---------------------
   const stepFields = (kind: SubmittalKind, step: SubmittalStep): DialogField[] => {

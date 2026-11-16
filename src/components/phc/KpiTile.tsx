@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/tooltip";
 import { formatCurrency, formatNumber, useI18n } from "@/lib/i18n";
 import { formatMessage } from "@/lib/messages";
+import { kpiDefinition } from "@/lib/kpi-definitions";
 import { metricStateOf, type Kpi, type MetricState } from "@/lib/sales-kpis";
 
 // Phase 5.1 §14. A dash says "no number" and stops there; these say WHY there
@@ -144,7 +145,7 @@ export function KpiTile({
               </button>
             </TooltipTrigger>
             <TooltipContent side={dir === "rtl" ? "left" : "right"} className="max-w-[19rem] space-y-1.5 text-xs">
-              <p className="font-medium text-foreground">{kpi.formula}</p>
+              <p className="font-medium text-foreground">{kpiDefinition(kpi.key, lang) ?? kpi.formula}</p>
               <p className="text-muted-foreground">
                 <span className="text-amber-light">{lang === "ar" ? "المصدر" : "Source"}:</span> {kpi.source}
               </p>

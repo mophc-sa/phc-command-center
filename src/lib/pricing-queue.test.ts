@@ -20,9 +20,10 @@ describe("compareQueue", () => {
 });
 
 describe("local date", () => {
-  it("uses the local calendar day, not UTC", () => {
-    expect(localDateString(new Date(2026, 10, 4, 0, 30))).toBe("2026-11-04");
-    expect(localDateString(new Date(2026, 10, 4, 23, 59))).toBe("2026-11-04");
+  it("uses the Riyadh calendar day, not UTC or the browser's", () => {
+    // 21:30 UTC on the 3rd is 00:30 on the 4th in Riyadh (UTC+3).
+    expect(localDateString(new Date("2026-11-03T21:30:00Z"))).toBe("2026-11-04");
+    expect(localDateString(new Date("2026-11-04T20:59:00Z"))).toBe("2026-11-04");
   });
   it("overdue only once the day has passed", () => {
     expect(isOverdue("2026-11-03", "2026-11-04")).toBe(true);

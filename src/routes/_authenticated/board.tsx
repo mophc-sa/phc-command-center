@@ -65,7 +65,7 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canonicalStageOf } from "@/lib/sales-kpis";
+import { canonicalStageOf, inPeriod, isWon, winRate, wonDate, yearToDate } from "@/lib/sales-kpis";
 import { fetchRequiredRows } from "@/lib/fetch-all";
 import { supabase } from "@/integrations/supabase/client";
 import { dueForRefresh, keepAlive } from "@/lib/session-keepalive";
@@ -822,13 +822,14 @@ function BoardPage() {
     const annual = [...targets.values()].reduce((a, v) => a + v, 0) || null;
     const intel = opps as unknown as IntelOpp[];
     const weighted = weightedPipeline(intel);
-    // Win rate this year: deals closed this year, won over won-plus-lost. Read
-    // from the close dates, so a deal won in 2024 and synced today is not
-    // counted as this year's decision.
-    const wonThisYear = intel.filter((o) => canonicalStageOf(o as never) === "won" && (o.won_at ?? "").startsWith(year)).length;
-    const lostThisYear = intel.filter((o) => canonicalStageOf(o as never) === "lost" && (o.lost_at ?? "").startsWith(year)).length;
+    // Win rate this year: the engine's winRate over the Riyadh year to date —
+    // won ÷ (won + lost) by close date, so a deal won in 2024 and synced today
+    // is not counted as this year's decision.
+    const ytd = yearToDate(riyadhDay(nowDate));
+    const wr = winRate(intel as never, { today: ytd.from, period: ytd });
+    const wonThisYear = intel.filter((o) => isWon(o as never) && inPeriod(wonDate(o as never), ytd)).length;
     return {
-      winRate: { won: wonThisYear, lost: lostThisYear, ratio: wonThisYear + lostThisYear > 0 ? wonThisYear / (wonThisYear + lostThisYear) : null },
+      winRate: { won: wonThisYear, lost: wr.recordCount - wonThisYear, ratio: wr.value === null ? null : wr.value / 100 },
       pulse,
       standing,
       team: computeTeam(opps, targets, labels, nowDate, null, true),
@@ -888,8 +889,9 @@ function BoardPage() {
         ownerId: r.user_id,
         name: firstName(r.full_name),
         initials: displayLabel(r.full_name),
-        won: row?.won ?? 0,
-        open: row?.open ?? 0,
+        // All rows unvalued is missing, not zero — renders "—".
+        won: row && row.wonUnvalued > 0 && row.won === 0 ? null : row?.won ?? 0,
+        open: row && row.openUnvalued > 0 && row.openUnvalued === row.openCount ? null : row?.open ?? 0,
         openCount: row?.openCount ?? 0,
         late: model.attention.filter((x) => x.ownerId === r.user_id && x.reasons.includes("followups_overdue")).length,
         done: day?.done ?? 0,
@@ -1249,8 +1251,8 @@ function BoardPage() {
                 <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.5vh]" style={{ fontSize: "clamp(12px, 0.82vw, 21px)" }}>
                   <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الفريق" : "Team"}</span>
                   <span className="num font-bold text-teal-on-tint" data-tabular="true">
-                    {lang === "ar" ? "الشهر " : "MTD "}{money(salesTeam.reduce((a, p) => a + p.won, 0)) ?? "—"}
-                    {lang === "ar" ? " · المسار " : " · Pipeline "}{money(salesTeam.reduce((a, p) => a + p.open, 0)) ?? "—"}
+                    {lang === "ar" ? "الشهر " : "MTD "}{money(salesTeam.reduce((a, p) => a + (p.won ?? 0), 0)) ?? "—"}
+                    {lang === "ar" ? " · المسار " : " · Pipeline "}{money(salesTeam.reduce((a, p) => a + (p.open ?? 0), 0)) ?? "—"}
                   </span>
                 </div>
               </div>
@@ -1917,8 +1919,8 @@ type SalesCardRow = {
   ownerId: string;
   name: string;
   initials: string;
-  won: number;
-  open: number;
+  won: number | null;
+  open: number | null;
   openCount: number;
   late: number;
   done: number;

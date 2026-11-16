@@ -109,11 +109,22 @@ describe("weighted pipeline never reports a borrowed zero", () => {
 
   it("a partly scored book reports the partial sum and names the remainder", () => {
     const k = weightedPipeline(
+      [row({ id: "a", human_win_probability: 50, quotation_value: 6_000_000 }), row({ id: "b", quotation_value: 4_000_000 })],
+      CTX,
+    );
+    expect(k.value).toBe(3_000_000);
+    expect(metricStateOf(k)).toBe("ok");
+    expect(k.caveat).toEqual({ key: "cav_probability_missing", params: { count: 1 } });
+  });
+
+  it("under half the open value scored is not presented as a complete forecast", () => {
+    const k = weightedPipeline(
       [row({ id: "a", human_win_probability: 50, quotation_value: 1_000_000 }), row({ id: "b", quotation_value: 9_000_000 })],
       CTX,
     );
-    expect(k.value).toBe(500_000);
-    expect(k.caveat).toEqual({ key: "cav_probability_missing", params: { count: 1 } });
+    expect(k.value).toBe(500_000); // kept for drill-in
+    expect(metricStateOf(k)).toBe("not_calculated");
+    expect(k.caveat).toEqual({ key: "cav_weighted_partial", params: { count: 1, total: 2 } });
   });
 
   it("no open deals at all is no_data, not not_calculated", () => {
