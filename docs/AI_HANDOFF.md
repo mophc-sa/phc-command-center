@@ -1,5 +1,12 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-16 — AI audit fixes + Riyadh days (branch `fix/ai-audit-riyadh`, Draft PR, not deployed)
+
+Migrations `20261116150000`–`20261116150300`. Functions changed: `ai-orchestrator` and `sales-os-api` (intelligence handler). Frontend: opportunity AI panels, correspondence panel, intake review queue, and the Command Center brief call. See CHANGELOG for details.
+**Release (Mo approves each step):** merge → `supabase db push` (4 migrations; the 150100 backfill marks ~535 production pending outputs as superseded) → deploy `ai-orchestrator` and `sales-os-api` → frontend deploy. **Order matters:** deploy `ai-orchestrator` right after the db push. The old function inserts directly, and with the new unique index a second run on the same record fails with AI_OUTPUT_PERSIST_FAILED until the new version is live.
+**Post-release checks:** `select agent_key, count(*) from ai_agent_outputs where status='pending_review' group by 1` has at most one row per key; reload the Command Center twice, and `sales_report_insights` outputs for the day stay at 1; after the next info@ intake, `ai_extracted_fields` is filled.
+**Not done:** `src/integrations/supabase/types.ts` is generated from production (`bun run gen:types`); regenerate after the db push. No UI yet to set `verification_status` on deals/companies (columns only).
+
 ## 2026-11-16 — Work Queue identity, priority and today's list (branch `fix/actions-identity`, Draft PR, not deployed)
 
 Frontend only, no migration. Action Center, My Workspace "What needs you today", Follow-ups, Calendar and Needs Attention.

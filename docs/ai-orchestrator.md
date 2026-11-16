@@ -34,7 +34,11 @@ supabase/functions/ai-orchestrator/index.ts        <- the only public entry poin
         |-- call provider with timeout (ai-providers.ts)
         |-- validate structured output (agent's zod output schema)
         |-- scan for guardrail violations (ai-guardrails.ts)
-        |-- insert ai_agent_outputs (status = pending_review) — preserved even
+        |-- drop cited source_ids the agent was not shown (stripUncitedSources)
+        |-- store_ai_agent_output() RPC: supersede this (agent, entity,
+        |     requester)'s previous pending_review row and insert the new one
+        |     with model, provider, prompt_version, source_refs (one pending
+        |     row per key, unique index; 20261116150100) — preserved even
         |     if the next two writes fail
         |-- mark claim succeeded + insert "succeeded" trace event — both
         |     checked; either failing returns AI_TRACE_PERSIST_FAILED

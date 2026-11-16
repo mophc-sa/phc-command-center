@@ -1,5 +1,14 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-16 — AI provenance and dedupe, Riyadh days in SQL, field audit, data sync respects edits (branch `fix/ai-audit-riyadh`, Draft PR, not deployed)
+
+- **Riyadh days** (`20261116150000`): the views `opportunity_next_action`, `overdue_commitments` and `sla_breaches`, and the functions `notify_due_follow_ups`, `notify_overdue_items` and `run_sales_automations`, use `riyadh_date(now())` instead of `CURRENT_DATE`. `commercial_review_queue` and `team_performance` are unchanged because they measure elapsed time. Contract and pricing functions are left as they are (listed in the migration).
+- **AI outputs** (`20261116150100`): `model`, `provider`, `prompt_version` and `source_refs` are recorded on each output. The backfill supersedes every pending row except the newest per (agent, entity, requester); production had 609 pending, 74 keys. A unique index allows one pending row per key, and `store_ai_agent_output()` is the orchestrator's write path. `create_ai_recommendation` refreshes the open recommendation (evidence, missing data, time) instead of adding a duplicate; the advice text stays immutable. Open duplicate groups are not re-created. The Command Center brief sends `clientRequestId = sales_report_insights:<Riyadh day>:<lang>`.
+- **No invention:** `win_likelihood` is nullable (prompt `phc-ai.v6`). The orchestrator removes and records (`source_refs.dropped_source_ids`) cited ids the agent was not shown. `inbox_items.ai_extracted_fields` stores what `info_mail_create_intake` took from the AI, and the review queue labels those fields.
+- **Verification + audit** (`20261116150200`): opportunities and companies get `source`, `source_date`, `last_verified_at`, `verification_status` and `verified_by`. A field-level audit trigger on opportunities, companies and contacts writes `<entity>.fields_changed` rows with actor_type user, system or data_sync.
+- **Data sync** (`20261116150300`): plan records `detail.before`. Apply sends a row to review when an overwriting field moved since the plan, or when audit_log shows a non-sync edit on or after the file's last update. Undo restores only fields that still hold the sync's value.
+- Tests: new pgTAP `ai_audit_riyadh` (24), +1 in `info_mailbox`; full pgTAP 57 files / 1548 PASS on a clean local reset; `bun run verify` green (3471); deno 138.
+
 ## 2026-11-16 — Work Queue identity, priority and today's list (branch `fix/actions-identity`, Draft PR, not deployed)
 
 Frontend only, no migration. Action Center, My Workspace "What needs you today", Follow-ups, Calendar and Needs Attention.

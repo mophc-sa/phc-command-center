@@ -36,6 +36,15 @@ export type AiAgentOutputRow = {
   // list query deliberately omits this column (not needed for the flat
   // "AI Outputs" tab, and it can be large).
   structured_output?: Record<string, unknown>;
+  // Provenance (20261116150100) — null on rows written before it.
+  model?: string | null;
+  provider?: string | null;
+  prompt_version?: string | null;
+  source_refs?: {
+    record_counts?: Record<string, number>;
+    source_ids?: string[];
+    dropped_source_ids?: string[];
+  } | null;
 };
 
 export async function reviewAgentOutput(input: {
@@ -64,7 +73,7 @@ export async function getLatestAgentOutput(
 ): Promise<AiAgentOutputRow | null> {
   const { data, error } = await supabase
     .from("ai_agent_outputs")
-    .select("id, agent_key, status, entity_type, entity_id, summary, created_at, output_type, client_request_id, reviewed_by, reviewed_at, review_decision, structured_output")
+    .select("id, agent_key, status, entity_type, entity_id, summary, created_at, output_type, client_request_id, reviewed_by, reviewed_at, review_decision, structured_output, model, provider, prompt_version, source_refs")
     .eq("entity_type", entityType)
     .eq("entity_id", entityId)
     .eq("agent_key", agentKey)

@@ -268,3 +268,8 @@ describe("import_routing_reviewer output", () => {
     }).success).toBe(false);
   });
 });
+
+test("opportunity_evaluation: win_likelihood may be null (no commercial signal), never a guess", () => {
+  expect(OpportunityEvaluationOutputSchema.safeParse({ ...validOpportunityEval, win_likelihood: null }).success).toBe(true);
+  expect(OpportunityEvaluationOutputSchema.safeParse({ ...validOpportunityEval, win_likelihood: undefined }).success).toBe(false);
+});

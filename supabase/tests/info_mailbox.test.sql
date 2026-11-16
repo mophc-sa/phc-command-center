@@ -2,7 +2,7 @@
 -- intake item, a reply on a deal, or a forward. Test user UUIDs use 2d…; rolls back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(48);
+select plan(49);
 
 -- Users: a manager (pipeline operator), a rep (salesperson), a second rep, a
 -- third rep who later leaves, an estimation manager, a BD manager and a
@@ -65,6 +65,10 @@ select results_eq($$select source_type::text, assigned_owner_id, created_by, cli
                    where m.id = '2d0000a0-0000-0000-0000-000000000001'$$,
   $$values ('info_mailbox', '2d000000-0000-0000-0000-000000000002'::uuid, '2d000000-0000-0000-0000-000000000002'::uuid, 'RFQ-ACM-77', 'Diriyah')$$,
   'The item carries the extracted data and the account owner');
+select is((select ai_extracted_fields from public.inbox_items i join public.info_mail m on m.inbox_item_id = i.id
+            where m.id = '2d0000a0-0000-0000-0000-000000000001'),
+  array['company_name','project_name','location','scope','estimated_value','client_rfq_reference'],
+  'The item records which fields the AI read out of the email');
 select ok(exists(select 1 from public.notifications where recipient_user_id = '2d000000-0000-0000-0000-000000000002'
                    and notification_type = 'intake_assigned'), 'The owner is notified');
 

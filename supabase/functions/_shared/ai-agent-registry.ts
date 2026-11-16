@@ -64,7 +64,8 @@ export type ContextManifest = {
 };
 
 export type AgentContextResult =
-  | { ok: true; contextText: string; manifest: ContextManifest; recordCount: number }
+  // sourceIds: the record ids an agent may cite (source_ids in its output).
+  | { ok: true; contextText: string; manifest: ContextManifest; recordCount: number; sourceIds?: string[] }
   | { ok: false; code: "AI_INPUT_INVALID" | "AI_ENTITY_NOT_ALLOWED"; message: string };
 
 export type AgentAccessResult = { ok: true } | { ok: false; code: "AI_RECORD_ACCESS_DENIED"; message: string };
@@ -181,7 +182,28 @@ export async function loadDealCorrespondenceContext(
     source_entity_types: ["opportunities", "activities"],
     redacted_identifiers: { opportunity_id: redactId(entityId) },
   };
-  return { ok: true, contextText, manifest, recordCount: 1 + emails.length };
+  return { ok: true, contextText, manifest, recordCount: 1 + emails.length, sourceIds: emails.map((e) => String(e.id)) };
+}
+
+/**
+ * Post-validation: removes every cited source_ids entry that is not a record
+ * the agent was actually shown, and returns the removed ids so the output row
+ * can record them. Mutates `output`. Replaces the screen quietly dropping an
+ * unknown citation — the stored suggestion itself no longer carries it.
+ */
+export function stripUncitedSources(output: unknown, allowed: ReadonlySet<string>): string[] {
+  const dropped: string[] = [];
+  const walk = (v: unknown) => {
+    if (Array.isArray(v)) return v.forEach(walk);
+    if (!isPlainRecord(v)) return;
+    for (const [k, child] of Object.entries(v)) {
+      if (k === "source_ids" && Array.isArray(child)) {
+        v[k] = child.filter((id) => (allowed.has(String(id)) ? true : (dropped.push(String(id)), false)));
+      } else walk(child);
+    }
+  };
+  walk(output);
+  return dropped;
 }
 
 // ---------------------------------------------------------------------------

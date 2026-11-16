@@ -138,21 +138,66 @@ type TimelineFilter = "all" | "alert" | "evidence" | "decision" | "assignment" |
 // reject) goes through the same governed sales-os-api action used by
 // agent-activity.tsx's global "AI Outputs" tab (src/lib/ai-review-actions.ts)
 // — this only adds an in-context view/action next to the run that produced it.
+// Activity on the deal after `since` that an AI output could not have seen:
+// client email, sent email, calls and meetings (the DealCorrespondencePanel
+// pattern, widened to calls and meetings).
+function useActivitySince(opportunityId: string, since: string | undefined) {
+  return useQuery({
+    queryKey: ["deal-activity-since", opportunityId, since],
+    enabled: !!since,
+    queryFn: async () => {
+      const [acts, meets] = await Promise.all([
+        supabase.from("activities").select("id", { count: "exact", head: true })
+          .eq("related_opportunity_id", opportunityId).gt("created_at", since!)
+          .or("activity_type.in.(email_received,call,meeting),and(activity_type.eq.email_draft,status.eq.sent)"),
+        supabase.from("meetings").select("id", { count: "exact", head: true })
+          .eq("related_opportunity_id", opportunityId).gt("created_at", since!),
+      ]);
+      return (acts.count ?? 0) + (meets.count ?? 0);
+    },
+  });
+}
+
 function AiOutputReviewBar({
   output,
+  opportunityId,
   canReview,
   busy,
   onDecide,
 }: {
   output: AiAgentOutputRow | null | undefined;
+  opportunityId: string;
   canReview: boolean;
   busy: boolean;
   onDecide: (output: AiAgentOutputRow, decision: "accepted" | "rejected") => void;
 }) {
+  const { lang } = useI18n();
+  const ar = lang === "ar";
+  const newer = useActivitySince(opportunityId, output?.created_at).data ?? 0;
   if (!output) return null;
   const tone = output.status === "accepted" ? "positive" : output.status === "rejected" ? "danger" : "attention";
+  const counts = Object.entries(output.source_refs?.record_counts ?? {}).filter(([, n]) => n > 0);
+  const dropped = output.source_refs?.dropped_source_ids?.length ?? 0;
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3 text-xs">
+    <div className="space-y-2 border-t border-border/60 pt-3 text-xs">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
+        <span>
+          {ar ? "أُنشئ" : "Made"} {new Date(output.created_at).toLocaleString(localeFor(lang), { dateStyle: "medium", timeStyle: "short" })}
+          {output.model ? <> · <span dir="ltr">{output.model}</span></> : null}
+        </span>
+        {counts.length > 0 ? (
+          <span>
+            · {ar ? "المصادر" : "Sources"}: {counts.map(([k, n]) => `${n} ${humanize(k)}`).join(", ")}
+          </span>
+        ) : null}
+        {dropped > 0 ? (
+          <span>· {ar ? `أُزيل ${dropped} استشهاد غير موجود في البيانات` : `${dropped} citation(s) not in the data removed`}</span>
+        ) : null}
+        {newer > 0 ? (
+          <StatusPill tone="attention">{ar ? "توجد مستجدات بعد هذه التوصية" : "New activity since this recommendation"}</StatusPill>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
       <StatusPill tone={tone}>{humanize(output.status)}</StatusPill>
       {output.status === "pending_review" && canReview ? (
         <>
@@ -178,6 +223,7 @@ function AiOutputReviewBar({
           Reviewed {new Date(output.reviewed_at).toLocaleDateString("en-US")}
         </span>
       ) : null}
+      </div>
     </div>
   );
 }
@@ -2124,6 +2170,7 @@ function OpportunityDetail() {
               </p>
 
               <AiOutputReviewBar
+                opportunityId={o.id}
                 output={riskOutputQ.data}
                 canReview={canReview}
                 busy={reviewingOutputId === riskOutputQ.data?.id}
@@ -2171,11 +2218,13 @@ function OpportunityDetail() {
                     {humanize(evalDisplay.recommended_priority)} priority
                   </StatusPill>
                 )}
-                {evalDisplay.win_likelihood != null && (
-                  <span className="text-xs text-muted-foreground">
-                    Win likelihood: {evalDisplay.win_likelihood}%
-                  </span>
-                )}
+                {/* null = the evaluation had no commercial signal to judge from; it is not 0%. */}
+                <span className="text-xs text-muted-foreground">
+                  Win likelihood:{" "}
+                  {evalDisplay.win_likelihood != null
+                    ? `${evalDisplay.win_likelihood}%`
+                    : lang === "ar" ? "غير محدد" : "Not enough data"}
+                </span>
               </div>
 
               {evalDisplay.rationale && (
@@ -2241,6 +2290,7 @@ function OpportunityDetail() {
               </p>
 
               <AiOutputReviewBar
+                opportunityId={o.id}
                 output={evalOutputQ.data}
                 canReview={canReview}
                 busy={reviewingOutputId === evalOutputQ.data?.id}
