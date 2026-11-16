@@ -1,5 +1,11 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-16 — Master list re-baseline, run `ba70a8a1` (production data) + deal-page "Master quotation list record"
+
+Mo/GM: numbers did not match the file. Latest *PHC Quotation List - SEPT 2026.xlsx* (modified 2026-11-16, 730 rows) applied via data_sync: 577 updated, 3 created, 17 weekly notes. **Defect found and fixed:** ~69 rows carry a prefix-only sales code (`FA`, `OM`, `BA`, `AB`, `AH`, `AD`, `NI`); the 2026-11-12 run treated each prefix as one code and archived 39 distinct projects as "duplicates" (and never created others). Repaired by project-name match: 39 restored, 51 updated, 17 created. Every file row now maps to one deal; status and amount reconcile 100% (DEAD follow-up on SUBMITTED/WAITING → lost, rule of 2026-11-12). All 22 columns stored in `extra_data.master_list` on 663 deals; +87 stakeholders, +65 contacts, +46 log activities (deduped). Closed on Mo's instruction: 74 pending AI reviews (superseded), 6 data-sync review rows, 57 review/verification flags (dismissed; follow-up flags kept). Undo: `select public.data_sync_undo('ba70a8a1-fc31-4752-9421-fb02dbeb289e')` (restores stage changes; extra_data detail writes are in audit_log). **Lesson:** the sync's code normaliser must treat letter-only codes as "no code".
+Frontend (branch `feat/master-list-record`): `MasterListRecord` panel on the deal page lists all 22 file columns.
+
+
 ## 2026-11-16 — Automation alerts in Arabic (branch `fix/flag-text-i18n`)
 
 - `run_sales_automations` stores flag reasons and actions as fixed English sentences, so the Arabic UI showed "Pending quotation_approval approval", "Follow-up due today" and similar. `src/lib/flag-text.ts` (`localizeFlagText`) maps each known sentence, with its date or approval type, to the reader's language at display time; unknown text is shown as written. Used in Action Center (title, why, context), Today panel, My Workspace "Action required", and Calendar. Frontend only. A test fails if a new English literal is added to `run_sales_automations` without a translation.

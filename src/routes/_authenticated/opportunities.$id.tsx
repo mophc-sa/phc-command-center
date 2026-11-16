@@ -12,6 +12,7 @@ import { useI18n, formatCurrency, formatNumber, type Lang, localeFor } from "@/l
 import { approvalTypeLabel } from "@/lib/approval-labels";
 import { LegacyOpportunityContext } from "@/components/phc/LegacyOpportunityContext";
 import { Panel } from "@/components/phc/Panel";
+import { MasterListRecord } from "@/components/phc/MasterListRecord";
 import { DealCorrespondencePanel } from "@/components/phc/DealCorrespondencePanel";
 import { SourceEmailPanel } from "@/components/phc/SourceEmailPanel";
 import { StageChecklistPanel } from "@/components/phc/StageChecklistPanel";
@@ -923,6 +924,7 @@ function OpportunityDetail() {
       )}
 
       <LegacyOpportunityContext extraData={o.extra_data} ar={lang === "ar"} />
+      <MasterListRecord extraData={o.extra_data} ar={lang === "ar"} />
 
       {/* 1.5 CLIENT DETAILS — basic identifying info at a glance, requested
           so opening an Opportunity doesn't require hunting through other
