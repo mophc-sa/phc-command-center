@@ -1,3 +1,4 @@
+import { riyadhDay } from "@/lib/riyadh-day";
 import { fetchRequiredRows } from "@/lib/fetch-all";
 // =============================================================================
 // Sales Management (Phase 5) — three views on one route.
@@ -43,8 +44,8 @@ import {
 } from "@/lib/roles";
 import {
   concentrationBy, executiveKpis, lostByReason, lostByStage,
-  opportunityValue, resolveProbability, targetKpis, thisMonth, thisQuarter, yearToDate,
-  type KpiContext, type OppRow, type Period,
+  opportunityValue, resolveProbability, targetForPeriod, targetKpis, thisMonth, thisQuarter, yearToDate,
+  type KpiContext, type TargetRow, type OppRow, type Period,
 } from "@/lib/sales-kpis";
 import { assembleActions, type ApprovalRowIn, type FlagRowIn, type FollowUpRowIn, type IntakeRowIn, type TaskRowIn } from "@/lib/action-center";
 import {
@@ -81,7 +82,7 @@ function SalesManagement() {
   const uid = user?.id ?? "";
   const { tab: tabParam, range: rangeParam } = Route.useSearch();
   const navigate = Route.useNavigate();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
 
   // Visibility follows business authority, never the technical role. A
   // system_admin with no business role sees none of these tabs — the same rule
@@ -151,6 +152,8 @@ function SalesManagement() {
   // would defeat every memo that depends on it.
   const opps = useMemo(() => data?.opportunities ?? [], [data]);
   const kpis = useMemo(() => executiveKpis(opps, ctx), [opps, ctx]);
+  // Only the target rows for the selected period — see targetForPeriod.
+  const periodTarget = targetForPeriod((data?.targets ?? []) as TargetRow[], ctx.period!) ?? 0;
 
   const actions = useMemo(
     () =>
@@ -273,7 +276,7 @@ function SalesManagement() {
         <TeamView
           lang={lang} day={day} summaries={summaries} workload={workload} attention={attention}
           events={events} today={today} nameOf={nameOf} kpis={kpis}
-          targetTotal={(data?.targets ?? []).reduce((s: number, x: Record<string, unknown>) => s + Number(x.sales_target ?? 0), 0)}
+          targetTotal={periodTarget}
           opps={opps} ctx={ctx}
         />
       ) : tab === "historical" ? (
@@ -285,7 +288,7 @@ function SalesManagement() {
       ) : (
         <ExecutiveView
           lang={lang} kpis={kpis} opps={opps} ctx={ctx} attention={attention} workload={workload} nameOf={nameOf}
-          targetTotal={(data?.targets ?? []).reduce((s: number, x: Record<string, unknown>) => s + Number(x.sales_target ?? 0), 0)}
+          targetTotal={periodTarget}
           tenders={data?.tenders ?? []}
         />
       )}

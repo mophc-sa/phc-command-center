@@ -75,6 +75,12 @@ describe("member summary", () => {
 
     expect(s.activeOpportunities).toBe(2);
     expect(s.openPipelineValue).toBe(1500);
+
+    const unvalued = memberSummary({
+      userId: ME, today: TODAY, actions: [], events: [],
+      opportunities: [opp({ id: "u", estimated_value_max: null, next_action: "call" })],
+    });
+    expect(unvalued.openPipelineValue).toBeNull(); // missing, not SAR 0
     expect(s.openActions).toBe(1);
     expect(s.actionsCompletedToday).toBe(1);   // not the one completed weeks ago
     expect(s.stageMovesToday).toBe(1);

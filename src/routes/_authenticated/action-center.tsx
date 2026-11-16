@@ -31,6 +31,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatNumber } from "@/lib/i18n";
+import { formatMessage, msg } from "@/lib/messages";
 import { approvalTypeLabel } from "@/lib/approval-labels";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import {
@@ -47,47 +48,34 @@ import {
   canApproveCommercialAction,
 } from "@/lib/roles";
 import {
+  actionTypeKey,
   assembleActions,
+  attachRecords,
   countActions,
   filterActions,
+  isUnlinkedTask,
+  overdueDays,
+  sortActions,
   urgencyOf,
+  whyText,
   DEFAULT_FILTERS,
+  OPPORTUNITY_RECORD_COLUMNS,
+  SOURCE_KEY,
   type ActionFilters,
   type UnifiedAction,
   type ApprovalRowIn,
   type FlagRowIn,
   type FollowUpRowIn,
   type IntakeRowIn,
+  type OpportunityRecord,
   type TaskRowIn,
 } from "@/lib/action-center";
-import { humanize } from "@/lib/utils";
+import { riyadhDay } from "@/lib/daily-tasks";
 
 export const Route = createFileRoute("/_authenticated/action-center")({
   head: () => ({ meta: [{ title: "Sales Action Queue — PHC" }, { name: "robots", content: "noindex" }] }),
   component: ActionCenter,
 });
-
-const TYPE_KEY: Record<string, string> = {
-  follow_up_due: "acty_follow_up_due",
-  follow_up_overdue: "acty_follow_up_overdue",
-  missing_data: "acty_missing_data",
-  rfq_review_needed: "acty_rfq_review_needed",
-  tender_review_needed: "acty_tender_review_needed",
-  approval_needed: "acty_approval_needed",
-  quotation_follow_up: "acty_quotation_follow_up",
-  no_next_action: "acty_no_next_action",
-  inactive_tier_a_opportunity: "acty_inactive_tier_a_opportunity",
-  contract_evidence_missing: "acty_contract_evidence_missing",
-  submission_pending_on: "acty_submission_pending_on",
-};
-
-const SOURCE_KEY: Record<string, string> = {
-  flag: "ac_source_flag",
-  task: "ac_source_task",
-  follow_up: "ac_source_follow_up",
-  approval: "ac_source_approval",
-  intake_review: "ac_source_intake_review",
-};
 
 const ENTITY_KEY: Record<string, string> = {
   opportunity: "acrt_opportunity",
@@ -95,7 +83,13 @@ const ENTITY_KEY: Record<string, string> = {
   tender: "acrt_tender",
   approval: "acrt_approval",
   quotation: "acrt_quotation",
+  inbox_item: "acrt_inbox_item",
 };
+
+/** Label for an action's type: approval codes by their own helper, everything else by i18n key. */
+function typeLabel(a: Pick<UnifiedAction, "type" | "source">, t: (k: never) => string, lang: "en" | "ar") {
+  return a.source === "approval" ? approvalTypeLabel(a.type, lang) : t(actionTypeKey(a) as never);
+}
 
 function ActionCenter() {
   const { t, lang } = useI18n();
@@ -103,7 +97,7 @@ function ActionCenter() {
   const uid = user?.id ?? "";
   const qc = useQueryClient();
   const isManager = canManageSalesPipeline(roles);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
 
   const [filters, setFilters] = useState<ActionFilters>(DEFAULT_FILTERS);
   const [dialog, setDialog] = useState<{
@@ -121,6 +115,14 @@ function ActionCenter() {
     queryKey: ["unified-actions", filters.status],
     staleTime: 30_000,
     queryFn: async () => {
+      let followUpQuery = supabase
+        .from("follow_ups")
+        .select("id, opportunity_id, company_id, companies(id, name), owner_id, due_date, cadence_tier, channel, status, notes, created_at")
+        .order("due_date", { ascending: true })
+        .limit(200);
+      // Closed follow-ups are never active work; without this they used up the
+      // 200-row window before the open ones were read.
+      if (filters.status === "active") followUpQuery = followUpQuery.not("status", "in", "(completed,cancelled)");
       const [flags, tasks, followUps, approvals, intake] = await Promise.all([
         supabase.from("opportunity_flags").select("*").order("created_at", { ascending: false }).limit(300),
         supabase
@@ -128,11 +130,7 @@ function ActionCenter() {
           .select("id, title, related_opportunity_id, owner_id, priority, due_date, status, created_at, completed_at")
           .order("due_date", { ascending: true })
           .limit(200),
-        supabase
-          .from("follow_ups")
-          .select("id, opportunity_id, owner_id, due_date, cadence_tier, channel, status, notes, created_at")
-          .order("due_date", { ascending: true })
-          .limit(200),
+        followUpQuery,
         supabase
           .from("approvals")
           .select(
@@ -173,19 +171,26 @@ function ActionCenter() {
     [actions, filters, uid, today],
   );
 
-  const opportunityIds = [...new Set(visible.filter(a => a.entityType === "opportunity").map(a => a.entityId))].sort();
-  const { data: recordNames = new Map<string, string>() } = useQuery({
-    queryKey: ["action-record-names", opportunityIds],
+  const opportunityIds = [...new Set(visible.filter(a => a.entityType === "opportunity" && a.entityId).map(a => a.entityId))].sort();
+  const { data: records = [] } = useQuery({
+    queryKey: ["action-records", opportunityIds],
     enabled: opportunityIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from("opportunities").select("id, project_name").in("id", opportunityIds);
+      const { data, error } = await supabase.from("opportunities").select(OPPORTUNITY_RECORD_COLUMNS).in("id", opportunityIds);
       if (error) throw error;
-      return new Map((data ?? []).map(row => [row.id, row.project_name]));
+      return (data ?? []) as OpportunityRecord[];
     },
   });
+  // Re-ranked once the deal tier is known — tier is part of the order.
+  const ranked = useMemo(() => sortActions(attachRecords(visible, records), today), [visible, records, today]);
   const groups = new Map<string, typeof visible>();
-  for (const action of visible) {
-    const key = `${action.entityType}:${action.entityId || action.id}`;
+  for (const action of ranked) {
+    // One group per record: a deal, a company, or all unlinked tasks together.
+    const key = action.entityId
+      ? `${action.entityType}:${action.entityId}`
+      : isUnlinkedTask(action)
+        ? "task:unlinked"
+        : action.href.startsWith("/accounts/") ? action.href : action.id;
     groups.set(key, [...(groups.get(key) ?? []), action]);
   }
   // KPIs describe the personal queue — a team-wide count is not something an
@@ -257,7 +262,7 @@ function ActionCenter() {
     <div className="mx-auto max-w-6xl">
       <PageHeader
         eyebrow={lang === "ar" ? "أولوية العمل" : "Priority work"}
-        title={t("ac_title")}
+        title={t("ac_page_title")}
         description={t("ac_subtitle")}
         actions={
           isManager ? (
@@ -332,7 +337,7 @@ function ActionCenter() {
               <SelectItem value="all">{t("crm_filter_all_types")}</SelectItem>
               {typeOptions.map((ty) => (
                 <SelectItem key={ty} value={ty}>
-                  {TYPE_KEY[ty] ? t(TYPE_KEY[ty] as never) : humanize(ty)}
+                  {typeLabel(actions.find((a) => a.type === ty)!, t as never, lang)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -346,7 +351,7 @@ function ActionCenter() {
               <SelectItem value="all">{t("ac_filter_entity")}</SelectItem>
               {["opportunity", "rfq", "tender", "approval", "quotation", "inbox_item"].map((e) => (
                 <SelectItem key={e} value={e}>
-                  {ENTITY_KEY[e] ? t(ENTITY_KEY[e] as never) : humanize(e)}
+                  {t(ENTITY_KEY[e] as never)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -360,7 +365,7 @@ function ActionCenter() {
               <SelectItem value="all">{t("ac_filter_priority")}</SelectItem>
               {(["A", "B", "C"] as const).map((p) => (
                 <SelectItem key={p} value={p}>
-                  {t("label_tier")} {p}
+                  {t("ac_action_priority" as never)} {p}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -395,8 +400,9 @@ function ActionCenter() {
       ) : (
         <div className="space-y-3">
           {[...groups.entries()].map(([key, rows], index) => <details key={key} open={index < 3} className="overflow-hidden rounded-xl border border-border bg-surface">
-            <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
-              {recordNames.get(rows[0].entityId) ?? rows[0].context ?? rows[0].title}
+            <summary className="cursor-pointer whitespace-normal break-words px-4 py-3 text-sm font-semibold">
+              {/* The record, never a task title or a note. */}
+              {rows[0].recordLabel ?? (isUnlinkedTask(rows[0]) ? t("ac_unlinked_task" as never) : t(ENTITY_KEY[rows[0].entityType] as never))}
               <span className="ms-2 text-xs font-normal text-muted-foreground">{rows.length} {lang === "ar" ? "إجراءات" : "actions"}</span>
             </summary>
             <ul>{rows.map(a => <ActionRow key={a.id} a={a} today={today} ownerName={a.ownerUserId ? owners?.get(a.ownerUserId) : undefined} t={t} lang={lang} onStart={() => handleStart(a.sourceRecordId)} onDialog={kind => setDialog({ kind, flagId: a.sourceRecordId })} />)}</ul>
@@ -455,33 +461,52 @@ function ActionRow({
 }) {
   const urgency = urgencyOf(a.dueAt, today);
   const overdue = urgency === "overdue";
+  const lateDays = overdueDays(a.dueAt, today);
   const high = a.priority === "A";
   // Only flag-sourced rows have the start/complete/escalate/block lifecycle.
   // Everything else is resolved on its own entity, so we link instead of
   // offering buttons that would silently do nothing.
   const actionable = a.source === "flag" && (["open", "in_progress", "blocked"] as string[]).includes(a.status);
+  const tt = (k: string) => t(k as never);
+  const num = (n: number) => formatNumber(n, lang);
+  const title = a.source === "approval" ? approvalTypeLabel(a.type, lang) : a.title || typeLabel(a, t, lang);
+  // Text label on phones (≥40px target), icon-only beside the text from sm up.
+  const btn = "inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 text-xs transition-colors sm:h-7 sm:w-7 sm:px-0";
+  const neutral = `${btn} border-border/70 bg-background/40 text-muted-foreground hover:border-border-strong hover:text-foreground`;
+  const label = (k: string) => <span className="sm:sr-only">{tt(k)}</span>;
 
   return (
     <li className="border-t border-border/60 first:border-t-0">
-      <div className="grid grid-cols-[3px_minmax(0,1fr)_auto] items-stretch">
+      <div className="grid grid-cols-[3px_minmax(0,1fr)] items-stretch">
         <div
           className={a.blocking ? "bg-destructive/60" : high ? "bg-amber/70" : "bg-transparent"}
-          aria-label={a.blocking ? (lang === "ar" ? "معطِّل" : "Blocking") : high ? (lang === "ar" ? "أولوية عالية" : "High priority") : undefined}
+          aria-label={a.blocking ? (lang === "ar" ? "معطِّل" : "Blocking") : high ? `${tt("ac_action_priority")} A` : undefined}
         />
-        <div className="px-5 py-4">
+        <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:px-5">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill tone={a.blocking ? "danger" : "attention"}>
               {a.blocking ? <ShieldAlert className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-              {TYPE_KEY[a.type] ? t(TYPE_KEY[a.type] as never) : a.source === "approval" ? approvalTypeLabel(a.type, lang) : humanize(a.type)}
+              {typeLabel(a, t, lang)}
             </StatusPill>
-            <StatusPill tone="muted">{t(SOURCE_KEY[a.source] as never)}</StatusPill>
-            <StatusPill tone={high ? "attention" : "muted"}>
-              {t("label_tier" as never)} {a.priority}
-            </StatusPill>
+            <StatusPill tone="muted">{tt(SOURCE_KEY[a.source])}</StatusPill>
+            {/* Three different facts, three different pills: the deal's tier,
+                the action's own priority (a follow-up's is its cadence), and
+                urgency, which is the due date below. */}
+            {a.dealTier ? (
+              <StatusPill tone={a.dealTier === "A" ? "attention" : "muted"}>
+                {tt("ac_deal_tier")} {a.dealTier}
+              </StatusPill>
+            ) : null}
+            {a.priority ? (
+              <StatusPill tone="muted">
+                {tt(a.source === "follow_up" ? "ac_cadence" : "ac_action_priority")} {a.priority}
+              </StatusPill>
+            ) : null}
             {a.status === "blocked" ? (
               <StatusPill tone="danger">
                 <Ban className="h-3 w-3" />
-                {t("acst_blocked" as never)}
+                {tt("acst_blocked")}
               </StatusPill>
             ) : null}
             {a.dueAt ? (
@@ -490,76 +515,63 @@ function ActionRow({
                 data-tabular="true"
               >
                 {overdue ? <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
-                {overdue ? t("urgency_overdue" as never) : t("ac_due" as never)}: {a.dueAt}
+                {overdue ? tt("urgency_overdue") : tt("ac_due")}: {a.dueAt.slice(0, 10)}
               </span>
             ) : null}
           </div>
 
-          <Link to={a.href as never} className="mt-1.5 block whitespace-normal text-base font-medium text-foreground hover:underline">
-            {a.source === "approval" ? approvalTypeLabel(a.type, lang) : a.title}
-          </Link>
+          {isUnlinkedTask(a) ? (
+            <div className="mt-1.5 line-clamp-2 text-base font-medium text-foreground">{title}</div>
+          ) : (
+            <Link to={a.href as never} className="mt-1.5 line-clamp-2 text-base font-medium text-foreground hover:underline">
+              {title}
+            </Link>
+          )}
 
-          {/* Why this is on the list — required by PRD §2. */}
-          {a.reason ? (
-            <div className="mt-1 text-sm text-muted-foreground">
-              <span className="text-amber-light">{t("ac_why" as never)}:</span> {a.reason}
-            </div>
-          ) : null}
-          {a.context && a.context !== a.reason ? (
+          {/* Why this is on the list — required by PRD §2, on every row. */}
+          <div className="mt-1 text-sm text-muted-foreground">
+            <span className="text-amber-light">{tt("ac_why")}:</span> {whyText(a, tt, num)}
+            {lateDays ? <> · {formatMessage(msg("ac_overdue_days", { days: lateDays }), tt, (v) => typeof v === "number" ? num(v) : v)}</> : null}
+          </div>
+          {a.context && a.context !== a.reason && a.context !== a.title ? (
             <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.context}</div>
           ) : null}
           <div className="mt-1 text-xs text-muted-foreground">
-            {t("ac_owner" as never)}: {ownerName ?? t("ac_unassigned" as never)}
+            {tt("ac_owner")}: {ownerName ?? tt("ac_unassigned")}
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 pe-4">
-          {actionable ? (
-            <>
+        {actionable ? (
+          <div className="flex flex-wrap items-center gap-1.5">
               {a.status === "open" ? (
-                <button
-                  onClick={onStart}
-                  aria-label={t("ac_start" as never)}
-                  title={t("ac_start" as never)}
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-                >
-                  <PlayIcon className="h-3.5 w-3.5" />
+                <button type="button" onClick={onStart} title={tt("ac_start")} className={neutral}>
+                  <PlayIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {label("ac_start")}
                 </button>
               ) : null}
               <button
+                type="button"
                 onClick={() => onDialog("complete")}
-                aria-label={t("ac_complete" as never)}
-                title={t("ac_complete" as never)}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-won/40 bg-won/10 text-won transition-colors duration-150 hover:bg-won/[0.16]"
+                title={tt("ac_complete")}
+                className={`${btn} border-won/40 bg-won/10 text-won duration-150 hover:bg-won/[0.16]`}
               >
-                <CheckIcon className="h-3.5 w-3.5" />
+                <CheckIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                {label("ac_complete")}
               </button>
-              <button
-                onClick={() => onDialog("escalate")}
-                aria-label={t("ac_escalate" as never)}
-                title={t("ac_escalate" as never)}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-              >
-                <ArrowUpCircle className="h-3.5 w-3.5" />
+              <button type="button" onClick={() => onDialog("escalate")} title={tt("ac_escalate")} className={neutral}>
+                <ArrowUpCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                {label("ac_escalate")}
               </button>
-              <button
-                onClick={() => onDialog("block")}
-                aria-label={t("ac_block" as never)}
-                title={t("ac_block" as never)}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-              >
-                <PauseCircle className="h-3.5 w-3.5" />
+              <button type="button" onClick={() => onDialog("block")} title={tt("ac_block")} className={neutral}>
+                <PauseCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                {label("ac_block")}
               </button>
-              <button
-                onClick={() => onDialog("dismiss")}
-                aria-label={t("ac_dismiss" as never)}
-                title={t("ac_dismiss" as never)}
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-border/70 bg-background/40 text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-              >
-                <XIcon className="h-3.5 w-3.5" />
+              <button type="button" onClick={() => onDialog("dismiss")} title={tt("ac_dismiss")} className={neutral}>
+                <XIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                {label("ac_dismiss")}
               </button>
-            </>
-          ) : null}
+          </div>
+        ) : null}
         </div>
       </div>
     </li>

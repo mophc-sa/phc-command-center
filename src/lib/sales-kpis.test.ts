@@ -17,6 +17,7 @@ import {
   pipelineHealth,
   resolveProbability,
   stageCount,
+  targetForPeriod,
   targetKpis,
   thisMonth,
   thisQuarter,
@@ -207,7 +208,7 @@ describe("Weighted pipeline", () => {
     const k = weightedPipeline(
       [
         opp({ id: "scored", sales_stage: "jih", estimated_value_max: 1000, human_win_probability: 50 }),
-        opp({ id: "unscored", sales_stage: "jih", estimated_value_max: 9999 }),
+        opp({ id: "unscored", sales_stage: "jih", estimated_value_max: 999 }),
       ],
       SNAPSHOT,
     );
@@ -654,5 +655,30 @@ describe("a KPI opens the list it counted (reported 2026-10-19)", () => {
     const t = targetKpis([], { today, period: yearToDate(today) }, 40_000_000);
     expect(t.target.state).toBe("ok");
     expect(t.gap.state).toBe("ok");
+  });
+});
+
+describe("targetForPeriod: only the rows for the selected period", () => {
+  const rows = [
+    { period_type: "annual", period_start: "2026-01-01", sales_target: 12_000_000 },
+    { period_type: "annual", period_start: "2025-01-01", sales_target: 70_000_000 },
+    { period_type: "monthly", period_start: "2026-11-01", sales_target: 1_000_000 },
+    { period_type: "monthly", period_start: "2026-10-01", sales_target: 900_000 },
+  ];
+
+  it("a month gets that month's monthly rows, never every row", () => {
+    expect(targetForPeriod(rows, thisMonth("2026-11-16"))).toBe(1_000_000);
+  });
+
+  it("the year gets the current year's annual rows", () => {
+    expect(targetForPeriod(rows, yearToDate("2026-11-16"))).toBe(12_000_000);
+  });
+
+  it("the year falls back to that year's monthly rows when no annual exists", () => {
+    expect(targetForPeriod(rows.slice(2), yearToDate("2026-11-16"))).toBe(1_900_000);
+  });
+
+  it("no matching row is null (no target), not 0", () => {
+    expect(targetForPeriod(rows, thisMonth("2026-12-01"))).toBeNull();
   });
 });

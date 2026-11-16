@@ -15,10 +15,27 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, AlertTriangle } from "lucide-react";
 import { StatusPill } from "@/components/phc/StatusPill";
-import { formatCurrency, formatNumber, useI18n } from "@/lib/i18n";
-import { formatMessage } from "@/lib/messages";
-import { canonicalStageLabelKey } from "@/lib/stage-canonical";
+import { formatCurrency, formatNumber, localeFor, strings, useI18n, type Lang } from "@/lib/i18n";
+import { formatMessage, msg } from "@/lib/messages";
+import { CANONICAL_STAGES, canonicalStageLabelKey, type CanonicalStage } from "@/lib/stage-canonical";
 import type { AttentionItem, AttentionPriority, ReasonKind } from "@/lib/attention";
+
+/**
+ * Render one reason slot. `t` returns the key itself for a missing entry, so
+ * the old `t(\`src_${v}\`) || String(v)` never fell back and leaked
+ * "src_rfq_received" / "src_2026-08-01" onto the screen. Translate only what
+ * has a translation; dates and stages have their own formatters.
+ */
+export function attentionParam(v: string | number, t: (k: string) => string, lang: Lang): string {
+  if (typeof v === "number") return formatNumber(v, lang);
+  if (/^\d{4}-\d{2}-\d{2}/.test(v)) {
+    const d = new Date(`${v.slice(0, 10)}T00:00:00Z`);
+    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString(localeFor(lang), { dateStyle: "medium", timeZone: "UTC" });
+  }
+  if ((CANONICAL_STAGES as readonly string[]).includes(v)) return t(canonicalStageLabelKey(v as CanonicalStage));
+  const key = `src_${v.toLowerCase()}`;
+  return key in strings ? t(key) : v;
+}
 
 const TONE: Record<AttentionPriority, "danger" | "attention" | "neutral" | "muted"> = {
   critical: "danger",
@@ -55,11 +72,17 @@ const REASON_LABEL: Record<ReasonKind, { en: string; ar: string }> = {
 export function NeedsAttentionPanel({ items }: { items: AttentionItem[] }) {
   const { t, lang } = useI18n();
   const [open, setOpen] = useState<string | null>(null);
+  const tt = (k: string) => t(k as never);
 
   return (
     <div className="divide-y divide-border/50">
       {items.map((item) => {
         const expanded = open === item.opportunityId;
+        // Data gaps are counted apart: they do not drive priority, and a
+        // missing field should not read as the deal's headline problem.
+        const gaps = item.reasons.filter((r) => r.category === "data_quality").length;
+        const issues = item.reasons.filter((r) => r.category !== "data_quality");
+        const primary = issues[0] ?? item.primaryReason;
         return (
           <div key={item.opportunityId}>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2.5">
@@ -79,17 +102,22 @@ export function NeedsAttentionPanel({ items }: { items: AttentionItem[] }) {
                   {/* The primary issue, plus how many others are hiding behind
                       it. The count is the whole point of aggregating. */}
                   <span className="block truncate text-xs text-muted-foreground">
-                    {REASON_LABEL[item.primaryReason.kind][lang]}
-                    {item.issueCount > 1
+                    {REASON_LABEL[primary.kind][lang]}
+                    {issues.length > 1
                       ? lang === "ar"
-                        ? ` · و${item.issueCount - 1} أخرى`
-                        : ` · +${item.issueCount - 1} more`
+                        ? ` · و${issues.length - 1} أخرى`
+                        : ` · +${issues.length - 1} more`
                       : ""}
                   </span>
                 </span>
               </button>
 
               <StatusPill tone={TONE[item.priority]}>{PRIORITY_LABEL[item.priority][lang]}</StatusPill>
+              {gaps > 0 ? (
+                <StatusPill tone="muted">
+                  {formatMessage(msg("att_data_gaps", { n: gaps }), tt, (v) => attentionParam(v, tt, lang))}
+                </StatusPill>
+              ) : null}
 
               {item.stage ? (
                 <span className="text-xs text-muted-foreground">{t(canonicalStageLabelKey(item.stage))}</span>
@@ -143,14 +171,16 @@ export function NeedsAttentionPanel({ items }: { items: AttentionItem[] }) {
                   {item.reasons.map((r) => (
                     <li key={r.kind} className="flex items-start gap-1.5 text-xs">
                       <AlertTriangle className="mt-px h-2.5 w-2.5 shrink-0 text-amber-light" aria-hidden="true" />
+                      <span className="shrink-0 rounded border border-border/60 px-1 text-2xs text-muted-foreground">
+                        {tt(`att_cat_${r.category}`)}
+                      </span>
                       <span className="text-foreground">{REASON_LABEL[r.kind][lang]}</span>
                       <span className="text-muted-foreground">
-                        —{" "}
-                        {formatMessage(r.detail, (k) => t(k as never), (v) =>
-                          typeof v === "number" ? formatNumber(v, lang) : t(`src_${v}` as never) || String(v),
-                        )}
+                        — {formatMessage(r.detail, tt, (v) => attentionParam(v, tt, lang))}
                       </span>
-                      <span className="ms-auto shrink-0 text-muted-foreground">+{r.points}</span>
+                      <span className="ms-auto shrink-0 text-muted-foreground">
+                        {r.category === "data_quality" ? "—" : `+${r.points}`}
+                      </span>
                     </li>
                   ))}
                 </ul>

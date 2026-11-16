@@ -21,6 +21,7 @@
 // Closing is the only state change, and it is one-way.
 // =============================================================================
 
+import { riyadhDay } from "@/lib/riyadh-day";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -54,7 +55,7 @@ const STATUS_TONE: Record<CommitmentStatus, "positive" | "danger" | "muted" | "n
 };
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return riyadhDay();
 }
 
 export function CommitmentsPanel({

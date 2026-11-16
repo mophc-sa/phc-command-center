@@ -636,6 +636,15 @@ only when it is not — labelled "AI-estimated" so you always know which you are
 looking at. The two are shown side by side and never averaged. A deal nobody has
 scored is reported as **Unscored** and left out of the forecast entirely.
 
+**Since 2026-11-16 (branch `fix/kpi-riyadh`, not yet deployed):**
+
+- **"Today" is the Riyadh day on every page.** Between midnight and 3 a.m. some pages still showed yesterday (UTC), and a few followed the browser's clock. Due-today, overdue, "this month" and new-record default dates now all switch at midnight Riyadh time.
+- **A missing value is not SAR 0.** Where every deal in a total has no value recorded the figure shows **—**, and any total that leaves deals out says **"N no value recorded" / "N قيمة غير مسجلة"** beside it (My Workspace, Targets, Reports, Quotations, RFQ→JIH, Sales Management team table, Board rep cards).
+- **Weighted forecast needs coverage.** When the deals with a probability make up less than half of the open value, the forecast shows **Not calculated** with "Based on N of M open deals" instead of a small number that looks like the whole book. Same rule on the Board and on Targets.
+- **Targets measure the right period.** Sales Management compares Won to the target for the selected range only (this year's annual target for Year to date, else the monthly targets inside the range) instead of adding every target row ever. Targets page Won/Lost and conversion use the award/close date, not the last edit. Conversion shows **—** when nothing closed. Its forecast tile is the same weighted forecast as Command Center (the old 20% default for unscored deals is gone).
+- **Awarded = the canonical Won stage** on My Workspace (it read the old stage column). The manager view counts awards by award date this year, and overdue follow-ups count only open work on open deals (or company follow-ups).
+- **Every headline number explains itself in your language.** KPI cards on My Workspace, Targets and Reports show their period under the number and an ⓘ with the definition, in Arabic or English.
+
 ### 7b. Actions vs notifications — they are not the same thing
 
 The two are easy to confuse, and the system treats them differently on purpose.
@@ -980,6 +989,39 @@ on its own** — it proposes, you apply.
 
 ---
 
+### 7c. Reading a Work Queue row *(2026-11-16)*
+
+Every row in the **Work Queue** (Action Center) and in **What needs you today** (My Workspace) now
+answers three separate questions with three separate labels:
+
+- **Which record?** The group header and the line under the title name the record:
+  `deal code · project · client` for a deal, or the company name for a client follow-up. A task
+  title or a follow-up note is never used as the record name. A task with no deal shows
+  **مهمة غير مرتبطة / Unlinked task** and has no deal link. A client follow-up opens the account.
+- **How important is the deal?** **Deal tier A/B/C** is the deal's own tier. It is a different pill
+  from the action's **Priority** (or **Cadence** for a follow-up) and from the due date.
+  A risk flag or an approval is no longer shown as tier A just because it is a risk or an approval;
+  a pending approval is marked **Blocking** instead.
+- **Why is it here?** Every row has a **Why** line in your language, plus "N days overdue" when late.
+
+A follow-up's title is the first line of its note without the import tag (for example
+`[targets-2026-11]`), shortened. The full note is still on the row, in two lines.
+
+**What needs you today** shows your overdue work and the next 7 days only, ranked:
+blocking → overdue (most recent first) → due today → deal tier. It shows the top 8 and a
+**+N more** link to the Work Queue. Anything more than 30 days late is counted apart as
+**متأخرة قديمة / Stale overdue** so old work doesn't push today's work off the list.
+Cancelled tasks and follow-ups are not shown.
+
+**Follow-ups** opens on **Mine** for salespeople and **All** for managers; switch with the
+toggle. Cancelled follow-ups are no longer listed. In the **Calendar**, a client follow-up opens
+the account and shows the company name.
+
+**Needs Attention** (Command Center): missing data (no value, no owner, no client, no probability,
+no decision maker, no contact history) no longer raises a deal's priority. It is counted in a
+separate **بيانات ناقصة (n) / Data gaps (n)** pill, and each reason in the drill-down is labelled
+with its kind (Risk, Follow-through, Data gap, Engagement).
+
 ## 8. Your daily routine by role
 
 ### Salesperson — مندوب مبيعات
@@ -1099,6 +1141,11 @@ A project now has a responsible salesperson, shown at the top of the project pag
   follow-up only appeared as an Action Center item.
 
 ## 10. Current limitations
+
+### KPI definitions and Riyadh day (2026-11-16)
+
+- Four pages still compute "today" from the UTC clock until parallel work lands: Today panel, Follow-ups, Action Center, Calendar (listed in the `riyadh-today` contract test).
+- RFQ, tender and quotation conversion on the Targets team tab are all-time ratios and still show 0% when nothing closed.
 
 ### Pricing loop screens (2026-11-04)
 
@@ -1747,3 +1794,7 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-12 · master list sync: duplicates merged, deals updated and created from the master list, missing data filled, /data-sync review list · branch feat/data-sync, not deployed · previous: B5 costs, 2026-11-12 -->
 
 <!-- last reviewed 2026-11-16 · AI provenance (model, date, sources, new-activity notice), one pending suggestion per record, win likelihood 'Not enough data', AI-filled intake fields labelled, Riyadh days in SQL, data sync keeps a person's edit · branch fix/ai-audit-riyadh, not deployed · previous: master list sync, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-16 · Work Queue identity: record names, deal tier vs priority vs urgency, why on every row, today's top 8 with stale overdue apart, data gaps out of priority · branch fix/actions-identity, not deployed · previous: master list sync, 2026-11-12 -->
+
+<!-- last reviewed 2026-11-16 · one Riyadh "today", KPIs on the canonical engine, missing values shown as — with a count, bilingual KPI definitions · branch fix/kpi-riyadh, not deployed · previous: master list sync, 2026-11-12 -->

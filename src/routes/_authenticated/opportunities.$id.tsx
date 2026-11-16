@@ -1,3 +1,4 @@
+import { riyadhDay, addDays } from "@/lib/riyadh-day";
 import { isAssignableTeamMember } from "@/lib/team-members";
 import { opportunityClassification } from "@/lib/opportunity-classification";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
@@ -2355,7 +2356,7 @@ function OpportunityDetail() {
           type: "textarea",
           label: t("field_notes"),
         };
-        const tomorrow = new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 10);
+        const tomorrow = addDays(riyadhDay(), 1);
         const currentOwner = o.owner_id ?? "__none__";
 
         return (

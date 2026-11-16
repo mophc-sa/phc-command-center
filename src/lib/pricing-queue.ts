@@ -1,6 +1,8 @@
 // Order of the pricing queue: what is due first, then what has waited longest,
 // then the bigger deal. Pure so pricing-queue.test.ts can pin it.
 
+import { riyadhDay } from "@/lib/riyadh-day";
+
 export type QueueSortItem = {
   fileId: string;
   /** date (YYYY-MM-DD) or null */
@@ -26,11 +28,8 @@ export function compareQueue(a: QueueSortItem, b: QueueSortItem): number {
   );
 }
 
-/** Today in the user's own calendar, as YYYY-MM-DD (not the UTC date). */
-export function localDateString(now: Date = new Date()): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
-}
+/** Today as a Riyadh calendar day, YYYY-MM-DD — the business day, not the browser's. */
+export const localDateString = (now: Date = new Date()): string => riyadhDay(now);
 
 /** A date-only due value is overdue once the local day has passed it. */
 export const isOverdue = (due: string | null, today: string = localDateString()): boolean => due != null && due < today;

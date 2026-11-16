@@ -1,3 +1,4 @@
+import { riyadhDay, addDays } from "@/lib/riyadh-day";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -43,7 +44,6 @@ import {
   type CommentaryState,
 } from "@/lib/sales-ai";
 import { AGGREGATE_ENTITY_ID, runAiAgent } from "@/lib/ai-orchestrator-actions";
-import { riyadhDay } from "@/lib/daily-tasks";
 import { Callout } from "@/components/phc/Callout";
 import { ExecutiveBrief } from "@/components/phc/ExecutiveBrief";
 import { DataQualityPanel } from "@/components/phc/DataQualityPanel";
@@ -269,8 +269,8 @@ function CommandCenter() {
     queryKey: ["cc-team-target"],
     staleTime: 60_000,
     queryFn: async () => {
-      const annYear = `${new Date().getFullYear()}-01-01`;
-      const monthStart = `${new Date().toISOString().slice(0, 7)}-01`;
+      const annYear = `${riyadhDay().slice(0, 4)}-01-01`;
+      const monthStart = `${riyadhDay().slice(0, 7)}-01`;
       const [annual, monthly] = await Promise.all([
         supabase
           .from("sales_targets")
@@ -309,7 +309,7 @@ function CommandCenter() {
   // it. The engine's rule, like everywhere else.
   const openPipelineValue = sumOpportunityValue(openOpps as never).total;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
   const targetPeriod = teamTarget?.periodType === "annual" ? yearToDate(today) : thisMonth(today);
   const targetPeriodLabel =
     teamTarget?.periodType === "annual"
@@ -500,7 +500,7 @@ function CommandCenter() {
         })),
         transitions: (data?.transitions ?? []) as never,
         stakeholdersByOpp: stakeholdersByOpp,
-        today: new Date().toISOString().slice(0, 10),
+        today: riyadhDay(),
       }),
     [data, stakeholdersByOpp],
   );
@@ -610,7 +610,7 @@ function CommandCenter() {
         quotations: (data?.quotations ?? []) as never,
         attention,
         today,
-        since: new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10),
+        since: addDays(today, -29),
       }),
     [data, attention, today],
   );
@@ -631,7 +631,7 @@ function CommandCenter() {
   // Canonical Phase 5 KPIs. `today` is derived once so every tile shares one
   // period boundary and they cannot disagree about what "this month" means.
   const execKpis = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = riyadhDay();
     return executiveKpis((data?.opportunities ?? []) as unknown as OppRow[], {
       today,
       period: thisMonth(today),
@@ -641,7 +641,7 @@ function CommandCenter() {
   // Phase 5.1 §1/§4/§5. Same rows, same period boundary as execKpis — one
   // `today` for the whole page so two tiles cannot disagree about the month.
   const { forecast, buckets } = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = riyadhDay();
     const rows = (data?.opportunities ?? []) as unknown as OppRow[];
     const ctx = {
       today,

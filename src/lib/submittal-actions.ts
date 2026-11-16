@@ -3,6 +3,7 @@
 // deal's people read and record; the database refuses a step out of order and
 // an approval from anyone but a commercial manager, so these calls simply pass
 // the error on.
+import { riyadhDay } from "@/lib/riyadh-day";
 import { supabase } from "@/integrations/supabase/client";
 import type { ClientResponse, SubmittalKind, SubmittalStep } from "@/lib/submittals";
 
@@ -118,7 +119,7 @@ export type StepInput = {
 /** A date picked in the dialog is a day; noon keeps it on that day in any zone. */
 function toTimestamp(day: string | null | undefined): string | undefined {
   if (!day) return undefined;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
   return day === today ? new Date().toISOString() : `${day}T12:00:00Z`;
 }
 

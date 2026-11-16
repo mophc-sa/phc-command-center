@@ -11,6 +11,7 @@
 // calls createLead, never an opportunity insert.
 // =============================================================================
 
+import { riyadhDay } from "@/lib/riyadh-day";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { createCompany, createContact, createProject, type CompanyType, type ContactAuthority, type ContactLocation, type ProjectStage } from "@/lib/crm-actions";
@@ -560,7 +561,7 @@ export async function convertInboxToRfq(id: Uuid, input: {
     // The dialog's deadline wins; the intake deadline is the fallback. If
     // neither exists we still need a date for the follow-up cadence, so use
     // today rather than failing the conversion outright.
-    responseDueDate: input.responseDueDate ?? item.deadline ?? new Date().toISOString().slice(0, 10),
+    responseDueDate: input.responseDueDate ?? item.deadline ?? riyadhDay(),
     // §25.3 — carried from the intake form, not asked again. See D8.
     opportunityType: item.project_type === "tender" ? "tender" : "jih",
     sourceType: item.source_type ?? null,

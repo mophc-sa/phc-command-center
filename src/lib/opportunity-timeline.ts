@@ -27,6 +27,8 @@
 // Pure. See opportunity-timeline.test.ts.
 // =============================================================================
 
+import { addDays } from "@/lib/riyadh-day";
+
 export type TimelineCategory = "sales" | "approvals" | "communication" | "commercial" | "documents";
 
 export type TimelineEvent = {
@@ -582,9 +584,7 @@ export function buildTimeline(
 export type TimelineGroup = { key: "today" | "yesterday" | "earlier"; label: string; events: TimelineEvent[] };
 
 export function groupByRecency(events: TimelineEvent[], today: string): TimelineGroup[] {
-  const y = new Date(`${today}T00:00:00Z`);
-  y.setUTCDate(y.getUTCDate() - 1);
-  const yesterday = y.toISOString().slice(0, 10);
+  const yesterday = addDays(today, -1);
 
   const groups: TimelineGroup[] = [
     { key: "today", label: "Today", events: [] },

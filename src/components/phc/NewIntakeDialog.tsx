@@ -1,3 +1,4 @@
+import { riyadhDay } from "@/lib/riyadh-day";
 import { rankKey } from "@/lib/name-suggest";
 import { isAssignableTeamMember } from "@/lib/team-members";
 // PHC Sales OS — the single entry form.
@@ -59,7 +60,7 @@ export function newIntakeFields(
 ): DialogField[] {
   return [
     { key: "sourceType", type: "select", label: t("ibx_source_type"), required: true, options: INBOX_SOURCE_TYPES.map((s) => ({ value: s, label: t(`src_${s}`) })) },
-    { key: "dateReceived", type: "date", label: t("ibx_date_received"), defaultValue: new Date().toISOString().slice(0, 10) },
+    { key: "dateReceived", type: "date", label: t("ibx_date_received"), defaultValue: riyadhDay() },
     // The only place a duplicate company can be PREVENTED. Once two rows exist
     // for one contractor, every report that groups by client is wrong and no
     // care downstream repairs it.

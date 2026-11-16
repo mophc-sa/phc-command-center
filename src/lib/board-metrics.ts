@@ -21,6 +21,7 @@
 // like, and the poll cadence cannot smear a month boundary.
 // =============================================================================
 
+import { riyadhDay, addDays } from "@/lib/riyadh-day";
 import { canonicalStageOf } from "@/lib/sales-kpis";
 // Through the shared resolver, never a bare "ar-*": Arabic locales default to
 // Arabic-Indic digits, and this app pinned Western ones with -u-nu-latn.
@@ -126,6 +127,9 @@ export type PersonRow = {
   achievement: number | null;
   open: number;
   openCount: number;
+  /** Rows the two sums above could not add — missing value, not zero. */
+  wonUnvalued: number;
+  openUnvalued: number;
 };
 
 const dayMs = 86_400_000;
@@ -133,8 +137,9 @@ const daysBetween = (a: Date, b: Date) => Math.floor((a.getTime() - b.getTime())
 
 /** Month containing `now`, as a half-open [start, end) pair of ISO dates. */
 export function monthBounds(now: Date): { start: string; end: string } {
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth();
+  // The Riyadh month, not the UTC one: 00:00-03:00 on the 1st is already next month.
+  const [y, m1] = riyadhDay(now).split("-").map(Number);
+  const m = m1 - 1;
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   return { start: iso(new Date(Date.UTC(y, m, 1))), end: iso(new Date(Date.UTC(y, m + 1, 1))) };
 }
@@ -154,13 +159,13 @@ export function computePulse(input: {
   inboxUnclassified: number;
   now: Date;
 }): Pulse {
-  const today = input.now.toISOString().slice(0, 10);
+  const today = riyadhDay(input.now);
   const ages = input.approvalsPendingAt
     .filter((d): d is string => !!d)
     .map((d) => daysBetween(input.now, new Date(d)))
     .filter((n) => Number.isFinite(n));
 
-  const soon = new Date(input.now.getTime() + 7 * dayMs).toISOString().slice(0, 10);
+  const soon = addDays(today, 7);
   const dated = input.quotationDueDates.filter((d): d is string => !!d);
 
   return {
@@ -297,7 +302,9 @@ export function computeTeam(
       const d = (o.created_at ?? "").slice(0, 10);
       return !d || d >= cutoff;
     });
-    const wonValue = sumOpportunityValue(won).total;
+    const wonSum = sumOpportunityValue(won);
+    const openSum = sumOpportunityValue(open);
+    const wonValue = wonSum.total;
     const target = targets.get(ownerId) ?? null;
     rows.push({
       ownerId,
@@ -306,8 +313,10 @@ export function computeTeam(
       target,
       // Dividing by a target nobody set produces a confident lie.
       achievement: target && target > 0 ? wonValue / target : null,
-      open: sumOpportunityValue(open).total,
+      open: openSum.total,
       openCount: open.length,
+      wonUnvalued: wonSum.unvalued,
+      openUnvalued: openSum.unvalued,
     });
   }
   // Achievement first where it exists, then by open pipeline. A person with no
@@ -480,8 +489,9 @@ export type YearOnYear = {
  * same slice of the calendar.
  */
 export function yearOnYear(opps: readonly BoardOpp[], now: Date): YearOnYear {
-  const y = now.getUTCFullYear();
-  const md = now.toISOString().slice(4, 10); // "-MM-DD"
+  const today = riyadhDay(now);
+  const y = Number(today.slice(0, 4));
+  const md = today.slice(4, 10); // "-MM-DD"
   const inWindow = (year: number) => (o: BoardOpp) => {
     const w = (o.won_at ?? "").slice(0, 10);
     return canonicalStageOf(o as never) === "won" && !!w && w >= `${year}-01-01` && w <= `${year}${md}`;
