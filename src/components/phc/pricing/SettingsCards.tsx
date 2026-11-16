@@ -1,3 +1,4 @@
+import { riyadhDay } from "@/lib/riyadh-day";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -25,7 +26,7 @@ import { dbMessage, draftError, pick, type Bi } from "@/lib/pricing-text";
 
 const FIELD =
   "w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60";
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => riyadhDay();
 
 function useSaver() {
   const { lang } = useI18n();

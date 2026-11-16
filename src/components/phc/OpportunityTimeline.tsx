@@ -10,6 +10,7 @@
 // be on the screen.
 // =============================================================================
 
+import { riyadhDay } from "@/lib/riyadh-day";
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -43,7 +44,7 @@ const FILTERS: Array<{ key: TimelineFilter; en: string; ar: string }> = [
 export function OpportunityTimeline({ opportunityId }: { opportunityId: string }) {
   const { lang } = useI18n();
   const [filter, setFilter] = useState<TimelineFilter>("all");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
 
   const { data, isLoading } = useQuery({
     queryKey: ["opp-timeline", opportunityId],

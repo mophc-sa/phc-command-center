@@ -33,6 +33,7 @@ import {
   type HealthFinding,
   type KpiContext,
   opportunityValue,
+  sumOpportunityValue,
   type OppRow,
 } from "@/lib/sales-kpis";
 import { buildTimeline, type TimelineEvent, type TimelineSources } from "@/lib/opportunity-timeline";
@@ -43,7 +44,8 @@ export type MemberSummary = {
   userId: string;
   /** Current state, not a period count. */
   activeOpportunities: number;
-  openPipelineValue: number;
+  /** Null when the open deals carry no value at all — missing, not zero. */
+  openPipelineValue: number | null;
   openActions: number;
   overdueActions: number;
   dueTodayActions: number;
@@ -73,6 +75,7 @@ export function memberSummary(input: {
   const mine = input.opportunities.filter((o) => o.owner_id === userId);
   const pipeline = openPipeline(mine, { today, period: null });
   const health = pipelineHealth(mine, { today, period: null });
+  const openSum = sumOpportunityValue(mine.filter((o) => pipeline.recordIds.includes(o.id)));
 
   const myActions = input.actions.filter((a) => a.ownerUserId === userId);
   const active = myActions.filter((a) => a.status === "open" || a.status === "in_progress" || a.status === "blocked");
@@ -84,7 +87,7 @@ export function memberSummary(input: {
   return {
     userId,
     activeOpportunities: pipeline.recordCount,
-    openPipelineValue: pipeline.value ?? 0,
+    openPipelineValue: openSum.valued === 0 && openSum.unvalued > 0 ? null : openSum.total,
     openActions: active.length,
     overdueActions: active.filter((a) => urgencyOf(a.dueAt, today) === "overdue").length,
     dueTodayActions: active.filter((a) => urgencyOf(a.dueAt, today) === "due_today").length,
@@ -158,7 +161,7 @@ export function teamWorkload(input: {
       };
     })
     // Ordered by pipeline value — a fact about the work, not a ranking of people.
-    .sort((a, b) => b.openPipelineValue - a.openPipelineValue);
+    .sort((a, b) => (b.openPipelineValue ?? -1) - (a.openPipelineValue ?? -1));
 }
 
 // ---- Needs your attention (PRD §10) ----------------------------------------

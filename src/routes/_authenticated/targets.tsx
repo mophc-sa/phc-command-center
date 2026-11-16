@@ -1,3 +1,4 @@
+import { riyadhDay } from "@/lib/riyadh-day";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -7,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiRow } from "@/components/phc/KpiRow";
 import { KpiCard } from "@/components/phc/KpiCard";
+import { KpiTile } from "@/components/phc/KpiTile";
+import { kpiDefinition, unvaluedLabel } from "@/lib/kpi-definitions";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { ActionDialog } from "@/components/phc/ActionDialog";
@@ -36,12 +39,10 @@ export const Route = createFileRoute("/_authenticated/targets")({
   component: TargetsPage,
 });
 
-function monthStart(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+function monthStart() {
+  return `${riyadhDay().slice(0, 7)}-01`;
 }
-function todayIso(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+const todayIso = () => riyadhDay();
 
 // Month selector options for the Set Target dialog (Required Fix 3): a
 // curated dropdown of already-normalized YYYY-MM-01 values, so a manager can
@@ -75,14 +76,14 @@ function ProgressRow({
   lang,
 }: {
   label: string;
-  actual: number;
+  actual: number | null;
   target: number;
   money?: boolean;
   suffix?: string;
   lang: "en" | "ar";
 }) {
-  const pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0;
-  const fmt = (n: number) => (money ? formatCurrency(n, lang) : `${formatNumber(n, lang)}${suffix ?? ""}`);
+  const pct = target > 0 && actual !== null ? Math.min(100, Math.round((actual / target) * 100)) : 0;
+  const fmt = (n: number | null) => (n === null ? "—" : money ? formatCurrency(n, lang) : `${formatNumber(n, lang)}${suffix ?? ""}`);
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -152,7 +153,7 @@ function TargetsPage() {
       (
         (await supabase
           .from("opportunities")
-          .select("id, owner_id, stage, tier, contract_value, estimated_value_max, quotation_value, win_confidence, updated_at")) as {
+          .select("id, owner_id, stage, sales_stage, tier, contract_value, estimated_value_max, quotation_value, win_confidence, updated_at, won_at, lost_at, human_win_probability, score")) as {
           data: OpportunityRow[] | null;
         }
       ).data ?? [],
@@ -227,6 +228,17 @@ function TargetsPage() {
     () => (isManager ? computeManagerMetrics(targets, { opportunities, rfqs, tenders, quotations, actionFlags }, today) : null),
     [isManager, targets, opportunities, rfqs, tenders, quotations, actionFlags, today],
   );
+
+  const periodLabel = (pt?: string) =>
+    pt === "annual"
+      ? (lang === "ar" ? `سنة ${period.slice(0, 4)}` : `Year ${period.slice(0, 4)}`)
+      : (lang === "ar" ? `شهر ${period.slice(0, 7)}` : `Month ${period.slice(0, 7)}`);
+  const teamPeriod = targets.every((tg) => tg.period_type === "annual")
+    ? periodLabel("annual")
+    : targets.every((tg) => tg.period_type === "monthly")
+      ? periodLabel("monthly")
+      : (lang === "ar" ? "سنوي أو شهري حسب المندوب" : "Annual or monthly, per rep");
+  const allTime = lang === "ar" ? "كل الفترات" : "All time";
 
   const pipelineByOwnerRows = useMemo(() => {
     if (!teamMetrics) return [];
@@ -310,8 +322,20 @@ function TargetsPage() {
                 </span>
               </div>
               <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <KpiCard label={t("target_won")} value={formatCurrency(myMetrics.wonValue, lang)} icon={<TargetIcon className="h-3.5 w-3.5" />} />
-                <KpiCard label={t("target_remaining")} value={formatCurrency(myMetrics.remaining, lang)} />
+                <KpiCard
+                  label={t("target_won")}
+                  value={myMetrics.wonValue === 0 && myMetrics.wonUnvalued > 0 ? "—" : formatCurrency(myMetrics.wonValue, lang)}
+                  hint={unvaluedLabel(myMetrics.wonUnvalued, lang) || undefined}
+                  icon={<TargetIcon className="h-3.5 w-3.5" />}
+                  definition={kpiDefinition("won_value", lang)}
+                  period={periodLabel(myTarget?.period_type)}
+                />
+                <KpiCard
+                  label={t("target_remaining")}
+                  value={formatCurrency(myMetrics.remaining, lang)}
+                  definition={kpiDefinition("target_gap", lang)}
+                  period={periodLabel(myTarget?.period_type)}
+                />
               </div>
               <div className="space-y-3.5">
                 <ProgressRow label={t("target_sales")} actual={myMetrics.wonValue} target={Number(myTarget!.sales_target)} money lang={lang} />
@@ -323,12 +347,16 @@ function TargetsPage() {
             </div>
             <div className="rounded-xl border border-border/70 bg-surface/60 p-5">
               <div className="mb-4 text-sm font-semibold text-foreground">{t("targets_section_activity")}</div>
-              <StatRow label={t("target_open_pipeline")} value={formatCurrency(myMetrics.openPipeline, lang)} lang={lang} />
+              <StatRow
+                label={t("target_open_pipeline")}
+                value={[myMetrics.openPipeline === 0 && myMetrics.openUnvalued > 0 ? "—" : formatCurrency(myMetrics.openPipeline, lang), unvaluedLabel(myMetrics.openUnvalued, lang)].filter(Boolean).join(" · ")}
+                lang={lang}
+              />
               <StatRow label={t("target_followups_completed")} value={formatNumber(myMetrics.completedFollowUps, lang)} lang={lang} />
               <StatRow label={t("target_rfqs_reviewed")} value={formatNumber(myMetrics.rfqsReviewed, lang)} lang={lang} />
               <StatRow label={t("target_tenders_followed")} value={formatNumber(myMetrics.tendersFollowed, lang)} lang={lang} />
               <StatRow label={t("target_quotations_sent")} value={formatNumber(myMetrics.quotationsSent, lang)} lang={lang} />
-              <StatRow label={t("target_conversion_rate")} value={`${myMetrics.conversionRate}%`} lang={lang} />
+              <StatRow label={t("target_conversion_rate")} value={myMetrics.conversionRate === null ? "—" : `${myMetrics.conversionRate}%`} lang={lang} />
             </div>
           </div>
         )
@@ -340,20 +368,30 @@ function TargetsPage() {
               value={formatCurrency(teamMetrics.teamActual, lang)}
               hint={`${lang === "ar" ? "الهدف" : "Target"}: ${formatCurrency(teamMetrics.teamTarget, lang)}`}
               icon={<TargetIcon className="h-3.5 w-3.5" />}
+              definition={kpiDefinition("won_value", lang)}
+              period={teamPeriod}
             />
             <KpiCard
               label={lang === "ar" ? "نسبة التحقق" : "Attainment"}
               value={`${teamMetrics.teamAchievement}%`}
               trend={teamMetrics.teamAchievement >= 100 ? "up" : teamMetrics.teamAchievement >= 60 ? "flat" : "down"}
+              definition={kpiDefinition("target_achievement", lang)}
+              period={teamPeriod}
             />
-            <KpiCard label={t("mgr_tier_a")} value={formatNumber(teamMetrics.tierAOpenCount, lang)} hint={formatCurrency(teamMetrics.tierAOpenValue, lang)} />
-            <KpiCard label={t("mgr_forecast")} value={formatCurrency(teamMetrics.forecast, lang)} />
+            <KpiCard
+              label={t("mgr_tier_a")}
+              value={formatNumber(teamMetrics.tierAOpenCount, lang)}
+              hint={[formatCurrency(teamMetrics.tierAOpenValue, lang), unvaluedLabel(teamMetrics.tierAOpenUnvalued, lang)].filter(Boolean).join(" · ")}
+              definition={kpiDefinition("tier_a_open", lang)}
+              period={lang === "ar" ? "لقطة حالية" : "Current snapshot"}
+            />
+            <KpiTile kpi={teamMetrics.forecast} label={t("mgr_forecast")} />
           </KpiRow>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            <KpiCard label={t("mgr_rfq_conversion")} value={`${teamMetrics.rfqConversionPct}%`} />
-            <KpiCard label={t("mgr_tender_conversion")} value={`${teamMetrics.tenderConversionPct}%`} />
-            <KpiCard label={t("mgr_quotation_win_rate")} value={`${teamMetrics.quotationWinRatePct}%`} />
+            <KpiCard label={t("mgr_rfq_conversion")} value={`${teamMetrics.rfqConversionPct}%`} period={allTime} />
+            <KpiCard label={t("mgr_tender_conversion")} value={`${teamMetrics.tenderConversionPct}%`} period={allTime} />
+            <KpiCard label={t("mgr_quotation_win_rate")} value={`${teamMetrics.quotationWinRatePct}%`} period={allTime} />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">

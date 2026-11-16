@@ -27,6 +27,7 @@
 //                    approved batch of 45 quietly becomes an unreviewed 51.
 // =============================================================================
 
+import { riyadhDay } from "@/lib/riyadh-day";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, AlertTriangle, Download, Search, X, Rocket, CheckCircle2, Loader2 } from "lucide-react";
@@ -725,7 +726,7 @@ function DateField({ label, value, onChange }: { label: string; value: string | 
  * and Arabic client names would arrive as mojibake — which is most of this file.
  */
 function downloadCsv(rows: HistoricalSaleRow[]) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
   const blob = new Blob(["\uFEFF" + toCsv(rows)], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

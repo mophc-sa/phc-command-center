@@ -1,3 +1,4 @@
+import { riyadhDay } from "@/lib/riyadh-day";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -101,7 +102,7 @@ function CollectionsPage() {
             <TableBody>
               {(dues.data ?? []).map((d) => {
                 const opp = dueDeals.data?.get(d.contract_id);
-                const today = new Date().toISOString().slice(0, 10);
+                const today = riyadhDay();
                 return (
                   <TableRow key={d.id}>
                     <TableCell>

@@ -556,6 +556,15 @@ export function weightedPipeline(opps: OppRow[], ctx: KpiContext): Kpi {
   const zeroRestingOnIgnorance = scored.length > 0 && total === 0 && unscored > 0;
   const computable = scored.length > 0 && !zeroRestingOnIgnorance;
 
+  // Coverage. A weighted total over a sliver of the book reads as the whole
+  // book: SAR 655K beside an SAR 60M+ pipeline looked like a forecast, and was
+  // four scored deals. Under half the open value scored, the number is shown
+  // as not calculated with "based on N of M deals", and the value is kept for
+  // anyone drilling in.
+  const openValue = sumValues(open);
+  const scoredValue = sumValues(scored);
+  const partial = computable && unscored > 0 && openValue > 0 && scoredValue < openValue * 0.5;
+
   return kpi({
     key: "weighted_pipeline",
     value: computable ? total : null,
@@ -569,8 +578,12 @@ export function weightedPipeline(opps: OppRow[], ctx: KpiContext): Kpi {
     ]),
     recordIds: scored.map((o) => o.id),
     drilldown: { to: OPP_LIST, search: { stage: "open" } },
-    state: open.length === 0 ? "no_data" : computable ? "ok" : "not_calculated",
-    caveat: unscored > 0 ? msg("cav_probability_missing", { count: unscored }) : undefined,
+    state: open.length === 0 ? "no_data" : computable && !partial ? "ok" : "not_calculated",
+    caveat: partial
+      ? msg("cav_weighted_partial", { count: scored.length, total: open.length })
+      : unscored > 0
+        ? msg("cav_probability_missing", { count: unscored })
+        : undefined,
     ...(unscored > 0
       ? { fix: { labelKey: "fix_add_probability", to: OPP_LIST, search: { stage: "open", missing: "probability" } } }
       : {}),
@@ -725,6 +738,30 @@ export function targetKpis(opps: OppRow[], ctx: KpiContext, targetAmount: number
       ...(hasTarget ? { state: "ok" as const } : {}),
     }),
   };
+}
+
+export type TargetRow = {
+  period_type?: string | null;
+  period_start?: string | null;
+  sales_target?: number | string | null;
+};
+
+/**
+ * The target that belongs to `period`: the year's annual rows when the period
+ * is that whole year, else the monthly rows that start inside it. Null when
+ * none match. Summing every sales_targets row ever (SAR 90M) and comparing it
+ * to one month's Won was the defect this replaces.
+ */
+export function targetForPeriod(rows: TargetRow[], period: Period): number | null {
+  const sum = (rs: TargetRow[]) => rs.reduce((s, r) => s + Number(r.sales_target ?? 0), 0);
+  const year = Number(period.from.slice(0, 4));
+  const yearStart = `${year}-01-01`;
+  if (period.from === yearStart && period.to === `${year + 1}-01-01`) {
+    const annual = sum(rows.filter((r) => r.period_type === "annual" && r.period_start === yearStart));
+    if (annual > 0) return annual;
+  }
+  const monthly = sum(rows.filter((r) => r.period_type === "monthly" && inPeriod(r.period_start, period)));
+  return monthly > 0 ? monthly : null;
 }
 
 // ---- Lost analysis (PRD §20) -----------------------------------------------

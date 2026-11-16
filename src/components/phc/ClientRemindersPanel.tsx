@@ -7,6 +7,7 @@
 // other, and notify their owner on the day. Completing a repeating one schedules
 // the next in the database; stopping it ends the series.
 // =============================================================================
+import { riyadhDay } from "@/lib/riyadh-day";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -72,7 +73,7 @@ export function ClientRemindersPanel({
     qc.invalidateQueries({ queryKey: ["workspace"] });
   };
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
   const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(localeFor(lang), { dateStyle: "medium" });
   const people = new Map((teamQ.data ?? []).map((m) => [m.id, m]));
 

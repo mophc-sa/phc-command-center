@@ -25,9 +25,10 @@ describe("once a day, on the person's own visit", () => {
   });
 
   it("isFromToday compares calendar days, not 24 hours", () => {
-    const now = new Date(2026, 8, 30, 8, 0);
-    expect(isFromToday(new Date(2026, 8, 30, 0, 5).toISOString(), now)).toBe(true);
-    expect(isFromToday(new Date(2026, 8, 29, 23, 55).toISOString(), now)).toBe(false);
+    // Riyadh is UTC+3: 21:05Z on the 29th is 00:05 on the 30th there.
+    const now = new Date("2026-09-30T05:00:00Z");
+    expect(isFromToday("2026-09-29T21:05:00Z", now)).toBe(true);
+    expect(isFromToday("2026-09-29T20:55:00Z", now)).toBe(false);
     expect(isFromToday(null, now)).toBe(false);
   });
 });

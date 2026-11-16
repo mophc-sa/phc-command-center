@@ -1,5 +1,6 @@
 // PHC Sales OS — Salesperson Dashboard helper unit tests.
 // Run with: bun test src/lib/dashboard-helpers.test.ts
+import { riyadhDay, addDays } from "@/lib/riyadh-day";
 import { test, expect, describe, beforeEach, afterEach, mock } from "bun:test";
 import {
   daysUntil,
@@ -7,6 +8,7 @@ import {
   urgencyTone,
   urgencyLabel,
   computeAwardedTotal,
+  countUnvalued,
   filterAwardedOpps,
   computeJihPipelineTotal,
   computeTenderPipelineTotal,
@@ -34,20 +36,16 @@ describe("daysUntil", () => {
   });
 
   test("returns 0 for today", () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = riyadhDay();
     expect(daysUntil(today)).toBe(0);
   });
 
   test("returns positive number for future dates", () => {
-    const future = new Date();
-    future.setDate(future.getDate() + 5);
-    expect(daysUntil(future.toISOString().slice(0, 10))).toBe(5);
+    expect(daysUntil(addDays(riyadhDay(), 5))).toBe(5);
   });
 
   test("returns negative number for past dates (overdue)", () => {
-    const past = new Date();
-    past.setDate(past.getDate() - 3);
-    expect(daysUntil(past.toISOString().slice(0, 10))).toBe(-3);
+    expect(daysUntil(addDays(riyadhDay(), -3))).toBe(-3);
   });
 });
 
@@ -57,14 +55,12 @@ describe("daysSince", () => {
   });
 
   test("returns 0 for today", () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = riyadhDay();
     expect(daysSince(today)).toBe(0);
   });
 
   test("returns positive number for past dates", () => {
-    const past = new Date();
-    past.setDate(past.getDate() - 7);
-    expect(daysSince(past.toISOString().slice(0, 10))).toBe(7);
+    expect(daysSince(addDays(riyadhDay(), -7))).toBe(7);
   });
 });
 
@@ -164,12 +160,15 @@ describe("computeAwardedTotal — only officially Awarded records count", () => 
     expect(computeAwardedTotal(opps)).toBe(0);
   });
 
-  // Contract Signed WITH stage=won IS awarded (the approved business rule)
-  test("counts contract_signed when stage=won (official award registered)", () => {
-    const opps = [
-      opp({ stage: "won", sales_stage: "contract_signed", estimated_value_max: 700000 }),
-    ];
-    expect(computeAwardedTotal(opps)).toBe(700000);
+  // Canonical stage: sales_stage decides. Legacy `stage` is only the fallback
+  // when sales_stage is empty, so a stale legacy "won" does not count.
+  test("counts sales_stage=won; a legacy won beside contract_signed does not count", () => {
+    expect(computeAwardedTotal([opp({ stage: "won", sales_stage: "won", estimated_value_max: 700000 })])).toBe(700000);
+    expect(computeAwardedTotal([opp({ stage: "won", sales_stage: "contract_signed", estimated_value_max: 700000 })])).toBe(0);
+  });
+
+  test("countUnvalued counts rows with no recorded value", () => {
+    expect(countUnvalued([opp({ estimated_value_max: null }), opp({ estimated_value_max: 5 })] as never)).toBe(1);
   });
 
   test("uses contract_value over estimated_value_max when available", () => {

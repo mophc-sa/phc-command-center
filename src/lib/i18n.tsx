@@ -1304,6 +1304,10 @@ export const strings = {
     en: "{count} open deals have no probability and are excluded rather than assumed",
     ar: "{count} فرصة مفتوحة بلا احتمالية، واستُبعدت بدل أن تُفترَض",
   },
+  cav_weighted_partial: {
+    en: "Based on {count} of {total} open deals — under half the open value has a probability, so this is not a full forecast",
+    ar: "مبني على {count} من {total} صفقة مفتوحة — أقل من نصف القيمة المفتوحة له احتمالية، فهذا ليس توقعًا كاملًا",
+  },
   cav_unvalued_contribute_zero: {
     en: "{count} of {total} have no value recorded and are not included in the total",
     ar: "{count} من {total} بلا قيمة مسجَّلة وغير مشمولة في الإجمالي",

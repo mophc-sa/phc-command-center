@@ -1,3 +1,4 @@
+import { riyadhDay } from "@/lib/riyadh-day";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -56,7 +57,7 @@ function AwardQueue() {
       ).data ?? [],
   });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = riyadhDay();
 
   const verbalNoContract = useMemo(() => opps.filter((o: any) => o.sales_stage === "verbally_awarded"), [opps]);
   const contractReceived = useMemo(() => opps.filter((o: any) => o.sales_stage === "contract_received"), [opps]);
