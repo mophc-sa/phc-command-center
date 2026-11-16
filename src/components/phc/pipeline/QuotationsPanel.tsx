@@ -21,6 +21,7 @@ import {
   updateQuotationStatus,
   type QuotationStatus,
 } from "@/lib/sales-actions";
+import { QUOTE_DEAL_STAGE, liveQuotes } from "@/lib/live-quotes";
 
 const STATUSES: QuotationStatus[] = [
   "draft",
@@ -54,12 +55,14 @@ export function QuotationsPanel() {
   const { data: quotes = [], isLoading } = useQuery({
     queryKey: ["quotations"],
     queryFn: async () =>
-      (
-        await supabase
-          .from("quotations")
-          .select("*, opportunities(id, project_name, client)")
-          .order("updated_at", { ascending: false })
-      ).data ?? [],
+      liveQuotes(
+        (
+          await supabase
+            .from("quotations")
+            .select(`*, opportunities(id, project_name, client), ${QUOTE_DEAL_STAGE}`)
+            .order("updated_at", { ascending: false })
+        ).data,
+      ),
   });
 
   const now = new Date();

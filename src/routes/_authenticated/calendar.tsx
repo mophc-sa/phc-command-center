@@ -43,6 +43,7 @@ import {
   ymd,
   type CalendarEvent,
 } from "@/lib/calendar";
+import { QUOTE_DEAL_STAGE, liveQuotes } from "@/lib/live-quotes";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
@@ -106,7 +107,7 @@ function CalendarPage() {
             .not("due_date", "is", null),
           supabase.from("tasks").select("id, title, due_date, completed_at, related_opportunity_id")
             .not("due_date", "is", null),
-          supabase.from("quotations").select("id, quote_number, valid_until, status, related_opportunity_id")
+          supabase.from("quotations").select(`id, quote_number, valid_until, status, related_opportunity_id, ${QUOTE_DEAL_STAGE}`)
             .not("valid_until", "is", null),
           supabase.from("projects").select("id, name, project_number, expected_boq_date, expected_signage_date")
             .or([dated("expected_boq_date"), dated("expected_signage_date")].join(",")),
@@ -126,7 +127,7 @@ function CalendarPage() {
         flags: flags.data ?? [],
         commitments: commitments.data ?? [],
         tasks: tasks.data ?? [],
-        quotations: quotations.data ?? [],
+        quotations: liveQuotes(quotations.data),
         projects: projects.data ?? [],
         tenders: tenders.data ?? [],
       };

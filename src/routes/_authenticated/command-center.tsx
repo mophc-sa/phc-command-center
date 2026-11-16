@@ -68,6 +68,7 @@ import {
   isFinanceManager,
   type AppRole,
 } from "@/lib/roles";
+import { QUOTE_DEAL_STAGE, liveQuotes } from "@/lib/live-quotes";
 
 // ── Route guard ───────────────────────────────────────────────────────────────
 // This is an aggregate, all-reps management view. Client spec (2026-07-27):
@@ -229,7 +230,7 @@ function CommandCenter() {
           fetchAllRows(() =>
             supabase
               .from("quotations")
-              .select("id, related_opportunity_id, status, value, issued_date"),
+              .select(`id, related_opportunity_id, status, value, issued_date, ${QUOTE_DEAL_STAGE}`),
           ),
           // Stage aging's only honest source, and the worst of the old caps:
           // `.limit(2000)` combined with ascending order took the OLDEST 2,000
@@ -256,7 +257,7 @@ function CommandCenter() {
         transitions: transitions.rows,
         activities: activities.rows,
         rfqs: rfqs.rows,
-        quotations: quotations.rows,
+        quotations: liveQuotes(quotations.rows),
       };
     },
   });

@@ -41,6 +41,7 @@ import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canManageSalesPipeline, canReviewAiOutput } from "@/lib/roles";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 import { AGGREGATE_ENTITY_ID, runAiAgent } from "@/lib/ai-orchestrator-actions";
+import { QUOTE_DEAL_STAGE, liveQuotes } from "@/lib/live-quotes";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Reports — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -90,8 +91,8 @@ function ReportsPage() {
   const { data: allQuotes = [], isLoading: l2, error: quotationError, refetch: reloadQuotes } = useQuery({
     queryKey: ["report-quotes", user?.id],
     enabled: !!user, refetchInterval: 60000,
-    queryFn: () => readAll((from,to) => supabase.from("quotations")
-      .select("id, status, value, win_loss_reason, currency, related_opportunity_id, created_at").order("id").range(from,to)),
+    queryFn: async () => liveQuotes(await readAll((from,to) => supabase.from("quotations")
+      .select(`id, status, value, win_loss_reason, currency, related_opportunity_id, created_at, ${QUOTE_DEAL_STAGE}`).order("id").range(from,to))),
   });
   const opps = useMemo(() => allOpps.filter(o => inReportCohort(o, scope)), [allOpps, scope]);
   const ownerIds = useMemo(() => new Set(allOpps.filter(o => scope.owner === "all" || o.owner_id === scope.owner).map(o => o.id)), [allOpps, scope.owner]);

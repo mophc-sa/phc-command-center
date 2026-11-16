@@ -54,6 +54,7 @@ import {
   targetAchievementPct, remainingTarget as computeRemainingTarget,
   normalizeFollowUpChannel,
 } from "@/lib/dashboard-helpers";
+import { QUOTE_DEAL_STAGE, liveQuotes } from "@/lib/live-quotes";
 
 export const Route = createFileRoute("/_authenticated/my-workspace")({
   head: () => ({ meta: [{ title: "PHC Sales Dashboard — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -868,7 +869,7 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
   const { data: awardedOpps = [] } = useQuery({ queryKey: ["ws-awarded", uid], enabled: !!uid, queryFn: async () => ((await supabase.from("opportunities").select("id, project_name, estimated_value_max, contract_value, quotation_value, currency, sales_stage, stage, updated_at, won_at").eq("owner_id", uid).gte("won_at", yearStart()).order("won_at", { ascending: false })).data ?? []).filter(isCanonicallyWon) });
   const { data: urgentQuotations = [] } = useQuery({
     queryKey: ["ws-urgent-quotations", uid], enabled: !!uid,
-    queryFn: async () => { return (await supabase.from("quotations").select("id, related_opportunity_id, status, valid_until, value, currency").eq("owner_id", uid).in("status", ["approved_for_submission", "submitted", "follow_up"]).lte("valid_until", addDays(riyadhDay(), 7)).order("valid_until", { ascending: true })).data ?? []; },
+    queryFn: async () => { return liveQuotes((await supabase.from("quotations").select(`id, related_opportunity_id, status, valid_until, value, currency, ${QUOTE_DEAL_STAGE}`).eq("owner_id", uid).in("status", ["approved_for_submission", "submitted", "follow_up"]).lte("valid_until", addDays(riyadhDay(), 7)).order("valid_until", { ascending: true })).data); },
   });
   const { data: jihOpps = [] } = useQuery({ queryKey: ["ws-jih", uid], enabled: !!uid, queryFn: async () => (await supabase.from("opportunities").select("id, project_name, stage, sales_stage, estimated_value_max, quotation_value, contract_value, currency, win_confidence").eq("owner_id", uid).in("sales_stage", ["jih", "jih_bafo", "verbally_awarded", "contract_received", "contract_signed"]).order("updated_at", { ascending: false })).data ?? [] });
 
