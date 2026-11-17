@@ -57,12 +57,30 @@ import { useEffect, useMemo, useRef, useState } from "react";
 // `currentColor`, so every icon is the colour of the thing it labels -- which
 // is the point of the tint behind it.
 import {
-  Activity, AlertTriangle, BarChart3, CalendarClock, CalendarDays, CheckCircle2,
-  CircleX, Clock, FileText, Filter, Flame, Handshake, Megaphone, PauseCircle,
-  PieChart, RefreshCw, Sparkles, Target, TrendingUp, Users,
+  AlertTriangle, Award, BarChart3, CalendarClock, CalendarDays, CheckCircle2,
+  CircleX, FileText, Filter, Flag, Flame, Handshake, Inbox, PauseCircle,
+  PieChart, RefreshCw, TrendingUp, Users,
   type LucideIcon,
 } from "lucide-react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  attentionQueues,
+  bucket,
+  closingList,
+  daysSince,
+  pipelineByRoute,
+  redFlags2025,
+  repSummary,
+  rfqIntake,
+  targetYtd,
+  toRec,
+  verbalAwards,
+  type Bucket,
+  type ClosingOpp,
+  type Rec,
+} from "@/lib/board-closing";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { canonicalStageOf, inPeriod, isWon, winRate, wonDate, yearToDate } from "@/lib/sales-kpis";
@@ -74,7 +92,6 @@ import { requiresConversionReview } from "@/lib/dashboard-helpers";
 import { formatRate, rate, riyadhDay, teamDay } from "@/lib/daily-tasks";
 import {
   attentionItems,
-  pulseSentences,
   hotOpportunities,
   horizonForecast,
   pipelineBuckets,
@@ -82,7 +99,6 @@ import {
   weightedPipeline,
   upcoming,
   wireItems,
-  sharedReason,
   oldestOverdueDays,
   movement,
   type Figure,
@@ -165,7 +181,9 @@ const STAGE_LABEL: Record<string, [string, string]> = {
   // "Job in hand" reads in English as "we have the job". It means the
   // CONTRACTOR holds the main project -- our odds are better, not our win.
   // The review flagged the wording and was right; the bucket is unchanged.
-  jih: ["المقاول يملك المشروع", "Contractor holds it"],
+  // Renamed 2026-11-17: "Contractor holds it" was read as a hold. sales_stage
+  // jih is a submitted quotation awaiting the decision; holds are on_hold.
+  jih: ["مقدَّم بانتظار القرار", "Quoted · awaiting decision"],
   jih_bafo: ["BAFO", "BAFO"],
   under_negotiation: ["تفاوض", "Negotiation"],
   verbally_awarded: ["ترسية شفهية", "Verbal award"],
@@ -235,7 +253,7 @@ function useBoardData() {
       const [opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves] =
         await Promise.all([
           fetchRequiredRows(() => supabase.from("opportunities").select(
-            "id, project_name, client, owner_id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, human_win_probability, expected_contract_date, next_action, next_action_due, last_activity_at, won_at, lost_at, created_at, extra_data",
+            "id, project_name, client, owner_id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, human_win_probability, expected_contract_date, next_action, next_action_due, last_activity_at, won_at, lost_at, created_at, extra_data, hold_reason, contract_signed_date, contract_received_date",
           ).neq("stage", "archived").order("id")),
           fetchRequiredRows(() => supabase.from("approvals").select("created_at").eq("status", "pending").order("id")),
           fetchRequiredRows(() => supabase.from("follow_ups").select("opportunity_id, due_date, status, updated_at").in("status", ["scheduled", "completed"]).order("id")),
@@ -828,7 +846,22 @@ function BoardPage() {
     const ytd = yearToDate(riyadhDay(nowDate));
     const wr = winRate(intel as never, { today: ytd.from, period: ytd });
     const wonThisYear = intel.filter((o) => isWon(o as never) && inPeriod(wonDate(o as never), ytd)).length;
+    // The closing view (Mo, 2026-11-17), from the November 2026 master list.
+    const today = riyadhDay(nowDate);
+    const recs = opps.map((o) => toRec(o as unknown as ClosingOpp));
+    const closing = {
+      recs,
+      today,
+      verbal: verbalAwards(recs),
+      list: closingList(recs, Number(today.slice(0, 4))),
+      route: pipelineByRoute(recs),
+      rfq: rfqIntake(recs, today),
+      target: targetYtd(recs, today, annual),
+      queues: attentionQueues(recs, today),
+      flags: redFlags2025(recs, today),
+    };
     return {
+      closing,
       winRate: { won: wonThisYear, lost: wr.recordCount - wonThisYear, ratio: wr.value === null ? null : wr.value / 100 },
       pulse,
       standing,
@@ -879,29 +912,26 @@ function BoardPage() {
     };
   }, [data, nowDate]);
 
-  // Team performance: the sales team only, each with today's completion.
+  // Team performance: the sales team only (AB → Abdelrahman, FA → Faisal by
+  // ownership), each with today's completion and the closing figures.
   const salesTeam = useMemo<SalesCardRow[]>(() => {
     if (!model || !data) return [];
     return data.salesReps.map((r) => {
-      const row = model.team.find((p) => p.ownerId === r.user_id);
       const day = data.doneToday.find((d) => d.user_id === r.user_id);
       return {
         ownerId: r.user_id,
         name: firstName(r.full_name),
         initials: displayLabel(r.full_name),
-        // All rows unvalued is missing, not zero — renders "—".
-        won: row && row.wonUnvalued > 0 && row.won === 0 ? null : row?.won ?? 0,
-        open: row && row.openUnvalued > 0 && row.openUnvalued === row.openCount ? null : row?.open ?? 0,
-        openCount: row?.openCount ?? 0,
-        late: model.attention.filter((x) => x.ownerId === r.user_id && x.reasons.includes("followups_overdue")).length,
+        s: repSummary(model.closing.recs, r.user_id, model.closing.today),
         done: day?.done ?? 0,
         openDue: day?.open_due ?? 0,
       };
     });
   }, [model, data]);
 
-  const anyProb = !!model?.hot.some((h) => h.probability !== null);
-  const emptyStages = model?.standing.composition.filter((c) => c.count === 0) ?? [];
+  // Every total opens the records behind it.
+  const [drill, setDrill] = useState<{ title: string; note?: string; rows: Rec[] } | null>(null);
+  const openList = (title: string, rows: Rec[], note?: string) => setDrill({ title, rows, note });
 
   const fmtTime = (d: Date) =>
     new Intl.DateTimeFormat(localeFor(lang), { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }).format(d);
@@ -979,101 +1009,71 @@ function BoardPage() {
           }}
         >
           <div className="grid grid-cols-5 gap-[0.7vw]">
+            {/* Achieved = confirmed Won only, by award date, Riyadh calendar.
+                No contract date is recorded yet, so the date basis is printed. */}
             <Kpi
               icon={TrendingUp} tone="won" lang={lang}
               ar="الإنجاز منذ بداية السنة" en="Won year to date"
-              value={splitCompact(model.yoy.thisYear, lang)?.n ?? null}
-              unit={splitCompact(model.yoy.thisYear, lang)?.unit}
-              foot={
-                // Against the SAME window last year, never its full total --
-                // that would flatter every January and damn every December.
-                model.yoy.ratio === null
-                  ? lang === "ar" ? "لا فوز في نفس الفترة الماضية — لا مقارنة" : "nothing won in this window last year"
-                  : lang === "ar"
-                    ? `${model.yoy.ratio >= 0 ? "▲" : "▼"} ${formatNumber(Math.abs(Math.round(model.yoy.ratio * 100)), lang)}% مقارنة بـ ${compactValue(model.yoy.priorYear, lang)} نفس الفترة الماضية`
-                    : `${model.yoy.ratio >= 0 ? "▲" : "▼"} ${Math.abs(Math.round(model.yoy.ratio * 100))}% vs ${compactValue(model.yoy.priorYear, lang)} same period last year`
-              }
+              value={splitCompact(model.closing.target.won.value, lang)?.n ?? null}
+              unit={splitCompact(model.closing.target.won.value, lang)?.unit}
+              foot={`${model.closing.target.won.count} won · ${model.closing.target.listDated ? "award date from the master list (no contract date entered)" : "by contract date"}${model.closing.target.undated.count ? ` · ${model.closing.target.undated.count} won without a date` : ""}`}
+              onOpen={() => openList("Won year to date", model.closing.target.won.rows, "Confirmed Won only. Verbal awards and open quotations are excluded. Date basis: the award date recorded from the master list; no contract or PO date has been entered.")}
             />
             <Kpi
-              icon={Target} tone="info" lang={lang}
-              ar="نسبة الفوز هذا العام" en="Win rate this year"
-              value={model.winRate.ratio === null ? null : `${formatNumber(Math.round(model.winRate.ratio * 100), lang)}%`}
-              unit={lang === "ar" ? "من الصفقات المُغلقة" : "of deals closed"}
-              foot={
-                lang === "ar"
-                  ? `${formatNumber(model.winRate.won, lang)} فوز · ${formatNumber(model.winRate.lost, lang)} خسارة`
-                  : `${model.winRate.won} won · ${model.winRate.lost} lost`
-              }
-            />
-            <KpiFigure
-              icon={Activity} f={model.weighted} lang={lang} money={money} tone="violet"
-              ar="التوقع المرجّح" en="Weighted forecast"
-              // Only when both halves are real. A percentage of a target that
-              // was never set, or of a forecast that could not be computed, is
-              // a number with nothing behind it.
-              foot={
-                model.weighted.state === "ok" && model.weighted.value !== null
-                  && model.year.target && model.year.target > 0
-                  ? lang === "ar"
-                    ? `${formatNumber(Math.round((model.weighted.value / model.year.target) * 100), lang)}% من الهدف`
-                    : `${Math.round((model.weighted.value / model.year.target) * 100)}% of target`
-                  : null
-              }
+              icon={Award} tone="danger" lang={lang}
+              ar="ترسيات شفهية" en="Critical · verbal awards"
+              value={splitCompact(model.closing.verbal.all.value, lang)?.n ?? null}
+              unit={`${model.closing.verbal.confirmed.count} confirmed (E) · ${model.closing.verbal.reconcile.count} to reconcile (A)`}
+              foot="Secure the written award, PO or contract — not counted as won"
+              onOpen={() => openList("Critical deals · verbal awards", model.closing.verbal.all.rows, "Column E 'Verbally Awarded' (confirmed) plus column A 'PRIORITY - A (VERB-AWARDED)' whose current status is still open (status to reconcile). Neither is counted as won.")}
             />
             <Kpi
               icon={Filter} tone="teal" lang={lang}
-              ar="الفرص المفتوحة" en="Open pipeline"
-              value={model.standing.openCount > 0 && model.standing.openUnvalued === model.standing.openCount ? null : splitCompact(model.standing.openTotal, lang)?.n ?? null}
-              unit={splitCompact(model.standing.openTotal, lang)?.unit}
-              foot={
-                // Unweighted coverage: real, and labelled as such. The weighted
-                // ratio the mockup shows needs a probability nobody has entered,
-                // and an unlabelled ratio would be read as the weighted one.
-                (model.year.target && model.year.target > 0
-                  ? lang === "ar"
-                    ? `تغطية ×${(model.standing.openTotal / model.year.target).toFixed(1)} غير مرجّحة · ${dealsLabel(model.standing.openCount, lang)}`
-                    : `${(model.standing.openTotal / model.year.target).toFixed(1)}× unweighted · ${dealsLabel(model.standing.openCount, lang)}`
-                  : dealsLabel(model.standing.openCount, lang))
-                  + (model.standing.openUnvalued ? (lang === "ar" ? ` · ${model.standing.openUnvalued} بلا قيمة` : ` · ${model.standing.openUnvalued} unvalued`) : "")
-              }
+              ar="مسار JIH المفتوح" en="Open pipeline · JIH"
+              value={splitCompact(model.closing.route.jih.active.value, lang)?.n ?? null}
+              unit={`${model.closing.route.jih.active.count} active JIH (contractor, direct, consultant)`}
+              foot={`Held ${model.closing.route.jih.held.count} · ${money(model.closing.route.jih.held.value) ?? "—"} · Tender shown separately`}
+              onOpen={() => openList("Open JIH opportunities (active)", model.closing.route.jih.active.rows, "JIH is the project classification (column G); it does not mean PHC has won the signage. Won, lost and dead records excluded; held JIH listed under Pipeline health.")}
+            />
+            <Kpi
+              icon={Inbox} tone="info" lang={lang}
+              ar="طلبات تسعير آخر 30 يومًا" en="RFQs received · 30 days"
+              value={formatNumber(model.closing.rfq.last30.count, lang)}
+              unit={`value ${money(model.closing.rfq.last30.value) ?? "not priced yet"}`}
+              foot={`RFQ received date missing on ${model.closing.rfq.missing.count} of ${model.closing.recs.length} (${Math.round((model.closing.rfq.coverage ?? 0) * 100)}% covered)`}
+              onOpen={() => openList("RFQs received in the past 30 days", model.closing.rfq.last30.rows, "By the actual RFQ received date from the linked master-list record. Next-action and last-update dates are never used instead.")}
             />
             <Kpi
               icon={PieChart}
-              tone={model.year.ratio !== null && model.year.ratio >= model.year.yearElapsed ? "won" : "amber"}
+              tone={model.closing.target.ratio !== null && model.closing.target.ratio >= model.year.yearElapsed ? "won" : "amber"}
               lang={lang}
-              ar="تحقيق الهدف السنوي" en="Annual target"
-              value={model.year.ratio === null ? null : `${formatNumber(Math.round(model.year.ratio * 100), lang)}%`}
-              unit={model.year.target
-                ? (lang === "ar" ? `محقّق من ${compactValue(model.year.target, lang)}` : `achieved of ${compactValue(model.year.target, lang)}`)
-                : (lang === "ar" ? "لم يُضبط هدف لهذا العام" : "No target set for this year")}
-              gauge={model.year.ratio}
-              foot={
-                model.year.ratio === null
-                  ? lang === "ar" ? "يُضبط من الإدارة ← الأهداف" : "Set it in Admin → Targets"
-                  : model.year.ratio >= model.year.yearElapsed
-                    ? lang === "ar" ? "أمام المعدّل المطلوب" : "ahead of required pace"
-                    : lang === "ar" ? "أقل من المعدّل المطلوب" : "below required pace"
-              }
+              ar="تحقيق الهدف السنوي" en="Annual target 2026"
+              value={model.closing.target.ratio === null ? null : `${formatNumber(Math.round(model.closing.target.ratio * 100), lang)}%`}
+              unit={model.closing.target.target ? `of ${compactValue(model.closing.target.target, lang)} · remaining ${compactValue(model.closing.target.remaining, lang)}` : "No target set for this year"}
+              gauge={model.closing.target.ratio}
+              foot={model.closing.target.quarters.map((q, i) => `Q${i + 1} ${q.value ? compactValue(q.value, lang) : "0"}`).join(" · ")}
+              onOpen={() => openList("Won toward the 2026 target", model.closing.target.won.rows, "Target SAR 40M (sum of the 2026 annual targets). Won only; quarter by award date.")}
             />
           </div>
           <div className="grid grid-cols-[1.55fr_1fr] gap-[0.7vw]">
-            <Panel band title={lang === "ar" ? "يتطلّب الانتباه" : "Needs attention"} icon={AlertTriangle} tone="danger" lang={lang}>
-              <div className="grid flex-1 grid-cols-4 gap-[0.6vw]">
-                <Need icon={CalendarClock} n={model.pulse.followUpsOverdue} ar="متابعات متأخّرة" en="Follow-ups overdue"
-                      sub={lang === "ar" ? "مطلوب إجراء اليوم" : "action needed today"} tone="danger" lang={lang} />
-                <Need icon={Clock} n={model.pulse.quotationsDueSoon} ar="عروض ≤ 7 أيام" en="Quotations ≤7d"
-                      sub={model.pulse.quotationsDueSoon === null
-                        ? (lang === "ar" ? "لا تاريخ صلاحية مسجّل" : "no expiry recorded")
-                        : (lang === "ar" ? "ردّ خلال المدّة" : "reply within validity")}
-                      tone="amber" lang={lang} />
-                <Need icon={Flame} n={model.attention.filter((a) => a.priority === "critical").length}
-                      ar="فرص حرجة" en="Critical deals"
-                      sub={lang === "ar" ? "قيمة عالية ومتأخّرة" : "high value, overdue"} tone="danger" lang={lang} />
-                <Need icon={CircleX} n={model.pulse.approvalsPending} ar="موافقات منتظرة" en="Approvals pending"
-                      sub={model.pulse.oldestApprovalDays === null
-                        ? (lang === "ar" ? "لا شيء ينتظر" : "nothing waiting")
-                        : (lang === "ar" ? `أقدمها ${formatNumber(model.pulse.oldestApprovalDays, lang)} يومًا` : `oldest ${model.pulse.oldestApprovalDays}d`)}
-                      tone="amber" lang={lang} />
+            <Panel band title={lang === "ar" ? "يتطلّب الانتباه" : "Needs attention · column A"} icon={AlertTriangle} tone="danger" lang={lang}
+                   note={`Dead ${model.closing.queues.excludedDead} and not-priority ${model.closing.queues.excludedNotPriority} excluded`}>
+              <div className="grid flex-1 grid-cols-5 gap-[0.6vw]">
+                <Need icon={Award} n={model.closing.queues.closing.count} ar="إغلاق" en="Closing queue"
+                      sub={`Priority A · ${money(model.closing.queues.closing.value) ?? "—"}`} tone="danger" lang={lang}
+                      onOpen={() => openList("Closing queue · PRIORITY - A (VERB-AWARDED)", model.closing.queues.closing.rows)} />
+                <Need icon={CalendarClock} n={model.closing.queues.followUp.count} ar="متابعة" en="Follow-up queue"
+                      sub={`Need follow-up · ${money(model.closing.queues.followUp.value) ?? "—"}`} tone="amber" lang={lang}
+                      onOpen={() => openList("Follow-up queue · NEED FOLLOW-UP", model.closing.queues.followUp.rows)} />
+                <Need icon={Flame} n={model.closing.queues.secondary.count} ar="أولوية B" en="Priority B"
+                      sub={`Secondary · ${money(model.closing.queues.secondary.value) ?? "—"}`} tone="violet" lang={lang}
+                      onOpen={() => openList("Secondary priority · PRIORITY B", model.closing.queues.secondary.rows)} />
+                <Need icon={PauseCircle} n={model.closing.queues.holdReview.count} ar="مراجعة المعلّق" en="Hold review"
+                      sub={`On hold · ${money(model.closing.queues.holdReview.value) ?? "—"}`} tone="info" lang={lang}
+                      onOpen={() => openList("Hold review", model.closing.queues.holdReview.rows, "Held deals with the source wording (column A 'ON-HOLD' or stage On hold) and the hold reason where recorded.")} />
+                <Need icon={CircleX} n={model.closing.queues.overdue.count} ar="إجراءات متأخّرة" en="Overdue actions"
+                      sub={model.closing.queues.missingDate.count ? `${model.closing.queues.missingDate.count} without a date` : "by next action date (F)"} tone="danger" lang={lang}
+                      onOpen={() => openList("Overdue actions in the queues", model.closing.queues.overdue.rows, "Next action date (column F) before today. Records with no date are not counted as overdue.")} />
               </div>
             </Panel>
 
@@ -1111,155 +1111,93 @@ function BoardPage() {
           performance is four short rows of initials and figures and was
           holding a third of the width to show them. */}
           <div className="grid min-h-0 grid-cols-[1.7fr_1.1fr_0.8fr] gap-[0.7vw]">
-            <Panel title={lang === "ar" ? "أهمّ الفرص" : "Top opportunities"} icon={Flame} tone="amber" lang={lang}
-                   note={anyProb
-                     ? (lang === "ar" ? "أعلى 20 حسب القيمة" : "Top 20 by value")
-                     : (lang === "ar" ? "أعلى 20 حسب القيمة · لا احتمالية مسجّلة بعد" : "Top 20 by value · no probability entered yet")}>
-              {/* Same fix as the pipeline below: the table stacked to its natural
-                  height and pushed the total 12px past the card edge. Flexed
-                  rows share whatever the panel has. */}
+            <Panel title={lang === "ar" ? "فرص الإغلاق ذات الأولوية" : "Priority opportunities to close"} icon={Flame} tone="amber" lang={lang}
+                   note="Verbal award → 2026 JIH-Direct → column A · value second">
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.8vw, 20px)" }}>
-                  <span className="min-w-0 flex-1">{lang === "ar" ? "المشروع" : "Project"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "5.6vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
-                  {anyProb ? <span className="shrink-0 text-end" style={{ width: "5.2vw" }}>{lang === "ar" ? "الاحتمالية" : "Probability"}</span> : null}
+                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.72vw, 18px)" }}>
+                  <span className="min-w-0 flex-1">Project · next action</span>
+                  <span className="shrink-0" style={{ width: "5vw" }}>Rep</span>
+                  <span className="shrink-0 text-end" style={{ width: "4.6vw" }}>Value</span>
+                  <span className="shrink-0" style={{ width: "7vw" }}>Status · priority</span>
+                  <span className="shrink-0 text-end" style={{ width: "4.4vw" }}>Updated</span>
+                  <span className="shrink-0 text-end" style={{ width: "4.4vw" }}>Next date</span>
                 </div>
-
                 <AutoScroll className="flex min-h-0 flex-1 flex-col">
-                  {model.hot.map((h, i) => (
-                    <div
-                      key={h.id}
-                      // Zebra rather than a rule between every pair: the same
-                      // idea as the card bands above, and with twenty rows a
-                      // hairline every 27px reads as texture, not separation.
-                      // The count is even, so the stripe pattern survives the
-                      // seam where the marquee's second copy begins.
-                      className={`flex min-h-0 flex-1 items-center gap-[0.5vw] px-[0.3vw] ${i % 2 === 1 ? "bg-muted" : ""}`}
-                      style={{ fontSize: "clamp(12px, 1.15vw, 29px)" }}
-                    >
-                      {/* The rank badge is gone. It cost 1.6vw of a column that
-                          was already cramming project names against their
-                          values, and the list is sorted by value -- the order
-                          IS the rank, and printing it twice bought nothing. */}
-                      <span className="min-w-0 flex-1 truncate text-foreground" title={h.projectName}>
-                        {h.projectName}
-                      </span>
-                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ width: "5.6vw" }} data-tabular="true">
-                        {money(h.value)}
-                      </span>
-                      {/* Empty on every row today. A dash is the honest cell, and
-                          the column stays so the first entered figure lands in
-                          its place without a code change. */}
-                      {anyProb ? (
-                        <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "5.2vw" }} data-tabular="true">
-                          {h.probability === null ? "—" : `${formatNumber(h.probability, lang)}%`}
-                        </span>
-                      ) : null}
+                  {[
+                    ...model.closing.list.groups.map((g) => ({ key: g.key, title: CLOSING_GROUP[g.key], rows: g.rows })),
+                    { key: "holds", title: "Held · separate until there is an action to release the hold", rows: model.closing.list.holds.rows },
+                  ].filter((g) => g.rows.length > 0).map((g) => (
+                    <div key={g.key} className="flex flex-col">
+                      <div className="sticky top-0 bg-card pt-[0.3vh] font-semibold text-amber-on-tint" style={{ fontSize: "clamp(12px, 0.74vw, 19px)" }}>
+                        {g.title} · {g.rows.length}
+                      </div>
+                      {g.rows.map((r, i) => (
+                        <ClosingRow key={r.id} r={r} zebra={i % 2 === 1} rep={r.ownerId ? model.labels.get(r.ownerId) ?? "—" : "No owner"} money={money} today={model.closing.today} />
+                      ))}
                     </div>
                   ))}
                 </AutoScroll>
-
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "clamp(12px, 1.15vw, 29px)" }}>
-                  <span className="font-semibold text-amber-on-tint">{lang === "ar" ? "إجمالي أهمّ الفرص" : "Top-20 total"}</span>
+                <button type="button" onClick={() => openList("Priority opportunities to close", model.closing.list.groups.flatMap((g) => g.rows))}
+                        className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh] text-start" style={{ fontSize: "clamp(12px, 1vw, 26px)" }}>
+                  <span className="font-semibold text-amber-on-tint">To close</span>
                   <span className="num font-bold text-amber-on-tint" data-tabular="true">
-                    {money(model.hot.reduce((a, h) => a + (h.value ?? 0), 0))}
+                    {model.closing.list.groups.reduce((a, g) => a + g.rows.length, 0)} · {money(bucket(model.closing.list.groups.flatMap((g) => g.rows)).value)} · held {model.closing.list.holds.count} · {money(model.closing.list.holds.value)}
                   </span>
-                </div>
+                </button>
               </div>
             </Panel>
 
-            <Panel title={lang === "ar" ? "صحّة مسار المبيعات" : "Pipeline health"} icon={BarChart3} tone="violet" lang={lang}>
-              {/* Rows share the height instead of stacking to their natural size.
-                  As a table this overflowed the panel by 68px at 1920x1080 and
-                  the last two stages were drawn outside the card -- a stage that
-                  falls off the bottom is a stage nobody knows exists. Flexing
-                  the rows makes the fit hold for any number of stages. */}
-              <div className="flex min-h-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center gap-[0.5vw] pb-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.76vw, 19px)" }}>
-                  <span className="min-w-0 flex-1">{lang === "ar" ? "المرحلة" : "Stage"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "2.6vw" }}>{lang === "ar" ? "العدد" : "Deals"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "5vw" }}>{lang === "ar" ? "القيمة" : "Value"}</span>
-                  <span className="shrink-0 text-end" style={{ width: "7.4vw" }}>{lang === "ar" ? "النسبة" : "Share"}</span>
+            <Panel title={lang === "ar" ? "صحّة مسار المبيعات" : "Pipeline health"} icon={BarChart3} tone="violet" lang={lang}
+                   note="active and held apart">
+              <div className="flex min-h-0 flex-1 flex-col gap-[0.3vh]" style={{ fontSize: "clamp(12px, 0.9vw, 23px)" }}>
+                {([
+                  ["JIH · active", model.closing.route.jih.active, "Open JIH (contractor, direct, consultant), not held"],
+                  ["JIH · held", model.closing.route.jih.held, "Held JIH with their hold wording and reason"],
+                  ["Tender · active", model.closing.route.tender.active, "Open tenders, not held"],
+                  ["Tender · held", model.closing.route.tender.held, "Held tenders"],
+                  ["Not classified (G)", model.closing.route.unknown.active, "Open records with no JIH/Tender classification"],
+                ] as [string, Bucket, string][]).map(([label, b, note]) => (
+                  <BucketRow key={label} label={label} b={b} money={money} onOpen={() => openList(label, b.rows, note)} />
+                ))}
+                {model.closing.route.unmapped.count > 0 ? (
+                  <BucketRow label="Unmapped status" b={model.closing.route.unmapped} money={money} onOpen={() => openList("Unmapped status", model.closing.route.unmapped.rows, "No recorded sales stage. Not placed in RFQ received by default.")} />
+                ) : null}
+                <div className="mt-[0.4vh] border-t border-border pt-[0.4vh] font-semibold text-violet-on-tint" style={{ fontSize: "clamp(12px, 0.74vw, 19px)" }}>
+                  RFQs received {model.closing.today.slice(0, 4)} · by received date
                 </div>
-
-                <div className="flex min-h-0 flex-1 flex-col">
-                  {/* Empty stages fold into one line under the rows. Six rows of
-                      "0 · —" squeezed the two stages holding the money into
-                      unreadable type; the count of empty ones keeps the fact. */}
-                  {model.standing.composition.map((c, i) => c.count === 0 ? null : (
-                    <div
-                      key={c.stage}
-                      className="flex min-h-0 max-h-[5vh] flex-1 items-center gap-[0.5vw] border-t border-border/50"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-foreground" style={{ fontSize: "clamp(13px, 1vw, 26px)" }}>
-                        {STAGE_LABEL[c.stage]?.[lang === "ar" ? 0 : 1] ?? c.stage}
-                      </span>
-                      <span className="num shrink-0 text-end font-semibold text-foreground" style={{ fontSize: "clamp(13px, 1vw, 26px)", width: "2.6vw" }} data-tabular="true">
-                        {formatNumber(c.count, lang)}
-                      </span>
-                      <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "clamp(13px, 1vw, 26px)", width: "5vw" }} data-tabular="true">
-                        {c.value > 0 ? compactValue(c.value, lang) : "—"}
-                      </span>
-                      <span className="flex shrink-0 items-center gap-[0.35vw]" style={{ width: "7.4vw" }}>
-                        <span className="relative h-[0.85vh] min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
-                          <span
-                            className="absolute inset-y-0 start-0 rounded-full"
-                            style={{ width: `${c.share * 100}%`, background: c.stage === "on_hold" ? "var(--muted-foreground)" : `var(--stage-${i + 1})` }}
-                          />
-                          {/* Deals here, but nothing priced. A bare track reads as
-                              an empty stage; this marks it unpriced instead. */}
-                          {c.count > 0 && c.value === 0 ? (
-                            <span className="absolute inset-y-0 start-0" style={{ width: "0.35vw", background: c.stage === "on_hold" ? "var(--muted-foreground)" : `var(--stage-${i + 1})`, opacity: 0.55 }} />
-                          ) : null}
-                        </span>
-                        <span className="num shrink-0 text-end text-muted-foreground" style={{ fontSize: "clamp(12px, 0.85vw, 22px)", width: "2.4vw" }} data-tabular="true">
-                          {Math.round(c.share * 100)}%
-                        </span>
-                      </span>
-                    </div>
-                  ))}
-                  {emptyStages.length > 0 ? (
-                    <span className="mt-auto pt-[0.4vh] text-muted-foreground" style={{ fontSize: "clamp(12px, 0.75vw, 19px)" }}>
-                      {lang === "ar"
-                        ? `بلا فرص حاليًا: ${emptyStages.map((c) => STAGE_LABEL[c.stage]?.[0] ?? c.stage).join("، ")}`
-                        : `No deals now: ${emptyStages.map((c) => STAGE_LABEL[c.stage]?.[1] ?? c.stage).join(", ")}`}
-                    </span>
-                  ) : null}
+                <div className="flex min-h-0 flex-1 items-end gap-[0.25vw]">
+                  {model.closing.rfq.months.map((m) => {
+                    const max = Math.max(1, ...model.closing.rfq.months.map((x) => x.count));
+                    return (
+                      <button key={m.month} type="button" onClick={() => openList(`RFQs received ${m.month}`, m.rows)}
+                              className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-[0.2vh]" title={`${m.count} · ${money(m.value) ?? "no value"}`}>
+                        <span className="num text-foreground" style={{ fontSize: "clamp(12px, 0.66vw, 17px)" }}>{m.count}</span>
+                        <span className="w-full rounded-t bg-violet" style={{ height: `${(m.count / max) * 70}%`, minHeight: m.count ? 3 : 1, opacity: m.count ? 0.85 : 0.25 }} />
+                        <span className="text-muted-foreground" style={{ fontSize: "clamp(12px, 0.6vw, 15px)" }}>{MONTHS[Number(m.month.slice(5)) - 1]}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.4vh]" style={{ fontSize: "clamp(13px, 1vw, 26px)" }}>
-                  <span className="font-semibold text-foreground">{lang === "ar" ? "الإجمالي" : "Total"}</span>
-                  <span className="num font-bold text-foreground" data-tabular="true">
-                    {formatNumber(model.standing.openCount, lang)} · {money(model.standing.openTotal)}
-                  </span>
-                </div>
+                <button type="button" onClick={() => openList("RFQ received date missing", model.closing.rfq.missing.rows, "No actual RFQ received date in the linked source record. The November 2026 sheet has no received-date column.")}
+                        className="text-start text-muted-foreground underline-offset-2 hover:underline" style={{ fontSize: "clamp(12px, 0.66vw, 17px)" }}>
+                  RFQ received date missing: {model.closing.rfq.missing.count} records ({Math.round((model.closing.rfq.coverage ?? 0) * 100)}% covered)
+                </button>
               </div>
             </Panel>
 
             <Panel title={lang === "ar" ? "أداء فريق المبيعات" : "Team performance"} icon={Users} tone="teal" lang={lang}
-                   note={lang === "ar" ? `${formatNumber(salesTeam.length, lang)} مندوب` : `${salesTeam.length} reps`}>
-              {/* The sales team only (user, 2026-10-06): one card per salesperson,
-                  roomy rather than a dense table. Today's completion is a ring,
-                  read from across the room; the month and the pipeline sit
-                  under it. Managers are not on it -- their work is the team's. */}
+                   note={`${salesTeam.length} reps · latest status`}>
               <div className="flex min-h-0 flex-1 flex-col gap-[0.7vh]">
                 <AutoScroll className="flex min-h-0 flex-1 flex-col gap-[0.7vh]">
                   {salesTeam.map((p) => (
-                    <RepCard key={p.ownerId} p={p} lang={lang} />
+                    <RepCard key={p.ownerId} p={p} lang={lang} money={money} onOpen={openList} />
                   ))}
                 </AutoScroll>
-                <div className="flex shrink-0 items-baseline justify-between border-t border-border pt-[0.5vh]" style={{ fontSize: "clamp(12px, 0.82vw, 21px)" }}>
-                  <span className="font-semibold text-teal-on-tint">{lang === "ar" ? "الفريق" : "Team"}</span>
-                  <span className="num font-bold text-teal-on-tint" data-tabular="true">
-                    {lang === "ar" ? "الشهر " : "MTD "}{money(salesTeam.reduce((a, p) => a + (p.won ?? 0), 0)) ?? "—"}
-                    {lang === "ar" ? " · المسار " : " · Pipeline "}{money(salesTeam.reduce((a, p) => a + (p.open ?? 0), 0)) ?? "—"}
-                  </span>
-                </div>
               </div>
             </Panel>
           </div>
 
-          <div className="grid min-h-0 grid-cols-[1.3fr_0.95fr_1.05fr] gap-[0.7vw]">
+          <div className="grid min-h-0 grid-cols-[1fr_2fr] gap-[0.7vw]">
             <Panel band title={lang === "ar" ? "ما الذي تغيّر منذ الأمس؟" : "Changed since yesterday"} icon={RefreshCw} tone="info" lang={lang}>
               <ChipRow
                 // The exact window, where the title says it loosely.
@@ -1285,30 +1223,39 @@ function BoardPage() {
               </ChipRow>
             </Panel>
 
-            <Panel band title={lang === "ar" ? "نبض المبيعات بالذكاء الاصطناعي" : "AI sales pulse"} icon={Sparkles} tone="info" lang={lang}>
-              <Pulse
-                critical={model.attention.filter((a) => a.priority === "critical").length}
-                criticalValue={model.attention
-                  .filter((a) => a.priority === "critical")
-                  .reduce<number | null>((a, x) => (x.value === null ? a : (a ?? 0) + x.value), null)}
-                // "no recorded activity in over N days" is the stalled reason the
-                // attention list already computes, not a second definition.
-                stale={model.attention.filter((a) => a.reasons.includes("stalled")).length}
-                staleAfterDays={STALLED_AFTER_DAYS}
-                weighted={model.weighted}
-                target={model.year.target}
-                wonYtd={model.yoy.thisYear}
-                money={money}
-                lang={lang}
-              />
-            </Panel>
-
-            <Panel band title={lang === "ar" ? "توقعات (30 / 60 / 90 يوم)" : "Forecast (30 / 60 / 90 days)"} icon={Clock} tone="amber" lang={lang}>
-              <Horizons h={model.horizon} lang={lang} money={money} />
+            <Panel band title="2025 JIH follow-up red flags" icon={Flag} tone="danger" lang={lang}
+                   note={`Jul–Dec 2025 by RFQ received date · ${model.closing.flags.verified} confirmed · ${model.closing.flags.needsVerification} period requires verification`}>
+              <div className="flex min-h-0 flex-1 flex-col">
+                <AutoScroll className="flex min-h-0 flex-1 flex-col">
+                  {model.closing.flags.rows.map((x, i) => (
+                    <button key={x.rec.id} type="button" onClick={() => openList(x.rec.project, [x.rec])}
+                            className={`flex min-h-0 shrink-0 items-center gap-[0.5vw] px-[0.3vw] py-[0.2vh] text-start ${i % 2 ? "bg-muted" : ""}`}
+                            style={{ fontSize: "clamp(12px, 0.78vw, 20px)" }}>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold text-foreground">{x.rec.project}</span>
+                        <span className="block truncate text-muted-foreground">
+                          {x.rec.held ? `Held: ${x.rec.holdReason ?? x.rec.holdLabel} · review the hold` : x.rec.nextAction ?? "No next action recorded"}
+                        </span>
+                      </span>
+                      <span className="shrink-0 truncate" style={{ width: "5vw" }}>{x.rec.ownerId ? model.labels.get(x.rec.ownerId) ?? "—" : "No owner"}</span>
+                      <span className="num shrink-0 text-end font-semibold" style={{ width: "4.4vw" }} data-tabular="true">{money(x.rec.value ?? x.rec.quoted) ?? "—"}</span>
+                      <span className="shrink-0 truncate" style={{ width: "6vw" }}>{x.rec.status ?? STAGE_LABEL[x.rec.stage ?? ""]?.[1] ?? "—"}</span>
+                      <span className="num shrink-0 text-end" style={{ width: "6vw" }}>
+                        {x.daysInactive === null ? "no update date" : `${x.daysInactive}d since update`}
+                      </span>
+                      <span className={`shrink-0 text-end ${x.inPeriod === null ? "text-amber-on-tint" : "text-muted-foreground"}`} style={{ width: "6.5vw" }}>
+                        {x.inPeriod === null ? "Period requires verification" : `RFQ ${x.rec.received}`}
+                      </span>
+                    </button>
+                  ))}
+                </AutoScroll>
+              </div>
             </Panel>
           </div>
         </main>
       )}
+
+      <DrillDialog drill={drill} onClose={() => setDrill(null)} labels={model?.labels} money={money} today={model?.closing.today ?? ""} />
 
       {/* Bigger, asked for on 2026-09-02. A ticker is read from across a room
           and at a glance, so it was the one strip on the board sized for a
@@ -1565,226 +1512,15 @@ function Chip({
   );
 }
 
-/**
- * The pulse, as three checks rather than five sentences.
- *
- * It was a bulleted list, which is the wrong shape for a wall: a passer-by
- * reads a number across a room and a sentence only at the desk. Two changes
- * make it work standing up.
- *
- * First, the panel separates what you ACT on from what you FIX. A critical deal
- * and an unpriced record are both true and belong to different people on
- * different days; printing them as one list of bullets made the reader sort
- * them, every time.
- *
- * Second, an action count of zero is shown, in green, rather than hidden. The
- * old list dropped a line when its count was nil, so a clear day and a broken
- * query produced the same empty panel. Here zero says the check ran and you
- * are clear -- which is the single most useful thing this box can say.
- *
- * The data gaps below behave the opposite way and are omitted when absent: a
- * gap that does not exist is not news, and "0 deals missing a value" is a
- * sentence nobody needs to read twice a day.
- */
-function Pulse({
-  critical, criticalValue, stale, staleAfterDays, weighted, target, wonYtd, money, lang,
-}: {
-  critical: number;
-  criticalValue: number | null;
-  stale: number;
-  staleAfterDays: number;
-  weighted: Figure;
-  target: number | null;
-  wonYtd: number;
-  money: (n: number | null | undefined) => string | null;
-  lang: "ar" | "en";
-}) {
-  const lines = pulseSentences(
-    { criticalCount: critical, criticalValue, staleCount: stale, staleAfterDays, weighted, target, wonYtd },
-    lang,
-    (n) => money(n) ?? "",
-  );
 
-  return (
-    <div className="flex min-h-0 flex-1 items-center overflow-hidden">
-      {/* A briefing, not an inventory: the chips beside this panel already carry
-          the counts, and a paragraph can say what they mean together. Composed
-          from measured figures -- see pulseSentences for the clauses it will
-          not write. */}
-      <ul className="min-w-0 flex-1 space-y-[0.6vh] text-foreground" style={{ fontSize: "clamp(13px, 0.95vw, 25px)", lineHeight: 1.5 }}>
-        {lines.map((l) => (
-          <li key={l} className="flex gap-[0.5vw]">
-            <span aria-hidden="true" className="mt-[0.55em] h-[0.4em] w-[0.4em] shrink-0 rounded-full bg-violet" />
-            <span className="min-w-0">{l}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/**
- * One check, sized to be read across a room.
- *
- * The colour is the count, not the category: a check at zero is green whatever
- * it measures, because the reader's question is "is anything wrong here", and
- * a red chip showing 0 answers it backwards.
- */
-function Signal({
-  n, tone, ar, en, note, lang,
-}: {
-  n: number;
-  tone: keyof typeof TONE;
-  ar: string;
-  en: string;
-  note?: string | null;
-  lang: "ar" | "en";
-}) {
-  const clear = n === 0;
-  const t = clear ? "won" : tone;
-  return (
-    <Chip
-      tone={t}
-      lang={lang}
-      figure={
-        <span className={`num font-bold leading-none ${TONE[t].text}`} style={{ fontSize: CHIP_FIGURE }} data-tabular="true">
-          {formatNumber(n, lang)}
-        </span>
-      }
-      label={
-        <span className="w-full truncate font-semibold text-foreground" style={{ fontSize: CHIP_LABEL }}>
-          {lang === "ar" ? ar : en}
-        </span>
-      }
-      // Rendered only when there is something to say: a blank line still takes
-      // its height and lifts the ink above it off centre.
-      note={
-        clear || note ? (
-          <span className={`w-full truncate ${clear ? TONE[t].text : "text-muted-foreground"}`} style={{ fontSize: CHIP_NOTE }}>
-            {clear ? (lang === "ar" ? "✓ لا شيء معلّق" : "✓ nothing pending") : note}
-          </span>
-        ) : undefined
-      }
-    />
-  );
-}
-
-/**
- * The 30 / 60 / 90 outlook.
- *
- * Colour here is distance, not decoration, and it runs the same way as the
- * stage ramp: warm is near and actionable, cool is far and speculative. Thirty
- * days is amber because that is the money you can still affect this month;
- * ninety is teal because nothing you do today lands there.
- *
- * The reason line moved out of the chips. All three horizons fail for the same
- * cause -- no probability, no expected close date -- and printing it three
- * times spent the panel's whole height saying one thing. It collapses only
- * when it is genuinely one thing; see sharedReason.
- */
-function Horizons({
-  h,
-  lang,
-  money,
-}: {
-  h: { d30: Figure; d60: Figure; d90: Figure };
-  lang: "ar" | "en";
-  money: (n: number | null | undefined) => string | null;
-}) {
-  const cols = [
-    // Each window means something different, and the caption says which. The
-    // nearest is what you can still affect; the furthest is upside.
-    { key: "d30", f: h.d30, tone: "amber" as const, ar: "30 يومًا", en: "30 days",
-      caption: lang === "ar" ? "مرجّح" : "Weighted" },
-    { key: "d60", f: h.d60, tone: "violet" as const, ar: "60 يومًا", en: "60 days",
-      caption: lang === "ar" ? "مرجّح تراكمي" : "Cumulative weighted" },
-    { key: "d90", f: h.d90, tone: "teal" as const, ar: "90 يومًا", en: "90 days",
-      caption: lang === "ar" ? "مرجّح تراكمي" : "Cumulative weighted" },
-  ];
-  const shared = sharedReason([h.d30, h.d60, h.d90], lang);
-  // The same deals are left out of all three windows, so say it once, in a
-  // sentence, instead of "Partial · 345 omitted" under every figure.
-  const omitted = Math.max(h.d30.missing ?? 0, h.d60.missing ?? 0, h.d90.missing ?? 0);
-  const coverage = !shared && omitted > 0
-    ? (lang === "ar"
-      ? `${formatNumber(omitted, lang)} فرصة مفتوحة بلا تاريخ إغلاق متوقّع أو احتمالية — غير داخلة في التوقّع`
-      : `${omitted} open deals have no expected close date or probability and are not in the forecast`)
-    : null;
-
-  return (
-    <ChipRow
-      // States the window the three labels measure from, and fills the slot
-      // that keeps this row level with the two panels beside it.
-      kicker={lang === "ar" ? "متوقّع الإغلاق خلال" : "Expected to close within"}
-      footer={
-        shared || coverage ? (
-          <span className="flex items-start gap-[0.35vw]">
-            <span aria-hidden="true" style={{ fontSize: "clamp(12px, 0.72vw, 18px)" }}>ⓘ</span>
-            <span className="min-w-0 leading-snug text-muted-foreground" style={{ fontSize: "clamp(12px, 0.72vw, 18px)" }}>{shared ?? coverage}</span>
-          </span>
-        ) : (
-          // Only when the horizons fail for DIFFERENT reasons -- then one line
-          // each, named by its horizon.
-          <span className="flex flex-col gap-[0.2vh]">
-            {cols
-              .filter((c) => c.f.state !== "ok" && (lang === "ar" ? c.f.reasonAr : c.f.reasonEn))
-              .map((c) => (
-                <span key={c.key} className="truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.6vw, 15px)" }}>
-                  <span className={TONE[c.tone].text}>{lang === "ar" ? c.ar : c.en}</span>
-                  {" · "}
-                  {lang === "ar" ? c.f.reasonAr : c.f.reasonEn}
-                </span>
-              ))}
-          </span>
-        )
-      }
-    >
-      {cols.map((c) => {
-        // A zero built from almost no inputs is not a measured zero.
-        const ok = c.f.state === "ok" && c.f.value !== null && !(c.f.value === 0 && (c.f.missing ?? 0) > 0);
-        const state = c.f.state === "not_configured"
-          ? lang === "ar" ? "يحتاج إعدادًا" : "Setup required"
-          : c.f.state === "not_applicable"
-            ? lang === "ar" ? "لا ينطبق" : "Not applicable"
-            : lang === "ar" ? "لا يمكن حسابه" : "Not calculated";
-        return (
-          // No chip box here, unlike the two panels beside it. The reference
-          // design shows three plain figures, and it is right: these are the
-          // one row on the board that is read as a series -- 30 to 60 to 90 --
-          // and three bordered boxes read as three separate facts.
-          <div key={c.key} className="flex min-w-0 flex-col items-center justify-center overflow-hidden text-center">
-            <span className={`font-semibold ${TONE[c.tone].text}`} style={{ fontSize: "clamp(12px, 0.82vw, 21px)" }}>
-              {lang === "ar" ? c.ar : c.en}
-            </span>
-            {ok ? (
-              <span
-                className={`num mt-[0.3vh] w-full truncate font-bold leading-none tracking-[-0.02em] ${TONE[c.tone].text}`}
-                style={{ fontSize: "clamp(19px, 1.9vw, 49px)" }}
-                data-tabular="true"
-              >
-                {money(c.f.value)}
-              </span>
-            ) : (
-              // An em dash, not a zero. Nothing was measured here.
-              <span className="num mt-[0.3vh] font-bold leading-none text-muted-foreground" style={{ fontSize: "clamp(19px, 1.9vw, 49px)" }}>
-                —
-              </span>
-            )}
-            <span className="mt-[0.2vh] w-full truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.7vw, 18px)" }}>
-              {ok ? (c.f.missing ? (lang === "ar" ? "جزئي" : "Partial") : c.caption) : c.f.state === "ok" ? (lang === "ar" ? "لا صفقات مؤرّخة" : "No dated deals") : state}
-            </span>
-          </div>
-        );
-      })}
-    </ChipRow>
-  );
-}
 
 /** A headline card: label and icon, a centred figure with its unit beneath, an
  *  optional gauge, and a footnote. */
 function Kpi({
-  icon: Icon, tone, lang, ar, en, value, unit, foot, gauge, band,
+  icon: Icon, tone, lang, ar, en, value, unit, foot, gauge, band, onOpen,
 }: {
+  /** Opens the records behind the figure. */
+  onOpen?: () => void;
   icon: LucideIcon;
   tone: keyof typeof TONE;
   lang: "ar" | "en";
@@ -1796,9 +1532,11 @@ function Kpi({
   gauge?: number | null;
   band?: boolean;
 }) {
+  const Box = onOpen ? "button" : "div";
   return (
-    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1vh] shadow-sm ${bandClass(band)}`}>
-      <div className="flex items-start justify-between">
+    <Box {...(onOpen ? { type: "button" as const, onClick: onOpen, title: "Open the records" } : {})}
+         className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1vh] text-start shadow-sm ${onOpen ? "cursor-pointer hover:border-primary/50" : ""} ${bandClass(band)}`}>
+      <div className="flex w-full items-start justify-between">
         <span className="min-w-0 font-semibold leading-tight text-foreground" style={{ fontSize: "clamp(13px, 0.95vw, 25px)" }}>
           {lang === "ar" ? ar : en}
         </span>
@@ -1838,10 +1576,10 @@ function Kpi({
 
       {/* Two lines allowed, never clipped: the footnote is what makes the
           figure mean something, and half a sentence means nothing. */}
-      <span className="mt-[0.5vh] line-clamp-2 text-center leading-snug text-muted-foreground" style={{ fontSize: "clamp(12px, 0.78vw, 20px)" }} title={foot ?? en}>
+      <span className="mt-[0.5vh] line-clamp-2 w-full text-center leading-snug text-muted-foreground" style={{ fontSize: "clamp(12px, 0.78vw, 20px)" }} title={foot ?? en}>
         {foot ?? en}
       </span>
-    </div>
+    </Box>
   );
 }
 
@@ -1873,72 +1611,34 @@ function Gauge({ value, tone }: { value: number; tone: keyof typeof TONE }) {
   );
 }
 
-/** The same card for a figure whose inputs may not exist. */
-function KpiFigure({
-  icon: Icon, f, lang, money, ar, en, tone, foot, band,
-}: {
-  icon: LucideIcon;
-  tone: keyof typeof TONE;
-  f: Figure;
-  lang: "ar" | "en";
-  money: (n: number | null | undefined) => string | null;
-  ar: string;
-  en: string;
-  /** The line under the figure. Null when there is nothing true to put there. */
-  foot?: string | null;
-  band?: boolean;
-}) {
-  return (
-    <div className={`relative flex min-w-0 flex-col overflow-hidden rounded-[0.7vw] border border-border/70 px-[1.1vw] py-[1vh] shadow-sm ${bandClass(band)}`}>
-      <div className="flex items-start justify-between">
-        <span className="min-w-0 font-semibold leading-tight text-foreground" style={{ fontSize: "clamp(13px, 0.95vw, 25px)" }}>
-          {lang === "ar" ? ar : en}
-        </span>
-        <Icon
-          className="h-[1.7vw] w-[1.7vw] shrink-0"
-          strokeWidth={2}
-          style={{ color: TONE[tone].edge }}
-          aria-hidden="true"
-        />
-      </div>
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <FigureValue f={f} lang={lang} format={(n) => money(n)} size="3.2vw" />
-        {f.state === "ok" && !!f.missing ? <span className="mt-[0.5vh] leading-snug text-muted-foreground" style={{ fontSize: "clamp(12px, 0.78vw, 20px)" }}>{lang === "ar" ? `جزئي · ${formatNumber(f.missing, lang)} فرصة بلا احتمالية` : `Partial · ${f.missing} deals have no probability`}</span> : null}
-      </div>
-      {/* The other four cards carry a line saying what the number means next
-          to. This one used to carry its own English title instead, which is
-          the bilingual pair the board no longer prints. */}
-      {foot ? (
-        <span className={`text-center ${TONE[tone].text}`} style={{ fontSize: "clamp(12px, 0.68vw, 17px)" }}>{foot}</span>
-      ) : null}
-    </div>
-  );
-}
 
 type SalesCardRow = {
   ownerId: string;
   name: string;
   initials: string;
-  won: number | null;
-  open: number | null;
-  openCount: number;
-  late: number;
+  s: ReturnType<typeof repSummary>;
   done: number;
   openDue: number;
 };
 
-/** One salesperson: who, today's completion as a ring, then month · pipeline · overdue. */
-function RepCard({ p, lang }: { p: SalesCardRow; lang: "ar" | "en" }) {
+/** One salesperson: today's completion as a ring, then the closing figures, each opening its records. */
+function RepCard({ p, lang, money, onOpen }: {
+  p: SalesCardRow;
+  lang: "ar" | "en";
+  money: (n: number | null | undefined) => string | null;
+  onOpen: (title: string, rows: Rec[], note?: string) => void;
+}) {
   const r = rate(p.done, p.openDue);
   const total = p.done + p.openDue;
-  // Ring geometry in viewBox units; the SVG scales with the wall.
   const R = 15.9;
   const C = 2 * Math.PI * R;
-  const stat = (label: string, value: string, warn = false) => (
-    <div className="flex min-w-0 flex-col items-center">
-      <span className={`num font-semibold ${warn ? "text-destructive-on-tint" : "text-foreground"}`} style={{ fontSize: "clamp(12px, 0.95vw, 24px)" }} data-tabular="true">{value}</span>
-      <span className="truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.68vw, 17px)" }}>{label}</span>
-    </div>
+  const stat = (label: string, b: Bucket, withValue: boolean, warn = false, note?: string) => (
+    <button type="button" onClick={() => onOpen(`${p.name} · ${label}`, b.rows, note)} className="flex min-w-0 flex-col items-center hover:bg-muted/60">
+      <span className={`num font-semibold ${warn && b.count > 0 ? "text-destructive-on-tint" : "text-foreground"}`} style={{ fontSize: "clamp(12px, 0.9vw, 23px)" }} data-tabular="true">
+        {withValue ? `${b.count} · ${money(b.value) ?? "—"}` : formatNumber(b.count, lang)}
+      </span>
+      <span className="truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.62vw, 16px)" }}>{label}</span>
+    </button>
   );
   return (
     <article
@@ -1975,11 +1675,116 @@ function RepCard({ p, lang }: { p: SalesCardRow; lang: "ar" | "en" }) {
         </div>
       </div>
       <div className="grid grid-cols-3 gap-[0.4vw] border-t border-border/70 pt-[0.4vh]">
-        {stat(lang === "ar" ? "محقّق الشهر" : "Won MTD", compactValue(p.won, lang) ?? "—")}
-        {stat(lang === "ar" ? "المسار" : "Pipeline", compactValue(p.open, lang) ?? "—")}
-        {stat(lang === "ar" ? "متابعات متأخّرة" : "Overdue", formatNumber(p.late, lang), p.late > 0)}
+        {stat("Verbal award", p.s.verbal, true)}
+        {stat("A to reconcile", p.s.reconcile, true, false, "Column A says verbally awarded; column E does not yet.")}
+        {stat("Open JIH", p.s.openJih, true)}
+        {stat("Won YTD", p.s.wonYtd, true, false, "Award date from the master list.")}
+        {stat("Follow-ups", p.s.followUps, false)}
+        {stat("Overdue", p.s.overdue, false, true, "Next action date before today.")}
       </div>
     </article>
+  );
+}
+
+const CLOSING_GROUP: Record<string, string> = {
+  verbal: "1 · Verbal awards — secure the written award, PO or contract",
+  direct_2026: "2 · Open 2026 JIH – Direct",
+  priority: "3 · Column A priority / follow-up",
+};
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** One closing row: project and next action, rep, value, status/priority, last update, next date. */
+function ClosingRow({ r, zebra, rep, money, today }: {
+  r: Rec; zebra: boolean; rep: string; today: string;
+  money: (n: number | null | undefined) => string | null;
+}) {
+  const late = r.nextActionDate !== null && r.nextActionDate < today;
+  return (
+    <div className={`flex shrink-0 items-center gap-[0.5vw] px-[0.3vw] py-[0.25vh] ${zebra ? "bg-muted" : ""}`} style={{ fontSize: "clamp(12px, 0.82vw, 21px)" }}>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-semibold text-foreground" title={r.project}>{r.project}</span>
+        <span className="block truncate text-muted-foreground" title={r.nextAction ?? ""} style={{ fontSize: "clamp(12px, 0.66vw, 17px)" }}>
+          {r.nextAction ?? "No next action recorded"}
+        </span>
+      </span>
+      <span className="shrink-0 truncate" style={{ width: "5vw" }}>{rep}</span>
+      <span className="num shrink-0 text-end font-semibold" style={{ width: "4.6vw" }} data-tabular="true">
+        {r.secondary ? <span title="Counted once on the primary contractor quotation">{money(r.quoted) ?? "—"}*</span> : money(r.value) ?? "—"}
+      </span>
+      <span className="shrink-0" style={{ width: "7vw" }}>
+        <span className="block truncate">{r.status ?? STAGE_LABEL[r.stage ?? ""]?.[1] ?? "—"}</span>
+        <span className="block truncate text-muted-foreground" style={{ fontSize: "clamp(12px, 0.62vw, 16px)" }}>
+          {r.held ? `${r.holdLabel}${r.holdReason ? ` · ${r.holdReason}` : ""}` : r.priority ?? "No priority"}
+        </span>
+      </span>
+      <span className="num shrink-0 text-end text-muted-foreground" style={{ width: "4.4vw" }}>{r.lastUpdate ?? "missing"}</span>
+      <span className={`num shrink-0 text-end ${late ? "font-semibold text-destructive-on-tint" : "text-muted-foreground"}`} style={{ width: "4.4vw" }}>
+        {r.nextActionDate ?? "missing"}
+      </span>
+    </div>
+  );
+}
+
+function BucketRow({ label, b, money, onOpen }: { label: string; b: Bucket; money: (n: number | null | undefined) => string | null; onOpen: () => void }) {
+  return (
+    <button type="button" onClick={onOpen} className="flex items-baseline justify-between border-b border-border/40 pb-[0.2vh] text-start hover:bg-muted/60">
+      <span className="text-foreground">{label}</span>
+      <span className="num font-semibold text-foreground" data-tabular="true">{b.count} · {money(b.value) ?? "—"}</span>
+    </button>
+  );
+}
+
+/** The records behind any total. Missing data is printed as missing. */
+function DrillDialog({ drill, onClose, labels, money, today }: {
+  drill: { title: string; note?: string; rows: Rec[] } | null;
+  onClose: () => void;
+  labels: Map<string, string> | undefined;
+  money: (n: number | null | undefined) => string | null;
+  today: string;
+}) {
+  const total = drill ? bucket(drill.rows) : null;
+  return (
+    <Dialog open={!!drill} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-h-[85vh] max-w-6xl overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>{drill?.title}</DialogTitle>
+          <DialogDescription>
+            {total ? `${total.count} records · ${money(total.value) ?? "no value"} counted` : ""}
+            {drill?.note ? ` · ${drill.note}` : ""}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[65vh] overflow-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {["Project", "Code", "Rep", "Value", "Status (E)", "Priority (A)", "JIH / Tender (G)", "RFQ received", "Last update (K)", "Next action (F)", "Next action"].map((h) => (
+                  <TableHead key={h}>{h}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {drill?.rows.map((r) => (
+                <TableRow key={r.id} className="align-top">
+                  <TableCell >
+                    <Link to="/opportunities/$id" params={{ id: r.id }} className="text-primary underline-offset-2 hover:underline">{r.project}</Link>
+                  </TableCell>
+                  <TableCell >{r.code ?? "—"}</TableCell>
+                  <TableCell >{r.ownerId ? labels?.get(r.ownerId) ?? "—" : "No owner"}</TableCell>
+                  <TableCell className="num  text-end">{r.secondary ? `${money(r.quoted) ?? "—"} (counted on primary)` : money(r.value) ?? "missing"}</TableCell>
+                  <TableCell >{r.status ?? STAGE_LABEL[r.stage ?? ""]?.[1] ?? "—"}{r.held ? ` · ${r.holdLabel}${r.holdReason ? ` (${r.holdReason})` : ""}` : ""}</TableCell>
+                  <TableCell >{r.priority ?? "—"}</TableCell>
+                  <TableCell >{r.routeLabel ?? "—"}</TableCell>
+                  <TableCell >{r.received ?? "missing"}</TableCell>
+                  <TableCell >{r.lastUpdate ? `${r.lastUpdate} (${daysSince(r.lastUpdate, today)}d)` : "missing"}</TableCell>
+                  <TableCell className={`${r.nextActionDate && r.nextActionDate < today ? "text-destructive-on-tint" : ""}`}>{r.nextActionDate ?? "missing"}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.nextAction ?? "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -2023,8 +1828,9 @@ function Panel({
 
 /** One "needs attention" figure. `null` means the input does not exist. */
 function Need({
-  n, ar, en, sub, tone, lang, icon: Icon,
+  n, ar, en, sub, tone, lang, icon: Icon, onOpen,
 }: {
+  onOpen?: () => void;
   /** Every figure on this board carries one; these four were the exception. */
   icon: LucideIcon;
   n: number | null;
@@ -2035,7 +1841,8 @@ function Need({
   lang: "ar" | "en";
 }) {
   return (
-    <div className="flex min-w-0 items-center justify-center gap-[0.5vw] border-e border-border/50 pe-[0.6vw] last:border-e-0 last:pe-0">
+    <button type="button" onClick={onOpen} disabled={!onOpen} title="Open the records"
+            className="flex min-w-0 items-center justify-center gap-[0.5vw] border-e border-border/50 pe-[0.6vw] text-start last:border-e-0 last:pe-0 enabled:hover:bg-muted/60">
       {/*
         A missing input prints a dash at the FIGURE's size, not the words "No
         data" at half of it. Two sizes in one row is what made the strip look
@@ -2065,7 +1872,7 @@ function Need({
           {sub}
         </span>
       </span>
-    </div>
+    </button>
   );
 }
 

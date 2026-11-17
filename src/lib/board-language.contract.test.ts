@@ -38,7 +38,9 @@ describe("one language, chosen in one place", () => {
 
   it("keeps every bilingual branch, so switching back is one value", () => {
     const branches = (BOARD.match(/lang === "ar" \?/g) ?? []).length;
-    expect(branches).toBeGreaterThan(50);
+    // 42 after the 2026-11-17 closing brief removed the pulse and forecast panels;
+    // the new closing panels are English-only like the rest of the wall.
+    expect(branches).toBeGreaterThan(40);
   });
 
   it("no longer prints a label and its translation together", () => {
@@ -76,16 +78,14 @@ describe("the ranked list looks ranked", () => {
   });
 });
 
-describe("the weighted forecast says what it is worth against", () => {
-  it("shows a percentage of target only when both halves are real", () => {
-    // A percentage of a target nobody set, or of a forecast that could not be
-    // computed, is a number with nothing behind it.
-    const at = BOARD.indexOf("f={model.weighted}");
+describe("won year to date says how its dates are known", () => {
+  it("prints the award-date basis and counts only Won (2026-11-17 brief)", () => {
+    // The weighted-forecast card it replaced could not be computed (no probabilities).
+    const at = BOARD.indexOf('en="Won year to date"');
     expect(at).toBeGreaterThan(-1);
-    const card = BOARD.slice(at, at + 700);
-    expect(card).toContain('model.weighted.state === "ok"');
-    expect(card).toContain("model.year.target > 0");
-    expect(card).toContain("of target");
+    const card = BOARD.slice(at, at + 1200);
+    expect(card).toContain("award date from the master list");
+    expect(card).toContain("Verbal awards and open quotations are excluded");
   });
 });
 
@@ -159,7 +159,8 @@ describe("every figure on the board carries an icon", () => {
     // plainer than everything around it.
     const needs = BOARD.match(/<Need\b/g) ?? [];
     const withIcon = BOARD.match(/<Need icon=\{/g) ?? [];
-    expect(needs.length).toBe(4);
+    // Five since 2026-11-17: the column A queues plus overdue actions.
+    expect(needs.length).toBe(5);
     expect(withIcon.length).toBe(needs.length);
   });
 
@@ -240,6 +241,7 @@ describe("no icon sits on a badge, and the rows alternate", () => {
   it("tints the second and fourth rows, and leaves the first and third white", () => {
     // Five KPI cards white, then the attention row tinted, then the three
     // lists white, then the bottom three tinted.
-    expect((BOARD.match(/<Panel band /g) ?? []).length).toBe(5);
+    // Four since 2026-11-17: the bottom row is "Changed since yesterday" and the red flags.
+    expect((BOARD.match(/<Panel band /g) ?? []).length).toBe(4);
   });
 });

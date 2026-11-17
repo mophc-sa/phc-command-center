@@ -23,7 +23,8 @@ test("board polls changed inputs, preserves data on read failure and recovers wi
     if (fail) return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "Simulated source unavailable" }) });
     return route.fulfill({ contentType: "application/json", body: JSON.stringify([{
       id: "00000000-0000-0000-0000-000000000001", project_name: name,
-      stage: "quotation", sales_stage: "jih", owner_id: null,
+      // A verbal award: the closing list (2026-11-17) lists it first, so its name is on the board.
+      stage: "quotation", sales_stage: "verbally_awarded", owner_id: null,
       contract_value: null, quotation_value: 7000000, estimated_value_max: null,
       created_at: "2023-01-01T00:00:00Z", extra_data: {},
     }]) });

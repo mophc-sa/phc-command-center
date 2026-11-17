@@ -55,8 +55,10 @@ describe("the two chip grids stay the same size", () => {
     // The reference design shows three plain figures there, and it is right --
     // 30 / 60 / 90 is read as one series, and three bordered boxes read as
     // three separate facts.
-    expect((BOARD.match(/<ChipRow\b/g) ?? []).length).toBe(2);
-    expect((BOARD.match(/<Chip\b(?!Row)/g) ?? []).length).toBe(2);
+    // One since 2026-11-17: the AI pulse and forecast panels gave their row to
+    // the 2025 JIH red flags (closing brief); "Changed since yesterday" remains.
+    expect((BOARD.match(/<ChipRow\b/g) ?? []).length).toBe(1);
+    expect((BOARD.match(/<Chip\b(?!Row)/g) ?? []).length).toBe(1);
     // The inset ring is the chip's own chrome; nothing outside Chip draws it.
     expect((BOARD.match(/inset 0 0 0 1px/g) ?? []).length).toBe(1);
     // The kicker slot is what holds the three rows level; one declaration.
@@ -65,7 +67,8 @@ describe("the two chip grids stay the same size", () => {
 
   it("sizes every chip figure from the constant, never a literal", () => {
     const figures = BOARD.match(/fontSize: CHIP_FIGURE/g) ?? [];
-    expect(figures.length).toBeGreaterThanOrEqual(2);
+    expect(figures.length).toBeGreaterThanOrEqual(1);
+    expect(BOARD).not.toMatch(/fontSize: "clamp\([^"]*\)"[^\n]*CHIP/);
   });
 });
 
