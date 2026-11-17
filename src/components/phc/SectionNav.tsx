@@ -152,7 +152,8 @@ export function SectionNav() {
   if (sections.length < MIN_SECTIONS_FOR_INDEX) return null;
 
   const ar = lang === "ar";
-  const current = Math.max(active, 0);
+  // active lags one frame behind sections: after sections shrink it can point past the end.
+  const current = Math.min(Math.max(active, 0), sections.length - 1);
   const pill =
     "grid h-8 w-8 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60";
 
