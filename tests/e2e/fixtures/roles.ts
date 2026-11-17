@@ -92,7 +92,8 @@ export const ROLE_MATRIX: Record<
   { landing: string; allow: string[]; deny: string[]; sidebarGroups: string[] }
 > = {
   finance_manager: { landing: "/command-center", allow: ["/command-center", "/opportunities", "/settings"], deny: ["/admin-settings"], sidebarGroups: [] },
-  estimation_manager: { landing: "/command-center", allow: ["/command-center", "/settings"], deny: ["/admin-settings"], sidebarGroups: [] },
+  // Command Center is management only since 2026-11-17.
+  estimation_manager: { landing: "/my-workspace", allow: ["/settings"], deny: ["/admin-settings", "/command-center"], sidebarGroups: [] },
   system_admin: {
     landing: "/admin-settings",
     allow: ["/admin-settings", "/settings", "/approvals", "/award-queue"],
@@ -139,14 +140,14 @@ export const ROLE_MATRIX: Record<
   },
   salesperson: {
     landing: "/my-workspace",
-    allow: ["/command-center", "/follow-ups", "/opportunities"],
-    deny: ["/admin-settings"],
+    allow: ["/follow-ups", "/opportunities"],
+    deny: ["/admin-settings", "/command-center"],
     sidebarGroups: ["nav_group_pipeline"],
   },
   viewer: {
-    landing: "/command-center",
-    allow: ["/command-center", "/reports", "/approvals"],
-    deny: ["/admin-settings"],
+    landing: "/my-workspace",
+    allow: ["/reports", "/approvals"],
+    deny: ["/admin-settings", "/command-center"],
     sidebarGroups: [],
   },
 };
