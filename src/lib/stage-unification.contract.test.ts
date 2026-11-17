@@ -14,7 +14,7 @@
 import { test, expect, describe } from "bun:test";
 
 const CANONICAL_PAGES = [
-  "src/routes/_authenticated/command-center.tsx",
+  "src/components/phc/SalesOperations.tsx",
   "src/routes/_authenticated/reports.tsx",
   "src/routes/_authenticated/opportunities.index.tsx",
 ];
@@ -51,7 +51,7 @@ describe("management views resolve stage canonically", () => {
   });
 
   test("command-center groups by canonical stage, not o.stage", async () => {
-    const src = await read("src/routes/_authenticated/command-center.tsx");
+    const src = await read("src/components/phc/SalesOperations.tsx");
     expect(src).toContain("groupByCanonicalStage");
     expect(src).not.toMatch(/map\.get\(o\.stage\)/);
   });
@@ -92,7 +92,7 @@ describe("management views resolve stage canonically", () => {
   // recorded data. The count's own arithmetic is tested in stage-canonical.test.ts;
   // this asserts it actually reaches the screen.
   test("command-center discloses how many bars rest on an inferred stage", async () => {
-    const src = await read("src/routes/_authenticated/command-center.tsx");
+    const src = await read("src/components/phc/SalesOperations.tsx");
     expect(src).toContain("inferredCount > 0");
   });
 });

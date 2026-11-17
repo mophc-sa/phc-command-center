@@ -202,7 +202,7 @@ describe("authoritative totals cover the whole permitted dataset", () => {
 });
 
 describe("the Command Center caps nothing that feeds a KPI", () => {
-  const src = read("src/routes/_authenticated/command-center.tsx");
+  const src = read("src/components/phc/SalesOperations.tsx");
 
   it("opportunities, follow-ups, RFQs and quotations are all paged", () => {
     for (const table of ["opportunities", "follow_ups", "rfqs", "quotations", "stakeholders"]) {
@@ -242,7 +242,7 @@ describe("the Command Center caps nothing that feeds a KPI", () => {
 // ---- Defects the browser surfaced while verifying the two above -------------
 
 describe("the dashboard survives its own migration not being applied yet", () => {
-  const src = read("src/routes/_authenticated/command-center.tsx");
+  const src = read("src/components/phc/SalesOperations.tsx");
 
   it("asks for role_code, and asks again without it if the column is absent", () => {
     // PostgREST answers a select naming an unknown column with 400, which

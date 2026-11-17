@@ -42,7 +42,8 @@ describe("the KPI engine reaches a screen", () => {
     // reaches a rendered tile instead of being computed and dropped, and one
     // more hop does not change that — but a page that stopped rendering tiles
     // altogether still has to fail here.
-    const s = read(COMMAND_CENTER);
+    // 2026-11-17: the sales detail moved from the Command Center to SalesOperations.
+    const s = read("src/components/phc/SalesOperations.tsx");
     expect(s).toContain("executiveKpis");
     expect(s).toContain("<KpiGroup");
     expect(read("src/components/phc/KpiGroup.tsx")).toContain("<KpiTile");

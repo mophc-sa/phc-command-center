@@ -32,7 +32,7 @@ import { AGGREGATE_ENTITY_ID } from "@/lib/ai-orchestrator-actions";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (p: string) => readFileSync(join(root, p), "utf8");
-const commandCenter = read("src/routes/_authenticated/command-center.tsx");
+const commandCenter = read("src/components/phc/SalesOperations.tsx");
 
 /** The entityType the Command Center actually sends with sales_report_insights. */
 function commandCenterCall() {
@@ -97,7 +97,7 @@ describe("the Command Center honours the orchestrator's entity contract", () => 
   it("every runAiAgent call site in the app satisfies the registry", () => {
     // Not just this one. The same class of defect anywhere else fails here.
     for (const f of [
-      "src/routes/_authenticated/command-center.tsx",
+      "src/components/phc/SalesOperations.tsx",
       "src/routes/_authenticated/reports.tsx",
       "src/routes/_authenticated/agent-activity.tsx",
       "src/routes/_authenticated/opportunities.$id.tsx",

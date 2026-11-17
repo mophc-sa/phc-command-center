@@ -32,19 +32,20 @@ test("executive/sales_mgr still land on /command-center (unchanged)", () => {
 
 test("command-center's team-target query sums sales_targets across all users (annual, falling back to monthly)", () => {
   const source = read("src/routes/_authenticated/command-center.tsx");
-  expect(source).toMatch(/queryKey: \["cc-team-target"\]/);
+  // 2026-11-17: the company report reads the target with the deals, one query.
+  expect(source).toMatch(/queryKey: \["cc-company-sales"\]/);
   expect(source).toMatch(/eq\("period_type", "annual"\)\.eq\("period_start", annYear\)/);
   expect(source).toMatch(/eq\("period_type", "monthly"\)\.eq\("period_start", monthStart\)/);
-  expect(source).toMatch(/total: annualSum > 0 \? annualSum : monthlySum/);
+  expect(source).toMatch(/target: annualSum > 0 \? annualSum : sum\(monthly\.data\)/);
   // Unlike my-workspace.tsx's per-user target query, this one must NOT
   // scope by a single user_id — it's an org-wide sum.
-  const queryBlockStart = source.indexOf('queryKey: ["cc-team-target"]');
+  const queryBlockStart = source.indexOf('queryKey: ["cc-company-sales"]');
   const queryBlockEnd = source.indexOf("});", queryBlockStart);
   const queryBlock = source.slice(queryBlockStart, queryBlockEnd);
   expect(queryBlock).not.toMatch(/\.eq\("user_id"/);
 });
 
-test("Team Target KPI card renders in command-center's KPI row", () => {
+test("Company target KPI card renders in command-center's KPI row", () => {
   const source = read("src/routes/_authenticated/command-center.tsx");
-  expect(source).toMatch(/label=\{lang === "ar" \? "الهدف الإجمالي للفريق" : "Team Target"\}/);
+  expect(source).toMatch(/label=\{ar \? "هدف الشركة" : "Company target"\}/);
 });

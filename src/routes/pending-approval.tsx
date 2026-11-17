@@ -45,7 +45,7 @@ function PendingApprovalPage() {
         },
         (payload: { new: { status?: string } }) => {
           if (payload.new?.status === "active") {
-            nav({ to: "/command-center", replace: true });
+            nav({ to: "/", replace: true });
           }
         },
       )

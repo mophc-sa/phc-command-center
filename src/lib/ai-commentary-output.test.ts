@@ -232,7 +232,7 @@ describe("an empty but valid response is its own state", () => {
     // The defect: ok:true with nothing rendered suppressed the caveat entirely,
     // so a broken mapping looked exactly like a model with nothing to say.
     const src = require("node:fs").readFileSync(
-      require("node:path").join(__dirname, "../routes/_authenticated/command-center.tsx"), "utf8");
+      require("node:path").join(__dirname, "../components/phc/SalesOperations.tsx"), "utf8");
     expect(src).toContain('commentaryState: (rendered > 0 ? "ok" : "empty")');
     expect(src).toContain('"unavailable"');
     expect(src).not.toContain("aiUnavailable={commentary.isFetched && !commentary.data}");

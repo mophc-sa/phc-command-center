@@ -56,6 +56,7 @@ import {
 } from "@/lib/opportunity-timeline";
 import { HistoricalSalesView } from "@/components/phc/HistoricalSalesView";
 import { memberSummary, needsAttention, summarySentence, teamDay, teamWorkload } from "@/lib/team-dashboard";
+import { SalesOperations } from "@/components/phc/SalesOperations";
 import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/sales-management")({
@@ -67,7 +68,7 @@ export const Route = createFileRoute("/_authenticated/sales-management")({
   component: SalesManagement,
 });
 
-type TabKey = "team" | "strategic" | "executive" | "historical";
+type TabKey = "team" | "operations" | "strategic" | "executive" | "historical";
 type RangeKey = "month" | "quarter" | "ytd";
 
 function periodFor(range: RangeKey, today: string): Period {
@@ -100,7 +101,7 @@ function SalesManagement() {
     isSalesperson(roles) || isBdOrSalesOps(roles) || isSalesManager(roles) ||
     isExecutive(roles) || isEstimationManager(roles) || isFinanceManager(roles);
   const allowed: TabKey[] = [
-    ...(canTeam ? (["team"] as TabKey[]) : []),
+    ...(canTeam ? (["team", "operations"] as TabKey[]) : []),
     ...(canStrategic ? (["strategic"] as TabKey[]) : []),
     ...(canExec ? (["executive"] as TabKey[]) : []),
     ...(canHistorical ? (["historical"] as TabKey[]) : []),
@@ -255,13 +256,14 @@ function SalesManagement() {
         {allowed.map((k) => (
           <button key={k} type="button" aria-pressed={tab === k} onClick={() => setTab(k)} className={pill(tab === k)}>
             {k === "team" ? (lang === "ar" ? "الفريق اليوم" : "Team today")
+              : k === "operations" ? (lang === "ar" ? "المتابعة والأولويات" : "Follow-up & priorities")
               : k === "strategic" ? (lang === "ar" ? "استراتيجي ومناقصات" : "Strategic & tenders")
               : k === "historical" ? (lang === "ar" ? "أرشيف المبيعات التاريخية" : "Historical Sales Archive")
               : (lang === "ar" ? "الملخص التنفيذي" : "Executive")}
           </button>
         ))}
-        {tab !== "historical" && <span className="mx-1 h-4 w-px bg-border/70" aria-hidden="true" />}
-        {tab !== "historical" && (["month", "quarter", "ytd"] as const).map((r) => (
+        {tab !== "historical" && tab !== "operations" && <span className="mx-1 h-4 w-px bg-border/70" aria-hidden="true" />}
+        {tab !== "historical" && tab !== "operations" && (["month", "quarter", "ytd"] as const).map((r) => (
           <button key={r} type="button" aria-pressed={range === r} onClick={() => setRange(r)} className={pill(range === r)}>
             {r === "month" ? (lang === "ar" ? "هذا الشهر" : "This month")
               : r === "quarter" ? (lang === "ar" ? "هذا الربع" : "This quarter")
@@ -279,6 +281,10 @@ function SalesManagement() {
           targetTotal={periodTarget}
           opps={opps} ctx={ctx}
         />
+      ) : tab === "operations" ? (
+        // Moved from the Command Center (2026-11-17): rep performance, follow-ups,
+        // RFQ age, priorities, data quality and the brief belong to the sales manager.
+        <SalesOperations />
       ) : tab === "historical" ? (
         // Read-only archive. No props: it owns its own query and its own
         // filters, and there is nothing on this page for it to coordinate with.

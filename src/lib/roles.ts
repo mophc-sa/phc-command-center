@@ -151,6 +151,10 @@ export const canReviewAiOutput = (r: RoleInput) =>
 // BD / Sales Ops and above — not system_admin, not viewers.
 export const canManageSalesPipeline = (r: RoleInput) => inGroup(r, PIPELINE_OPERATORS);
 
+// The Command Center is the company-wide report (2026-11-17): management only.
+export const canSeeCommandCenter = (r: RoleInput) =>
+  isExecutive(r) || isSalesManager(r) || isFinanceManager(r) || isSystemAdmin(r);
+
 // Editing a deal's inputs (client details, contact person, relationships, key
 // facts other than money). The manager, 2026-10-19: "everyone edits inputs".
 // Deals are private to their owner (20260727170000), so "everyone" is everyone

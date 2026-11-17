@@ -130,7 +130,7 @@ describe("canonical stage — every sales and management view agrees", () => {
   // business decision from the legacy column, which is why a verbal award
   // could read one way in My Workspace and another in Command Center.
   const CANONICAL_PAGES = [
-    "src/routes/_authenticated/command-center.tsx",
+    "src/components/phc/SalesOperations.tsx",
     "src/routes/_authenticated/reports.tsx",
     "src/routes/_authenticated/opportunities.index.tsx",
     "src/routes/_authenticated/my-workspace.tsx",
