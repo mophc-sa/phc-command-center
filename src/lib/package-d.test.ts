@@ -322,7 +322,7 @@ describe("the frontend still reaches AI through one door", () => {
   });
 
   it("the Command Center's only AI call is the orchestrator", () => {
-    const src = read("src/routes/_authenticated/command-center.tsx");
+    const src = read("src/components/phc/SalesOperations.tsx");
     expect(src).toContain("runAiAgent");
     expect(src).not.toMatch(/fetch\(\s*["'`]https?:\/\//);
   });

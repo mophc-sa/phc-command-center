@@ -194,7 +194,7 @@ describe("wired into the management views", () => {
   // the pages that were already correct must keep reading sales_stage directly.
   // Full coverage lives in stage-unification.contract.test.ts.
   test.each([
-    "src/routes/_authenticated/command-center.tsx",
+    "src/components/phc/SalesOperations.tsx",
     "src/routes/_authenticated/reports.tsx",
     "src/routes/_authenticated/opportunities.index.tsx",
   ])("%s resolves stage through this module", async (file) => {

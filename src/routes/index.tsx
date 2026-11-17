@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { isSystemAdmin, isExecutive, isSalesManager, isBdOrSalesOps, isSalesperson, isSupplier, type AppRole } from "@/lib/roles";
+import { isSystemAdmin, isExecutive, isSalesManager, isFinanceManager, isBdOrSalesOps, isSalesperson, isSupplier, type AppRole } from "@/lib/roles";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -18,11 +18,11 @@ export const Route = createFileRoute("/")({
 // Landing contract (Sprint 1D, revised Phase 3 — system-redesign request:
 // "management dashboard" vs "sales dashboard"):
 //   system_admin            → /admin-settings
-//   executive | sales_mgr  → /command-center (org-wide, incl. team target)
+//   executive | sales_mgr | finance_mgr → /command-center (company report)
 //   bd | sales_ops         → /lead-tender-inbox
 //   salesperson            → /my-workspace (personal target/pipeline)
 //   supplier               → /supplier (the supplier portal, pricing loop PR 3)
-//   viewer                  → /command-center
+//   viewer                  → /my-workspace (Command Center is management only)
 //   no roles               → /pending-approval
 function LandingRedirect() {
   const { user, loading: authLoading } = useAuth();
@@ -90,7 +90,7 @@ function LandingRedirect() {
       void navigate({ to: "/supplier", replace: true });
     } else if (isSystemAdmin(r)) {
       void navigate({ to: "/admin-settings", replace: true });
-    } else if (isExecutive(r) || isSalesManager(r)) {
+    } else if (isExecutive(r) || isSalesManager(r) || isFinanceManager(r)) {
       void navigate({ to: "/command-center", replace: true });
     } else if (isBdOrSalesOps(r)) {
       void navigate({ to: "/lead-tender-inbox", replace: true });
@@ -100,8 +100,8 @@ function LandingRedirect() {
       // No roles assigned — account is pending or quarantined
       void navigate({ to: "/pending-approval", replace: true });
     } else {
-      // viewer
-      void navigate({ to: "/command-center", replace: true });
+      // viewer and other roles: the Command Center is management only (2026-11-17)
+      void navigate({ to: "/my-workspace", replace: true });
     }
   }, [user, authLoading, roles, rolesLoading, display, displayLoading, navigate]);
 

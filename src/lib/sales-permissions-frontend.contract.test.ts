@@ -20,20 +20,19 @@ function src(rel: string): string {
 describe("command-center route guard", () => {
   const commandCenterSrc = src("src/routes/_authenticated/command-center.tsx");
 
-  test("redirects a pure salesperson (no elevated role) to /my-workspace", () => {
-    expect(commandCenterSrc).toMatch(/isSalesperson\(roles\) && !hasElevatedRole/);
-    expect(commandCenterSrc).toMatch(/throw redirect\(\{ to: "\/my-workspace" \}\);/);
+  // 2026-11-17 (Mo): the Command Center is the company report, management only.
+  test("redirects anyone outside management to /my-workspace", () => {
+    expect(commandCenterSrc).toMatch(/if \(!canSeeCommandCenter\(roles\)\) throw redirect\(\{ to: "\/my-workspace" \}\);/);
   });
 
-  test("does not disturb viewer's existing landing contract (only salesperson is checked, not a broader role exclusion)", () => {
-    const guardStart = commandCenterSrc.indexOf("beforeLoad: async () => {");
-    const guardEnd = commandCenterSrc.indexOf("head: () =>", guardStart);
-    const guardBody = commandCenterSrc.slice(guardStart, guardEnd);
-    expect(guardBody).not.toMatch(/isViewer/);
+  test("management is executive, sales manager, finance manager and system admin (roles are additive)", () => {
+    expect(src("src/lib/roles.ts")).toMatch(
+      /canSeeCommandCenter = \(r: RoleInput\) =>\s+isExecutive\(r\) \|\| isSalesManager\(r\) \|\| isFinanceManager\(r\) \|\| isSystemAdmin\(r\);/,
+    );
   });
 
-  test("a user holding salesperson plus a manager role is not redirected (roles are additive)", () => {
-    expect(commandCenterSrc).toMatch(/canManageSalesPipeline\(roles\) \|\| isSystemAdmin\(roles\) \|\| isFinanceManager\(roles\)/);
+  test("viewers land on /my-workspace, not on a page that would bounce them", () => {
+    expect(src("src/routes/index.tsx")).toMatch(/\/\/ viewer and other roles[^\n]*\n\s+void navigate\(\{ to: "\/my-workspace"/);
   });
 });
 

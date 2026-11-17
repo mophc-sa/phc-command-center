@@ -61,7 +61,7 @@ type PageEntry = { to: string; labelEn: string; labelAr: string; group: string; 
 const PAGES: PageEntry[] = [
   { to: "/my-workspace",      labelEn: "My Day",              labelAr: "يومي",                          group: "Workspace", icon: Briefcase },
   { to: "/action-center",     labelEn: "Action Queue",        labelAr: "قائمة الإجراءات",               group: "Workspace", icon: BellRing },
-  { to: "/command-center",    labelEn: "Pipeline Overview",   labelAr: "نظرة خط المبيعات",              group: "Pipeline",  icon: LayoutDashboard },
+  { to: "/command-center",    labelEn: "Company overview",    labelAr: "تقرير الشركة الشامل",           group: "Pipeline",  icon: LayoutDashboard },
   { to: "/lead-tender-inbox", labelEn: "Intake",              labelAr: "الاستقبال",                     group: "Pipeline",  icon: Mailbox },
   { to: "/opportunities",     labelEn: "Opportunities",       labelAr: "الفرص",                         group: "Pipeline",  icon: FolderKanban },
   { to: "/tenders",           labelEn: "Tenders",             labelAr: "المناقصات",                     group: "Pipeline",  icon: Gavel },

@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n, localeFor } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canViewSalesAdmin, canCreateSalesRecords, ALL_ROLES, type AppRole } from "@/lib/roles";
+import { canViewSalesAdmin, canCreateSalesRecords, canSeeCommandCenter, ALL_ROLES, type AppRole } from "@/lib/roles";
 import { usePinnedRecords, type PinnedRecord } from "@/hooks/usePinnedRecords";
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -217,7 +217,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       // Phase 5: the management surface. Role-gated inside — a viewer with no
       // commercial role gets an explanation, not a blank page.
-      { kind: "link",   to: "/command-center",   key: "nav_command_center",    icon: LayoutDashboard },
+      { kind: "link",   to: "/command-center",   key: "nav_command_center",    icon: LayoutDashboard, showIf: canSeeCommandCenter },
       { kind: "link", to: "/sales-management", key: "nav_sales_management", icon: Gauge },
       { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart },
     ],
