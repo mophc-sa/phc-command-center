@@ -13,6 +13,57 @@
 -- Who: sales leadership, the BD manager and sales ops (Marie), system admin.
 -- =============================================================================
 
+-- The import runs as the person (Marie is not a commercial manager), so the
+-- deal guards let it through on a flag only this function sets. The flag is a
+-- transaction-local setting a client cannot set through the API.
+CREATE OR REPLACE FUNCTION public.protect_commercial_stage()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NOT public.is_commercial_manager(auth.uid())
+     AND coalesce(current_setting('phc.master_list_import', true), '') <> 'on' THEN
+    IF NEW.stage IS DISTINCT FROM OLD.stage
+       AND NEW.stage IN ('won', 'lost', 'archived') THEN
+      RAISE EXCEPTION 'Commercial stage changes must go through sales-os-api';
+    END IF;
+    IF NEW.sales_stage IS DISTINCT FROM OLD.sales_stage THEN
+      RAISE EXCEPTION 'Sales-stage changes must go through sales-os-api';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.protect_opportunity_owner()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF NEW.owner_id IS DISTINCT FROM OLD.owner_id
+     AND auth.uid() IS NOT NULL
+     AND NOT public.is_commercial_manager(auth.uid())
+     AND coalesce(current_setting('phc.master_list_import', true), '') <> 'on' THEN
+    RAISE EXCEPTION 'Only a commercial manager can change the opportunity owner';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.protect_opportunity_money()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL
+     AND coalesce(current_setting('phc.quote_value', true), '') <> 'on'
+     AND coalesce(current_setting('phc.master_list_import', true), '') <> 'on'
+     AND (NEW.quotation_value     IS DISTINCT FROM OLD.quotation_value
+       OR NEW.estimated_value_min IS DISTINCT FROM OLD.estimated_value_min
+       OR NEW.estimated_value_max IS DISTINCT FROM OLD.estimated_value_max
+       OR NEW.contract_value      IS DISTINCT FROM OLD.contract_value)
+     AND NOT public.can_edit_total_value(auth.uid()) THEN
+    RAISE EXCEPTION 'Only Finance or the BD Manager may change a deal''s values (estimate, quotation, contract). | تعديل قيم الفرصة (التقدير، عرض السعر، العقد) يقتصر على الماليّة أو مدير التطوير.'
+      USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.master_list_import(_file_name text, _as_of date, _items jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -38,6 +89,7 @@ BEGIN
   VALUES ('master_list', _file_name, coalesce(_as_of, current_date), u, 'Master list import (page)', 'applied', now(), now())
   RETURNING id INTO run;
   PERFORM set_config('phc.data_sync', 'on', true);
+  PERFORM set_config('phc.master_list_import', 'on', true);
 
   FOR it IN SELECT * FROM jsonb_array_elements(_items) LOOP
     r := it->'row'; ch := coalesce(it->'changes', '{}'::jsonb); c := it->'contact';
@@ -143,6 +195,7 @@ BEGIN
   END LOOP;
 
   PERFORM set_config('phc.data_sync', '', true);
+  PERFORM set_config('phc.master_list_import', '', true);
   UPDATE public.data_sync_runs SET summary = jsonb_build_object('applied', jsonb_build_object(
       'updated', n_upd, 'created', n_new, 'restored', n_res, 'skipped', n_skip, 'stakeholders', n_st, 'notes', n_act),
       'skipped', skipped)
