@@ -13,10 +13,12 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-const COLUMNS: Record<3 | 4 | 5, string> = {
+const COLUMNS: Record<3 | 4 | 5 | 6, string> = {
   3: "sm:grid-cols-2 lg:grid-cols-3",
   4: "sm:grid-cols-2 xl:grid-cols-4",
   5: "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
+  // The management dashboard's six headline figures (Omar's image 04).
+  6: "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6",
 };
 
 export function KpiRow({
@@ -26,7 +28,7 @@ export function KpiRow({
 }: {
   children: ReactNode;
   /** How many metrics sit side by side on a wide screen. Never more on a phone. */
-  columns?: 3 | 4 | 5;
+  columns?: 3 | 4 | 5 | 6;
   className?: string;
 }) {
   return <div className={cn("mb-6 grid gap-3", COLUMNS[columns], className)}>{children}</div>;

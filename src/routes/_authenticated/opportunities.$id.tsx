@@ -45,7 +45,7 @@ import {
   OPPORTUNITY_MILESTONES,
   type OpportunityMilestone,
 } from "@/lib/opportunity-actions";
-import { ArrowLeft, ArrowRight, ExternalLink, FileText, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarClock, ChevronDown, ExternalLink, FileText, RefreshCw } from "lucide-react";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
@@ -55,7 +55,10 @@ import { ContractTermsCard } from "@/components/phc/contracts/ContractTermsCard"
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { setHumanWinProbability } from "@/lib/workflow-actions";
+import { setHumanWinProbability, advanceSalesStage, nextSalesStages, type SalesStage } from "@/lib/workflow-actions";
+import { fieldsForStage } from "@/components/phc/pipeline/RfqJihPanel";
+import { ON_HOLD_REASONS, label as presetLabel } from "@/lib/entry-presets";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { canApproveCommercialAction, canAssignOwner, canAssignUnownedOpportunity, canCreateSalesRecords, canEditOpportunityInputs, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
 import { personLabel } from "@/lib/person-label";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
@@ -243,6 +246,7 @@ function OpportunityDetail() {
   // Four tabs (Omar's CRM review, 2026-11-18) instead of one long page. Each
   // tab shows the section groups it owns; the header above stays on every tab.
   const [tab, setTab] = useState<DealTab>("summary");
+  const [moveTo, setMoveTo] = useState<SalesStage | null>(null);
   const show = (k: TimelineFilter) => DEAL_TABS.find((d) => d.key === tab)!.sections.includes(k);
   const setFilter = (k: TimelineFilter) => setTab(DEAL_TABS.find((d) => d.sections.includes(k))?.key ?? "summary");
   const [scoring, setScoring] = useState(false);
@@ -793,33 +797,109 @@ function OpportunityDetail() {
             {o.agent_recommendation ? (
               <StatusPill tone={recTone}>{humanize(o.agent_recommendation)}</StatusPill>
             ) : null}
+            {/* Image 07: the one primary action on the page. */}
+            {nextSalesStages(o.sales_stage as SalesStage, (o as { hold_from_stage?: SalesStage | null }).hold_from_stage).length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+                    {lang === "ar" ? "تحديث المرحلة" : "Update stage"} <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {nextSalesStages(o.sales_stage as SalesStage, (o as { hold_from_stage?: SalesStage | null }).hold_from_stage).map((ns) => (
+                    <DropdownMenuItem key={ns} onClick={() => setMoveTo(ns)}>{t(`sstage_${ns}` as never)}</DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
             <RecordLifecycleMenu entityType="opportunities" entityId={o.id} roles={roles} onDone={invalidate} />
           </div>
         </div>
       </div>
 
 
-      {/* The deal at a glance, on every tab: owner, stage, latest quote, next step. */}
-      <div className="sticky top-0 z-20 -mx-1 grid gap-3 rounded-lg border border-border bg-background/95 px-4 py-3 backdrop-blur sm:grid-cols-2 lg:grid-cols-5">
-        <DataField label={lang === "ar" ? "الكود" : "Code"} value={dealCode} />
-        <DataField label={lang === "ar" ? "مسؤول المبيعات" : "Sales owner"} value={o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : (lang === "ar" ? "بلا مسؤول" : "No owner")} />
-        <DataField
-          label={lang === "ar" ? "المرحلة" : "Stage"}
-          value={
-            (canonicalStage ? t(canonicalStageLabelKey(canonicalStage)) : humanize(o.stage)) +
-            (o.sales_stage === "on_hold" && (o as { hold_from_stage?: string | null }).hold_from_stage
-              ? ` · ${t("hold_kept_at")}: ${t(`sstage_${(o as { hold_from_stage?: string }).hold_from_stage}` as never)}`
-              : "")
-          }
-        />
-        <DataField label={lang === "ar" ? "قيمة آخر عرض" : "Latest quote"} value={o.quotation_value != null ? formatCurrency(Number(o.quotation_value), lang, o.currency ?? "SAR") : null} />
+      {/* Image 07: code, customer, owner, stage, latest quote and next step, on every tab. */}
+      <div className="sticky top-0 z-20 -mx-1 grid gap-x-6 gap-y-3 rounded-lg border border-border bg-background/95 px-4 py-3 backdrop-blur sm:grid-cols-3 lg:grid-cols-6 [&>*]:min-w-0 lg:[&>*:not(:last-child)]:border-e lg:[&>*:not(:last-child)]:border-border/60">
+        <DataField label={lang === "ar" ? "الكود" : "Code"} value={dealCode} mono />
+        <DataField label={lang === "ar" ? "العميل" : "Customer"} value={o.company?.name ?? o.client ?? null} />
+        <DataField label={lang === "ar" ? "مسؤول المبيعات" : "Owner"} value={o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : (lang === "ar" ? "بلا مسؤول" : "No owner")} />
+        <DataField label={lang === "ar" ? "المرحلة" : "Stage"} value={canonicalStage ? t(canonicalStageLabelKey(canonicalStage)) : humanize(o.stage)} />
+        <DataField label={lang === "ar" ? "قيمة آخر عرض" : "Latest quote"} value={o.quotation_value != null ? formatCurrency(Number(o.quotation_value), lang, o.currency ?? "SAR") : null} mono />
         <DataField
           label={lang === "ar" ? "الخطوة التالية وموعدها" : "Next step · due"}
           value={o.next_action ? `${o.next_action}${o.next_action_due ? ` · ${o.next_action_due}` : ""}` : null}
         />
       </div>
 
+      {/* Image 05: where the deal is on the sales path; a hold keeps that place. */}
+      <StagePath stage={o.sales_stage === "on_hold" ? ((o as { hold_from_stage?: string | null }).hold_from_stage ?? null) : o.sales_stage} lang={lang} t={t} />
+      {o.sales_stage === "on_hold" ? (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-amber/40 bg-amber/10 px-4 py-3 text-sm">
+          <span className="font-semibold text-amber-on-tint">
+            {o.hold_reason === "contractor_hold" ? (lang === "ar" ? "معلّقة من المقاول" : "Contractor hold") : (lang === "ar" ? "معلّقة" : "On hold")}
+          </span>
+          <span>{lang === "ar" ? "السبب" : "Reason"}: {(() => { const r = ON_HOLD_REASONS.find((x) => x.value === o.hold_reason); return r ? presetLabel(r, lang) : (o.hold_reason ?? "—"); })()}</span>
+          <span>{lang === "ar" ? "موعد المراجعة" : "Review date"}: {o.hold_review_date ?? "—"}</span>
+          <span>{lang === "ar" ? "المسؤول" : "Owner"}: {o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : "—"}</span>
+        </div>
+      ) : null}
+
       <DealTabBar value={tab} onChange={setTab} lang={lang} />
+
+      <ActionDialog
+        recordId={moveTo ? o.id : undefined}
+        open={!!moveTo}
+        onOpenChange={(v) => !v && setMoveTo(null)}
+        title={moveTo ? `${lang === "ar" ? "نقل إلى" : "Move to"}: ${t(`sstage_${moveTo}` as never)}` : ""}
+        submitLabel={lang === "ar" ? "تحديث المرحلة" : "Update stage"}
+        fields={moveTo ? fieldsForStage(moveTo, (k) => t(k as never), lang) : []}
+        onSubmit={async (v) => {
+          if (!moveTo) return;
+          const { notes, evidence, ...fields } = v as Record<string, string>;
+          try {
+            const res: any = await advanceSalesStage({
+              opportunityId: o.id, toStage: moveTo, notes, evidence,
+              fields: { ...fields, contract_value: fields.contract_value ? Number(fields.contract_value) : undefined },
+            });
+            toast.success(res?.pending_approval ? t("wf_pending_approval") : t("crm_saved"));
+            invalidate();
+          } catch (e) {
+            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+            throw e;
+          }
+        }}
+      />
+
+      {/* Image 07, Summary: the next action and the key dates, before the detail. */}
+      {show("alert") && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 lg:col-span-2">
+            <div className="text-sm font-semibold text-foreground">{lang === "ar" ? "الإجراء التالي" : "Next action"}</div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-primary/15 text-primary"><CalendarClock className="h-5 w-5" aria-hidden="true" /></span>
+                <div>
+                  <div className="text-base font-semibold text-foreground">{o.next_action || (lang === "ar" ? "لا خطوة تالية مسجلة" : "No next step recorded")}</div>
+                  <div className={`text-sm ${o.next_action_due && o.next_action_due < riyadhDay() ? "font-semibold text-destructive-on-tint" : "text-muted-foreground"}`}>
+                    {o.next_action_due ?? (lang === "ar" ? "بلا موعد" : "No date")}
+                  </div>
+                </div>
+              </div>
+              <button type="button" onClick={() => setAction("schedule")} className="min-h-10 rounded-md border border-primary/50 px-3 text-sm font-medium text-foreground hover:bg-primary/10">
+                {lang === "ar" ? "جدولة متابعة" : "Schedule follow-up"}
+              </button>
+            </div>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <div className="mb-2 text-sm font-semibold text-foreground">{lang === "ar" ? "تفاصيل أساسية" : "Key details"}</div>
+            <dl className="grid gap-1.5 text-sm">
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{lang === "ar" ? "قيمة الفرصة" : "Opportunity value"}</dt><dd className="tabular-nums">{o.quotation_value != null ? formatCurrency(Number(o.quotation_value), lang, o.currency ?? "SAR") : "—"}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{lang === "ar" ? "تاريخ الإنشاء" : "Created"}</dt><dd className="tabular-nums">{String(o.created_at ?? "").slice(0, 10) || "—"}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{lang === "ar" ? "الإغلاق المتوقع" : "Expected close"}</dt><dd className="tabular-nums">{o.expected_contract_date ?? "—"}</dd></div>
+            </dl>
+          </div>
+        </div>
+      )}
 
       {/* 1. KEY FACTS + ACTIONS */}
       {show("alert") && (
@@ -2682,6 +2762,40 @@ function ActionButton({
     >
       {children}
     </button>
+  );
+}
+
+/** The sales path as image 05 draws it. Won/lost/hold are outcomes, not steps. */
+const PATH: { keys: string[]; en: string; ar: string }[] = [
+  { keys: ["rfq_received"], en: "RFQ", ar: "طلب التسعير" },
+  { keys: ["jih"], en: "Pricing / submitted", ar: "تسعير / مقدَّم" },
+  { keys: ["jih_bafo"], en: "BAFO", ar: "عرض نهائي" },
+  { keys: ["under_negotiation"], en: "Negotiation", ar: "تفاوض" },
+  { keys: ["verbally_awarded"], en: "Verbal award", ar: "ترسية شفهية" },
+  { keys: ["contract_received", "contract_signed"], en: "Contract / PO", ar: "عقد / أمر شراء" },
+  { keys: ["won"], en: "Won", ar: "مرسّاة" },
+];
+
+function StagePath({ stage, lang, t }: { stage: string | null | undefined; lang: Lang; t: (k: any) => string }) {
+  const at = PATH.findIndex((p) => p.keys.includes(stage ?? ""));
+  if (stage === "lost") {
+    return <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-2 text-sm font-semibold text-destructive-on-tint">{t("sstage_lost")}</div>;
+  }
+  return (
+    <ol className="flex flex-wrap gap-1" aria-label={lang === "ar" ? "مسار البيع" : "Sales path"}>
+      {PATH.map((p, i) => (
+        <li
+          key={p.en}
+          aria-current={i === at ? "step" : undefined}
+          className={
+            "flex min-h-9 flex-1 basis-28 items-center justify-center rounded-md px-3 text-center text-sm font-medium " +
+            (i === at ? "bg-primary text-primary-foreground" : i < at ? "bg-primary/15 text-foreground" : "bg-muted text-muted-foreground")
+          }
+        >
+          {lang === "ar" ? p.ar : p.en}
+        </li>
+      ))}
+    </ol>
   );
 }
 

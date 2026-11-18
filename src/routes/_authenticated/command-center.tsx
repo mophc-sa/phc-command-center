@@ -18,6 +18,9 @@ import { KpiRow } from "@/components/phc/KpiRow";
 import { QueryFailure } from "@/components/phc/QueryFailure";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { ProjectProgressPanel } from "@/components/phc/ProjectProgressPanel";
+import { KpiCard } from "@/components/phc/KpiCard";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { rfqIntake, toRec, verbalAwards, type ClosingOpp } from "@/lib/board-closing";
 import "@/styles/command-center.css";
 
 // The company-wide report (2026-11-17): sales summary, projects and finance,
@@ -44,7 +47,7 @@ export const Route = createFileRoute("/_authenticated/command-center")({
 });
 
 const OPP_COLS =
-  "id, project_name, stage, sales_stage, tier, score, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, human_win_probability, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, last_activity_at, won_at, lost_at, contract_received_date, contract_signed_date, updated_at, created_at";
+  "id, project_name, client, stage, sales_stage, tier, score, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, human_win_probability, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, last_activity_at, won_at, lost_at, contract_received_date, contract_signed_date, next_action, next_action_due, hold_reason, updated_at, created_at, extra_data";
 
 /** Exact row count, or null when the table cannot be read (never a silent 0). */
 async function count(q: PromiseLike<{ count: number | null; error: unknown }>): Promise<number | null> {
@@ -139,6 +142,8 @@ function CommandCenter() {
     return {
       forecast: forecastVsTarget(sales.data.opps, ctx, sales.data.target > 0 ? sales.data.target : null),
       exec: executiveKpis(sales.data.opps, ctx),
+      // Image 04: verbal awards to close and RFQs by their received date.
+      recs: sales.data.opps.map((o) => toRec(o as unknown as ClosingOpp)),
     };
   }, [sales.data, today]);
 
@@ -189,12 +194,47 @@ function CommandCenter() {
           <SkeletonTable rows={2} />
         ) : (
           <>
-            <KpiRow className="executive-scorecard">
-              <KpiTile size="lead" kpi={kpis.forecast.target} label={ar ? "هدف الشركة" : "Company target"} hint={periodLabel} accent="count" icon={<Target className="h-4 w-4" />} />
-              <KpiTile size="lead" kpi={kpis.forecast.won} label={ar ? "المبيعات المتعاقد عليها" : "Signed sales"} hint={periodLabel} accent="won" icon={<Wallet className="h-4 w-4" />} />
-              <KpiTile size="lead" kpi={kpis.forecast.achievement} label={ar ? "نسبة تحقيق الهدف" : "Target achievement"} hint={periodLabel} accent="won" icon={<Target className="h-4 w-4" />} />
-              <KpiTile size="lead" kpi={kpis.exec.openPipeline} label={ar ? "خط المبيعات المفتوح" : "Open pipeline"} hint={ar ? "الوضع الحالي" : "Current position"} accent="money" icon={<Activity className="h-4 w-4" />} />
-            </KpiRow>
+            {/* Image 04: six figures, then the two lists the manager acts on. */}
+            {(() => {
+              const v = verbalAwards(kpis.recs);
+              const rfq = rfqIntake(kpis.recs, today);
+              const active = kpis.recs.filter((r) => r.open && !r.held);
+              return (
+                <KpiRow className="executive-scorecard" columns={6}>
+                  <KpiTile size="lead" kpi={kpis.forecast.target} label={ar ? "الهدف السنوي" : "Annual target"} hint={periodLabel} accent="count" icon={<Target className="h-4 w-4" />} />
+                  <KpiTile size="lead" kpi={kpis.forecast.won} label={ar ? "المبيعات المتعاقد عليها" : "Signed sales"} hint={periodLabel} accent="won" icon={<Wallet className="h-4 w-4" />} />
+                  <KpiTile size="lead" kpi={kpis.forecast.achievement} label={ar ? "نسبة التحقيق" : "Achievement"} hint={periodLabel} accent="won" icon={<Target className="h-4 w-4" />} />
+                  <KpiCard label={ar ? "ترسيات شفهية" : "Verbal awards"} value={formatCurrency(v.all.value, lang, "SAR")} hint={ar ? `${v.all.count} صفقة — ليست مبيعات بعد` : `${v.all.count} deals — not sales yet`} />
+                  <KpiCard label={ar ? "الفرص النشطة" : "Active opportunities"} value={formatNumber(active.length, lang)} hint={formatCurrency(active.reduce((a, r) => a + (r.value ?? 0), 0), lang, "SAR")} />
+                  <KpiCard label={ar ? "طلبات تسعير آخر 30 يومًا" : "RFQs last 30 days"} value={formatNumber(rfq.last30.count, lang)} hint={ar ? "حسب تاريخ الاستلام" : "By received date"} />
+                </KpiRow>
+              );
+            })()}
+            <div className="grid gap-4 lg:grid-cols-2">
+              <CloseList
+                title={ar ? "ترسيات شفهية تحتاج إغلاقًا" : "Verbal awards to close"}
+                empty={ar ? "لا ترسيات شفهية مفتوحة." : "No open verbal awards."}
+                head={[ar ? "الفرصة" : "Opportunity", ar ? "العميل" : "Account", ar ? "القيمة" : "Amount", ar ? "الخطوة التالية" : "Next step"]}
+                rows={verbalAwards(kpis.recs).all.rows.slice(0, 6).map((r) => ({
+                  id: r.id, project: r.project, account: (sales.data!.opps.find((o) => o.id === r.id) as { client?: string | null } | undefined)?.client ?? "—",
+                  third: formatCurrency(r.value ?? r.quoted, lang, "SAR"), fourth: r.nextAction ?? (ar ? "سجّل العقد أو أمر الشراء" : "Record the contract or PO"),
+                }))}
+              />
+              <CloseList
+                title={ar ? "متابعات متأخرة" : "Overdue follow-ups"}
+                empty={ar ? "لا متابعات متأخرة." : "Nothing overdue."}
+                head={[ar ? "الفرصة" : "Opportunity", ar ? "العميل" : "Account", ar ? "متأخرة منذ" : "Due since", ""]}
+                rows={kpis.recs
+                  .filter((r) => r.open && r.nextActionDate && r.nextActionDate < today)
+                  .sort((a, b) => (a.nextActionDate ?? "").localeCompare(b.nextActionDate ?? ""))
+                  .slice(0, 6)
+                  .map((r) => ({
+                    id: r.id, project: r.project, account: (sales.data!.opps.find((o) => o.id === r.id) as { client?: string | null } | undefined)?.client ?? "—",
+                    third: ar ? `${Math.round((Date.parse(today) - Date.parse(r.nextActionDate!)) / 86_400_000)} يومًا` : `${Math.round((Date.parse(today) - Date.parse(r.nextActionDate!)) / 86_400_000)} days`,
+                    fourth: ar ? "متابعة" : "Follow up", action: true,
+                  }))}
+              />
+            </div>
             <KpiRow columns={3}>
               <KpiTile kpi={kpis.forecast.forecast} label={ar ? "التوقع المرجّح" : "Weighted forecast"} accent="money" />
               <KpiTile kpi={kpis.exec.winRate} label={ar ? "معدل الفوز" : "Win rate"} accent="won" />
@@ -251,6 +291,40 @@ function CommandCenter() {
 }
 
 const num = (n: number | null | undefined, lang: "en" | "ar") => (n == null ? null : formatNumber(n, lang));
+
+function CloseList({ title, empty, head, rows }: {
+  title: string; empty: string; head: string[];
+  rows: { id: string; project: string; account: string; third: string; fourth: string; action?: boolean }[];
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <h3 className="mb-2 text-base font-semibold text-foreground">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        <Table>
+          <TableHeader><TableRow>{head.map((h, i) => <TableHead key={i}>{h}</TableHead>)}</TableRow></TableHeader>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell><Link to="/opportunities/$id" params={{ id: r.id }} className="font-medium text-foreground hover:underline">{r.project}</Link></TableCell>
+                <TableCell className="text-muted-foreground">{r.account}</TableCell>
+                <TableCell className="tabular-nums">{r.third}</TableCell>
+                <TableCell>
+                  {r.action ? (
+                    <Link to="/opportunities/$id" params={{ id: r.id }} className="inline-flex min-h-8 items-center rounded-md border border-primary/50 px-3 text-sm font-medium hover:bg-primary/10">{r.fourth}</Link>
+                  ) : (
+                    <span className="text-sm text-primary">{r.fourth}</span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
+}
 
 function SectionHead({ id, title, hint, link, Arrow }: { id: string; title: string; hint?: string; link?: { to: string; label: string }; Arrow: typeof ArrowRight }) {
   return (

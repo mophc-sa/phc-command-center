@@ -53,7 +53,7 @@ function stageTone(s: SalesStage): "positive" | "attention" | "danger" | "muted"
 // feed lostByReason() in the KPI engine, and a reason typed as prose cannot be
 // grouped — a loss analysis built on sentences is just a list of sentences.
 // "Other" keeps the taxonomy honest by staying available, with a note.
-function fieldsForStage(t: string, tt: (k: string) => string, lang: "en" | "ar" = "en"): DialogField[] {
+export function fieldsForStage(t: string, tt: (k: string) => string, lang: "en" | "ar" = "en"): DialogField[] {
   const opts = (list: PresetOption[]) => list.map((o) => ({ value: o.value, label: label(o, lang) }));
   switch (t) {
     case "under_negotiation":

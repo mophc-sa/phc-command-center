@@ -129,20 +129,21 @@ type NavGroup = {
 // indexes every page in PAGES, see CommandPalette.tsx). Nav membership and
 // route existence are separate concerns; only nav membership changed here.
 const NAV_GROUPS: NavGroup[] = [
+  // Order from Omar's CRM review, image 02 (2026-11-18): Dashboard · My Day ·
+  // Opportunities · Quotations · Customers · Reports, settings at the bottom.
+  // The other departments' sections follow, so the company-wide system keeps
+  // them; a sales-only user sees only the items marked `sales`.
   {
-    // HOME in the PRD's target architecture: where you look to decide what to
-    // do next, before you go looking for a record.
     key: "navgroup_home",
-    fallback: "Home",
+    fallback: "My work",
     items: [
+      { kind: "link",   to: "/command-center",   key: "nav_command_center",    icon: LayoutDashboard, showIf: canSeeCommandCenter },
       { kind: "link",   to: "/my-workspace",     key: "nav_my_day",            icon: Briefcase, sales: true },
-      { kind: "link",   to: "/action-center",    key: "nav_action_center",     icon: BellRing },
-      // Beside the day's work, not filed under reports: a calendar answers
-      // "what does Thursday look like", which is a question you ask before
-      // starting, not after.
+      // Calendar and meetings sit with the day's work (image 02: inside My Day).
       { kind: "link",   to: "/calendar",         key: "nav_calendar",          icon: CalendarDays, sales: true },
-      { kind: "link",   to: "/approvals",        key: "nav_approvals",         icon: ShieldCheck },
       { kind: "link",   to: "/meetings",         key: "nav_meetings",          icon: Mic },
+      { kind: "link",   to: "/action-center",    key: "nav_action_center",     icon: BellRing },
+      { kind: "link",   to: "/approvals",        key: "nav_approvals",         icon: ShieldCheck },
       { kind: "button", action: "notifications", key: "nav_notifications",     icon: Bell },
     ],
   },
@@ -150,20 +151,15 @@ const NAV_GROUPS: NavGroup[] = [
     key: "navgroup_sales",
     fallback: "Sales",
     items: [
-      { kind: "link", to: "/lead-tender-inbox", key: "nav_intake",        icon: Mailbox, sales: true },
       { kind: "link", to: "/opportunities",     key: "nav_opportunities", icon: FolderKanban, sales: true },
+      { kind: "link", to: "/quotations",        key: "nav_quotations",    icon: FileText, sales: true },
+      { kind: "link", to: "/lead-tender-inbox", key: "nav_intake",        icon: Mailbox, sales: true },
       { kind: "link", to: "/tenders",           key: "nav_tenders",       icon: Gavel, sales: true },
-      // Awarded Projects is a VIEW, not an entity: the Opportunities list
-      // filtered to the awarded stages. /award-queue still exists and still
-      // works; it is simply no longer presented as its own module.
+      // Awarded Projects is a VIEW: the Opportunities list filtered to the
+      // awarded stages (verbal award, contract received/signed, won).
       {
         kind: "link",
         to: "/opportunities",
-        // "won" alone is the LAST stage of an award, not the whole of it. A JIH
-        // marked awarded sits at verbally_awarded and moves through
-        // contract_received / contract_signed before anyone writes won — so this
-        // entry showed "No results" to the very people who had just won the
-        // work (client feedback 2026-08-25). `awarded` covers all four.
         search: { q: "", stage: "awarded", tier: "all", view: "table" },
         key: "nav_awarded_projects",
         icon: Award,
@@ -171,57 +167,40 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // "Customers" in image 02: companies and the people at them.
     key: "navgroup_crm",
-    fallback: "CRM",
+    fallback: "Customers",
     items: [
       { kind: "link", to: "/accounts", key: "nav_accounts", icon: Building2, sales: true },
       { kind: "link", to: "/contacts", key: "nav_contacts", icon: Contact2, sales: true },
     ],
   },
   {
-    // Production owns Projects — separate from the Sales/CRM groups above.
-    // The only link back to Sales is the automatic opportunity-won ->
-    // project handoff (see create_project_from_won_opportunity() trigger);
-    // Production is not otherwise part of the sales pipeline.
+    key: "navgroup_reports",
+    fallback: "Reports & Analysis",
+    items: [
+      { kind: "link", to: "/sales-management", key: "nav_sales_management", icon: Gauge, sales: true },
+      { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart, sales: true },
+    ],
+  },
+  {
+    // Production owns Projects; the link back to Sales is the won → project handoff.
     key: "navgroup_production",
     fallback: "Production",
     items: [
       { kind: "link", to: "/projects", key: "nav_projects", icon: Landmark },
-      // Group 5 (2026-10-19): samples are made by production, drawings come
-      // from the designer; both are tracked to the client's answer.
       { kind: "link", to: "/submittals", key: "nav_submittals", icon: Layers },
     ],
   },
   {
-    // Commercial & Finance, part 1 (spec 2026-11-03-pricing-loop-design §4):
-    // the pricing loop. /quotations, which left Sales in Phase 1 to wait for
-    // this section, is back here. Queue and settings show to cost readers; a
-    // GM delegate without a cost role reaches /pricing by link.
+    // Commercial & Finance: the pricing loop and the money after the award.
     key: "navgroup_pricing_finance",
     fallback: "Pricing & Finance",
     items: [
       { kind: "link", to: "/pricing", key: "nav_pricing_queue", icon: Calculator, showIf: canSeePricingNav },
-      { kind: "link", to: "/quotations", key: "nav_quotations", icon: FileText, sales: true },
       { kind: "link", to: "/pricing/settings", key: "nav_pricing_settings", icon: SlidersHorizontal, showIf: canSeePricingNav },
-      // B3 (2026-11-12): open invoices across deals, for finance and management.
       { kind: "link", to: "/collections", key: "nav_collections", icon: Wallet, showIf: canSeeCollections },
-      // B5 (2026-11-12): sold, cost, collected, late and profit per contract; cost readers only.
       { kind: "link", to: "/project-profit", key: "nav_project_profit", icon: TrendingUp, showIf: canSeePricingNav },
-    ],
-  },
-  {
-    // Targets left this group in Phase 1. It was never a destination people
-    // browsed to — the number that matters shows up in My Workspace, Command
-    // Center and Admin Settings, next to the work it judges. /targets still
-    // exists and still works.
-    key: "navgroup_reports",
-    fallback: "Reports & Analysis",
-    items: [
-      // Phase 5: the management surface. Role-gated inside — a viewer with no
-      // commercial role gets an explanation, not a blank page.
-      { kind: "link",   to: "/command-center",   key: "nav_command_center",    icon: LayoutDashboard, showIf: canSeeCommandCenter },
-      { kind: "link", to: "/sales-management", key: "nav_sales_management", icon: Gauge, sales: true },
-      { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart, sales: true },
     ],
   },
   {
@@ -235,10 +214,7 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // AI Configuration (/ai-agents) and AI Audit (/agent-activity) are out of
-    // the primary business navigation and live here, under a collapsed Admin
-    // group — the placement the PRD asks for. They are administration
-    // surfaces, not places a salesperson works.
+    // Administration surfaces, collapsed: not places a salesperson works.
     key: "navgroup_admin",
     fallback: "Admin",
     collapsible: true,
@@ -246,11 +222,15 @@ const NAV_GROUPS: NavGroup[] = [
       { kind: "link", to: "/ai-agents",       key: "nav_ai_configuration", icon: Bot },
       { kind: "link", to: "/agent-activity",  key: "nav_ai_audit",         icon: Activity },
       { kind: "link", to: "/data-import",     key: "nav_data_import",     icon: DatabaseZap, requireAdmin: true },
-      // 2026-11-12: master list sync runs and their review list (sales leadership; RLS decides).
       { kind: "link", to: "/data-sync", key: "nav_data_sync", icon: DatabaseZap, showIf: canImportMasterList },
       { kind: "link", to: "/admin-settings",  key: "nav_admin_settings",  icon: ShieldAlert, requireAdmin: true },
-      { kind: "link", to: "/settings",        key: "nav_settings",        icon: Settings, sales: true },
     ],
+  },
+  {
+    // Image 02: settings at the bottom, on its own, for everyone.
+    key: "navgroup_settings",
+    fallback: "",
+    items: [{ kind: "link", to: "/settings", key: "nav_settings", icon: Settings, sales: true }],
   },
 ];
 
@@ -464,7 +444,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3" aria-label="Main navigation">
+      <nav className="flex flex-1 flex-col overflow-y-auto px-3 py-3" aria-label="Main navigation">
 
         {/* Pinned records */}
         {pinned.length > 0 && (
@@ -533,10 +513,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           }
 
           return (
-            <div key={g.key} className="mb-5 last:mb-0">
-              <div className="px-3 pb-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
-                {tSafe(g.key, g.fallback)}
-              </div>
+            <div key={g.key} className={g.fallback ? "mb-5 last:mb-0" : "mt-auto border-t border-border/60 pt-3"}>
+              {g.fallback ? (
+                <div className="px-3 pb-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
+                  {tSafe(g.key, g.fallback)}
+                </div>
+              ) : null}
               <div className="flex flex-col gap-0.5">
                 {visibleItems.map(renderNavItem)}
               </div>

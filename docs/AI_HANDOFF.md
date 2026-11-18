@@ -1,5 +1,9 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-18 — Layout to Omar's mockups, part 1 (branch `feat/layout-deal-page`, frontend only)
+
+Mo: the features shipped but the screens did not follow Omar's images; rearrange layout, keep the theme. Part 1: sidebar order (image 02; Quotations into Sales, Customers group, Command Center at the top, Settings group pinned to the bottom), deal page header + Update stage dropdown (uses exported `fieldsForStage` + `advanceSalesStage`), `StagePath`, hold banner, Next action / Key details cards (images 07/05), Command Center six-figure row + Verbal awards to close + Overdue follow-ups (`CloseList`, image 04; `KpiRow` columns 6), My Day `FollowUpCard` with in-place close-out (image 10). Nav contract tests updated to the new order.
+
 ## 2026-11-18 — Master list import page, wave 4b of Omar's CRM review (branch `feat/master-list-import`, migration `20261118120000`, not deployed)
 
 - `src/lib/master-list-import.ts` (+ 9 tests): `parseMasterList` (header by *Project Code*, Riyadh dates, blank rows dropped), `parseContact`, `targetStage` (A/E → stage, unknown → null), `planImport`: tenders by number + value (rows without a number join the tender with the same project + value), deal matching in passes across the file (number+value → archived copy/restore → unique exact code → name for number-less codes), one record per contractor paired by code with existing second-contractor records, conflicts for won→open and for a new value under an existing number. Dry run on the November file against production: 249 unchanged, 2 conflicts (KSP 5,736,750; Westfield Riyadh) — exactly Mo's two manual decisions.

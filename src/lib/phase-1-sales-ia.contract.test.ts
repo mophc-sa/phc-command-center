@@ -28,8 +28,10 @@ function navPaths(): string[] {
   return [...APP_SHELL.matchAll(/kind: "link",\s*(?:\n\s*)?to: "([^"]+)"/g)].map((m) => m[1]);
 }
 
-describe("Sales navigation carries exactly the four PRD destinations", () => {
-  test("the Sales group is Inbox, Opportunities, Tenders, Awarded Projects", () => {
+// 2026-11-18 (Omar's CRM review, image 02): Quotations joined the Sales group,
+// right after Opportunities, so the group carries five destinations.
+describe("Sales navigation carries the sales destinations", () => {
+  test("the Sales group is Opportunities, Quotations, Inbox, Tenders, Awarded Projects", () => {
     const group = APP_SHELL.slice(
       APP_SHELL.indexOf('key: "navgroup_sales"'),
       APP_SHELL.indexOf('key: "navgroup_crm"'),
@@ -38,9 +40,10 @@ describe("Sales navigation carries exactly the four PRD destinations", () => {
     expect(group).toContain('to: "/opportunities"');
     expect(group).toContain('to: "/tenders"');
     expect(group).toContain("nav_awarded_projects");
+    expect(group).toContain('to: "/quotations"');
 
-    // Four link entries, no more — the point of the cleanup.
-    expect([...group.matchAll(/kind: "link"/g)].length).toBe(4);
+    // Five link entries, no more — the point of the cleanup.
+    expect([...group.matchAll(/kind: "link"/g)].length).toBe(5);
   });
 
   test("Awarded Projects is a filtered view of Opportunities, not its own module", () => {
@@ -85,13 +88,14 @@ describe("surfaces removed from primary business navigation", () => {
     expect(PALETTE).toContain(`to: "${path}"`);
   });
 
-  test("/quotations is back, in Pricing & Finance (the section it was waiting for)", () => {
+  test("/quotations is in Sales; the pricing queue and settings stay in Pricing & Finance", () => {
+    const sales = APP_SHELL.slice(APP_SHELL.indexOf('key: "navgroup_sales"'), APP_SHELL.indexOf('key: "navgroup_crm"'));
     const group = APP_SHELL.slice(
       APP_SHELL.indexOf('key: "navgroup_pricing_finance"'),
-      APP_SHELL.indexOf('key: "navgroup_reports"'),
+      APP_SHELL.indexOf('key: "navgroup_resources"'),
     );
     expect(group).toContain('to: "/pricing"');
-    expect(group).toContain('to: "/quotations"');
+    expect(sales).toContain('to: "/quotations"');
     expect(group).toContain('to: "/pricing/settings"');
     expect(PALETTE).toContain('to: "/quotations"');
     expect(PALETTE).toContain('to: "/pricing"');
