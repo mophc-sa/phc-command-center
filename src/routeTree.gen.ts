@@ -40,6 +40,7 @@ import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedKnowledgeRouteImport } from './routes/_authenticated/knowledge'
 import { Route as AuthenticatedLeadTenderInboxRouteImport } from './routes/_authenticated/lead-tender-inbox'
+import { Route as AuthenticatedMyDashboardRouteImport } from './routes/_authenticated/my-dashboard'
 import { Route as AuthenticatedMyWorkspaceRouteImport } from './routes/_authenticated/my-workspace'
 import { Route as AuthenticatedProjectProfitRouteImport } from './routes/_authenticated/project-profit'
 import { Route as AuthenticatedQuotationsRouteImport } from './routes/_authenticated/quotations'
@@ -234,6 +235,12 @@ const AuthenticatedLeadTenderInboxRoute =
   AuthenticatedLeadTenderInboxRouteImport.update({
     id: '/lead-tender-inbox',
     path: '/lead-tender-inbox',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedMyDashboardRoute =
+  AuthenticatedMyDashboardRouteImport.update({
+    id: '/my-dashboard',
+    path: '/my-dashboard',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedMyWorkspaceRoute =
@@ -450,6 +457,7 @@ export interface FileRoutesByFullPath {
   '/home': typeof AuthenticatedHomeRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
   '/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
+  '/my-dashboard': typeof AuthenticatedMyDashboardRoute
   '/my-workspace': typeof AuthenticatedMyWorkspaceRoute
   '/project-profit': typeof AuthenticatedProjectProfitRoute
   '/quotations': typeof AuthenticatedQuotationsRoute
@@ -512,6 +520,7 @@ export interface FileRoutesByTo {
   '/home': typeof AuthenticatedHomeRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
   '/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
+  '/my-dashboard': typeof AuthenticatedMyDashboardRoute
   '/my-workspace': typeof AuthenticatedMyWorkspaceRoute
   '/project-profit': typeof AuthenticatedProjectProfitRoute
   '/quotations': typeof AuthenticatedQuotationsRoute
@@ -579,6 +588,7 @@ export interface FileRoutesById {
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/knowledge': typeof AuthenticatedKnowledgeRoute
   '/_authenticated/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
+  '/_authenticated/my-dashboard': typeof AuthenticatedMyDashboardRoute
   '/_authenticated/my-workspace': typeof AuthenticatedMyWorkspaceRoute
   '/_authenticated/project-profit': typeof AuthenticatedProjectProfitRoute
   '/_authenticated/quotations': typeof AuthenticatedQuotationsRoute
@@ -646,6 +656,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/knowledge'
     | '/lead-tender-inbox'
+    | '/my-dashboard'
     | '/my-workspace'
     | '/project-profit'
     | '/quotations'
@@ -708,6 +719,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/knowledge'
     | '/lead-tender-inbox'
+    | '/my-dashboard'
     | '/my-workspace'
     | '/project-profit'
     | '/quotations'
@@ -774,6 +786,7 @@ export interface FileRouteTypes {
     | '/_authenticated/home'
     | '/_authenticated/knowledge'
     | '/_authenticated/lead-tender-inbox'
+    | '/_authenticated/my-dashboard'
     | '/_authenticated/my-workspace'
     | '/_authenticated/project-profit'
     | '/_authenticated/quotations'
@@ -1042,6 +1055,13 @@ declare module '@tanstack/react-router' {
       path: '/lead-tender-inbox'
       fullPath: '/lead-tender-inbox'
       preLoaderRoute: typeof AuthenticatedLeadTenderInboxRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/my-dashboard': {
+      id: '/_authenticated/my-dashboard'
+      path: '/my-dashboard'
+      fullPath: '/my-dashboard'
+      preLoaderRoute: typeof AuthenticatedMyDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/my-workspace': {
@@ -1330,6 +1350,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedKnowledgeRoute: typeof AuthenticatedKnowledgeRoute
   AuthenticatedLeadTenderInboxRoute: typeof AuthenticatedLeadTenderInboxRoute
+  AuthenticatedMyDashboardRoute: typeof AuthenticatedMyDashboardRoute
   AuthenticatedMyWorkspaceRoute: typeof AuthenticatedMyWorkspaceRoute
   AuthenticatedProjectProfitRoute: typeof AuthenticatedProjectProfitRoute
   AuthenticatedQuotationsRoute: typeof AuthenticatedQuotationsRoute
@@ -1378,6 +1399,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedKnowledgeRoute: AuthenticatedKnowledgeRoute,
   AuthenticatedLeadTenderInboxRoute: AuthenticatedLeadTenderInboxRoute,
+  AuthenticatedMyDashboardRoute: AuthenticatedMyDashboardRoute,
   AuthenticatedMyWorkspaceRoute: AuthenticatedMyWorkspaceRoute,
   AuthenticatedProjectProfitRoute: AuthenticatedProjectProfitRoute,
   AuthenticatedQuotationsRoute: AuthenticatedQuotationsRoute,

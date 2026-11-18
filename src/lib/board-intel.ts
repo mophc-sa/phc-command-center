@@ -99,7 +99,7 @@ export type IntelOpp = {
  */
 export const PIPELINE_BUCKETS = {
   /** Not won. Includes JIH -- see above. */
-  open: ["rfq_received", "jih"] as CanonicalStage[],
+  open: ["qualified", "rfq_received", "pricing", "jih"] as CanonicalStage[],
   /** Committed effort, decision imminent. */
   lateStage: ["jih_bafo", "under_negotiation"] as CanonicalStage[],
   /** Won on a handshake. Losable: nothing is signed. */

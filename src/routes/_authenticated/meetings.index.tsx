@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { MyDayTabs } from "@/components/phc/MyDayTabs";
+import { MeetingRecordDialog } from "@/components/phc/MeetingRecordDialog";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -33,6 +35,8 @@ function MeetingsPage() {
   const qc = useQueryClient();
   const [syncing, setSyncing] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
+  const [recordOpen, setRecordOpen] = useState(false);
+  const ar = lang === "ar";
   const metrics = useMemo(() => meetingMetrics(data ?? []), [data]);
   const shown = (data ?? []).filter((m) => !onlyPending || m.meeting_action_items.some((i) => i.status === "pending"));
 
@@ -51,19 +55,24 @@ function MeetingsPage() {
 
   return (
     <div className="space-y-6">
+      <MyDayTabs />
       <PageHeader
         eyebrow={t("meetings_eyebrow")}
         title={t("meetings_title")}
         description={t(reviewer ? "meetings_desc" : "meetings_desc_attendee")}
         actions={
-          reviewer || connected ? (
-            <Button type="button" size="sm" variant="outline" onClick={() => void fetchFromFireflies()} disabled={syncing}>
-              <RefreshCw className={`me-1.5 h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} aria-hidden="true" />
-              {t("meetings_sync")}
-            </Button>
-          ) : undefined
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" onClick={() => setRecordOpen(true)}>{ar ? "تسجيل اجتماع" : "Record meeting"}</Button>
+            {reviewer || connected ? (
+              <Button type="button" size="sm" variant="outline" onClick={() => void fetchFromFireflies()} disabled={syncing}>
+                <RefreshCw className={`me-1.5 h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} aria-hidden="true" />
+                {t("meetings_sync")}
+              </Button>
+            ) : null}
+          </div>
         }
       />
+      <MeetingRecordDialog open={recordOpen} onOpenChange={setRecordOpen} />
 
       {data?.length ? (
         <KpiRow className="mb-0">

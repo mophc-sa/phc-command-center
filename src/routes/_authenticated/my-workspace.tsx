@@ -1,4 +1,5 @@
 import { riyadhDay, addDays } from "@/lib/riyadh-day";
+import { MyDayTabs } from "@/components/phc/MyDayTabs";
 import { localizeFlagText } from "@/lib/flag-text";
 import { thisMonth, yearToDate, inPeriod, wonDate } from "@/lib/sales-kpis";
 import { createFileRoute, Link, useNavigate, type LinkProps } from "@tanstack/react-router";
@@ -296,6 +297,7 @@ function WorkspacePage() {
   // that leaves them looking at the actions when they stop reading.
   return (
     <>
+      <div className="mx-auto max-w-7xl"><MyDayTabs /></div>
       {isSalesperson(roles) ? (
         <SalespersonDashboard uid={uid} user={user} />
       ) : (

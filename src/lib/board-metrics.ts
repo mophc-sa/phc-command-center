@@ -34,7 +34,9 @@ import { opportunityValue, sumOpportunityValue } from "@/lib/opportunity-value";
 
 /** Every open stage, including paused work, matching the headline total. */
 export const BOARD_STAGES: CanonicalStage[] = [
+  "qualified",
   "rfq_received",
+  "pricing",
   "jih",
   "jih_bafo",
   "under_negotiation",

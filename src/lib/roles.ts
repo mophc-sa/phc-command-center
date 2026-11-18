@@ -108,6 +108,17 @@ export const isSalesOnly = (r: RoleInput) =>
   isSalesperson(r) && !isSalesManager(r) && !isBdOrSalesOps(r) && !isExecutive(r) &&
   !isFinanceManager(r) && !isEstimationManager(r) && !isSystemAdmin(r);
 
+/**
+ * The sales team's own interface (Omar's CRM images 21–28, Mo 2026-11-18): a
+ * salesperson, the sales manager, or BD / sales ops, with no executive,
+ * finance, estimation or admin role. They see seven pages only — Dashboard,
+ * My Day, Opportunities, Quotations, Customers, Reports, Settings — and the
+ * dashboard is their own (the sales manager's is the management one).
+ */
+export const isSalesTeam = (r: RoleInput) =>
+  (isSalesperson(r) || isSalesManager(r) || isBdOrSalesOps(r)) &&
+  !isExecutive(r) && !isFinanceManager(r) && !isEstimationManager(r) && !isSystemAdmin(r);
+
 /** Runs the master-list import (master_list_import): sales leadership, BD manager, sales ops, system admin. */
 export const canImportMasterList = (r: RoleInput) =>
   inGroup(r, COMMERCIAL_MANAGERS) || inGroup(r, ["bd_manager", "sales_ops", "system_admin"]);

@@ -12,7 +12,7 @@ export type FlagStatus = Database["public"]["Enums"]["flag_status"];
 export type QueueActionType = Database["public"]["Enums"]["queue_action_type"];
 
 export const SALES_STAGES: SalesStage[] = [
-  "rfq_received", "jih", "jih_bafo", "under_negotiation", "verbally_awarded",
+  "qualified", "rfq_received", "pricing", "jih", "jih_bafo", "under_negotiation", "verbally_awarded",
   "contract_received", "contract_signed", "won", "lost", "on_hold",
 ];
 export const WIN_CONFIDENCES: WinConfidence[] = ["low", "possible", "strong", "sure_win"];
@@ -43,7 +43,9 @@ export const TERMINAL_FLAG_STATUSES: FlagStatus[] = ["completed", "resolved", "d
 
 // Which stages the current sales_stage may move to (mirror of the backend map).
 const TRANSITIONS: Record<string, SalesStage[]> = {
-  rfq_received: ["jih", "lost", "on_hold"],
+  qualified: ["rfq_received", "lost", "on_hold"],
+  rfq_received: ["pricing", "jih", "lost", "on_hold"],
+  pricing: ["jih", "lost", "on_hold"],
   jih: ["jih_bafo", "under_negotiation", "verbally_awarded", "lost", "on_hold"],
   jih_bafo: ["under_negotiation", "verbally_awarded", "lost", "on_hold"],
   under_negotiation: ["verbally_awarded", "lost", "on_hold"],
@@ -51,8 +53,9 @@ const TRANSITIONS: Record<string, SalesStage[]> = {
   contract_received: ["contract_signed", "won", "on_hold"],
   contract_signed: ["won", "on_hold"],
   won: [],
-  lost: [],
-  on_hold: ["jih", "jih_bafo", "under_negotiation", "verbally_awarded", "rfq_received"],
+  // Reopen (image 24): back to a live stage, with a reason; history is kept.
+  lost: ["qualified", "rfq_received", "pricing", "jih", "jih_bafo", "under_negotiation", "verbally_awarded"],
+  on_hold: ["qualified", "rfq_received", "pricing", "jih", "jih_bafo", "under_negotiation", "verbally_awarded"],
 };
 /** On hold, the stage the deal was at (hold_from_stage) is offered first: resuming returns to it. */
 export function nextSalesStages(from: SalesStage | null, holdFrom?: SalesStage | null): SalesStage[] {

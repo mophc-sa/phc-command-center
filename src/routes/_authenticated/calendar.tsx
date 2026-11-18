@@ -16,6 +16,7 @@
 // =============================================================================
 
 import { localizeFlagText } from "@/lib/flag-text";
+import { MyDayTabs } from "@/components/phc/MyDayTabs";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -183,6 +184,7 @@ function CalendarPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
+      <MyDayTabs />
       <PageHeader
         eyebrow={ar ? "التخطيط" : "Planning"}
         title={ar ? "التقويم" : "Calendar"}

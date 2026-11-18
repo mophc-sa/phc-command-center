@@ -45,7 +45,7 @@ import {
   OPPORTUNITY_MILESTONES,
   type OpportunityMilestone,
 } from "@/lib/opportunity-actions";
-import { ArrowLeft, ArrowRight, CalendarClock, ChevronDown, ExternalLink, FileText, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ExternalLink, FileText, PauseCircle, RefreshCw, X as XIcon } from "lucide-react";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
 import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
@@ -57,7 +57,9 @@ import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { setHumanWinProbability, advanceSalesStage, nextSalesStages, type SalesStage } from "@/lib/workflow-actions";
 import { fieldsForStage } from "@/components/phc/pipeline/RfqJihPanel";
-import { ON_HOLD_REASONS, label as presetLabel } from "@/lib/entry-presets";
+import { LOST_REASONS, ON_HOLD_REASONS, label as presetLabel } from "@/lib/entry-presets";
+import { Banner, DetailsBlock, HandoverReadiness, PackagePanel, StageChevrons, SummaryCards } from "@/components/phc/deal/DealParts";
+import { DealStageDialogs } from "@/components/phc/deal/DealStageDialogs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { canApproveCommercialAction, canAssignOwner, canAssignUnownedOpportunity, canCreateSalesRecords, canEditOpportunityInputs, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
 import { personLabel } from "@/lib/person-label";
@@ -86,6 +88,7 @@ import { awardedValue, siteStageLabel } from "@/lib/project-tracking";
 import { resolveCanonicalStage, canonicalStageLabelKey } from "@/lib/stage-canonical";
 import { ProjectUpdatesPanel } from "@/components/phc/ProjectUpdatesPanel";
 import { CopyDealLink } from "@/components/phc/CopyDealLink";
+import { opportunityValue } from "@/lib/opportunity-value";
 import { DraftRestoredNote } from "@/components/phc/DraftRestoredNote";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { draftPayload } from "@/lib/form-draft";
@@ -247,6 +250,11 @@ function OpportunityDetail() {
   // tab shows the section groups it owns; the header above stays on every tab.
   const [tab, setTab] = useState<DealTab>("summary");
   const [moveTo, setMoveTo] = useState<SalesStage | null>(null);
+  const [closeKind, setCloseKind] = useState<"hold" | "lost" | "reopen" | null>(null);
+  const recentQ = useQuery({
+    queryKey: ["opp-recent-activity", id],
+    queryFn: async () => (await supabase.from("activities").select("summary, occurred_at").eq("related_opportunity_id", id).order("occurred_at", { ascending: false }).limit(1).maybeSingle()).data,
+  });
   const show = (k: TimelineFilter) => DEAL_TABS.find((d) => d.key === tab)!.sections.includes(k);
   const setFilter = (k: TimelineFilter) => setTab(DEAL_TABS.find((d) => d.sections.includes(k))?.key ?? "summary");
   const [scoring, setScoring] = useState(false);
@@ -342,6 +350,11 @@ function OpportunityDetail() {
   const contractsQ = useQuery({
     queryKey: ["opp-contracts", id],
     queryFn: () => listContracts(id),
+  });
+  const scheduleQ = useQuery({
+    queryKey: ["opp-payment-schedule", id, (contractsQ.data ?? []).map((c) => c.id).join(",")],
+    enabled: (contractsQ.data ?? []).length > 0,
+    queryFn: async () => ((await (supabase as any).from("contract_payment_schedule").select("contract_id, kind, label, pct").in("contract_id", (contractsQ.data ?? []).map((c) => c.id))).data ?? []) as any[],
   });
 
   const invalidate = () => {
@@ -633,7 +646,7 @@ function OpportunityDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("rfqs")
-        .select("id, classification, rfq_number, response_due_date, notes, document_url, document_storage_path, assigned_to")
+        .select("id, classification, rfq_number, received_date, response_due_date, notes, document_url, document_storage_path, assigned_to, contact:contacts(name)")
         .eq("opportunity_id", id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -704,6 +717,9 @@ function OpportunityDetail() {
   // so this is everyone who can see the page. Money keeps canEditValues.
   const canEditClientDetails = canEditOpportunityInputs(roles, { isOwner: !!user?.id && o.owner_id === user.id });
   const canonicalStage = resolveCanonicalStage(o).stage;
+  // Update stage offers forward moves; hold and lost have their own buttons (image 22).
+  const stageChoices = nextSalesStages(o.sales_stage as SalesStage, (o as { hold_from_stage?: SalesStage | null }).hold_from_stage)
+    .filter((s) => s !== "lost" && s !== "on_hold");
   const awarded = awardedValue(o);
   // The deal's code: its RFQ's number, or for a deal with no RFQ its own code
   // from the owner's sales code (20261026100000). Normally the two are equal.
@@ -717,188 +733,133 @@ function OpportunityDetail() {
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6">
-      {/* Breadcrumb + Page header */}
+      {/* Images 21–28 (Omar's CRM review): title, badges and the three actions;
+          the seven-step path; hold / closed / signed banner; four tabs. */}
       <div>
-        <Link to="/opportunities" search={{ q: "", stage: "all", tier: "all", view: "cards" }} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-          <BackIcon className="h-3.5 w-3.5" />
+        <Link to="/opportunities" search={{ q: "", stage: "all", tier: "all", view: "cards" }} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <BackIcon className="h-4 w-4" />
           {t("nav_opportunities")}
         </Link>
-        <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            {/* The sales code belongs here, beside the record's name, and only
-                here. It used to print twice on the same screen -- as the
-                Submission panel's subtitle and again inside the "JIH or Tender"
-                field -- which reads as two references rather than one shown
-                twice. The header is also the one place that does not disappear
-                when the timeline is filtered to another tab. */}
-            <div className="mb-1.5 flex flex-wrap items-baseline gap-x-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
-              <span>{t("nav_opportunities")}</span>
-              {dealCode ? (
-                // The number is the deal's thread to Production and Finance: once
-                // the Production project exists (on award), it opens that file,
-                // where the budget lives.
-                o.project ? (
-                  <Link
-                    to="/projects/$id"
-                    params={{ id: o.project.id }}
-                    className="num text-foreground underline decoration-dotted underline-offset-2 hover:decoration-solid"
-                    data-tabular="true"
-                    title={lang === "ar" ? "ملف المشروع (الميزانية)" : "Project file (budget)"}
-                  >
-                    {dealCode}
-                  </Link>
-                ) : (
-                  <span className="num text-foreground" data-tabular="true">{dealCode}</span>
-                )
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-[28px] font-bold tracking-[-0.02em] text-foreground md:text-[32px]">
+                {lang === "ar" ? "فرصة" : "Opportunity"} {dealCode ? `${dealCode} – ` : ""}
+                {o.project ? <Link to="/projects/$id" params={{ id: o.project.id }} className="hover:underline">{o.project_name}</Link> : o.project_name}
+              </h1>
+              {o.sales_stage === "on_hold" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-foreground">
+                  <PauseCircle className="h-4 w-4 text-primary" aria-hidden="true" />
+                  {o.hold_reason === "contractor_hold" ? (lang === "ar" ? "معلّقة من المقاول" : "Contractor hold") : (lang === "ar" ? "معلّقة" : "On hold")}
+                </span>
               ) : null}
               <CopyDealLink opportunityId={o.id} code={rfqQ.data?.rfq_number} />
             </div>
-            <h1 className="text-[30px] font-bold tracking-[-0.02em] text-foreground md:text-[34px]">
-              {o.project ? (
-                <Link to="/projects/$id" params={{ id: o.project.id }} className="hover:underline">
-                  {o.project_name}
-                </Link>
-              ) : (
-                o.project_name
-              )}
-            </h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              {o.company ? (
-                <Link to="/accounts/$id" params={{ id: o.company.id }} className="hover:underline">
-                  {o.company.name}
-                </Link>
-              ) : (
-                o.client ?? "—"
-              )}
-              {o.contractor_company ? (
-                <>
-                  {" · "}
-                  <Link to="/accounts/$id" params={{ id: o.contractor_company.id }} className="hover:underline">
-                    {o.contractor_company.name}
-                  </Link>
-                </>
-              ) : o.main_contractor ? (
-                ` · ${o.main_contractor}`
-              ) : (
-                ""
-              )}
-              {o.location ? ` · ${o.location}` : ""}
+            <p className="mt-1.5 text-base text-muted-foreground">
+              {[
+                o.contractor_company?.name ?? o.main_contractor ?? o.company?.name ?? o.client,
+                `${lang === "ar" ? "المسؤول" : "Owner"}: ${o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : "—"}`,
+                `${lang === "ar" ? "آخر عرض" : "Latest quote"}: ${o.quotation_value != null ? formatCurrency(Number(o.quotation_value), lang, o.currency ?? "SAR") : "—"} ${lang === "ar" ? "بدون ضريبة" : "excl. VAT"}`,
+              ].filter(Boolean).join("  |  ")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <StatusPill tone={o.tier === "A" ? "attention" : "neutral"}>
-              {t("label_tier")} {o.tier}
-            </StatusPill>
-            {/* The canonical sales stage -- the same one the checklist, lists and
-                home page use. This pill used to show the legacy `stage`. */}
-            <StatusPill tone="muted">
-              {canonicalStage ? t(canonicalStageLabelKey(canonicalStage)) : humanize(o.stage)}
-            </StatusPill>
-            {o.agent_recommendation ? (
-              <StatusPill tone={recTone}>{humanize(o.agent_recommendation)}</StatusPill>
-            ) : null}
-            {/* Image 07: the one primary action on the page. */}
-            {nextSalesStages(o.sales_stage as SalesStage, (o as { hold_from_stage?: SalesStage | null }).hold_from_stage).length > 0 ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button type="button" className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+            {o.sales_stage === "lost" ? (
+              <span className="inline-flex min-h-10 items-center rounded-md bg-destructive px-4 text-sm font-semibold text-white">{lang === "ar" ? "مغلقة — مفقودة" : "Closed — Lost"}</span>
+            ) : (
+              <>
+                {o.sales_stage !== "on_hold" && !["won", "contract_signed"].includes(o.sales_stage ?? "") ? (
+                  <button type="button" onClick={() => setCloseKind("hold")} className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-primary/60 px-3 text-sm font-medium text-foreground hover:bg-primary/10">
+                    <PauseCircle className="h-4 w-4 text-primary" aria-hidden="true" /> {lang === "ar" ? "تعليق من المقاول" : "Set contractor hold"}
+                  </button>
+                ) : null}
+                {o.sales_stage !== "won" ? (
+                  <button type="button" onClick={() => setCloseKind("lost")} className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-primary/60 px-3 text-sm font-medium text-foreground hover:bg-primary/10">
+                    <XIcon className="h-4 w-4" aria-hidden="true" /> {lang === "ar" ? "إغلاق كمفقودة / ملغاة" : "Close as lost / Cancelled"}
+                  </button>
+                ) : null}
+                {stageChoices.length > 0 ? (
+                  <button type="button" onClick={() => setMoveTo(stageChoices[0])} className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
                     {lang === "ar" ? "تحديث المرحلة" : "Update stage"} <ChevronDown className="h-4 w-4" aria-hidden="true" />
                   </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {nextSalesStages(o.sales_stage as SalesStage, (o as { hold_from_stage?: SalesStage | null }).hold_from_stage).map((ns) => (
-                    <DropdownMenuItem key={ns} onClick={() => setMoveTo(ns)}>{t(`sstage_${ns}` as never)}</DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
+                ) : null}
+              </>
+            )}
             <RecordLifecycleMenu entityType="opportunities" entityId={o.id} roles={roles} onDone={invalidate} />
           </div>
         </div>
       </div>
 
+      <StageChevrons stage={o.sales_stage === "on_hold" ? ((o as { hold_from_stage?: string | null }).hold_from_stage ?? null) : o.sales_stage === "lost" ? (o.lost_at_stage ?? null) : o.sales_stage} lang={lang} />
 
-      {/* Image 07: code, customer, owner, stage, latest quote and next step, on every tab. */}
-      <div className="sticky top-0 z-20 -mx-1 grid gap-x-6 gap-y-3 rounded-lg border border-border bg-background/95 px-4 py-3 backdrop-blur sm:grid-cols-3 lg:grid-cols-6 [&>*]:min-w-0 lg:[&>*:not(:last-child)]:border-e lg:[&>*:not(:last-child)]:border-border/60">
-        <DataField label={lang === "ar" ? "الكود" : "Code"} value={dealCode} mono />
-        <DataField label={lang === "ar" ? "العميل" : "Customer"} value={o.company?.name ?? o.client ?? null} />
-        <DataField label={lang === "ar" ? "مسؤول المبيعات" : "Owner"} value={o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : (lang === "ar" ? "بلا مسؤول" : "No owner")} />
-        <DataField label={lang === "ar" ? "المرحلة" : "Stage"} value={canonicalStage ? t(canonicalStageLabelKey(canonicalStage)) : humanize(o.stage)} />
-        <DataField label={lang === "ar" ? "قيمة آخر عرض" : "Latest quote"} value={o.quotation_value != null ? formatCurrency(Number(o.quotation_value), lang, o.currency ?? "SAR") : null} mono />
-        <DataField
-          label={lang === "ar" ? "الخطوة التالية وموعدها" : "Next step · due"}
-          value={o.next_action ? `${o.next_action}${o.next_action_due ? ` · ${o.next_action_due}` : ""}` : null}
-        />
-      </div>
-
-      {/* Image 05: where the deal is on the sales path; a hold keeps that place. */}
-      <StagePath stage={o.sales_stage === "on_hold" ? ((o as { hold_from_stage?: string | null }).hold_from_stage ?? null) : o.sales_stage} lang={lang} t={t} />
       {o.sales_stage === "on_hold" ? (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-amber/40 bg-amber/10 px-4 py-3 text-sm">
-          <span className="font-semibold text-amber-on-tint">
-            {o.hold_reason === "contractor_hold" ? (lang === "ar" ? "معلّقة من المقاول" : "Contractor hold") : (lang === "ar" ? "معلّقة" : "On hold")}
+        <Banner tone="hold" icon="hold" title={o.hold_reason === "contractor_hold" ? (lang === "ar" ? "معلّقة من المقاول" : "Contractor hold") : (lang === "ar" ? "معلّقة" : "On hold")}>
+          <span><b>{lang === "ar" ? "السبب" : "Reason"}:</b> {(() => { const r = ON_HOLD_REASONS.find((x) => x.value === o.hold_reason); return r ? presetLabel(r, lang) : (o.hold_reason ?? "—"); })()}</span>
+          <span><b>{lang === "ar" ? "المراجعة" : "Review"}:</b> {o.hold_review_date ?? "—"}</span>
+          <span><b>{lang === "ar" ? "المسؤول" : "Owner"}:</b> {o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : "—"}</span>
+        </Banner>
+      ) : o.sales_stage === "lost" ? (
+        <Banner tone="lost" icon="lost" title={lang === "ar" ? "مغلقة — مفقودة" : "Closed — Lost"}
+          action={<button type="button" onClick={() => setCloseKind("reopen")} className="min-h-10 rounded-md border border-border bg-background px-3 text-sm font-semibold hover:bg-muted">{lang === "ar" ? "إعادة فتح (بسبب)" : "Reopen (requires reason)"}</button>}>
+          <span><b>{lang === "ar" ? "النتيجة" : "Outcome"}:</b> {o.loss_reason === "client_cancelled" ? (lang === "ar" ? "ملغاة" : "Cancelled") : (lang === "ar" ? "مفقودة" : "Lost")}</span>
+          <span><b>{lang === "ar" ? "السبب" : "Reason"}:</b> {(() => { const r = LOST_REASONS.find((x) => x.value === o.loss_reason); return r ? presetLabel(r, lang) : (o.loss_reason ?? "—"); })()}</span>
+          <span><b>{lang === "ar" ? "التاريخ" : "Date"}:</b> {String(o.lost_at ?? "").slice(0, 10) || "—"}</span>
+        </Banner>
+      ) : ["contract_received", "contract_signed", "won"].includes(o.sales_stage ?? "") ? (
+        <Banner tone="signed" icon="signed" title={lang === "ar" ? "موقّع" : "Signed"}>
+          <span>
+            {(o.contract_signed_date ?? o.contract_received_date)
+              ? `${lang === "ar" ? "وُقّع العقد في" : "Contract signed on"} ${o.contract_signed_date ?? o.contract_received_date} ${lang === "ar" ? "بقيمة" : "for"} ${formatCurrency(opportunityValue(o) ?? 0, lang, o.currency ?? "SAR")}.`
+              : (lang === "ar" ? "لم يُسجّل تاريخ العقد أو أمر الشراء بعد." : "No contract or PO date recorded yet.")}
           </span>
-          <span>{lang === "ar" ? "السبب" : "Reason"}: {(() => { const r = ON_HOLD_REASONS.find((x) => x.value === o.hold_reason); return r ? presetLabel(r, lang) : (o.hold_reason ?? "—"); })()}</span>
-          <span>{lang === "ar" ? "موعد المراجعة" : "Review date"}: {o.hold_review_date ?? "—"}</span>
-          <span>{lang === "ar" ? "المسؤول" : "Owner"}: {o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : "—"}</span>
-        </div>
+        </Banner>
       ) : null}
 
       <DealTabBar value={tab} onChange={setTab} lang={lang} />
 
-      <ActionDialog
-        recordId={moveTo ? o.id : undefined}
-        open={!!moveTo}
-        onOpenChange={(v) => !v && setMoveTo(null)}
-        title={moveTo ? `${lang === "ar" ? "نقل إلى" : "Move to"}: ${t(`sstage_${moveTo}` as never)}` : ""}
-        submitLabel={lang === "ar" ? "تحديث المرحلة" : "Update stage"}
-        fields={moveTo ? fieldsForStage(moveTo, (k) => t(k as never), lang) : []}
-        onSubmit={async (v) => {
-          if (!moveTo) return;
-          const { notes, evidence, ...fields } = v as Record<string, string>;
-          try {
-            const res: any = await advanceSalesStage({
-              opportunityId: o.id, toStage: moveTo, notes, evidence,
-              fields: { ...fields, contract_value: fields.contract_value ? Number(fields.contract_value) : undefined },
-            });
-            toast.success(res?.pending_approval ? t("wf_pending_approval") : t("crm_saved"));
-            invalidate();
-          } catch (e) {
-            toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-            throw e;
-          }
-        }}
+      <DealStageDialogs
+        o={o} lang={lang} t={t}
+        moveTo={moveTo} setMoveTo={setMoveTo} stageChoices={stageChoices}
+        closeKind={closeKind} setCloseKind={setCloseKind}
+        onDone={invalidate}
       />
 
-      {/* Image 07, Summary: the next action and the key dates, before the detail. */}
       {show("alert") && (
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 lg:col-span-2">
-            <div className="text-sm font-semibold text-foreground">{lang === "ar" ? "الإجراء التالي" : "Next action"}</div>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-primary/15 text-primary"><CalendarClock className="h-5 w-5" aria-hidden="true" /></span>
-                <div>
-                  <div className="text-base font-semibold text-foreground">{o.next_action || (lang === "ar" ? "لا خطوة تالية مسجلة" : "No next step recorded")}</div>
-                  <div className={`text-sm ${o.next_action_due && o.next_action_due < riyadhDay() ? "font-semibold text-destructive-on-tint" : "text-muted-foreground"}`}>
-                    {o.next_action_due ?? (lang === "ar" ? "بلا موعد" : "No date")}
-                  </div>
-                </div>
-              </div>
-              <button type="button" onClick={() => setAction("schedule")} className="min-h-10 rounded-md border border-primary/50 px-3 text-sm font-medium text-foreground hover:bg-primary/10">
-                {lang === "ar" ? "جدولة متابعة" : "Schedule follow-up"}
-              </button>
-            </div>
-          </div>
-          <div className="rounded-lg border border-border p-4">
-            <div className="mb-2 text-sm font-semibold text-foreground">{lang === "ar" ? "تفاصيل أساسية" : "Key details"}</div>
-            <dl className="grid gap-1.5 text-sm">
-              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{lang === "ar" ? "قيمة الفرصة" : "Opportunity value"}</dt><dd className="tabular-nums">{o.quotation_value != null ? formatCurrency(Number(o.quotation_value), lang, o.currency ?? "SAR") : "—"}</dd></div>
-              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{lang === "ar" ? "تاريخ الإنشاء" : "Created"}</dt><dd className="tabular-nums">{String(o.created_at ?? "").slice(0, 10) || "—"}</dd></div>
-              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">{lang === "ar" ? "الإغلاق المتوقع" : "Expected close"}</dt><dd className="tabular-nums">{o.expected_contract_date ?? "—"}</dd></div>
-            </dl>
-          </div>
-        </div>
+        <>
+          <SummaryCards
+            lang={lang}
+            scope={o.technical_notes ?? null}
+            nextAction={o.next_action ?? null}
+            nextDue={o.next_action_due ?? null}
+            recent={recentQ.data ? { text: recentQ.data.summary ?? "—", at: String(recentQ.data.occurred_at ?? "").slice(0, 10) } : null}
+          />
+          <DetailsBlock
+            lang={lang}
+            left={[
+              [lang === "ar" ? "رقم الفرصة" : "Opportunity No.", dealCode],
+              [lang === "ar" ? "الاسم" : "Name", o.project_name],
+              [lang === "ar" ? "العميل" : "Customer", o.company?.name ?? o.client ?? null],
+            ]}
+            right={[
+              [lang === "ar" ? "المقاول" : "Contractor", o.contractor_company?.name ?? o.main_contractor ?? null],
+              [lang === "ar" ? "المسؤول" : "Owner", o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : null],
+              [lang === "ar" ? "آخر عرض" : "Latest quote", o.quotation_value != null ? `${formatCurrency(Number(o.quotation_value), lang, o.currency ?? "SAR")} ${lang === "ar" ? "بدون ضريبة" : "excl. VAT"}` : null],
+              [lang === "ar" ? "الإغلاق المتوقع" : "Expected close", o.expected_contract_date ?? null],
+            ]}
+          />
+        </>
+      )}
+      {show("evidence") && <PackagePanel dealId={o.id} countedOn={((o.extra_data ?? {}) as { value_counted_on?: string }).value_counted_on ?? null} lang={lang} />}
+      {show("outcome") && (
+        <HandoverReadiness
+          lang={lang}
+          items={[
+            { label: lang === "ar" ? "العقد موقّع" : "Contract signed", done: !!(o.contract_signed_date ?? o.contract_received_date), hint: o.contract_signed_date ?? o.contract_received_date ?? undefined },
+            { label: lang === "ar" ? "جدول الدفعات محدد" : "Payment schedule defined", done: (scheduleQ.data ?? []).length > 0, hint: (scheduleQ.data ?? []).length ? `${(scheduleQ.data ?? []).length} ${lang === "ar" ? "دفعات" : "milestones"}` : undefined },
+            { label: lang === "ar" ? "شروط الضمان المحتجز" : "Retention terms defined", done: (scheduleQ.data ?? []).some((x: any) => /retention/i.test(`${x.kind} ${x.label}`)) },
+            { label: lang === "ar" ? "مدير المشروع معيّن" : "Assigned PM", done: (contractsQ.data ?? []).some((c: any) => !!c.responsible_user_id), hint: (contractsQ.data ?? []).some((c: any) => !!c.responsible_user_id) ? undefined : (lang === "ar" ? "ناقص: عيّن مدير مشروع." : "Missing: assign a project manager.") },
+          ]}
+        />
       )}
 
       {/* 1. KEY FACTS + ACTIONS */}
@@ -1055,8 +1016,47 @@ function OpportunityDetail() {
             ) : undefined
           }
         >
+          {/* Image 23: the RFQ facts, how complete it is, and the step into pricing. */}
+          {(() => {
+            const r = rfqQ.data as any;
+            const checks = [
+              { k: lang === "ar" ? "تاريخ الاستلام" : "Received date", ok: !!r.received_date },
+              { k: lang === "ar" ? "موعد التقديم" : "Submission deadline", ok: !!r.response_due_date },
+              { k: lang === "ar" ? "جهة الاتصال" : "Contact", ok: !!r.contact?.name },
+              { k: lang === "ar" ? "النطاق" : "Scope", ok: !!o.technical_notes },
+              { k: lang === "ar" ? "الملفات" : "Files", ok: !!(r.document_storage_path || r.document_url) },
+            ];
+            const done = checks.filter((c) => c.ok).length;
+            return (
+              <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_18rem]">
+                <dl className="grid gap-2 text-sm">
+                  {[
+                    [lang === "ar" ? "تاريخ الاستلام" : "Received date", r.received_date],
+                    [lang === "ar" ? "موعد التقديم" : "Submission deadline", r.response_due_date ?? (lang === "ar" ? "غير معروف" : "Unknown")],
+                    [lang === "ar" ? "جهة الاتصال" : "Contact", r.contact?.name ?? null],
+                    [lang === "ar" ? "النطاق" : "Scope", o.technical_notes ?? null],
+                  ].map(([k, v]) => (
+                    <div key={k} className="grid grid-cols-[10rem_1fr] gap-3"><dt className="text-muted-foreground">{k}</dt><dd className="font-medium">{v ?? "—"}</dd></div>
+                  ))}
+                </dl>
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex items-center justify-between text-sm font-semibold">
+                    <span>{lang === "ar" ? "اكتمال المتطلبات" : "Requirement completeness"}</span>
+                    <span className="tabular-nums">{done}/{checks.length}</span>
+                  </div>
+                  <ul className="mt-2 grid gap-1 text-sm">
+                    {checks.map((c) => <li key={c.k} className={c.ok ? "text-foreground" : "text-muted-foreground"}>{c.ok ? "✓" : "○"} {c.k}</li>)}
+                  </ul>
+                  {o.sales_stage === "rfq_received" ? (
+                    <button type="button" onClick={() => setMoveTo("pricing")} className="mt-3 min-h-10 w-full rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+                      {lang === "ar" ? "ابدأ التسعير" : "Start pricing"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })()}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <DataField label={t("ibx_deadline")} value={rfqQ.data.response_due_date} />
             <DataField
               label={t("label_pending_on")}
               value={rfqQ.data.assigned_to ? ((teamQ.data ?? []).find((m: any) => m.id === rfqQ.data!.assigned_to)?.full_name ?? "—") : null}
@@ -2765,46 +2765,12 @@ function ActionButton({
   );
 }
 
-/** The sales path as image 05 draws it. Won/lost/hold are outcomes, not steps. */
-const PATH: { keys: string[]; en: string; ar: string }[] = [
-  { keys: ["rfq_received"], en: "RFQ", ar: "طلب التسعير" },
-  { keys: ["jih"], en: "Pricing / submitted", ar: "تسعير / مقدَّم" },
-  { keys: ["jih_bafo"], en: "BAFO", ar: "عرض نهائي" },
-  { keys: ["under_negotiation"], en: "Negotiation", ar: "تفاوض" },
-  { keys: ["verbally_awarded"], en: "Verbal award", ar: "ترسية شفهية" },
-  { keys: ["contract_received", "contract_signed"], en: "Contract / PO", ar: "عقد / أمر شراء" },
-  { keys: ["won"], en: "Won", ar: "مرسّاة" },
-];
-
-function StagePath({ stage, lang, t }: { stage: string | null | undefined; lang: Lang; t: (k: any) => string }) {
-  const at = PATH.findIndex((p) => p.keys.includes(stage ?? ""));
-  if (stage === "lost") {
-    return <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-2 text-sm font-semibold text-destructive-on-tint">{t("sstage_lost")}</div>;
-  }
-  return (
-    <ol className="flex flex-wrap gap-1" aria-label={lang === "ar" ? "مسار البيع" : "Sales path"}>
-      {PATH.map((p, i) => (
-        <li
-          key={p.en}
-          aria-current={i === at ? "step" : undefined}
-          className={
-            "flex min-h-9 flex-1 basis-28 items-center justify-center rounded-md px-3 text-center text-sm font-medium " +
-            (i === at ? "bg-primary text-primary-foreground" : i < at ? "bg-primary/15 text-foreground" : "bg-muted text-muted-foreground")
-          }
-        >
-          {lang === "ar" ? p.ar : p.en}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 type DealTab = "summary" | "activity" | "quotes" | "contract";
 const DEAL_TABS: { key: DealTab; en: string; ar: string; sections: TimelineFilter[] }[] = [
   { key: "summary", en: "Summary", ar: "الملخص", sections: ["alert", "assignment", "decision"] },
-  { key: "activity", en: "Activity & follow-up", ar: "النشاط والمتابعة", sections: ["follow_up"] },
-  { key: "quotes", en: "Quotes & documents", ar: "العروض والمستندات", sections: ["evidence"] },
-  { key: "contract", en: "Contract & handover", ar: "التعاقد والتسليم", sections: ["outcome"] },
+  { key: "activity", en: "Activity", ar: "النشاط", sections: ["follow_up"] },
+  { key: "quotes", en: "Quotations", ar: "العروض", sections: ["evidence"] },
+  { key: "contract", en: "Handover", ar: "التسليم", sections: ["outcome"] },
 ];
 
 function DealTabBar({ value, onChange, lang }: { value: DealTab; onChange: (v: DealTab) => void; lang: Lang }) {

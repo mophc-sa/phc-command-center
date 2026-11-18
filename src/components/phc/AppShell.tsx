@@ -9,7 +9,7 @@ import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
 import { badgeLabel, unreadCount } from "@/lib/notifications";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
-import { canImportMasterList, isSalesOnly, requiresMfa } from "@/lib/roles";
+import { canImportMasterList, isSalesManager, isSalesTeam, requiresMfa } from "@/lib/roles";
 import { canSeePricingNav } from "@/lib/pricing-access";
 import { canSeeCollections } from "@/lib/contract-billing";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
@@ -96,8 +96,6 @@ type NavLink = {
   requireAdmin?: boolean;
   /** Shown only when this returns true for the user's roles (SQL still decides access). */
   showIf?: (roles: readonly AppRole[]) => boolean;
-  /** Kept in a sales-only user's sidebar (isSalesOnly); everything else is hidden for them. */
-  sales?: true;
 };
 
 type NavButton = {
@@ -112,6 +110,8 @@ type NavItem = NavLink | NavButton;
 type NavGroup = {
   key: string;
   fallback: string;
+  /** A group with no heading that is not pinned to the bottom. */
+  flat?: boolean;
   collapsible?: boolean;
   items: NavItem[];
 };
@@ -137,11 +137,11 @@ const NAV_GROUPS: NavGroup[] = [
     key: "navgroup_home",
     fallback: "My work",
     items: [
-      { kind: "link",   to: "/home",             key: "nav_home",              icon: Home, sales: true },
+      { kind: "link",   to: "/home",             key: "nav_home",              icon: Home },
       { kind: "link",   to: "/command-center",   key: "nav_command_center",    icon: LayoutDashboard, showIf: canSeeCommandCenter },
-      { kind: "link",   to: "/my-workspace",     key: "nav_my_day",            icon: Briefcase, sales: true },
+      { kind: "link",   to: "/my-workspace",     key: "nav_my_day",            icon: Briefcase },
       // Calendar and meetings sit with the day's work (image 02: inside My Day).
-      { kind: "link",   to: "/calendar",         key: "nav_calendar",          icon: CalendarDays, sales: true },
+      { kind: "link",   to: "/calendar",         key: "nav_calendar",          icon: CalendarDays },
       { kind: "link",   to: "/meetings",         key: "nav_meetings",          icon: Mic },
       { kind: "link",   to: "/action-center",    key: "nav_action_center",     icon: BellRing },
       { kind: "link",   to: "/approvals",        key: "nav_approvals",         icon: ShieldCheck },
@@ -152,10 +152,10 @@ const NAV_GROUPS: NavGroup[] = [
     key: "navgroup_sales",
     fallback: "Sales",
     items: [
-      { kind: "link", to: "/opportunities",     key: "nav_opportunities", icon: FolderKanban, sales: true },
-      { kind: "link", to: "/quotations",        key: "nav_quotations",    icon: FileText, sales: true },
-      { kind: "link", to: "/lead-tender-inbox", key: "nav_intake",        icon: Mailbox, sales: true },
-      { kind: "link", to: "/tenders",           key: "nav_tenders",       icon: Gavel, sales: true },
+      { kind: "link", to: "/opportunities",     key: "nav_opportunities", icon: FolderKanban },
+      { kind: "link", to: "/quotations",        key: "nav_quotations",    icon: FileText },
+      { kind: "link", to: "/lead-tender-inbox", key: "nav_intake",        icon: Mailbox },
+      { kind: "link", to: "/tenders",           key: "nav_tenders",       icon: Gavel },
       // Awarded Projects is a VIEW: the Opportunities list filtered to the
       // awarded stages (verbal award, contract received/signed, won).
       {
@@ -172,16 +172,16 @@ const NAV_GROUPS: NavGroup[] = [
     key: "navgroup_crm",
     fallback: "Customers",
     items: [
-      { kind: "link", to: "/accounts", key: "nav_accounts", icon: Building2, sales: true },
-      { kind: "link", to: "/contacts", key: "nav_contacts", icon: Contact2, sales: true },
+      { kind: "link", to: "/accounts", key: "nav_accounts", icon: Building2 },
+      { kind: "link", to: "/contacts", key: "nav_contacts", icon: Contact2 },
     ],
   },
   {
     key: "navgroup_reports",
     fallback: "Reports & Analysis",
     items: [
-      { kind: "link", to: "/sales-management", key: "nav_sales_management", icon: Gauge, sales: true },
-      { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart, sales: true },
+      { kind: "link", to: "/sales-management", key: "nav_sales_management", icon: Gauge },
+      { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart },
     ],
   },
   {
@@ -231,9 +231,31 @@ const NAV_GROUPS: NavGroup[] = [
     // Image 02: settings at the bottom, on its own, for everyone.
     key: "navgroup_settings",
     fallback: "",
-    items: [{ kind: "link", to: "/settings", key: "nav_settings", icon: Settings, sales: true }],
+    items: [{ kind: "link", to: "/settings", key: "nav_settings", icon: Settings }],
   },
 ];
+
+/** Images 21–28: Dashboard · My Day · Opportunities · Quotations · Customers · Reports, Settings at the bottom. */
+function salesTeamNav(manager: boolean): NavGroup[] {
+  return [
+    {
+      key: "navgroup_sales_team",
+      fallback: "",
+      flat: true,
+      items: [
+        // The salesperson's own dashboard; the sales manager's is the management one.
+        { kind: "link", to: manager ? "/command-center" : "/my-dashboard", key: "nav_dashboard", icon: LayoutDashboard },
+        { kind: "link", to: "/my-workspace", key: "nav_my_day", icon: Briefcase },
+        { kind: "link", to: "/opportunities", key: "nav_opportunities", icon: FolderKanban },
+        { kind: "link", to: "/quotations", key: "nav_quotations", icon: FileText },
+        { kind: "link", to: "/accounts", key: "nav_customers", icon: Building2 },
+        { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart },
+        { kind: "button", action: "notifications", key: "nav_notifications", icon: Bell },
+      ],
+    },
+    { key: "navgroup_settings", fallback: "", items: [{ kind: "link", to: "/settings", key: "nav_settings", icon: Settings }] },
+  ];
+}
 
 // Every sidebar path, so a link is not lit when a longer one under it is
 // (/pricing must not light up on /pricing/settings).
@@ -271,7 +293,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   });
 
   const canAdmin = canViewSalesAdmin(roles);
-  const salesOnly = isSalesOnly(roles);
+  // The sales team gets the seven pages of Omar's images, in that order, flat.
+  const groups = isSalesTeam(roles) ? salesTeamNav(isSalesManager(roles)) : NAV_GROUPS;
   // Same authority as every other record-creation entry point: pipeline
   // operators plus salespeople. Viewers and system_admin do not get it.
   const canCreate = canCreateSalesRecords(roles);
@@ -478,12 +501,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
 
         {/* Main nav groups */}
-        {NAV_GROUPS.map((g) => {
+        {groups.map((g) => {
           const visibleItems = g.items.filter(
             (n) =>
               (!(n.kind === "link" && n.requireAdmin) || canAdmin) &&
-              !(n.kind === "link" && n.showIf && !n.showIf(roles as AppRole[])) &&
-              (!salesOnly || n.kind === "button" || !!n.sales),
+              !(n.kind === "link" && n.showIf && !n.showIf(roles as AppRole[])),
           );
           if (visibleItems.length === 0) return null;
 
@@ -514,7 +536,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           }
 
           return (
-            <div key={g.key} className={g.fallback ? "mb-5 last:mb-0" : "mt-auto border-t border-border/60 pt-3"}>
+            <div key={g.key} className={g.fallback || g.flat ? "mb-5 last:mb-0" : "mt-auto border-t border-border/60 pt-3"}>
               {g.fallback ? (
                 <div className="px-3 pb-2 text-2xs font-semibold tracking-[0.02em] text-muted-foreground">
                   {tSafe(g.key, g.fallback)}

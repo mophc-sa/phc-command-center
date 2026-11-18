@@ -24,6 +24,7 @@ import {
   reviewFromRecord,
   type ConversionReview,
 } from "../_shared/conversion.ts";
+import { legacyStageFor, type CanonicalStage } from "../_shared/stage-canonical.ts";
 import { scoreLead } from "../_shared/lead-scoring.ts";
 import { findDuplicateGroups, type DupRecord } from "../_shared/duplicates.ts";
 
@@ -166,7 +167,9 @@ export function referenceContent(r: Record<string, unknown>): string {
 // the two maps. The sales maps never got the same treatment. They do now —
 // see sales-transitions.contract.test.ts.
 export const SALES_TRANSITIONS: Record<string, string[]> = {
-  rfq_received: ["jih", "lost", "on_hold"],
+  qualified: ["rfq_received", "lost", "on_hold"],
+  rfq_received: ["pricing", "jih", "lost", "on_hold"],
+  pricing: ["jih", "lost", "on_hold"],
   jih: ["jih_bafo", "under_negotiation", "verbally_awarded", "lost", "on_hold"],
   jih_bafo: ["under_negotiation", "verbally_awarded", "lost", "on_hold"],
   under_negotiation: ["verbally_awarded", "lost", "on_hold"],
@@ -174,8 +177,9 @@ export const SALES_TRANSITIONS: Record<string, string[]> = {
   contract_received: ["contract_signed", "won", "on_hold"],
   contract_signed: ["won", "on_hold"],
   won: [],
-  lost: [],
-  on_hold: ["jih", "jih_bafo", "under_negotiation", "verbally_awarded", "rfq_received"],
+  // Reopen (image 24): back to a live stage, with a reason; history is kept.
+  lost: ["qualified", "rfq_received", "pricing", "jih", "jih_bafo", "under_negotiation", "verbally_awarded"],
+  on_hold: ["qualified", "rfq_received", "pricing", "jih", "jih_bafo", "under_negotiation", "verbally_awarded"],
 };
 // Stages that require manager sign-off (salespeople may only request them).
 export const SALES_GATED = new Set(["verbally_awarded", "contract_received", "won"]);
@@ -267,6 +271,7 @@ export function validateSalesStage(
       return "A signed contract/PO document is required";
   }
   if (toStage === "lost" && !fields.loss_reason) return "Loss reason is mandatory";
+  if (from === "lost" && !notes) return "A reason is required to reopen a closed opportunity";
   if (toStage === "on_hold") {
     const m = missing(fields, ["hold_reason", "hold_review_date"]);
     if (m.length) return `Missing for hold: ${m.join(", ")}`;
@@ -327,7 +332,11 @@ export async function applySalesStage(
     // and `from` is the only moment the stage it died at is still available.
     patch.lost_to_competitor = fields.lost_to_competitor ?? null;
     patch.lost_at_stage = from;
+    // Image 24: the decision date the salesperson enters; the trigger keeps an explicit one.
+    if (fields.lost_at) patch.lost_at = fields.lost_at;
   }
+  // Reopening a lost deal puts the legacy stage back on the open pipeline.
+  if (from === "lost") patch.stage = legacyStageFor(toStage as CanonicalStage) ?? "quotation";
   if (toStage === "on_hold") {
     patch.hold_reason = fields.hold_reason;
     patch.hold_review_date = fields.hold_review_date;

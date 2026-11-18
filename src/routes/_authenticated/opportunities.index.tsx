@@ -540,8 +540,9 @@ function OppList() {
 
 /** Stage colours: the house pipeline ramp (styles.css --stage-*), outcomes in their own tones. */
 const STAGE_DOT: Record<string, string> = {
-  rfq_received: "var(--stage-1)", jih: "var(--stage-2)", jih_bafo: "var(--stage-3)", under_negotiation: "var(--stage-4)",
-  verbally_awarded: "var(--stage-5)", contract_received: "var(--stage-6)", contract_signed: "var(--stage-7)",
+  qualified: "var(--stage-1)", rfq_received: "var(--stage-2)", pricing: "var(--stage-3)", jih: "var(--stage-4)",
+  jih_bafo: "var(--stage-5)", under_negotiation: "var(--stage-6)", verbally_awarded: "var(--stage-7)",
+  contract_received: "var(--stage-8)", contract_signed: "var(--stage-9)",
   won: "var(--won)", lost: "var(--destructive)", on_hold: "var(--muted-foreground)",
 };
 

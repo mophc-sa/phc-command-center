@@ -350,13 +350,16 @@
      behind it. Stage 1 started at L 0.66 and measured 2.62 on that track while
      clearing 3.07 on white -- visible in the test, invisible on the wall. It is
      0.61 for that reason. */
-  --stage-1: oklch(0.61 0.075 240); /* استُلم الطلب */
-  --stage-2: oklch(0.56 0.095 240); /* المقاول يملك المشروع */
-  --stage-3: oklch(0.51 0.110 240); /* BAFO */
-  --stage-4: oklch(0.45 0.115 240); /* تفاوض */
-  --stage-5: oklch(0.62 0.135 65);  /* ترسية شفهية — فوز قابل للخسارة */
-  --stage-6: oklch(0.60 0.115 155); /* استُلم العقد */
-  --stage-7: oklch(0.52 0.135 155); /* عقد موقّع */
+  /* Nine since 2026-11-18: qualified and pricing joined the path. */
+  --stage-1: oklch(0.61 0.070 240); /* فرصة مؤهلة */
+  --stage-2: oklch(0.585 0.080 240); /* استُلم الطلب */
+  --stage-3: oklch(0.56 0.095 240); /* تحت التسعير */
+  --stage-4: oklch(0.53 0.105 240); /* عرض مقدَّم */
+  --stage-5: oklch(0.49 0.112 240); /* BAFO */
+  --stage-6: oklch(0.45 0.115 240); /* تفاوض */
+  --stage-7: oklch(0.62 0.135 65);  /* ترسية شفهية — فوز قابل للخسارة */
+  --stage-8: oklch(0.60 0.115 155); /* استُلم العقد */
+  --stage-9: oklch(0.52 0.135 155); /* عقد موقّع */
 
   --destructive: oklch(0.51 0.17 25);
   --destructive-foreground: oklch(0.99 0.002 90);

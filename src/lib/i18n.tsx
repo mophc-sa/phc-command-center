@@ -64,7 +64,9 @@ export const strings = {
   nav_project_profit: { en: "Project profit", ar: "ربحية المشاريع" },
 
   // Sales stages (RFQ/JIH flow)
+  sstage_qualified: { en: "Qualified", ar: "فرصة مؤهلة" },
   sstage_rfq_received: { en: "RFQ Received", ar: "استلام طلب عرض سعر" },
+  sstage_pricing: { en: "Pricing", ar: "تحت التسعير" },
   // DISPLAY LABEL ONLY. The canonical stage stays `jih`; nothing in the
   // database, the lifecycle or the transition map changes.
   //
@@ -78,7 +80,7 @@ export const strings = {
   // the stage. The stage holds deals being priced (an RFQ converted for
   // pricing) and quotations submitted and awaiting the decision; the label
   // says both until pricing and submitted become separate stages.
-  sstage_jih: { en: "Pricing / quote submitted", ar: "تسعير / عرض مقدَّم" },
+  sstage_jih: { en: "Submitted", ar: "عرض مقدَّم" },
   sstage_under_negotiation: { en: "Under Negotiation", ar: "قيد التفاوض" },
   sstage_verbally_awarded: { en: "Verbally Awarded", ar: "ترسية شفهية" },
   sstage_contract_received: { en: "Contract Received", ar: "استلام العقد" },
@@ -302,6 +304,9 @@ export const strings = {
   figures_saved: { en: "Saved", ar: "حُفِظ" },
   figures_bad_number: { en: "Enter a number, or leave the box empty.", ar: "أدخل رقمًا، أو اترك الخانة فارغة." },
   nav_home: { en: "Home", ar: "الرئيسية" },
+  nav_dashboard: { en: "Dashboard", ar: "لوحة المؤشرات" },
+  nav_customers: { en: "Customers", ar: "العملاء" },
+  navgroup_sales_team: { en: "Sales", ar: "المبيعات" },
   label_role: { en: "Role", ar: "الدور" },
   stake_add_contact: { en: "Add contact person", ar: "إضافة جهة اتصال" },
   stake_contact_added: { en: "Contact added", ar: "أُضيفت جهة الاتصال" },
