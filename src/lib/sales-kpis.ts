@@ -63,6 +63,9 @@ export type OppRow = {
   // Stamped at the transition by trg_stamp_outcome_dates. NULL = undated.
   won_at?: string | null;
   lost_at?: string | null;
+  /** The contract or PO, when recorded. Signed sales count only from these. */
+  contract_received_date?: string | null;
+  contract_signed_date?: string | null;
 };
 
 // ---- The self-explaining KPI ------------------------------------------------
@@ -291,6 +294,7 @@ export type Period = { from: string; to: string; label: string };
  */
 export const DATE_FIELD = {
   won: "opportunities.won_at (stamped at the transition to won)",
+  signed: "opportunities.contract_signed_date, else contract_received_date (the contract or PO)",
   lost: "opportunities.lost_at (stamped at the transition to lost)",
   snapshot: null,
 } as const;
@@ -440,6 +444,34 @@ function drillTo(stage: string, ctx: KpiContext): { to: string; search: Record<s
     search.to = ctx.period.to;
   }
   return { to: OPP_LIST, search };
+}
+
+/**
+ * Signed sales (Mo, 2026-11-18, Omar's review): what counts toward the target is
+ * a deal whose contract or PO is recorded, dated by that document. A won deal
+ * with no document is not counted; the caveat names how many need one.
+ */
+export const signedDate = (o: OppRow): string | null => o.contract_signed_date ?? o.contract_received_date ?? null;
+const SIGNED_STAGES: CanonicalStage[] = ["contract_received", "contract_signed", "won"];
+
+export function signedValue(opps: OppRow[], ctx: KpiContext): Kpi {
+  const awarded = ownerFiltered(opps, ctx).filter((o) => inStages(o, SIGNED_STAGES));
+  const documented = awarded.filter((o) => signedDate(o) !== null);
+  const rows = ctx.period ? documented.filter((o) => inPeriod(signedDate(o), ctx.period)) : documented;
+  const missing = awarded.filter((o) => isWon(o) && signedDate(o) === null);
+  return kpi({
+    key: "signed_value",
+    value: sumValues(rows),
+    kind: "currency",
+    formula: "Σ value of deals with a recorded contract or PO (contract received / signed / won)",
+    source: "opportunities (contract_value → quotation_value → estimated_value_max)",
+    stages: SIGNED_STAGES,
+    dateField: ctx.period ? DATE_FIELD.signed : null,
+    filters: filterLabels(ctx, ["Contract or PO recorded — verbal awards and won deals without a document excluded"]),
+    recordIds: rows.map((o) => o.id),
+    drilldown: drillTo("won", ctx),
+    caveat: missing.length > 0 ? msg("cav_won_no_contract", { count: missing.length }) : undefined,
+  });
 }
 
 /** Official Won. Only sales_stage = won. Nothing earlier counts. */
@@ -694,7 +726,8 @@ export type TargetKpis = {
  * folded in — that is the difference between "sold" and "probably sold".
  */
 export function targetKpis(opps: OppRow[], ctx: KpiContext, targetAmount: number | null): TargetKpis {
-  const actual = wonValue(opps, ctx);
+  // Achievement is signed sales (contract / PO), not every won deal (2026-11-18).
+  const actual = signedValue(opps, ctx);
   const actualValue = actual.value ?? 0;
   const hasTarget = typeof targetAmount === "number" && targetAmount > 0;
 
@@ -725,14 +758,14 @@ export function targetKpis(opps: OppRow[], ctx: KpiContext, targetAmount: number
       key: "target_achievement",
       value: hasTarget ? Math.round((actualValue / targetAmount) * 100) : null,
       kind: "percent",
-      formula: "Won value ÷ target — Won only, excluding verbal award and contract stages",
+      formula: "Signed sales ÷ target — deals with a recorded contract or PO; verbal awards excluded",
       caveat: hasTarget ? undefined : msg("cav_no_target_achievement"),
     }),
     gap: kpi({
       ...base,
       key: "target_gap",
       value: hasTarget ? Math.max(0, targetAmount - actualValue) : null,
-      formula: "max(0, target − won value)",
+      formula: "max(0, target − signed sales)",
       caveat: hasTarget ? undefined : msg("cav_no_target_gap"),
       // A set target is a real number even before the first deal is won.
       ...(hasTarget ? { state: "ok" as const } : {}),
@@ -741,6 +774,8 @@ export function targetKpis(opps: OppRow[], ctx: KpiContext, targetAmount: number
 }
 
 export type TargetRow = {
+  /** NULL = the company target for the period (2026-11-18). Absent = not selected. */
+  user_id?: string | null;
   period_type?: string | null;
   period_start?: string | null;
   sales_target?: number | string | null;
@@ -752,8 +787,20 @@ export type TargetRow = {
  * none match. Summing every sales_targets row ever (SAR 90M) and comparing it
  * to one month's Won was the defect this replaces.
  */
+/** The company figure from a set of target rows: the company row(s) when set, else the sum of personal rows. */
+export function companyTargetSum(rows: TargetRow[] | null | undefined): number {
+  const all = rows ?? [];
+  const company = all.filter((r) => r.user_id === null);
+  return (company.length > 0 ? company : all).reduce((s, r) => s + Number(r.sales_target ?? 0), 0);
+}
+
 export function targetForPeriod(rows: TargetRow[], period: Period): number | null {
-  const sum = (rs: TargetRow[]) => rs.reduce((s, r) => s + Number(r.sales_target ?? 0), 0);
+  // A company row (user_id NULL) is the company figure; personal rows no longer add up to it.
+  const company = rows.filter((r) => r.user_id === null);
+  const sum = (rs: TargetRow[]) => {
+    const own = rs.filter((r) => company.includes(r));
+    return (own.length > 0 ? own : rs).reduce((s, r) => s + Number(r.sales_target ?? 0), 0);
+  };
   const year = Number(period.from.slice(0, 4));
   const yearStart = `${year}-01-01`;
   if (period.from === yearStart && period.to === `${year + 1}-01-01`) {

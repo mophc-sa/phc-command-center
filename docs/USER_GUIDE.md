@@ -434,7 +434,7 @@ steps — you cannot skip backwards or jump illegally.
 | Stage | Arabic | Means | Required to enter |
 |---|---|---|---|
 | `rfq_received` | استُلم الطلب | Enquiry logged, not yet worked | — |
-| `jih` | فرصة قائمة | Live opportunity being priced | — |
+| `jih` | عرض مقدَّم *(Quote submitted, since 2026-11-18; was "Active JIH")* | Quotation submitted, awaiting the decision. JIH/Tender is the project classification, not this stage | — |
 | `jih_bafo` | BAFO الفرصة | Best-and-final pricing round | — |
 | `under_negotiation` | تفاوض | Commercial negotiation | **A note or evidence** |
 | `verbally_awarded` 🔒 | ترسية شفهية | Verbally confirmed, no paper yet | Contact **name**, contact **title**, **expected contract date**, and **evidence** |
@@ -442,7 +442,7 @@ steps — you cannot skip backwards or jump illegally.
 | `contract_signed` | عقد موقّع | Signed by both parties | — |
 | `won` 🔒 | مُرسّى | **Officially awarded** | Manager approval |
 | `lost` | خسارة | Closed lost | **Loss reason is mandatory** |
-| `on_hold` | معلّق | Paused | **Hold reason + review date** |
+| `on_hold` | معلّق | Paused. **Since 2026-11-18 the stage it was at is kept** (shown as *stage kept: …*) and is offered first when resuming. Reasons include **Contractor hold** | **Hold reason + review date** |
 
 **Legal moves:**
 
@@ -1181,6 +1181,13 @@ A project now has a responsible salesperson, shown at the top of the project pag
 
 ## 10. Current limitations
 
+### Sales definitions (2026-11-18, Omar's CRM review)
+
+- **Achievement is signed sales.** A deal counts toward the target only once its **contract or PO is recorded** (contract received/signed date, or a contract with a signed date in the deal page's contract panel), dated by that document. Won deals without one are not counted; the figure says how many (*N won deals have no contract or PO recorded*). On 2026-11-18 none of the 45 won deals had one, so achievement reads 0 until Marie records them — start with the 7 won in 2026. Verbal awards never count.
+- **The company target is its own figure.** SAR 40,000,000 for 2026, set as the company row; personal targets no longer add up to it. 2022–2025 company targets that had been imported on Omar's account are company rows now.
+- **Not live until the database change is applied.** Migration `20261118100000` must be pushed before this frontend is deployed (the deal lists read `hold_from_stage`).
+- Cancelled deals are recorded as **Lost** with reason *Client Cancelled*; there is no separate cancelled stage.
+
 ### Pricing loop foundation (2026-11-03)
 
 - The pricing file, its path, the installation rate card, extras and logistics rates exist in the database. There are no screens yet (PR 2). A new RFQ on a deal opens a pricing file in state *Received for pricing*. Nothing is visible to users until the screens ship.
@@ -1802,4 +1809,4 @@ Update this file when the workflow changes.*
 
 <!-- last reviewed 2026-11-16 · one Riyadh "today", KPIs on the canonical engine, missing values shown as — with a count, bilingual KPI definitions · branch fix/kpi-riyadh, not deployed · previous: master list sync, 2026-11-12 -->
 
-<!-- last reviewed 2026-11-17 · board closing brief (branch feat/board-closing-focus) · November 2026 master list on the deal page (branch feat/master-list-nov-2026) · previous: Command Center becomes the company report (management only); sales detail moves to Sales Management → Follow-up & priorities · branch feat/company-command-center · previous: 2026-11-16 -->
+<!-- last reviewed 2026-11-18 · sales definitions: signed sales, company target, hold keeps stage, Quote submitted label (branch feat/sales-definitions) · previous 2026-11-17: board closing brief (branch feat/board-closing-focus) · November 2026 master list on the deal page (branch feat/master-list-nov-2026) · previous: Command Center becomes the company report (management only); sales detail moves to Sales Management → Follow-up & priorities · branch feat/company-command-center · previous: 2026-11-16 -->

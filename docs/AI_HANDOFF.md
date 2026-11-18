@@ -1,5 +1,14 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-18 — Sales definitions, wave 1 of Omar's CRM review (branch `feat/sales-definitions`, migration `20261118100000`, not deployed)
+
+Decisions (Mo, 2026-11-18): achievement = **signed sales** (contract or PO recorded), missing ones flagged; **company target fixed at 40M**, reps separate; order = definitions first, then daily screens.
+- `sales-kpis`: `signedValue` / `signedDate` (contract_signed_date ?? contract_received_date; stages contract_received/contract_signed/won); `targetKpis` (and so `forecastVsTarget`, `commercialBookKpis`) read signed sales; caveat `cav_won_no_contract`. `companyTargetSum` + `targetForPeriod` prefer the company row (`sales_targets.user_id IS NULL`). Command Center, Opportunities strip, Sales Operations, Sales Management and the board use it; tiles relabelled *Signed sales*. Board KPI *Signed sales year to date* lists won deals without a document.
+- Migration: `opportunities.hold_from_stage` + trigger `keep_stage_on_hold` (set on entering on_hold, cleared on leaving; 9 held deals backfilled: history → Nov file *Discount* = jih_bafo → jih); `sales_targets.user_id` nullable with one company row per period, 2026 = 40M, 2022–2025 company rows moved off Omar; `contracts.signed_on` copies to `opportunities.contract_signed_date` (trigger) so the contract panel is where a contract is recorded.
+- UI: `sstage_jih` → *Quote submitted / عرض مقدَّم*; hold reason *Contractor hold*; rfq-jih cards and the deal page show *stage kept*; resume offers the kept stage first (`nextSalesStages(from, holdFrom)`).
+- **Release order:** `supabase db push` (Mo) → then the frontend deploy. Before the push the rfq-jih list and board would request a missing column.
+- Expected effect: achievement drops from 17.57M to 0 until contracts/POs are recorded for the 2026 wins.
+
 ## 2026-11-17 — Wall board: closing focus from the November 2026 master list (branch `feat/board-closing-focus`) + contractor quotations split (production data, run `5b1148e5`)
 
 Brief from Mo (10 points). Decisions (Mo, 2026-11-17): contractor quotations of one project are **one record per contractor, value counted once** (replaces the number+value merge for these); won YTD is shown **with its date basis labelled** (no contract/award date exists; won_at came from the master list); ownership = AB/FA plus existing explicit mappings (NI→Faisal, OM→Omar, Mo's decisions).

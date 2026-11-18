@@ -23,7 +23,12 @@ import {
 import { CANONICAL_STAGES } from "@/lib/stage-canonical";
 
 const CTX = { today: "2026-08-26", period: null };
-const row = (o: Partial<OppRow> & { id: string }): OppRow => ({ sales_stage: "jih", ...o });
+// Signed sales count from a contract/PO (2026-11-18): a won fixture carries one unless a test says otherwise.
+const row = (o: Partial<OppRow> & { id: string }): OppRow => ({
+  sales_stage: "jih",
+  ...(o.sales_stage === "won" ? { contract_received_date: o.won_at?.slice(0, 10) ?? "2026-08-02" } : {}),
+  ...o,
+});
 
 describe("the five management buckets", () => {
   it("never counts one stage in two buckets", () => {

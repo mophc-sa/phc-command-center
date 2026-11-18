@@ -31,7 +31,8 @@ import { useI18n, formatCurrency, localeFor } from "@/lib/i18n";
 import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiTile } from "@/components/phc/KpiTile";
-import { commercialBookKpis, thisMonth, yearToDate, type ClassifiedRow ,
+import {
+  companyTargetSum, commercialBookKpis, thisMonth, yearToDate, type ClassifiedRow ,
   opportunityValue
 } from "@/lib/sales-kpis";
 import { EmptyState } from "@/components/phc/EmptyState";
@@ -245,11 +246,10 @@ function OppList() {
       const annYear = `${riyadhDay().slice(0, 4)}-01-01`;
       const monthStart = `${riyadhDay().slice(0, 7)}-01`;
       const [annual, monthly] = await Promise.all([
-        supabase.from("sales_targets").select("sales_target").eq("period_type", "annual").eq("period_start", annYear),
-        supabase.from("sales_targets").select("sales_target").eq("period_type", "monthly").eq("period_start", monthStart),
+        supabase.from("sales_targets").select("user_id, sales_target").eq("period_type", "annual").eq("period_start", annYear),
+        supabase.from("sales_targets").select("user_id, sales_target").eq("period_type", "monthly").eq("period_start", monthStart),
       ]);
-      const sum = (rows: Array<{ sales_target: number | string | null }> | null) =>
-        (rows ?? []).reduce((s, r) => s + Number(r.sales_target ?? 0), 0);
+      const sum = companyTargetSum;
       const annualSum = sum(annual.data);
       // 0 is not "a target of zero" — it is "no rows", which must render as a
       // dash. Returning null here is what makes KpiTile say so.

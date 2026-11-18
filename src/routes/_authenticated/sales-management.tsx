@@ -120,7 +120,7 @@ function SalesManagement() {
       const [opps, flags, tasks, followUps, approvals, intake, transitions, profiles, targets, tenders, runs] =
         await Promise.all([
           fetchRequiredRows(() => supabase.from("opportunities").select(
-            "id, project_name, owner_id, sales_stage, stage, tier, contract_value, quotation_value, estimated_value_max, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, last_activity_at, next_action, updated_at, created_at, won_at, lost_at, client, main_contractor, source_tender_id",
+            "id, project_name, owner_id, sales_stage, stage, tier, contract_value, quotation_value, estimated_value_max, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, last_activity_at, next_action, updated_at, created_at, won_at, lost_at, contract_received_date, contract_signed_date, client, main_contractor, source_tender_id",
           ).order("id")),
           fetchRequiredRows(() => supabase.from("opportunity_flags").select("*").order("id")),
           fetchRequiredRows(() => supabase.from("tasks").select("id, title, related_opportunity_id, owner_id, priority, due_date, status, created_at, completed_at").order("id")),
@@ -384,7 +384,7 @@ function TeamView(props: {
       <SectionTitle>{lang === "ar" ? "الأداء مقابل الهدف" : "Performance vs target"}</SectionTitle>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiTile kpi={targets.target} label={lang === "ar" ? "الهدف" : "Target"} />
-        <KpiTile kpi={targets.actual} label={lang === "ar" ? "المحقق (Won)" : "Actual (Won)"} />
+        <KpiTile kpi={targets.actual} label={lang === "ar" ? "المبيعات المتعاقد عليها" : "Signed sales"} />
         <KpiTile kpi={targets.gap} label={lang === "ar" ? "المتبقي" : "Gap"} />
         <KpiTile kpi={kpis.openPipeline} label={lang === "ar" ? "خط الأنابيب" : "Open pipeline"} />
         <KpiTile kpi={kpis.weightedPipeline} label={lang === "ar" ? "المرجّح" : "Weighted"} />
@@ -703,7 +703,7 @@ function ExecutiveView(props: {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <KpiTile kpi={kpis.openPipeline} label={lang === "ar" ? "خط الأنابيب المفتوح" : "Total open pipeline"} />
         <KpiTile kpi={kpis.weightedPipeline} label={lang === "ar" ? "التوقع المرجّح" : "Weighted forecast"} />
-        <KpiTile kpi={targets.actual} label={lang === "ar" ? "المحقق (Won)" : "Won"} />
+        <KpiTile kpi={targets.actual} label={lang === "ar" ? "المبيعات المتعاقد عليها" : "Signed sales"} />
         <KpiTile kpi={targets.achievement} label={lang === "ar" ? "نسبة تحقيق الهدف" : "Target achievement"} />
         <KpiTile kpi={targets.gap} label={lang === "ar" ? "الفجوة للهدف" : "Forecast gap to target"} />
         <KpiTile kpi={kpis.winRate} label={lang === "ar" ? "معدل الفوز" : "Win rate"} />

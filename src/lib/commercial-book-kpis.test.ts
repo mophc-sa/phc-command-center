@@ -21,8 +21,10 @@ import {
 
 const CTX = { today: "2026-08-25", period: null };
 
+// Signed sales count from a contract/PO (2026-11-18): a won fixture carries one unless a test says otherwise.
 const row = (o: Partial<ClassifiedRow> & { id: string }): ClassifiedRow => ({
   sales_stage: "jih",
+  ...(o.sales_stage === "won" ? { contract_received_date: o.won_at?.slice(0, 10) ?? "2026-08-02" } : {}),
   ...o,
 });
 

@@ -18,6 +18,7 @@ import {
   resolveProbability,
   stageCount,
   targetForPeriod,
+  companyTargetSum,
   targetKpis,
   thisMonth,
   thisQuarter,
@@ -33,8 +34,10 @@ const TODAY = "2026-08-20";
 const SNAPSHOT: KpiContext = { today: TODAY, period: null };
 const MONTH: KpiContext = { today: TODAY, period: thisMonth(TODAY) };
 
+// Signed sales count from a contract/PO (2026-11-18): a won fixture carries one unless a test says otherwise.
 function opp(over: Partial<OppRow> = {}): OppRow {
-  return { id: `o${Math.random().toString(36).slice(2, 8)}`, ...over };
+  const signed = over.sales_stage === "won" && !("contract_received_date" in over) ? { contract_received_date: over.won_at?.slice(0, 10) ?? "2026-08-02" } : {};
+  return { id: `o${Math.random().toString(36).slice(2, 8)}`, ...signed, ...over };
 }
 
 // ---- §4 Official definitions ------------------------------------------------
@@ -629,8 +632,8 @@ describe("Win rate with undated closures", () => {
 describe("a KPI opens the list it counted (reported 2026-10-19)", () => {
   const today = "2026-10-19";
   const rows = [
-    { id: "w26", sales_stage: "won", won_at: "2026-03-01T00:00:00Z", contract_value: 5_000_000, owner_id: "u1" },
-    { id: "w25", sales_stage: "won", won_at: "2025-06-01T00:00:00Z", contract_value: 9_000_000, owner_id: "u1" },
+    { id: "w26", sales_stage: "won", won_at: "2026-03-01T00:00:00Z", contract_received_date: "2026-03-01", contract_value: 5_000_000, owner_id: "u1" },
+    { id: "w25", sales_stage: "won", won_at: "2025-06-01T00:00:00Z", contract_received_date: "2025-06-01", contract_value: 9_000_000, owner_id: "u1" },
   ] as unknown as Parameters<typeof wonValue>[0];
 
   it("carries the period and owner into the Won drilldown", () => {
@@ -649,6 +652,20 @@ describe("a KPI opens the list it counted (reported 2026-10-19)", () => {
       expect(k.recordCount).toBe(1);
       expect(k.drilldown).toEqual(t.actual.drilldown);
     }
+  });
+
+  it("does not count a won deal without a contract or PO, and says so (2026-11-18)", () => {
+    const t = targetKpis([{ id: "nodoc", sales_stage: "won", won_at: "2026-03-01T00:00:00Z", contract_value: 7 }], { today, period: yearToDate(today) }, 40);
+    expect(t.actual.value).toBe(0);
+    expect(t.actual.caveat).toBeDefined();
+  });
+
+  it("company target row wins over the sum of personal rows", () => {
+    const p = yearToDate(today);
+    const y = p.from;
+    expect(targetForPeriod([{ user_id: null, period_type: "annual", period_start: y, sales_target: 40 }, { user_id: "u", period_type: "annual", period_start: y, sales_target: 10 }], p)).toBe(40);
+    expect(targetForPeriod([{ user_id: "u", period_type: "annual", period_start: y, sales_target: 10 }, { user_id: "v", period_type: "annual", period_start: y, sales_target: 5 }], p)).toBe(15);
+    expect(companyTargetSum([{ user_id: null, sales_target: 40 }, { user_id: "u", sales_target: 10 }])).toBe(40);
   });
 
   it("shows a set target even before anything is won", () => {

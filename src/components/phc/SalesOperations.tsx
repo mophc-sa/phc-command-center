@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { KpiRow } from "@/components/phc/KpiRow";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
+  companyTargetSum,
   MANAGEMENT_BUCKETS,
   bucketKpi,
   executiveKpis,
@@ -142,7 +143,7 @@ export function SalesOperations() {
             supabase
               .from("opportunities")
               .select(
-                "id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, won_at, lost_at, expected_contract_date, contractor_decision_maker, updated_at, created_at",
+                "id, project_name, stage, sales_stage, tier, pipeline_step, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, last_activity_at, next_action, next_action_due, client, main_contractor, human_win_probability, score, loss_reason, lost_at_stage, lost_to_competitor, won_at, lost_at, contract_received_date, contract_signed_date, expected_contract_date, contractor_decision_maker, updated_at, created_at",
               )
               .order("last_activity_at", { ascending: false, nullsFirst: false }),
           ),
@@ -222,17 +223,17 @@ export function SalesOperations() {
       const [annual, monthly] = await Promise.all([
         supabase
           .from("sales_targets")
-          .select("sales_target")
+          .select("user_id, sales_target")
           .eq("period_type", "annual").eq("period_start", annYear),
         supabase
           .from("sales_targets")
-          .select("sales_target")
+          .select("user_id, sales_target")
           .eq("period_type", "monthly").eq("period_start", monthStart),
       ]);
       if (annual.error) throw annual.error;
       if (monthly.error) throw monthly.error;
-      const annualSum = (annual.data ?? []).reduce((s, r) => s + Number(r.sales_target ?? 0), 0);
-      const monthlySum = (monthly.data ?? []).reduce((s, r) => s + Number(r.sales_target ?? 0), 0);
+      const annualSum = companyTargetSum(annual.data);
+      const monthlySum = companyTargetSum(monthly.data);
       return {
         total: annualSum > 0 ? annualSum : monthlySum,
         periodType: annualSum > 0 ? ("annual" as const) : ("monthly" as const),
