@@ -1,5 +1,10 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-18 — Weekly change report + duplicate warning, wave 4a of Omar's CRM review (branch `feat/weekly-report-dedupe`, frontend only)
+
+- `src/lib/weekly-report.ts` (+ tests): Sunday–Saturday weeks, change kinds, counts (each deal once, latest change). `WeeklyChangeReport` on /reports for sales manager / executives / system admin: audit_log `opportunity.fields_changed` with `after_value.sales_stage`, new deals, `quotation_revisions.submitted_at`, pending approvals, next week's scheduled follow-ups by owner. No migration (audit_log is readable by `is_platform_admin`, which includes sales_manager).
+- `src/lib/similar-names.ts` (+ test): `normalizeCompanyName` + `similarity` from the import pipeline; company and contact create dialogs (accounts, contacts) use the autocomplete field with a similar-name hint.
+
 ## 2026-11-18 — Deal page tabs + quotation revisions, wave 3 of Omar's CRM review (branch `feat/deal-page-tabs`, migration `20261118110000`, not deployed)
 
 - Deal page: `DEAL_TABS` (summary = alert/assignment/decision, activity = follow_up, quotes = evidence, contract = outcome) replace the timeline filter bar; sticky strip with code, owner, stage (+ kept stage), latest quote, next step · due. Submission panel, DealPricingCard and BafoPanel moved to `evidence`; discussion to `follow_up`. `TimelineFilterBar` removed.

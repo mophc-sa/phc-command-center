@@ -2,6 +2,7 @@ import { inReportCohort } from "@/lib/report-scope";
 import { listTeamMembers } from "@/lib/opportunity-actions";
 import { QueryFailure } from "@/components/phc/QueryFailure";
 import { KpiRow } from "@/components/phc/KpiRow";
+import { WeeklyChangeReport } from "@/components/phc/WeeklyChangeReport";
 import { readAll } from "../../../supabase/functions/_shared/ai-facts";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
@@ -38,7 +39,7 @@ import { useI18n, formatCurrency, formatNumber, localeFor } from "@/lib/i18n";
 import { kpiDefinition, sumRecorded, totalOrDash, unvaluedLabel, type ValueSum } from "@/lib/kpi-definitions";
 import { computeQuotationWinRatePct } from "@/lib/dashboard-helpers";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canManageSalesPipeline, canReviewAiOutput } from "@/lib/roles";
+import { canManageSalesPipeline, canReviewAiOutput, isExecutive, isSalesManager, isSystemAdmin } from "@/lib/roles";
 import { getLatestAgentOutput, reviewAgentOutput, type AiAgentOutputRow } from "@/lib/ai-review-actions";
 import { AGGREGATE_ENTITY_ID, runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { QUOTE_DEAL_STAGE, liveQuotes } from "@/lib/live-quotes";
@@ -77,7 +78,9 @@ function humanize(s: string) {
 function ReportsPage() {
   const { t, lang } = useI18n();
 
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
+  // The weekly report reads the change log, which RLS opens to sales leadership and admins (is_platform_admin).
+  const canSeeWeekly = isSalesManager(roles) || isExecutive(roles) || isSystemAdmin(roles);
   const [reportCurrency, setReportCurrency] = useState("SAR");
   const [scope, setScope] = useState({ owner: "all", from: "", to: "" });
   const { data: members = [] } = useQuery({ queryKey: ["team-members-min"], queryFn: listTeamMembers });
@@ -348,6 +351,7 @@ function ReportsPage() {
             </div>)}
           </details>
           <p className="rounded-lg border p-3 text-sm text-muted-foreground">{lang === "ar" ? "ملخصات الذكاء الاصطناعي التالية تقارير محفوظة بنطاقها الأصلي، ولا تتغير بمرشحات هذه الصفحة." : "The AI summaries below are stored reports with their original scope; this page’s filters do not change them."}</p>
+          {canSeeWeekly ? <WeeklyChangeReport /> : null}
           <SalesReportInsightsPanel lang={lang} />
 
           {weeklyReport ? (

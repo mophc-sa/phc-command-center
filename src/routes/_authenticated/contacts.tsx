@@ -15,6 +15,7 @@ import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
+import { similarNames } from "@/lib/similar-names";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { createContact, createCompany, type ContactAuthority, type ContactLocation, type ContactConfidenceLevel } from "@/lib/crm-actions";
@@ -52,7 +53,7 @@ function confidenceTone(c: ContactConfidenceLevel | null): "positive" | "attenti
 }
 
 function ContactsPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const qc = useQueryClient();
   const { roles } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
@@ -325,7 +326,12 @@ function ContactsPage() {
         description={t("crm_pending_verification")}
         submitLabel={t("crm_add")}
         fields={[
-          { key: "name", type: "text", label: t("crm_new_contact"), required: true },
+          { key: "name", type: "autocomplete", label: t("crm_new_contact"), required: true,
+            suggestions: contacts.map((c: any) => c.name).filter(Boolean),
+            hintFor: (v: string) => {
+              const m = similarNames(v, contacts.map((c: any) => c.name).filter(Boolean));
+              return m.length ? (lang === "ar" ? `مشابه لسجل موجود: ${m.join("، ")} — تحقق قبل الإنشاء` : `Looks like an existing record: ${m.join(", ")} — check before creating`) : null;
+            } },
           {
             key: "companyId", type: "select", label: t("crm_company"),
             options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))],
@@ -370,7 +376,12 @@ function ContactsPage() {
         onOpenChange={(o) => { if (!o) { creatingCompanyFor?.(null); setCreatingCompanyFor(null); } }}
         title={t("wf_add_new_company")}
         submitLabel={t("crm_add")}
-        fields={[{ key: "name", type: "text", label: t("crm_company"), required: true }]}
+        fields={[{ key: "name", type: "autocomplete", label: t("crm_company"), required: true,
+          suggestions: companies.map((c: any) => c.name), knownHint: t("ibx_company_known"),
+          hintFor: (v: string) => {
+              const m = similarNames(v, companies.map((c: any) => c.name));
+              return m.length ? (lang === "ar" ? `مشابه لسجل موجود: ${m.join("، ")} — تحقق قبل الإنشاء` : `Looks like an existing record: ${m.join(", ")} — check before creating`) : null;
+            } }]}
         onSubmit={async (v) => {
           try {
             const company = await createCompany({ name: v.name, companyType: "target_account", claimOwner: true });
