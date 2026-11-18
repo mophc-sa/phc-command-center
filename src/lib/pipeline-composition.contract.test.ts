@@ -57,7 +57,7 @@ const contrast = (a: number, b: number) => {
 
 function ramp(): Array<{ tone: number; L: number; C: number; H: number }> {
   const out: Array<{ tone: number; L: number; C: number; H: number }> = [];
-  for (let i = 1; i <= 7; i++) {
+  for (let i = 1; i <= 9; i++) {
     const m = CSS.match(new RegExp(`--stage-${i}:\\s*oklch\\(([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+)\\)`));
     if (m) out.push({ tone: i, L: +m[1], C: +m[2], H: +m[3] });
   }
@@ -80,8 +80,9 @@ describe("the stage ramp", () => {
   });
 
   it("darkens monotonically within each band, so order is legible without the legend", () => {
-    const preAward = R.slice(0, 4).map((s) => s.L);
-    const contracted = R.slice(5).map((s) => s.L);
+    // Nine since 2026-11-18 (qualified, pricing): six pre-award, verbal award, two contracted.
+    const preAward = R.slice(0, 6).map((s) => s.L);
+    const contracted = R.slice(7).map((s) => s.L);
     for (let i = 1; i < preAward.length; i++) expect(preAward[i]).toBeLessThan(preAward[i - 1]);
     for (let i = 1; i < contracted.length; i++) expect(contracted[i]).toBeLessThan(contracted[i - 1]);
   });
@@ -100,10 +101,10 @@ describe("the stage ramp", () => {
     const hues = R.map((s) => s.H);
     const changes = hues.slice(1).filter((h, i) => h !== hues[i]).length;
     expect(changes).toBe(2);
-    expect(hues[3]).not.toBe(hues[4]); // ترسية شفهية تفارق ما قبلها
-    expect(hues[4]).not.toBe(hues[5]); // والعقد يفارق الترسية
-    expect(new Set(hues.slice(0, 4)).size).toBe(1); // ولا تغيّر داخل النطاق
-    expect(new Set(hues.slice(5)).size).toBe(1);
+    expect(hues[5]).not.toBe(hues[6]); // ترسية شفهية تفارق ما قبلها
+    expect(hues[6]).not.toBe(hues[7]); // والعقد يفارق الترسية
+    expect(new Set(hues.slice(0, 6)).size).toBe(1); // ولا تغيّر داخل النطاق
+    expect(new Set(hues.slice(7)).size).toBe(1);
   });
 });
 

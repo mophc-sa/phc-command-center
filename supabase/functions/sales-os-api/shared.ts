@@ -166,7 +166,9 @@ export function referenceContent(r: Record<string, unknown>): string {
 // the two maps. The sales maps never got the same treatment. They do now —
 // see sales-transitions.contract.test.ts.
 export const SALES_TRANSITIONS: Record<string, string[]> = {
-  rfq_received: ["jih", "lost", "on_hold"],
+  qualified: ["rfq_received", "lost", "on_hold"],
+  rfq_received: ["pricing", "jih", "lost", "on_hold"],
+  pricing: ["jih", "lost", "on_hold"],
   jih: ["jih_bafo", "under_negotiation", "verbally_awarded", "lost", "on_hold"],
   jih_bafo: ["under_negotiation", "verbally_awarded", "lost", "on_hold"],
   under_negotiation: ["verbally_awarded", "lost", "on_hold"],
@@ -175,7 +177,7 @@ export const SALES_TRANSITIONS: Record<string, string[]> = {
   contract_signed: ["won", "on_hold"],
   won: [],
   lost: [],
-  on_hold: ["jih", "jih_bafo", "under_negotiation", "verbally_awarded", "rfq_received"],
+  on_hold: ["qualified", "rfq_received", "pricing", "jih", "jih_bafo", "under_negotiation", "verbally_awarded"],
 };
 // Stages that require manager sign-off (salespeople may only request them).
 export const SALES_GATED = new Set(["verbally_awarded", "contract_received", "won"]);

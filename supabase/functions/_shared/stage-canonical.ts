@@ -54,8 +54,15 @@
 
 import { opportunityValue } from "./opportunity-value.ts";
 
+// 2026-11-18 (Omar's CRM review, Mo): `qualified` (before the RFQ) and
+// `pricing` (RFQ being priced, before the quotation is submitted) are real
+// stages. The sales path shows seven steps: Qualified · RFQ · Pricing ·
+// Submitted (jih) · Negotiation (jih_bafo + under_negotiation) · Verbal award ·
+// Signed (contract_received + contract_signed + won).
 export const CANONICAL_STAGES = [
+  "qualified",
   "rfq_received",
+  "pricing",
   "jih",
   "jih_bafo",
   "under_negotiation",
@@ -71,7 +78,9 @@ export type CanonicalStage = (typeof CANONICAL_STAGES)[number];
 
 /** Stages that represent live pipeline. Excludes terminal and paused states. */
 export const CANONICAL_ACTIVE_STAGES: readonly CanonicalStage[] = [
+  "qualified",
   "rfq_received",
+  "pricing",
   "jih",
   "jih_bafo",
   "under_negotiation",
@@ -168,7 +177,10 @@ export function legacyStageFor(stage: CanonicalStage): LegacyStage | null {
       return "won";
     case "lost":
       return "lost";
+    case "qualified":
+      return "qualification";
     case "rfq_received":
+    case "pricing":
       return "quotation";
     case "jih":
     case "jih_bafo":

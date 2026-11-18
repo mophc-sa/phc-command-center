@@ -2767,13 +2767,13 @@ function ActionButton({
 
 /** The sales path as image 05 draws it. Won/lost/hold are outcomes, not steps. */
 const PATH: { keys: string[]; en: string; ar: string }[] = [
+  { keys: ["qualified"], en: "Qualified", ar: "مؤهلة" },
   { keys: ["rfq_received"], en: "RFQ", ar: "طلب التسعير" },
-  { keys: ["jih"], en: "Pricing / submitted", ar: "تسعير / مقدَّم" },
-  { keys: ["jih_bafo"], en: "BAFO", ar: "عرض نهائي" },
-  { keys: ["under_negotiation"], en: "Negotiation", ar: "تفاوض" },
+  { keys: ["pricing"], en: "Pricing", ar: "تسعير" },
+  { keys: ["jih"], en: "Submitted", ar: "مقدَّم" },
+  { keys: ["jih_bafo", "under_negotiation"], en: "Negotiation", ar: "تفاوض" },
   { keys: ["verbally_awarded"], en: "Verbal award", ar: "ترسية شفهية" },
-  { keys: ["contract_received", "contract_signed"], en: "Contract / PO", ar: "عقد / أمر شراء" },
-  { keys: ["won"], en: "Won", ar: "مرسّاة" },
+  { keys: ["contract_received", "contract_signed", "won"], en: "Signed", ar: "موقّع" },
 ];
 
 function StagePath({ stage, lang, t }: { stage: string | null | undefined; lang: Lang; t: (k: any) => string }) {

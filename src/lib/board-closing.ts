@@ -95,7 +95,9 @@ export type Rec = {
 };
 
 const OPEN: CanonicalStage[] = [
+  "qualified",
   "rfq_received",
+  "pricing",
   "jih",
   "jih_bafo",
   "under_negotiation",

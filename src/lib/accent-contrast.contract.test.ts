@@ -155,7 +155,7 @@ describe("the stage ramp has to be visible on the track it sits in", () => {
   const MUTED = rgbOf("muted");
   const MUTED_LUM = luminanceOf(MUTED);
 
-  for (const n of [1, 2, 3, 4, 5, 6, 7]) {
+  for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
     it(`--stage-${n} clears 3:1 on the muted track AND on the card`, () => {
       const lum = luminanceOf(rgbOf(`stage-${n}`));
       expect([
@@ -170,10 +170,11 @@ describe("the stage ramp has to be visible on the track it sits in", () => {
     // The ramp's whole job is to show WHERE the money becomes committed.
     // Stages 1-4 are cool, 5 is amber (won and still losable), 6-7 are green.
     // A ramp that slid smoothly through would say the boundary is not there.
+    // Nine stages since 2026-11-18: 1-6 cool (qualified … negotiation), 7 amber, 8-9 green.
     const hue = (n: number) => token(`stage-${n}`)!.H;
-    for (const n of [1, 2, 3, 4]) expect(hue(n)).toBeGreaterThan(150);
-    expect(hue(5)).toBeLessThan(100); // amber
-    expect(hue(6)).toBe(155); // green
-    expect(hue(7)).toBe(155);
+    for (const n of [1, 2, 3, 4, 5, 6]) expect(hue(n)).toBeGreaterThan(150);
+    expect(hue(7)).toBeLessThan(100); // amber
+    expect(hue(8)).toBe(155); // green
+    expect(hue(9)).toBe(155);
   });
 });

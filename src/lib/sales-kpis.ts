@@ -190,7 +190,9 @@ export const LOST_STAGES: CanonicalStage[] = ["lost"];
  * the truth.
  */
 export const OPEN_STAGES: CanonicalStage[] = [
+  "qualified",
   "rfq_received",
+  "pricing",
   "jih",
   "jih_bafo",
   "under_negotiation",
@@ -254,7 +256,7 @@ export const AWARDED_STAGES: CanonicalStage[] = [...LATE_STAGE_EXPOSURE, ...WON_
 // on_hold and lost sit outside deliberately: a paused deal is not a position
 // in the commercial ladder, and a lost one has left it.
 
-export const MGMT_OPEN_PIPELINE: CanonicalStage[] = ["rfq_received", "jih"];
+export const MGMT_OPEN_PIPELINE: CanonicalStage[] = ["qualified", "rfq_received", "pricing", "jih"];
 export const MGMT_LATE_STAGE: CanonicalStage[] = ["jih_bafo", "under_negotiation"];
 export const MGMT_PENDING_CONTRACT: CanonicalStage[] = ["verbally_awarded"];
 export const MGMT_CONTRACTED: CanonicalStage[] = ["contract_received", "contract_signed"];

@@ -73,6 +73,8 @@ const ITEMS = {
 const I = ITEMS;
 
 export const STAGE_CHECKLIST: Readonly<Record<CanonicalStage, readonly ChecklistItem[]>> = {
+  qualified: [I.buyer_type, I.decision_maker],
+  pricing: [I.scope_review, I.boq_priced],
   rfq_received: [I.buyer_type, I.decision_maker, I.procurement, I.tender_file, I.scope_review, I.scope_boundaries, I.site_visit],
   jih: [I.boq_priced, I.quotation, I.prequalified, I.why_phc],
   jih_bafo: [I.evaluation_status, I.clarifications],

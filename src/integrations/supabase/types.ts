@@ -10243,7 +10243,9 @@ export type Database = {
         | "contract_pending"
         | "approval_pending"
       sales_stage:
+        | "qualified"
         | "rfq_received"
+        | "pricing"
         | "jih"
         | "jih_bafo"
         | "under_negotiation"
@@ -10782,7 +10784,9 @@ export const Constants = {
         "approval_pending",
       ],
       sales_stage: [
+        "qualified",
         "rfq_received",
+        "pricing",
         "jih",
         "jih_bafo",
         "under_negotiation",
