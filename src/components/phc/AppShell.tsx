@@ -137,6 +137,7 @@ const NAV_GROUPS: NavGroup[] = [
     key: "navgroup_home",
     fallback: "My work",
     items: [
+      { kind: "link",   to: "/home",             key: "nav_home",              icon: Home, sales: true },
       { kind: "link",   to: "/command-center",   key: "nav_command_center",    icon: LayoutDashboard, showIf: canSeeCommandCenter },
       { kind: "link",   to: "/my-workspace",     key: "nav_my_day",            icon: Briefcase, sales: true },
       // Calendar and meetings sit with the day's work (image 02: inside My Day).

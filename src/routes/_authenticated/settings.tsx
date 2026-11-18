@@ -4,7 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { requiresMfa } from "@/lib/roles";
+import { isExecutive, isSalesManager, isSystemAdmin, requiresMfa } from "@/lib/roles";
+import { AuditLogPanel } from "@/components/phc/AuditLogPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Check, Loader2, ShieldCheck, ShieldAlert } from "lucide-react";
@@ -38,13 +39,28 @@ function SettingsPage() {
     { code: "ar", label: t("arabic"), native: "العربية" },
   ];
 
+  // Image 15: leadership also sees who changed what (the audit log is theirs by RLS).
+  const { roles } = useAuth();
+  const canAudit = isSalesManager(roles) || isExecutive(roles) || isSystemAdmin(roles);
+  const [tab, setTab] = useState<"preferences" | "audit">("preferences");
+
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className={`mx-auto ${tab === "audit" ? "max-w-6xl" : "max-w-3xl"}`}>
       <PageHeader
         eyebrow="Administration"
         title={t("nav_settings")}
         description={lang === "ar" ? "تفضيلاتك الشخصية في منصة PHC." : "Personal preferences for your PHC workspace."}
       />
+      {canAudit ? (
+        <div role="tablist" className="mb-5 flex gap-1.5 border-b border-border">
+          {([["preferences", lang === "ar" ? "التفضيلات والوصول" : "Preferences & access"], ["audit", lang === "ar" ? "سجل التعديلات" : "Audit log"]] as const).map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+              className={"-mb-px min-h-10 border-b-2 px-4 text-sm font-medium " + (tab === k ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{l}</button>
+          ))}
+        </div>
+      ) : null}
+      {tab === "audit" && canAudit ? <AuditLogPanel /> : (
+      <>
 
       <section className="rounded-xl border border-border/70 bg-surface/60">
         <header className="border-b border-border/60 px-5 py-4">
@@ -89,6 +105,8 @@ function SettingsPage() {
       <div className="mt-6">
         <SecuritySection lang={lang} />
       </div>
+      </>
+      )}
     </div>
   );
 }

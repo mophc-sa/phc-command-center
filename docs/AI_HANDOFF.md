@@ -1,5 +1,9 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-18 — Layout to Omar's mockups, part 2 (branch `feat/layout-part2`, frontend only)
+
+Images 01 (`/home` route + nav item), 03 (opportunities table: project/customer/stage dot/next action/value, sticky header, `STAGE_DOT` on the `--stage-*` ramp), 08 (`QuickOpportunityDialog`; `createOpportunityForCompany` takes owner, source, next action/date), 09 (current-revision summary in `QuotationRevisions`), 11 (account page header card, linked project, tabs, add contact), 12 (`TeamPerformance` in Sales Management team tab, uses `targetRows`), 15 (`AuditLogPanel` as a Settings tab for leadership).
+
 ## 2026-11-18 — Layout to Omar's mockups, part 1 (branch `feat/layout-deal-page`, frontend only)
 
 Mo: the features shipped but the screens did not follow Omar's images; rearrange layout, keep the theme. Part 1: sidebar order (image 02; Quotations into Sales, Customers group, Command Center at the top, Settings group pinned to the bottom), deal page header + Update stage dropdown (uses exported `fieldsForStage` + `advanceSalesStage`), `StagePath`, hold banner, Next action / Key details cards (images 07/05), Command Center six-figure row + Verbal awards to close + Overdue follow-ups (`CloseList`, image 04; `KpiRow` columns 6), My Day `FollowUpCard` with in-place close-out (image 10). Nav contract tests updated to the new order.

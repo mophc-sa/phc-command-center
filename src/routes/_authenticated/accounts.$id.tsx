@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Building2, ExternalLink, Mail, Phone, UserRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
@@ -14,7 +14,7 @@ import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { updateCompany, changeAccountOwner, createOpportunityForCompany, type CompanyType } from "@/lib/crm-actions";
+import { updateCompany, changeAccountOwner, createContact, createOpportunityForCompany, type CompanyType } from "@/lib/crm-actions";
 import { canAssignOwner, canCreateSalesRecords, canManageSalesPipeline } from "@/lib/roles";
 import { ClientRemindersPanel } from "@/components/phc/ClientRemindersPanel";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
@@ -42,6 +42,8 @@ function AccountDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [ownerOpen, setOwnerOpen] = useState(false);
   const [newOppOpen, setNewOppOpen] = useState(false);
+  const [accTab, setAccTab] = useState<"contacts" | "opportunities" | "activity" | "details">("contacts");
+  const [addContactOpen, setAddContactOpen] = useState(false);
   const isManager = canAssignOwner(roles);
   const canCreateOpp = canManageSalesPipeline(roles);
 
@@ -144,93 +146,107 @@ function AccountDetail() {
         }
       />
 
-      {/* Key facts strip */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_account_owner")}</div>
-          <div className="mt-2 truncate text-sm font-medium text-foreground">{ownerName(c.account_owner_id)}</div>
-        </div>
-        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_linked_contacts")}</div>
-          <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">{contactCount}</div>
-        </div>
-        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_linked_projects")}</div>
-          <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">{projCount}</div>
-        </div>
-        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
-          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_linked_opportunities")}</div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="num text-lg font-semibold text-foreground" data-tabular="true">{oppCount}</span>
-            {pipelineValue > 0 ? (
-              <span className="num text-xs text-muted-foreground" data-tabular="true">
-                {formatCurrency(pipelineValue, lang)}
-              </span>
-            ) : null}
+      {/* Image 11: type and location under the name, the linked project beside it. */}
+      <div className="grid gap-4 md:grid-cols-[1fr_auto]">
+        <div className="flex items-center gap-4 rounded-xl border border-border/70 bg-surface/60 p-4">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><Building2 className="h-7 w-7" aria-hidden="true" /></span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-foreground">{typeLabel(c.company_type)}</span>
+              {c.regions ? <span className="text-sm text-muted-foreground">{c.regions}</span> : null}
+            </div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              {t("crm_account_owner")}: {ownerName(c.account_owner_id)} · {contactCount} {lang === "ar" ? "جهة اتصال" : "contacts"} · {oppCount} {lang === "ar" ? "فرصة" : "opportunities"}
+              {pipelineValue > 0 ? ` · ${formatCurrency(pipelineValue, lang)}` : ""}
+            </div>
           </div>
         </div>
+        {(c.projects ?? [])[0] ? (
+          <Link to="/projects/$id" params={{ id: c.projects[0].id }} className="flex items-center gap-3 rounded-xl border border-border/70 bg-surface/60 p-4 hover:border-primary/50">
+            <div>
+              <div className="text-sm text-muted-foreground">{lang === "ar" ? "المشروع المرتبط" : "Linked project"}{projCount > 1 ? ` (+${projCount - 1})` : ""}</div>
+              <div className="text-base font-semibold text-foreground">{c.projects[0].name}</div>
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          </Link>
+        ) : null}
       </div>
 
-      <Panel title={t("nav_accounts")}>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <DataField label={t("crm_account_owner")} value={ownerName(c.account_owner_id)} />
-          <DataField label={t("crm_regions")} value={c.regions} />
-          <DataField label={t("crm_relationship")} value={c.relationship_level} />
-          <DataField label={t("crm_next_action")} value={c.next_action} />
-          <DataField label={t("label_prequal")} value={t(`prequal_${(c as { prequalification_status?: string }).prequalification_status ?? "not_started"}` as never)} />
-        </div>
-        {c.internal_notes && !/^\s*[[{]/.test(c.internal_notes) ? (
-          <div className="mt-4">
-            <DataField label={t("crm_internal_notes")} value={c.internal_notes} />
-          </div>
-        ) : null}
-      </Panel>
+      <div role="tablist" className="flex flex-wrap gap-1.5 border-b border-border">
+        {([
+          ["contacts", lang === "ar" ? "جهات الاتصال" : "Contacts"],
+          ["opportunities", lang === "ar" ? "الفرص" : "Opportunities"],
+          ["activity", lang === "ar" ? "النشاط" : "Activity"],
+          ["details", lang === "ar" ? "التفاصيل" : "Details"],
+        ] as const).map(([k, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={accTab === k} onClick={() => setAccTab(k)}
+            className={"-mb-px min-h-10 border-b-2 px-4 text-sm font-medium " + (accTab === k ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <Panel title={t("crm_linked_contacts")} subtitle={String(contactCount)}>
+      {accTab === "contacts" ? (
+        <Panel
+          title={`${lang === "ar" ? "جهات الاتصال" : "Contacts"} (${contactCount})`}
+          action={canCreateSalesRecords(roles) ? (
+            <button type="button" onClick={() => setAddContactOpen(true)} className="inline-flex min-h-10 items-center gap-1 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+              + {lang === "ar" ? "إضافة جهة اتصال" : "Add contact"}
+            </button>
+          ) : undefined}
+        >
           {(c.contacts ?? []).length === 0 ? (
-            <div className="text-xs text-muted-foreground">—</div>
+            <div className="text-sm text-muted-foreground">—</div>
           ) : (
-            <ul className="space-y-2.5">
+            <ul className="divide-y divide-border/60">
               {c.contacts.map((ct: any) => (
-                <li key={ct.id}>
-                  <div className="text-sm text-foreground">
-                    {ct.name}
-                    {ct.title ? <span className="text-xs text-muted-foreground"> — {ct.title}</span> : null}
+                <li key={ct.id} className="flex flex-wrap items-center gap-4 py-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground"><UserRound className="h-5 w-5" aria-hidden="true" /></span>
+                  <div className="min-w-40 flex-1">
+                    <div className="text-base font-semibold text-foreground">{ct.name}</div>
+                    <div className="text-sm text-muted-foreground">{ct.title ?? "—"}</div>
                   </div>
-                  <div className="mt-1.5">
-                    <CommunicationActions
-                      linked={{ type: "contact", id: ct.id, label: ct.name, contactId: ct.id, companyId: c.id }}
-                      recipientName={ct.name}
-                      recipientEmail={ct.email}
-                      recipientPhone={ct.phone}
-                      emailTemplate="contractor_introduction"
-                      emailContext={{ companyName: c.name, ownerName: ownerName(c.account_owner_id) }}
-                      size="xs"
-                    />
-                  </div>
+                  <div className="flex min-w-52 items-center gap-2 text-sm"><Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />{ct.email ?? "—"}</div>
+                  <div className="flex min-w-40 items-center gap-2 text-sm tabular-nums"><Phone className="h-4 w-4 text-muted-foreground" aria-hidden="true" />{ct.phone ?? "—"}</div>
+                  <CommunicationActions
+                    linked={{ type: "contact", id: ct.id, label: ct.name, contactId: ct.id, companyId: c.id }}
+                    recipientName={ct.name}
+                    recipientEmail={ct.email}
+                    recipientPhone={ct.phone}
+                    emailTemplate="contractor_introduction"
+                    emailContext={{ companyName: c.name, ownerName: ownerName(c.account_owner_id) }}
+                    size="xs"
+                  />
                 </li>
               ))}
             </ul>
           )}
+          <ActionDialog
+            open={addContactOpen}
+            onOpenChange={setAddContactOpen}
+            title={lang === "ar" ? "إضافة جهة اتصال" : "Add contact"}
+            submitLabel={t("crm_add")}
+            fields={[
+              { key: "name", type: "text", label: lang === "ar" ? "الاسم" : "Name", required: true },
+              { key: "title", type: "text", label: lang === "ar" ? "المنصب" : "Title" },
+              { key: "email", type: "text", label: t("email") },
+              { key: "phone", type: "text", label: lang === "ar" ? "الهاتف" : "Phone" },
+            ]}
+            onSubmit={async (v) => {
+              try {
+                await createContact({ name: v.name, companyId: c.id, title: v.title || undefined, email: v.email || undefined, phone: v.phone || undefined, claimOwner: true });
+                toast.success(t("crm_saved"));
+                qc.invalidateQueries({ queryKey: ["company", id] });
+              } catch (e) {
+                toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+                throw e;
+              }
+            }}
+          />
         </Panel>
+      ) : null}
 
-        <Panel title={t("crm_linked_projects")} subtitle={String(projCount)}>
-          {(c.projects ?? []).length === 0 ? (
-            <div className="text-xs text-muted-foreground">—</div>
-          ) : (
-            <ul className="space-y-2">
-              {c.projects.map((p: any) => (
-                <li key={p.id}>
-                  <Link to="/projects/$id" params={{ id: p.id }} className="text-sm text-foreground hover:underline">
-                    {p.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-
+      {accTab === "opportunities" ? (
         <Panel
           title={t("crm_linked_opportunities")}
           subtitle={String(oppCount)}
@@ -290,13 +306,75 @@ function AccountDetail() {
             />
           ) : null}
         </Panel>
+      ) : null}
+
+      {accTab === "details" ? (
+        <>
+      {/* Key facts strip */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_account_owner")}</div>
+          <div className="mt-2 truncate text-sm font-medium text-foreground">{ownerName(c.account_owner_id)}</div>
+        </div>
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_linked_contacts")}</div>
+          <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">{contactCount}</div>
+        </div>
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_linked_projects")}</div>
+          <div className="mt-2 num text-lg font-semibold text-foreground" data-tabular="true">{projCount}</div>
+        </div>
+        <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
+          <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_linked_opportunities")}</div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="num text-lg font-semibold text-foreground" data-tabular="true">{oppCount}</span>
+            {pipelineValue > 0 ? (
+              <span className="num text-xs text-muted-foreground" data-tabular="true">
+                {formatCurrency(pipelineValue, lang)}
+              </span>
+            ) : null}
+          </div>
+        </div>
       </div>
 
+      <Panel title={t("nav_accounts")}>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <DataField label={t("crm_account_owner")} value={ownerName(c.account_owner_id)} />
+          <DataField label={t("crm_regions")} value={c.regions} />
+          <DataField label={t("crm_relationship")} value={c.relationship_level} />
+          <DataField label={t("crm_next_action")} value={c.next_action} />
+          <DataField label={t("label_prequal")} value={t(`prequal_${(c as { prequalification_status?: string }).prequalification_status ?? "not_started"}` as never)} />
+        </div>
+        {c.internal_notes && !/^\s*[[{]/.test(c.internal_notes) ? (
+          <div className="mt-4">
+            <DataField label={t("crm_internal_notes")} value={c.internal_notes} />
+          </div>
+        ) : null}
+      </Panel>
+
+          <Panel title={t("crm_linked_projects")} subtitle={String(projCount)}>
+            {(c.projects ?? []).length === 0 ? (
+              <div className="text-sm text-muted-foreground">—</div>
+            ) : (
+              <ul className="space-y-2">
+                {c.projects.map((p: any) => (
+                  <li key={p.id}><Link to="/projects/$id" params={{ id: p.id }} className="text-sm text-foreground hover:underline">{p.name}</Link></li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        </>
+      ) : null}
+
+      {accTab === "activity" ? (
+        <>
       <ClientRemindersPanel companyId={c.id} canAdd={canCreateSalesRecords(roles)} currentUserId={user?.id ?? null} />
 
       <Panel title={t("comm_history")}>
         <CommunicationTimeline filter={{ companyId: c.id }} />
       </Panel>
+        </>
+      ) : null}
 
             <details className="rounded-lg border border-border p-4">
         <summary className="cursor-pointer text-sm font-medium">{lang === "ar" ? "تحليل العلاقة وبيانات المصدر" : "Relationship analysis & source details"}</summary>

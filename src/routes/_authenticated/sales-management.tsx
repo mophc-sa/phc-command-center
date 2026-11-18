@@ -44,7 +44,7 @@ import {
 } from "@/lib/roles";
 import {
   concentrationBy, executiveKpis, lostByReason, lostByStage,
-  opportunityValue, resolveProbability, targetForPeriod, targetKpis, thisMonth, thisQuarter, yearToDate,
+  companyTargetSum, inPeriod, opportunityValue, resolveProbability, signedDate, targetForPeriod, targetKpis, thisMonth, thisQuarter, yearToDate,
   type KpiContext, type TargetRow, type OppRow, type Period,
 } from "@/lib/sales-kpis";
 import { assembleActions, type ApprovalRowIn, type FlagRowIn, type FollowUpRowIn, type IntakeRowIn, type TaskRowIn } from "@/lib/action-center";
@@ -280,6 +280,7 @@ function SalesManagement() {
           events={events} today={today} nameOf={nameOf} kpis={kpis}
           targetTotal={periodTarget}
           opps={opps} ctx={ctx}
+          targetRows={(data?.targets ?? []) as TargetRow[]}
         />
       ) : tab === "operations" ? (
         // Moved from the Command Center (2026-11-17): rep performance, follow-ups,
@@ -339,6 +340,74 @@ function Money({ n, lang }: { n: number | null; lang: "en" | "ar" }) {
   return <span className="num" data-tabular="true">{n === null ? "—" : formatCurrency(n, lang)}</span>;
 }
 
+// ---- Team performance (Omar's CRM review, image 12) --------------------------
+// One row per salesperson with a personal target this year: signed sales and
+// target for the quarter, verbal awards (not sales), overdue work. The company
+// target stands apart (its own row since 2026-11-18).
+function TeamPerformance({ lang, today, opps, targetRows, workload, nameOf }: {
+  lang: "en" | "ar"; today: string; opps: OppRow[]; targetRows: TargetRow[];
+  workload: ReturnType<typeof teamWorkload>; nameOf: (id: string | null) => string;
+}) {
+  const ar = lang === "ar";
+  const year = today.slice(0, 4);
+  const q = thisQuarter(today);
+  const annualRows = targetRows.filter((r) => r.period_type === "annual" && r.period_start === `${year}-01-01`);
+  const company = companyTargetSum(annualRows.filter((r) => r.user_id === null));
+  const people = [...new Set(annualRows.filter((r) => r.user_id).map((r) => r.user_id as string))];
+  const rows = people.map((id) => {
+    const mine = opps.filter((o) => o.owner_id === id);
+    const quarterTarget =
+      targetRows.filter((r) => r.user_id === id && r.period_type === "monthly" && inPeriod(r.period_start, q)).reduce((a, r) => a + Number(r.sales_target ?? 0), 0) ||
+      annualRows.filter((r) => r.user_id === id).reduce((a, r) => a + Number(r.sales_target ?? 0), 0) / 4;
+    const signed = mine.filter((o) => inPeriod(signedDate(o), q)).reduce((a, o) => a + (opportunityValue(o) ?? 0), 0);
+    const verbal = mine.filter((o) => o.sales_stage === "verbally_awarded").reduce((a, o) => a + (opportunityValue(o) ?? 0), 0);
+    const overdue = workload.find((w) => w.userId === id)?.overdueActions ?? 0;
+    return { id, quarterTarget, signed, verbal, overdue, pct: quarterTarget > 0 ? signed / quarterTarget : null };
+  }).sort((a, b) => b.signed - a.signed || b.verbal - a.verbal);
+  return (
+    <section className="mb-6 grid gap-4 lg:grid-cols-[1fr_auto]">
+      <div className="rounded-xl border border-border/70 bg-surface/60">
+        <Table>
+          <TableCaption>{ar ? "أداء فريق المبيعات" : "Team performance"}</TableCaption>
+          <TableHeader>
+            <TableRow>
+              {[ar ? "مسؤول المبيعات" : "Sales owner", ar ? "المبيعات المتعاقد عليها (الربع)" : "Signed sales (quarter)", ar ? "ترسيات شفهية" : "Verbal awards",
+                ar ? "هدف الربع" : "Quarterly target", ar ? "تحقيق الربع" : "Quarterly achievement", ar ? "مهام متأخرة" : "Overdue tasks"].map((h) => <TableHead key={h}>{h}</TableHead>)}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="text-base font-semibold">{nameOf(r.id)}</TableCell>
+                <TableCell><Money n={r.signed} lang={lang} /></TableCell>
+                <TableCell><Money n={r.verbal} lang={lang} /></TableCell>
+                <TableCell><Money n={r.quarterTarget} lang={lang} /></TableCell>
+                <TableCell className="min-w-44">
+                  {r.pct === null ? "—" : (
+                    <div>
+                      <div className="text-sm font-semibold tabular-nums">{Math.round(r.pct * 100)}%</div>
+                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, r.pct * 100)}%` }} /></div>
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell className={`num ${r.overdue > 0 ? "font-semibold text-destructive" : ""}`} data-tabular="true">{formatNumber(r.overdue, lang)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <p className="border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">
+          {ar ? `حسب مسؤول الفرصة · ${q.from} – ${q.to} · المتعاقد عليه = عقد أو أمر شراء مسجّل` : `By opportunity owner · ${q.from} – ${q.to} · signed = a recorded contract or PO`}
+        </p>
+      </div>
+      <div className="h-fit rounded-xl border border-border/70 bg-surface/60 px-5 py-4">
+        <div className="text-sm text-muted-foreground">{ar ? "هدف الشركة" : "Company target"}</div>
+        <div className="num mt-1 text-3xl font-bold text-primary" data-tabular="true">{company > 0 ? formatCurrency(company, lang, "SAR") : "—"}</div>
+        <div className="text-xs text-muted-foreground">{year}</div>
+      </div>
+    </section>
+  );
+}
+
 // ---- Team Life Dashboard (PRD §2) ------------------------------------------
 
 function TeamView(props: {
@@ -354,13 +423,15 @@ function TeamView(props: {
   targetTotal: number;
   opps: OppRow[];
   ctx: KpiContext;
+  targetRows: TargetRow[];
 }) {
-  const { lang, day, workload, attention, events, today, nameOf, kpis, targetTotal, opps, ctx } = props;
+  const { lang, day, workload, attention, events, today, nameOf, kpis, targetTotal, opps, ctx, targetRows } = props;
   const targets = targetKpis(opps, ctx, targetTotal > 0 ? targetTotal : null);
   const groups = groupByRecency(events, today);
 
   return (
     <>
+      <TeamPerformance lang={lang} today={today} opps={opps} targetRows={targetRows} workload={workload} nameOf={nameOf} />
       <SectionTitle hint={lang === "ar" ? "حقائق معدودة، بلا تقييم" : "Counted facts, no scoring"}>
         {lang === "ar" ? "الفريق اليوم" : "Team today"}
       </SectionTitle>

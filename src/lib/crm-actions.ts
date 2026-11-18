@@ -206,6 +206,11 @@ export async function createOpportunityForCompany(input: {
   companyId: Uuid;
   projectName: string;
   location?: string | null;
+  /** Quick entry (image 08, 2026-11-18): owner (default: me), source, next action and its date. */
+  ownerId?: Uuid | null;
+  source?: string | null;
+  nextAction?: string | null;
+  nextActionDue?: string | null;
 }) {
   const uid = await currentUserId();
   const { data, error } = await supabase
@@ -227,7 +232,11 @@ export async function createOpportunityForCompany(input: {
       // estimation/preparation has actually started.
       sales_stage: "rfq_received",
       flow_type: "manual",
-      owner_id: uid,
+      owner_id: input.ownerId ?? uid,
+      // `source` is a column in the database the generated types predate.
+      ...({ source: input.source ?? null } as unknown as Record<string, never>),
+      next_action: input.nextAction ?? null,
+      next_action_due: input.nextActionDue ?? null,
     })
     .select("id")
     .single();
