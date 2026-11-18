@@ -211,6 +211,8 @@ export async function createOpportunityForCompany(input: {
   source?: string | null;
   nextAction?: string | null;
   nextActionDue?: string | null;
+  /** Image 25: another contractor's quote on an existing package; the pipeline counts that package once. */
+  valueCountedOn?: Uuid | null;
 }) {
   const uid = await currentUserId();
   const { data, error } = await supabase
@@ -237,6 +239,7 @@ export async function createOpportunityForCompany(input: {
       ...({ source: input.source ?? null } as unknown as Record<string, never>),
       next_action: input.nextAction ?? null,
       next_action_due: input.nextActionDue ?? null,
+      ...(input.valueCountedOn ? { extra_data: { value_counted_on: input.valueCountedOn } } : {}),
     })
     .select("id")
     .single();

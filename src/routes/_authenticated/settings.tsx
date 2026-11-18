@@ -4,8 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { isExecutive, isSalesManager, isSystemAdmin, requiresMfa } from "@/lib/roles";
+import { canImportMasterList, isExecutive, isSalesManager, isSystemAdmin, requiresMfa } from "@/lib/roles";
 import { AuditLogPanel } from "@/components/phc/AuditLogPanel";
+import { AccessPanel } from "@/components/phc/AccessPanel";
+import { MasterListImport } from "@/components/phc/MasterListImport";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Check, Loader2, ShieldCheck, ShieldAlert } from "lucide-react";
@@ -42,24 +44,32 @@ function SettingsPage() {
   // Image 15: leadership also sees who changed what (the audit log is theirs by RLS).
   const { roles } = useAuth();
   const canAudit = isSalesManager(roles) || isExecutive(roles) || isSystemAdmin(roles);
-  const [tab, setTab] = useState<"preferences" | "audit">("preferences");
+  const canImport = canImportMasterList(roles);
+  type Tab = "preferences" | "import" | "access" | "audit";
+  const [tab, setTab] = useState<Tab>("preferences");
+  // Image 26: Import / Access / Audit log for the sales manager and the coordinator.
+  const tabs: [Tab, string][] = [
+    ["preferences", lang === "ar" ? "التفضيلات" : "Preferences"],
+    ...(canImport ? [["import", lang === "ar" ? "الاستيراد" : "Import"] as [Tab, string]] : []),
+    ...(canAudit ? [["access", lang === "ar" ? "الصلاحيات" : "Access"], ["audit", lang === "ar" ? "سجل التعديلات" : "Audit log"]] as [Tab, string][] : []),
+  ];
 
   return (
-    <div className={`mx-auto ${tab === "audit" ? "max-w-6xl" : "max-w-3xl"}`}>
+    <div className={`mx-auto ${tab === "preferences" ? "max-w-3xl" : "max-w-6xl"}`}>
       <PageHeader
         eyebrow="Administration"
         title={t("nav_settings")}
         description={lang === "ar" ? "تفضيلاتك الشخصية في منصة PHC." : "Personal preferences for your PHC workspace."}
       />
-      {canAudit ? (
+      {tabs.length > 1 ? (
         <div role="tablist" className="mb-5 flex gap-1.5 border-b border-border">
-          {([["preferences", lang === "ar" ? "التفضيلات والوصول" : "Preferences & access"], ["audit", lang === "ar" ? "سجل التعديلات" : "Audit log"]] as const).map(([k, l]) => (
+          {tabs.map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
               className={"-mb-px min-h-10 border-b-2 px-4 text-sm font-medium " + (tab === k ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{l}</button>
           ))}
         </div>
       ) : null}
-      {tab === "audit" && canAudit ? <AuditLogPanel /> : (
+      {tab === "import" && canImport ? <MasterListImport /> : tab === "access" && canAudit ? <AccessPanel /> : tab === "audit" && canAudit ? <AuditLogPanel /> : (
       <>
 
       <section className="rounded-xl border border-border/70 bg-surface/60">

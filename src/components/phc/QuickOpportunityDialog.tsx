@@ -37,6 +37,14 @@ export function QuickOpportunityDialog({ open, onOpenChange }: { open: boolean; 
     queryFn: async () => ((await supabase.from("companies").select("id, name").order("name")).data ?? []) as { id: string; name: string }[],
   });
   const team = useQuery({ queryKey: ["team"], enabled: open, queryFn: listTeamMembers });
+  // Image 25: open packages a new contractor quote can join (primaries only).
+  const packages = useQuery({
+    queryKey: ["open-packages"],
+    enabled: open,
+    queryFn: async () =>
+      ((await supabase.from("opportunities").select("id, project_name, client").neq("stage", "archived")
+        .not("sales_stage", "in", "(won,lost)").is("extra_data->>value_counted_on", null).order("project_name").limit(1000)).data ?? []) as { id: string; project_name: string | null; client: string | null }[],
+  });
   const names = (companies.data ?? []).map((c) => c.name);
   const canPickOwner = canAssignOwner(roles);
 
@@ -66,6 +74,14 @@ export function QuickOpportunityDialog({ open, onOpenChange }: { open: boolean; 
             }]
           : []),
         { key: "source", type: "select", label: ar ? "المصدر" : "Source", required: true, options: SOURCES.map((x) => ({ value: x.value, label: ar ? x.ar : x.en })) },
+        {
+          key: "package", type: "select", label: ar ? "حزمة المشروع" : "Project package", required: true, defaultValue: "separate",
+          options: [{ value: "separate", label: ar ? "فرصة مستقلة" : "Create separate opportunity" }, { value: "link", label: ar ? "ربط بحزمة قائمة (مقاول آخر)" : "Link to existing package (another contractor)" }],
+        },
+        {
+          key: "packageId", type: "select", label: ar ? "الحزمة القائمة" : "Existing package", required: true, showWhen: { field: "package", equals: "link" },
+          options: (packages.data ?? []).map((p) => ({ value: p.id, label: `${p.project_name ?? "—"}${p.client ? ` — ${p.client}` : ""}` })),
+        },
         { key: "nextAction", type: "text", label: ar ? "الإجراء التالي" : "Next action", required: true },
         { key: "nextDate", type: "date", label: ar ? "موعد المتابعة" : "Follow-up date", required: true },
       ]}
@@ -77,6 +93,7 @@ export function QuickOpportunityDialog({ open, onOpenChange }: { open: boolean; 
           const opp = await createOpportunityForCompany({
             companyId, projectName: v.projectName, ownerId: v.ownerId || null, source: v.source,
             nextAction: v.nextAction, nextActionDue: v.nextDate,
+            valueCountedOn: v.package === "link" ? v.packageId : null,
           });
           await scheduleFollowUp({ opportunityId: opp.id, dueDate: v.nextDate, notes: v.nextAction, ownerId: v.ownerId || undefined });
           toast.success(ar ? "أُنشئت الفرصة" : "Opportunity created");

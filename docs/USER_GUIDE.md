@@ -428,6 +428,8 @@ hide a record from the deadline queue.
 
 ### Step 4 — Work the JIH stages
 
+> **Since 2026-11-18 (images 21–28):** the deal page shows a seven-step path — **Qualified → RFQ → Pricing → Submitted → Negotiation → Verbal award → Signed**. **Update stage** asks for the new stage, effective date, a reason, the stage's own fields, and the next action with its follow-up date. **Set contractor hold** keeps the stage and resumes to it. **Close as lost / Cancelled** records outcome, reason, competitor and decision date; reminders stop, history stays. A closed deal shows **Reopen (requires reason)**. On an RFQ at *RFQ received*, **Start pricing** moves it to *Pricing*. Tabs: Summary · Activity · Quotations (with the contractor package: unique value vs total quoted) · Handover (readiness: contract, payment schedule, retention, PM). The sales team sidebar is: Dashboard (manager: Command Center; salesperson: My dashboard), My Day (Tasks · Calendar · Meetings · Approvals, plus **Record meeting**), Opportunities, Quotations, Customers, Reports, Settings (manager and coordinator: Import · Access · Audit log). A new opportunity can be **linked to an existing package** when another contractor is quoting the same project.
+
 Open the opportunity. Use **Advance Stage** to move it. The system only offers legal next
 steps — you cannot skip backwards or jump illegally.
 
@@ -1823,3 +1825,4 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-16 · one Riyadh "today", KPIs on the canonical engine, missing values shown as — with a count, bilingual KPI definitions · branch fix/kpi-riyadh, not deployed · previous: master list sync, 2026-11-12 -->
 
 <!-- last reviewed 2026-11-18 · master list import page (branch feat/master-list-import) · weekly change report + similar-name warning (branch feat/weekly-report-dedupe) · deal page tabs + quotation revision value/reason (branch feat/deal-page-tabs) · sales sidebar + My Day follow-up tabs and close-out (branch feat/sales-daily-screens) · sales definitions: signed sales, company target, hold keeps stage, Quote submitted label (branch feat/sales-definitions) · previous 2026-11-17: board closing brief (branch feat/board-closing-focus) · November 2026 master list on the deal page (branch feat/master-list-nov-2026) · previous: Command Center becomes the company report (management only); sales detail moves to Sales Management → Follow-up & priorities · branch feat/company-command-center · previous: 2026-11-16 -->
+<!-- last reviewed 2026-11-18 · sales team interface to images 21–28: seven-stage path (qualified, pricing), deal page dialogs + reopen, My Day tabs, Settings tabs, package linking (branch feat/sales-stages-v2) -->

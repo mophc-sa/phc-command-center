@@ -646,7 +646,7 @@ function OpportunityDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("rfqs")
-        .select("id, classification, rfq_number, response_due_date, notes, document_url, document_storage_path, assigned_to")
+        .select("id, classification, rfq_number, received_date, response_due_date, notes, document_url, document_storage_path, assigned_to, contact:contacts(name)")
         .eq("opportunity_id", id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -1016,8 +1016,47 @@ function OpportunityDetail() {
             ) : undefined
           }
         >
+          {/* Image 23: the RFQ facts, how complete it is, and the step into pricing. */}
+          {(() => {
+            const r = rfqQ.data as any;
+            const checks = [
+              { k: lang === "ar" ? "تاريخ الاستلام" : "Received date", ok: !!r.received_date },
+              { k: lang === "ar" ? "موعد التقديم" : "Submission deadline", ok: !!r.response_due_date },
+              { k: lang === "ar" ? "جهة الاتصال" : "Contact", ok: !!r.contact?.name },
+              { k: lang === "ar" ? "النطاق" : "Scope", ok: !!o.technical_notes },
+              { k: lang === "ar" ? "الملفات" : "Files", ok: !!(r.document_storage_path || r.document_url) },
+            ];
+            const done = checks.filter((c) => c.ok).length;
+            return (
+              <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_18rem]">
+                <dl className="grid gap-2 text-sm">
+                  {[
+                    [lang === "ar" ? "تاريخ الاستلام" : "Received date", r.received_date],
+                    [lang === "ar" ? "موعد التقديم" : "Submission deadline", r.response_due_date ?? (lang === "ar" ? "غير معروف" : "Unknown")],
+                    [lang === "ar" ? "جهة الاتصال" : "Contact", r.contact?.name ?? null],
+                    [lang === "ar" ? "النطاق" : "Scope", o.technical_notes ?? null],
+                  ].map(([k, v]) => (
+                    <div key={k} className="grid grid-cols-[10rem_1fr] gap-3"><dt className="text-muted-foreground">{k}</dt><dd className="font-medium">{v ?? "—"}</dd></div>
+                  ))}
+                </dl>
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex items-center justify-between text-sm font-semibold">
+                    <span>{lang === "ar" ? "اكتمال المتطلبات" : "Requirement completeness"}</span>
+                    <span className="tabular-nums">{done}/{checks.length}</span>
+                  </div>
+                  <ul className="mt-2 grid gap-1 text-sm">
+                    {checks.map((c) => <li key={c.k} className={c.ok ? "text-foreground" : "text-muted-foreground"}>{c.ok ? "✓" : "○"} {c.k}</li>)}
+                  </ul>
+                  {o.sales_stage === "rfq_received" ? (
+                    <button type="button" onClick={() => setMoveTo("pricing")} className="mt-3 min-h-10 w-full rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+                      {lang === "ar" ? "ابدأ التسعير" : "Start pricing"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })()}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <DataField label={t("ibx_deadline")} value={rfqQ.data.response_due_date} />
             <DataField
               label={t("label_pending_on")}
               value={rfqQ.data.assigned_to ? ((teamQ.data ?? []).find((m: any) => m.id === rfqQ.data!.assigned_to)?.full_name ?? "—") : null}

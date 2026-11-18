@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { MyDayTabs } from "@/components/phc/MyDayTabs";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -178,6 +179,7 @@ function ApprovalsPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
+      <MyDayTabs />
       <PageHeader
         eyebrow="Governance"
         title={t("nav_approvals")}
