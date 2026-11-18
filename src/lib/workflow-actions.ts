@@ -53,7 +53,8 @@ const TRANSITIONS: Record<string, SalesStage[]> = {
   contract_received: ["contract_signed", "won", "on_hold"],
   contract_signed: ["won", "on_hold"],
   won: [],
-  lost: [],
+  // Reopen (image 24): back to a live stage, with a reason; history is kept.
+  lost: ["qualified", "rfq_received", "pricing", "jih", "jih_bafo", "under_negotiation", "verbally_awarded"],
   on_hold: ["qualified", "rfq_received", "pricing", "jih", "jih_bafo", "under_negotiation", "verbally_awarded"],
 };
 /** On hold, the stage the deal was at (hold_from_stage) is offered first: resuming returns to it. */
