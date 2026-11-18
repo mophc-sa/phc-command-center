@@ -190,6 +190,17 @@ jobs:
       - name: Verify source
         run: bun run verify
 
+      # Wrangler defaults preview_urls to workers_dev, which a custom-domain
+      # deploy leaves off — so every production deploy switched Preview URLs off
+      # and the next canary had no URL to check (2026-11-17, 2026-11-18).
+      - name: Keep Preview URLs on
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq '.preview_urls = true' .output/server/wrangler.json > "${RUNNER_TEMP}/wrangler.json"
+          mv "${RUNNER_TEMP}/wrangler.json" .output/server/wrangler.json
+          jq -e '.preview_urls == true' .output/server/wrangler.json >/dev/null
+
       - name: Upload canary version
         if: env.DEPLOY_TARGET == 'canary'
         shell: bash
