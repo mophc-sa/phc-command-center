@@ -1881,7 +1881,12 @@ function OpportunityDetail() {
       {show("outcome") && (
       <Panel title={t("section_contract_stage")} subtitle={t("contract_stage_hint")}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <StatusPill tone="muted">{humanize(o.sales_stage ?? o.stage)}</StatusPill>
+          <StatusPill tone="muted">
+            {humanize(o.sales_stage ?? o.stage)}
+            {o.sales_stage === "on_hold" && (o as { hold_from_stage?: string | null }).hold_from_stage
+              ? ` · ${t("hold_kept_at")}: ${t(`sstage_${(o as { hold_from_stage?: string }).hold_from_stage}` as never)}`
+              : ""}
+          </StatusPill>
           {canManageContract ? (
             <button
               type="button"

@@ -78,13 +78,12 @@ describe("the ranked list looks ranked", () => {
   });
 });
 
-describe("won year to date says how its dates are known", () => {
-  it("prints the award-date basis and counts only Won (2026-11-17 brief)", () => {
-    // The weighted-forecast card it replaced could not be computed (no probabilities).
-    const at = BOARD.indexOf('en="Won year to date"');
+describe("signed sales count only from a contract or PO", () => {
+  it("names the document rule and lists won deals without one (2026-11-18)", () => {
+    const at = BOARD.indexOf('en="Signed sales year to date"');
     expect(at).toBeGreaterThan(-1);
-    const card = BOARD.slice(at, at + 1200);
-    expect(card).toContain("award date from the master list");
+    const card = BOARD.slice(at, at + 900);
+    expect(card).toContain("won without a document");
     expect(card).toContain("Verbal awards and open quotations are excluded");
   });
 });

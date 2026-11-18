@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useSupabaseAuth";
 import { useI18n, formatCurrency, formatNumber, localeFor } from "@/lib/i18n";
 import { riyadhDay, addDays } from "@/lib/riyadh-day";
 import { fetchAllRows } from "@/lib/fetch-all";
-import { executiveKpis, forecastVsTarget, thisMonth, yearToDate, type OppRow } from "@/lib/sales-kpis";
+import { companyTargetSum, executiveKpis, forecastVsTarget, thisMonth, yearToDate, type OppRow } from "@/lib/sales-kpis";
 import { canSeeCommandCenter, type AppRole } from "@/lib/roles";
 import { canSeeCollections } from "@/lib/contract-billing";
 import { canSeePricingNav } from "@/lib/pricing-access";
@@ -44,7 +44,7 @@ export const Route = createFileRoute("/_authenticated/command-center")({
 });
 
 const OPP_COLS =
-  "id, project_name, stage, sales_stage, tier, score, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, human_win_probability, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, last_activity_at, won_at, lost_at, updated_at, created_at";
+  "id, project_name, stage, sales_stage, tier, score, estimated_value_min, estimated_value_max, quotation_value, contract_value, currency, owner_id, human_win_probability, loss_reason, lost_at_stage, lost_to_competitor, expected_contract_date, last_activity_at, won_at, lost_at, contract_received_date, contract_signed_date, updated_at, created_at";
 
 /** Exact row count, or null when the table cannot be read (never a silent 0). */
 async function count(q: PromiseLike<{ count: number | null; error: unknown }>): Promise<number | null> {
@@ -69,13 +69,12 @@ function CommandCenter() {
       const monthStart = `${today.slice(0, 7)}-01`;
       const [opps, annual, monthly] = await Promise.all([
         fetchAllRows(() => supabase.from("opportunities").select(OPP_COLS)),
-        supabase.from("sales_targets").select("sales_target").eq("period_type", "annual").eq("period_start", annYear),
-        supabase.from("sales_targets").select("sales_target").eq("period_type", "monthly").eq("period_start", monthStart),
+        supabase.from("sales_targets").select("user_id, sales_target").eq("period_type", "annual").eq("period_start", annYear),
+        supabase.from("sales_targets").select("user_id, sales_target").eq("period_type", "monthly").eq("period_start", monthStart),
       ]);
       if (annual.error) throw annual.error;
       if (monthly.error) throw monthly.error;
-      const sum = (rows: Array<{ sales_target: number | null }> | null) =>
-        (rows ?? []).reduce((s, r) => s + Number(r.sales_target ?? 0), 0);
+      const sum = companyTargetSum;
       const annualSum = sum(annual.data);
       return {
         opps: opps.rows as unknown as OppRow[],
@@ -192,7 +191,7 @@ function CommandCenter() {
           <>
             <KpiRow className="executive-scorecard">
               <KpiTile size="lead" kpi={kpis.forecast.target} label={ar ? "هدف الشركة" : "Company target"} hint={periodLabel} accent="count" icon={<Target className="h-4 w-4" />} />
-              <KpiTile size="lead" kpi={kpis.forecast.won} label={ar ? "المحقق (Won)" : "Won"} hint={periodLabel} accent="won" icon={<Wallet className="h-4 w-4" />} />
+              <KpiTile size="lead" kpi={kpis.forecast.won} label={ar ? "المبيعات المتعاقد عليها" : "Signed sales"} hint={periodLabel} accent="won" icon={<Wallet className="h-4 w-4" />} />
               <KpiTile size="lead" kpi={kpis.forecast.achievement} label={ar ? "نسبة تحقيق الهدف" : "Target achievement"} hint={periodLabel} accent="won" icon={<Target className="h-4 w-4" />} />
               <KpiTile size="lead" kpi={kpis.exec.openPipeline} label={ar ? "خط المبيعات المفتوح" : "Open pipeline"} hint={ar ? "الوضع الحالي" : "Current position"} accent="money" icon={<Activity className="h-4 w-4" />} />
             </KpiRow>

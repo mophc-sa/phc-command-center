@@ -83,7 +83,7 @@ import {
 } from "@/lib/board-closing";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { canonicalStageOf, inPeriod, isWon, winRate, wonDate, yearToDate } from "@/lib/sales-kpis";
+import { canonicalStageOf, companyTargetSum, inPeriod, isWon, winRate, wonDate, yearToDate, type TargetRow } from "@/lib/sales-kpis";
 import { fetchRequiredRows } from "@/lib/fetch-all";
 import { supabase } from "@/integrations/supabase/client";
 import { dueForRefresh, keepAlive } from "@/lib/session-keepalive";
@@ -253,7 +253,7 @@ function useBoardData() {
       const [opps, approvals, followUps, quotations, tenders, inbox, targets, profiles, moves] =
         await Promise.all([
           fetchRequiredRows(() => supabase.from("opportunities").select(
-            "id, project_name, client, owner_id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, human_win_probability, expected_contract_date, next_action, next_action_due, last_activity_at, won_at, lost_at, created_at, extra_data, hold_reason, contract_signed_date, contract_received_date",
+            "id, project_name, client, owner_id, stage, sales_stage, contract_value, quotation_value, estimated_value_max, human_win_probability, expected_contract_date, next_action, next_action_due, last_activity_at, won_at, lost_at, created_at, extra_data, hold_reason, hold_from_stage, contract_signed_date, contract_received_date",
           ).neq("stage", "archived").order("id")),
           fetchRequiredRows(() => supabase.from("approvals").select("created_at").eq("status", "pending").order("id")),
           fetchRequiredRows(() => supabase.from("follow_ups").select("opportunity_id, due_date, status, updated_at").in("status", ["scheduled", "completed"]).order("id")),
@@ -827,7 +827,7 @@ function BoardPage() {
       period_type: string;
       period_start: string;
     }>(data.targets)) {
-      if (t.period_type !== "annual" || !t.period_start.startsWith(year)) continue;
+      if (t.period_type !== "annual" || !t.period_start.startsWith(year) || t.user_id === null) continue;
       targets.set(t.user_id, Number(t.sales_target) || 0);
     }
     const labels = new Map<string, string>();
@@ -837,7 +837,8 @@ function BoardPage() {
     // The annual target for the whole company is the sum of the individual
     // rows: sales_targets is keyed per user, so a company figure has no row of
     // its own. Summing is the honest reading of the schema as it stands.
-    const annual = [...targets.values()].reduce((a, v) => a + v, 0) || null;
+    // The company row (user_id NULL) is the company target; personal rows no longer add up to it (2026-11-18).
+    const annual = companyTargetSum(rows<TargetRow>(data.targets).filter((t) => t.period_type === "annual" && t.period_start?.startsWith(year))) || null;
     const intel = opps as unknown as IntelOpp[];
     const weighted = weightedPipeline(intel);
     // Win rate this year: the engine's winRate over the Riyadh year to date —
@@ -1009,15 +1010,15 @@ function BoardPage() {
           }}
         >
           <div className="grid grid-cols-5 gap-[0.7vw]">
-            {/* Achieved = confirmed Won only, by award date, Riyadh calendar.
-                No contract date is recorded yet, so the date basis is printed. */}
+            {/* Achieved = signed sales: a recorded contract or PO, by its date, Riyadh
+                calendar (Mo, 2026-11-18). Won deals without a document are listed apart. */}
             <Kpi
               icon={TrendingUp} tone="won" lang={lang}
-              ar="الإنجاز منذ بداية السنة" en="Won year to date"
+              ar="المبيعات المتعاقد عليها" en="Signed sales year to date"
               value={splitCompact(model.closing.target.won.value, lang)?.n ?? null}
               unit={splitCompact(model.closing.target.won.value, lang)?.unit}
-              foot={`${model.closing.target.won.count} won · ${model.closing.target.listDated ? "award date from the master list (no contract date entered)" : "by contract date"}${model.closing.target.undated.count ? ` · ${model.closing.target.undated.count} won without a date` : ""}`}
-              onOpen={() => openList("Won year to date", model.closing.target.won.rows, "Confirmed Won only. Verbal awards and open quotations are excluded. Date basis: the award date recorded from the master list; no contract or PO date has been entered.")}
+              foot={`${model.closing.target.won.count} with contract or PO · ${model.closing.target.undated.count} won without a document`}
+              onOpen={() => openList("Signed sales year to date", model.closing.target.won.rows, "Deals with a recorded contract or PO, by that document's date. Verbal awards and open quotations are excluded; award dates from the master list do not count.")}
             />
             <Kpi
               icon={Award} tone="danger" lang={lang}

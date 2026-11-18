@@ -116,7 +116,7 @@ export function RfqJihPanel() {
   const { data: opps = [], isLoading } = useQuery({
     queryKey: ["opps-sales-stage"],
     queryFn: async () =>
-      (await supabase.from("opportunities").select("id, project_name, sales_stage, win_confidence, estimated_value_max, currency, action_required").not("sales_stage", "is", null).order("updated_at", { ascending: false })).data ?? [],
+      (await supabase.from("opportunities").select("id, project_name, sales_stage, hold_from_stage, win_confidence, estimated_value_max, currency, action_required").not("sales_stage", "is", null).order("updated_at", { ascending: false })).data ?? [],
   });
   const { data: companies = [] } = useQuery({
     queryKey: ["companies-min"],
@@ -269,13 +269,16 @@ export function RfqJihPanel() {
                         <Link to="/opportunities/$id" params={{ id: o.id }} className="block truncate text-base font-medium text-foreground hover:underline">
                           {o.project_name}
                         </Link>
+                        {o.sales_stage === "on_hold" && o.hold_from_stage ? (
+                          <div className="mt-1 text-xs text-muted-foreground">{t("hold_kept_at")}: {sstageLabel(o.hold_from_stage)}</div>
+                        ) : null}
                         <div className="mt-1.5 flex items-center justify-between gap-2">
                           <span className="num text-xs text-muted-foreground" data-tabular="true">
                             {formatCurrency(o.estimated_value_max, lang, o.currency)}
                           </span>
                           <div className="flex flex-wrap justify-end gap-1">
                             {o.action_required ? <StatusPill tone="attention">!</StatusPill> : null}
-                            {nextSalesStages(o.sales_stage).map((ns) => (
+                            {nextSalesStages(o.sales_stage, o.hold_from_stage).map((ns) => (
                               <button
                                 key={ns}
                                 onClick={() => setAdvance({ opp: o, toStage: ns })}

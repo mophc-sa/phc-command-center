@@ -73,13 +73,16 @@ export const strings = {
   // priced", so the English label contradicted its own definition. The Arabic
   // "فرصة قائمة" was always right and is unchanged; "Active JIH" keeps the
   // term the business actually says while removing the won-work reading.
-  sstage_jih: { en: "Active JIH", ar: "فرصة قائمة" },
+  // 2026-11-18 (Omar's CRM review): the stage is a submitted quotation awaiting
+  // the decision; "JIH" is the project classification, not the stage.
+  sstage_jih: { en: "Quote submitted", ar: "عرض مقدَّم" },
   sstage_under_negotiation: { en: "Under Negotiation", ar: "قيد التفاوض" },
   sstage_verbally_awarded: { en: "Verbally Awarded", ar: "ترسية شفهية" },
   sstage_contract_received: { en: "Contract Received", ar: "استلام العقد" },
   sstage_won: { en: "Won", ar: "تم الفوز" },
   sstage_lost: { en: "Lost", ar: "خسرت الفرصة" },
   sstage_on_hold: { en: "On Hold", ar: "معلقة" },
+  hold_kept_at: { en: "stage kept", ar: "المرحلة المحفوظة" },
 
   // Win confidence
   wconf_low: { en: "Low", ar: "ضعيفة" },
@@ -1315,6 +1318,10 @@ export const strings = {
   cav_counted_not_summed: {
     en: "{count} of {total} carry no value and are counted but not summed",
     ar: "{count} من {total} بلا قيمة، تُعَدّ ولا تُجمَع",
+  },
+  cav_won_no_contract: {
+    en: "{count} won deals have no contract or PO recorded and are not counted",
+    ar: "{count} صفقة رابحة بلا عقد أو أمر شراء مسجَّل ولا تُحتسب",
   },
   cav_won_undated: { en: "{count} won deals have no recorded award date", ar: "{count} صفقة رابحة بلا تاريخ ترسية مسجَّل" },
   cav_won_undated_outside_period: {

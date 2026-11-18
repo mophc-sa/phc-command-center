@@ -35,6 +35,8 @@ export type ClosingOpp = {
   last_activity_at?: string | null;
   won_at?: string | null;
   hold_reason?: string | null;
+  /** The stage kept while on hold (2026-11-18). */
+  hold_from_stage?: string | null;
   contract_signed_date?: string | null;
   contract_received_date?: string | null;
   extra_data?: Record<string, unknown> | null;
@@ -85,6 +87,8 @@ export type Rec = {
   holdReason: string | null;
   open: boolean;
   wonAt: string | null;
+  /** The contract or PO date — signed sales count only from it (2026-11-18). */
+  signedAt: string | null;
   /** How the won date is known. No contract date is recorded today, so this is mostly "master_list". */
   wonDateBasis: "contract" | "master_list" | null;
   remarks: string | null;
@@ -177,11 +181,14 @@ export function toRec(o: ClosingOpp): Rec {
     year: received ? Number(received.slice(0, 4)) : cy,
     yearBasis: received ? "received" : cy ? "code" : null,
     held,
-    holdLabel: held ? (pk === "on_hold" ? priority : "On hold") : null,
+    holdLabel: held
+      ? `${pk === "on_hold" ? priority : "On hold"}${o.hold_from_stage ? ` · kept at ${o.hold_from_stage.replace(/_/g, " ")}` : ""}`
+      : null,
     holdReason: held ? str(o.hold_reason) : null,
     open: !!stage && OPEN.includes(stage),
     wonAt: stage === "won" ? (signed ?? (o.won_at ? riyadhDay(new Date(o.won_at)) : null)) : null,
     wonDateBasis: stage === "won" ? (signed ? "contract" : o.won_at ? "master_list" : null) : null,
+    signedAt: stage === "won" || stage === "contract_received" || stage === "contract_signed" ? signed : null,
     remarks: str(nov?.remarks),
   };
 }
@@ -270,15 +277,18 @@ export function rfqIntake(recs: Rec[], today: string) {
   };
 }
 
-/** Won year to date against the annual target, by award date, Riyadh calendar. */
+/**
+ * Signed sales year to date against the company target (Mo, 2026-11-18): a deal
+ * counts once its contract or PO is recorded, by that document's date. Won deals
+ * without a document are listed as missing, never counted.
+ */
 export function targetYtd(recs: Rec[], today: string, target: number | null) {
   const year = today.slice(0, 4);
-  const won = recs.filter((r) => r.stage === "won");
-  const ytd = won.filter((r) => r.wonAt && r.wonAt >= `${year}-01-01` && r.wonAt <= today);
-  const undated = won.filter((r) => !r.wonAt);
+  const ytd = recs.filter((r) => r.signedAt && r.signedAt >= `${year}-01-01` && r.signedAt <= today);
+  const undated = recs.filter((r) => r.stage === "won" && !r.signedAt);
   const b = bucket(ytd.sort(byValue));
   const quarters = [1, 2, 3, 4].map((q) =>
-    bucket(ytd.filter((r) => Math.ceil(Number(r.wonAt!.slice(5, 7)) / 3) === q)),
+    bucket(ytd.filter((r) => Math.ceil(Number(r.signedAt!.slice(5, 7)) / 3) === q)),
   );
   return {
     won: b,
@@ -286,9 +296,8 @@ export function targetYtd(recs: Rec[], today: string, target: number | null) {
     ratio: target ? b.value / target : null,
     remaining: target ? Math.max(target - b.value, 0) : null,
     quarters,
+    /** Won without a contract or PO recorded: not counted until one is entered. */
     undated: bucket(undated),
-    // Every YTD win dated only from the master list (no contract date entered).
-    listDated: ytd.filter((r) => r.wonDateBasis === "master_list").length,
   };
 }
 

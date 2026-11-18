@@ -120,6 +120,7 @@ export const LOST_REASONS: PresetOption[] = [
 // ---- On hold (PRD §29) ------------------------------------------------------
 
 export const ON_HOLD_REASONS: PresetOption[] = [
+  { value: "contractor_hold", en: "Contractor hold", ar: "معلّقة من المقاول" },
   { value: "waiting_client", en: "Waiting Client", ar: "بانتظار العميل" },
   { value: "budget", en: "Budget", ar: "الميزانية" },
   { value: "design_pending", en: "Design Pending", ar: "التصميم قيد الإعداد" },

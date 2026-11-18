@@ -54,8 +54,10 @@ const TRANSITIONS: Record<string, SalesStage[]> = {
   lost: [],
   on_hold: ["jih", "jih_bafo", "under_negotiation", "verbally_awarded", "rfq_received"],
 };
-export function nextSalesStages(from: SalesStage | null): SalesStage[] {
-  return TRANSITIONS[from ?? "jih"] ?? [];
+/** On hold, the stage the deal was at (hold_from_stage) is offered first: resuming returns to it. */
+export function nextSalesStages(from: SalesStage | null, holdFrom?: SalesStage | null): SalesStage[] {
+  const next = TRANSITIONS[from ?? "jih"] ?? [];
+  return from === "on_hold" && holdFrom && next.includes(holdFrom) ? [holdFrom, ...next.filter((s) => s !== holdFrom)] : next;
 }
 
 // All sensitive transitions run through the backend layer (requirement checks,

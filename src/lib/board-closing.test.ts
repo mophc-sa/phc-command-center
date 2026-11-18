@@ -114,15 +114,17 @@ describe("board closing view", () => {
     expect(r.months[10].count).toBe(1);
   });
 
-  it("counts only Won toward the target, by award date", () => {
+  it("counts only signed sales (contract / PO) toward the target, by document date", () => {
     const t = targetYtd(
       [
         opp({
           sales_stage: "won",
           stage: "won",
           won_at: "2026-02-10T00:00:00Z",
+          contract_received_date: "2026-02-10",
           quotation_value: 10,
         }),
+        opp({ sales_stage: "won", stage: "won", won_at: "2026-03-01T00:00:00Z", quotation_value: 5 }),
         opp({ sales_stage: "verbally_awarded", quotation_value: 99 }),
         opp({
           sales_stage: "won",
@@ -137,7 +139,7 @@ describe("board closing view", () => {
     expect(t.won.value).toBe(10);
     expect(t.ratio).toBe(0.25);
     expect(t.quarters[0].value).toBe(10);
-    expect(t.listDated).toBe(1);
+    expect(t.undated.count).toBe(2);
   });
 
   it("missing next-action dates are missing, not overdue", () => {
