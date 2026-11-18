@@ -46,8 +46,25 @@ export function QuotationRevisions({ fileId, canSend, onChanged }: { fileId: str
   const list = revs.data ?? [];
   if (list.length === 0) return <p className="text-sm text-muted-foreground">{pick(TEXT.none, lang)}</p>;
 
+  // Image 09: the current revision, its value and the tax basis, above the history.
+  const current = list.find((r) => r.is_current) ?? list[0];
   return (
     <>
+      <div className="mb-4 grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-3">
+        <div>
+          <div className="text-sm text-muted-foreground">{lang === "ar" ? "الإصدار الحالي" : "Current revision"}</div>
+          <div className="text-2xl font-bold text-foreground">{revisionLabel(current.revision_number)}</div>
+        </div>
+        <div className="sm:border-s sm:border-border sm:ps-4">
+          <div className="text-sm text-muted-foreground">{lang === "ar" ? "القيمة الحالية" : "Current value"}</div>
+          <div className="text-2xl font-bold tabular-nums text-foreground">{current.currency} {money(current.subtotal_excl_vat)}</div>
+        </div>
+        <div className="sm:border-s sm:border-border sm:ps-4">
+          <div className="text-sm text-muted-foreground">{lang === "ar" ? "الضريبة" : "Tax"}</div>
+          <div className="text-base font-semibold text-foreground">{lang === "ar" ? "بدون ضريبة القيمة المضافة" : "Excl. VAT"}</div>
+          <div className="text-sm tabular-nums text-muted-foreground">{lang === "ar" ? "شاملة الضريبة" : "Incl. VAT"} {money(current.total_incl_vat)}</div>
+        </div>
+      </div>
       <Table>
         <TableHeader>
           <TableRow>

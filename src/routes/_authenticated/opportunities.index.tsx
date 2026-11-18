@@ -17,8 +17,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, LayoutGrid, Rows3, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { CANONICAL_STAGES, canonicalStageLabelKey, resolveCanonicalStage } from "@/lib/stage-canonical";
-import { CompletionBar } from "@/components/phc/CompletionBar";
-import { updateKindLabel } from "@/lib/project-tracking";
 import type { OpportunitySearch } from "@/lib/drilldown";
 import {
   DEFAULT_SEARCH,
@@ -27,9 +25,10 @@ import {
   matchesOpportunitySearch,
   parseOpportunitySearch,
 } from "@/lib/drilldown";
-import { useI18n, formatCurrency, localeFor } from "@/lib/i18n";
+import { useI18n, formatCurrency } from "@/lib/i18n";
 import { OpportunityCard, type OpportunityRow } from "@/components/phc/OpportunityCard";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { QuickOpportunityDialog } from "@/components/phc/QuickOpportunityDialog";
 import { KpiTile } from "@/components/phc/KpiTile";
 import {
   companyTargetSum, commercialBookKpis, thisMonth, yearToDate, type ClassifiedRow ,
@@ -49,7 +48,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { humanize } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/opportunities/")({
   // Phase 5: parsed by the shared drilldown contract so a KPI link and this
@@ -93,6 +91,7 @@ function stageFilterLabel(stage: string, t: (k: string) => string): string {
 function OppList() {
   const { t, lang } = useI18n();
   const navigate = useNavigate();
+  const [newOpen, setNewOpen] = useState(false);
   const routeSearch = Route.useSearch();
   const { q: search, stage, tier, view } = routeSearch;
 
@@ -152,7 +151,7 @@ function OppList() {
     },
   });
 
-  type SortKey = "classification" | "sales_code" | "project_name" | "amount" | "quotation_status" | "submission_date" | "client_company" | "stage" | "completion" | "last_update";
+  type SortKey = "classification" | "sales_code" | "project_name" | "amount" | "quotation_status" | "submission_date" | "client_company" | "stage" | "completion" | "last_update" | "next_action";
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
   const toggleSort = (key: SortKey) =>
     setSort((prev) => (prev?.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
@@ -210,6 +209,8 @@ function OppList() {
         // Unknown progress sorts below 0%: nobody has reported it.
         case "completion": return o.completion_pct ?? -1;
         case "last_update": return latestUpdate(o)?.created_at ?? "";
+        // Undated next steps sort last when ascending: they have no date to keep.
+        case "next_action": return o.next_action_due ?? "9999";
       }
     };
     const sorted = [...rows].sort((a, b) => {
@@ -285,7 +286,13 @@ function OppList() {
           "Opportunities — every opportunity" over a list of four. Naming the
           view is what tells someone the filter took effect rather than the
           page being broken (client feedback 2026-08-25). */}
+      <QuickOpportunityDialog open={newOpen} onOpenChange={setNewOpen} />
       <PageHeader
+        actions={
+          <button type="button" onClick={() => setNewOpen(true)} className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+            + {lang === "ar" ? "فرصة جديدة" : "New opportunity"}
+          </button>
+        }
         eyebrow={lang === "ar" ? "خط الأنابيب" : "Pipeline"}
         title={routeSearch.stage === "awarded" ? t("nav_awarded_projects") : t("nav_opportunities")}
         description={
@@ -480,52 +487,46 @@ function OppList() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border/70 bg-surface/60">
-          <Table className="min-w-[960px]">
+          {/* Image 03: project, customer, stage, next action — readable without zooming. */}
+          <Table className="min-w-[760px]">
             <TableCaption>{t("nav_opportunities")}</TableCaption>
-            <TableHeader><TableRow>
+            <TableHeader className="sticky top-0 z-10 bg-surface"><TableRow>
               {([
-                ["project_name", lang === "ar" ? "المشروع / الإجراء القادم" : "Project / next action"],
-                ["client_company", lang === "ar" ? "العميل" : "Client"],
+                ["project_name", lang === "ar" ? "المشروع" : "Project"],
+                ["client_company", lang === "ar" ? "العميل" : "Customer"],
                 ["stage", lang === "ar" ? "المرحلة" : "Stage"],
-                ["completion", lang === "ar" ? "إنجاز الموقع" : "Construction"],
-                ["last_update", lang === "ar" ? "آخر تحديث" : "Last update"],
-                ["classification", lang === "ar" ? "التصنيف" : "Classification"],
-                ["amount", lang === "ar" ? "القيمة" : "Amount"],
-                ["quotation_status", lang === "ar" ? "حالة العرض" : "Quotation status"],
-                ["submission_date", lang === "ar" ? "تاريخ التقديم" : "Submission date"],
+                ["next_action", lang === "ar" ? "الإجراء التالي" : "Next action"],
+                ["amount", lang === "ar" ? "القيمة" : "Value"],
               ] as const).map(([key, label]) => <TableHead key={key} aria-sort={sort?.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}><SortHeader label={label} active={sort?.key === key} dir={sort?.dir} onClick={() => toggleSort(key)} /></TableHead>)}
             </TableRow></TableHeader>
             <TableBody>{win.visible.map((o: any) => {
               const rfq = latestRfq(o);
-              const quote = latestQuotation(o);
               const amount = opportunityValue(o as never);
+              const st = resolveCanonicalStage(o).stage;
+              const late = o.next_action_due && o.next_action_due < riyadhDay();
               return <TableRow key={o.id} className="align-top">
                 {/* The project name is this row's header: it is what identifies
                     the record a screen reader is reading cells from. */}
-                <TableHead scope="row" className="max-w-sm whitespace-normal text-sm font-normal text-foreground">
-                  <Link to="/opportunities/$id" params={{ id: o.id }} className="font-semibold text-foreground hover:underline">{o.project_name}</Link>
-                  {/* Project with contractor (manager feedback 2026-10-19): two
-                      deals on one project for different contractors are not
-                      duplicates, and the name alone made them look like one. */}
-                  {(o.contractor_company?.name ?? o.main_contractor) ? (
-                    <div className="mt-0.5 text-sm text-muted-foreground">{o.contractor_company?.name ?? o.main_contractor}</div>
-                  ) : null}
-                  <div className="mt-1 text-sm text-muted-foreground">{o.next_action || (lang === "ar" ? "الإجراء القادم غير مسجل" : "No next action recorded")}</div>
-                  {/* The deal's code: its RFQ's number, or its own for a deal with no RFQ. */}
-                  {(rfq?.rfq_number ?? o.project_code) ? (
-                    <Link to="/opportunities/$id" params={{ id: o.id }} className="num mt-1 block text-sm text-muted-foreground hover:text-foreground hover:underline" data-tabular="true">
-                      {rfq?.rfq_number ?? o.project_code}
-                    </Link>
-                  ) : null}
+                <TableHead scope="row" className="max-w-sm whitespace-normal text-base font-normal text-foreground">
+                  <Link to="/opportunities/$id" params={{ id: o.id }} className="font-semibold text-foreground hover:underline" title={o.project_name}>{o.project_name}</Link>
+                  <div className="mt-0.5 text-sm text-muted-foreground">
+                    {[rfq?.rfq_number ?? o.project_code, o.contractor_company?.name ?? o.main_contractor].filter(Boolean).join(" · ")}
+                  </div>
                 </TableHead>
-                <TableCell className="max-w-48">{o.company?.name ?? o.client ?? "—"}</TableCell>
-                <TableCell>{(() => { const st = resolveCanonicalStage(o).stage; return st ? <StatusPill tone="neutral">{t(canonicalStageLabelKey(st))}</StatusPill> : "—"; })()}</TableCell>
-                <TableCell className="min-w-28"><CompletionBar pct={o.completion_pct} compact /></TableCell>
-                <TableCell className="whitespace-nowrap text-sm">{(() => { const u = latestUpdate(o); return u ? <><span className="text-foreground">{updateKindLabel(u.kind, lang)}</span><span className="num block text-muted-foreground" data-tabular="true">{new Date(u.created_at).toLocaleDateString(localeFor(lang))}</span></> : "—"; })()}</TableCell>
-                <TableCell>{rfq?.classification ? humanize(rfq.classification) : "—"}</TableCell>
-                <TableCell className="num whitespace-nowrap">{amount === null ? (lang === "ar" ? "غير مسجل" : "Not recorded") : formatCurrency(amount, lang, o.currency)}</TableCell>
-                <TableCell>{quote?.status ? <StatusPill tone={quote.status === "won" ? "positive" : "neutral"}>{humanize(quote.status)}</StatusPill> : "—"}</TableCell>
-                <TableCell className="num whitespace-nowrap">{quote?.issued_date ? new Date(quote.issued_date).toLocaleDateString(localeFor(lang)) : "—"}</TableCell>
+                <TableCell className="max-w-48 text-base">{o.company?.name ?? o.client ?? "—"}</TableCell>
+                <TableCell className="whitespace-nowrap text-base">
+                  {st ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: STAGE_DOT[st] ?? "var(--muted-foreground)" }} aria-hidden="true" />
+                      {t(canonicalStageLabelKey(st))}
+                    </span>
+                  ) : "—"}
+                </TableCell>
+                <TableCell className="max-w-xs whitespace-normal text-base">
+                  {o.next_action || <span className="text-muted-foreground">{lang === "ar" ? "غير مسجل" : "Not recorded"}</span>}
+                  {o.next_action_due ? <span className={`num block text-sm ${late ? "font-semibold text-destructive-on-tint" : "text-muted-foreground"}`} data-tabular="true">{o.next_action_due}</span> : null}
+                </TableCell>
+                <TableCell className="num whitespace-nowrap text-base">{amount === null ? (lang === "ar" ? "غير مسجل" : "Not recorded") : formatCurrency(amount, lang, o.currency)}</TableCell>
               </TableRow>;
             })}</TableBody>
           </Table>
@@ -536,6 +537,13 @@ function OppList() {
     </div>
   );
 }
+
+/** Stage colours: the house pipeline ramp (styles.css --stage-*), outcomes in their own tones. */
+const STAGE_DOT: Record<string, string> = {
+  rfq_received: "var(--stage-1)", jih: "var(--stage-2)", jih_bafo: "var(--stage-3)", under_negotiation: "var(--stage-4)",
+  verbally_awarded: "var(--stage-5)", contract_received: "var(--stage-6)", contract_signed: "var(--stage-7)",
+  won: "var(--won)", lost: "var(--destructive)", on_hold: "var(--muted-foreground)",
+};
 
 function SortHeader({
   label,

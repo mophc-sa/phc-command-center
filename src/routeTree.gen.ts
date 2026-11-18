@@ -37,6 +37,7 @@ import { Route as AuthenticatedDataImportRouteImport } from './routes/_authentic
 import { Route as AuthenticatedDataSyncRouteImport } from './routes/_authenticated/data-sync'
 import { Route as AuthenticatedDiscoveryRouteImport } from './routes/_authenticated/discovery'
 import { Route as AuthenticatedFollowUpsRouteImport } from './routes/_authenticated/follow-ups'
+import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedKnowledgeRouteImport } from './routes/_authenticated/knowledge'
 import { Route as AuthenticatedLeadTenderInboxRouteImport } from './routes/_authenticated/lead-tender-inbox'
 import { Route as AuthenticatedMyWorkspaceRouteImport } from './routes/_authenticated/my-workspace'
@@ -217,6 +218,11 @@ const AuthenticatedDiscoveryRoute = AuthenticatedDiscoveryRouteImport.update({
 const AuthenticatedFollowUpsRoute = AuthenticatedFollowUpsRouteImport.update({
   id: '/follow-ups',
   path: '/follow-ups',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedKnowledgeRoute = AuthenticatedKnowledgeRouteImport.update({
@@ -441,6 +447,7 @@ export interface FileRoutesByFullPath {
   '/data-sync': typeof AuthenticatedDataSyncRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
+  '/home': typeof AuthenticatedHomeRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
   '/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
   '/my-workspace': typeof AuthenticatedMyWorkspaceRoute
@@ -502,6 +509,7 @@ export interface FileRoutesByTo {
   '/data-sync': typeof AuthenticatedDataSyncRoute
   '/discovery': typeof AuthenticatedDiscoveryRoute
   '/follow-ups': typeof AuthenticatedFollowUpsRoute
+  '/home': typeof AuthenticatedHomeRoute
   '/knowledge': typeof AuthenticatedKnowledgeRoute
   '/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
   '/my-workspace': typeof AuthenticatedMyWorkspaceRoute
@@ -568,6 +576,7 @@ export interface FileRoutesById {
   '/_authenticated/data-sync': typeof AuthenticatedDataSyncRoute
   '/_authenticated/discovery': typeof AuthenticatedDiscoveryRoute
   '/_authenticated/follow-ups': typeof AuthenticatedFollowUpsRoute
+  '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/knowledge': typeof AuthenticatedKnowledgeRoute
   '/_authenticated/lead-tender-inbox': typeof AuthenticatedLeadTenderInboxRoute
   '/_authenticated/my-workspace': typeof AuthenticatedMyWorkspaceRoute
@@ -634,6 +643,7 @@ export interface FileRouteTypes {
     | '/data-sync'
     | '/discovery'
     | '/follow-ups'
+    | '/home'
     | '/knowledge'
     | '/lead-tender-inbox'
     | '/my-workspace'
@@ -695,6 +705,7 @@ export interface FileRouteTypes {
     | '/data-sync'
     | '/discovery'
     | '/follow-ups'
+    | '/home'
     | '/knowledge'
     | '/lead-tender-inbox'
     | '/my-workspace'
@@ -760,6 +771,7 @@ export interface FileRouteTypes {
     | '/_authenticated/data-sync'
     | '/_authenticated/discovery'
     | '/_authenticated/follow-ups'
+    | '/_authenticated/home'
     | '/_authenticated/knowledge'
     | '/_authenticated/lead-tender-inbox'
     | '/_authenticated/my-workspace'
@@ -1009,6 +1021,13 @@ declare module '@tanstack/react-router' {
       path: '/follow-ups'
       fullPath: '/follow-ups'
       preLoaderRoute: typeof AuthenticatedFollowUpsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/home': {
+      id: '/_authenticated/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AuthenticatedHomeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/knowledge': {
@@ -1308,6 +1327,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDataSyncRoute: typeof AuthenticatedDataSyncRoute
   AuthenticatedDiscoveryRoute: typeof AuthenticatedDiscoveryRoute
   AuthenticatedFollowUpsRoute: typeof AuthenticatedFollowUpsRoute
+  AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedKnowledgeRoute: typeof AuthenticatedKnowledgeRoute
   AuthenticatedLeadTenderInboxRoute: typeof AuthenticatedLeadTenderInboxRoute
   AuthenticatedMyWorkspaceRoute: typeof AuthenticatedMyWorkspaceRoute
@@ -1355,6 +1375,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDataSyncRoute: AuthenticatedDataSyncRoute,
   AuthenticatedDiscoveryRoute: AuthenticatedDiscoveryRoute,
   AuthenticatedFollowUpsRoute: AuthenticatedFollowUpsRoute,
+  AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedKnowledgeRoute: AuthenticatedKnowledgeRoute,
   AuthenticatedLeadTenderInboxRoute: AuthenticatedLeadTenderInboxRoute,
   AuthenticatedMyWorkspaceRoute: AuthenticatedMyWorkspaceRoute,
