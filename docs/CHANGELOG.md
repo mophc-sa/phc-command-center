@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-18 — Open PR clean-up (branch `chore/integrate-open-prs`)
+
+GitHub Actions pins (#387 + #386 together, CodeQL init/analyze must match; #368 setup-cli 3.2.0; #348 upload-artifact 7.0.2). `@lovable.dev/mcp-js` 2.0.4 (#310): 2.0 no longer generates the `/.mcp/list-tools` and `/.mcp/invoke-tool/$tool` routes, removed. `@lovable.dev/vite-tanstack-config` 2.19.1 (#254); TypeScript stays 5 because typescript-eslint does not support 7 (Dependabot ignores `typescript >=7`). Security hardening from #346: `persist-credentials: false` on checkouts, Dependabot 7-day cooldown, bun 3-day release age, `hono`/`qs`/`ip-address` overrides. Release record from #347.
+
 ## 2026-11-18 — Sales team interface to images 21–28 (branch `feat/sales-stages-v2`, migration `20261118130000`, not deployed)
 
 Real stages `qualified` and `pricing` (enum, both transition maps, checklists, KPIs, 9-step colour ramp). Seven-step chevron path (Qualified → RFQ → Pricing → Submitted → Negotiation → Verbal award → Signed). Sales team (salesperson, sales manager, sales ops) gets one flat sidebar: Dashboard, My Day, Opportunities, Quotations, Customers, Reports, Settings; Dashboard is `/command-center` for the sales manager and the new personal `/my-dashboard` for a salesperson. Deal page: title + contractor/owner/latest quote, Set contractor hold / Close as lost-cancelled / Update stage, hold / closed / signed banners, tabs Summary · Activity · Quotations · Handover, Scope / Next action / Recent activity cards, Opportunity details, `PackagePanel` (unique vs total quoted across contractors), `HandoverReadiness` (contract, payment schedule, retention, PM). `DealStageDialogs`: Update stage (new stage, effective date, reason, stage fields, next action + follow-up), hold, close (outcome, reason, competitor, decision date → `lost_at`; open follow-ups cancelled), reopen from lost with a reason (server: `lost` → live stages, legacy `stage` restored). RFQ panel: received, deadline (Unknown), contact, scope, completeness, Start pricing. My Day tabs (Tasks / Calendar / Meetings / Approvals) and Record meeting (notes, attendees, decisions, actions → follow-ups). Settings tabs Import / Access / Audit log. New opportunity can link to an existing package (`extra_data.value_counted_on`).
@@ -447,7 +451,7 @@ Not yet tried in a browser with a signed-in manager.
   and `@tanstack/router-plugin` 1.168.47 to match. No override needed. The new router types
   `errorComponent`'s `error` as `unknown`, so `__root.tsx` now takes `ErrorComponentProps`.
 
-## 2026-10-07 — Stage playbook (phase 2): checklist per stage, buyer type, account prequalification (not deployed)
+## 2026-10-07 — Stage playbook (phase 2): checklist per stage, buyer type, account prequalification (released `4aeee4c`)
 
 - `supabase/functions/_shared/stage-checklist.ts` (re-exported to the UI): per-canonical-stage "evidence
   of done" items; auto items from data (buyer type, stakeholder roles, prequalification, BOQ items,

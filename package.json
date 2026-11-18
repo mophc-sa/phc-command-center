@@ -86,7 +86,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@lovable.dev/vite-tanstack-config": "2.15.1",
+    "@lovable.dev/vite-tanstack-config": "2.19.1",
     "@playwright/test": "^1.61.1",
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.0",
@@ -108,7 +108,7 @@
     "nanoid": "^3.3.18",
     "js-yaml": "^4.3.2",
     "brace-expansion": "^5.0.12",
-    "ip-address": "^10.3.1",
+    "ip-address": "^10.7.1",
     "fast-uri": "^3.1.6",
     "browserslist": "^4.28.7",
     "seroval": "^1.6.8",
@@ -116,6 +116,8 @@
     "source-map-js": "^1.2.2",
     "shell-quote": "^1.11.0",
     "@modelcontextprotocol/sdk": "^1.31.0",
+    "hono": "^4.13.7",
+    "qs": "^6.16.0",
     "launch-editor": "^2.14.2",
     "body-parser": "^2.4.0",
     "zod": "^4.6.7"
