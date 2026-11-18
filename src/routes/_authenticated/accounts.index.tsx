@@ -14,6 +14,7 @@ import { KpiCard } from "@/components/phc/KpiCard";
 import { EmptyState } from "@/components/phc/EmptyState";
 import { SkeletonCard } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
+import { similarNames } from "@/lib/similar-names";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n } from "@/lib/i18n";
 import { createCompany, type CompanyType, type AccountStatus } from "@/lib/crm-actions";
@@ -228,7 +229,13 @@ function AccountsPage() {
         description={t("crm_pending_review")}
         submitLabel={t("crm_add")}
         fields={[
-          { key: "name", type: "text", label: t("crm_company"), required: true },
+          // Similar-name warning before a duplicate is created (Omar's review, 2026-11-18).
+          { key: "name", type: "autocomplete", label: t("crm_company"), required: true,
+            suggestions: companies.map((c: any) => c.name), knownHint: t("ibx_company_known"),
+            hintFor: (v: string) => {
+              const m = similarNames(v, companies.map((c: any) => c.name));
+              return m.length ? (lang === "ar" ? `مشابه لسجل موجود: ${m.join("، ")} — تحقق قبل الإنشاء` : `Looks like an existing record: ${m.join(", ")} — check before creating`) : null;
+            } },
           {
             key: "companyType",
             type: "select",
