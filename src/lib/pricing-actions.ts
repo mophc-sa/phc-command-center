@@ -612,8 +612,9 @@ export const issueQuotation = (fileId: string, t: QuotationTerms) =>
   });
 
 /** Records that the current approved revision was sent to the client. */
-export const markQuotationSent = (revisionId: string) =>
-  call("pricing_mark_quotation_sent", { _revision_id: revisionId });
+/** Sending also makes this revision's value (excl. VAT) the deal's value; the reason says what changed. */
+export const markQuotationSent = (revisionId: string, changeReason?: string) =>
+  call("pricing_mark_quotation_sent", { _revision_id: revisionId, _change_reason: changeReason ?? null });
 
 /** A client change: a fresh copy of the BOQ and back to package review. */
 export const startClientRound = (fileId: string, note: string) =>
@@ -660,9 +661,11 @@ export type QuoteRevisionRow = {
   approved_at: string | null;
   submitted_at: string | null;
   issued_at: string | null;
+  /** Why this revision differs from the previous one (2026-11-18). */
+  change_reason: string | null;
 };
 const QUOTE_REVISION_COLUMNS =
-  "id, quotation_id, revision_number, status, is_current, currency, subtotal_excl_vat, vat_rate, vat_amount, total_incl_vat, valid_until, payment_terms, delivery_terms, scope_summary, approved_at, submitted_at, issued_at";
+  "id, quotation_id, revision_number, status, is_current, currency, subtotal_excl_vat, vat_rate, vat_amount, total_incl_vat, valid_until, payment_terms, delivery_terms, scope_summary, approved_at, submitted_at, issued_at, change_reason";
 export const listFileQuotations = (fileId: string) =>
   rows<QuoteRevisionRow>(
     db.from("quotation_revisions").select(QUOTE_REVISION_COLUMNS).eq("pricing_file_id", fileId).order("revision_number", { ascending: false }),

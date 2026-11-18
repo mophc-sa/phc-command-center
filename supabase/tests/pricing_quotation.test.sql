@@ -4,7 +4,7 @@
 -- Test user UUIDs use the 8b… prefix. Every session carries aal2.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(23);
 
 insert into auth.users (instance_id, id, aud, role, email, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
@@ -128,6 +128,9 @@ select set_config('request.jwt.claims','{"sub":"8b000000-0000-0000-0000-00000000
 select lives_ok(format($$select public.pricing_mark_quotation_sent('%s')$$, current_setting('pq.rev')), 'The BD manager marks it sent');
 reset role;
 select is((select status::text from public.quotation_revisions where id = current_setting('pq.rev')::uuid), 'submitted', 'Submitted');
+select is((select quotation_value from public.opportunities where id = '8b200001-0000-0000-0000-000000000001'),
+          (select subtotal_excl_vat from public.quotation_revisions where id = current_setting('pq.rev')::uuid),
+          'The sent revision is the deal value, excluding VAT (2026-11-18)');
 
 -- ===== Outside the issue RPC the GM gate stays =====
 -- A revision that claims the file but was not written by the issue RPC is refused.

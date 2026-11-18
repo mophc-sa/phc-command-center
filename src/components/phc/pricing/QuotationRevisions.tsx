@@ -27,6 +27,10 @@ const TEXT = {
   sentDesc: { en: "Do this after you send the PDF. The quotation cannot be edited afterwards; a change needs a new round.", ar: "سجّل هذا بعد إرسال ملف PDF. لا يُعدَّل العرض بعدها؛ أي تغيير يحتاج جولة جديدة." },
   sent: { en: "Recorded as sent", ar: "سُجّل الإرسال" },
   none: { en: "No quotation has been issued from this file yet.", ar: "لم يصدر عرض سعر من هذا الملف بعد." },
+  current: { en: "Current", ar: "الحالي" },
+  reason: { en: "Change reason", ar: "سبب التعديل" },
+  reasonField: { en: "What changed from the previous revision (scope, discount, client request)", ar: "ما الذي تغيّر عن الإصدار السابق (النطاق، خصم، طلب العميل)" },
+  valueNote: { en: "Sending makes this revision's value (excl. VAT) the deal's value; earlier revisions stay recorded.", ar: "الإرسال يجعل قيمة هذا الإصدار (بدون ضريبة) قيمة الفرصة؛ وتبقى الإصدارات السابقة محفوظة." },
 } satisfies Record<string, Bi>;
 
 const TONE = { approved: "attention", submitted: "positive", superseded: "muted", withdrawn: "muted", draft: "neutral", pending_approval: "attention" } as const;
@@ -52,19 +56,24 @@ export function QuotationRevisions({ fileId, canSend, onChanged }: { fileId: str
             <TableHead className="text-end">{pick(TEXT.subtotal, lang)}</TableHead>
             <TableHead className="text-end">{pick(TEXT.total, lang)}</TableHead>
             <TableHead>{pick(TEXT.valid, lang)}</TableHead>
+            <TableHead>{pick(TEXT.reason, lang)}</TableHead>
             <TableHead />
           </TableRow>
         </TableHeader>
         <TableBody>
           {list.map((r) => (
             <TableRow key={r.id}>
-              <TableCell className="font-medium">{revisionLabel(r.revision_number)}</TableCell>
+              <TableCell className="font-medium">
+                {revisionLabel(r.revision_number)}
+                {r.is_current ? <StatusPill tone="attention" className="ms-2">{pick(TEXT.current, lang)}</StatusPill> : null}
+              </TableCell>
               <TableCell>
                 <StatusPill tone={TONE[r.status]}>{pick(QUOTE_STATUS_LABEL[r.status], lang)}</StatusPill>
               </TableCell>
               <TableCell className="text-end tabular-nums">{money(r.subtotal_excl_vat)}</TableCell>
               <TableCell className="text-end tabular-nums">{money(r.total_incl_vat)}</TableCell>
               <TableCell className="tabular-nums">{r.valid_until ?? "—"}</TableCell>
+              <TableCell className="max-w-[16rem] whitespace-normal text-sm text-muted-foreground">{r.change_reason ?? "—"}</TableCell>
               <TableCell className="text-end">
                 <div className="flex justify-end gap-2">
                   {canSend && r.is_current && r.status === "approved" ? (
@@ -85,13 +94,15 @@ export function QuotationRevisions({ fileId, canSend, onChanged }: { fileId: str
         recordId={sendId}
         draftId={false}
         title={pick(TEXT.sentTitle, lang)}
-        description={pick(TEXT.sentDesc, lang)}
-        fields={[]}
+        description={`${pick(TEXT.sentDesc, lang)} ${pick(TEXT.valueNote, lang)}`}
+        fields={list.some((x) => x.revision_number < (list.find((y) => y.id === sendId)?.revision_number ?? 0))
+          ? [{ key: "reason", type: "textarea", label: pick(TEXT.reasonField, lang), required: true }]
+          : []}
         submitLabel={pick(TEXT.markSent, lang)}
-        onSubmit={async () => {
+        onSubmit={async (v) => {
           if (!sendId) return;
           try {
-            await markQuotationSent(sendId);
+            await markQuotationSent(sendId, (v as Record<string, string>).reason);
             toast.success(pick(TEXT.sent, lang));
             onChanged();
           } catch (e) {

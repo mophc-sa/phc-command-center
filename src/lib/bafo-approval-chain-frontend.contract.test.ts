@@ -149,8 +149,9 @@ describe("BafoPanel.tsx", () => {
 describe("opportunities.$id.tsx wiring", () => {
   const routeSrc = src("src/routes/_authenticated/opportunities.$id.tsx");
 
-  test("BafoPanel is imported and mounted under the decision tab", () => {
+  // Since 2026-11-18 the deal page has four tabs; BAFO sits under "Quotes & documents" (evidence).
+  test("BafoPanel is imported and mounted under the quotes tab", () => {
     expect(routeSrc).toMatch(/import \{ BafoPanel \} from "@\/components\/phc\/BafoPanel";/);
-    expect(routeSrc).toMatch(/\{show\("decision"\) && <BafoPanel opportunityId=\{o\.id\} \/>\}/);
+    expect(routeSrc).toMatch(/\{show\("evidence"\) && <BafoPanel opportunityId=\{o\.id\} \/>\}/);
   });
 });

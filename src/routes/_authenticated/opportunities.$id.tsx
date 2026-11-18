@@ -240,8 +240,11 @@ function OpportunityDetail() {
     null,
   );
   const [evidenceOpen, setEvidenceOpen] = useState<any | null>(null);
-  const [filter, setFilter] = useState<TimelineFilter>("all");
-  const show = (k: TimelineFilter) => filter === "all" || filter === k;
+  // Four tabs (Omar's CRM review, 2026-11-18) instead of one long page. Each
+  // tab shows the section groups it owns; the header above stays on every tab.
+  const [tab, setTab] = useState<DealTab>("summary");
+  const show = (k: TimelineFilter) => DEAL_TABS.find((d) => d.key === tab)!.sections.includes(k);
+  const setFilter = (k: TimelineFilter) => setTab(DEAL_TABS.find((d) => d.sections.includes(k))?.key ?? "summary");
   const [scoring, setScoring] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [clientDetailsOpen, setClientDetailsOpen] = useState(false);
@@ -796,8 +799,27 @@ function OpportunityDetail() {
       </div>
 
 
-      {/* Activity Timeline filters */}
-      <TimelineFilterBar value={filter} onChange={setFilter} t={t} />
+      {/* The deal at a glance, on every tab: owner, stage, latest quote, next step. */}
+      <div className="sticky top-0 z-20 -mx-1 grid gap-3 rounded-lg border border-border bg-background/95 px-4 py-3 backdrop-blur sm:grid-cols-2 lg:grid-cols-5">
+        <DataField label={lang === "ar" ? "الكود" : "Code"} value={dealCode} />
+        <DataField label={lang === "ar" ? "مسؤول المبيعات" : "Sales owner"} value={o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : (lang === "ar" ? "بلا مسؤول" : "No owner")} />
+        <DataField
+          label={lang === "ar" ? "المرحلة" : "Stage"}
+          value={
+            (canonicalStage ? t(canonicalStageLabelKey(canonicalStage)) : humanize(o.stage)) +
+            (o.sales_stage === "on_hold" && (o as { hold_from_stage?: string | null }).hold_from_stage
+              ? ` · ${t("hold_kept_at")}: ${t(`sstage_${(o as { hold_from_stage?: string }).hold_from_stage}` as never)}`
+              : "")
+          }
+        />
+        <DataField label={lang === "ar" ? "قيمة آخر عرض" : "Latest quote"} value={o.quotation_value != null ? formatCurrency(Number(o.quotation_value), lang, o.currency ?? "SAR") : null} />
+        <DataField
+          label={lang === "ar" ? "الخطوة التالية وموعدها" : "Next step · due"}
+          value={o.next_action ? `${o.next_action}${o.next_action_due ? ` · ${o.next_action_due}` : ""}` : null}
+        />
+      </div>
+
+      <DealTabBar value={tab} onChange={setTab} lang={lang} />
 
       {/* 1. KEY FACTS + ACTIONS */}
       {show("alert") && (
@@ -938,7 +960,7 @@ function OpportunityDetail() {
           quotation was waiting on Estimation. Faisal: "sometime I'll put some
           date for this thing, so I got some extension ... there is no option
           for the edit for this thing." */}
-      {show("alert") && rfqQ.data ? (
+      {show("evidence") && rfqQ.data ? (
         <Panel
           title={t("section_submission")}
           action={
@@ -1637,7 +1659,7 @@ function OpportunityDetail() {
       )}
 
       {/* 6. APPROVALS & DECISIONS + logged outcomes */}
-      {(show("decision") || show("outcome")) && (
+      {show("follow_up") && (
       <Panel title={t("section_approvals")}>
         {approvalsQ.data && approvalsQ.data.length > 0 ? (
           <ul className="divide-y divide-border/60">
@@ -2073,10 +2095,10 @@ function OpportunityDetail() {
       )}
 
       {/* 7c'. PRICING FILE: state, missing items, the quotation (PR 4). No cost. */}
-      {show("decision") && <DealPricingCard opportunityId={o.id} />}
+      {show("evidence") && <DealPricingCard opportunityId={o.id} />}
 
       {/* 7d. BAFO / COMMERCIAL DISCOUNT APPROVAL CHAIN */}
-      {show("decision") && <BafoPanel opportunityId={o.id} />}
+      {show("evidence") && <BafoPanel opportunityId={o.id} />}
 
       {/* 7c. RISK ASSESSMENT */}
       {(() => {
@@ -2663,41 +2685,32 @@ function ActionButton({
   );
 }
 
-function TimelineFilterBar({
-  value,
-  onChange,
-  t,
-}: {
-  value: TimelineFilter;
-  onChange: (v: TimelineFilter) => void;
-  t: (k: any) => string;
-}) {
-  const items: { key: TimelineFilter; label: string }[] = [
-    { key: "all", label: t("timeline_all") },
-    { key: "alert", label: t("timeline_alert") },
-    { key: "evidence", label: t("timeline_evidence") },
-    { key: "decision", label: t("timeline_decision") },
-    { key: "assignment", label: t("timeline_assignment") },
-    { key: "follow_up", label: t("timeline_follow_up") },
-    { key: "outcome", label: t("timeline_outcome") },
-  ];
+type DealTab = "summary" | "activity" | "quotes" | "contract";
+const DEAL_TABS: { key: DealTab; en: string; ar: string; sections: TimelineFilter[] }[] = [
+  { key: "summary", en: "Summary", ar: "الملخص", sections: ["alert", "assignment", "decision"] },
+  { key: "activity", en: "Activity & follow-up", ar: "النشاط والمتابعة", sections: ["follow_up"] },
+  { key: "quotes", en: "Quotes & documents", ar: "العروض والمستندات", sections: ["evidence"] },
+  { key: "contract", en: "Contract & handover", ar: "التعاقد والتسليم", sections: ["outcome"] },
+];
+
+function DealTabBar({ value, onChange, lang }: { value: DealTab; onChange: (v: DealTab) => void; lang: Lang }) {
   return (
-    <div className="flex flex-wrap gap-1.5 rounded-lg border border-border bg-surface p-1.5">
-      {items.map((it) => {
-        const active = value === it.key;
+    <div role="tablist" className="flex flex-wrap gap-1.5 border-b border-border">
+      {DEAL_TABS.map((d) => {
+        const active = value === d.key;
         return (
           <button
-            key={it.key}
+            key={d.key}
             type="button"
-            onClick={() => onChange(it.key)}
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(d.key)}
             className={
-              "rounded-md px-3 py-1 text-xs transition-colors " +
-              (active
-                ? "bg-amber/15 text-amber-light"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground")
+              "-mb-px min-h-10 border-b-2 px-4 text-sm font-medium transition-colors " +
+              (active ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")
             }
           >
-            {it.label}
+            {lang === "ar" ? d.ar : d.en}
           </button>
         );
       })}
