@@ -2,7 +2,7 @@
 
 ## 2026-11-18 — Open PR clean-up (branch `chore/integrate-open-prs`)
 
-GitHub Actions pins (#387 + #386 together, CodeQL init/analyze must match; #368 setup-cli 3.2.0; #348 upload-artifact 7.0.2). `@lovable.dev/mcp-js` 2.0.4 (#310): 2.0 no longer generates the `/.mcp/list-tools` and `/.mcp/invoke-tool/$tool` routes, removed. `@lovable.dev/vite-tanstack-config` 2.19.1 (#254); TypeScript stays 5 because typescript-eslint does not support 7 (Dependabot ignores `typescript >=7`). Security hardening from #346: `persist-credentials: false` on checkouts, Dependabot 7-day cooldown, bun 3-day release age, `hono`/`qs`/`ip-address` overrides. Release record from #347.
+GitHub Actions pins (#387 + #386 together, CodeQL init/analyze must match; #368 setup-cli 3.2.0; #348 upload-artifact 7.0.2). `@lovable.dev/mcp-js` 2.0.4 (#310): 2.0 no longer generates the `/.mcp/list-tools` and `/.mcp/invoke-tool/$tool` routes, removed. `@lovable.dev/vite-tanstack-config` 2.19.1 (#254); TypeScript stays 5 because typescript-eslint does not support 7 (Dependabot ignores `typescript >=7`). Security hardening from #346: `persist-credentials: false` on checkouts, Dependabot 7-day cooldown, bun 3-day release age, `hono`/`qs`/`ip-address` overrides. `@modelcontextprotocol/server` pinned to ^2.4.0 (mcp-js 2.0.4 pulled 2.0.0 with three high advisories). Release record from #347.
 
 ## 2026-11-18 — Sales team interface to images 21–28 (branch `feat/sales-stages-v2`, migration `20261118130000`, not deployed)
 

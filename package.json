@@ -116,6 +116,7 @@
     "source-map-js": "^1.2.2",
     "shell-quote": "^1.11.0",
     "@modelcontextprotocol/sdk": "^1.31.0",
+    "@modelcontextprotocol/server": "^2.4.0",
     "hono": "^4.13.7",
     "qs": "^6.16.0",
     "launch-editor": "^2.14.2",
