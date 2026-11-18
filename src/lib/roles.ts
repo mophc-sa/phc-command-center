@@ -108,6 +108,10 @@ export const isSalesOnly = (r: RoleInput) =>
   isSalesperson(r) && !isSalesManager(r) && !isBdOrSalesOps(r) && !isExecutive(r) &&
   !isFinanceManager(r) && !isEstimationManager(r) && !isSystemAdmin(r);
 
+/** Runs the master-list import (master_list_import): sales leadership, BD manager, sales ops, system admin. */
+export const canImportMasterList = (r: RoleInput) =>
+  inGroup(r, COMMERCIAL_MANAGERS) || inGroup(r, ["bd_manager", "sales_ops", "system_admin"]);
+
 export const canApproveCommercialAction = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
 
 /**

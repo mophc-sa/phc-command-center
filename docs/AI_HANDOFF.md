@@ -1,5 +1,11 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-18 — Master list import page, wave 4b of Omar's CRM review (branch `feat/master-list-import`, migration `20261118120000`, not deployed)
+
+- `src/lib/master-list-import.ts` (+ 9 tests): `parseMasterList` (header by *Project Code*, Riyadh dates, blank rows dropped), `parseContact`, `targetStage` (A/E → stage, unknown → null), `planImport`: tenders by number + value (rows without a number join the tender with the same project + value), deal matching in passes across the file (number+value → archived copy/restore → unique exact code → name for number-less codes), one record per contractor paired by code with existing second-contractor records, conflicts for won→open and for a new value under an existing number. Dry run on the November file against production: 249 unchanged, 2 conflicts (KSP 5,736,750; Westfield Riyadh) — exactly Mo's two manual decisions.
+- Migration: `master_list_import(_file_name, _as_of, _items)` (SECURITY DEFINER; commercial managers, bd_manager, sales_ops, system_admin): one data_sync run; create / update / restore with before-after in `data_sync_changes`; skips a deal whose stage or value someone changed after the file's last update; writes the file row, tier, action_required, next action, contact and remark note. `data_sync_runs` readable by bd_manager/sales_ops/system_admin. pgTAP `master_list_import` (7).
+- UI: `MasterListImport` on /data-sync (upload, counts, per-row apply, reasons, import). Nav: `canImportMasterList`.
+
 ## 2026-11-18 — Weekly change report + duplicate warning, wave 4a of Omar's CRM review (branch `feat/weekly-report-dedupe`, frontend only)
 
 - `src/lib/weekly-report.ts` (+ tests): Sunday–Saturday weeks, change kinds, counts (each deal once, latest change). `WeeklyChangeReport` on /reports for sales manager / executives / system admin: audit_log `opportunity.fields_changed` with `after_value.sales_stage`, new deals, `quotation_revisions.submitted_at`, pending approvals, next week's scheduled follow-ups by owner. No migration (audit_log is readable by `is_platform_admin`, which includes sales_manager).
