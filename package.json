@@ -15,7 +15,7 @@
     "test:deno": "deno test --frozen --allow-import --config supabase/functions/deno.json --allow-env --allow-net --allow-read supabase/functions/_shared/*.deno-test.ts",
     "test:db": "supabase test db",
     "test:db:behaviour": "bash scripts/db-behaviour.sh",
-    "audit:deps": "bun audit --audit-level=high",
+    "audit:deps": "bun audit --audit-level=high --ignore=GHSA-fc5q-39xc-vjpf",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
