@@ -1,5 +1,13 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-18 — Deal page tabs + quotation revisions, wave 3 of Omar's CRM review (branch `feat/deal-page-tabs`, migration `20261118110000`, not deployed)
+
+- Deal page: `DEAL_TABS` (summary = alert/assignment/decision, activity = follow_up, quotes = evidence, contract = outcome) replace the timeline filter bar; sticky strip with code, owner, stage (+ kept stage), latest quote, next step · due. Submission panel, DealPricingCard and BafoPanel moved to `evidence`; discussion to `follow_up`. `TimelineFilterBar` removed.
+- Migration `20261118110000`: `quotation_revisions.change_reason`; `pricing_mark_quotation_sent(_revision_id, _change_reason default null)` saves the reason and sets `opportunities.quotation_value` to the sent revision's `subtotal_excl_vat`; `protect_opportunity_money` lets that write through via `phc.quote_value`. pgTAP `pricing_quotation` +1 assertion.
+- UI: QuotationRevisions shows *Current* and *Change reason*; the send dialog asks for the reason when an earlier revision exists.
+- `sstage_jih` → *Pricing / quote submitted* (the stage holds both); a quote-submitted entry gate was written and dropped: deals enter jih by RFQ conversion, not through the stage dialog, so it would never run.
+- **Release order:** db push, then frontend.
+
 ## 2026-11-18 — Sales daily screens, wave 2 of Omar's CRM review (branch `feat/sales-daily-screens`, frontend only)
 
 - Sidebar: `isSalesOnly` (salesperson with no management/finance/admin role) shows only items marked `sales: true` in `AppShell` NAV_GROUPS (My Day, Calendar, Notifications, Intake, Opportunities, Tenders, Quotations, Accounts, Contacts, Sales Management, Reports, Settings). Routes unchanged; SQL decides access.

@@ -183,7 +183,7 @@ const STAGE_LABEL: Record<string, [string, string]> = {
   // The review flagged the wording and was right; the bucket is unchanged.
   // Renamed 2026-11-17: "Contractor holds it" was read as a hold. sales_stage
   // jih is a submitted quotation awaiting the decision; holds are on_hold.
-  jih: ["مقدَّم بانتظار القرار", "Quoted · awaiting decision"],
+  jih: ["تسعير / عرض مقدَّم", "Pricing / quote submitted"],
   jih_bafo: ["BAFO", "BAFO"],
   under_negotiation: ["تفاوض", "Negotiation"],
   verbally_awarded: ["ترسية شفهية", "Verbal award"],

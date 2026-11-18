@@ -73,9 +73,11 @@ export const strings = {
   // priced", so the English label contradicted its own definition. The Arabic
   // "فرصة قائمة" was always right and is unchanged; "Active JIH" keeps the
   // term the business actually says while removing the won-work reading.
-  // 2026-11-18 (Omar's CRM review): the stage is a submitted quotation awaiting
-  // the decision; "JIH" is the project classification, not the stage.
-  sstage_jih: { en: "Quote submitted", ar: "عرض مقدَّم" },
+  // 2026-11-18 (Omar's CRM review): "JIH" is the project classification, not
+  // the stage. The stage holds deals being priced (an RFQ converted for
+  // pricing) and quotations submitted and awaiting the decision; the label
+  // says both until pricing and submitted become separate stages.
+  sstage_jih: { en: "Pricing / quote submitted", ar: "تسعير / عرض مقدَّم" },
   sstage_under_negotiation: { en: "Under Negotiation", ar: "قيد التفاوض" },
   sstage_verbally_awarded: { en: "Verbally Awarded", ar: "ترسية شفهية" },
   sstage_contract_received: { en: "Contract Received", ar: "استلام العقد" },
