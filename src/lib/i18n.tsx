@@ -49,7 +49,8 @@ export const strings = {
   // Sidebar / nav groups
   navgroup_overview: { en: "Overview", ar: "نظرة عامة" },
   navgroup_home: { en: "My work", ar: "عملي" },
-  navgroup_crm: { en: "CRM", ar: "إدارة العلاقات" },
+  navgroup_crm: { en: "Customers", ar: "العملاء" },
+  navgroup_settings: { en: "", ar: "" },
   navgroup_production: { en: "Production", ar: "الإنتاج" },
   navgroup_pipeline: { en: "Pipeline", ar: "خط المبيعات" },
   navgroup_execution: { en: "Execution", ar: "التنفيذ" },

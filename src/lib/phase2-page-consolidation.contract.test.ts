@@ -61,9 +61,9 @@ test("sidebar no longer lists /rfq-jih or /boq as separate nav items", () => {
 // Phase 1 (PRD 2026-08-12): /quotations left the Sales sidebar because it
 // belongs to Commercial & Finance. Pricing loop PR 2 (2026-11-04) builds that
 // section, "Pricing & Finance", and /quotations is in the sidebar there.
-test("/quotations is in the Pricing & Finance group, still routable and still reachable", () => {
+test("/quotations is in the Sales group (image 02, 2026-11-18), still routable and still reachable", () => {
   const shell = read("src/components/phc/AppShell.tsx");
-  const group = shell.slice(shell.indexOf('key: "navgroup_pricing_finance"'), shell.indexOf('key: "navgroup_reports"'));
+  const group = shell.slice(shell.indexOf('key: "navgroup_sales"'), shell.indexOf('key: "navgroup_crm"'));
   expect(group).toMatch(/to: "\/quotations"/);
 
   // The route file still exists and still renders all three panels.

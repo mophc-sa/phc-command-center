@@ -47,5 +47,6 @@ test("command-center's team-target query sums sales_targets across all users (an
 
 test("Company target KPI card renders in command-center's KPI row", () => {
   const source = read("src/routes/_authenticated/command-center.tsx");
-  expect(source).toMatch(/label=\{ar \? "هدف الشركة" : "Company target"\}/);
+  // Image 04 (Omar's review, 2026-11-18) names it "Annual target"; it is the company row.
+  expect(source).toMatch(/label=\{ar \? "الهدف السنوي" : "Annual target"\}/);
 });

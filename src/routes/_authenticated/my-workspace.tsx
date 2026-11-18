@@ -83,6 +83,90 @@ function closeOut(lang: Lang, f: { id: string; oppId: string | null }, v: Record
   });
 }
 
+/** One follow-up as image 10 draws it: project, customer, next action, due; complete it in place. */
+function FollowUpCard({ f, lang, onDone, onReschedule, onDraft }: {
+  f: any; lang: Lang; onDone: () => void; onReschedule: () => void; onDraft?: () => void;
+}) {
+  const ar = lang === "ar";
+  const [open, setOpen] = useState(false);
+  const [v, setV] = useState({ result: "reached", outcome: "", nextAction: "", nextDate: "" });
+  const [saving, setSaving] = useState(false);
+  const opp = f.opportunities as any;
+  const days = daysUntil(f.due_date);
+  const name = opp?.project_name ?? f.companies?.name ?? "—";
+  const field = "min-h-10 w-full rounded-md border border-border bg-background px-3 text-sm";
+  async function save() {
+    if (!v.nextAction.trim() || !v.nextDate) { toast.error(ar ? "الخطوة التالية وموعدها مطلوبان" : "Next step and its date are required"); return; }
+    setSaving(true);
+    try {
+      await closeOut(lang, { id: f.id, oppId: f.opportunity_id }, v);
+      toast.success(ar ? "سُجّلت المتابعة" : "Follow-up saved");
+      setOpen(false);
+      onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <article className={`rounded-lg border p-3 ${open ? "border-primary/60 bg-primary/5" : "border-border/70 bg-background/60"}`}>
+      <div className="flex flex-wrap items-start gap-3">
+        <button type="button" onClick={() => setOpen((x) => !x)} aria-expanded={open} aria-label={ar ? "إتمام المتابعة" : "Complete follow-up"}
+          className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md border border-primary/40 text-primary hover:bg-primary/10">
+          <CheckCheck className="h-4 w-4" />
+        </button>
+        <div className="min-w-0 flex-1">
+          {f.opportunity_id ? (
+            <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="text-base font-semibold text-foreground hover:underline">{name}</Link>
+          ) : f.companies ? (
+            <Link to="/accounts/$id" params={{ id: f.companies.id }} className="text-base font-semibold text-foreground hover:underline">{name}</Link>
+          ) : <span className="text-base font-semibold">{name}</span>}
+          <div className="text-sm text-muted-foreground">{ar ? "العميل" : "Customer"}: {opp?.main_contractor ?? f.companies?.name ?? "—"}</div>
+        </div>
+        <div className="min-w-0 flex-1 border-s border-border/60 ps-3">
+          <div className="text-xs text-muted-foreground">{ar ? "الإجراء التالي" : "Next action"}</div>
+          <div className="text-sm text-foreground">{f.notes || opp?.next_action || (ar ? "لا خطوة تالية مسجلة" : "No next step recorded")}</div>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill>
+          <div className="flex gap-1">
+            <button type="button" onClick={onReschedule} title={ar ? "إعادة جدولة" : "Reschedule"} aria-label={ar ? "إعادة جدولة" : "Reschedule"} className="grid h-8 w-8 place-items-center rounded-md border border-border/70 text-muted-foreground hover:text-foreground"><CalendarClock className="h-4 w-4" /></button>
+            {onDraft ? <button type="button" onClick={onDraft} title={ar ? "مسودة بالذكاء الاصطناعي" : "AI draft"} aria-label={ar ? "مسودة بالذكاء الاصطناعي" : "AI draft"} className="grid h-8 w-8 place-items-center rounded-md border border-border/70 text-muted-foreground hover:text-foreground"><Sparkles className="h-4 w-4" /></button> : null}
+          </div>
+        </div>
+      </div>
+      {open ? (
+        <div className="mt-3 grid gap-3 rounded-md border border-border/70 bg-background p-3 sm:grid-cols-2 lg:grid-cols-5">
+          <label className="grid gap-1 text-sm lg:col-span-1">
+            <span className="font-medium">{ar ? "النتيجة" : "Outcome"} *</span>
+            <select className={field} value={v.result} onChange={(e) => setV({ ...v, result: e.target.value })}>
+              {FOLLOW_UP_RESULTS.map((r) => <option key={r.value} value={r.value}>{ar ? r.ar : r.en}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm lg:col-span-1">
+            <span className="font-medium">{ar ? "ماذا حدث؟" : "What happened?"}</span>
+            <input className={field} value={v.outcome} onChange={(e) => setV({ ...v, outcome: e.target.value })} />
+          </label>
+          <label className="grid gap-1 text-sm lg:col-span-1">
+            <span className="font-medium">{ar ? "الخطوة التالية" : "Next action"} *</span>
+            <input className={field} value={v.nextAction} onChange={(e) => setV({ ...v, nextAction: e.target.value })} />
+          </label>
+          <label className="grid gap-1 text-sm lg:col-span-1">
+            <span className="font-medium">{ar ? "موعد المتابعة" : "Follow-up date"} *</span>
+            <input type="date" className={field} value={v.nextDate} onChange={(e) => setV({ ...v, nextDate: e.target.value })} />
+          </label>
+          <div className="flex items-end">
+            <button type="button" disabled={saving} onClick={() => void save()} className="min-h-10 w-full rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+              {saving ? (ar ? "جارٍ الحفظ…" : "Saving…") : (ar ? "حفظ المتابعة" : "Save follow-up")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 type FuTab = "overdue" | "today" | "week";
 const FU_TABS: { key: FuTab; en: string; ar: string }[] = [
   { key: "overdue", en: "Overdue", ar: "متأخر" },
@@ -417,7 +501,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         <div className="grid gap-4 lg:grid-cols-2">
 
           {/* Follow-ups: Overdue · Today · Next 7 days (Omar's review, 2026-11-18). */}
-          <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
+          <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden lg:col-span-2">
             <div className="border-b border-border/40 px-4 py-3">
               <div className="text-base font-semibold text-foreground">{lang === "ar" ? "متابعاتي" : "My follow-ups"}</div>
               <div role="tablist" className="mt-2 flex flex-wrap gap-2">
@@ -436,44 +520,19 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
             {(urgentFUs as any[]).filter((f) => fuTabOf(daysUntil(f.due_date)) === fuTab).length === 0 ? (
               <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا متابعات عاجلة" : "No urgent follow-ups"} compact /></div>
             ) : (
-              <Table>
-                <TableCaption>{lang === "ar" ? "متابعات عاجلة" : "Urgent follow-ups"}</TableCaption>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{lang === "ar" ? "المشروع" : "Project Name"}</TableHead>
-                    <TableHead className="text-end">{lang === "ar" ? "القيمة" : "Amount"}</TableHead>
-                    <TableHead>{lang === "ar" ? "الحالة" : "Status"}</TableHead>
-                    <TableHead>{lang === "ar" ? "إجراء" : "Action"}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(urgentFUs as any[]).filter((f) => fuTabOf(daysUntil(f.due_date)) === fuTab).slice(0, 25).map(f => {
-                    const opp = f.opportunities as any;
-                    const days = daysUntil(f.due_date);
-                    return (
-                      <TableRow key={f.id}>
-                        <TableCell>
-                          {f.opportunity_id ? (
-                            <Link to="/opportunities/$id" params={{ id: f.opportunity_id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{opp?.project_name ?? "—"}</Link>
-                          ) : (f as any).companies ? (
-                            <Link to="/accounts/$id" params={{ id: (f as any).companies.id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{(f as any).companies.name}</Link>
-                          ) : <span className="text-muted-foreground">—</span>}
-                          <span className="mt-0.5 block whitespace-normal text-sm text-muted-foreground">{f.notes || opp?.next_action || (lang === "ar" ? "لا خطوة تالية مسجلة" : "No next step recorded")}</span>
-                        </TableCell>
-                        <TableCell className="text-end num text-muted-foreground">{opp?.estimated_value_max ? formatCurrency(opp.estimated_value_max, lang, "SAR") : "—"}</TableCell>
-                        <TableCell><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => setCompleteFor({ id: f.id, oppId: f.opportunity_id })} title={lang === "ar" ? "تمت" : "Complete"} aria-label={lang === "ar" ? "تمت" : "Complete"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CheckCheck className="h-3 w-3" /></button>
-                            <button onClick={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })} title={lang === "ar" ? "إعادة جدولة" : "Reschedule"} aria-label={lang === "ar" ? "إعادة جدولة" : "Reschedule"} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><CalendarClock className="h-3 w-3" /></button>
-                            {f.opportunity_id && <button onClick={() => handleDraftFollowUp(f.id, f.opportunity_id, f.channel)} disabled={draftLoading && draftFuId === f.id} title={t("ai_draft" as never)} aria-label={t("ai_draft" as never)} className="grid h-6 w-6 cursor-pointer place-items-center rounded border border-border/70 text-muted-foreground hover:text-foreground disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><Sparkles className="h-3 w-3" /></button>}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              // Image 10: one card per follow-up, completed in place.
+              <div className="grid gap-3 p-3">
+                {(urgentFUs as any[]).filter((f) => fuTabOf(daysUntil(f.due_date)) === fuTab).slice(0, 25).map((f) => (
+                  <FollowUpCard
+                    key={f.id}
+                    f={f}
+                    lang={lang}
+                    onDone={() => qc.invalidateQueries({ queryKey: ["ws-urgent-fus", uid] })}
+                    onReschedule={() => setRescheduleFor({ id: f.id, oppId: f.opportunity_id, currentDate: f.due_date ?? "" })}
+                    onDraft={f.opportunity_id ? () => handleDraftFollowUp(f.id, f.opportunity_id, f.channel) : undefined}
+                  />
+                ))}
+              </div>
             )}
           </div>
 
