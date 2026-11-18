@@ -9,7 +9,7 @@ import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
 import { badgeLabel, unreadCount } from "@/lib/notifications";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
-import { canApproveCommercialAction, requiresMfa } from "@/lib/roles";
+import { canApproveCommercialAction, isSalesOnly, requiresMfa } from "@/lib/roles";
 import { canSeePricingNav } from "@/lib/pricing-access";
 import { canSeeCollections } from "@/lib/contract-billing";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
@@ -96,6 +96,8 @@ type NavLink = {
   requireAdmin?: boolean;
   /** Shown only when this returns true for the user's roles (SQL still decides access). */
   showIf?: (roles: readonly AppRole[]) => boolean;
+  /** Kept in a sales-only user's sidebar (isSalesOnly); everything else is hidden for them. */
+  sales?: true;
 };
 
 type NavButton = {
@@ -133,12 +135,12 @@ const NAV_GROUPS: NavGroup[] = [
     key: "navgroup_home",
     fallback: "Home",
     items: [
-      { kind: "link",   to: "/my-workspace",     key: "nav_my_day",            icon: Briefcase },
+      { kind: "link",   to: "/my-workspace",     key: "nav_my_day",            icon: Briefcase, sales: true },
       { kind: "link",   to: "/action-center",    key: "nav_action_center",     icon: BellRing },
       // Beside the day's work, not filed under reports: a calendar answers
       // "what does Thursday look like", which is a question you ask before
       // starting, not after.
-      { kind: "link",   to: "/calendar",         key: "nav_calendar",          icon: CalendarDays },
+      { kind: "link",   to: "/calendar",         key: "nav_calendar",          icon: CalendarDays, sales: true },
       { kind: "link",   to: "/approvals",        key: "nav_approvals",         icon: ShieldCheck },
       { kind: "link",   to: "/meetings",         key: "nav_meetings",          icon: Mic },
       { kind: "button", action: "notifications", key: "nav_notifications",     icon: Bell },
@@ -148,9 +150,9 @@ const NAV_GROUPS: NavGroup[] = [
     key: "navgroup_sales",
     fallback: "Sales",
     items: [
-      { kind: "link", to: "/lead-tender-inbox", key: "nav_intake",        icon: Mailbox },
-      { kind: "link", to: "/opportunities",     key: "nav_opportunities", icon: FolderKanban },
-      { kind: "link", to: "/tenders",           key: "nav_tenders",       icon: Gavel },
+      { kind: "link", to: "/lead-tender-inbox", key: "nav_intake",        icon: Mailbox, sales: true },
+      { kind: "link", to: "/opportunities",     key: "nav_opportunities", icon: FolderKanban, sales: true },
+      { kind: "link", to: "/tenders",           key: "nav_tenders",       icon: Gavel, sales: true },
       // Awarded Projects is a VIEW, not an entity: the Opportunities list
       // filtered to the awarded stages. /award-queue still exists and still
       // works; it is simply no longer presented as its own module.
@@ -172,8 +174,8 @@ const NAV_GROUPS: NavGroup[] = [
     key: "navgroup_crm",
     fallback: "CRM",
     items: [
-      { kind: "link", to: "/accounts", key: "nav_accounts", icon: Building2 },
-      { kind: "link", to: "/contacts", key: "nav_contacts", icon: Contact2 },
+      { kind: "link", to: "/accounts", key: "nav_accounts", icon: Building2, sales: true },
+      { kind: "link", to: "/contacts", key: "nav_contacts", icon: Contact2, sales: true },
     ],
   },
   {
@@ -199,7 +201,7 @@ const NAV_GROUPS: NavGroup[] = [
     fallback: "Pricing & Finance",
     items: [
       { kind: "link", to: "/pricing", key: "nav_pricing_queue", icon: Calculator, showIf: canSeePricingNav },
-      { kind: "link", to: "/quotations", key: "nav_quotations", icon: FileText },
+      { kind: "link", to: "/quotations", key: "nav_quotations", icon: FileText, sales: true },
       { kind: "link", to: "/pricing/settings", key: "nav_pricing_settings", icon: SlidersHorizontal, showIf: canSeePricingNav },
       // B3 (2026-11-12): open invoices across deals, for finance and management.
       { kind: "link", to: "/collections", key: "nav_collections", icon: Wallet, showIf: canSeeCollections },
@@ -218,8 +220,8 @@ const NAV_GROUPS: NavGroup[] = [
       // Phase 5: the management surface. Role-gated inside — a viewer with no
       // commercial role gets an explanation, not a blank page.
       { kind: "link",   to: "/command-center",   key: "nav_command_center",    icon: LayoutDashboard, showIf: canSeeCommandCenter },
-      { kind: "link", to: "/sales-management", key: "nav_sales_management", icon: Gauge },
-      { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart },
+      { kind: "link", to: "/sales-management", key: "nav_sales_management", icon: Gauge, sales: true },
+      { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart, sales: true },
     ],
   },
   {
@@ -247,7 +249,7 @@ const NAV_GROUPS: NavGroup[] = [
       // 2026-11-12: master list sync runs and their review list (sales leadership; RLS decides).
       { kind: "link", to: "/data-sync", key: "nav_data_sync", icon: DatabaseZap, showIf: canApproveCommercialAction },
       { kind: "link", to: "/admin-settings",  key: "nav_admin_settings",  icon: ShieldAlert, requireAdmin: true },
-      { kind: "link", to: "/settings",        key: "nav_settings",        icon: Settings },
+      { kind: "link", to: "/settings",        key: "nav_settings",        icon: Settings, sales: true },
     ],
   },
 ];
@@ -288,6 +290,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   });
 
   const canAdmin = canViewSalesAdmin(roles);
+  const salesOnly = isSalesOnly(roles);
   // Same authority as every other record-creation entry point: pipeline
   // operators plus salespeople. Viewers and system_admin do not get it.
   const canCreate = canCreateSalesRecords(roles);
@@ -498,7 +501,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           const visibleItems = g.items.filter(
             (n) =>
               (!(n.kind === "link" && n.requireAdmin) || canAdmin) &&
-              !(n.kind === "link" && n.showIf && !n.showIf(roles as AppRole[])),
+              !(n.kind === "link" && n.showIf && !n.showIf(roles as AppRole[])) &&
+              (!salesOnly || n.kind === "button" || !!n.sales),
           );
           if (visibleItems.length === 0) return null;
 

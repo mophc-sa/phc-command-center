@@ -170,6 +170,51 @@ export async function completeFollowUp(input: {
   return data;
 }
 
+/**
+ * Close a follow-up the way the sales team reports it (Omar's CRM review,
+ * 2026-11-18): what happened, the result, and the next step with its date. The
+ * next step becomes the next follow-up and the deal's next action, so opening
+ * the deal shows the last contact's result, not just "followed up".
+ */
+export const FOLLOW_UP_RESULTS = [
+  { value: "reached", en: "Spoke / replied", ar: "تم التواصل / رد" },
+  { value: "no_answer", en: "No answer", ar: "لم يرد" },
+  { value: "sent", en: "Sent quotation / email", ar: "أُرسل العرض أو البريد" },
+  { value: "meeting", en: "Meeting / visit held", ar: "تم اجتماع أو زيارة" },
+  { value: "awaiting", en: "Awaiting client decision", ar: "بانتظار قرار العميل" },
+] as const;
+
+export async function closeOutFollowUp(input: {
+  followUpId: Uuid;
+  opportunityId: Uuid | null;
+  result: string;
+  resultLabel: string;
+  outcome?: string;
+  nextAction: string;
+  nextDate: string;
+}) {
+  const done = await completeFollowUp({
+    followUpId: input.followUpId,
+    opportunityId: input.opportunityId,
+    outcome: input.outcome?.trim() ? `${input.resultLabel} — ${input.outcome.trim()}` : input.resultLabel,
+  });
+  await scheduleFollowUp({
+    opportunityId: input.opportunityId,
+    companyId: input.opportunityId ? null : done.company_id,
+    dueDate: input.nextDate,
+    channel: done.channel ?? undefined,
+    notes: input.nextAction,
+  });
+  if (input.opportunityId) {
+    const { error } = await supabase
+      .from("opportunities")
+      .update({ next_action: input.nextAction, next_action_due: input.nextDate, last_activity_at: new Date().toISOString() })
+      .eq("id", input.opportunityId);
+    if (error) throw error;
+  }
+  return done;
+}
+
 /* ---------------- Opportunity ownership / stage ---------------- */
 
 // Owner assignment is a sensitive commercial action — enforced server-side

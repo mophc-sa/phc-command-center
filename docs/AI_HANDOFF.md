@@ -1,5 +1,12 @@
 # AI Handoff ⭐ — PHC Command Center
 
+## 2026-11-18 — Sales daily screens, wave 2 of Omar's CRM review (branch `feat/sales-daily-screens`, frontend only)
+
+- Sidebar: `isSalesOnly` (salesperson with no management/finance/admin role) shows only items marked `sales: true` in `AppShell` NAV_GROUPS (My Day, Calendar, Notifications, Intake, Opportunities, Tenders, Quotations, Accounts, Contacts, Sales Management, Reports, Settings). Routes unchanged; SQL decides access.
+- My Day (salesperson view): follow-ups in tabs Overdue / Today / Next 7 days (`fuTabOf`; no date = no tab), next step under each project, list up to 300.
+- Follow-up close-out (`closeOutFollowUp` in `opportunity-actions`): result (`FOLLOW_UP_RESULTS`) + what happened + next step + date (required); completes the follow-up, schedules the next one, sets the deal's `next_action` / `next_action_due` / `last_activity_at`. Used by both My Day variants.
+- Opportunities list: project contractor, next action, code and latest-update text from 12px to 14px.
+
 ## 2026-11-18 — Sales definitions, wave 1 of Omar's CRM review (branch `feat/sales-definitions`, migration `20261118100000`, not deployed)
 
 Decisions (Mo, 2026-11-18): achievement = **signed sales** (contract or PO recorded), missing ones flagged; **company target fixed at 40M**, reps separate; order = definitions first, then daily screens.

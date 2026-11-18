@@ -508,12 +508,12 @@ function OppList() {
                       deals on one project for different contractors are not
                       duplicates, and the name alone made them look like one. */}
                   {(o.contractor_company?.name ?? o.main_contractor) ? (
-                    <div className="mt-0.5 text-xs text-muted-foreground">{o.contractor_company?.name ?? o.main_contractor}</div>
+                    <div className="mt-0.5 text-sm text-muted-foreground">{o.contractor_company?.name ?? o.main_contractor}</div>
                   ) : null}
-                  <div className="mt-1 text-xs text-muted-foreground">{o.next_action || (lang === "ar" ? "الإجراء القادم غير مسجل" : "No next action recorded")}</div>
+                  <div className="mt-1 text-sm text-muted-foreground">{o.next_action || (lang === "ar" ? "الإجراء القادم غير مسجل" : "No next action recorded")}</div>
                   {/* The deal's code: its RFQ's number, or its own for a deal with no RFQ. */}
                   {(rfq?.rfq_number ?? o.project_code) ? (
-                    <Link to="/opportunities/$id" params={{ id: o.id }} className="num mt-1 block text-xs text-muted-foreground hover:text-foreground hover:underline" data-tabular="true">
+                    <Link to="/opportunities/$id" params={{ id: o.id }} className="num mt-1 block text-sm text-muted-foreground hover:text-foreground hover:underline" data-tabular="true">
                       {rfq?.rfq_number ?? o.project_code}
                     </Link>
                   ) : null}
@@ -521,7 +521,7 @@ function OppList() {
                 <TableCell className="max-w-48">{o.company?.name ?? o.client ?? "—"}</TableCell>
                 <TableCell>{(() => { const st = resolveCanonicalStage(o).stage; return st ? <StatusPill tone="neutral">{t(canonicalStageLabelKey(st))}</StatusPill> : "—"; })()}</TableCell>
                 <TableCell className="min-w-28"><CompletionBar pct={o.completion_pct} compact /></TableCell>
-                <TableCell className="whitespace-nowrap text-xs">{(() => { const u = latestUpdate(o); return u ? <><span className="text-foreground">{updateKindLabel(u.kind, lang)}</span><span className="num block text-muted-foreground" data-tabular="true">{new Date(u.created_at).toLocaleDateString(localeFor(lang))}</span></> : "—"; })()}</TableCell>
+                <TableCell className="whitespace-nowrap text-sm">{(() => { const u = latestUpdate(o); return u ? <><span className="text-foreground">{updateKindLabel(u.kind, lang)}</span><span className="num block text-muted-foreground" data-tabular="true">{new Date(u.created_at).toLocaleDateString(localeFor(lang))}</span></> : "—"; })()}</TableCell>
                 <TableCell>{rfq?.classification ? humanize(rfq.classification) : "—"}</TableCell>
                 <TableCell className="num whitespace-nowrap">{amount === null ? (lang === "ar" ? "غير مسجل" : "Not recorded") : formatCurrency(amount, lang, o.currency)}</TableCell>
                 <TableCell>{quote?.status ? <StatusPill tone={quote.status === "won" ? "positive" : "neutral"}>{humanize(quote.status)}</StatusPill> : "—"}</TableCell>
