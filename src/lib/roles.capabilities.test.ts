@@ -257,3 +257,12 @@ test("a supplier account holds no staff capability and needs MFA", async () => {
   expect(isSupplier(["supplier"])).toBe(true);
   expect(isSupplier(["estimation_manager"])).toBe(false);
 });
+
+test("sales-only sidebar (Omar's CRM review, 2026-11-18) applies to a salesperson with no other role, never to managers or mixed roles", async () => {
+    const { isSalesOnly } = await import("./roles");
+    expect(isSalesOnly(["salesperson"])).toBe(true);
+    expect(isSalesOnly(["salesperson", "sales_manager"])).toBe(false);
+    expect(isSalesOnly(["bd_manager", "sales_ops"])).toBe(false);
+    expect(isSalesOnly(["system_admin", "salesperson"])).toBe(false);
+    expect(isSalesOnly([])).toBe(false);
+});

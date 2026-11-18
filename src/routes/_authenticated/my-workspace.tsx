@@ -39,7 +39,7 @@ import { useAuth } from "@/hooks/useSupabaseAuth";
 import { isSalesperson } from "@/lib/roles";
 import { logActivity, type ActivityType } from "@/lib/activity-actions";
 import { ACTIVE_FLAG_STATUSES } from "@/lib/workflow-actions";
-import { completeFollowUp, rescheduleFollowUp } from "@/lib/opportunity-actions";
+import { closeOutFollowUp, FOLLOW_UP_RESULTS, rescheduleFollowUp } from "@/lib/opportunity-actions";
 import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
 import { humanize } from "@/lib/utils";
@@ -62,6 +62,40 @@ export const Route = createFileRoute("/_authenticated/my-workspace")({
 });
 
 const ACTIVITY_TYPES: ActivityType[] = ["call", "visit", "meeting", "note", "email_draft", "whatsapp_draft"];
+
+/** Closing a follow-up records the result and the next step with its date (Omar's review, 2026-11-18). */
+function closeOutFields(lang: Lang) {
+  const ar = lang === "ar";
+  return [
+    { key: "result", type: "select" as const, label: ar ? "النتيجة" : "Result", required: true, defaultValue: "reached",
+      options: FOLLOW_UP_RESULTS.map((r) => ({ value: r.value, label: ar ? r.ar : r.en })) },
+    { key: "outcome", type: "textarea" as const, label: ar ? "ماذا حدث؟" : "What happened?" },
+    { key: "nextAction", type: "text" as const, label: ar ? "الخطوة التالية" : "Next step", required: true },
+    { key: "nextDate", type: "date" as const, label: ar ? "موعد الخطوة التالية" : "Next step date", required: true },
+  ];
+}
+function closeOut(lang: Lang, f: { id: string; oppId: string | null }, v: Record<string, string>) {
+  const r = FOLLOW_UP_RESULTS.find((x) => x.value === v.result);
+  return closeOutFollowUp({
+    followUpId: f.id, opportunityId: f.oppId, result: v.result,
+    resultLabel: r ? (lang === "ar" ? r.ar : r.en) : v.result,
+    outcome: v.outcome, nextAction: v.nextAction, nextDate: v.nextDate,
+  });
+}
+
+type FuTab = "overdue" | "today" | "week";
+const FU_TABS: { key: FuTab; en: string; ar: string }[] = [
+  { key: "overdue", en: "Overdue", ar: "متأخر" },
+  { key: "today", en: "Today", ar: "اليوم" },
+  { key: "week", en: "Next 7 days", ar: "خلال 7 أيام" },
+];
+/** No due date is not overdue; it stays out of the three tabs. */
+function fuTabOf(days: number | null): FuTab | null {
+  if (days === null) return null;
+  if (days < 0) return "overdue";
+  if (days === 0) return "today";
+  return days <= 7 ? "week" : null;
+}
 
 function monthStart() { return `${riyadhDay().slice(0, 7)}-01`; }
 function yearStart() { return `${riyadhDay().slice(0, 4)}-01-01`; }
@@ -207,6 +241,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
   // Dialog state
   const [logOpen, setLogOpen] = useState(false);
   const [completeFor, setCompleteFor] = useState<{ id: string; oppId: string } | null>(null);
+  const [fuTab, setFuTab] = useState<FuTab>("today");
   const [rescheduleFor, setRescheduleFor] = useState<{ id: string; oppId: string; currentDate: string } | null>(null);
   const [draftOpen, setDraftOpen] = useState(false);
   const [draftLoading, setDraftLoading] = useState(false);
@@ -263,7 +298,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
 
   const { data: urgentFUs = [] } = useQuery({
     queryKey: ["ws-urgent-fus", uid], enabled: !!uid,
-    queryFn: async () => (await supabase.from("follow_ups").select("id, due_date, status, channel, notes, opportunity_id, opportunities(id, project_name, sales_stage, estimated_value_max, currency, main_contractor, last_activity_at, next_action), companies(id, name)").eq("owner_id", uid).neq("status", "completed").neq("status", "cancelled").order("due_date", { ascending: true }).limit(25)).data ?? [],
+    queryFn: async () => (await supabase.from("follow_ups").select("id, due_date, status, channel, notes, opportunity_id, opportunities(id, project_name, sales_stage, estimated_value_max, currency, main_contractor, last_activity_at, next_action), companies(id, name)").eq("owner_id", uid).neq("status", "completed").neq("status", "cancelled").order("due_date", { ascending: true }).limit(300)).data ?? [],
   });
 
   const { data: urgentRfqs = [] } = useQuery({
@@ -381,17 +416,24 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
         {/* Row 3: Urgent Follow-ups + Urgent Quotation Submissions */}
         <div className="grid gap-4 lg:grid-cols-2">
 
-          {/* Urgent Follow-ups table */}
+          {/* Follow-ups: Overdue · Today · Next 7 days (Omar's review, 2026-11-18). */}
           <div className="rounded-xl border border-border/60 bg-surface/40 overflow-hidden">
-            <div className="border-b border-border/40 px-4 py-3 flex items-center justify-between">
-              <div>
-                <div className="text-base font-semibold text-foreground">{lang === "ar" ? "متابعات عاجلة" : "Urgent Follow Ups"}</div>
-                <div className="text-xs text-muted-foreground">
-                  {(urgentFUs as any[]).filter(f => (daysUntil(f.due_date) ?? 1) < 0).length} {lang === "ar" ? "متأخرة" : "overdue"} · {(urgentFUs as any[]).length} {lang === "ar" ? "إجمالي" : "total"}
-                </div>
+            <div className="border-b border-border/40 px-4 py-3">
+              <div className="text-base font-semibold text-foreground">{lang === "ar" ? "متابعاتي" : "My follow-ups"}</div>
+              <div role="tablist" className="mt-2 flex flex-wrap gap-2">
+                {FU_TABS.map((tb) => {
+                  const n = (urgentFUs as any[]).filter((f) => fuTabOf(daysUntil(f.due_date)) === tb.key).length;
+                  return (
+                    <button key={tb.key} type="button" role="tab" aria-selected={fuTab === tb.key} onClick={() => setFuTab(tb.key)}
+                      className={`inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-sm font-medium ${fuTab === tb.key ? "border-primary bg-primary/10 text-foreground" : "border-border/70 text-muted-foreground hover:text-foreground"}`}>
+                      {lang === "ar" ? tb.ar : tb.en}
+                      <span className={`num rounded-full px-1.5 text-xs ${tb.key === "overdue" && n > 0 ? "bg-destructive/15 text-destructive-on-tint" : "bg-muted"}`} data-tabular="true">{n}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            {(urgentFUs as any[]).length === 0 ? (
+            {(urgentFUs as any[]).filter((f) => fuTabOf(daysUntil(f.due_date)) === fuTab).length === 0 ? (
               <div className="px-4 py-8"><EmptyState message={lang === "ar" ? "لا متابعات عاجلة" : "No urgent follow-ups"} compact /></div>
             ) : (
               <Table>
@@ -405,7 +447,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(urgentFUs as any[]).slice(0, 8).map(f => {
+                  {(urgentFUs as any[]).filter((f) => fuTabOf(daysUntil(f.due_date)) === fuTab).slice(0, 25).map(f => {
                     const opp = f.opportunities as any;
                     const days = daysUntil(f.due_date);
                     return (
@@ -416,6 +458,7 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
                           ) : (f as any).companies ? (
                             <Link to="/accounts/$id" params={{ id: (f as any).companies.id }} className="block min-w-[160px] whitespace-normal font-medium text-foreground hover:underline">{(f as any).companies.name}</Link>
                           ) : <span className="text-muted-foreground">—</span>}
+                          <span className="mt-0.5 block whitespace-normal text-sm text-muted-foreground">{f.notes || opp?.next_action || (lang === "ar" ? "لا خطوة تالية مسجلة" : "No next step recorded")}</span>
                         </TableCell>
                         <TableCell className="text-end num text-muted-foreground">{opp?.estimated_value_max ? formatCurrency(opp.estimated_value_max, lang, "SAR") : "—"}</TableCell>
                         <TableCell><StatusPill tone={urgencyTone(days)}>{urgencyLabel(days, lang)}</StatusPill></TableCell>
@@ -789,9 +832,9 @@ function SalespersonDashboard({ uid, user }: { uid: string; user: any }) {
       />
 
       <ActionDialog recordId={completeFor?.id} open={!!completeFor} onOpenChange={v => !v && setCompleteFor(null)} title={t("dialog_complete_title")} description={t("dialog_complete_desc")} submitLabel={t("action_complete")}
-        fields={[{ key: "outcome", type: "textarea", label: t("field_outcome"), required: true }]}
+        fields={closeOutFields(lang)}
         onSubmit={async v => {
-          try { await completeFollowUp({ followUpId: completeFor!.id, opportunityId: completeFor!.oppId, outcome: v.outcome }); toast.success(t("toast_complete_ok" as never)); qc.invalidateQueries({ queryKey: ["ws-urgent-fus", uid] }); }
+          try { await closeOut(lang, completeFor!, v); toast.success(t("toast_complete_ok" as never)); qc.invalidateQueries({ queryKey: ["ws-urgent-fus", uid] }); }
           catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
           throw e;
         }
@@ -1253,9 +1296,9 @@ function ExistingWorkspaceContent({ uid, user }: { uid: string; user: any }) {
       />
 
       <ActionDialog recordId={completeFor?.id} open={!!completeFor} onOpenChange={v => !v && setCompleteFor(null)} title={t("dialog_complete_title")} description={t("dialog_complete_desc")} submitLabel={t("action_complete")}
-        fields={[{ key: "outcome", type: "textarea", label: t("field_outcome"), required: true }]}
+        fields={closeOutFields(lang)}
         onSubmit={async v => {
-          try { await completeFollowUp({ followUpId: completeFor!.id, opportunityId: completeFor!.oppId, outcome: v.outcome }); toast.success(t("toast_complete_ok" as never)); qc.invalidateQueries({ queryKey: ["workspace", uid] }); qc.invalidateQueries({ queryKey: ["all-followups"] }); }
+          try { await closeOut(lang, completeFor!, v); toast.success(t("toast_complete_ok" as never)); qc.invalidateQueries({ queryKey: ["workspace", uid] }); qc.invalidateQueries({ queryKey: ["all-followups"] }); }
           catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
           throw e;
         }

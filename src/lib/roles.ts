@@ -99,6 +99,15 @@ const PIPELINE_OPERATORS: AppRole[] = [
 
 // ---- Capability helpers -----------------------------------------------------
 // Commercial authority — deliberately EXCLUDES system_admin.
+/**
+ * A salesperson with no management, finance or admin role (Abdelrahman, Faisal).
+ * Their sidebar shows the sales sections only (Omar's CRM review, 2026-11-18);
+ * every other page still opens by link or ⌘K, and SQL still decides access.
+ */
+export const isSalesOnly = (r: RoleInput) =>
+  isSalesperson(r) && !isSalesManager(r) && !isBdOrSalesOps(r) && !isExecutive(r) &&
+  !isFinanceManager(r) && !isEstimationManager(r) && !isSystemAdmin(r);
+
 export const canApproveCommercialAction = (r: RoleInput) => inGroup(r, COMMERCIAL_MANAGERS);
 
 /**
