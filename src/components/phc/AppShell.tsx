@@ -9,7 +9,7 @@ import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
 import { badgeLabel, unreadCount } from "@/lib/notifications";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
-import { canApproveCommercialAction, isSalesOnly, requiresMfa } from "@/lib/roles";
+import { canImportMasterList, isSalesOnly, requiresMfa } from "@/lib/roles";
 import { canSeePricingNav } from "@/lib/pricing-access";
 import { canSeeCollections } from "@/lib/contract-billing";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
@@ -247,7 +247,7 @@ const NAV_GROUPS: NavGroup[] = [
       { kind: "link", to: "/agent-activity",  key: "nav_ai_audit",         icon: Activity },
       { kind: "link", to: "/data-import",     key: "nav_data_import",     icon: DatabaseZap, requireAdmin: true },
       // 2026-11-12: master list sync runs and their review list (sales leadership; RLS decides).
-      { kind: "link", to: "/data-sync", key: "nav_data_sync", icon: DatabaseZap, showIf: canApproveCommercialAction },
+      { kind: "link", to: "/data-sync", key: "nav_data_sync", icon: DatabaseZap, showIf: canImportMasterList },
       { kind: "link", to: "/admin-settings",  key: "nav_admin_settings",  icon: ShieldAlert, requireAdmin: true },
       { kind: "link", to: "/settings",        key: "nav_settings",        icon: Settings, sales: true },
     ],

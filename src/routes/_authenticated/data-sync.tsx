@@ -8,6 +8,7 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { pick, type Bi } from "@/lib/pricing-text";
+import { MasterListImport } from "@/components/phc/MasterListImport";
 
 // Data sync from the master quotation list (2026-11-12): the runs and what a run
 // could not decide. Readable by commercial managers (RLS); the sync itself runs
@@ -76,6 +77,7 @@ function DataSyncPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader eyebrow={pick(TEXT.eyebrow, lang)} title={pick(TEXT.title, lang)} description={pick(TEXT.desc, lang)} />
+      <MasterListImport />
       <section className="space-y-2">
         <h2 className="text-base font-semibold">{pick(TEXT.runs, lang)}</h2>
         <Table>
