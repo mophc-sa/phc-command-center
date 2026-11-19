@@ -85,7 +85,7 @@ export function AuditLogPanel() {
       ) : (
         <div className="max-h-[70vh] overflow-auto">
           <Table>
-            <TableHeader className="sticky top-0 bg-surface">
+            <TableHeader className="sticky top-0">
               <TableRow>
                 <TableHead>{ar ? "الوقت" : "Time"}</TableHead>
                 <TableHead>{ar ? "المستخدم" : "User"}</TableHead>

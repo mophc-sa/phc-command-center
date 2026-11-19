@@ -632,3 +632,5 @@ Workspace** — شاشة مندوب المبيعات نفسه. صفقة بقيم
 - 2026-11-18 — The sales team sees one flat sidebar; the Command Center is the sales manager's dashboard, a salesperson gets a personal dashboard. Why: Mo — salespeople do not see the manager's dashboard.
 - 2026-11-18 — TypeScript stays on 5.x; Dependabot ignores typescript >=7. Why: typescript-eslint does not support TS 7, and ESLint is a CI gate; revisit when it does.
 - 2026-11-18 — PR #258 (SharePoint sheet bridge) not merged. Why: it needs an Azure app registration that does not exist, its own description says do not merge, and the master list import page (#403) covers the hand-off.
+- 2026-11-19 — Production data mirrors `PHC_Quotation_Masterlist_Updated November 2026.xlsx` only; records not in it are archived, not deleted; contractor duplicates still count once; DEAD PROJECT = lost; PO received date = award date until the real date is entered. Why: Mo — the numbers must match the file.
+- 2026-11-19 — PHC orange is `#C94E0C`, not the images' `#EF6C22`. Why: white 14px button text on #EF6C22 is 3.08:1, under WCAG AA 4.5:1.

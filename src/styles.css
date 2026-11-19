@@ -109,6 +109,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-on-tint: var(--primary-on-tint);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-accent: var(--accent);
@@ -221,12 +223,20 @@
   --popover: var(--surface);
   --popover-foreground: var(--foreground);
 
-  /* Primary = near-black solid pill on white — the "Create" button look */
-  --primary: oklch(0.20 0.010 253);
-  --primary-foreground: oklch(0.99 0.002 90);
+  /* Primary = PHC orange, as Omar's images 21–28 draw it (Mo, 2026-11-19):
+     solid orange actions, the current stage and every highlight; peach
+     (--primary-soft) behind the selected nav item, table headers and banners.
+     Measured, not eyeballed: the images' #EF6C22 carries white text at 3.08:1,
+     under the 4.5:1 a 14px button label needs, so the fill sits one step
+     deeper (#C94E0C, 4.61:1). Orange text on peach uses --primary-on-tint
+     (#BA480D, 4.52:1). */
+  --primary: oklch(0.58 0.17 42);
+  --primary-foreground: oklch(1 0 0);
+  --primary-soft: oklch(0.955 0.03 55);
+  --primary-on-tint: oklch(0.55 0.16 42);
   --secondary: var(--muted);
   --secondary-foreground: var(--foreground);
-  --accent: var(--muted);
+  --accent: var(--primary-soft);
   --accent-foreground: var(--foreground);
 
   /* Amber = attention/status only. Muted, warm, never decorative. */
@@ -383,11 +393,11 @@
   --sidebar-accent: oklch(1 0 0);
   --sidebar-accent-foreground: var(--foreground);
 
-  /* Selected nav item: solid black pill, white text. Kept as its own token pair
-     rather than reusing --sidebar-accent, which every hover state in the shadcn
-     sidebar also reads — recolouring that would turn every hover black. */
-  --sidebar-active: oklch(0.17 0.010 253);
-  --sidebar-active-foreground: oklch(1 0 0);
+  /* Selected nav item: peach pill, orange label (images 21–28). Kept as its own
+     token pair rather than reusing --sidebar-accent, which every hover state in
+     the shadcn sidebar also reads. */
+  --sidebar-active: oklch(0.955 0.03 55);            /* = --primary-soft */
+  --sidebar-active-foreground: oklch(0.55 0.16 42);  /* = --primary-on-tint, 4.52:1 on it */
   --sidebar-border: oklch(0.20 0.010 253 / 0.07);
   --sidebar-ring: var(--ring);
 }

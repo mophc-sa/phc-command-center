@@ -412,12 +412,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         search={n.search as never}
         onClick={() => setMobileOpen(false)}
         className={cn(
-          "group relative flex items-center gap-3 rounded-full px-3 py-[7px] text-base transition-all duration-150",
-          // Selected = solid black pill, white label. This was
-          // bg-sidebar-accent, which is pure white — on a near-white sidebar the
-          // current page was effectively unmarked.
+          "group relative flex items-center gap-3 rounded-xl px-3 py-[7px] text-base transition-all duration-150",
+          // Selected = peach tile, orange label and icon (images 21–28).
           active
-            ? "bg-sidebar-active text-sidebar-active-foreground shadow-sm"
+            ? "bg-sidebar-active font-semibold text-sidebar-active-foreground"
             : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
         )}
       >
