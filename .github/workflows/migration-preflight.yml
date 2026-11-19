@@ -16,7 +16,9 @@ jobs:
       EXPECTED_PROJECT_REF: lrfdtoexyeghrzynapyn
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
+        with:
+          persist-credentials: false
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3
         with:
           version: 2.109.1
       - name: Validate target project and link via access token
@@ -41,7 +43,7 @@ jobs:
           supabase db lint --linked --level warning 2>&1 | tee database-lint.txt
       - name: Upload preflight evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: production-migration-preflight
           path: |

@@ -630,3 +630,5 @@ Workspace** — شاشة مندوب المبيعات نفسه. صفقة بقيم
 - 2026-11-18 — Qualified and Pricing are real sales stages; the path is seven steps (Negotiation groups BAFO and negotiation; Signed groups contract received, signed and won). Why: Omar's images 21–22, Mo chose real stages over display-only.
 - 2026-11-18 — A lost deal can be reopened to a live stage with a written reason; history and loss fields are kept. Why: Omar image 24 — mistakes and revived projects must not need a new record.
 - 2026-11-18 — The sales team sees one flat sidebar; the Command Center is the sales manager's dashboard, a salesperson gets a personal dashboard. Why: Mo — salespeople do not see the manager's dashboard.
+- 2026-11-18 — TypeScript stays on 5.x; Dependabot ignores typescript >=7. Why: typescript-eslint does not support TS 7, and ESLint is a CI gate; revisit when it does.
+- 2026-11-18 — PR #258 (SharePoint sheet bridge) not merged. Why: it needs an Azure app registration that does not exist, its own description says do not merge, and the master list import page (#403) covers the hand-off.

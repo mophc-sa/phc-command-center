@@ -18,7 +18,6 @@ import { Route as MfaVerifyRouteImport } from './routes/mfa-verify'
 import { Route as PendingApprovalRouteImport } from './routes/pending-approval'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SupplierRouteImport } from './routes/supplier'
-import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
 import { Route as AuthenticatedActionCenterRouteImport } from './routes/_authenticated/action-center'
@@ -57,7 +56,6 @@ import { Route as AuthenticatedVendorsRouteImport } from './routes/_authenticate
 import { Route as SupplierIndexRouteImport } from './routes/supplier.index'
 import { Route as SupplierInvitationIdRouteImport } from './routes/supplier.$invitationId'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
-import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as AuthenticatedAccountsIndexRouteImport } from './routes/_authenticated/accounts.index'
 import { Route as AuthenticatedAccountsIdRouteImport } from './routes/_authenticated/accounts.$id'
 import { Route as AuthenticatedContactsRepairRouteImport } from './routes/_authenticated/contacts_.repair'
@@ -119,12 +117,6 @@ const SupplierRoute = SupplierRouteImport.update({
   path: '/supplier',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char91DotmcpChar93ListToolsRoute =
-  Char91DotmcpChar93ListToolsRouteImport.update({
-    id: '/.mcp/list-tools',
-    path: '/.mcp/list-tools',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const Char91DotwellKnownChar93OauthProtectedResourceRoute =
   Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
     id: '/.well-known/oauth-protected-resource',
@@ -328,12 +320,6 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char91DotmcpChar93InvokeToolToolRoute =
-  Char91DotmcpChar93InvokeToolToolRouteImport.update({
-    id: '/.mcp/invoke-tool/$tool',
-    path: '/.mcp/invoke-tool/$tool',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const AuthenticatedAccountsIndexRoute =
   AuthenticatedAccountsIndexRouteImport.update({
     id: '/',
@@ -435,7 +421,6 @@ export interface FileRoutesByFullPath {
   '/pending-approval': typeof PendingApprovalRoute
   '/reset-password': typeof ResetPasswordRoute
   '/supplier': typeof SupplierRouteWithChildren
-  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/accounts': typeof AuthenticatedAccountsRouteWithChildren
   '/action-center': typeof AuthenticatedActionCenterRoute
@@ -474,7 +459,6 @@ export interface FileRoutesByFullPath {
   '/supplier/$invitationId': typeof SupplierInvitationIdRoute
   '/supplier/': typeof SupplierIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/contacts/repair': typeof AuthenticatedContactsRepairRoute
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
@@ -500,7 +484,6 @@ export interface FileRoutesByTo {
   '/mfa-verify': typeof MfaVerifyRoute
   '/pending-approval': typeof PendingApprovalRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/action-center': typeof AuthenticatedActionCenterRoute
   '/admin-settings': typeof AuthenticatedAdminSettingsRoute
@@ -537,7 +520,6 @@ export interface FileRoutesByTo {
   '/supplier/$invitationId': typeof SupplierInvitationIdRoute
   '/supplier': typeof SupplierIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/contacts/repair': typeof AuthenticatedContactsRepairRoute
   '/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
@@ -566,7 +548,6 @@ export interface FileRoutesById {
   '/pending-approval': typeof PendingApprovalRoute
   '/reset-password': typeof ResetPasswordRoute
   '/supplier': typeof SupplierRouteWithChildren
-  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_authenticated/accounts': typeof AuthenticatedAccountsRouteWithChildren
   '/_authenticated/action-center': typeof AuthenticatedActionCenterRoute
@@ -605,7 +586,6 @@ export interface FileRoutesById {
   '/supplier/$invitationId': typeof SupplierInvitationIdRoute
   '/supplier/': typeof SupplierIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_authenticated/accounts/$id': typeof AuthenticatedAccountsIdRoute
   '/_authenticated/contacts_/repair': typeof AuthenticatedContactsRepairRoute
   '/_authenticated/data-import/$batchId': typeof AuthenticatedDataImportBatchIdRoute
@@ -634,7 +614,6 @@ export interface FileRouteTypes {
     | '/pending-approval'
     | '/reset-password'
     | '/supplier'
-    | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/accounts'
     | '/action-center'
@@ -673,7 +652,6 @@ export interface FileRouteTypes {
     | '/supplier/$invitationId'
     | '/supplier/'
     | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
     | '/accounts/$id'
     | '/contacts/repair'
     | '/data-import/$batchId'
@@ -699,7 +677,6 @@ export interface FileRouteTypes {
     | '/mfa-verify'
     | '/pending-approval'
     | '/reset-password'
-    | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/action-center'
     | '/admin-settings'
@@ -736,7 +713,6 @@ export interface FileRouteTypes {
     | '/supplier/$invitationId'
     | '/supplier'
     | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
     | '/accounts/$id'
     | '/contacts/repair'
     | '/data-import/$batchId'
@@ -764,7 +740,6 @@ export interface FileRouteTypes {
     | '/pending-approval'
     | '/reset-password'
     | '/supplier'
-    | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/_authenticated/accounts'
     | '/_authenticated/action-center'
@@ -803,7 +778,6 @@ export interface FileRouteTypes {
     | '/supplier/$invitationId'
     | '/supplier/'
     | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
     | '/_authenticated/accounts/$id'
     | '/_authenticated/contacts_/repair'
     | '/_authenticated/data-import/$batchId'
@@ -832,10 +806,8 @@ export interface RootRouteChildren {
   PendingApprovalRoute: typeof PendingApprovalRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SupplierRoute: typeof SupplierRouteWithChildren
-  Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
-  Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -901,13 +873,6 @@ declare module '@tanstack/react-router' {
       path: '/supplier'
       fullPath: '/supplier'
       preLoaderRoute: typeof SupplierRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.mcp/list-tools': {
-      id: '/.mcp/list-tools'
-      path: '/.mcp/list-tools'
-      fullPath: '/.mcp/list-tools'
-      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.well-known/oauth-protected-resource': {
@@ -1174,13 +1139,6 @@ declare module '@tanstack/react-router' {
       path: '/.lovable/oauth/consent'
       fullPath: '/.lovable/oauth/consent'
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.mcp/invoke-tool/$tool': {
-      id: '/.mcp/invoke-tool/$tool'
-      path: '/.mcp/invoke-tool/$tool'
-      fullPath: '/.mcp/invoke-tool/$tool'
-      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/accounts/': {
@@ -1455,11 +1413,9 @@ const rootRouteChildren: RootRouteChildren = {
   PendingApprovalRoute: PendingApprovalRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SupplierRoute: SupplierRouteWithChildren,
-  Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
-  Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

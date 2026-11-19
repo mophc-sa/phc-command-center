@@ -617,7 +617,9 @@ Not tried in a browser (needs a signed-in canary). Local `test:db:behaviour` fai
 `20261003100000` migration (`gen_random_bytes`), so the overdue check is also in `supabase/tests` for CI.
 Noticed, not changed: `computeSalespersonMetrics` (Targets page) dates "won" by `updated_at`, not `won_at`.
 
-## 2026-10-07 — Stage playbook phase 2 (branch `feat/stage-playbook`)
+## 2026-10-07 — Stage playbook phase 2 released (PR 345)
+
+Production served `4aeee4c`, Worker `dc0dc31d-40b3-4c4b-884c-2dfac7c30ede` (run 37596749105). Migration `20261007100000` applied first; `sales-os-api` v75. Rollback UI: `9d3ff89` (Worker `4602164a`).
 
 Spec `docs/superpowers/specs/2026-10-07-stage-playbook-design.md` (user pre-approved "do what you
 recommend"). Shared rules in `_shared/stage-checklist.ts`; migration `20261007100000`; panel
