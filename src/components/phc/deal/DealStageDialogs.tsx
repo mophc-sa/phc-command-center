@@ -32,7 +32,8 @@ export function DealStageDialogs({ o, lang, t, moveTo, setMoveTo, stageChoices, 
   const today = riyadhDay();
   const next: DialogField[] = [
     { key: "next_action", type: "text", label: ar ? "الإجراء التالي" : "Next action", required: true, defaultValue: o.next_action ?? "" },
-    { key: "follow_up", type: "date", label: ar ? "موعد المتابعة" : "Follow-up", required: true, defaultValue: o.next_action_due ?? "" },
+    // An old next-action date is not offered: a follow-up starts today or later.
+    { key: "follow_up", type: "date", label: ar ? "موعد المتابعة" : "Follow-up", required: true, defaultValue: o.next_action_due && o.next_action_due >= today ? o.next_action_due : "" },
   ];
   // Stage fields are keyed per stage so two stages' "notes" never collide.
   const perStage = (stages: SalesStage[]): DialogField[] =>
@@ -46,6 +47,11 @@ export function DealStageDialogs({ o, lang, t, moveTo, setMoveTo, stageChoices, 
 
   async function run(toStage: SalesStage, v: Record<string, string>, fields: Record<string, unknown>, notes: string | undefined) {
     const { evidence, ...rest } = fields as Record<string, string>;
+    // Checked before the stage moves, so a bad date never leaves half a save.
+    if (v.follow_up && v.follow_up < today) {
+      toast.error(ar ? "موعد المتابعة لا يكون في الماضي" : "The follow-up date cannot be in the past");
+      throw new Error("follow_up_in_past");
+    }
     try {
       const res: any = await advanceSalesStage({
         opportunityId: o.id, toStage, notes, evidence,

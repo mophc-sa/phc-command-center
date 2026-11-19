@@ -1081,6 +1081,37 @@ async function loadCommercialRiskContext(
 }
 
 // ---------------------------------------------------------------------------
+// meeting_notes_draft (2026-11-19, image 27) — the deal's name, client and
+// stage, plus what the person typed. Rough notes are capped; nothing else of
+// the deal is sent.
+// ---------------------------------------------------------------------------
+
+export async function loadMeetingNotesDraftContext(
+  svc: SupabaseClient,
+  _entityType: EntityType,
+  entityId: string,
+  input: Record<string, unknown>,
+): Promise<AgentContextResult> {
+  const rough = typeof input.rough_notes === "string" ? input.rough_notes.trim().slice(0, 4000) : "";
+  if (!rough) return { ok: false, code: "AI_INPUT_INVALID", message: "Type the rough notes first." };
+  const attendees = typeof input.attendees === "string" ? input.attendees.trim().slice(0, 500) : "";
+  const { data: opp } = await svc.from("opportunities").select("id, project_name, client, sales_stage").eq("id", entityId).maybeSingle().throwOnError();
+  if (!isPlainRecord(opp)) return { ok: false, code: "AI_INPUT_INVALID", message: "Opportunity not found." };
+  const contextText = JSON.stringify(
+    { deal: { project: opp.project_name, client: opp.client, stage: opp.sales_stage }, attendees, rough_notes: rough },
+    null,
+    2,
+  );
+  const manifest: ContextManifest = {
+    fields_loaded: ["project_name", "client", "sales_stage", "input.attendees", "input.rough_notes"],
+    record_counts: { opportunities: 1 },
+    source_entity_types: ["opportunities"],
+    redacted_identifiers: { entity_id: redactId(entityId) },
+  };
+  return { ok: true, contextText, manifest, recordCount: 1 };
+}
+
+// ---------------------------------------------------------------------------
 // Agent 16 — project_job_notes (2026-08-04)
 // Single project_jobs card — Production section, not Sales. No per-record
 // owner concept (project_jobs RLS is team-based, is_sales_contributor OR
@@ -1925,6 +1956,19 @@ export const AGENT_REGISTRY: Record<AgentKey, AgentDefinition> = {
     outputSchema: AGENT_OUTPUT_SCHEMAS.daily_email_brief,
     outputType: AGENT_OUTPUT_TYPES.daily_email_brief,
     maxContextRecords: 30,
+    allowProviderFallback: true,
+  },
+  meeting_notes_draft: {
+    key: "meeting_notes_draft",
+    allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.meeting_notes_draft,
+    hasRole: AGENT_ROLE_CHECK.meeting_notes_draft,
+    // Whoever may read the deal may write up a meeting on it.
+    checkAccess: checkDealReaderAccess,
+    loadContext: loadMeetingNotesDraftContext,
+    buildPrompt: AGENT_PROMPT_BUILDERS.meeting_notes_draft,
+    outputSchema: AGENT_OUTPUT_SCHEMAS.meeting_notes_draft,
+    outputType: AGENT_OUTPUT_TYPES.meeting_notes_draft,
+    maxContextRecords: 1,
     allowProviderFallback: true,
   },
   deal_correspondence_summary: {

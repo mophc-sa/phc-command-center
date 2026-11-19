@@ -57,6 +57,7 @@ export const AGENT_ENTITY_ALLOWLIST: Record<AgentKey, readonly EntityType[]> = {
   // project_radar's "pipeline".
   sales_report_insights: ["reports"],
   deal_correspondence_summary: ["opportunities"],
+  meeting_notes_draft: ["opportunities"],
   daily_email_brief: ["my_email"],
   info_mail_triage: ["info_mail"],
 };
@@ -115,6 +116,7 @@ export const AGENT_ROLE_CHECK: Record<AgentKey, (roles: AppRole[]) => boolean> =
   // Salespeople summarise their own deals' email; who may read a given deal
   // is decided per record by can_read_boq in the registry's checkAccess.
   deal_correspondence_summary: (roles) => canCreateSalesRecords(roles),
+  meeting_notes_draft: (roles) => canCreateSalesRecords(roles),
   daily_email_brief: (roles) => canCreateSalesRecords(roles),
   // No person runs it: the info@ pass calls it as a service (orchestrator, serviceCallable).
   info_mail_triage: () => false,

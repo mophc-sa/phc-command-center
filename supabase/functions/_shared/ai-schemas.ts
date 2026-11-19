@@ -45,6 +45,8 @@ export const AGENT_KEYS = [
   "daily_email_brief",
   // 2026-10-20 info@ mailbox — sorts one message; service calls only.
   "info_mail_triage",
+  // 2026-11-19 image 27 — rough meeting notes into notes, decisions, actions.
+  "meeting_notes_draft",
 ] as const;
 export type AgentKey = (typeof AGENT_KEYS)[number];
 
@@ -694,6 +696,19 @@ export const DealCorrespondenceSummaryOutputSchema = z
   .strict();
 export type DealCorrespondenceSummaryOutput = z.infer<typeof DealCorrespondenceSummaryOutputSchema>;
 
+// meeting_notes_draft (2026-11-19, Omar's image 27) — the salesperson's rough
+// notes from a meeting, organised for the meeting record. A draft the person
+// edits and saves; nothing is written by the orchestrator.
+export const MeetingNotesDraftOutputSchema = z
+  .object({
+    notes: z.string().min(1).max(3000),
+    decisions: z.array(z.string().min(1).max(300)).max(10),
+    actions: z.array(z.string().min(1).max(300)).max(10),
+    confidence: z.number().min(0).max(1),
+  })
+  .strict();
+export type MeetingNotesDraftOutput = z.infer<typeof MeetingNotesDraftOutputSchema>;
+
 // daily_email_brief — up to 10 of the person's client emails, most important
 // first, each in two short lines and pointing at its email activity.
 export const BRIEF_PRIORITIES = ["action", "important", "info"] as const;
@@ -770,6 +785,7 @@ export const AGENT_OUTPUT_SCHEMAS = {
   deal_correspondence_summary: DealCorrespondenceSummaryOutputSchema,
   daily_email_brief: DailyEmailBriefOutputSchema,
   info_mail_triage: InfoMailTriageOutputSchema,
+  meeting_notes_draft: MeetingNotesDraftOutputSchema,
 } as const satisfies Record<AgentKey, z.ZodType>;
 
 export const AGENT_OUTPUT_TYPES = {
@@ -794,6 +810,7 @@ export const AGENT_OUTPUT_TYPES = {
   deal_correspondence_summary: "recommendation",
   daily_email_brief: "recommendation",
   info_mail_triage: "staged_classification",
+  meeting_notes_draft: "draft",
 } as const satisfies Record<AgentKey, OutputType>;
 
 // ---------------------------------------------------------------------------
