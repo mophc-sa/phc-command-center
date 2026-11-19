@@ -145,6 +145,8 @@ function OppList() {
         .select(
           "*, company:companies!opportunities_company_id_fkey(id, name), contractor_company:companies!opportunities_main_contractor_id_fkey(name), rfqs(classification, rfq_number, created_at), quotations(status, value, issued_date, created_at), opportunity_updates(kind, created_at)",
         )
+        // Archived records (duplicates, rows not in the master list) stay out, as on every dashboard.
+        .neq("stage", "archived")
         .order("last_activity_at", { ascending: false, nullsFirst: false });
       if (error) throw error;
       return (data ?? []) as unknown as OpportunityRow[];

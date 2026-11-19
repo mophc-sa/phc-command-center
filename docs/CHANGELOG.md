@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-19 — Opportunities list hides archived records (branch `fix/opps-list-hide-archived`)
+
+The list read every row, archived included (909 instead of 251 live), so the duplicates and the rows outside the master list still showed there. It now excludes `stage = archived`, as the dashboards do.
+
 ## 2026-11-19 — PHC orange accents to images 21–28 (branch `feat/phc-orange-accents`, frontend only)
 
 Theme `--primary` is PHC orange (was near-black), so every primary action, the current stage chevron and the highlights across the system turn orange. New `--primary-soft` (peach) and `--primary-on-tint`: the selected sidebar item is a peach tile with an orange label, every table header is peach (the printed quotation stays plain), finished chevrons are peach, the hold / signed banners are peach and the lost banner is red, each with a filled icon circle. The contractor package table shows the stage as a coloured pill (Submitted green, Negotiation violet, Verbal award amber, Signed solid green). Data on 2026-11-19 (no code): production mirrors the November master list, everything not in it archived (data sync run `3924065a`); PO received dates taken from the award date.
