@@ -490,7 +490,7 @@ function OppList() {
           {/* Image 03: project, customer, stage, next action — readable without zooming. */}
           <Table className="min-w-[760px]">
             <TableCaption>{t("nav_opportunities")}</TableCaption>
-            <TableHeader className="sticky top-0 z-10 bg-surface"><TableRow>
+            <TableHeader className="sticky top-0 z-10"><TableRow>
               {([
                 ["project_name", lang === "ar" ? "المشروع" : "Project"],
                 ["client_company", lang === "ar" ? "العميل" : "Customer"],

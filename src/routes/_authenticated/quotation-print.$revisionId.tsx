@@ -124,7 +124,7 @@ function QuotationPrintPage() {
         </section>
 
         <Table className="text-[13px] text-black">
-          <TableHeader>
+          <TableHeader className="bg-transparent">
             <TableRow className="border-y border-black/30 bg-black/[0.04] hover:bg-black/[0.04]">
               <TableHead className="text-black">{pick(TEXT.no, lang)}</TableHead>
               <TableHead className="text-black">{pick(TEXT.item, lang)}</TableHead>

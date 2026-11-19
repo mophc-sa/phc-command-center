@@ -87,13 +87,16 @@ describe("sidebar selection is legible", () => {
     expect(shell).not.toMatch(/active\s*\n?\s*\?\s*"bg-sidebar-accent/);
   });
 
-  it("that token is dark, with a white label", () => {
-    const bg = styles.match(/--sidebar-active:\s*oklch\(([0-9.]+)/);
+  // Images 21–28 (2026-11-19): a peach tile with an orange label. The tile is
+  // light like the sidebar, so it must carry visible colour (chroma), and the
+  // label must be dark enough to read on it (L 0.55 measures 4.52:1).
+  it("that token is a tinted tile with a dark orange label", () => {
+    const bg = styles.match(/--sidebar-active:\s*oklch\(([0-9.]+) ([0-9.]+)/);
     const fg = styles.match(/--sidebar-active-foreground:\s*oklch\(([0-9.]+)/);
     expect(bg).not.toBeNull();
     expect(fg).not.toBeNull();
-    expect(Number(bg![1])).toBeLessThan(0.3);   // near-black
-    expect(Number(fg![1])).toBeGreaterThan(0.9); // white
+    expect(Number(bg![2])).toBeGreaterThanOrEqual(0.03); // tinted, not white on near-white
+    expect(Number(fg![1])).toBeLessThanOrEqual(0.55);    // label clears 4.5:1 on the tile
   });
 
   it("the icon follows the label colour", () => {

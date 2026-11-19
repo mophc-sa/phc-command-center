@@ -3,7 +3,7 @@
 // details block, the contractor package, and handover readiness. PHC theme.
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Circle, ClipboardCheck, Clock, Layers, MinusCircle, PauseCircle, Target, FileText } from "lucide-react";
+import { Check, CheckCircle2, Circle, ClipboardCheck, Clock, Layers, Minus, Pause, Target, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency, type Lang } from "@/lib/i18n";
@@ -35,7 +35,7 @@ export function StageChevrons({ stage, lang }: { stage: string | null | undefine
           style={{ clipPath: shape }}
           className={
             "-ms-2 flex min-h-11 min-w-28 flex-1 items-center justify-center px-6 text-center text-sm font-semibold first:ms-0 " +
-            (i === at ? "bg-primary text-primary-foreground" : i < at ? "bg-primary/15 text-foreground" : "bg-muted text-muted-foreground")
+            (i === at ? "bg-primary text-primary-foreground" : i < at ? "bg-primary-soft text-foreground" : "bg-muted text-muted-foreground")
           }
         >
           {rtl ? p.ar : p.en}
@@ -45,15 +45,38 @@ export function StageChevrons({ stage, lang }: { stage: string | null | undefine
   );
 }
 
+/** Images 25 and 26: the stage as a coloured pill — Submitted green, Negotiation violet. */
+const PILL: Record<string, string> = {
+  Submitted: "bg-won/[0.12] text-won-on-tint",
+  Negotiation: "bg-violet/[0.12] text-violet-on-tint",
+  "Verbal award": "bg-amber/[0.14] text-amber-on-tint",
+  Signed: "bg-won text-white",
+};
+export function StagePill({ stage, lang }: { stage: string | null | undefined; lang: Lang }) {
+  const ar = lang === "ar";
+  const step = PATH.find((p) => p.keys.includes(stage ?? ""));
+  const [label, cls] = step
+    ? [ar ? step.ar : step.en, PILL[step.en] ?? "bg-primary-soft text-primary-on-tint"]
+    : stage === "lost"
+      ? [ar ? "مفقودة" : "Lost", "bg-destructive/[0.10] text-destructive-on-tint"]
+      : stage === "on_hold"
+        ? [ar ? "معلّقة" : "On hold", "bg-primary-soft text-primary-on-tint"]
+        : [String(stage ?? "—").replace(/_/g, " "), "bg-muted text-muted-foreground"];
+  return <span className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${cls}`}>{label}</span>;
+}
+
 export function Banner({ tone, icon, title, children, action }: {
   tone: "hold" | "lost" | "signed"; icon: "hold" | "lost" | "signed"; title: string; children: React.ReactNode; action?: React.ReactNode;
 }) {
-  const cls = tone === "lost" ? "border-destructive/40 bg-destructive/5" : "border-primary/40 bg-primary/10";
-  const Icon = icon === "hold" ? PauseCircle : icon === "lost" ? MinusCircle : CheckCircle2;
+  const cls = tone === "lost" ? "border-destructive/40 bg-destructive/[0.06]" : "border-primary/30 bg-primary-soft";
+  const Icon = icon === "hold" ? Pause : icon === "lost" ? Minus : Check;
   return (
     <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-3 ${cls}`}>
       <span className="flex items-center gap-2 text-lg font-bold text-foreground">
-        <Icon className={`h-7 w-7 ${tone === "lost" ? "text-destructive" : "text-primary"}`} aria-hidden="true" />
+        {/* A filled circle with a white glyph, as the banners in images 21, 24 and 28 draw it. */}
+        <span className={`grid h-9 w-9 place-items-center rounded-full text-white ${tone === "lost" ? "bg-destructive" : "bg-primary"}`}>
+          <Icon className="h-5 w-5" aria-hidden="true" />
+        </span>
         {title}
       </span>
       <span className="hidden h-8 w-px bg-border sm:block" aria-hidden="true" />
@@ -135,8 +158,8 @@ export function PackagePanel({ dealId, countedOn, lang }: { dealId: string; coun
   return (
     <section className="grid gap-4">
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="flex items-center gap-4 rounded-lg border border-primary/40 bg-primary/5 p-4">
-          <span className="grid h-12 w-12 place-items-center rounded-lg bg-primary/15 text-primary"><Layers className="h-6 w-6" aria-hidden="true" /></span>
+        <div className="flex items-center gap-4 rounded-lg border border-primary/30 bg-primary-soft/60 p-4">
+          <span className="grid h-12 w-12 place-items-center rounded-lg bg-primary-soft text-primary"><Layers className="h-6 w-6" aria-hidden="true" /></span>
           <div className="flex-1">
             <div className="text-base font-semibold">{ar ? "قيمة الفرصة دون تكرار" : "Unique pipeline value"}</div>
             <div className="text-sm text-muted-foreground">{ar ? "تُحسب مرة واحدة لهذه الحزمة" : "Counted once for this project package"}</div>
@@ -144,7 +167,7 @@ export function PackagePanel({ dealId, countedOn, lang }: { dealId: string; coun
           <div className="text-2xl font-bold tabular-nums">{formatCurrency(unique, lang, "SAR")}</div>
         </div>
         <div className="flex items-center gap-4 rounded-lg border border-border p-4">
-          <span className="grid h-12 w-12 place-items-center rounded-lg bg-muted text-primary"><FileText className="h-6 w-6" aria-hidden="true" /></span>
+          <span className="grid h-12 w-12 place-items-center rounded-lg bg-primary-soft text-primary"><FileText className="h-6 w-6" aria-hidden="true" /></span>
           <div className="flex-1">
             <div className="text-base font-semibold">{ar ? "إجمالي العروض الحالية" : "Total current quotations"}</div>
             <div className="text-sm text-muted-foreground">{rows.length} {ar ? "مقاولين" : "contractors"}</div>
@@ -154,7 +177,7 @@ export function PackagePanel({ dealId, countedOn, lang }: { dealId: string; coun
       </div>
       <div className="overflow-x-auto rounded-lg border border-border">
         <Table>
-          <TableHeader className="bg-primary/10">
+          <TableHeader>
             <TableRow>{[ar ? "المقاول" : "Contractor", ar ? "رقم العرض" : "Quotation No.", ar ? "القيمة" : "Value", ar ? "المرحلة" : "Stage"].map((h) => <TableHead key={h}>{h}</TableHead>)}</TableRow>
           </TableHeader>
           <TableBody>
@@ -163,7 +186,7 @@ export function PackagePanel({ dealId, countedOn, lang }: { dealId: string; coun
                 <TableCell className="font-semibold"><Link to="/opportunities/$id" params={{ id: r.id }} className="hover:underline">{r.client ?? "—"}</Link></TableCell>
                 <TableCell className="tabular-nums">{code(r)}</TableCell>
                 <TableCell className="tabular-nums">{formatCurrency(quoted(r), lang, "SAR")}</TableCell>
-                <TableCell>{String(r.sales_stage ?? "").replace(/_/g, " ")}</TableCell>
+                <TableCell><StagePill stage={r.sales_stage} lang={lang} /></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -178,10 +201,10 @@ export function PackagePanel({ dealId, countedOn, lang }: { dealId: string; coun
 export function HandoverReadiness({ items, lang }: { items: { label: string; done: boolean; hint?: string }[]; lang: Lang }) {
   const done = items.filter((i) => i.done).length;
   return (
-    <section className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+    <section className="rounded-lg border border-primary/30 bg-primary-soft/60 p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-base font-semibold text-foreground">{lang === "ar" ? "جاهزية التسليم" : "Handover readiness"}</h3>
-        <span className="rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold">{done} {lang === "ar" ? "من" : "of"} {items.length}</span>
+        <span className="rounded-full bg-primary/15 px-3 py-1 text-sm font-semibold text-primary-on-tint">{done} {lang === "ar" ? "من" : "of"} {items.length}</span>
       </div>
       <ul className="grid gap-2">
         {items.map((i) => (
