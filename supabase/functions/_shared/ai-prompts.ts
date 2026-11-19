@@ -429,6 +429,34 @@ export function buildCommercialRiskPrompt(context: string): BuiltPrompt {
 }
 
 // ---------------------------------------------------------------------------
+// meeting_notes_draft (2026-11-19, image 27)
+// ---------------------------------------------------------------------------
+
+const MEETING_NOTES_DRAFT_INSTRUCTIONS = `
+AGENT: meeting_notes_draft (${PROMPT_VERSION})
+You help a PHC salesperson (a Saudi signage company) write up a client meeting.
+The CONTEXT holds the deal and the person's rough notes and attendees, typed
+during or after the meeting. Organise ONLY what the rough notes say. Never
+invent a decision, a date, a price or a commitment that is not in them. Write
+in the language the rough notes are written in.
+
+Return a JSON object with exactly these fields:
+- notes: a clean, short write-up of what was discussed (a few sentences)
+- decisions: string[] — only what was clearly agreed; empty if nothing was
+- actions: string[] — each one action with who does it, as stated; empty if none
+- confidence: number 0-1
+`.trim();
+
+export function buildMeetingNotesDraftPrompt(context: string): BuiltPrompt {
+  return {
+    systemPrompt: `${BASE_SYSTEM_INSTRUCTIONS}\n\n${MEETING_NOTES_DRAFT_INSTRUCTIONS}`,
+    userPrompt: delimitUntrustedContext("meeting_notes", context),
+    version: PROMPT_VERSION,
+    schemaName: "meeting_notes_draft_output",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Agent 16 — project_job_notes (2026-08-04)
 // ---------------------------------------------------------------------------
 
@@ -905,6 +933,7 @@ export const AGENT_PROMPT_BUILDERS: Record<AgentKey, (context: string) => BuiltP
   project_budget_variance: buildProjectBudgetVariancePrompt,
   sales_report_insights: buildSalesReportInsightsPrompt,
   deal_correspondence_summary: buildDealCorrespondencePrompt,
+  meeting_notes_draft: buildMeetingNotesDraftPrompt,
   daily_email_brief: buildDailyEmailBriefPrompt,
   info_mail_triage: buildInfoMailTriagePrompt,
 };
