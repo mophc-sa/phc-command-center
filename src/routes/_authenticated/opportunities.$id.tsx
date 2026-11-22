@@ -767,6 +767,9 @@ function OpportunityDetail() {
       </div>
 
       <StageChevrons dates={Object.fromEntries([
+        // The deal's own record dates first; the recorded stage moves (below) win where they exist.
+        ...(o.created_at ? [["qualified", o.created_at]] : []),
+        ...(o.won_at ? [["won", o.won_at]] : []),
         ...(rfqQ.data?.received_date ? [["rfq_received", rfqQ.data.received_date]] : []),
         ...(o.verbal_award_date ? [["verbally_awarded", o.verbal_award_date]] : []),
         ...((o.contract_signed_date ?? o.contract_received_date) ? [["contract_signed", o.contract_signed_date ?? o.contract_received_date]] : []),

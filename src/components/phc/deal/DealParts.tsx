@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Check, CheckCircle2, Circle, ClipboardCheck, Clock, Copy, FolderOpen, Layers, Minus, Pause, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency, type Lang } from "@/lib/i18n";
@@ -28,22 +29,42 @@ export function StageChevrons({ stage, lang, dates = {} }: { stage: string | nul
     ? "polygon(100% 0, 14px 0, 0 50%, 14px 100%, 100% 100%, calc(100% - 14px) 50%)"
     : "polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%)";
   return (
-    <ol className="flex overflow-x-auto rounded-lg border border-border bg-muted/50 p-1" aria-label={rtl ? "مسار البيع" : "Sales path"}>
-      {PATH.map((p, i) => (
-        <li
-          key={p.en}
-          aria-current={i === at ? "step" : undefined}
-          title={(() => { const d = p.keys.map((k) => dates[k]).find(Boolean); return d ? `${rtl ? p.ar : p.en}: ${d}` : undefined; })()}
-          style={{ clipPath: shape }}
-          className={
-            "-ms-2 flex min-h-11 min-w-28 flex-1 items-center justify-center px-6 text-center text-sm font-semibold first:ms-0 " +
-            (i === at ? "bg-primary text-primary-foreground" : i < at ? "bg-primary-soft text-foreground" : "bg-muted text-muted-foreground")
-          }
-        >
-          {rtl ? p.ar : p.en}
-        </li>
-      ))}
-    </ol>
+    // Review 81/82 item 11: every step explains itself on hover (and on keyboard
+    // focus): the date it was reached, or why there is none.
+    <TooltipProvider delayDuration={100}>
+      <ol className="flex overflow-x-auto rounded-lg border border-border bg-muted/50 p-1" aria-label={rtl ? "مسار البيع" : "Sales path"}>
+        {PATH.map((p, i) => {
+          const name = rtl ? p.ar : p.en;
+          const d = p.keys.map((k) => dates[k]).find(Boolean);
+          const msg = d
+            ? (rtl ? `${i === at ? "الحالية منذ" : "وصلت في"} ${d}` : `${i === at ? "Current since" : "Reached on"} ${d}`)
+            : i > at
+              ? (rtl ? "لم تصل الفرصة لهذه المرحلة بعد" : "Not reached yet")
+              : (rtl ? "تاريخ هذه المرحلة غير مسجّل" : "No date recorded for this stage");
+          return (
+            <Tooltip key={p.en}>
+              <TooltipTrigger asChild>
+                <li
+                  tabIndex={0}
+                  aria-current={i === at ? "step" : undefined}
+                  aria-label={`${name} — ${msg}`}
+                  style={{ clipPath: shape }}
+                  className={
+                    "-ms-2 flex min-h-11 min-w-28 flex-1 cursor-default items-center justify-center px-6 text-center text-sm font-semibold first:ms-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+                    (i === at ? "bg-primary text-primary-foreground" : i < at ? "bg-primary-soft text-foreground" : "bg-muted text-muted-foreground")
+                  }
+                >
+                  {name}
+                </li>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                <span className="font-semibold">{name}</span>: {msg}
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </ol>
+    </TooltipProvider>
   );
 }
 
