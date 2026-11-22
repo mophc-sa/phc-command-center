@@ -125,6 +125,8 @@ function TenderMonitor() {
   const [view, setView] = useState<"board" | "table">("board");
   const [historyTender, setHistoryTender] = useState<{ id: string; label: string } | null>(null);
   const [riskTender, setRiskTender] = useState<{ id: string; label: string } | null>(null);
+  // Every tender opens its details (Marie, 2026-11-22: a new tender showed only its action icons).
+  const [detail, setDetail] = useState<any | null>(null);
   const tstageLabel = (s: string) => t(`tstage_${s}` as never);
 
   const { data: tenders = [], isLoading } = useQuery({
@@ -249,7 +251,7 @@ function TenderMonitor() {
                     return (
                       <div key={x.id} className="rounded-md border border-border/70 bg-background/40 px-3 py-2">
                         <div className="flex items-start justify-between gap-2">
-                          <span className="truncate text-sm text-foreground">{x.tender_name}</span>
+                          <button type="button" onClick={() => setDetail(x)} className="truncate text-start text-sm font-medium text-foreground hover:text-primary hover:underline">{x.tender_name}</button>
                           <ArchivedBadge archived={!!x.archived_at} />
                           {x.tender_priority_classification ? <StatusPill tone="muted">{x.tender_priority_classification}</StatusPill> : null}
                         </div>
@@ -342,7 +344,7 @@ function TenderMonitor() {
                 const urgent = d != null && d <= 14 && d >= 0;
                 return (
                   <TableRow key={x.id}>
-                    <TableCell className="text-foreground">{x.tender_name}</TableCell>
+                    <TableCell className="text-foreground"><button type="button" onClick={() => setDetail(x)} className="text-start font-medium hover:text-primary hover:underline">{x.tender_name}</button></TableCell>
                     <TableCell className="text-muted-foreground">{x.main_contractor?.name ?? "—"}</TableCell>
                     <TableCell><StatusPill tone={stageTone(x.tender_stage)}>{tstageLabel(x.tender_stage)}</StatusPill></TableCell>
                     <TableCell className="text-muted-foreground">{x.tender_priority_classification ?? "—"}</TableCell>
@@ -412,6 +414,45 @@ function TenderMonitor() {
         }
         }}
       />
+
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader><DialogTitle>{detail?.tender_name ?? ""}</DialogTitle></DialogHeader>
+          {detail ? (
+            <div className="grid gap-4">
+              <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                {([
+                  [lang === "ar" ? "المرحلة" : "Stage", tstageLabel(detail.tender_stage)],
+                  [lang === "ar" ? "التصنيف" : "Class", detail.tender_priority_classification],
+                  [lang === "ar" ? "النوع" : "Type", detail.tender_subtype],
+                  [lang === "ar" ? "المصدر" : "Source", detail.source],
+                  [lang === "ar" ? "المقاول الرئيسي" : "Main contractor", detail.main_contractor?.name],
+                  [lang === "ar" ? "المقاول الفائز" : "Winning contractor", detail.winning_contractor_name],
+                  [lang === "ar" ? "قيمة المشروع" : "Project value", detail.estimated_project_value != null ? formatCurrency(detail.estimated_project_value, lang, "SAR") : null],
+                  [lang === "ar" ? "قيمة اللوحات" : "Signage value", detail.estimated_signage_value != null ? formatCurrency(detail.estimated_signage_value, lang, "SAR") : null],
+                  [lang === "ar" ? "الترسية المتوقعة" : "Expected award", detail.expected_award_date],
+                  [lang === "ar" ? "المتابعة التالية" : "Next follow-up", detail.next_follow_up_date],
+                  [lang === "ar" ? "أُضيفت" : "Added", String(detail.created_at ?? "").slice(0, 10)],
+                ] as [string, unknown][]).map(([k, v]) => (
+                  <div key={k} className="grid grid-cols-[9rem_1fr] gap-2">
+                    <dt className="text-muted-foreground">{k}</dt>
+                    <dd className="font-medium text-foreground">{v == null || v === "" ? "—" : String(v)}</dd>
+                  </div>
+                ))}
+              </dl>
+              {detail.converted_opportunity_id ? (
+                <Link to="/opportunities/$id" params={{ id: detail.converted_opportunity_id }} className="text-sm font-medium text-primary hover:underline">
+                  {lang === "ar" ? "فتح الفرصة المحوّلة" : "Open the converted opportunity"}
+                </Link>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => { setHistoryTender({ id: detail.id, label: detail.tender_name }); setDetail(null); }} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted">{t("comm_history")}</button>
+                <button type="button" onClick={() => { setRiskTender({ id: detail.id, label: detail.tender_name }); setDetail(null); }} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted">{lang === "ar" ? "تقييم المخاطر" : "Risk assessment"}</button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!historyTender} onOpenChange={(o) => !o && setHistoryTender(null)}>
         <DialogContent className="sm:max-w-lg">

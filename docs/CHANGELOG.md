@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-22 — Tenders visible to BD / sales ops, and a details view (branch `fix/tenders-visible-details`)
+
+Marie (BD + sales ops) gets the sales team's flat sidebar, which had no Tenders link: she could add a tender and never see it again. The sidebar now shows **Tenders** for BD, sales ops and the sales manager. On the Tender Monitor a tender's name opens its details (stage, class, type, source, contractors, values, dates, link to the converted opportunity, history and risk); before, a card showed only its action icons.
+
 ## 2026-11-22 — Emails inside the deal (branch `feat/deal-emails`, needs `outlook-sync` + `sales-os-api` deploy)
 
 Review 81/82 item 1. Why Westfield showed "No email": Omar's mailbox is not connected (only Abdelrahman, Faisal and Mohammed are), and the four CENOMI company rows defeat the "company's only open deal" rule. Capture now also binds by the deal's own code and the master list sales code (`AH26085`), by the sender being a stakeholder of exactly one live deal, and by a subject naming one deal (words distinctive to that deal only); mail from a deal's stakeholder is kept even when its company has no domain. Deal page: the last five emails in full, **Show all**, **Reply** (subject and text quoted); compose takes up to 5 attachments, 3 MB in all, sent through the person's own Outlook (`email/<uid>/` uploads only).
