@@ -923,6 +923,9 @@ Leadership sees both. The old single Technical Notes box became the first techni
 - **Schedule follow-up:** channel **Other** (say what in the notes, e.g. collecting a payment);
   the level is shown as **Priority A/B/C**.
 - Hover a stage in the path to see the date it was reached.
+- **Risk assessment (Summary tab):** press **Risk assessment** (later **Refresh**). Each risk shows
+  its reason, solution and next action; **Accept** or **Reject** it. Rejecting re-runs the
+  assessment without that risk. Anyone who can open the deal can use it.
 - **Emails (Activity tab):** the last five emails with the client are shown in full; **Show all**
   opens the rest. **Reply** answers one with its text quoted; **Attach a file** sends up to 5 files
   (3 MB in all) through your own Outlook. Emails reach a deal only from a **connected Outlook**
@@ -1865,3 +1868,4 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-22 · review 81/82 deal page: notes threads with RLS, sales rep wording, file location, target price, review To/CC, follow-up Other/Priority, stage dates (branch feat/review-81-82-deal-page) -->
 <!-- last reviewed 2026-11-22 · several people in charge; import checks existing contacts (branch fix/review-dedupe-pic) -->
 <!-- last reviewed 2026-11-22 · emails inside the deal: last five in full, reply, attachments, better matching (branch feat/deal-emails) -->
+<!-- last reviewed 2026-11-22 · risk assessment item by item (branch feat/risk-per-item) -->

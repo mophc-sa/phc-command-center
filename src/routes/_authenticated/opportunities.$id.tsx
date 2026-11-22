@@ -60,6 +60,7 @@ import { fieldsForStage } from "@/components/phc/pipeline/RfqJihPanel";
 import { LOST_REASONS, ON_HOLD_REASONS, label as presetLabel } from "@/lib/entry-presets";
 import { Banner, DetailsBlock, HandoverReadiness, PackagePanel, StageChevrons, SummaryCards } from "@/components/phc/deal/DealParts";
 import { DealNotesPanel } from "@/components/phc/deal/DealNotesPanel";
+import { DealRiskPanel } from "@/components/phc/deal/DealRiskPanel";
 import { DealStageDialogs } from "@/components/phc/deal/DealStageDialogs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { canApproveCommercialAction, canAssignOwner, canAssignUnownedOpportunity, canCreateSalesRecords, canEditOpportunityInputs, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion, canReadTechnicalNotes, canReadCommercialNotes } from "@/lib/roles";
@@ -285,9 +286,6 @@ function OpportunityDetail() {
   // production rows -- which is why the weighted forecast cannot be computed.
   const canEditValues = canEditTotalValue(roles);
 
-  const [riskResult, setRiskResult] = useState<any | null>(null);
-  const [riskRunning, setRiskRunning] = useState(false);
-  const [riskError, setRiskError] = useState<string | null>(null);
 
   const [evalResult, setEvalResult] = useState<any | null>(null);
   const [evalRunning, setEvalRunning] = useState(false);
@@ -297,29 +295,11 @@ function OpportunityDetail() {
   // review status (pending_review/accepted/rejected) survives navigation —
   // reviewing itself happens on this same page now, not only via the
   // separate global "AI Outputs" tab in agent-activity.tsx.
-  const riskOutputQ = useQuery({
-    queryKey: ["ai-output", id, "risk_finance"],
-    queryFn: () => getLatestAgentOutput("opportunities", id, "risk_finance"),
-  });
   const evalOutputQ = useQuery({
     queryKey: ["ai-output", id, "opportunity_evaluation"],
     queryFn: () => getLatestAgentOutput("opportunities", id, "opportunity_evaluation"),
   });
 
-  async function handleRiskAssessment() {
-    setRiskRunning(true);
-    setRiskError(null);
-    try {
-      const result = await runAiAgent({ agent: "risk_finance", entityType: "opportunities", entityId: id });
-      if (!result.ok) throw new Error(result.message);
-      setRiskResult(result.result);
-      qc.invalidateQueries({ queryKey: ["ai-output", id, "risk_finance"] });
-    } catch (e: any) {
-      setRiskError(e.message);
-    } finally {
-      setRiskRunning(false);
-    }
-  }
 
   async function handleOpportunityEvaluation() {
     setEvalRunning(true);
@@ -902,15 +882,6 @@ function OpportunityDetail() {
               <ActionButton onClick={() => setAction("assign")}>{t("action_assign")}</ActionButton>
             ) : null}
             <ActionButton onClick={() => setAction("escalate")}>{t("action_escalate")}</ActionButton>
-            <button
-              type="button"
-              disabled={riskRunning}
-              onClick={handleRiskAssessment}
-              className="inline-flex min-h-9 min-w-[11.5rem] justify-center items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${riskRunning ? "animate-spin" : ""}`} />
-              {riskRunning ? "Assessing…" : "Risk Assessment"}
-            </button>
             <button
               type="button"
               disabled={evalRunning}
@@ -2169,116 +2140,8 @@ function OpportunityDetail() {
       {/* 7d. BAFO / COMMERCIAL DISCOUNT APPROVAL CHAIN */}
       {show("evidence") && <BafoPanel opportunityId={o.id} />}
 
-      {/* 7c. RISK ASSESSMENT */}
-      {(() => {
-        const riskDisplay = riskResult ?? (riskOutputQ.data?.structured_output as any);
-        return (riskError || riskDisplay) && (
-        <Panel title="Risk Assessment">
-          {riskError && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {riskError}
-            </div>
-          )}
-          {riskDisplay && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
-                {riskDisplay.risk_level && (
-                  <span
-                    className={
-                      "rounded px-2 py-1 text-xs font-semibold tracking-[0.02em] " +
-                      (riskDisplay.risk_level === "low"
-                        ? "bg-won/15 text-won"
-                        : riskDisplay.risk_level === "medium"
-                        ? "bg-amber-500/15 text-amber-400"
-                        : riskDisplay.risk_level === "high"
-                        ? "bg-orange-500/15 text-orange-400"
-                        : "bg-destructive/15 text-destructive")
-                    }
-                  >
-                    {riskDisplay.risk_level}
-                  </span>
-                )}
-                {riskDisplay.risk_score != null && (
-                  <span className="text-sm text-foreground font-medium">
-                    Risk Score: {riskDisplay.risk_score}/100
-                  </span>
-                )}
-              </div>
-
-              {riskDisplay.risk_factors && riskDisplay.risk_factors.length > 0 && (
-                <div>
-                  <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">
-                    Risk Factors
-                  </div>
-                  <ul className="space-y-1.5">
-                    {riskDisplay.risk_factors.map((factor: any, i: number) => (
-                      <li key={i} className="flex flex-wrap items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs">
-                        {factor.impact && (
-                          <span
-                            className={
-                              "shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold tracking-[0.02em] " +
-                              (factor.impact === "low"
-                                ? "bg-won/15 text-won"
-                                : factor.impact === "medium"
-                                ? "bg-amber-500/15 text-amber-400"
-                                : "bg-destructive/15 text-destructive")
-                            }
-                          >
-                            {factor.impact}
-                          </span>
-                        )}
-                        <span className="text-muted-foreground">{factor.description ?? factor}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {riskDisplay.mitigations && riskDisplay.mitigations.length > 0 && (
-                <div>
-                  <div className="mb-2 text-xs tracking-[0.02em] text-muted-foreground">
-                    Mitigations
-                  </div>
-                  <ul className="space-y-1.5">
-                    {riskDisplay.mitigations.map((m: any, i: number) => (
-                      <li key={i} className="flex flex-wrap items-start gap-2 rounded-md border border-border bg-surface px-3 py-2 text-xs">
-                        {m.priority && (
-                          <span
-                            className={
-                              "shrink-0 rounded px-1.5 py-0.5 text-2xs font-semibold tracking-[0.02em] " +
-                              (m.priority === "low"
-                                ? "bg-info/15 text-info"
-                                : m.priority === "medium"
-                                ? "bg-amber-500/15 text-amber-400"
-                                : "bg-destructive/15 text-destructive")
-                            }
-                          >
-                            {m.priority}
-                          </span>
-                        )}
-                        <span className="text-muted-foreground">{m.action ?? m}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                This risk assessment is generated by AI and is intended as decision support only. Always validate with your own judgment and local context before taking action.
-              </p>
-
-              <AiOutputReviewBar
-                opportunityId={o.id}
-                output={riskOutputQ.data}
-                canReview={canReview}
-                busy={reviewingOutputId === riskOutputQ.data?.id}
-                onDecide={handleReviewOutput}
-              />
-            </div>
-          )}
-        </Panel>
-        );
-      })()}
+      {/* 7c. RISK ASSESSMENT — review 81/82 item 8: item by item, decided one by one. */}
+      {show("alert") && <DealRiskPanel opportunityId={o.id} extraData={(o.extra_data ?? null) as Record<string, unknown> | null} lang={lang} onChanged={invalidate} />}
 
       {/* 7e. OPPORTUNITY EVALUATION */}
       {(() => {

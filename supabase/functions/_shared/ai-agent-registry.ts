@@ -897,7 +897,11 @@ async function loadRiskFinanceContext(
   svc: SupabaseClient,
   _entityType: EntityType,
   entityId: string,
+  input: Record<string, unknown> = {},
 ): Promise<AgentContextResult> {
+  // Review 81/82: risks the team rejected, so a re-run does not repeat them.
+  const rejected = (Array.isArray(input.rejected_factors) ? input.rejected_factors : [])
+    .filter((x): x is string => typeof x === "string" && x.trim() !== "").slice(0, 10).map((x) => x.slice(0, 300));
   const { data: opp, error } = await svc
     .from("opportunities")
     .select(
@@ -950,6 +954,7 @@ async function loadRiskFinanceContext(
         linked_quotations: quotationCount ?? 0,
         linked_boqs: boqCount ?? 0,
       },
+      ...(rejected.length ? { rejected_factors: rejected } : {}),
     },
     null,
     2,
@@ -1817,8 +1822,9 @@ export const AGENT_REGISTRY: Record<AgentKey, AgentDefinition> = {
   risk_finance: {
     key: "risk_finance",
     allowedEntityTypes: AGENT_ENTITY_ALLOWLIST.risk_finance,
-    hasRole: (roles) => canManageSalesPipeline(roles),
-    checkAccess: checkOwnershipAccess,
+    // Review 81/82: every user who can read the deal.
+    hasRole: AGENT_ROLE_CHECK.risk_finance,
+    checkAccess: checkDealReaderAccess,
     loadContext: loadRiskFinanceContext,
     buildPrompt: AGENT_PROMPT_BUILDERS.risk_finance,
     outputSchema: AGENT_OUTPUT_SCHEMAS.risk_finance,

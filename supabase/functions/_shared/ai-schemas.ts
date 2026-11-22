@@ -403,6 +403,9 @@ export const RiskFinanceOutputSchema = z
             factor: z.string().min(1).max(300),
             impact: z.enum(IMPACT_LEVELS),
             description: z.string().min(1).max(500),
+            // Review 81/82: each risk carries its own fix and next step.
+            solution: z.string().min(1).max(300).optional(),
+            action: z.string().min(1).max(300).optional(),
           })
           .strict(),
       )

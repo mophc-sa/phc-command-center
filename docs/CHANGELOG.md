@@ -1,5 +1,8 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-22 — Risk assessment item by item (branch `feat/risk-per-item`, needs `ai-orchestrator` deploy)
+
+Review 81/82 item 8. `risk_finance` returns, per risk, the reason, a solution and the next action (optional fields, older outputs still read). `DealRiskPanel` lists every risk in one box with **Accept** / **Reject** beside it; a rejection is kept on the deal (`extra_data.risk_decisions`) and re-runs the assessment with `rejected_factors`, which the prompt leaves out and re-scores without. The run / Refresh button lives in the section; the old action-row button and whole-output review bar for risk are gone. Open to every user who can read the deal (`checkDealReaderAccess`).
 ## 2026-11-22 — Tenders visible to BD / sales ops, and a details view (branch `fix/tenders-visible-details`)
 
 Marie (BD + sales ops) gets the sales team's flat sidebar, which had no Tenders link: she could add a tender and never see it again. The sidebar now shows **Tenders** for BD, sales ops and the sales manager. On the Tender Monitor a tender's name opens its details (stage, class, type, source, contractors, values, dates, link to the converted opportunity, history and risk); before, a card showed only its action icons.

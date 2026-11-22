@@ -92,7 +92,8 @@ export const AGENT_ROLE_CHECK: Record<AgentKey, (roles: AppRole[]) => boolean> =
   data_cleanup: (roles) => canManageSalesPipeline(roles),
   contact_mapping: (roles) => canManageSalesPipeline(roles),
   project_radar: (roles) => canManageSalesPipeline(roles),
-  risk_finance: (roles) => canManageSalesPipeline(roles),
+  // Review 81/82: available to every user (deal read access is checked separately).
+  risk_finance: (roles) => roles.length > 0,
   // Import classification agents — same role gate as the real import pipeline.
   // import_routing_reviewer is approve-role-only (it's the final gate before approval).
   workbook_classifier: (roles) => canViewSalesAdmin(roles),

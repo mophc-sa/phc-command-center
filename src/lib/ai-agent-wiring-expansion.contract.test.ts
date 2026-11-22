@@ -111,9 +111,11 @@ describe("opportunities.$id.tsx — opportunity_evaluation now has its first-eve
   });
 
   test("both risk_finance and opportunity_evaluation persist and re-fetch their ai_agent_outputs row after a run", () => {
-    expect(opportunityPageSrc).toMatch(/queryKey: \["ai-output", id, "risk_finance"\]/);
+    // Review 81/82: risk_finance moved to DealRiskPanel, which persists and re-fetches the same row.
+    const riskPanelSrc = src("src/components/phc/deal/DealRiskPanel.tsx");
+    expect(riskPanelSrc).toMatch(/const key = \["ai-output", opportunityId, "risk_finance"\]/);
+    expect(riskPanelSrc).toMatch(/await qc\.invalidateQueries\(\{ queryKey: key \}\)/);
     expect(opportunityPageSrc).toMatch(/queryKey: \["ai-output", id, "opportunity_evaluation"\]/);
-    expect(opportunityPageSrc).toMatch(/qc\.invalidateQueries\(\{ queryKey: \["ai-output", id, "risk_finance"\] \}\)/);
     expect(opportunityPageSrc).toMatch(/qc\.invalidateQueries\(\{ queryKey: \["ai-output", id, "opportunity_evaluation"\] \}\)/);
   });
 
@@ -122,9 +124,11 @@ describe("opportunities.$id.tsx — opportunity_evaluation now has its first-eve
     expect(opportunityPageSrc).toMatch(/await reviewAgentOutput\(\{ outputId: output\.id, decision \}\)/);
   });
 
-  test("both panels render the shared AiOutputReviewBar rather than duplicating review UI", () => {
+  test("the evaluation panel renders the shared AiOutputReviewBar; risks are reviewed item by item", () => {
+    // Review 81/82: risk_finance is accepted or rejected per risk in DealRiskPanel, not as a whole.
     const occurrences = opportunityPageSrc.split("<AiOutputReviewBar").length - 1;
-    expect(occurrences).toBe(2);
+    expect(occurrences).toBe(1);
+    expect(opportunityPageSrc).toContain("<DealRiskPanel");
   });
 });
 
