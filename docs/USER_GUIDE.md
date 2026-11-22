@@ -1145,6 +1145,16 @@ A project now has a responsible salesperson, shown at the top of the project pag
 - **A follow-up due today notifies its owner** in the bell, at the 07:00 run. Before this a due
   follow-up only appeared as an Action Center item.
 
+### Dashboards, contacts and projects after review 81/82 (2026-11-22)
+
+- **Command Center / My dashboard:** four cards. **Sales** is verbal awards plus signed sales, with
+  each part (amount and number of deals) on its own line under the total. Achievement shows a ring.
+- **Contacts (account page):** the email must look like name@company.com and the mobile must be a
+  full number. The sales manager edits a contact with the pencil and removes it with the bin (it is
+  archived, not erased). Clicking a name opens WhatsApp, or email when there is no mobile.
+- **Projects:** tick the site steps (infrastructure, concrete, structure, MEP, facade, external
+  finishing); the completion percentage follows. The list is provisional until Omar confirms it.
+
 ## 10. Current limitations
 
 ### KPI definitions and Riyadh day (2026-11-16)
@@ -1826,3 +1836,5 @@ Update this file when the workflow changes.*
 
 <!-- last reviewed 2026-11-18 · master list import page (branch feat/master-list-import) · weekly change report + similar-name warning (branch feat/weekly-report-dedupe) · deal page tabs + quotation revision value/reason (branch feat/deal-page-tabs) · sales sidebar + My Day follow-up tabs and close-out (branch feat/sales-daily-screens) · sales definitions: signed sales, company target, hold keeps stage, Quote submitted label (branch feat/sales-definitions) · previous 2026-11-17: board closing brief (branch feat/board-closing-focus) · November 2026 master list on the deal page (branch feat/master-list-nov-2026) · previous: Command Center becomes the company report (management only); sales detail moves to Sales Management → Follow-up & priorities · branch feat/company-command-center · previous: 2026-11-16 -->
 <!-- last reviewed 2026-11-18 · sales team interface to images 21–28: seven-stage path (qualified, pricing), deal page dialogs + reopen, My Day tabs, Settings tabs, package linking (branch feat/sales-stages-v2) -->
+<!-- last reviewed 2026-11-22 · review 81/82 dashboards (one Sales figure: verbal + signed), contact validation/edit/remove, project site steps (branch feat/review-81-82-dashboard) -->
+

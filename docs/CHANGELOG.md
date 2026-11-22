@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-22 — Review meeting 81/82, dashboards, contacts, site progress (branch `feat/review-81-82-dashboard`, frontend only)
+
+Items 4, 9, 22–24. Command Center and My dashboard: four cards — target, **Sales** (verbal + signed as one figure, the two parts as lines under it; decided by Mo), achievement with a ring, active opportunities in riyals with the count and RFQs under. The coloured card edges are gone; a corner arrow replaces "Open". Contacts: email and mobile checked before saving (`contact-validation.ts`), the sales manager edits or removes (archives) a contact, the name opens WhatsApp or email. Projects: completion comes from ticking six site steps (`SITE_PROGRESS_STEPS`, provisional weights until Omar's final list); the manual percentage is gone.
+
 ## 2026-11-19 — Opportunities list hides archived records (branch `fix/opps-list-hide-archived`)
 
 The list read every row, archived included (909 instead of 251 live), so the duplicates and the rows outside the master list still showed there. It now excludes `stage = archived`, as the dashboards do.

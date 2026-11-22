@@ -25,7 +25,7 @@ import { ProjectKanban } from "@/components/phc/ProjectKanban";
 import { ProjectBudget } from "@/components/phc/ProjectBudget";
 import { DocumentsPanel } from "@/components/phc/DocumentsPanel";
 import { sumOpportunityValue } from "@/lib/sales-kpis";
-import { SITE_STAGES, siteStageLabel } from "@/lib/project-tracking";
+import { SITE_PROGRESS_STEPS, SITE_STAGES, siteProgressPct, siteStageLabel } from "@/lib/project-tracking";
 
 export const Route = createFileRoute("/_authenticated/projects/$id")({
   head: () => ({ meta: [{ title: "Project — PHC" }, { name: "robots", content: "noindex" }] }),
@@ -254,9 +254,31 @@ function ProjectDetail() {
           </div>
           {p.completion_pct != null ? (
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-amber/70" style={{ width: `${Math.max(0, Math.min(100, p.completion_pct))}%` }} />
+              <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, p.completion_pct))}%` }} />
             </div>
           ) : null}
+          {/* Review 81/82 item 9: tick the standard site steps; the percentage follows. */}
+          {(() => {
+            const done: string[] = ((p.extra_data ?? {}) as { site_progress?: string[] }).site_progress ?? [];
+            return (
+              <div className="mt-2 grid gap-1">
+                {SITE_PROGRESS_STEPS.map((step) => (
+                  <label key={step.key} className="flex items-center gap-2 text-xs text-foreground">
+                    <input type="checkbox" className="h-4 w-4 accent-[var(--primary)]" checked={done.includes(step.key)} disabled={!mayEditProject}
+                      onChange={async (e) => {
+                        const next = e.target.checked ? [...done, step.key] : done.filter((k) => k !== step.key);
+                        try {
+                          await updateProject(p.id, { completion_pct: siteProgressPct(next), extra_data: { ...((p.extra_data ?? {}) as object), site_progress: next } } as never);
+                          qc.invalidateQueries({ queryKey: ["project", id] });
+                        } catch (err) { toast.error(t("toast_error") + (err instanceof Error ? `: ${err.message}` : "")); }
+                      }} />
+                    <span className="flex-1">{lang === "ar" ? step.ar : step.en}</span>
+                    <span className="num text-muted-foreground" data-tabular="true">{step.weight}%</span>
+                  </label>
+                ))}
+              </div>
+            );
+          })()}
         </div>
         <div className="rounded-xl border border-border/70 bg-surface/60 p-4">
           <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("crm_total_value")}</div>
@@ -418,7 +440,6 @@ function ProjectDetail() {
           { key: "location", type: "text", label: t("crm_location"), defaultValue: p.location ?? "" },
           { key: "sector", type: "text", label: t("crm_sector"), defaultValue: p.sector ?? "" },
           { key: "projectStage", type: "select", label: t("crm_project_stage"), defaultValue: p.project_stage, options: PROJECT_STAGES.map((s) => ({ value: s, label: siteStageLabel(s, lang) })) },
-          { key: "completionPct", type: "text", label: t("crm_completion"), defaultValue: p.completion_pct != null ? String(p.completion_pct) : "" },
           { key: "totalValue", type: "text", label: t("crm_total_value"), defaultValue: p.total_value != null ? String(p.total_value) : "" },
           { key: "expectedBoqDate", type: "date", label: t("crm_expected_boq"), defaultValue: p.expected_boq_date ?? "" },
           { key: "expectedSignageDate", type: "date", label: t("crm_expected_signage"), defaultValue: p.expected_signage_date ?? "" },
@@ -431,7 +452,6 @@ function ProjectDetail() {
               location: v.location || null,
               sector: v.sector || null,
               project_stage: v.projectStage as ProjectStage,
-              completion_pct: v.completionPct ? Number(v.completionPct) : null,
               total_value: v.totalValue ? Number(v.totalValue) : null,
               expected_boq_date: v.expectedBoqDate || null,
               expected_signage_date: v.expectedSignageDate || null,

@@ -63,11 +63,11 @@ export function renderValue(k: Kpi, lang: "en" | "ar"): string {
  */
 export type KpiAccent = "money" | "won" | "count" | "risk";
 
-const ACCENT: Record<KpiAccent, { chip: string; bar: string }> = {
-  money: { chip: "bg-amber/[0.12] text-amber-light", bar: "bg-amber/70" },
-  won: { chip: "bg-won/[0.10] text-won", bar: "bg-won/70" },
-  count: { chip: "bg-info/[0.10] text-info", bar: "bg-info/70" },
-  risk: { chip: "bg-destructive/[0.09] text-destructive", bar: "bg-destructive/70" },
+const ACCENT: Record<KpiAccent, { chip: string }> = {
+  money: { chip: "bg-amber/[0.12] text-amber-light" },
+  won: { chip: "bg-won/[0.10] text-won" },
+  count: { chip: "bg-info/[0.10] text-info" },
+  risk: { chip: "bg-destructive/[0.09] text-destructive" },
 };
 
 export function KpiTile({
@@ -83,7 +83,7 @@ export function KpiTile({
   kpi: Kpi;
   label: string;
   hint?: string;
-  /** Semantic colour for the icon and edge. See KpiAccent. */
+  /** Semantic colour for the icon chip. See KpiAccent. */
   accent?: KpiAccent;
   /** A Lucide glyph, sized by this component. Omit and no chip is drawn. */
   icon?: ReactNode;
@@ -184,14 +184,9 @@ export function KpiTile({
         <span>
           {lang === "ar" ? `${formatNumber(kpi.recordCount, lang)} سجل` : `${kpi.recordCount} record${kpi.recordCount === 1 ? "" : "s"}`}
         </span>
+        {/* Review 81/82: a small arrow in the corner instead of the word "Open". */}
         {clickable ? (
-          <>
-            <span aria-hidden="true">·</span>
-            <span className="inline-flex items-center gap-0.5 text-amber-light">
-              {lang === "ar" ? "افتح" : "Open"}
-              <ArrowUpRight className="h-2.5 w-2.5 rtl:rotate-[-90deg]" />
-            </span>
-          </>
+          <ArrowUpRight className="absolute bottom-3 end-3 h-4 w-4 text-primary rtl:rotate-[-90deg]" aria-hidden="true" />
         ) : null}
       </div>
 
@@ -256,24 +251,16 @@ export function KpiTile({
     ? { to: kpi.drilldown!.to, search: kpi.drilldown!.search }
     : null;
 
-  // A 3px edge, INSIDE the card. The reference dashboards carry their colour on
-  // the cards; this app's warm-neutral canvas is its identity and stays put.
-  // `start-0` rather than `start-0`, so it flips with the Arabic layout.
-  const edge = accent ? (
-    <span className={`absolute inset-y-0 start-0 w-[3px] ${ACCENT[accent].bar}`} aria-hidden="true" />
-  ) : null;
 
   if (!target)
     return (
       <div className={shell}>
-        {edge}
         {content}
       </div>
     );
 
   return (
     <div className={`${shell} ${interactive}`}>
-      {edge}
       <Link
         to={target.to as never}
         search={target.search as never}
