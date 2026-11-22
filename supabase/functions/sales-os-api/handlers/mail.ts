@@ -40,7 +40,7 @@ import {
   readMailConfig,
   type ComposeRefusal,
 } from "../../_shared/mail.ts";
-import { readGraphConfig, toGraphMessage } from "../../_shared/graph.ts";
+import { readGraphConfig, toGraphMessage, type GraphMessage } from "../../_shared/graph.ts";
 import { refreshAccess, sendAsMe } from "../../_shared/graph-client.ts";
 
 const POSTMARK_URL = "https://api.postmarkapp.com/email";
@@ -116,6 +116,34 @@ async function send_email(payload: Record<string, unknown>, ctx: SalesOsContext)
 
   // 3 ─ the linked records, seen through the caller's own RLS
   const str = (v: unknown) => (typeof v === "string" && v ? v : null);
+
+  // Review 81/82: attachments. Only files the caller uploaded to its own email
+  // folder, only through its own Outlook, and at most 3 MB in all (Graph's
+  // limit for a message sent in one request).
+  const files = Array.isArray(payload.attachments) ? payload.attachments as { path?: unknown; name?: unknown }[] : [];
+  const attachments: NonNullable<GraphMessage["attachments"]> = [];
+  if (files.length) {
+    if (!viaOutlook) return err("Attachments need your Outlook connected (Settings → Outlook).", 400);
+    if (files.length > 5) return err("At most 5 attachments", 400);
+    let total = 0;
+    for (const f of files) {
+      const path = str(f.path);
+      if (!path || !path.startsWith(`email/${ctx.caller.userId}/`) || path.includes("..")) return err("Attachment not allowed", 403);
+      const { data: blob, error: dlErr } = await ctx.svc.storage.from("attachments").download(path);
+      if (dlErr || !blob) return err("Attachment could not be read", 400);
+      total += blob.size;
+      if (total > 3 * 1024 * 1024) return err("Attachments are limited to 3 MB in all", 400);
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let bin = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      attachments.push({
+        "@odata.type": "#microsoft.graph.fileAttachment",
+        name: (str(f.name) ?? path.split("/").pop() ?? "file").slice(0, 200),
+        contentType: blob.type || "application/octet-stream",
+        contentBytes: btoa(bin),
+      });
+    }
+  }
   const opportunityId = str(payload.opportunityId);
 
   if (opportunityId) {
@@ -186,7 +214,7 @@ async function send_email(payload: Record<string, unknown>, ctx: SalesOsContext)
     }
     if (tok.refresh) await ctx.svc.rpc("rotate_mail_refresh_token", { _user: ctx.caller.userId, _refresh_token: tok.refresh });
     else await ctx.svc.rpc("mark_mail_connection", { _user: ctx.caller.userId, _status: "active", _error: null });
-    const sent = await sendAsMe(tok.access, toGraphMessage(composed));
+    const sent = await sendAsMe(tok.access, { ...toGraphMessage(composed), ...(attachments.length ? { attachments } : {}) });
     if (!sent.ok) return err(`The email could not be sent: ${sent.error}`, 502);
     messageId = sent.messageId;
     conversationId = sent.conversationId;

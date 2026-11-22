@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-22 — Emails inside the deal (branch `feat/deal-emails`, needs `outlook-sync` + `sales-os-api` deploy)
+
+Review 81/82 item 1. Why Westfield showed "No email": Omar's mailbox is not connected (only Abdelrahman, Faisal and Mohammed are), and the four CENOMI company rows defeat the "company's only open deal" rule. Capture now also binds by the deal's own code and the master list sales code (`AH26085`), by the sender being a stakeholder of exactly one live deal, and by a subject naming one deal (words distinctive to that deal only); mail from a deal's stakeholder is kept even when its company has no domain. Deal page: the last five emails in full, **Show all**, **Reply** (subject and text quoted); compose takes up to 5 attachments, 3 MB in all, sent through the person's own Outlook (`email/<uid>/` uploads only).
+
 ## 2026-11-22 — Lighter accent and alternating rows (branch `feat/lighter-accent-zebra`, frontend only)
 
 Mo: the accent is the lighter PHC orange `#BC8546` everywhere, with dark text on it (5.69:1; white would be 3.18). `text-primary` uses the deeper shade of the same hue so orange text stays readable (6.15:1). Every table body row and every divided-list row alternates with a slightly darker `--zebra` shade, system-wide, from one CSS rule.

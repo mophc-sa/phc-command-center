@@ -66,3 +66,19 @@ Deno.test("mail sent from Outlook becomes a sent email, so it counts as client c
   assertEquals([r.activity_type, r.status, r.sent_by, r.occurred_at], ["email_draft", "sent", "u1", "2026-09-29T07:59:00Z"]);
   assertEquals(r.draft_content, null);
 });
+
+// Review 81/82: master list codes and project names bind an email to its deal.
+import { dealByName as _dealByName, extractProjectCodes as _codes } from "./mail-capture.ts";
+Deno.test("master list sales codes are read from a subject", () => {
+  const got = _codes("RE: Westfield AH26085 - revised BOQ (OM-26-0801)");
+  if (!got.includes("AH26085") || !got.includes("OM-26-0801")) throw new Error(JSON.stringify(got));
+});
+Deno.test("a subject naming one deal binds to it, generic words do not", () => {
+  const deals = [
+    { id: "w", project_name: "CENOMI Westfield Riyadh - INTERNAL AND EXTERNAL" },
+    { id: "j", project_name: "CENOMI JAWHARAT JEDDAH" },
+  ];
+  if (_dealByName("RE: Westfield Riyadh signage drawings", deals) !== "w") throw new Error("westfield");
+  if (_dealByName("RE: Cenomi signage", deals) !== null) throw new Error("ambiguous must not bind");
+  if (_dealByName("RE: Internal signage package", deals) !== null) throw new Error("generic words must not bind");
+});

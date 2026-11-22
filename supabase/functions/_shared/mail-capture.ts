@@ -70,9 +70,11 @@ export function externalAddresses(m: GraphMail): string[] {
   });
 }
 
-const CODE = /\b(?:[A-Z]{2,3}-\d{2}-\d{4,}|(?:[A-Z]{2,3}-)?RFQ-\d{4}-\d{4})\b/g;
+// Review 81/82: the master list's sales codes (AH26085, OM25084) count too —
+// they are what clients and the team actually write in subjects.
+const CODE = /\b(?:[A-Z]{2,3}-\d{2}-\d{4,}|(?:[A-Z]{2,3}-)?RFQ-\d{4}-\d{4}|[A-Z]{2}\d{5})\b/g;
 
-/** Project codes in a subject or body, e.g. FA-26-0015 or RFQ-2026-0001. */
+/** Project codes in a subject or body, e.g. FA-26-0015, RFQ-2026-0001 or AH26085. */
 export function extractProjectCodes(text: string | null | undefined): string[] {
   return [...new Set((text ?? "").toUpperCase().match(CODE) ?? [])];
 }
@@ -84,7 +86,30 @@ export function pickOne(ids: Array<string | null | undefined>): string | null {
 }
 
 export type Match = { contactId: string | null; companyId: string | null };
-export type Binding = { opportunityId: string | null; rule: "thread" | "code" | "single_open_deal" | null };
+export type Binding = { opportunityId: string | null; rule: "thread" | "code" | "stakeholder" | "name" | "single_open_deal" | null };
+
+// Words that name every project and so identify none.
+const GENERIC = new Set(["project", "projects", "signage", "signages", "sign", "package", "phase", "the", "and", "for",
+  "wayfinding", "works", "work", "rfq", "quotation", "internal", "external", "supply", "installation", "riyadh", "jeddah",
+  "tower", "mall", "hotel", "building", "centre", "center", "office", "complex", "revised", "drawings"]);
+
+/** The words of a project name that can identify it in a subject. */
+export function nameKeys(name: string | null | undefined): string[] {
+  return [...new Set((name ?? "").toLowerCase().split(/[^a-z0-9\u0600-\u06ff]+/).filter((w) => w.length >= 4 && !GENERIC.has(w)))];
+}
+
+/**
+ * Review 81/82: the deal a subject names. Only words that belong to one
+ * candidate deal count — "Cenomi" is in every Cenomi deal and names none of
+ * them — and only an unambiguous single match binds.
+ */
+export function dealByName(subject: string | null | undefined, deals: { id: string; project_name: string | null }[]): string | null {
+  const words = new Set((subject ?? "").toLowerCase().split(/[^a-z0-9\u0600-\u06ff]+/));
+  const keysOf = new Map(deals.map((d) => [d.id, nameKeys(d.project_name)]));
+  const seen = new Map<string, number>();
+  for (const keys of keysOf.values()) for (const k of keys) seen.set(k, (seen.get(k) ?? 0) + 1);
+  return pickOne(deals.filter((d) => (keysOf.get(d.id) ?? []).some((k) => seen.get(k) === 1 && words.has(k))).map((d) => d.id));
+}
 
 export type ActivityRow = {
   activity_type: "email_received" | "email_draft";

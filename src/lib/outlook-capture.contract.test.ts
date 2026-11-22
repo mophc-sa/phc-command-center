@@ -44,7 +44,8 @@ describe("nothing about a message reaches the logs", () => {
 
 describe("only mail about a known client is kept", () => {
   it("unmatched mail is skipped before a body is fetched or a row written", () => {
-    const skip = SYNC.indexOf("if (!contactHit && !companyId) continue;");
+    // Review 81/82: a person recorded on a deal (stakeholder) also counts as a known client.
+    const skip = SYNC.indexOf("if (!contactHit && !companyId && dealsOfSender.length === 0) continue;");
     expect(skip).toBeGreaterThan(-1);
     expect(skip).toBeLessThan(SYNC.indexOf("await getMessageDetail("));
     expect(skip).toBeLessThan(SYNC.indexOf('from("activities").insert('));

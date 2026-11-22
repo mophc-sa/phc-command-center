@@ -28,7 +28,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, ExternalLink, Loader2, Mail, Send, Sparkles, X } from "lucide-react";
+import { Copy, ExternalLink, Loader2, Mail, Paperclip, Send, Sparkles, X } from "lucide-react";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { uploadAttachment } from "@/lib/storage-actions";
 import { runAiAgent } from "@/lib/ai-orchestrator-actions";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMailStatus, sendEmail } from "@/lib/mail-actions";
@@ -71,6 +73,7 @@ export function EmailComposeModal({
   context,
   linked,
   aiDraftForOpportunity,
+  reply,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -84,9 +87,18 @@ export function EmailComposeModal({
    * person's click on Send.
    */
   aiDraftForOpportunity?: string | null;
+  /** Review 81/82: answering an email from the deal — its subject and text quoted under the reply. */
+  reply?: { subject: string; quote: string } | null;
 }) {
   const { t, lang, dir } = useI18n();
-  const draft = useMemo(() => buildEmailDraft(template, { ...context, lang }), [template, context, lang]);
+  const { user } = useAuth();
+  const draft = useMemo(() => {
+    const base = buildEmailDraft(template, { ...context, lang });
+    if (!reply) return base;
+    return { ...base, subject: /^re:/i.test(reply.subject) ? reply.subject : `RE: ${reply.subject}`, body: `\n\n———\n${reply.quote}` };
+  }, [template, context, lang, reply]);
+  const [files, setFiles] = useState<{ path: string; name: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const [to, setTo] = useState(context.recipientEmail ?? "");
   const [cc, setCc] = useState((context.ccEmails ?? []).join(", "));
@@ -223,7 +235,9 @@ export function EmailComposeModal({
         rfqId: linked?.rfqId ?? null,
         tenderId: linked?.tenderId ?? null,
         mentions: dealLinked ? mentions : [],
+        attachments: files,
       });
+      setFiles([]);
       clearDraft();
       const picked = dealLinked ? mentions.length : 0;
       const notified = picked > 0 && r.mentioned < picked
@@ -402,6 +416,39 @@ export function EmailComposeModal({
               disabled={drafting}
               aria-busy={drafting}
             />
+            {/* Review 81/82: attachments, sent through the person's own Outlook. */}
+            {outlookMailbox && user ? (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-muted-foreground hover:text-foreground">
+                  <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
+                  {uploading ? (ar ? "جارٍ الرفع…" : "Uploading…") : (ar ? "إرفاق ملف (حتى 3 م.ب)" : "Attach a file (up to 3 MB)")}
+                  <input type="file" multiple className="sr-only" disabled={uploading || files.length >= 5}
+                    onChange={async (e) => {
+                      const picked = Array.from(e.target.files ?? []);
+                      e.target.value = "";
+                      setUploading(true);
+                      try {
+                        for (const f of picked) {
+                          const up = await uploadAttachment(`email/${user.id}`, f);
+                          setFiles((xs) => [...xs, { path: up.path, name: f.name }].slice(0, 5));
+                        }
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : t("toast_error"));
+                      } finally {
+                        setUploading(false);
+                      }
+                    }} />
+                </label>
+                {files.map((f) => (
+                  <span key={f.path} className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-1 text-foreground">
+                    {f.name}
+                    <button type="button" aria-label={ar ? "إزالة المرفق" : "Remove attachment"} onClick={() => setFiles((xs) => xs.filter((x) => x.path !== f.path))}>
+                      <X className="h-3 w-3" aria-hidden="true" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
             {aiDraftForOpportunity && ai.state !== "idle" ? (
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground" role="status">
                 <span className="flex min-w-0 items-center gap-1.5">

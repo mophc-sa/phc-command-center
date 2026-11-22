@@ -15,7 +15,8 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowDownLeft, ArrowUpRight, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, RefreshCw, Reply, Sparkles } from "lucide-react";
+import { EmailComposeModal } from "@/components/phc/EmailComposeModal";
 import { Panel } from "@/components/phc/Panel";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,8 @@ export function DealCorrespondencePanel({ opportunityId }: { opportunityId: stri
   const qc = useQueryClient();
   const [running, setRunning] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [replyTo, setReplyTo] = useState<Email | null>(null);
   const outputKey = ["ai-output", "opportunities", opportunityId, AGENT];
 
   const emailsQ = useQuery({
@@ -167,16 +170,17 @@ export function DealCorrespondencePanel({ opportunityId }: { opportunityId: stri
             </section>
           ) : null}
 
+          {/* Review 81/82: the last five emails in full; the rest on "Show all". */}
           <ul className="divide-y divide-border rounded-lg border border-border">
-            {emails.map((e) => {
+            {(showAll ? emails : emails.slice(0, 5)).map((e, i) => {
               const inbound = e.activity_type === "email_received";
               const Icon = inbound ? ArrowDownLeft : ArrowUpRight;
-              const expanded = open === e.id;
+              const expanded = open === e.id || (i < 5 && open !== `closed:${e.id}`);
               return (
                 <li key={e.id} id={`deal-email-${e.id}`}>
                   <button
                     type="button"
-                    onClick={() => setOpen(expanded ? null : e.id)}
+                    onClick={() => setOpen(expanded ? `closed:${e.id}` : e.id)}
                     aria-expanded={expanded}
                     className="flex w-full items-center gap-3 px-3 py-2.5 text-start hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
@@ -188,14 +192,32 @@ export function DealCorrespondencePanel({ opportunityId }: { opportunityId: stri
                     <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{fmt(e.occurred_at)}</span>
                   </button>
                   {expanded ? (
-                    <div dir="auto" className="whitespace-pre-wrap border-t border-border/60 bg-muted/20 px-4 py-3 text-sm text-foreground">
-                      {e.draft_content || t("corr_no_text")}
+                    <div className="border-t border-border/60 bg-muted/20 px-4 py-3">
+                      <div dir="auto" className="whitespace-pre-wrap text-sm text-foreground">{e.draft_content || t("corr_no_text")}</div>
+                      {inbound && e.email_from ? (
+                        <Button size="sm" variant="outline" className="mt-3" onClick={() => setReplyTo(e)}>
+                          <Reply className="me-1.5 h-3.5 w-3.5" aria-hidden="true" />{lang === "ar" ? "رد" : "Reply"}
+                        </Button>
+                      ) : null}
                     </div>
                   ) : null}
                 </li>
               );
             })}
           </ul>
+          {emails.length > 5 ? (
+            <Button size="sm" variant="outline" onClick={() => setShowAll((v) => !v)}>
+              {showAll ? (lang === "ar" ? "عرض آخر 5 فقط" : "Show the last 5") : (lang === "ar" ? `عرض الكل (${emails.length})` : `Show all (${emails.length})`)}
+            </Button>
+          ) : null}
+          <EmailComposeModal
+            open={!!replyTo}
+            onOpenChange={(v) => !v && setReplyTo(null)}
+            template="opportunity_follow_up"
+            context={{ recipientEmail: replyTo?.email_from ?? null }}
+            linked={{ type: "opportunity", id: opportunityId, opportunityId }}
+            reply={replyTo ? { subject: replyTo.summary ?? "", quote: (replyTo.draft_content ?? "").slice(0, 4000) } : null}
+          />
         </div>
       )}
     </Panel>
