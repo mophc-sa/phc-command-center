@@ -63,6 +63,33 @@ export async function createTender(input: {
   return data;
 }
 
+/**
+ * Complete or correct a tender's details (Mo, 2026-11-22: a tender entered with
+ * only a name had no way to get the rest). Never the stage — that moves only
+ * through advanceTenderStage. RLS: the tender's owner or a pipeline operator.
+ */
+export async function updateTender(id: Uuid, patch: {
+  tender_name?: string;
+  tender_priority_classification?: "A" | "B" | "C" | null;
+  tender_subtype?: "contractor" | "government" | null;
+  source?: string | null;
+  main_contractor_id?: Uuid | null;
+  estimated_project_value?: number | null;
+  estimated_signage_value?: number | null;
+  expected_award_date?: string | null;
+  next_follow_up_date?: string | null;
+}) {
+  const uid = await currentUserId();
+  const { data: before } = await supabase.from("tenders").select("*").eq("id", id).maybeSingle();
+  const { data, error } = await supabase.from("tenders").update(patch as never).eq("id", id).select().single();
+  if (error) throw error;
+  await supabase.from("audit_log").insert({
+    actor_id: uid, actor_type: "user", action: "tender.updated",
+    entity_type: "tender", entity_id: id, before_value: before as never, after_value: patch as never,
+  });
+  return data;
+}
+
 export async function addTenderContractor(input: {
   tenderId: Uuid;
   contractorCompanyId?: Uuid | null;

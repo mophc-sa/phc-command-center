@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-22 — Edit a tender's details (branch `feat/tender-edit`)
+
+A tender entered with only a name had no way to get the rest. The details window has **Edit / complete details** for the tender's owner and pipeline operators (the same people RLS lets update): name, class, type, source, main contractor, project and signage values, expected award, next follow-up. The stage still moves only through its own buttons; every edit is in `audit_log` (`tender.updated`, before and after).
+
 ## 2026-11-22 — Risk assessment item by item (branch `feat/risk-per-item`, needs `ai-orchestrator` deploy)
 
 Review 81/82 item 8. `risk_finance` returns, per risk, the reason, a solution and the next action (optional fields, older outputs still read). `DealRiskPanel` lists every risk in one box with **Accept** / **Reject** beside it; a rejection is kept on the deal (`extra_data.risk_decisions`) and re-runs the assessment with `rejected_factors`, which the prompt leaves out and re-scores without. The run / Refresh button lives in the section; the old action-row button and whole-output review bar for risk are gone. Open to every user who can read the deal (`checkDealReaderAccess`).

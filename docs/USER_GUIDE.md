@@ -1869,3 +1869,12 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-22 · several people in charge; import checks existing contacts (branch fix/review-dedupe-pic) -->
 <!-- last reviewed 2026-11-22 · emails inside the deal: last five in full, reply, attachments, better matching (branch feat/deal-emails) -->
 <!-- last reviewed 2026-11-22 · risk assessment item by item (branch feat/risk-per-item) -->
+
+### Tenders: details and editing (2026-11-22)
+
+On **Tenders**, click a tender's name to open its details. **Edit / complete details** (the tender's
+owner, BD, sales ops and managers) fills in or corrects the class, type, source, main contractor,
+values and dates. The stage moves only with the stage buttons on the card; at **Awarded to contractor**
+it asks for the winning contractor and evidence, and conversion to a deal goes through the Tender
+Conversion review. The deal gets its code automatically; RFQ, pricing and quotations are recorded on the deal.
+<!-- last reviewed 2026-11-22 · tender details and edit (branch feat/tender-edit) -->
