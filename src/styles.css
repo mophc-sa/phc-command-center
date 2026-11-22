@@ -207,10 +207,12 @@
   --radius: 1.125rem;          /* 18px — soft, generous card radius */
 
   /* Brand palette — warm-neutral light foundation */
-  --background: oklch(0.965 0.003 90);            /* ≈ #F4F4F3 warm light gray */
-  --surface: oklch(1 0 0);                        /* pure white cards */
-  --surface-2: oklch(0.98 0.003 90);               /* subtle off-white */
-  --surface-elevated: oklch(1 0 0);                /* white, distinguished by shadow */
+  /* Review 81/82 (Omar, 2026-11-22): the page is white and the boxes off-white,
+     1–2% apart — no box is 100% white. */
+  --background: oklch(1 0 0);                      /* white page */
+  --surface: oklch(0.985 0.002 90);                /* off-white boxes, ≈1.5% under the page */
+  --surface-2: oklch(0.975 0.003 90);              /* a step under the box */
+  --surface-elevated: oklch(0.99 0.002 90);        /* dialogs and menus, off-white */
   --structural: oklch(0.55 0.008 253);             /* mid-gray for icon strokes */
   --muted: oklch(0.945 0.004 90);
   --muted-foreground: oklch(0.50 0.010 253);       /* readable secondary text */
@@ -374,9 +376,10 @@
   --destructive: oklch(0.51 0.17 25);
   --destructive-foreground: oklch(0.99 0.002 90);
 
-  /* Hairline borders — 1px, low contrast on white */
-  --border: oklch(0.20 0.010 253 / 0.09);
-  --border-strong: oklch(0.20 0.010 253 / 0.16);
+  /* Hairline borders — thin, but strong enough to stay unbroken on an iPhone's
+     scaled display (review 81/82: at 0.09 they read as broken lines). */
+  --border: oklch(0.20 0.010 253 / 0.14);
+  --border-strong: oklch(0.20 0.010 253 / 0.22);
   --input: oklch(0.20 0.010 253 / 0.12);
   /* Dark-enough neutral for 3:1 focus-ring contrast against a white surface */
   --ring: oklch(0.30 0.02 253);

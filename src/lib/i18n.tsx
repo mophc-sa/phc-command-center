@@ -704,7 +704,7 @@ export const strings = {
   action_accept: { en: "Accept", ar: "قبول" },
   action_reject: { en: "Reject", ar: "رفض" },
   action_return: { en: "Return for Revision", ar: "إعادة للتعديل" },
-  action_assign: { en: "Assign Owner", ar: "تعيين المسؤول" },
+  action_assign: { en: "Change sales rep", ar: "تغيير مندوب المبيعات" },
   action_schedule: { en: "Schedule Follow-up", ar: "جدولة متابعة" },
   action_escalate: { en: "Escalate", ar: "تصعيد" },
   action_complete: { en: "Mark Complete", ar: "إتمام" },
@@ -792,7 +792,7 @@ export const strings = {
   assignment_primary_person: { en: "Primary Person", ar: "الشخص الأساسي" },
   assignment_person_in_charge: { en: "Person in Charge", ar: "الشخص المسؤول" },
   assignment_pic_note: { en: "Note", ar: "ملاحظة" },
-  assignment_set_pic: { en: "Set Person in Charge", ar: "تحديد الشخص المسؤول" },
+  assignment_set_pic: { en: "Add person in charge (keeps the sales rep)", ar: "إضافة شخص مسؤول (يبقى المندوب)" },
   assignment_unassigned: { en: "Unassigned", ar: "غير مُعيَّن" },
 
   // Evidence file upload
@@ -956,8 +956,8 @@ export const strings = {
   // Phase 1C — action dialogs
   dialog_review_title: { en: "Request review", ar: "طلب مراجعة" },
   dialog_review_desc: {
-    en: "Send this opportunity to management for review before quoting.",
-    ar: "إرسال هذه الفرصة إلى الإدارة للمراجعة قبل التسعير.",
+    en: "Send this message for review and approval.",
+    ar: "أرسل هذه الرسالة للمراجعة والاعتماد.",
   },
   dialog_approve_title: { en: "Approve to quote", ar: "اعتماد إصدار العرض" },
   dialog_approve_desc: {
@@ -974,10 +974,12 @@ export const strings = {
     en: "Plan the next contact with this opportunity.",
     ar: "التخطيط للاتصال التالي بهذه الفرصة.",
   },
-  dialog_assign_title: { en: "Assign owner", ar: "تعيين المسؤول" },
+  // Review 81/82 item 6: this REPLACES the sales rep. Its Arabic used to read
+  // almost like "Set person in charge", so people replaced the rep by mistake.
+  dialog_assign_title: { en: "Change sales rep", ar: "تغيير مندوب المبيعات" },
   dialog_assign_desc: {
-    en: "Assign a sales owner responsible for this opportunity.",
-    ar: "تعيين مسؤول مبيعات لهذه الفرصة.",
+    en: "Replaces the sales rep on this opportunity. To add someone alongside the rep, use Add person in charge.",
+    ar: "يستبدل مندوب المبيعات في هذه الفرصة. لإضافة شخص بجانب المندوب استخدم «إضافة شخص مسؤول».",
   },
   dialog_escalate_title: { en: "Escalate", ar: "تصعيد" },
   dialog_escalate_desc: {
@@ -994,7 +996,7 @@ export const strings = {
   field_reason: { en: "Reason", ar: "السبب" },
   field_due_date: { en: "Due date", ar: "تاريخ الاستحقاق" },
   field_channel: { en: "Channel", ar: "القناة" },
-  field_cadence: { en: "Cadence tier", ar: "وتيرة المتابعة" },
+  field_cadence: { en: "Priority", ar: "الأولوية" },
   field_owner: { en: "Owner", ar: "المسؤول" },
   field_unassigned: { en: "Unassigned", ar: "بدون مسؤول" },
   field_outcome: { en: "Outcome", ar: "النتيجة" },

@@ -273,6 +273,13 @@ export const canViewAllSalesData = (r: RoleInput) =>
 export const canUseDiscussion = (r: RoleInput) =>
   inGroup(r, ["general_manager", "sales_manager", "bd_manager", "system_admin"]);
 
+// Review 81/82 (2026-11-22): technical notes are hidden from sales, commercial
+// notes from the technical team. Mirrors public.can_read_note_kind (RLS).
+export const canReadTechnicalNotes = (r: RoleInput) =>
+  inGroup(r, ["estimation_manager", "sales_manager", "general_manager", "managing_director", "ceo", "system_admin"]);
+export const canReadCommercialNotes = (r: RoleInput) =>
+  inGroup(r, ["salesperson", "sales_ops", "bd_manager", "sales_manager", "finance_manager", "general_manager", "managing_director", "ceo", "system_admin"]);
+
 // ---- Intake / Opportunity Review (Phase 2) ----------------------------------
 // PRD 2026-08-12 §15: a new request is reviewed by the Sales Manager OR the BD
 // Manager before it can go to pricing — either one alone is sufficient, they do

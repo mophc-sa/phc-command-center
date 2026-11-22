@@ -46,12 +46,14 @@ test("updateOpportunityTechnicalNotes writes to opportunities.technical_notes, n
   expect(fn).toMatch(/\.update\(\{ technical_notes: notes \|\| null \}\)/);
 });
 
-test("the opportunity detail page renders one checkbox per OPPORTUNITY_MILESTONES entry and a technical notes textarea", () => {
+test("the opportunity detail page renders one checkbox per OPPORTUNITY_MILESTONES entry and the technical notes thread", () => {
   const source = read("src/routes/_authenticated/opportunities.$id.tsx");
   expect(source).toMatch(/OPPORTUNITY_MILESTONES\.map\(\(m\) =>/);
   expect(source).toMatch(/type="checkbox"/);
   expect(source).toMatch(/onChange=\{\(e\) => toggleMilestone\(m, e\.target\.checked\)\}/);
-  expect(source).toMatch(/onBlur=\{\(\) => void saveTechnicalNotes\(\)\}/);
+  // Review 81/82: the single textarea became signed technical / commercial threads.
+  expect(source).toMatch(/<DealNotesPanel opportunityId=\{o\.id\} kind="technical"/);
+  expect(source).toMatch(/<DealNotesPanel opportunityId=\{o\.id\} kind="commercial"/);
 });
 
 test("the milestone checklist panel is a separate Panel from Evidence, not merged into evidence_sources rendering", () => {
