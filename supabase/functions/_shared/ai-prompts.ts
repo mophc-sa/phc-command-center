@@ -359,7 +359,11 @@ Return a JSON object with exactly these fields:
 - risk_score: number 0-100
 - risk_level: "low" | "medium" | "high" | "critical" (must be consistent with
   risk_score threshold above)
-- risk_factors: array of { factor, impact ("low"|"medium"|"high"), description }
+- risk_factors: array of { factor, impact ("low"|"medium"|"high"), description
+  (why it is a risk here), solution (how to reduce it), action (the next
+  concrete step, one line) }
+- If CONTEXT has rejected_factors, the team reviewed those and rejected them as
+  not applicable to this deal: do not repeat them, and re-score without them.
 - mitigations: array of { action, priority ("low"|"medium"|"high") }
 - confidence: number 0-1, your confidence in this risk assessment
 - disclaimer: string reminding the reader this is an AI-generated assessment
