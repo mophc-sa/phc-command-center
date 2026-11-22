@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-22 — Lighter accent and alternating rows (branch `feat/lighter-accent-zebra`, frontend only)
+
+Mo: the accent is the lighter PHC orange `#BC8546` everywhere, with dark text on it (5.69:1; white would be 3.18). `text-primary` uses the deeper shade of the same hue so orange text stays readable (6.15:1). Every table body row and every divided-list row alternates with a slightly darker `--zebra` shade, system-wide, from one CSS rule.
+
 ## 2026-11-22 — Stage bar tooltip on every step (branch `fix/stage-date-tooltip`)
 
 Hovering (or tabbing to) any step of the sales path shows a tooltip: the date it was reached, "Current since" on the current one, "Not reached yet" ahead of it, or "No date recorded". Replaces the native title, which only appeared when a date existed. Qualified uses the deal's creation date and Signed falls back to the award date.
