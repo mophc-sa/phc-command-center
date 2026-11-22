@@ -3,7 +3,7 @@ import { isAssignableTeamMember } from "@/lib/team-members";
 import { opportunityClassification } from "@/lib/opportunity-classification";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { updateRfqDetails } from "@/lib/rfq-actions";
@@ -40,7 +40,6 @@ import {
   recomputeOpportunityScore,
   overrideOpportunityScore,
   setOpportunityMilestone,
-  updateOpportunityTechnicalNotes,
   // Faisal, 2026-08-06: the submission deadline and its owner had to become editable.
   OPPORTUNITY_MILESTONES,
   type OpportunityMilestone,
@@ -59,9 +58,10 @@ import { setHumanWinProbability, advanceSalesStage, nextSalesStages, type SalesS
 import { fieldsForStage } from "@/components/phc/pipeline/RfqJihPanel";
 import { LOST_REASONS, ON_HOLD_REASONS, label as presetLabel } from "@/lib/entry-presets";
 import { Banner, DetailsBlock, HandoverReadiness, PackagePanel, StageChevrons, SummaryCards } from "@/components/phc/deal/DealParts";
+import { DealNotesPanel } from "@/components/phc/deal/DealNotesPanel";
 import { DealStageDialogs } from "@/components/phc/deal/DealStageDialogs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { canApproveCommercialAction, canAssignOwner, canAssignUnownedOpportunity, canCreateSalesRecords, canEditOpportunityInputs, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion } from "@/lib/roles";
+import { canApproveCommercialAction, canAssignOwner, canAssignUnownedOpportunity, canCreateSalesRecords, canEditOpportunityInputs, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion, canReadTechnicalNotes, canReadCommercialNotes } from "@/lib/roles";
 import { personLabel } from "@/lib/person-label";
 import type { OpportunityScoreTier } from "@/lib/opportunity-scoring";
 import {
@@ -255,6 +255,11 @@ function OpportunityDetail() {
     queryKey: ["opp-recent-activity", id],
     queryFn: async () => (await supabase.from("activities").select("summary, occurred_at").eq("related_opportunity_id", id).order("occurred_at", { ascending: false }).limit(1).maybeSingle()).data,
   });
+  // Review 81/82 item 11: the date each stage was first reached, shown on hover.
+  const stageDatesQ = useQuery({
+    queryKey: ["opp-stage-dates", id],
+    queryFn: async () => (await supabase.from("stage_transition_history").select("to_stage, created_at").eq("record_type", "opportunity").eq("record_id", id).order("created_at")).data ?? [],
+  });
   const show = (k: TimelineFilter) => DEAL_TABS.find((d) => d.key === tab)!.sections.includes(k);
   const setFilter = (k: TimelineFilter) => setTab(DEAL_TABS.find((d) => d.sections.includes(k))?.key ?? "summary");
   const [scoring, setScoring] = useState(false);
@@ -265,6 +270,11 @@ function OpportunityDetail() {
   const [figuresOpen, setFiguresOpen] = useState(false);
   const [submissionOpen, setSubmissionOpen] = useState(false);
   const { user, roles } = useAuth();
+  const lastApproverQ = useQuery({
+    queryKey: ["my-last-approver", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => (await supabase.from("approvals").select("assigned_approver").eq("requested_by", user!.id).not("assigned_approver", "is", null).order("created_at", { ascending: false }).limit(1).maybeSingle()).data?.assigned_approver ?? null,
+  });
   const canScore = canManageSalesPipeline(roles);
   const canReview = canReviewAiOutput(roles);
   const canDiscuss = canUseDiscussion(roles);
@@ -562,41 +572,6 @@ function OpportunityDetail() {
     }
   }
 
-  const [technicalNotesDraft, setTechnicalNotesDraft] = useState<string | null>(null);
-  const [savingNotes, setSavingNotes] = useState(false);
-  // What the server last accepted, so a pause and then a blur do not save the
-  // same text twice.
-  const notesSavedRef = useRef<string | null>(null);
-  const [notesAutoSaved, setNotesAutoSaved] = useState(false);
-  async function saveTechnicalNotes(quiet = false) {
-    if (technicalNotesDraft === null) return;
-    const value = technicalNotesDraft;
-    const previous = notesSavedRef.current;
-    if (value === (previous ?? oppQ.data?.technical_notes ?? "")) return;
-    notesSavedRef.current = value;
-    // A quiet save never disables the box: it runs while the person types.
-    if (!quiet) setSavingNotes(true);
-    try {
-      await updateOpportunityTechnicalNotes(id, value);
-      if (quiet) setNotesAutoSaved(true);
-      else toast.success(t("crm_saved"));
-      qc.invalidateQueries({ queryKey: ["opp", id] });
-    } catch (e) {
-      notesSavedRef.current = previous;
-      toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
-    } finally {
-      if (!quiet) setSavingNotes(false);
-    }
-  }
-  // Autosave (manager feedback 2026-10-19): a pause in typing saves, the same
-  // save that leaving the box has always made.
-  useEffect(() => {
-    if (technicalNotesDraft === null) return;
-    setNotesAutoSaved(false);
-    const timer = window.setTimeout(() => void saveTechnicalNotes(true), 1500);
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-armed by each keystroke only
-  }, [technicalNotesDraft]);
 
   const runSafe = async (fn: () => Promise<unknown>, okKey: Parameters<typeof t>[0], onDone?: () => void) => {
     try {
@@ -742,9 +717,10 @@ function OpportunityDetail() {
         </Link>
         <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
+            {/* Review 81/82: the code first and a little wider, the name on its own line, one block. */}
+            {dealCode ? <div className="text-lg font-bold tracking-wide text-muted-foreground tabular-nums">{dealCode}</div> : null}
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-[28px] font-bold tracking-[-0.02em] text-foreground md:text-[32px]">
-                {lang === "ar" ? "فرصة" : "Opportunity"} {dealCode ? `${dealCode} – ` : ""}
+              <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em] text-foreground md:text-[32px]">
                 {o.project ? <Link to="/projects/$id" params={{ id: o.project.id }} className="hover:underline">{o.project_name}</Link> : o.project_name}
               </h1>
               {o.sales_stage === "on_hold" ? (
@@ -758,7 +734,7 @@ function OpportunityDetail() {
             <p className="mt-1.5 text-base text-muted-foreground">
               {[
                 o.contractor_company?.name ?? o.main_contractor ?? o.company?.name ?? o.client,
-                `${lang === "ar" ? "المسؤول" : "Owner"}: ${o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : "—"}`,
+                `${lang === "ar" ? "مندوب المبيعات" : "Sales rep"}: ${o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : "—"}`,
                 `${lang === "ar" ? "آخر عرض" : "Latest quote"}: ${o.quotation_value != null ? formatCurrency(Number(o.quotation_value), lang, o.currency ?? "SAR") : "—"} ${lang === "ar" ? "بدون ضريبة" : "excl. VAT"}`,
               ].filter(Boolean).join("  |  ")}
             </p>
@@ -769,17 +745,17 @@ function OpportunityDetail() {
             ) : (
               <>
                 {o.sales_stage !== "on_hold" && !["won", "contract_signed"].includes(o.sales_stage ?? "") ? (
-                  <button type="button" onClick={() => setCloseKind("hold")} className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-primary/60 px-3 text-sm font-medium text-foreground hover:bg-primary/10">
+                  <button type="button" onClick={() => setCloseKind("hold")} className="inline-flex min-h-10 min-w-[11.5rem] justify-center items-center gap-1.5 rounded-md border border-primary/60 px-3 text-sm font-medium text-foreground hover:bg-primary/10">
                     <PauseCircle className="h-4 w-4 text-primary" aria-hidden="true" /> {lang === "ar" ? "تعليق من المقاول" : "Set contractor hold"}
                   </button>
                 ) : null}
                 {o.sales_stage !== "won" ? (
-                  <button type="button" onClick={() => setCloseKind("lost")} className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-primary/60 px-3 text-sm font-medium text-foreground hover:bg-primary/10">
+                  <button type="button" onClick={() => setCloseKind("lost")} className="inline-flex min-h-10 min-w-[11.5rem] justify-center items-center gap-1.5 rounded-md border border-primary/60 px-3 text-sm font-medium text-foreground hover:bg-primary/10">
                     <XIcon className="h-4 w-4" aria-hidden="true" /> {lang === "ar" ? "إغلاق كمفقودة / ملغاة" : "Close as lost / Cancelled"}
                   </button>
                 ) : null}
                 {stageChoices.length > 0 ? (
-                  <button type="button" onClick={() => setMoveTo(stageChoices[0])} className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+                  <button type="button" onClick={() => setMoveTo(stageChoices[0])} className="inline-flex min-h-10 min-w-[11.5rem] justify-center items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
                     {lang === "ar" ? "تحديث المرحلة" : "Update stage"} <ChevronDown className="h-4 w-4" aria-hidden="true" />
                   </button>
                 ) : null}
@@ -790,13 +766,18 @@ function OpportunityDetail() {
         </div>
       </div>
 
-      <StageChevrons stage={o.sales_stage === "on_hold" ? ((o as { hold_from_stage?: string | null }).hold_from_stage ?? null) : o.sales_stage === "lost" ? (o.lost_at_stage ?? null) : o.sales_stage} lang={lang} />
+      <StageChevrons dates={Object.fromEntries([
+        ...(rfqQ.data?.received_date ? [["rfq_received", rfqQ.data.received_date]] : []),
+        ...(o.verbal_award_date ? [["verbally_awarded", o.verbal_award_date]] : []),
+        ...((o.contract_signed_date ?? o.contract_received_date) ? [["contract_signed", o.contract_signed_date ?? o.contract_received_date]] : []),
+        ...[...(stageDatesQ.data ?? [])].reverse().map((h: { to_stage: string; created_at: string }) => [h.to_stage, h.created_at]),
+      ].map(([k, d]) => [k, fmtDate(String(d), lang)]))} stage={o.sales_stage === "on_hold" ? ((o as { hold_from_stage?: string | null }).hold_from_stage ?? null) : o.sales_stage === "lost" ? (o.lost_at_stage ?? null) : o.sales_stage} lang={lang} />
 
       {o.sales_stage === "on_hold" ? (
         <Banner tone="hold" icon="hold" title={o.hold_reason === "contractor_hold" ? (lang === "ar" ? "معلّقة من المقاول" : "Contractor hold") : (lang === "ar" ? "معلّقة" : "On hold")}>
           <span><b>{lang === "ar" ? "السبب" : "Reason"}:</b> {(() => { const r = ON_HOLD_REASONS.find((x) => x.value === o.hold_reason); return r ? presetLabel(r, lang) : (o.hold_reason ?? "—"); })()}</span>
           <span><b>{lang === "ar" ? "المراجعة" : "Review"}:</b> {o.hold_review_date ?? "—"}</span>
-          <span><b>{lang === "ar" ? "المسؤول" : "Owner"}:</b> {o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : "—"}</span>
+          <span><b>{lang === "ar" ? "مندوب المبيعات" : "Sales rep"}:</b> {o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : "—"}</span>
         </Banner>
       ) : o.sales_stage === "lost" ? (
         <Banner tone="lost" icon="lost" title={lang === "ar" ? "مغلقة — مفقودة" : "Closed — Lost"}
@@ -828,7 +809,7 @@ function OpportunityDetail() {
         <>
           <SummaryCards
             lang={lang}
-            scope={o.technical_notes ?? null}
+            fileLocation={(o as { file_location?: string | null }).file_location ?? null}
             nextAction={o.next_action ?? null}
             nextDue={o.next_action_due ?? null}
             recent={recentQ.data ? { text: recentQ.data.summary ?? "—", at: String(recentQ.data.occurred_at ?? "").slice(0, 10) } : null}
@@ -836,13 +817,10 @@ function OpportunityDetail() {
           <DetailsBlock
             lang={lang}
             left={[
-              [lang === "ar" ? "رقم الفرصة" : "Opportunity No.", dealCode],
               [lang === "ar" ? "الاسم" : "Name", o.project_name],
               [lang === "ar" ? "العميل" : "Customer", o.company?.name ?? o.client ?? null],
             ]}
             right={[
-              [lang === "ar" ? "المقاول" : "Contractor", o.contractor_company?.name ?? o.main_contractor ?? null],
-              [lang === "ar" ? "المسؤول" : "Owner", o.owner_id ? ((teamQ.data ?? []).find((m: any) => m.id === o.owner_id)?.full_name ?? "—") : null],
               [lang === "ar" ? "آخر عرض" : "Latest quote", o.quotation_value != null ? `${formatCurrency(Number(o.quotation_value), lang, o.currency ?? "SAR")} ${lang === "ar" ? "بدون ضريبة" : "excl. VAT"}` : null],
               [lang === "ar" ? "الإغلاق المتوقع" : "Expected close", o.expected_contract_date ?? null],
             ]}
@@ -908,8 +886,8 @@ function OpportunityDetail() {
               mono
             />
             <DataField label={t("label_expected_close")} value={fmtDate(o.expected_contract_date, lang)} />
-            <DataField label={t("label_next_action")} value={o.next_action} />
-            <DataField label={t("label_due")} value={fmtDate(o.next_action_due, lang)} />
+            {/* Review 81/82 item 7: what the client is aiming for, next to what we quoted. */}
+            <DataField label={lang === "ar" ? "السعر المستهدف من العميل" : "Target price from client"} value={(o as { client_target_price?: number | null }).client_target_price == null ? null : formatCurrency(Number((o as { client_target_price?: number }).client_target_price), lang, o.currency)} mono />
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -924,7 +902,7 @@ function OpportunityDetail() {
               type="button"
               disabled={riskRunning}
               onClick={handleRiskAssessment}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+              className="inline-flex min-h-9 min-w-[11.5rem] justify-center items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${riskRunning ? "animate-spin" : ""}`} />
               {riskRunning ? "Assessing…" : "Risk Assessment"}
@@ -933,7 +911,7 @@ function OpportunityDetail() {
               type="button"
               disabled={evalRunning}
               onClick={handleOpportunityEvaluation}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+              className="inline-flex min-h-9 min-w-[11.5rem] justify-center items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${evalRunning ? "animate-spin" : ""}`} />
               {evalRunning ? "Evaluating…" : "Opportunity Evaluation"}
@@ -1309,10 +1287,18 @@ function OpportunityDetail() {
               defaultValue: o.expected_contract_date ?? "" },
             { key: "nextAction", type: "text", label: t("label_next_action"), defaultValue: o.next_action ?? "" },
             { key: "nextActionDue", type: "date", label: t("label_due"), defaultValue: o.next_action_due ?? "" },
+            { key: "clientTargetPrice", type: "text", label: lang === "ar" ? "السعر المستهدف من العميل" : "Target price from client",
+              defaultValue: (o as { client_target_price?: number | null }).client_target_price == null ? "" : String((o as { client_target_price?: number }).client_target_price) },
+            { key: "fileLocation", type: "text", label: lang === "ar" ? "مكان الملفات (مسار السيرفر)" : "File location (server path)",
+              placeholder: "\\\\server\\Projects\\…", defaultValue: (o as { file_location?: string | null }).file_location ?? "" },
           ]}
           onSubmit={async (v) => {
             // `parseMoneyInput` returns undefined for text that is not a
             // number, which would silently skip the field. Say so instead.
+            if (v.clientTargetPrice?.trim() && parseMoneyInput(v.clientTargetPrice) === undefined) {
+              toast.error(t("figures_bad_number"));
+              return;
+            }
             for (const k of ["quotationValue", "estimatedValueMin", "estimatedValueMax"]) {
               if (canEditValues && v[k]?.trim() && parseMoneyInput(v[k]) === undefined) {
                 toast.error(t("figures_bad_number"));
@@ -1347,6 +1333,8 @@ function OpportunityDetail() {
               expectedContractDate: (v.expectedContractDate ?? "").trim() || null,
               nextAction: (v.nextAction ?? "").trim() || null,
               nextActionDue: (v.nextActionDue ?? "").trim() || null,
+              clientTargetPrice: parseMoneyInput(v.clientTargetPrice) ?? null,
+              fileLocation: v.fileLocation ?? null,
             });
             toast.success(t("figures_saved"));
             invalidate();
@@ -1509,28 +1497,11 @@ function OpportunityDetail() {
         );
       })()}
 
-      {/* 3.1. TECHNICAL NOTES — Phase 4 (system-redesign request), same tab
-          as Stakeholders. Distinct from evidence_sources and the milestone
-          checklist — a single free-form field. */}
-      {show("assignment") && (
-      <Panel title={t("section_technical_notes")}>
-        <textarea
-          aria-label={t("section_technical_notes")}
-          value={technicalNotesDraft ?? o.technical_notes ?? ""}
-          onChange={(e) => setTechnicalNotesDraft(e.target.value)}
-          onBlur={() => void saveTechnicalNotes()}
-          disabled={savingNotes}
-          rows={4}
-          className="w-full rounded-md border border-border bg-background p-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          placeholder={t("section_technical_notes")}
-        />
-        {notesAutoSaved ? (
-          <p className="mt-1 text-2xs text-muted-foreground" role="status">
-            {lang === "ar" ? "حُفظ تلقائيًا" : "Saved automatically"}
-          </p>
-        ) : null}
-      </Panel>
-      )}
+      {/* 3.1. TECHNICAL AND COMMERCIAL NOTES — review 81/82 item 2: two threads,
+          each entry signed and timed; technical hidden from sales, commercial
+          from the technical team (RLS: can_read_note_kind). */}
+      {show("assignment") && canReadTechnicalNotes(roles) && <DealNotesPanel opportunityId={o.id} kind="technical" lang={lang} userId={user?.id ?? null} />}
+      {show("assignment") && canReadCommercialNotes(roles) && <DealNotesPanel opportunityId={o.id} kind="commercial" lang={lang} userId={user?.id ?? null} />}
 
       {/* 3.5. MILESTONE CHECKLIST — Phase 4 (system-redesign request): a
           fixed 7-item evidence checklist, independent of sales_stage. Each
@@ -1688,7 +1659,7 @@ function OpportunityDetail() {
                 <li key={f.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-4 py-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm text-foreground">
-                      {humanize(f.channel)} · {humanize(f.cadence_tier)}
+                      {humanize(f.channel)} · {lang === "ar" ? "الأولوية" : "Priority"} {f.cadence_tier}
                       {f.recurrence && f.recurrence !== "none" ? ` · ${recurrenceLabel(f.recurrence, lang)}` : ""}
                     </div>
                     {f.notes ? (
@@ -2445,12 +2416,16 @@ function OpportunityDetail() {
           { value: "meeting", label: t("channel_meeting") },
           { value: "whatsapp", label: t("channel_whatsapp") },
           { value: "site_visit", label: t("channel_site_visit") },
+          // Review 81/82 item 16: anything else (collecting a payment, ...), described in the notes.
+          { value: "other", label: lang === "ar" ? "أخرى (اذكرها في الملاحظات)" : "Other (say what in the notes)" },
         ];
-        const cadenceOpts = [
-          { value: "A", label: `${t("label_tier")} A` },
-          { value: "B", label: `${t("label_tier")} B` },
-          { value: "C", label: `${t("label_tier")} C` },
-        ];
+        const cadenceOpts = (["A", "B", "C"] as const).map((x) => ({ value: x, label: `${lang === "ar" ? "الأولوية" : "Priority"} ${x}` }));
+        // Review 81/82 items 3 and 17: who a request goes To, and who is copied.
+        const approverOpts = (teamQ.data ?? []).filter(isAssignableTeamMember).filter((m: any) => m.id !== user?.id)
+          .map((m: any) => ({ value: m.id, label: personLabel(m) || m.id.slice(0, 8) }));
+        const lastTo = lastApproverQ.data ?? undefined;
+        const ccFields: DialogField[] = approverOpts.map((m) => ({ key: `cc__${m.value}`, type: "checkbox", label: `CC: ${m.label}` }));
+        const ccOf = (v: Record<string, string>) => Object.keys(v).filter((k) => k.startsWith("cc__") && v[k] === "true" && k.slice(4) !== v.to).map((k) => k.slice(4));
         const teamOpts = [
           { value: "__none__", label: t("field_unassigned") },
           // Name and sales code, so the person picking knows which Mohammed
@@ -2476,7 +2451,11 @@ function OpportunityDetail() {
               title={t("dialog_review_title")}
               description={t("dialog_review_desc")}
               submitLabel={t("action_request_review")}
-              fields={[{ ...notesField, required: true }]}
+              fields={[
+                { key: "to", type: "select", label: lang === "ar" ? "إلى" : "To", required: true, options: approverOpts, defaultValue: lastTo },
+                ...ccFields,
+                { ...notesField, required: true },
+              ]}
               onSubmit={(v) =>
                 runSafe(
                   () =>
@@ -2485,6 +2464,8 @@ function OpportunityDetail() {
                       approvalType: "management_review",
                       recommendation: "management_review",
                       notes: v.notes,
+                      assignedApprover: v.to || null,
+                      cc: ccOf(v),
                     }),
                   "toast_review_ok",
                 )
@@ -2496,7 +2477,10 @@ function OpportunityDetail() {
               title={t("dialog_approve_title")}
               description={t("dialog_approve_desc")}
               submitLabel={t("action_approve_to_quote")}
-              fields={[notesField]}
+              fields={[
+                { key: "to", type: "select", label: lang === "ar" ? "يُعتمد لـ (للمتابعة)" : "Approved for (follows up)", required: true, options: approverOpts, defaultValue: lastTo },
+                notesField,
+              ]}
               onSubmit={(v) =>
                 runSafe(
                   async () => {
@@ -2505,6 +2489,7 @@ function OpportunityDetail() {
                       approvalType: "quotation",
                       recommendation: "proceed",
                       notes: v.notes,
+                      assignedApprover: v.to || null,
                     });
                     await updateOpportunityStage({
                       opportunityId: id,
@@ -2754,9 +2739,9 @@ function ActionButton({
       type="button"
       onClick={onClick}
       className={
-        "inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium transition-colors " +
+        "inline-flex min-h-9 min-w-[11.5rem] justify-center items-center rounded-md border px-3 py-1.5 text-xs font-medium transition-colors " +
         (primary
-          ? "border-amber/40 bg-amber/10 text-amber-light hover:bg-amber/20"
+          ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
           : "border-border bg-surface text-foreground hover:bg-muted")
       }
     >

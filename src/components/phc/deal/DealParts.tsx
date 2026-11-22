@@ -3,7 +3,8 @@
 // details block, the contractor package, and handover readiness. PHC theme.
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Check, CheckCircle2, Circle, ClipboardCheck, Clock, Layers, Minus, Pause, Target, FileText } from "lucide-react";
+import { Check, CheckCircle2, Circle, ClipboardCheck, Clock, Copy, FolderOpen, Layers, Minus, Pause, FileText } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency, type Lang } from "@/lib/i18n";
@@ -20,7 +21,7 @@ export const PATH: { keys: string[]; en: string; ar: string }[] = [
 ];
 
 /** Image 21: seven chevrons; done steps tinted, the current one solid. */
-export function StageChevrons({ stage, lang }: { stage: string | null | undefined; lang: Lang }) {
+export function StageChevrons({ stage, lang, dates = {} }: { stage: string | null | undefined; lang: Lang; dates?: Record<string, string> }) {
   const at = PATH.findIndex((p) => p.keys.includes(stage ?? ""));
   const rtl = lang === "ar";
   const shape = rtl
@@ -32,6 +33,7 @@ export function StageChevrons({ stage, lang }: { stage: string | null | undefine
         <li
           key={p.en}
           aria-current={i === at ? "step" : undefined}
+          title={(() => { const d = p.keys.map((k) => dates[k]).find(Boolean); return d ? `${rtl ? p.ar : p.en}: ${d}` : undefined; })()}
           style={{ clipPath: shape }}
           className={
             "-ms-2 flex min-h-11 min-w-28 flex-1 items-center justify-center px-6 text-center text-sm font-semibold first:ms-0 " +
@@ -87,11 +89,11 @@ export function Banner({ tone, icon, title, children, action }: {
 }
 
 /** Image 21, Summary: scope, next action and the latest activity, side by side. */
-export function SummaryCards({ scope, nextAction, nextDue, recent, lang }: {
-  scope: string | null; nextAction: string | null; nextDue: string | null; recent: { text: string; at: string } | null; lang: Lang;
+export function SummaryCards({ fileLocation, nextAction, nextDue, recent, lang }: {
+  fileLocation: string | null; nextAction: string | null; nextDue: string | null; recent: { text: string; at: string } | null; lang: Lang;
 }) {
   const ar = lang === "ar";
-  const card = (Icon: typeof Target, title: string, body: React.ReactNode) => (
+  const card = (Icon: typeof Clock, title: string, body: React.ReactNode) => (
     <div className="flex gap-3 rounded-lg border border-border p-4">
       <Icon className="mt-0.5 h-6 w-6 shrink-0 text-primary" aria-hidden="true" />
       <div className="min-w-0">
@@ -102,7 +104,15 @@ export function SummaryCards({ scope, nextAction, nextDue, recent, lang }: {
   );
   return (
     <div className="grid gap-3 md:grid-cols-3">
-      {card(Target, ar ? "النطاق" : "Scope", scope ?? (ar ? "لم يُسجّل النطاق" : "No scope recorded"))}
+      {/* Review 81/82: Scope removed; the server path of the design files and BOQ, copyable. */}
+      {card(FolderOpen, ar ? "مكان الملفات" : "File location", fileLocation ? (
+        <span className="flex items-start gap-2">
+          <span className="min-w-0 break-all font-mono text-xs">{fileLocation}</span>
+          <button type="button" aria-label={ar ? "نسخ المسار" : "Copy path"} title={ar ? "نسخ المسار" : "Copy path"}
+            onClick={() => void navigator.clipboard.writeText(fileLocation).then(() => toast.success(ar ? "نُسخ المسار" : "Path copied"))}
+            className="shrink-0 rounded p-1 text-primary hover:bg-primary-soft"><Copy className="h-4 w-4" aria-hidden="true" /></button>
+        </span>
+      ) : (ar ? "لم يُسجّل — أضفه من «تعديل» في صندوق التنبيه" : "Not recorded — add it from Edit in the alert box"))}
       {card(ClipboardCheck, ar ? "الإجراء التالي" : "Next action", nextAction ? `${nextAction}${nextDue ? ` — ${nextDue}` : ""}` : (ar ? "لا خطوة تالية مسجلة" : "No next step recorded"))}
       {card(Clock, ar ? "آخر نشاط" : "Recent activity", recent ? `${recent.at}: ${recent.text}` : (ar ? "لا نشاط مسجل" : "No activity recorded"))}
     </div>
