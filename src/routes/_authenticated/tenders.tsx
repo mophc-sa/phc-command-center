@@ -13,8 +13,11 @@ import { SkeletonTable } from "@/components/phc/Skeleton";
 import { StatusPill } from "@/components/phc/StatusPill";
 import { ActionDialog, type DialogField } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
+import { useAuth } from "@/hooks/useSupabaseAuth";
+import { canManageSalesPipeline } from "@/lib/roles";
+import { parseMoneyInput } from "@/lib/opportunity-collab-actions";
 import {
-  advanceTenderStage, requestTenderConversion, nextTenderStages,
+  advanceTenderStage, requestTenderConversion, nextTenderStages, updateTender,
   TENDER_STAGES, type TenderStage,
 } from "@/lib/tender-actions";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
@@ -127,6 +130,9 @@ function TenderMonitor() {
   const [riskTender, setRiskTender] = useState<{ id: string; label: string } | null>(null);
   // Every tender opens its details (Marie, 2026-11-22: a new tender showed only its action icons).
   const [detail, setDetail] = useState<any | null>(null);
+  const [editing, setEditing] = useState<any | null>(null);
+  const { user, roles } = useAuth();
+  const canEditTender = (x: any) => !!x && (x.tender_owner_id === user?.id || canManageSalesPipeline(roles));
   const tstageLabel = (s: string) => t(`tstage_${s}` as never);
 
   const { data: tenders = [], isLoading } = useQuery({
@@ -446,6 +452,9 @@ function TenderMonitor() {
                 </Link>
               ) : null}
               <div className="flex flex-wrap gap-2">
+                {canEditTender(detail) ? (
+                  <button type="button" onClick={() => { setEditing(detail); setDetail(null); }} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">{lang === "ar" ? "تعديل / إكمال البيانات" : "Edit / complete details"}</button>
+                ) : null}
                 <button type="button" onClick={() => { setHistoryTender({ id: detail.id, label: detail.tender_name }); setDetail(null); }} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted">{t("comm_history")}</button>
                 <button type="button" onClick={() => { setRiskTender({ id: detail.id, label: detail.tender_name }); setDetail(null); }} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted">{lang === "ar" ? "تقييم المخاطر" : "Risk assessment"}</button>
               </div>
@@ -453,6 +462,55 @@ function TenderMonitor() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <ActionDialog
+        recordId={editing?.id}
+        open={!!editing}
+        onOpenChange={(o) => !o && setEditing(null)}
+        title={lang === "ar" ? "تعديل بيانات المناقصة" : "Edit tender details"}
+        submitLabel={t("action_save")}
+        fields={editing ? [
+          { key: "tender_name", type: "text", label: lang === "ar" ? "الاسم" : "Name", required: true, defaultValue: editing.tender_name ?? "" },
+          { key: "cls", type: "select", label: lang === "ar" ? "التصنيف" : "Class", defaultValue: editing.tender_priority_classification ?? "",
+            options: [{ value: "", label: "—" }, ...["A", "B", "C"].map((x) => ({ value: x, label: x }))] },
+          { key: "subtype", type: "select", label: lang === "ar" ? "النوع" : "Type", defaultValue: editing.tender_subtype ?? "",
+            options: [{ value: "", label: "—" }, { value: "contractor", label: lang === "ar" ? "مقاول" : "Contractor" }, { value: "government", label: lang === "ar" ? "حكومي" : "Government" }] },
+          { key: "source", type: "text", label: lang === "ar" ? "المصدر" : "Source", defaultValue: editing.source ?? "" },
+          { key: "contractor", type: "select", label: lang === "ar" ? "المقاول الرئيسي" : "Main contractor", defaultValue: editing.main_contractor_id ?? "",
+            options: [{ value: "", label: "—" }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))] },
+          { key: "project_value", type: "text", label: lang === "ar" ? "قيمة المشروع (ر.س)" : "Project value (SAR)", defaultValue: editing.estimated_project_value != null ? String(editing.estimated_project_value) : "" },
+          { key: "signage_value", type: "text", label: lang === "ar" ? "قيمة اللوحات (ر.س)" : "Signage value (SAR)", defaultValue: editing.estimated_signage_value != null ? String(editing.estimated_signage_value) : "" },
+          { key: "award", type: "date", label: lang === "ar" ? "الترسية المتوقعة" : "Expected award", defaultValue: editing.expected_award_date ?? "" },
+          { key: "follow_up", type: "date", label: lang === "ar" ? "المتابعة التالية" : "Next follow-up", defaultValue: editing.next_follow_up_date ?? "" },
+        ] : []}
+        onSubmit={async (v) => {
+          if (!editing) return;
+          const money = (x: string | undefined) => {
+            const n = parseMoneyInput(x);
+            if (n === undefined) { toast.error(t("figures_bad_number")); throw new Error("bad number"); }
+            return n;
+          };
+          try {
+            await updateTender(editing.id, {
+              tender_name: v.tender_name.trim(),
+              tender_priority_classification: (v.cls || null) as "A" | "B" | "C" | null,
+              tender_subtype: (v.subtype || null) as "contractor" | "government" | null,
+              source: v.source?.trim() || null,
+              main_contractor_id: v.contractor || null,
+              estimated_project_value: money(v.project_value),
+              estimated_signage_value: money(v.signage_value),
+              expected_award_date: v.award || null,
+              next_follow_up_date: v.follow_up || null,
+            });
+            toast.success(t("crm_saved"));
+            setEditing(null);
+            refresh();
+          } catch (e) {
+            if (!(e instanceof Error && e.message === "bad number")) toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+            throw e;
+          }
+        }}
+      />
 
       <Dialog open={!!historyTender} onOpenChange={(o) => !o && setHistoryTender(null)}>
         <DialogContent className="sm:max-w-lg">
