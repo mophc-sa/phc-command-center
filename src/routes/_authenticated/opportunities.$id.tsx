@@ -5,6 +5,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { contactFieldError } from "@/lib/contact-validation";
 import { supabase } from "@/integrations/supabase/client";
 import { updateRfqDetails } from "@/lib/rfq-actions";
 import { invalidateSalesData } from "@/lib/invalidate-sales";
@@ -767,6 +768,9 @@ function OpportunityDetail() {
       </div>
 
       <StageChevrons dates={Object.fromEntries([
+        // The deal's own record dates first; the recorded stage moves (below) win where they exist.
+        ...(o.created_at ? [["qualified", o.created_at]] : []),
+        ...(o.won_at ? [["won", o.won_at]] : []),
         ...(rfqQ.data?.received_date ? [["rfq_received", rfqQ.data.received_date]] : []),
         ...(o.verbal_award_date ? [["verbally_awarded", o.verbal_award_date]] : []),
         ...((o.contract_signed_date ?? o.contract_received_date) ? [["contract_signed", o.contract_signed_date ?? o.contract_received_date]] : []),
@@ -1191,7 +1195,9 @@ function OpportunityDetail() {
                 },
               ]}
               onSubmit={async (v) => {
-                try {
+                const bad = contactFieldError(v.contactEmail, v.contactPhone, lang === "ar");
+            if (bad) { toast.error(bad); throw new Error(bad); }
+            try {
                   await upsertClientDetails({
                     opportunityId: id,
                     existingStakeholderId: clientContact?.id ?? null,
@@ -1359,6 +1365,8 @@ function OpportunityDetail() {
             { key: "organization", type: "text", label: t("label_company_name") },
           ]}
           onSubmit={async (v) => {
+            const bad = contactFieldError(v.email, v.phone, lang === "ar");
+            if (bad) { toast.error(bad); throw new Error(bad); }
             await addStakeholder({
               opportunityId: id,
               name: String(v.name ?? ""),
@@ -2417,7 +2425,7 @@ function OpportunityDetail() {
           { value: "whatsapp", label: t("channel_whatsapp") },
           { value: "site_visit", label: t("channel_site_visit") },
           // Review 81/82 item 16: anything else (collecting a payment, ...), described in the notes.
-          { value: "other", label: lang === "ar" ? "أخرى (اذكرها في الملاحظات)" : "Other (say what in the notes)" },
+          { value: "other", label: t("channel_other") },
         ];
         const cadenceOpts = (["A", "B", "C"] as const).map((x) => ({ value: x, label: `${lang === "ar" ? "الأولوية" : "Priority"} ${x}` }));
         // Review 81/82 items 3 and 17: who a request goes To, and who is copied.
