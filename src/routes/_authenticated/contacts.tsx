@@ -6,6 +6,7 @@ import { ListWindowFooter } from "@/components/phc/ListWindowFooter";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { contactFieldError } from "@/lib/contact-validation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Users, Wrench } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -347,7 +348,9 @@ function ContactsPage() {
           { key: "confidenceLevel", type: "select", label: t("crm_confidence"), options: [{ value: "", label: "—" }, ...CONFIDENCE_LEVELS.map((c) => ({ value: c, label: confidenceLevelLabel(c) }))] },
         ]}
         onSubmit={async (v) => {
-          try {
+          const bad = contactFieldError(v.email, v.phone, lang === "ar");
+            if (bad) { toast.error(bad); throw new Error(bad); }
+            try {
             await createContact({
               name: v.name,
               companyId: v.companyId || null,

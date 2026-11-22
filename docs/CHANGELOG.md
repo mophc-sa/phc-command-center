@@ -3,6 +3,7 @@
 ## 2026-11-22 — Stage bar tooltip on every step (branch `fix/stage-date-tooltip`)
 
 Hovering (or tabbing to) any step of the sales path shows a tooltip: the date it was reached, "Current since" on the current one, "Not reached yet" ahead of it, or "No date recorded". Replaces the native title, which only appeared when a date existed. Qualified uses the deal's creation date and Signed falls back to the award date.
+Review check (2026-11-22): the email/mobile check now also runs on the Contacts page, the deal's Add contact and Client details (it was only on the account page); "Cadence" and "Tier" read **Priority** everywhere (follow-ups page, filters); the follow-up channel **Other** has a proper label.
 
 ## 2026-11-22 — Review meeting 81/82, dashboards, contacts, site progress (branch `feat/review-81-82-dashboard`, frontend only)
 
