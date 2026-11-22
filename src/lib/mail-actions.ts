@@ -58,6 +58,8 @@ export type SendEmailInput = {
   templateId?: string | null;
   /** Colleagues to notify in the system. Never copied on the email. */
   mentions?: string[];
+  /** Review 81/82: files uploaded under email/<own id>/, sent through Outlook. */
+  attachments?: { path: string; name: string }[];
 };
 
 export type SendEmailResult = {
@@ -81,6 +83,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     tenderId: input.tenderId ?? null,
     templateId: input.templateId ?? null,
     mentions: input.mentions ?? [],
+    attachments: input.attachments ?? [],
   });
   const via = r?.via === "outlook" || r?.via === "postmark" ? r.via : null;
   return { sent: r?.sent === true, logged: r?.logged === true, activityId: r?.activity_id ?? null, via, mentioned: typeof r?.mentioned === "number" ? r.mentioned : 0 };

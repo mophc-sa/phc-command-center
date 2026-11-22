@@ -112,6 +112,8 @@ export type GraphMessage = {
   body: { contentType: "Text"; content: string };
   toRecipients: { emailAddress: { address: string } }[];
   ccRecipients: { emailAddress: { address: string } }[];
+  /** Review 81/82: files sent with the email (Graph fileAttachment, base64). */
+  attachments?: { "@odata.type": "#microsoft.graph.fileAttachment"; name: string; contentType: string; contentBytes: string }[];
 };
 
 /** A message already validated by composeOutbound, in Graph's shape. */

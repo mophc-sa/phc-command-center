@@ -20,6 +20,7 @@ import { readGraphConfig } from "../_shared/graph.ts";
 import { deltaPage, getMessageDetail, initialDeltaUrl, refreshAccess } from "../_shared/graph-client.ts";
 import { syncInfoMailbox } from "./info-pass.ts";
 import {
+  dealByName,
   domainOf,
   externalAddresses,
   extractProjectCodes,
@@ -143,6 +144,17 @@ async function storeBatch(
     const { data } = await svc.from("companies").select("id, website_domain").is("archived_at", null).in("website_domain", part);
     companies.push(...(data ?? []));
   }
+  // Review 81/82: people recorded on a deal (stakeholders) are known too — a
+  // client whose company has no domain on file still reaches its deal.
+  const stakeholderDeals = new Map<string, string[]>();
+  for (const part of chunks(externals)) {
+    const { data } = await svc.from("stakeholders").select("email, opportunity_id")
+      .or(part.map((e) => `email.ilike.${e}`).join(","));
+    for (const st of data ?? []) {
+      const e = String(st.email ?? "").trim().toLowerCase();
+      if (externals.includes(e) && st.opportunity_id) stakeholderDeals.set(e, [...(stakeholderDeals.get(e) ?? []), st.opportunity_id]);
+    }
+  }
   const contactByEmail = new Map<string, { id: string; company_id: string | null }>();
   for (const c of contacts) {
     const e = String(c.email ?? "").trim().toLowerCase();
@@ -169,7 +181,8 @@ async function storeBatch(
     const contactHit = ext.map((e) => contactByEmail.get(e)).find(Boolean) ?? null;
     const companyId = contactHit?.company_id ??
       pickOne(ext.flatMap((e) => companiesByDomain.get(domainOf(e)) ?? []));
-    if (!contactHit && !companyId) continue; // not about a known client: never stored
+    const dealsOfSender = ext.flatMap((e) => stakeholderDeals.get(e) ?? []);
+    if (!contactHit && !companyId && dealsOfSender.length === 0) continue; // not about a known client: never stored
 
     const detail = await getMessageDetail(access, m.id);
     // Could not read it (throttled, transient): stop here without moving the
@@ -177,7 +190,7 @@ async function storeBatch(
     if (!detail) return { stored, complete: false };
     if (detail.sensitivity === "1" || detail.sensitivity === "2") continue; // personal / private: never stored
     const body = detail.body;
-    const binding = await bindDeal(svc, userId, m, companyId, body);
+    const binding = await bindDeal(svc, userId, m, companyId, body, dealsOfSender);
     const row = toActivityRow(m, folder, userId, { contactId: contactHit?.id ?? null, companyId }, binding, body);
     const { error } = await svc.from("activities").insert(row);
     if (error) {
@@ -200,7 +213,7 @@ async function storeBatch(
   return { stored, complete: true };
 }
 
-async function bindDeal(svc: Svc, userId: string, m: GraphMail, companyId: string | null, body: string | null) {
+async function bindDeal(svc: Svc, userId: string, m: GraphMail, companyId: string | null, body: string | null, dealsOfSender: string[] = []) {
   // 1 — the conversation is already bound
   if (m.conversationId) {
     const { data: threads } = await svc.from("email_threads").select("opportunity_id, owner_id")
@@ -213,8 +226,18 @@ async function bindDeal(svc: Svc, userId: string, m: GraphMail, companyId: strin
   const codes = extractProjectCodes(`${m.subject ?? ""}\n${body ?? ""}`);
   if (codes.length) {
     const { data: rfqs } = await svc.from("rfqs").select("opportunity_id").in("rfq_number", codes).is("archived_at", null);
-    const opp = pickOne((rfqs ?? []).map((r) => r.opportunity_id));
+    // Review 81/82: the deal's own code and the master list's sales code too.
+    const { data: byCode } = await svc.from("opportunities").select("id").neq("stage", "archived")
+      .or([`project_code.in.(${codes.join(",")})`, ...codes.map((c) => `extra_data->master_list_2026_11->>code.ilike.${c}*`)].join(","));
+    const opp = pickOne([...(rfqs ?? []).map((r) => r.opportunity_id), ...(byCode ?? []).map((o) => o.id as string)]);
     if (opp) return { opportunityId: opp, rule: "code" as const };
+  }
+  // 2b — the sender is recorded on exactly one live deal
+  if (dealsOfSender.length) {
+    const { data: live } = await svc.from("opportunities").select("id").in("id", [...new Set(dealsOfSender)])
+      .neq("stage", "archived").not("sales_stage", "in", "(won,lost)");
+    const opp = pickOne((live ?? []).map((o) => o.id as string));
+    if (opp) return { opportunityId: opp, rule: "stakeholder" as const };
   }
   // 3 — the company's only open deal
   if (companyId) {
@@ -223,6 +246,14 @@ async function bindDeal(svc: Svc, userId: string, m: GraphMail, companyId: strin
     const open = (opps ?? []).filter((o) => !["won", "lost"].includes(String(o.sales_stage ?? "")) && o.stage !== "archived");
     if (open.length === 1) return { opportunityId: open[0].id as string, rule: "single_open_deal" as const };
   }
+  // 4 — the subject names one deal of this company, or of the sender's deals
+  const scope = companyId
+    ? (await svc.from("opportunities").select("id, project_name").eq("company_id", companyId).neq("stage", "archived").limit(200)).data ?? []
+    : dealsOfSender.length
+      ? (await svc.from("opportunities").select("id, project_name").in("id", [...new Set(dealsOfSender)]).neq("stage", "archived")).data ?? []
+      : [];
+  const named = dealByName(m.subject, scope as { id: string; project_name: string | null }[]);
+  if (named) return { opportunityId: named, rule: "name" as const };
   return { opportunityId: null, rule: null };
 }
 
