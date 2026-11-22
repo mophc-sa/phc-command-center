@@ -634,3 +634,4 @@ Workspace** — شاشة مندوب المبيعات نفسه. صفقة بقيم
 - 2026-11-18 — PR #258 (SharePoint sheet bridge) not merged. Why: it needs an Azure app registration that does not exist, its own description says do not merge, and the master list import page (#403) covers the hand-off.
 - 2026-11-19 — Production data mirrors `PHC_Quotation_Masterlist_Updated November 2026.xlsx` only; records not in it are archived, not deleted; contractor duplicates still count once; DEAD PROJECT = lost; PO received date = award date until the real date is entered. Why: Mo — the numbers must match the file.
 - 2026-11-19 — PHC orange is `#C94E0C`, not the images' `#EF6C22`. Why: white 14px button text on #EF6C22 is 3.08:1, under WCAG AA 4.5:1.
+- 2026-11-22 — Accent is #BC8546 (lighter, one tone) with dark text on it; orange TEXT uses the deeper #8E5E2D-ish shade (`--primary-on-tint`). Why: Mo asked for a lighter, unified orange; white text on it would fail AA.

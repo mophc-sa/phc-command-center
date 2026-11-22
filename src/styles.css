@@ -225,17 +225,15 @@
   --popover: var(--surface);
   --popover-foreground: var(--foreground);
 
-  /* Primary = PHC orange, as Omar's images 21–28 draw it (Mo, 2026-11-19):
-     solid orange actions, the current stage and every highlight; peach
-     (--primary-soft) behind the selected nav item, table headers and banners.
-     Measured, not eyeballed: the images' #EF6C22 carries white text at 3.08:1,
-     under the 4.5:1 a 14px button label needs, so the fill sits one step
-     deeper (#C94E0C, 4.61:1). Orange text on peach uses --primary-on-tint
-     (#BA480D, 4.52:1). */
-  --primary: oklch(0.58 0.17 42);
-  --primary-foreground: oklch(1 0 0);
-  --primary-soft: oklch(0.955 0.03 55);
-  --primary-on-tint: oklch(0.55 0.16 42);
+  /* Primary = the lighter PHC orange (Mo, 2026-11-22: "lighter, one tone
+     everywhere"), #BC8546, with DARK text on it: 5.69:1, where white would be
+     3.18. Peach (--primary-soft) behind the selected nav item, table headers
+     and banners; orange text on peach uses --primary-on-tint (5.38:1). As a
+     fill against white it is 3.18:1 — enough for a mark, not for small text. */
+  --primary: oklch(0.66 0.105 68);
+  --primary-foreground: oklch(0.20 0.010 253);
+  --primary-soft: oklch(0.955 0.03 70);
+  --primary-on-tint: oklch(0.50 0.09 62);
   --secondary: var(--muted);
   --secondary-foreground: var(--foreground);
   --accent: var(--primary-soft);
@@ -380,6 +378,8 @@
      scaled display (review 81/82: at 0.09 they read as broken lines). */
   --border: oklch(0.20 0.010 253 / 0.14);
   --border-strong: oklch(0.20 0.010 253 / 0.22);
+  /* Every second row a touch darker, so lines stay apart (Mo, 2026-11-22). */
+  --zebra: oklch(0.20 0.010 253 / 0.04);
   --input: oklch(0.20 0.010 253 / 0.12);
   /* Dark-enough neutral for 3:1 focus-ring contrast against a white surface */
   --ring: oklch(0.30 0.02 253);
@@ -399,13 +399,19 @@
   /* Selected nav item: peach pill, orange label (images 21–28). Kept as its own
      token pair rather than reusing --sidebar-accent, which every hover state in
      the shadcn sidebar also reads. */
-  --sidebar-active: oklch(0.955 0.03 55);            /* = --primary-soft */
-  --sidebar-active-foreground: oklch(0.55 0.16 42);  /* = --primary-on-tint, 4.52:1 on it */
+  --sidebar-active: oklch(0.955 0.03 70);            /* = --primary-soft */
+  --sidebar-active-foreground: oklch(0.50 0.09 62);  /* = --primary-on-tint, 5.38:1 on it */
   --sidebar-border: oklch(0.20 0.010 253 / 0.07);
   --sidebar-ring: var(--ring);
 }
 
 @layer base {
+  /* Alternating rows across the system: every table body and every divided
+     list. Base layer, so a row's own background utility still wins. */
+  tbody > tr:nth-child(even),
+  .divide-y > :nth-child(even) {
+    background-color: var(--zebra);
+  }
   html {
     color-scheme: light;
     background-color: var(--color-background);
@@ -674,5 +680,14 @@
   #main-content :where(input[type="checkbox"], input[type="radio"]) {
     min-width: 20px;
     min-height: 20px;
+  }
+}
+
+/* The light orange is a fill (dark text sits on it). As TEXT or an icon on a
+   white or peach ground it would read at 3.18:1, so text-primary takes the
+   deeper shade of the same hue: 6.15:1 on white, 5.38:1 on peach. */
+@layer utilities {
+  .text-primary {
+    color: var(--primary-on-tint);
   }
 }

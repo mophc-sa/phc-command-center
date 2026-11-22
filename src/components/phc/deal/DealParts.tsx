@@ -97,7 +97,7 @@ export function Banner({ tone, icon, title, children, action }: {
     <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-3 ${cls}`}>
       <span className="flex items-center gap-2 text-lg font-bold text-foreground">
         {/* A filled circle with a white glyph, as the banners in images 21, 24 and 28 draw it. */}
-        <span className={`grid h-9 w-9 place-items-center rounded-full text-white ${tone === "lost" ? "bg-destructive" : "bg-primary"}`}>
+        <span className={`grid h-9 w-9 place-items-center rounded-full ${tone === "lost" ? "bg-destructive text-white" : "bg-primary text-primary-foreground"}`}>
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
         {title}
