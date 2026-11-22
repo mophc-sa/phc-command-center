@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-22 — Review meeting 81/82, deal page (branch `feat/review-81-82-deal-page`, migration `20261122100000`)
+
+Items 2, 3, 6, 7, 10–14, 16–19, 21, 25 of the review list. Technical / commercial notes as signed threads in `opportunity_discussions.kind`, RLS `can_read_note_kind` (technical hidden from sales, commercial from estimation). `client_target_price`, `file_location` on opportunities. Review requests: To (`assigned_approver`, last one suggested) and CC (`requested_payload.cc`, notified by `notify_approval_events`). "Assign owner" renamed **Change sales rep** (its Arabic read like Set person in charge, so the rep was replaced by mistake). Header: code line, then name. Scope card → copyable File location; Opportunity details lose the duplicated number, contractor and owner; Next action shown once. Stage dates on hover. Follow-up channel Other, Priority A/B/C. Equal-width action buttons; the amber ("cumin") accents become PHC orange; page white, boxes off-white, borders 0.14.
+
 ## 2026-11-19 — Opportunities list hides archived records (branch `fix/opps-list-hide-archived`)
 
 The list read every row, archived included (909 instead of 251 live), so the duplicates and the rows outside the master list still showed there. It now excludes `stage = archived`, as the dashboards do.

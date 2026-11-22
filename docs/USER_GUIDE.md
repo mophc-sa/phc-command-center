@@ -902,8 +902,25 @@ box. Nothing is ever saved or sent by itself: creating, posting and sending stil
 button press. A draft lives in this browser, for your account only, for 7 days, and is
 removed as soon as the form is saved.
 
-On the deal page, **Technical Notes** now also saves itself after a short pause in typing
-("Saved automatically"), as it already did when you clicked away.
+On the deal page, **Technical notes** and **Commercial notes** (since 2026-11-22) are two
+threads: every note carries its writer and time, and you delete only your own. Technical notes
+are hidden from sales; commercial notes are hidden from the technical team (estimation).
+Leadership sees both. The old single Technical Notes box became the first technical note.
+
+### Deal page after review 81/82 (2026-11-22)
+
+- **Header:** the code on its own line, then the project name. The word "Opportunity" is gone.
+- **Sales rep** replaces "Owner". **Change sales rep** replaces the rep; to add someone next to
+  the rep use **Add person in charge (keeps the sales rep)**. The two used to read almost the same
+  in Arabic, and the rep was replaced by mistake.
+- **File location** replaces the Scope card: paste the server path of the design files and BOQ
+  in **Edit** (alert box), then copy it with one click. **Target price from client** is set there too
+  and shows in the alert box next to our quotation.
+- **Request review:** choose who it goes **To** (your last choice is suggested) and tick anyone to
+  **CC**; each is notified. **Approve to quote** names who it is approved for.
+- **Schedule follow-up:** channel **Other** (say what in the notes, e.g. collecting a payment);
+  the level is shown as **Priority A/B/C**.
+- Hover a stage in the path to see the date it was reached.
 
 ### Inside an opportunity
 
@@ -1826,3 +1843,4 @@ Update this file when the workflow changes.*
 
 <!-- last reviewed 2026-11-18 · master list import page (branch feat/master-list-import) · weekly change report + similar-name warning (branch feat/weekly-report-dedupe) · deal page tabs + quotation revision value/reason (branch feat/deal-page-tabs) · sales sidebar + My Day follow-up tabs and close-out (branch feat/sales-daily-screens) · sales definitions: signed sales, company target, hold keeps stage, Quote submitted label (branch feat/sales-definitions) · previous 2026-11-17: board closing brief (branch feat/board-closing-focus) · November 2026 master list on the deal page (branch feat/master-list-nov-2026) · previous: Command Center becomes the company report (management only); sales detail moves to Sales Management → Follow-up & priorities · branch feat/company-command-center · previous: 2026-11-16 -->
 <!-- last reviewed 2026-11-18 · sales team interface to images 21–28: seven-stage path (qualified, pricing), deal page dialogs + reopen, My Day tabs, Settings tabs, package linking (branch feat/sales-stages-v2) -->
+<!-- last reviewed 2026-11-22 · review 81/82 deal page: notes threads with RLS, sales rep wording, file location, target price, review To/CC, follow-up Other/Priority, stage dates (branch feat/review-81-82-deal-page) -->

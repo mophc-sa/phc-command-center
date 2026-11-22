@@ -707,7 +707,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {canCreate ? (
                 <button
                   onClick={() => setNewIntakeOpen(true)}
-                  className="hidden h-8 items-center gap-1.5 rounded-full bg-amber/90 px-3.5 text-xs font-semibold text-black shadow-card transition-colors hover:bg-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:inline-flex"
+                  className="hidden h-8 items-center gap-1.5 rounded-full bg-primary px-3.5 text-xs font-semibold text-primary-foreground shadow-card transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:inline-flex"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   {t("nav_new_intake")}
@@ -766,7 +766,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {notifCount > 0 && (
                   <span
                     aria-hidden="true"
-                    className="num absolute -end-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-amber px-1 text-2xs font-semibold leading-none text-black"
+                    className="num absolute -end-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-2xs font-semibold leading-none text-primary-foreground"
                   >
                     {badgeLabel(notifCount)}
                   </span>

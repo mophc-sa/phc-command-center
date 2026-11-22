@@ -49,11 +49,14 @@ export type DiscussionPost = {
   mentioned: { full_name: string | null; email: string | null } | null;
 };
 
-export async function listDiscussion(opportunityId: Uuid): Promise<DiscussionPost[]> {
+export type NoteKind = "discussion" | "technical" | "commercial";
+
+export async function listDiscussion(opportunityId: Uuid, kind: NoteKind = "discussion"): Promise<DiscussionPost[]> {
   const { data, error } = await supabase
     .from("opportunity_discussions")
     .select("*")
     .eq("opportunity_id", opportunityId)
+    .eq("kind" as never, kind as never)
     .order("created_at", { ascending: false });
   if (error) throw error;
   const posts = (data ?? []) as unknown as Omit<DiscussionPost, "author" | "mentioned">[];
@@ -87,6 +90,7 @@ export async function postDiscussionUpdate(input: {
   personInChargeNote?: string | null;
   mentionedUserId?: string | null;
   mentionPurpose?: MentionPurpose | null;
+  kind?: NoteKind;
 }) {
   const created_by = await currentUserId();
   const { data, error } = await supabase
@@ -99,7 +103,8 @@ export async function postDiscussionUpdate(input: {
       mentioned_user_id: input.mentionedUserId ?? null,
       mention_purpose: input.mentionPurpose ?? null,
       created_by,
-    })
+      kind: input.kind ?? "discussion",
+    } as never)
     .select()
     .single();
   if (error) throw error;
@@ -530,8 +535,12 @@ export async function updateOpportunityFigures(input: {
   nextActionDue?: string | null;
   /** The forecast's date input. NOT next_action_due -- see horizonForecast. */
   expectedContractDate?: string | null;
+  clientTargetPrice?: number | null;
+  fileLocation?: string | null;
 }) {
   const patch: Record<string, unknown> = {};
+  if (input.clientTargetPrice !== undefined) patch.client_target_price = input.clientTargetPrice;
+  if (input.fileLocation !== undefined) patch.file_location = input.fileLocation?.trim() || null;
   if (input.quotationValue !== undefined) patch.quotation_value = input.quotationValue;
   if (input.estimatedValueMin !== undefined) patch.estimated_value_min = input.estimatedValueMin;
   if (input.estimatedValueMax !== undefined) patch.estimated_value_max = input.estimatedValueMax;

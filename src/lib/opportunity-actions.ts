@@ -37,6 +37,9 @@ export async function requestReview(input: {
   approvalType: string; // e.g. "quotation", "management_review", "exception"
   recommendation?: "proceed" | "management_review" | "do_not_quote" | null;
   notes?: string;
+  /** Review 81/82: who the request goes To, and who is copied (notified by the DB trigger). */
+  assignedApprover?: Uuid | null;
+  cc?: Uuid[];
 }) {
   const requested_by = await currentUserId();
   const { data, error } = await supabase
@@ -48,6 +51,8 @@ export async function requestReview(input: {
       recommendation: input.recommendation ?? null,
       decision_notes: input.notes ?? null,
       requested_by,
+      assigned_approver: input.assignedApprover ?? null,
+      ...(input.cc?.length ? { requested_payload: { cc: input.cc } } : {}),
     })
     .select()
     .single();
