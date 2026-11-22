@@ -13,6 +13,7 @@ import { canSeeCollections } from "@/lib/contract-billing";
 import { canSeePricingNav } from "@/lib/pricing-access";
 import { listBillingSummaries, listProfit, listReceivables } from "@/lib/contract-terms-actions";
 import { PageHeader } from "@/components/phc/PageHeader";
+import { SalesTotalCard, AchievementRing } from "@/components/phc/SalesTotalCard";
 import { KpiTile } from "@/components/phc/KpiTile";
 import { KpiRow } from "@/components/phc/KpiRow";
 import { QueryFailure } from "@/components/phc/QueryFailure";
@@ -200,13 +201,18 @@ function CommandCenter() {
               const rfq = rfqIntake(kpis.recs, today);
               const active = kpis.recs.filter((r) => r.open && !r.held);
               return (
-                <KpiRow className="executive-scorecard" columns={6}>
+                // Review 81/82 items 22–24: no duplicated cards; one sales figure
+                // (verbal + signed); achievement as a ring; riyals on top, counts
+                // under; RFQs are a line, not a block.
+                <KpiRow className="executive-scorecard" columns={4}>
                   <KpiTile size="lead" kpi={kpis.forecast.target} label={ar ? "الهدف السنوي" : "Annual target"} hint={periodLabel} accent="count" icon={<Target className="h-4 w-4" />} />
-                  <KpiTile size="lead" kpi={kpis.forecast.won} label={ar ? "المبيعات المتعاقد عليها" : "Signed sales"} hint={periodLabel} accent="won" icon={<Wallet className="h-4 w-4" />} />
-                  <KpiTile size="lead" kpi={kpis.forecast.achievement} label={ar ? "نسبة التحقيق" : "Achievement"} hint={periodLabel} accent="won" icon={<Target className="h-4 w-4" />} />
-                  <KpiCard label={ar ? "ترسيات شفهية" : "Verbal awards"} value={formatCurrency(v.all.value, lang, "SAR")} hint={ar ? `${v.all.count} صفقة — ليست مبيعات بعد` : `${v.all.count} deals — not sales yet`} />
-                  <KpiCard label={ar ? "الفرص النشطة" : "Active opportunities"} value={formatNumber(active.length, lang)} hint={formatCurrency(active.reduce((a, r) => a + (r.value ?? 0), 0), lang, "SAR")} />
-                  <KpiCard label={ar ? "طلبات تسعير آخر 30 يومًا" : "RFQs last 30 days"} value={formatNumber(rfq.last30.count, lang)} hint={ar ? "حسب تاريخ الاستلام" : "By received date"} />
+                  <SalesTotalCard lang={lang} label={ar ? "المبيعات" : "Sales"} hint={periodLabel}
+                    verbal={{ value: v.all.value, count: v.all.count }}
+                    signed={{ value: kpis.forecast.won.value ?? 0, count: kpis.forecast.won.recordCount }} />
+                  <KpiTile size="lead" kpi={kpis.forecast.achievement} label={ar ? "نسبة التحقيق" : "Achievement"} hint={periodLabel} accent="won" icon={<Target className="h-4 w-4" />}
+                    delta={<AchievementRing pct={kpis.forecast.achievement.value} />} />
+                  <KpiCard label={ar ? "الفرص النشطة" : "Active opportunities"} value={formatCurrency(active.reduce((a, r) => a + (r.value ?? 0), 0), lang, "SAR")}
+                    hint={ar ? `${formatNumber(active.length, lang)} فرصة · ${formatNumber(rfq.last30.count, lang)} طلب تسعير آخر 30 يومًا` : `${formatNumber(active.length, lang)} opportunities · ${formatNumber(rfq.last30.count, lang)} RFQs in the last 30 days`} />
                 </KpiRow>
               );
             })()}

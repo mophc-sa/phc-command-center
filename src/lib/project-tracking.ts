@@ -218,3 +218,21 @@ export function projectProgressItems(rows: ProjectProgressRow[], limit = 10): Pr
   }
   return items.sort((a, b) => (a.sortKey < b.sortKey ? 1 : a.sortKey > b.sortKey ? -1 : 0)).slice(0, limit);
 }
+
+// Review 81/82 item 9 (Omar, 2026-11-22): site progress is a list of standard
+// steps, ticked, and the percentage follows. Provisional list from the meeting
+// (infrastructure 10%, concrete 10%, …) until Omar sends the final one: edit
+// the steps and weights here; they must add up to 100.
+export const SITE_PROGRESS_STEPS: readonly { key: string; weight: number; en: string; ar: string }[] = [
+  { key: "infrastructure", weight: 10, en: "Infrastructure", ar: "البنية التحتية" },
+  { key: "concrete", weight: 10, en: "Concrete", ar: "الخرسانة" },
+  { key: "structure", weight: 20, en: "Structure", ar: "الهيكل" },
+  { key: "mep", weight: 20, en: "MEP", ar: "التمديدات" },
+  { key: "facade", weight: 20, en: "Facade", ar: "الواجهات" },
+  { key: "external_finishing", weight: 20, en: "External finishing", ar: "التشطيب الخارجي" },
+];
+
+/** The completion percentage for the ticked steps. Unknown keys count for nothing. */
+export function siteProgressPct(done: readonly string[]): number {
+  return SITE_PROGRESS_STEPS.filter((s) => done.includes(s.key)).reduce((a, s) => a + s.weight, 0);
+}

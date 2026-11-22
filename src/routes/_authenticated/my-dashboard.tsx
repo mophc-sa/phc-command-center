@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Target, Wallet } from "lucide-react";
+import { Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useSupabaseAuth";
 import { useI18n, formatCurrency, formatNumber } from "@/lib/i18n";
@@ -10,6 +10,7 @@ import { targetKpis, targetForPeriod, yearToDate, type OppRow, type TargetRow } 
 import { rfqIntake, toRec, verbalAwards, type ClosingOpp } from "@/lib/board-closing";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { KpiRow } from "@/components/phc/KpiRow";
+import { SalesTotalCard, AchievementRing } from "@/components/phc/SalesTotalCard";
 import { KpiTile } from "@/components/phc/KpiTile";
 import { KpiCard } from "@/components/phc/KpiCard";
 import { CloseList } from "@/components/phc/CloseList";
@@ -62,13 +63,16 @@ function MyDashboard() {
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader eyebrow={ar ? "لوحتي" : "My dashboard"} title={ar ? "أدائي ومبيعاتي" : "My sales and performance"} description={ar ? "هدفك، ما تعاقدت عليه، وما يحتاج إغلاقًا ومتابعة." : "Your target, what you have signed, and what needs closing and following up."} />
-      <KpiRow columns={6}>
+      {/* Review 81/82 items 22–24: same layout as the Command Center. */}
+      <KpiRow columns={4}>
         <KpiTile size="lead" kpi={t.target} label={ar ? "هدفي السنوي" : "My annual target"} hint={period} accent="count" icon={<Target className="h-4 w-4" />} />
-        <KpiTile size="lead" kpi={t.actual} label={ar ? "مبيعاتي المتعاقد عليها" : "My signed sales"} hint={period} accent="won" icon={<Wallet className="h-4 w-4" />} />
-        <KpiTile size="lead" kpi={t.achievement} label={ar ? "نسبة التحقيق" : "Achievement"} hint={period} accent="won" icon={<Target className="h-4 w-4" />} />
-        <KpiCard label={ar ? "ترسياتي الشفهية" : "My verbal awards"} value={formatCurrency(v.all.value, lang, "SAR")} hint={ar ? `${v.all.count} صفقة — ليست مبيعات بعد` : `${v.all.count} deals — not sales yet`} />
-        <KpiCard label={ar ? "فرصي النشطة" : "My active opportunities"} value={formatNumber(active.length, lang)} hint={formatCurrency(active.reduce((a, r) => a + (r.value ?? 0), 0), lang, "SAR")} />
-        <KpiCard label={ar ? "طلبات تسعير آخر 30 يومًا" : "RFQs last 30 days"} value={formatNumber(rfq.last30.count, lang)} hint={ar ? "حسب تاريخ الاستلام" : "By received date"} />
+        <SalesTotalCard lang={lang} label={ar ? "مبيعاتي" : "My sales"} hint={period}
+          verbal={{ value: v.all.value, count: v.all.count }}
+          signed={{ value: t.actual.value ?? 0, count: t.actual.recordCount }} />
+        <KpiTile size="lead" kpi={t.achievement} label={ar ? "نسبة التحقيق" : "Achievement"} hint={period} accent="won" icon={<Target className="h-4 w-4" />}
+          delta={<AchievementRing pct={t.achievement.value} />} />
+        <KpiCard label={ar ? "فرصي النشطة" : "My active opportunities"} value={formatCurrency(active.reduce((a, r) => a + (r.value ?? 0), 0), lang, "SAR")}
+          hint={ar ? `${formatNumber(active.length, lang)} فرصة · ${formatNumber(rfq.last30.count, lang)} طلب تسعير آخر 30 يومًا` : `${formatNumber(active.length, lang)} opportunities · ${formatNumber(rfq.last30.count, lang)} RFQs in the last 30 days`} />
       </KpiRow>
       <div className="grid gap-4 lg:grid-cols-2">
         <CloseList

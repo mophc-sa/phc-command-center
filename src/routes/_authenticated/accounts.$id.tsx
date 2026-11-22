@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Building2, ExternalLink, Mail, Phone, UserRound } from "lucide-react";
+import { ArrowLeft, Building2, ExternalLink, Mail, Pencil, Phone, Trash2, UserRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/phc/PageHeader";
 import { Panel } from "@/components/phc/Panel";
@@ -14,7 +14,9 @@ import { SkeletonForm } from "@/components/phc/Skeleton";
 import { ActionDialog } from "@/components/phc/ActionDialog";
 import { useI18n, formatCurrency } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useSupabaseAuth";
-import { updateCompany, changeAccountOwner, createContact, createOpportunityForCompany, type CompanyType } from "@/lib/crm-actions";
+import { updateCompany, changeAccountOwner, createContact, updateContact, createOpportunityForCompany, type CompanyType } from "@/lib/crm-actions";
+import { contactFieldError } from "@/lib/contact-validation";
+import { composePhone } from "@/lib/phone-entry";
 import { canAssignOwner, canCreateSalesRecords, canManageSalesPipeline } from "@/lib/roles";
 import { ClientRemindersPanel } from "@/components/phc/ClientRemindersPanel";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
@@ -44,6 +46,8 @@ function AccountDetail() {
   const [newOppOpen, setNewOppOpen] = useState(false);
   const [accTab, setAccTab] = useState<"contacts" | "opportunities" | "activity" | "details">("contacts");
   const [addContactOpen, setAddContactOpen] = useState(false);
+  // Review 81/82 item 4: the sales manager edits or removes a contact's basic details.
+  const [editContact, setEditContact] = useState<any | null>(null);
   const isManager = canAssignOwner(roles);
   const canCreateOpp = canManageSalesPipeline(roles);
 
@@ -199,11 +203,15 @@ function AccountDetail() {
             <div className="text-sm text-muted-foreground">—</div>
           ) : (
             <ul className="divide-y divide-border/60">
-              {c.contacts.map((ct: any) => (
+              {c.contacts.filter((ct: any) => !ct.archived_at).map((ct: any) => (
                 <li key={ct.id} className="flex flex-wrap items-center gap-4 py-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground"><UserRound className="h-5 w-5" aria-hidden="true" /></span>
                   <div className="min-w-40 flex-1">
-                    <div className="text-base font-semibold text-foreground">{ct.name}</div>
+                    {/* The name opens WhatsApp when there is a mobile, else email. */}
+                    {ct.phone || ct.email ? (
+                      <a href={ct.phone ? `https://wa.me/${String(ct.phone).replace(/\D/g, "")}` : `mailto:${ct.email}`} target="_blank" rel="noreferrer"
+                        className="text-base font-semibold text-foreground hover:text-primary hover:underline">{ct.name}</a>
+                    ) : <div className="text-base font-semibold text-foreground">{ct.name}</div>}
                     <div className="text-sm text-muted-foreground">{ct.title ?? "—"}</div>
                   </div>
                   <div className="flex min-w-52 items-center gap-2 text-sm"><Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />{ct.email ?? "—"}</div>
@@ -217,6 +225,21 @@ function AccountDetail() {
                     emailContext={{ companyName: c.name, ownerName: ownerName(c.account_owner_id) }}
                     size="xs"
                   />
+                  {isManager ? (
+                    <span className="flex gap-1">
+                      <button type="button" aria-label={lang === "ar" ? "تعديل" : "Edit"} onClick={() => setEditContact(ct)} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground"><Pencil className="h-4 w-4" aria-hidden="true" /></button>
+                      <button type="button" aria-label={lang === "ar" ? "حذف" : "Delete"}
+                        onClick={async () => {
+                          try {
+                            // Archived, not erased: activities and emails still point at it.
+                            await updateContact(ct.id, { archived_at: new Date().toISOString(), archived_by: user?.id ?? null, archive_reason: "removed from the account page" } as never);
+                            toast.success(lang === "ar" ? "حُذفت جهة الاتصال" : "Contact removed");
+                            qc.invalidateQueries({ queryKey: ["company", id] });
+                          } catch (e) { toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : "")); }
+                        }}
+                        className="rounded p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -230,13 +253,41 @@ function AccountDetail() {
               { key: "name", type: "text", label: lang === "ar" ? "الاسم" : "Name", required: true },
               { key: "title", type: "text", label: lang === "ar" ? "المنصب" : "Title" },
               { key: "email", type: "text", label: t("email") },
-              { key: "phone", type: "text", label: lang === "ar" ? "الهاتف" : "Phone" },
+              { key: "phone", type: "phone", label: lang === "ar" ? "الجوال" : "Mobile" },
             ]}
             onSubmit={async (v) => {
+              const bad = contactFieldError(v.email, v.phone, lang === "ar");
+              if (bad) { toast.error(bad); throw new Error(bad); }
               try {
-                await createContact({ name: v.name, companyId: c.id, title: v.title || undefined, email: v.email || undefined, phone: v.phone || undefined, claimOwner: true });
+                await createContact({ name: v.name, companyId: c.id, title: v.title || undefined, email: v.email?.trim() || undefined, phone: v.phone ? composePhone(v.phone) : undefined, claimOwner: true });
                 toast.success(t("crm_saved"));
                 qc.invalidateQueries({ queryKey: ["company", id] });
+              } catch (e) {
+                toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
+                throw e;
+              }
+            }}
+          />
+          <ActionDialog
+            recordId={editContact?.id}
+            open={!!editContact}
+            onOpenChange={(o) => !o && setEditContact(null)}
+            title={lang === "ar" ? "تعديل جهة الاتصال" : "Edit contact"}
+            submitLabel={t("action_save")}
+            fields={[
+              { key: "name", type: "text", label: lang === "ar" ? "الاسم" : "Name", required: true, defaultValue: editContact?.name ?? "" },
+              { key: "title", type: "text", label: lang === "ar" ? "المنصب" : "Title", defaultValue: editContact?.title ?? "" },
+              { key: "email", type: "text", label: t("email"), defaultValue: editContact?.email ?? "" },
+              { key: "phone", type: "phone", label: lang === "ar" ? "الجوال" : "Mobile", defaultValue: editContact?.phone ?? "" },
+            ]}
+            onSubmit={async (v) => {
+              const bad = contactFieldError(v.email, v.phone, lang === "ar");
+              if (bad) { toast.error(bad); throw new Error(bad); }
+              try {
+                await updateContact(editContact.id, { name: v.name.trim(), title: v.title?.trim() || null, email: v.email?.trim() || null, phone: v.phone ? composePhone(v.phone) : null });
+                toast.success(t("crm_saved"));
+                await qc.invalidateQueries({ queryKey: ["company", id] });
+                setEditContact(null);
               } catch (e) {
                 toast.error(t("toast_error") + (e instanceof Error ? `: ${e.message}` : ""));
                 throw e;
