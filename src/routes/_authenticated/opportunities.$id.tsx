@@ -70,7 +70,7 @@ import {
   postDiscussionUpdate,
   updateDiscussionPost,
   deleteDiscussionPost,
-  updatePersonInCharge,
+  updatePeopleInCharge,
   uploadEvidenceFile,
   listContracts,
   createContract,
@@ -487,10 +487,10 @@ function OpportunityDetail() {
 
   /* ---------------- Assignment: Person in Charge ---------------- */
   const [savingPic, setSavingPic] = useState(false);
-  async function handleSetPersonInCharge(personInChargeId: string | null, note: string | null) {
+  async function handleSetPeopleInCharge(ids: string[]) {
     setSavingPic(true);
     try {
-      await updatePersonInCharge({ opportunityId: id, personInChargeId, personInChargeNote: note });
+      await updatePeopleInCharge(id, ids);
       toast.success(t("crm_saved"));
       qc.invalidateQueries({ queryKey: ["opp", id] });
     } catch (e) {
@@ -1458,8 +1458,8 @@ function OpportunityDetail() {
         const clientContact =
           (stakeholdersQ.data ?? []).find((s: any) => !!s.email) ?? (stakeholdersQ.data ?? [])[0] ?? null;
         const primaryPerson = (teamQ.data ?? []).find((m: any) => m.id === o.owner_id) ?? null;
-        const picMember = (teamQ.data ?? []).find((m: any) => m.id === o.person_in_charge_id) ?? null;
-        const picDiffersFromPrimary = !!o.person_in_charge_id && o.person_in_charge_id !== o.owner_id;
+        const pics: string[] = (o as { people_in_charge?: string[] }).people_in_charge ?? (o.person_in_charge_id ? [o.person_in_charge_id] : []);
+        const memberOf = (uid: string) => (teamQ.data ?? []).find((m: any) => m.id === uid) ?? null;
         return (
           <Panel title={t("section_assignment")}>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -1475,12 +1475,22 @@ function OpportunityDetail() {
                 label={t("assignment_primary_person")}
                 value={personLabel(primaryPerson) || t("assignment_unassigned")}
               />
-              {picDiffersFromPrimary ? (
-                <DataField
-                  label={t("assignment_person_in_charge")}
-                  value={personLabel(picMember) || "—"}
-                />
-              ) : null}
+              {/* Review 81/82: several people in charge, each removable on its own; the sales rep never changes here. */}
+              <div className="sm:col-span-2">
+                <div className="text-2xs font-medium tracking-[0.02em] text-muted-foreground">{t("assignment_person_in_charge")}</div>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {pics.length ? pics.map((uid) => (
+                    <span key={uid} className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-foreground">
+                      {personLabel(memberOf(uid)) || "—"}
+                      {canManageContract ? (
+                        <button type="button" aria-label={lang === "ar" ? "إزالة" : "Remove"} disabled={savingPic}
+                          onClick={() => void handleSetPeopleInCharge(pics.filter((x) => x !== uid))}
+                          className="rounded-full px-1 text-muted-foreground hover:text-destructive">×</button>
+                      ) : null}
+                    </span>
+                  )) : <span className="text-sm text-muted-foreground">—</span>}
+                </div>
+              </div>
               {o.person_in_charge_note ? (
                 <DataField label={t("assignment_pic_note")} value={o.person_in_charge_note} />
               ) : null}
@@ -1489,13 +1499,13 @@ function OpportunityDetail() {
               <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
                 <select
                   aria-label={t("assignment_set_pic")}
-                  value={o.person_in_charge_id ?? ""}
+                  value=""
                   disabled={savingPic}
-                  onChange={(e) => handleSetPersonInCharge(e.target.value || null, o.person_in_charge_note ?? null)}
+                  onChange={(e) => { if (e.target.value) void handleSetPeopleInCharge([...pics, e.target.value]); }}
                   className="rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="">{t("assignment_set_pic")}</option>
-                  {(teamQ.data ?? []).filter(isAssignableTeamMember).map((m: any) => (
+                  {(teamQ.data ?? []).filter(isAssignableTeamMember).filter((m: any) => !pics.includes(m.id) && m.id !== o.owner_id).map((m: any) => (
                     <option key={m.id} value={m.id}>{m.full_name ?? m.email}</option>
                   ))}
                 </select>

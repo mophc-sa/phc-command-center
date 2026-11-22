@@ -392,12 +392,23 @@ handlers["detect_duplicates"] = async (payload, caller) => {
     .select("id, name, cr_number, website_domain").order("id"));
   const crmSignals = (companies ?? []).map((c) => ({
     id: c.id as string,
+    table: batch?.target_entity ?? "companies",
     signals: {
       company_name: c.name, cr_number: c.cr_number, website_domain: c.website_domain,
       // Email and phone belong to contacts, not the companies table.
       email: null, phone: null,
     } as DedupSignals,
   }));
+  // Review 81/82 item 5: existing contacts were never checked, so every upload
+  // that carried people added them again. Matched on email and phone only — a
+  // person's name is not a company name and must not fuzzy-match one.
+  const { data: contacts } = await fetchComplete(() => caller.client.from("contacts")
+    .select("id, email, phone").is("archived_at", null).order("id"));
+  for (const c of contacts ?? []) {
+    if (c.email || c.phone) {
+      crmSignals.push({ id: c.id as string, table: "contacts", signals: { email: c.email, phone: c.phone } as DedupSignals });
+    }
+  }
 
   // (3) Rows from PREVIOUS batches (same target entity), read-only staging.
   const { data: prevRows } = await fetchComplete(() => caller.client.from("import_rows")
@@ -430,7 +441,7 @@ handlers["detect_duplicates"] = async (payload, caller) => {
     // (1) existing CRM
     for (const c of crmSignals) {
       const hit = compareSignals(signals, c.signals);
-      if (hit) { record(row.id, c.id, batch?.target_entity ?? "companies", "existing_crm", hit); break; }
+      if (hit) { record(row.id, c.id, c.table, "existing_crm", hit); break; }
     }
     // (2) within this file (rows already scanned)
     for (const prev of seenInFile) {

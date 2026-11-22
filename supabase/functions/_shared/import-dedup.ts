@@ -25,8 +25,13 @@ export function normalizePhone(v: string | null | undefined): string {
   return d.length > 9 ? d.slice(-9) : d;
 }
 
+// The address inside whatever the sheet held: "E-mail : a@b.com", ":a@b.com;",
+// "a@b.com>" all reduce to a@b.com. Review 81/82: those variants were how the
+// same person came in again on every upload.
 export function normalizeEmail(v: string | null | undefined): string {
-  return v ? String(v).toLowerCase().trim() : "";
+  if (!v) return "";
+  const m = String(v).match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+  return (m ? m[0] : String(v).trim()).toLowerCase();
 }
 
 export function normalizeCr(v: string | null | undefined): string {

@@ -71,3 +71,13 @@ test("within-file duplicates return earlier-row pairs with hits", () => {
   expect(dups[0].otherRowId).toBe("r1");
   expect(dups[0].hit.reason_code).toBe("same_cr_number");
 });
+
+// Review 81/82 item 5: the same person came back on every upload because the
+// sheet wrote the email differently each time.
+test("dirty email cells reduce to the same address", () => {
+  const a: DedupSignals = { email: ":saqib@chec.sa.com;" };
+  const b: DedupSignals = { email: "Saqib@CHEC.sa.com" };
+  expect(compareSignals(a, b)?.matched_fields).toEqual(["email"]);
+  expect(compareSignals({ email: "E-mail : a.abdelwahab@mobco-group.com" }, { email: "a.abdelwahab@mobco-group.com" })).not.toBeNull();
+  expect(compareSignals({ email: "h.badran@shawafintl.com>" }, { email: "h.badran@shawafintl.com/" })).not.toBeNull();
+});
