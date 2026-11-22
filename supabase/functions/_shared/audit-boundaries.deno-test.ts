@@ -56,6 +56,8 @@ Deno.test("Edge account, MFA, batch ownership and file binding fail closed", asy
       }
       return reply([{ id: uid, name: "Acme", cr_number: "1234567890", website_domain: "acme.invalid" }]);
     }
+    // Existing contacts, checked by email and phone since review 81/82.
+    if (url.pathname === "/rest/v1/contacts") return reply([]);
     if (url.pathname === "/rest/v1/import_rows") {
       if (init?.method === "PATCH" || url.searchParams.get("batch_id")?.startsWith("neq.")) return reply([]);
       return reply([{ id: uid, row_number: 1, mapped_data: { name: "Acme", cr_number: "1234567890" }, is_excluded: false, row_status: "active" }]);

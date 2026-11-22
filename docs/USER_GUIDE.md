@@ -910,6 +910,8 @@ Leadership sees both. The old single Technical Notes box became the first techni
 ### Deal page after review 81/82 (2026-11-22)
 
 - **Header:** the code on its own line, then the project name. The word "Opportunity" is gone.
+- **People in charge:** add as many as needed next to the sales rep; each one has its own × to
+  remove it. Adding one never removes another.
 - **Sales rep** replaces "Owner". **Change sales rep** replaces the rep; to add someone next to
   the rep use **Add person in charge (keeps the sales rep)**. The two used to read almost the same
   in Arabic, and the rep was replaced by mistake.
@@ -1856,3 +1858,4 @@ Update this file when the workflow changes.*
 <!-- last reviewed 2026-11-22 · review 81/82 dashboards (one Sales figure: verbal + signed), contact validation/edit/remove, project site steps (branch feat/review-81-82-dashboard) -->
 
 <!-- last reviewed 2026-11-22 · review 81/82 deal page: notes threads with RLS, sales rep wording, file location, target price, review To/CC, follow-up Other/Priority, stage dates (branch feat/review-81-82-deal-page) -->
+<!-- last reviewed 2026-11-22 · several people in charge; import checks existing contacts (branch fix/review-dedupe-pic) -->

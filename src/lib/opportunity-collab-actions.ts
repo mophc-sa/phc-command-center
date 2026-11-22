@@ -142,22 +142,15 @@ export async function deleteDiscussionPost(id: Uuid) {
 // and it lives on the opportunity itself so Discussion and the Assignment
 // card both read/write the same column instead of duplicating it.
 
-export async function updatePersonInCharge(input: {
-  opportunityId: Uuid;
-  personInChargeId: string | null;
-  personInChargeNote?: string | null;
-}) {
+/** Review 81/82: several people in charge; adding one never removes another. */
+export async function updatePeopleInCharge(opportunityId: Uuid, ids: string[]) {
+  const people = [...new Set(ids)];
   const { error } = await supabase
     .from("opportunities")
-    .update({
-      person_in_charge_id: input.personInChargeId,
-      person_in_charge_note: input.personInChargeNote ?? null,
-    })
-    .eq("id", input.opportunityId);
+    .update({ people_in_charge: people, person_in_charge_id: people[0] ?? null } as never)
+    .eq("id", opportunityId);
   if (error) throw error;
-  await audit("assignment.person_in_charge_updated", "opportunity", input.opportunityId, {
-    personInChargeId: input.personInChargeId,
-  });
+  await audit("assignment.people_in_charge_updated", "opportunity", opportunityId, { peopleInCharge: people });
 }
 
 /* ---------------- Evidence file uploads ---------------- */
