@@ -9,7 +9,7 @@ import { useRecentRecords } from "@/hooks/useRecentRecords";
 import { useNotifications } from "@/hooks/useNotifications";
 import { badgeLabel, unreadCount } from "@/lib/notifications";
 import { useIdleLogout } from "@/hooks/useIdleLogout";
-import { canImportMasterList, isSalesManager, isSalesTeam, requiresMfa } from "@/lib/roles";
+import { canImportMasterList, isBdOrSalesOps, isSalesManager, isSalesTeam, requiresMfa } from "@/lib/roles";
 import { canSeePricingNav } from "@/lib/pricing-access";
 import { canSeeCollections } from "@/lib/contract-billing";
 import { CommandPalette, RECORD_TYPE_ICONS } from "@/components/phc/CommandPalette";
@@ -236,7 +236,7 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 /** Images 21–28: Dashboard · My Day · Opportunities · Quotations · Customers · Reports, Settings at the bottom. */
-function salesTeamNav(manager: boolean): NavGroup[] {
+function salesTeamNav(manager: boolean, tenders: boolean): NavGroup[] {
   return [
     {
       key: "navgroup_sales_team",
@@ -249,6 +249,9 @@ function salesTeamNav(manager: boolean): NavGroup[] {
         { kind: "link", to: "/opportunities", key: "nav_opportunities", icon: FolderKanban },
         { kind: "link", to: "/quotations", key: "nav_quotations", icon: FileText },
         { kind: "link", to: "/accounts", key: "nav_customers", icon: Building2 },
+        // BD / sales ops and the sales manager enter and follow tenders (Marie, 2026-11-22):
+        // without this they could add a tender and never see it again.
+        ...(tenders ? [{ kind: "link" as const, to: "/tenders" as const, key: "nav_tenders", icon: Gavel }] : []),
         { kind: "link", to: "/reports", key: "nav_reports", icon: LineChart },
         { kind: "button", action: "notifications", key: "nav_notifications", icon: Bell },
       ],
@@ -294,7 +297,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const canAdmin = canViewSalesAdmin(roles);
   // The sales team gets the seven pages of Omar's images, in that order, flat.
-  const groups = isSalesTeam(roles) ? salesTeamNav(isSalesManager(roles)) : NAV_GROUPS;
+  const groups = isSalesTeam(roles) ? salesTeamNav(isSalesManager(roles), isSalesManager(roles) || isBdOrSalesOps(roles)) : NAV_GROUPS;
   // Same authority as every other record-creation entry point: pipeline
   // operators plus salespeople. Viewers and system_admin do not get it.
   const canCreate = canCreateSalesRecords(roles);
