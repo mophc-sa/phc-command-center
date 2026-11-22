@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-22 — Review check follow-ups (branch `fix/review-dedupe-pic`, migration `20261122110000`)
+
+Import duplicates (item 5): the import pipeline's existing-record check compared companies only, so every upload that carried people added them again; it now also checks existing contacts by email and phone, and `normalizeEmail` reduces a dirty cell ("E-mail : a@b.com", ":a@b.com;", "a@b.com>") to the address. Data (no code): the 45 duplicate contacts from the 13/16 Nov imports archived into their 43 originals, links in activities, RFQs, interactions, commitments and email threads moved over, before-images in `audit_log` (`contact.merged_duplicate`). People in charge (item 6): `opportunities.people_in_charge uuid[]`; adding a person never removes another, each is removed on its own, the sales rep is never touched (the meeting's "wiped" person was the previous person in charge in the single slot).
+
 ## 2026-11-22 — Stage bar tooltip on every step (branch `fix/stage-date-tooltip`)
 
 Hovering (or tabbing to) any step of the sales path shows a tooltip: the date it was reached, "Current since" on the current one, "Not reached yet" ahead of it, or "No date recorded". Replaces the native title, which only appeared when a date existed. Qualified uses the deal's creation date and Signed falls back to the award date.
