@@ -10,7 +10,6 @@
 // be on the screen.
 // =============================================================================
 
-import { riyadhDay } from "@/lib/riyadh-day";
 import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -21,7 +20,8 @@ import { StatusPill } from "@/components/phc/StatusPill";
 import { useI18n } from "@/lib/i18n";
 import {
   buildTimeline,
-  groupByRecency,
+  groupByStage,
+  type ActivityTimelineRow,
   type ApprovalRow,
   type FollowUpRow,
   type IntakeRow,
@@ -44,14 +44,13 @@ const FILTERS: Array<{ key: TimelineFilter; en: string; ar: string }> = [
 export function OpportunityTimeline({ opportunityId }: { opportunityId: string }) {
   const { lang } = useI18n();
   const [filter, setFilter] = useState<TimelineFilter>("all");
-  const today = riyadhDay();
 
   const { data, isLoading } = useQuery({
     queryKey: ["opp-timeline", opportunityId],
     staleTime: 30_000,
     enabled: !!opportunityId,
     queryFn: async () => {
-      const [opp, transitions, approvals, followUps, intake, profiles, docLinks] = await Promise.all([
+      const [opp, transitions, approvals, followUps, intake, profiles, docLinks, activities] = await Promise.all([
         supabase
           .from("opportunities")
           .select(
@@ -90,12 +89,20 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
           .eq("entity_type", "opportunity")
           .eq("entity_id", opportunityId)
           .is("unlinked_at", null),
+        // Review 81/82 item 20: the conversation itself joins the stage history.
+        supabase
+          .from("activities")
+          .select("id, activity_type, status, summary, occurred_at, owner_id, created_by")
+          .eq("related_opportunity_id", opportunityId)
+          .order("occurred_at", { ascending: false })
+          .limit(300),
       ]);
 
       return {
         opportunity: (opp.data ?? null) as unknown as OpportunityFactsRow | null,
         transitions: (transitions.data ?? []) as unknown as StageTransitionRow[],
         approvals: (approvals.data ?? []) as unknown as ApprovalRow[],
+        activities: (activities.data ?? []) as unknown as ActivityTimelineRow[],
         followUps: (followUps.data ?? []) as unknown as FollowUpRow[],
         intake: (intake.data ?? []) as unknown as IntakeRow[],
         names: new Map((profiles.data ?? []).map((p) => [p.id, p.full_name || p.email || p.id.slice(0, 8)])),
@@ -118,6 +125,7 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
       buildTimeline(
         {
           transitions: data?.transitions,
+          activities: data?.activities,
           approvals: data?.approvals,
           followUps: data?.followUps,
           intake: data?.intake,
@@ -129,7 +137,7 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
     [data, filter],
   );
 
-  const groups = useMemo(() => groupByRecency(events, today), [events, today]);
+  const groups = useMemo(() => groupByStage(events), [events]);
   const nameOf = (id: string | null) =>
     id ? (data?.names.get(id) ?? id.slice(0, 8)) : lang === "ar" ? "النظام" : "System";
 
@@ -138,7 +146,7 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-5 py-3">
         <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
           <History className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-          {lang === "ar" ? "السجل الزمني" : "Timeline"}
+          {lang === "ar" ? "سجل التواصل والمراحل" : "Communication history"}
         </h2>
         <div className="flex flex-wrap gap-1">
           {FILTERS.map((f) => (
@@ -169,19 +177,17 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
           compact
         />
       ) : (
-        <div className="divide-y divide-border/40">
-          {groups.map((g) => (
-            <div key={g.key} className="px-5 py-3">
-              <div className="mb-2 text-2xs font-medium tracking-[0.02em] text-muted-foreground">
-                {g.key === "today"
-                  ? lang === "ar" ? "اليوم" : "Today"
-                  : g.key === "yesterday"
-                    ? lang === "ar" ? "أمس" : "Yesterday"
-                    : lang === "ar" ? "سابقاً" : "Earlier"}
+        // One connected line: each stage is a marker on it, its events under it.
+        <ol className="relative mx-5 my-4 border-s-2 border-primary/40">
+          {groups.map((g, gi) => (
+            <li key={`${g.stage ?? "none"}-${gi}`} className="mb-4 ps-5 last:mb-0">
+              <span className="absolute -start-[7px] mt-1 h-3 w-3 rounded-full bg-primary ring-4 ring-background" aria-hidden="true" />
+              <div className="mb-2 text-sm font-semibold text-foreground">
+                {g.stage ? humanize(g.stage) : (lang === "ar" ? "قبل أول مرحلة مسجلة" : "Before the first recorded stage")}
               </div>
               <ol className="space-y-2.5">
                 {g.events.map((e) => (
-                  <li key={e.id} className="border-s-2 border-border/60 ps-3">
+                  <li key={e.id} className="relative ps-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium text-foreground">{e.title}</span>
                       <StatusPill tone="muted">{e.category}</StatusPill>
@@ -220,9 +226,9 @@ export function OpportunityTimeline({ opportunityId }: { opportunityId: string }
                   </li>
                 ))}
               </ol>
-            </div>
+            </li>
           ))}
-        </div>
+        </ol>
       )}
     </section>
   );

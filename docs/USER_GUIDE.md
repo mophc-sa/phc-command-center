@@ -1878,3 +1878,14 @@ values and dates. The stage moves only with the stage buttons on the card; at **
 it asks for the winning contractor and evidence, and conversion to a deal goes through the Tender
 Conversion review. The deal gets its code automatically; RFQ, pricing and quotations are recorded on the deal.
 <!-- last reviewed 2026-11-22 · tender details and edit (branch feat/tender-edit) -->
+
+### Pricing history, communication history, projects (2026-11-23)
+
+- **Pricing history (deal → Quotations):** every price the client was given, Rev 0 to the final one,
+  with its type (original, quantity/scope revision, discount), how much it changed and the notes.
+  **Add revision** records the next one; for Finance and the BD manager it also becomes the deal's value.
+- **Communication history (deal → Activity):** one line from the first contact to today. Each stage is a
+  marker; under it are the emails, calls, meetings, notes and approvals from that stage.
+- **Projects:** when a deal is signed (or won) it appears in Projects automatically, owned by its sales rep.
+<!-- last reviewed 2026-11-23 · pricing history, connected communication history, project on signing (branch feat/review-81-82-history-project) -->
+

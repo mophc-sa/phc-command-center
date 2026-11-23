@@ -118,7 +118,19 @@ export type OpportunityFactsRow = {
   lost_to_competitor: string | null;
 };
 
+/** Review 81/82 item 20: what was said and done with the client — emails, calls, meetings, notes. */
+export type ActivityTimelineRow = {
+  id: string;
+  activity_type: string;
+  status: string | null;
+  summary: string | null;
+  occurred_at: string;
+  owner_id: string | null;
+  created_by: string | null;
+};
+
 export type TimelineSources = {
+  activities?: ActivityTimelineRow[];
   transitions?: StageTransitionRow[];
   intake?: IntakeRow[];
   approvals?: ApprovalRow[];
@@ -556,6 +568,31 @@ export function dedupeEvents(events: TimelineEvent[]): TimelineEvent[] {
   return events.filter((e) => !e.to || kept.has(e.id));
 }
 
+const ACTIVITY_TITLE: Record<string, string> = {
+  email_received: "Email received", email_draft: "Email sent", call: "Call", visit: "Visit",
+  meeting: "Meeting", note: "Note", whatsapp_draft: "WhatsApp",
+};
+
+function activityEvents(rows: ActivityTimelineRow[]): TimelineEvent[] {
+  return rows
+    // A draft that was never sent is not something that happened.
+    .filter((a) => a.activity_type !== "email_draft" || a.status === "sent")
+    .map((a) => ({
+      id: `activity:${a.id}`,
+      at: a.occurred_at,
+      category: "communication" as const,
+      type: a.activity_type,
+      title: ACTIVITY_TITLE[a.activity_type] ?? a.activity_type.replace(/_/g, " "),
+      detail: a.summary,
+      actorId: a.owner_id ?? a.created_by,
+      from: null,
+      to: null,
+      source: "activities",
+      evidence: null,
+      href: null,
+    }));
+}
+
 export type TimelineFilter = "all" | TimelineCategory;
 
 export function buildTimeline(
@@ -564,6 +601,7 @@ export function buildTimeline(
 ): TimelineEvent[] {
   const all: TimelineEvent[] = [
     ...stageEvents(sources.transitions ?? []),
+    ...activityEvents(sources.activities ?? []),
     ...intakeEvents(sources.intake ?? []),
     ...approvalEvents(sources.approvals ?? []),
     ...followUpEvents(sources.followUps ?? []),
@@ -599,3 +637,28 @@ export function groupByRecency(events: TimelineEvent[], today: string): Timeline
   }
   return groups.filter((g) => g.events.length > 0);
 }
+
+// ---- Grouping by stage (review 81/82 item 20) --------------------------------
+
+export type StageGroup = { stage: string | null; events: TimelineEvent[] };
+
+/**
+ * One connected history: every event sits under the stage the deal was in when
+ * it happened. Stage moves (events with a `to` from stage_transition_history)
+ * open a new group; events before the first move fall under that move's `from`.
+ * Input and output are latest first.
+ */
+export function groupByStage(events: TimelineEvent[]): StageGroup[] {
+  const asc = [...events].reverse();
+  const firstMove = asc.find((e) => e.source === "stage_transition_history");
+  let stage: string | null = firstMove?.from ?? null;
+  const groups: StageGroup[] = [];
+  for (const e of asc) {
+    if (e.source === "stage_transition_history" && e.to) stage = e.to;
+    const last = groups[groups.length - 1];
+    if (last && last.stage === stage) last.events.push(e);
+    else groups.push({ stage, events: [e] });
+  }
+  return groups.reverse().map((g) => ({ ...g, events: g.events.reverse() }));
+}
+
