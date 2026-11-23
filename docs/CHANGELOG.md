@@ -1,5 +1,14 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-23 — Pricing history, connected communication history, project on signing (branch `feat/review-81-82-history-project`, migration `20261123100000`)
+
+Review 81/82 items 15, 20 and 26. **Pricing history** on the deal's Quotations tab: Rev 0 (original) to the final price, each revision's type (original / revised quantity-scope / discount), the change from the one before (amount and %), and notes; **Add revision** writes a `quotations` row (version order, `extra_data.revision_type`) and, for Finance / BD manager, makes it the deal's value. **Communication history** is one connected line: emails, calls, meetings and notes (activities) join stage moves, approvals and documents, grouped under the stage each happened in (`groupByStage`); the separate contact-only panel is gone. **Project on signing**: `create_project_from_won_opportunity` now fires when the sales stage becomes contract signed or won (it waited for the legacy `stage` = won, which signing never sets); backfill links the 22 won deals without a project (one to its same-name project, 21 new).
+
+## 2026-11-23 — Architecture map
+
+- `docs/architecture.html` + `docs/architecture.json`: one page describing the
+  system's shape, edge functions, database domains, roles and release pipeline.
+
 ## 2026-11-22 — Edit a tender's details (branch `feat/tender-edit`)
 
 A tender entered with only a name had no way to get the rest. The details window has **Edit / complete details** for the tender's owner and pipeline operators (the same people RLS lets update): name, class, type, source, main contractor, project and signage values, expected award, next follow-up. The stage still moves only through its own buttons; every edit is in `audit_log` (`tender.updated`, before and after).

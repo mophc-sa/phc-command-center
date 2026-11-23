@@ -71,3 +71,4 @@ supabase/functions/.env
 # keep them out of source control (security audit 2026-10-07).
 scripts/crm-import/*.json
 scripts/crm-import/*.sql
+graphify-out/

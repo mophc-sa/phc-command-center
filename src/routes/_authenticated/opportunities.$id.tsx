@@ -47,7 +47,6 @@ import {
 } from "@/lib/opportunity-actions";
 import { ArrowLeft, ArrowRight, ChevronDown, ExternalLink, FileText, PauseCircle, RefreshCw, X as XIcon } from "lucide-react";
 import { CommunicationActions } from "@/components/phc/CommunicationActions";
-import { CommunicationTimeline } from "@/components/phc/CommunicationTimeline";
 import { RecordLifecycleMenu } from "@/components/phc/RecordLifecycleMenu";
 import { BafoPanel } from "@/components/phc/BafoPanel";
 import { DealPricingCard } from "@/components/phc/pricing/DealPricingCard";
@@ -61,6 +60,7 @@ import { LOST_REASONS, ON_HOLD_REASONS, label as presetLabel } from "@/lib/entry
 import { Banner, DetailsBlock, HandoverReadiness, PackagePanel, StageChevrons, SummaryCards } from "@/components/phc/deal/DealParts";
 import { DealNotesPanel } from "@/components/phc/deal/DealNotesPanel";
 import { DealRiskPanel } from "@/components/phc/deal/DealRiskPanel";
+import { PricingHistory } from "@/components/phc/deal/PricingHistory";
 import { DealStageDialogs } from "@/components/phc/deal/DealStageDialogs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { canApproveCommercialAction, canAssignOwner, canAssignUnownedOpportunity, canCreateSalesRecords, canEditOpportunityInputs, canEditTotalValue, canManageSalesPipeline, canReviewAiOutput, canUseDiscussion, canReadTechnicalNotes, canReadCommercialNotes } from "@/lib/roles";
@@ -811,6 +811,8 @@ function OpportunityDetail() {
           />
         </>
       )}
+      {/* Review 81/82 item 15: pricing history, Rev 0 to final, on the Quotations tab. */}
+      {show("evidence") && <PricingHistory opportunityId={o.id} dealCode={dealCode} currency={o.currency ?? "SAR"} canAdd={canCreateSalesRecords(roles)} canSetDealValue={canEditValues} lang={lang} onChanged={invalidate} />}
       {show("evidence") && <PackagePanel dealId={o.id} countedOn={((o.extra_data ?? {}) as { value_counted_on?: string }).value_counted_on ?? null} lang={lang} />}
       {show("outcome") && (
         <HandoverReadiness
@@ -2269,13 +2271,10 @@ function OpportunityDetail() {
       {/* 7c2. CORRESPONDENCE — the deal's email and an on-demand AI summary (Outlook phase 3) */}
       <DealCorrespondencePanel opportunityId={o.id} />
 
-      {/* 7d. COMMUNICATION HISTORY — Communication Hub Phase 1 */}
-      <Panel title={t("comm_history")}>
-        <CommunicationTimeline filter={{ opportunityId: o.id }} />
-      </Panel>
-
+      {/* 7d. Review 81/82 item 20: communication history is now part of the one
+           connected timeline below (activities grouped under their stage). */}
       {/* 7e. FULL LIFECYCLE TIMELINE — Phase 5.
-           CommunicationTimeline above covers contact history only. This is the
+           It now carries the contact history too (activities). This is the
            whole story: intake, review, stage moves, approvals, tender lineage,
            award, contract and commercial handoff, projected from the tables
            that already record them rather than a duplicate history of its own. */}

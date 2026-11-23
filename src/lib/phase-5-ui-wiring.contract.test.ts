@@ -181,7 +181,8 @@ describe("the timeline reaches the opportunity page", () => {
   it("the component uses the shared projection rather than its own query logic", () => {
     const s = read("src/components/phc/OpportunityTimeline.tsx");
     expect(s).toContain("buildTimeline");
-    expect(s).toContain("groupByRecency");
+    // Review 81/82 item 20: grouped by the stage each event happened in, on one connected line.
+    expect(s).toContain("groupByStage");
   });
 
   it("offers every category filter", () => {
