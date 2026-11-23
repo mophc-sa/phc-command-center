@@ -737,7 +737,8 @@ function OpportunityDetail() {
                 ) : null}
                 {stageChoices.length > 0 ? (
                   <button type="button" onClick={() => setMoveTo(stageChoices[0])} className="inline-flex min-h-10 min-w-[11.5rem] justify-center items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-                    {lang === "ar" ? "تحديث المرحلة" : "Update stage"} <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                    {/* A won deal is corrected, not progressed (Marie, 2026-11-23). */}
+                    {o.sales_stage === "won" ? (lang === "ar" ? "تصحيح المرحلة" : "Correct stage") : (lang === "ar" ? "تحديث المرحلة" : "Update stage")} <ChevronDown className="h-4 w-4" aria-hidden="true" />
                   </button>
                 ) : null}
               </>

@@ -1889,3 +1889,10 @@ Conversion review. The deal gets its code automatically; RFQ, pricing and quotat
 - **Projects:** when a deal is signed (or won) it appears in Projects automatically, owned by its sales rep.
 <!-- last reviewed 2026-11-23 · pricing history, connected communication history, project on signing (branch feat/review-81-82-history-project) -->
 
+### Correcting a won deal (2026-11-23)
+
+A won deal shows **Correct stage** instead of Update stage. Choose the stage it should be at and give
+the reason. A sales manager's correction applies at once; anyone else's goes to management for approval
+(Approvals → "Correct a won deal's stage"), because it changes signed sales.
+<!-- last reviewed 2026-11-23 · correct a won deal's stage (branch fix/correct-won-stage) -->
+

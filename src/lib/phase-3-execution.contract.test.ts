@@ -255,5 +255,7 @@ describe("client picker offers exactly the walkable stages", () => {
   test("from contract_received the user is offered contract_signed", () => {
     expect(nextSalesStages("contract_received")).toContain("contract_signed");
   });
-  test("won offers nothing", () => expect(nextSalesStages("won")).toEqual([]));
+  // Marie, 2026-11-23: won offers only corrections back, never a forward or hold move.
+  test("won offers only corrections", () =>
+    expect(nextSalesStages("won")).toEqual(["contract_signed", "contract_received", "verbally_awarded", "jih", "lost"]));
 });

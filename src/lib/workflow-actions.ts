@@ -52,7 +52,10 @@ const TRANSITIONS: Record<string, SalesStage[]> = {
   verbally_awarded: ["contract_received", "lost", "on_hold"],
   contract_received: ["contract_signed", "won", "on_hold"],
   contract_signed: ["won", "on_hold"],
-  won: [],
+  // Correction (Marie, 2026-11-23): a deal marked won by mistake — imported as
+  // won, or moved there too early — goes back with a reason. Commercial
+  // managers apply it; anyone else requests it (see the correction gate).
+  won: ["contract_signed", "contract_received", "verbally_awarded", "jih", "lost"],
   // Reopen (image 24): back to a live stage, with a reason; history is kept.
   lost: ["qualified", "rfq_received", "pricing", "jih", "jih_bafo", "under_negotiation", "verbally_awarded"],
   on_hold: ["qualified", "rfq_received", "pricing", "jih", "jih_bafo", "under_negotiation", "verbally_awarded"],
