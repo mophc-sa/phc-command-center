@@ -32,7 +32,10 @@ export type InboxLocation = Database["public"]["Enums"]["inbox_location"];
 export const INBOX_SOURCE_TYPES: InboxSourceType[] = [
   // A call first: eight of the twelve items in the system arrived as
   // `email_placeholder` because there was nothing else to pick.
-  "phone_call", "manual_lead", "manual_tender", "manual_rfq", "old_data_candidate",
+  // Two manual choices only (Mo, 2026-11-23): JIH (manual_rfq) and Tender
+  // (manual_tender). manual_lead stays a valid value for the rows that carry it
+  // — Postgres cannot drop an enum label — but is no longer offered.
+  "phone_call", "manual_rfq", "manual_tender", "old_data_candidate",
   "referral", "market_signal", "email_placeholder", "whatsapp_placeholder",
 ];
 
