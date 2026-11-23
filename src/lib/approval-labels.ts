@@ -24,6 +24,7 @@ const LABELS: Record<string, Label> = {
   verbal_award_approval: { en: "Confirm verbal award", ar: "تأكيد الترسية الشفهية" },
   contract_approval: { en: "Confirm contract received", ar: "تأكيد استلام العقد" },
   won_approval: { en: "Confirm project won", ar: "تأكيد الفوز بالمشروع" },
+  won_correction: { en: "Correct a won deal's stage", ar: "تصحيح مرحلة صفقة مكسوبة" },
   sure_win_approval: { en: "Mark as sure win", ar: "تصنيف كفوز مؤكد" },
   delete_request: { en: "Delete a record", ar: "طلب حذف سجل" },
   owner_assignment: { en: "Assign owner", ar: "تعيين مسؤول" },

@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-23 — Correct a won deal's stage (branch `fix/correct-won-stage`, needs `sales-os-api` deploy)
+
+Marie: a deal at Signed (won) offered no way to change its stage — won was terminal, so a deal imported or moved there by mistake was stuck. Won can now go back to contract signed, contract received, verbal award or submitted with a required reason (**Correct stage** on the deal page). A commercial manager applies it directly; anyone else (BD, sales ops, sales) sends a `WON_CORRECTION` approval request. The legacy stage follows, history is kept.
+
 ## 2026-11-23 — New Intake: two manual sources (branch `fix/intake-manual-sources`)
 
 Source Type offers **Manual (JIH)** (`manual_rfq`) and **Manual (Tender)** (`manual_tender`) instead of Manual Lead / Manual Tender / Manual RFQ. `manual_lead` stays valid for the one row that carries it. The source is a label only; JIH vs Tender routing still follows Request Type.

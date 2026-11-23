@@ -388,12 +388,13 @@ async function advance_sales_stage(
   // Manager gate: a salesperson only REQUESTS a gated stage. The full request
   // payload is persisted so the Approval Execution Engine can apply it later.
   const isManager = canChangeCommercialStage(caller.roles);
-  if (SALES_GATED.has(toStage) && !isManager) {
+  // Moving a deal off won changes signed sales: only a commercial manager applies it.
+  if ((SALES_GATED.has(toStage) || from === "won") && !isManager) {
     const { data: appr } = await svc
       .from("approvals")
       .insert({
         related_opportunity_id: opportunityId,
-        approval_type: STAGE_APPROVAL[toStage],
+        approval_type: from === "won" ? "WON_CORRECTION" : STAGE_APPROVAL[toStage],
         requested_by: caller.userId,
         status: "pending",
         recommendation: "management_review",

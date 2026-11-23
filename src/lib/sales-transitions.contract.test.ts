@@ -84,8 +84,10 @@ describe("the canonical JIH lifecycle is walkable end to end", () => {
     expect(SERVER.contract_received).toContain("contract_signed");
   });
 
-  test("won is terminal; lost only reopens to a live stage", () => {
-    expect(SERVER.won).toEqual([]);
+  test("won only goes back as a correction; lost only reopens to a live stage", () => {
+    // Marie, 2026-11-23: a deal marked won by mistake must be correctable.
+    expect(SERVER.won).not.toContain("on_hold");
+    expect(SERVER.won).not.toContain("qualified");
     expect(SERVER.lost).not.toContain("won");
     expect(SERVER.lost).not.toContain("on_hold");
     expect(SERVER.lost).toEqual(SERVER.on_hold);
