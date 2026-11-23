@@ -350,8 +350,8 @@ export const strings = {
 
   // Inbox source types
   src_manual_lead: { en: "Manual Lead", ar: "عميل محتمل يدوي" },
-  src_manual_tender: { en: "Manual Tender", ar: "مناقصة يدوية" },
-  src_manual_rfq: { en: "Manual RFQ", ar: "طلب عرض سعر يدوي" },
+  src_manual_tender: { en: "Manual (Tender)", ar: "يدوي (مناقصة)" },
+  src_manual_rfq: { en: "Manual (JIH)", ar: "يدوي (JIH)" },
   src_old_data_candidate: { en: "Old Data Candidate", ar: "مرشح بيانات قديمة" },
   src_referral: { en: "Referral", ar: "إحالة" },
   src_market_signal: { en: "Market Signal", ar: "إشارة سوق" },

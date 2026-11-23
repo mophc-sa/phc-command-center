@@ -1,5 +1,9 @@
 # CHANGELOG — PHC Command Center
 
+## 2026-11-23 — New Intake: two manual sources (branch `fix/intake-manual-sources`)
+
+Source Type offers **Manual (JIH)** (`manual_rfq`) and **Manual (Tender)** (`manual_tender`) instead of Manual Lead / Manual Tender / Manual RFQ. `manual_lead` stays valid for the one row that carries it. The source is a label only; JIH vs Tender routing still follows Request Type.
+
 ## 2026-11-23 — Pricing history, connected communication history, project on signing (branch `feat/review-81-82-history-project`, migration `20261123100000`)
 
 Review 81/82 items 15, 20 and 26. **Pricing history** on the deal's Quotations tab: Rev 0 (original) to the final price, each revision's type (original / revised quantity-scope / discount), the change from the one before (amount and %), and notes; **Add revision** writes a `quotations` row (version order, `extra_data.revision_type`) and, for Finance / BD manager, makes it the deal's value. **Communication history** is one connected line: emails, calls, meetings and notes (activities) join stage moves, approvals and documents, grouped under the stage each happened in (`groupByStage`); the separate contact-only panel is gone. **Project on signing**: `create_project_from_won_opportunity` now fires when the sales stage becomes contract signed or won (it waited for the legacy `stage` = won, which signing never sets); backfill links the 22 won deals without a project (one to its same-name project, 21 new).
